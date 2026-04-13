@@ -1,30 +1,68 @@
 {
   "expo": {
-    "name": "alfa",
+    "name": "Open Road Society",
     "slug": "alfa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1C3738"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "co.openroadsociety.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to take photos for posts, cars, and profile.",
+        "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
+        "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app."
+      }
     },
     "android": {
+      "package": "co.openroadsociety.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1C3738"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1C3738",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Open Road Society to access your photos to share them with the community.",
+          "cameraPermission": "Allow Open Road Society to use your camera to take photos."
+        }
+      ]
+    ],
+    "scheme": "openroadsociety",
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
     }
   }
 }

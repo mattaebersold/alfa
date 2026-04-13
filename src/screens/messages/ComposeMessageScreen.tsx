@@ -1,0 +1,192 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { X, Search } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  useSearchMessageUsersQuery,
+  useSendMessageMutation,
+} from '../../api/apiService';
+import Avatar from '../../components/ui/Avatar';
+import { Colors } from '../../constants/colors';
+import type { AppStackParamList } from '../../navigation/types';
+import type { User } from '../../types/api';
+
+type NavProp = NativeStackNavigationProp<AppStackParamList>;
+
+function UserResult({ user, onSelect }: { user: User; onSelect: () => void }) {
+  return (
+    <TouchableOpacity style={styles.userRow} onPress={onSelect} activeOpacity={0.7}>
+      <Avatar
+        filename={user.gallery?.[0]?.filename}
+        name={user.firstName}
+        size={36}
+      />
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{user.firstName} {user.lastName}</Text>
+        <Text style={styles.userHandle}>@{user.username}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function ComposeMessageScreen({ route }: { route: any }) {
+  const navigation = useNavigation<NavProp>();
+  const [recipient, setRecipient] = useState<User | null>(
+    route.params?.userId ? { user_id: route.params.userId, username: route.params.username ?? '' } as User : null
+  );
+  const [search, setSearch] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+
+  const { data: results = [] } = useSearchMessageUsersQuery(search, { skip: search.length < 2 });
+  const [sendMessage, { isLoading: sending }] = useSendMessageMutation();
+
+  const handleSend = useCallback(async () => {
+    if (!recipient || !body.trim()) {
+      Alert.alert('Missing fields', 'Select a recipient and write a message.');
+      return;
+    }
+    try {
+      const msg = await sendMessage({
+        recipient_id: recipient.user_id,
+        subject: subject.trim() || undefined,
+        body: body.trim(),
+      }).unwrap();
+      navigation.replace('MessageThread', {
+        threadId: msg.thread_id,
+        recipientId: recipient.user_id,
+        subject: subject.trim() || undefined,
+      });
+    } catch {
+      Alert.alert('Error', 'Failed to send message.');
+    }
+  }, [recipient, subject, body, sendMessage, navigation]);
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        {/* To: field */}
+        <View style={styles.field}>
+          <Text style={styles.label}>To</Text>
+          {recipient ? (
+            <View style={styles.recipientPill}>
+              <Text style={styles.recipientName}>
+                {recipient.firstName} {recipient.lastName} (@{recipient.username})
+              </Text>
+              <TouchableOpacity onPress={() => setRecipient(null)}>
+                <X size={14} color={Colors.fg} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.searchRow}>
+              <Search size={15} color={Colors.grey} />
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search members..."
+                placeholderTextColor={Colors.grey}
+                autoCapitalize="none"
+              />
+            </View>
+          )}
+        </View>
+
+        {/* User search results */}
+        {!recipient && search.length >= 2 && results.length > 0 && (
+          <View style={styles.results}>
+            {results.slice(0, 6).map((u) => (
+              <UserResult
+                key={u.user_id}
+                user={u}
+                onSelect={() => { setRecipient(u); setSearch(''); }}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Subject */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Subject</Text>
+          <TextInput
+            style={styles.textInput}
+            value={subject}
+            onChangeText={setSubject}
+            placeholder="Optional subject"
+            placeholderTextColor={Colors.grey}
+          />
+        </View>
+
+        {/* Body */}
+        <View style={[styles.field, styles.bodyField]}>
+          <Text style={styles.label}>Message</Text>
+          <TextInput
+            style={[styles.textInput, styles.bodyInput]}
+            value={body}
+            onChangeText={setBody}
+            placeholder="Write your message..."
+            placeholderTextColor={Colors.grey}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Send button */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.sendBtn, (!recipient || !body.trim() || sending) && styles.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={!recipient || !body.trim() || sending}
+          >
+            {sending
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <Text style={styles.sendBtnText}>Send Message</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:    { flex: 1, backgroundColor: Colors.cream },
+  flex:    { flex: 1 },
+  field:   {
+    paddingHorizontal: 16, paddingVertical: 10,
+    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  bodyField: { flex: 1 },
+  label:   { fontSize: 12, fontWeight: '700', color: Colors.grey, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  textInput: { fontSize: 15, color: Colors.fg },
+  bodyInput: { flex: 1, minHeight: 120 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchInput: { flex: 1, fontSize: 15, color: Colors.fg },
+  results: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  userInfo: { flex: 1 },
+  userName: { fontSize: 14, fontWeight: '600', color: Colors.fg },
+  userHandle: { fontSize: 12, color: Colors.grey },
+  recipientPill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.segment, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    alignSelf: 'flex-start', gap: 8,
+  },
+  recipientName: { fontSize: 14, fontWeight: '600', color: Colors.fg },
+  footer: { padding: 16, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: Colors.border },
+  sendBtn: {
+    backgroundColor: Colors.brg, borderRadius: 10,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  sendBtnDisabled: { opacity: 0.4 },
+  sendBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+});

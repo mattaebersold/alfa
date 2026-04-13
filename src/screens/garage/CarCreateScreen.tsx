@@ -1,0 +1,546 @@
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Alert, KeyboardAvoidingView, Platform, FlatList,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { X, Plus, Camera } from 'lucide-react-native';
+import { useCreateCarMutation, useGetCarBrandsQuery, useGetCarModelsQuery } from '../../api/apiService';
+import Button from '../../components/ui/Button';
+import { Colors } from '../../constants/colors';
+import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
+import type { AppScreenProps } from '../../navigation/types';
+
+// ── Step progress bar ────────────────────────────────────────────────────────
+function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
+  return (
+    <View style={pb.container}>
+      {Array.from({ length: total }).map((_, i) => (
+        <View
+          key={i}
+          style={[pb.segment, i < step && pb.filled, i === step - 1 && pb.current]}
+        />
+      ))}
+    </View>
+  );
+}
+const pb = StyleSheet.create({
+  container: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, paddingVertical: 12 },
+  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: Colors.secondary },
+  filled:  { backgroundColor: Colors.brg },
+  current: { backgroundColor: Colors.brg },
+});
+
+// ── Chip selector ─────────────────────────────────────────────────────────────
+function ChipSelect<T extends { key: string; label: string }>({
+  items, value, onChange, label,
+}: { items: T[]; value: string; onChange: (k: string) => void; label: string }) {
+  return (
+    <View style={cs.wrapper}>
+      <Text style={cs.label}>{label}</Text>
+      <View style={cs.chips}>
+        {items.map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            style={[cs.chip, value === item.key && cs.chipActive]}
+            onPress={() => onChange(item.key)}
+          >
+            <Text style={[cs.chipText, value === item.key && cs.chipTextActive]}>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+const cs = StyleSheet.create({
+  wrapper: { marginBottom: 20 },
+  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 8 },
+  chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:    { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#FFFFFF' },
+  chipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
+  chipText:   { fontSize: 13, color: Colors.fg, fontWeight: '600' },
+  chipTextActive: { color: '#FFFFFF' },
+});
+
+// ── Field ─────────────────────────────────────────────────────────────────────
+function Field({
+  label, value, onChange, placeholder, numeric, optional, multiline,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; numeric?: boolean; optional?: boolean; multiline?: boolean;
+}) {
+  return (
+    <View style={f.wrapper}>
+      <Text style={f.label}>
+        {label} {optional && <Text style={f.opt}>(optional)</Text>}
+      </Text>
+      <TextInput
+        style={[f.input, multiline && f.inputMulti]}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder ?? ''}
+        placeholderTextColor={Colors.grey}
+        keyboardType={numeric ? 'numeric' : 'default'}
+        autoCapitalize="none"
+        multiline={multiline}
+        numberOfLines={multiline ? 4 : 1}
+      />
+    </View>
+  );
+}
+const f = StyleSheet.create({
+  wrapper: { marginBottom: 16 },
+  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 6 },
+  opt:     { fontWeight: '400', color: Colors.grey, fontSize: 12 },
+  input:   {
+    borderWidth: 1, borderColor: Colors.inputBorder, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: Colors.fg,
+    backgroundColor: Colors.inputBg,
+  },
+  inputMulti: { minHeight: 90, textAlignVertical: 'top' },
+});
+
+// ── Make/Model autocomplete picker ────────────────────────────────────────────
+function MakeModelPicker({
+  make, model, onMakeChange, onModelChange,
+}: {
+  make: string; model: string;
+  onMakeChange: (v: string) => void; onModelChange: (v: string) => void;
+}) {
+  const [makeQuery, setMakeQuery] = useState(make);
+  const [showMakeSuggestions, setShowMakeSuggestions] = useState(false);
+
+  const { data: brands = [] } = useGetCarBrandsQuery();
+  const { data: models = [] } = useGetCarModelsQuery(make, { skip: !make });
+
+  const filteredBrands = makeQuery.length > 0
+    ? brands.filter((b) => b.toLowerCase().startsWith(makeQuery.toLowerCase())).slice(0, 6)
+    : [];
+
+  const handleMakeSelect = (b: string) => {
+    setMakeQuery(b);
+    onMakeChange(b);
+    onModelChange('');
+    setShowMakeSuggestions(false);
+  };
+
+  return (
+    <View>
+      <View style={mm.wrapper}>
+        <Text style={mm.label}>Make *</Text>
+        <TextInput
+          style={mm.input}
+          value={makeQuery}
+          onChangeText={(v) => { setMakeQuery(v); onMakeChange(v); setShowMakeSuggestions(true); }}
+          placeholder="e.g. Porsche"
+          placeholderTextColor={Colors.grey}
+          autoCapitalize="words"
+        />
+        {showMakeSuggestions && filteredBrands.length > 0 && (
+          <View style={mm.suggestions}>
+            {filteredBrands.map((b) => (
+              <TouchableOpacity key={b} style={mm.suggestion} onPress={() => handleMakeSelect(b)}>
+                <Text style={mm.suggestionText}>{b}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={mm.wrapper}>
+        <Text style={mm.label}>Model *</Text>
+        {models.length > 0 ? (
+          <View style={mm.modelChips}>
+            {models.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[mm.modelChip, model === m && mm.modelChipActive]}
+                onPress={() => onModelChange(m)}
+              >
+                <Text style={[mm.modelChipText, model === m && mm.modelChipTextActive]}>{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <TextInput
+            style={mm.input}
+            value={model}
+            onChangeText={onModelChange}
+            placeholder="e.g. 911"
+            placeholderTextColor={Colors.grey}
+            autoCapitalize="words"
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+const mm = StyleSheet.create({
+  wrapper: { marginBottom: 16, position: 'relative' },
+  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 6 },
+  input:   {
+    borderWidth: 1, borderColor: Colors.inputBorder, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: Colors.fg,
+    backgroundColor: Colors.inputBg,
+  },
+  suggestions: {
+    position: 'absolute', top: 70, left: 0, right: 0, zIndex: 99,
+    backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
+  },
+  suggestion: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  suggestionText: { fontSize: 15, color: Colors.fg },
+  modelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#FFFFFF' },
+  modelChipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
+  modelChipText: { fontSize: 13, color: Colors.fg, fontWeight: '600' },
+  modelChipTextActive: { color: '#FFFFFF' },
+});
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+type FormData = {
+  title: string; year: string; make: string; model: string;
+  type: string; category: string;
+  trim: string; color: string; engine: string; mileage: string;
+  horsepower: string; torque: string; vin: string; condition: string; body: string;
+  mods: { title: string; type: string; body: string }[];
+  images: { uri: string; name: string; type: string }[];
+};
+
+const EMPTY_FORM: FormData = {
+  title: '', year: '', make: '', model: '', type: 'daily', category: '',
+  trim: '', color: '', engine: '', mileage: '', horsepower: '', torque: '',
+  vin: '', condition: '', body: '',
+  mods: [], images: [],
+};
+
+export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreate'>) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, type: 'daily', category: CAR_CATEGORIES['daily'][0]?.key ?? '' });
+  const [createCar, { isLoading }] = useCreateCarMutation();
+
+  const set = (key: keyof FormData) => (val: any) =>
+    setForm((prev) => ({ ...prev, [key]: val }));
+
+  // When type changes, reset category to first in list
+  const handleTypeChange = (t: string) => {
+    setForm((prev) => ({
+      ...prev, type: t,
+      category: CAR_CATEGORIES[t]?.[0]?.key ?? '',
+    }));
+  };
+
+  const categories = CAR_CATEGORIES[form.type] ?? [];
+
+  // Step validation
+  const canAdvance = (): boolean => {
+    if (step === 1) return !!(form.title && form.year && form.make && form.model && form.type);
+    return true;
+  };
+
+  // Image picker
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.85,
+    });
+    if (!result.canceled) {
+      const newImages = result.assets.map((a) => ({
+        uri: a.uri,
+        name: a.fileName ?? `photo_${Date.now()}.jpg`,
+        type: a.mimeType ?? 'image/jpeg',
+      }));
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages].slice(0, 10) }));
+    }
+  };
+
+  const addMod = () =>
+    setForm((prev) => ({
+      ...prev,
+      mods: [...prev.mods, { title: '', type: 'general', body: '' }],
+    }));
+
+  const updateMod = (i: number, key: string, val: string) =>
+    setForm((prev) => {
+      const mods = [...prev.mods];
+      mods[i] = { ...mods[i], [key]: val };
+      return { ...prev, mods };
+    });
+
+  const removeMod = (i: number) =>
+    setForm((prev) => ({ ...prev, mods: prev.mods.filter((_, idx) => idx !== i) }));
+
+  // Final submit
+  const handleSubmit = async () => {
+    const fd = new FormData();
+    fd.append('title', form.title);
+    fd.append('year', form.year);
+    fd.append('make', form.make);
+    fd.append('model', form.model);
+    fd.append('make_handle', form.make.toLowerCase());
+    fd.append('model_handle', form.model.toLowerCase());
+    fd.append('type', form.type);
+    fd.append('category', form.category);
+    if (form.trim)       fd.append('trim', form.trim);
+    if (form.color)      fd.append('color', form.color);
+    if (form.engine)     fd.append('engine', form.engine);
+    if (form.mileage)    fd.append('mileage', form.mileage);
+    if (form.horsepower) fd.append('horsepower', form.horsepower);
+    if (form.torque)     fd.append('torque', form.torque);
+    if (form.vin)        fd.append('vin', form.vin);
+    if (form.condition)  fd.append('condition', form.condition);
+    if (form.body)       fd.append('body', form.body);
+    fd.append('entry_type', 'garagecar');
+
+    // Append images
+    form.images.forEach((img) => {
+      fd.append('gallery', { uri: img.uri, name: img.name, type: img.type } as any);
+    });
+
+    try {
+      await createCar(fd).unwrap();
+      navigation.goBack();
+      Alert.alert('Car added!', 'Your car has been added to your garage.');
+    } catch (err: any) {
+      Alert.alert('Error', err?.data?.error ?? 'Failed to create car. Please try again.');
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
+        <ProgressBar step={step} />
+
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+
+          {/* ── STEP 1: Required ───────────────────────────────────────── */}
+          {step === 1 && (
+            <View>
+              <Text style={styles.stepTitle}>Step 1 — The Basics</Text>
+
+              <Field label="Title *" value={form.title} onChange={set('title')} placeholder="e.g. Weekend Track Build" />
+              <Field label="Year *" value={form.year} onChange={set('year')} placeholder="e.g. 1991" numeric />
+
+              <MakeModelPicker
+                make={form.make}
+                model={form.model}
+                onMakeChange={set('make')}
+                onModelChange={set('model')}
+              />
+
+              <ChipSelect items={CAR_TYPES} value={form.type} onChange={handleTypeChange} label="Type *" />
+
+              {categories.length > 0 && (
+                <ChipSelect items={categories} value={form.category} onChange={set('category')} label="Category" />
+              )}
+            </View>
+          )}
+
+          {/* ── STEP 2: Optional specs ─────────────────────────────────── */}
+          {step === 2 && (
+            <View>
+              <Text style={styles.stepTitle}>Step 2 — Specs</Text>
+              <Field label="Description" value={form.body} onChange={set('body')} placeholder="Tell us about it..." optional multiline />
+              <Field label="Trim" value={form.trim} onChange={set('trim')} placeholder="e.g. Turbo S" optional />
+              <Field label="Color" value={form.color} onChange={set('color')} placeholder="e.g. Guards Red" optional />
+              <Field label="Engine" value={form.engine} onChange={set('engine')} placeholder="e.g. 3.8L Flat-6" optional />
+              <Field label="Horsepower" value={form.horsepower} onChange={set('horsepower')} placeholder="e.g. 450" optional numeric />
+              <Field label="Torque (lb-ft)" value={form.torque} onChange={set('torque')} placeholder="e.g. 390" optional numeric />
+              <Field label="Mileage" value={form.mileage} onChange={set('mileage')} placeholder="e.g. 42000" optional numeric />
+              <Field label="VIN" value={form.vin} onChange={set('vin')} placeholder="e.g. WP0ZZZ99ZTS392124" optional />
+              <ChipSelect items={CONDITIONS} value={form.condition} onChange={set('condition')} label="Condition" />
+            </View>
+          )}
+
+          {/* ── STEP 3: Mods ───────────────────────────────────────────── */}
+          {step === 3 && (
+            <View>
+              <Text style={styles.stepTitle}>Step 3 — Modifications</Text>
+              <Text style={styles.stepSub}>Add any mods you want to document. You can always add more later.</Text>
+
+              {form.mods.map((mod, i) => (
+                <View key={i} style={styles.modCard}>
+                  <View style={styles.modHeader}>
+                    <Text style={styles.modIndex}>Mod #{i + 1}</Text>
+                    <TouchableOpacity onPress={() => removeMod(i)}>
+                      <X size={16} color={Colors.red} />
+                    </TouchableOpacity>
+                  </View>
+                  <Field
+                    label="Title"
+                    value={mod.title}
+                    onChange={(v) => updateMod(i, 'title', v)}
+                    placeholder="e.g. Bilstein PSS10 Coilovers"
+                  />
+                  <ChipSelect
+                    items={MOD_TYPES}
+                    value={mod.type}
+                    onChange={(v) => updateMod(i, 'type', v)}
+                    label="Category"
+                  />
+                  <Field
+                    label="Notes"
+                    value={mod.body}
+                    onChange={(v) => updateMod(i, 'body', v)}
+                    placeholder="Additional details..."
+                    optional
+                    multiline
+                  />
+                </View>
+              ))}
+
+              <TouchableOpacity style={styles.addModBtn} onPress={addMod}>
+                <Plus size={16} color={Colors.brg} />
+                <Text style={styles.addModText}>Add Modification</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── STEP 4: Photos ─────────────────────────────────────────── */}
+          {step === 4 && (
+            <View>
+              <Text style={styles.stepTitle}>Step 4 — Photos</Text>
+              <Text style={styles.stepSub}>Add up to 10 photos. First photo will be the cover image.</Text>
+
+              <TouchableOpacity style={styles.photoPickerBtn} onPress={pickImage}>
+                <Camera size={22} color={Colors.brg} />
+                <Text style={styles.photoPickerText}>Choose Photos</Text>
+              </TouchableOpacity>
+
+              {form.images.length > 0 && (
+                <FlatList
+                  data={form.images}
+                  keyExtractor={(item) => item.uri}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.photoList}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.photoThumb}>
+                      <Image source={{ uri: item.uri }} style={styles.photoImg} contentFit="cover" />
+                      {index === 0 && (
+                        <View style={styles.coverBadge}>
+                          <Text style={styles.coverText}>Cover</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={styles.photoRemove}
+                        onPress={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            images: prev.images.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <X size={12} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Navigation buttons */}
+        <View style={styles.nav}>
+          {step > 1 && (
+            <Button
+              label="Back"
+              onPress={() => setStep((s) => s - 1)}
+              variant="secondary"
+              size="default"
+            />
+          )}
+          <View style={styles.navRight}>
+            {step < 4 ? (
+              <Button
+                label="Next →"
+                onPress={() => {
+                  if (!canAdvance()) {
+                    Alert.alert('Required fields', 'Please fill in all required fields.');
+                    return;
+                  }
+                  setStep((s) => s + 1);
+                }}
+                variant="dark"
+                size="default"
+              />
+            ) : (
+              <Button
+                label="Add to Garage"
+                onPress={handleSubmit}
+                loading={isLoading}
+                variant="primary"
+                size="default"
+              />
+            )}
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe:      { flex: 1, backgroundColor: Colors.cream },
+  flex:      { flex: 1 },
+  scroll:    { paddingHorizontal: 16, paddingBottom: 24 },
+  stepTitle: { fontSize: 20, fontWeight: '800', color: Colors.fg, marginBottom: 6, marginTop: 4 },
+  stepSub:   { fontSize: 14, color: Colors.grey, marginBottom: 20, lineHeight: 20 },
+
+  modCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 10, padding: 14,
+    marginBottom: 14, borderWidth: 1, borderColor: Colors.border,
+  },
+  modHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modIndex:  { fontSize: 13, fontWeight: '700', color: Colors.brg },
+  addModBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 10,
+    borderWidth: 1.5, borderColor: Colors.brg, borderStyle: 'dashed',
+  },
+  addModText: { fontSize: 14, fontWeight: '700', color: Colors.brg },
+
+  photoPickerBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, paddingVertical: 20, borderRadius: 12,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: Colors.border,
+    marginBottom: 16,
+  },
+  photoPickerText: { fontSize: 15, fontWeight: '700', color: Colors.brg },
+  photoList: { marginBottom: 16 },
+  photoThumb: {
+    width: 100, height: 100, borderRadius: 8, marginRight: 8,
+    overflow: 'hidden', position: 'relative',
+  },
+  photoImg:    { width: '100%', height: '100%' },
+  coverBadge:  {
+    position: 'absolute', bottom: 4, left: 4,
+    backgroundColor: Colors.speed, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
+  },
+  coverText:   { fontSize: 9, fontWeight: '800', color: '#000' },
+  photoRemove: {
+    position: 'absolute', top: 4, right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10,
+    width: 20, height: 20, alignItems: 'center', justifyContent: 'center',
+  },
+
+  nav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  navRight: { marginLeft: 'auto' },
+});
