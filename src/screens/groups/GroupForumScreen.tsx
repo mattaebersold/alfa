@@ -10,30 +10,32 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupForumPost } from '../../types/api';
 
 function ForumRow({ post }: { post: GroupForumPost }) {
+  const colors = useColors();
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.8}>
+    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
       <Avatar
         filename={post.user?.gallery?.[0]?.filename}
         name={post.user?.firstName ?? '?'}
         size={38}
       />
       <View style={styles.rowContent}>
-        <Text style={styles.rowTitle} numberOfLines={2}>{post.title}</Text>
-        <Text style={styles.rowBody} numberOfLines={2}>{post.body?.replace(/<[^>]*>/g, '')}</Text>
+        <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
+        <Text style={[styles.rowBody, { color: colors.muted }]} numberOfLines={2}>{post.body?.replace(/<[^>]*>/g, '')}</Text>
         <View style={styles.rowMeta}>
-          <Text style={styles.rowTime}>{timeAgo}</Text>
+          <Text style={[styles.rowTime, { color: colors.grey }]}>{timeAgo}</Text>
           <View style={styles.votes}>
-            <ThumbsUp size={13} color={Colors.grey} />
-            <Text style={styles.voteNum}>{post.upvotes ?? 0}</Text>
-            <ThumbsDown size={13} color={Colors.grey} />
-            <Text style={styles.voteNum}>{post.downvotes ?? 0}</Text>
+            <ThumbsUp size={13} color={colors.grey} />
+            <Text style={[styles.voteNum, { color: colors.grey }]}>{post.upvotes ?? 0}</Text>
+            <ThumbsDown size={13} color={colors.grey} />
+            <Text style={[styles.voteNum, { color: colors.grey }]}>{post.downvotes ?? 0}</Text>
           </View>
         </View>
       </View>
@@ -43,13 +45,14 @@ function ForumRow({ post }: { post: GroupForumPost }) {
 
 export default function GroupForumScreen({ route }: GroupsScreenProps<'GroupForum'>) {
   const { groupId } = route.params;
+  const colors = useColors();
   const { data, isLoading, refetch } = useGetGroupForumQuery({ groupId });
   const posts = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
@@ -65,18 +68,18 @@ export default function GroupForumScreen({ route }: GroupsScreenProps<'GroupForu
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: Colors.cream },
+  safe:        { flex: 1 },
   list:        { flexGrow: 1, paddingBottom: 24 },
   row:         {
     flexDirection: 'row', gap: 12,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   rowContent:  { flex: 1 },
-  rowTitle:    { fontSize: 15, fontWeight: '700', color: Colors.fg, marginBottom: 4 },
-  rowBody:     { fontSize: 13, color: Colors.muted, lineHeight: 18, marginBottom: 6 },
+  rowTitle:    { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  rowBody:     { fontSize: 13, lineHeight: 18, marginBottom: 6 },
   rowMeta:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowTime:     { fontSize: 12, color: Colors.grey },
+  rowTime:     { fontSize: 12 },
   votes:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  voteNum:     { fontSize: 12, color: Colors.grey },
+  voteNum:     { fontSize: 12 },
 });

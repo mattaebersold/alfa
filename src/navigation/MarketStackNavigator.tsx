@@ -1,4 +1,5 @@
 import React from 'react';
+import { useColorScheme } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { MarketStackParamList } from './types';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
@@ -8,10 +9,13 @@ import { Colors } from '../constants/colors';
 const Stack = createNativeStackNavigator<MarketStackParamList>();
 
 export default function MarketStackNavigator() {
+  const isDark = useColorScheme() === 'dark';
+  const headerBg = isDark ? Colors.brgDark : Colors.brg;
+
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.brg },
+        headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
       }}

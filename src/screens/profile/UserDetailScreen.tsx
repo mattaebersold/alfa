@@ -17,6 +17,7 @@ import FeedItemCard from '../../components/cards/FeedItemCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList, AppScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
@@ -25,23 +26,25 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type Tab = 'posts' | 'cars';
 
 function StatItem({ label, value }: { label: string; value: number }) {
+  const colors = useColors();
   return (
     <View style={styles.statItem}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color: colors.fg }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.grey }]}>{label}</Text>
     </View>
   );
 }
 
 function CarGridItem({ car, onPress }: { car: GarageCar; onPress: () => void }) {
+  const colors = useColors();
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   return (
-    <TouchableOpacity style={styles.carCard} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.carCard, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.carImage} contentFit="cover" />
-        : <View style={[styles.carImage, styles.carPlaceholder]} />
+        : <View style={[styles.carImage, { backgroundColor: colors.secondary }]} />
       }
-      <Text style={styles.carTitle} numberOfLines={1}>
+      <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
         {car.year} {car.make} {car.model}
       </Text>
     </TouchableOpacity>
@@ -51,6 +54,7 @@ function CarGridItem({ car, onPress }: { car: GarageCar; onPress: () => void }) 
 export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>) {
   const { userId, username } = route.params;
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [tab, setTab] = useState<Tab>('posts');
 
   const { data: user, isLoading } = useGetPublicUserByIdQuery(userId);
@@ -92,46 +96,46 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
         <View style={styles.followRow}>
           <FollowButton username={user.username} />
           <TouchableOpacity
-            style={styles.msgBtn}
+            style={[styles.msgBtn, { borderColor: colors.border }]}
             onPress={() => navigation.navigate('ComposeMessage', { userId: user.user_id, username: user.username })}
           >
-            <Text style={styles.msgBtnText}>Message</Text>
+            <Text style={[styles.msgBtnText, { color: colors.fg }]}>Message</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Name / username / bio */}
       <View style={styles.info}>
-        <Text style={styles.name}>{user.firstName} {user.lastName}</Text>
-        <Text style={styles.username}>@{user.username}</Text>
-        {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
-        {user.cityState ? <Text style={styles.location}>{user.cityState}</Text> : null}
+        <Text style={[styles.name, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
+        <Text style={[styles.username, { color: colors.grey }]}>@{user.username}</Text>
+        {user.bio ? <Text style={[styles.bio, { color: colors.muted }]}>{user.bio}</Text> : null}
+        {user.cityState ? <Text style={[styles.location, { color: colors.grey }]}>{user.cityState}</Text> : null}
       </View>
 
       {/* Stats */}
-      <View style={styles.statsRow}>
+      <View style={[styles.statsRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <StatItem label="Posts" value={posts.length} />
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <StatItem label="Cars" value={cars.length} />
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <StatItem label="Followers" value={user.followersCount ?? 0} />
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <StatItem label="Following" value={user.followingCount ?? 0} />
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.tabItem, tab === 'posts' && styles.tabItemActive]}
           onPress={() => setTab('posts')}
         >
-          <Text style={[styles.tabText, tab === 'posts' && styles.tabTextActive]}>Posts</Text>
+          <Text style={[styles.tabText, { color: colors.grey }, tab === 'posts' && styles.tabTextActive]}>Posts</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabItem, tab === 'cars' && styles.tabItemActive]}
           onPress={() => setTab('cars')}
         >
-          <Text style={[styles.tabText, tab === 'cars' && styles.tabTextActive]}>Cars</Text>
+          <Text style={[styles.tabText, { color: colors.grey }, tab === 'cars' && styles.tabTextActive]}>Cars</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -139,7 +143,7 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
 
   if (tab === 'cars') {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
         <FlatList
           data={cars}
           keyExtractor={(item) => item.internal_id}
@@ -161,7 +165,7 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.internal_id}
@@ -181,7 +185,7 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
 }
 
 const styles = StyleSheet.create({
-  safe:              { flex: 1, backgroundColor: Colors.cream },
+  safe:              { flex: 1 },
   list:              { paddingBottom: 24 },
   bannerContainer:   { width: '100%', aspectRatio: 3 / 1 },
   banner:            { width: '100%', height: '100%' },
@@ -194,40 +198,38 @@ const styles = StyleSheet.create({
   },
   followRow:  { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   msgBtn:     {
-    borderWidth: 1.5, borderColor: Colors.border, borderRadius: 8,
+    borderWidth: 1.5, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 6,
   },
-  msgBtnText: { fontSize: 14, fontWeight: '600', color: Colors.fg },
+  msgBtnText: { fontSize: 14, fontWeight: '600' },
   info:       { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
-  name:       { fontSize: 20, fontWeight: '800', color: Colors.fg },
-  username:   { fontSize: 14, color: Colors.grey, marginTop: 2 },
-  bio:        { fontSize: 14, color: Colors.muted, marginTop: 8, lineHeight: 20 },
-  location:   { fontSize: 13, color: Colors.grey, marginTop: 4 },
+  name:       { fontSize: 20, fontWeight: '800' },
+  username:   { fontSize: 14, marginTop: 2 },
+  bio:        { fontSize: 14, marginTop: 8, lineHeight: 20 },
+  location:   { fontSize: 13, marginTop: 4 },
   statsRow:   {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', paddingVertical: 14,
-    borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.border,
+    paddingVertical: 14,
+    borderTopWidth: 1, borderBottomWidth: 1,
   },
   statItem:   { flex: 1, alignItems: 'center' },
-  statValue:  { fontSize: 18, fontWeight: '800', color: Colors.fg },
-  statLabel:  { fontSize: 12, color: Colors.grey, marginTop: 2 },
-  statDivider:{ width: 1, height: 30, backgroundColor: Colors.border },
+  statValue:  { fontSize: 18, fontWeight: '800' },
+  statLabel:  { fontSize: 12, marginTop: 2 },
+  statDivider:{ width: 1, height: 30 },
   tabBar:     {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
   },
   tabItem:      { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabItemActive: { borderBottomColor: Colors.brg },
-  tabText:      { fontSize: 14, fontWeight: '600', color: Colors.grey },
+  tabText:      { fontSize: 14, fontWeight: '600' },
   tabTextActive: { color: Colors.brg },
   carRow:       { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   carCard:      {
     flex: 1, borderRadius: 10, overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,
   },
   carImage:       { width: '100%', aspectRatio: 4 / 3 },
-  carPlaceholder: { backgroundColor: Colors.secondary },
-  carTitle:       { fontSize: 12, fontWeight: '700', color: Colors.fg, padding: 8 },
+  carTitle:       { fontSize: 12, fontWeight: '700', padding: 8 },
 });

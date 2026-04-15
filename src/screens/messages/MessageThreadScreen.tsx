@@ -15,10 +15,12 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { Message } from '../../types/api';
 
 function MessageBubble({ message, isMe }: { message: Message; isMe: boolean }) {
+  const colors = useColors();
   const timeAgo = message.created_at
     ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
     : '';
@@ -33,12 +35,15 @@ function MessageBubble({ message, isMe }: { message: Message; isMe: boolean }) {
         />
       )}
       <View style={styles.bubbleBody}>
-        <View style={[styles.bubbleContent, isMe ? styles.bubbleContentMe : styles.bubbleContentThem]}>
-          <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>
+        <View style={[
+          styles.bubbleContent,
+          isMe ? styles.bubbleContentMe : { backgroundColor: colors.card, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+        ]}>
+          <Text style={[styles.bubbleText, { color: colors.fg }, isMe && styles.bubbleTextMe]}>
             {message.body}
           </Text>
         </View>
-        <Text style={[styles.bubbleTime, isMe && { textAlign: 'right' }]}>{timeAgo}</Text>
+        <Text style={[styles.bubbleTime, { color: colors.grey }, isMe && { textAlign: 'right' }]}>{timeAgo}</Text>
       </View>
     </View>
   );
@@ -46,6 +51,7 @@ function MessageBubble({ message, isMe }: { message: Message; isMe: boolean }) {
 
 export default function MessageThreadScreen({ route, navigation }: AppScreenProps<'MessageThread'>) {
   const { threadId, recipientId, subject } = route.params;
+  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
 
@@ -96,7 +102,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -115,13 +121,13 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         />
 
         {/* Reply bar */}
-        <View style={styles.replyBar}>
+        <View style={[styles.replyBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.cream, borderColor: colors.border, color: colors.fg }]}
             value={body}
             onChangeText={setBody}
             placeholder="Message..."
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
             multiline
             maxLength={2000}
           />
@@ -142,7 +148,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.cream },
+  safe:    { flex: 1 },
   flex:    { flex: 1 },
   list:    { paddingHorizontal: 12, paddingVertical: 12 },
   bubble:  { flexDirection: 'row', marginBottom: 12, gap: 8 },
@@ -153,21 +159,20 @@ const styles = StyleSheet.create({
     borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, maxWidth: '85%',
   },
   bubbleContentMe:   { backgroundColor: Colors.brg, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleContentThem: { backgroundColor: '#FFFFFF', alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  bubbleText:     { fontSize: 15, color: Colors.fg, lineHeight: 21 },
+  bubbleText:     { fontSize: 15, lineHeight: 21 },
   bubbleTextMe:   { color: '#FFFFFF' },
-  bubbleTime:     { fontSize: 11, color: Colors.grey, marginTop: 3, paddingHorizontal: 4 },
+  bubbleTime:     { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
   replyBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
     paddingHorizontal: 12, paddingVertical: 8,
-    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: Colors.border,
+    borderTopWidth: 1,
   },
   input: {
     flex: 1, maxHeight: 100,
-    backgroundColor: Colors.cream, borderRadius: 20,
+    borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 15, color: Colors.fg,
-    borderWidth: 1, borderColor: Colors.border,
+    fontSize: 15,
+    borderWidth: 1,
   },
   sendBtn: {
     width: 40, height: 40, borderRadius: 20,

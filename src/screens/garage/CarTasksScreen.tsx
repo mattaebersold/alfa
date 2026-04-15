@@ -16,6 +16,7 @@ import {
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { CarTask } from '../../types/api';
 
@@ -48,6 +49,7 @@ function TaskModal({
   initial?: Partial<CarTask>;
   loading: boolean;
 }) {
+  const colors = useColors();
   const [title, setTitle] = useState(initial?.title ?? '');
   const [body, setBody] = useState(initial?.body ?? '');
   const [priority, setPriority] = useState<Priority>((initial?.priority as Priority) ?? 'medium');
@@ -62,17 +64,17 @@ function TaskModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={modal.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={[modal.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={modal.flex}
         >
           {/* Header */}
-          <View style={modal.header}>
+          <View style={[modal.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
             <TouchableOpacity onPress={onClose}>
-              <Text style={modal.cancel}>Cancel</Text>
+              <Text style={[modal.cancel, { color: colors.grey }]}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={modal.title}>{initial?.internal_id ? 'Edit Task' : 'New Task'}</Text>
+            <Text style={[modal.title, { color: colors.fg }]}>{initial?.internal_id ? 'Edit Task' : 'New Task'}</Text>
             <TouchableOpacity
               onPress={() => {
                 if (!title.trim()) { Alert.alert('Error', 'Title is required'); return; }
@@ -86,40 +88,44 @@ function TaskModal({
 
           <ScrollView contentContainerStyle={modal.body} keyboardShouldPersistTaps="handled">
             <View style={modal.field}>
-              <Text style={modal.label}>Title *</Text>
+              <Text style={[modal.label, { color: colors.fg }]}>Title *</Text>
               <TextInput
-                style={modal.input}
+                style={[modal.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
                 value={title}
                 onChangeText={setTitle}
                 placeholder="e.g. Replace brake pads"
-                placeholderTextColor={Colors.grey}
+                placeholderTextColor={colors.grey}
                 autoFocus
               />
             </View>
 
             <View style={modal.field}>
-              <Text style={modal.label}>Notes</Text>
+              <Text style={[modal.label, { color: colors.fg }]}>Notes</Text>
               <TextInput
-                style={[modal.input, modal.inputMulti]}
+                style={[modal.input, modal.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
                 value={body}
                 onChangeText={setBody}
                 placeholder="Details, part numbers, etc."
-                placeholderTextColor={Colors.grey}
+                placeholderTextColor={colors.grey}
                 multiline
                 numberOfLines={3}
               />
             </View>
 
             <View style={modal.field}>
-              <Text style={modal.label}>Priority</Text>
+              <Text style={[modal.label, { color: colors.fg }]}>Priority</Text>
               <View style={modal.chips}>
                 {PRIORITIES.map((p) => (
                   <TouchableOpacity
                     key={p}
-                    style={[modal.chip, priority === p && { backgroundColor: PRIORITY_COLORS[p], borderColor: PRIORITY_COLORS[p] }]}
+                    style={[
+                      modal.chip,
+                      { borderColor: colors.border, backgroundColor: colors.card },
+                      priority === p && { backgroundColor: PRIORITY_COLORS[p], borderColor: PRIORITY_COLORS[p] },
+                    ]}
                     onPress={() => setPriority(p)}
                   >
-                    <Text style={[modal.chipText, priority === p && { color: '#FFFFFF' }]}>
+                    <Text style={[modal.chipText, { color: colors.fg }, priority === p && { color: '#FFFFFF' }]}>
                       {p.charAt(0).toUpperCase() + p.slice(1)}
                     </Text>
                   </TouchableOpacity>
@@ -134,21 +140,21 @@ function TaskModal({
 }
 
 const modal = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.cream },
+  safe:    { flex: 1 },
   flex:    { flex: 1 },
-  header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: '#FFFFFF' },
-  title:   { fontSize: 17, fontWeight: '700', color: Colors.fg },
-  cancel:  { fontSize: 16, color: Colors.grey },
+  header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  title:   { fontSize: 17, fontWeight: '700' },
+  cancel:  { fontSize: 16 },
   save:    { fontSize: 16, fontWeight: '700', color: Colors.brg },
   saveDisabled: { opacity: 0.4 },
   body:    { padding: 16 },
   field:   { marginBottom: 20 },
-  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 6 },
-  input:   { borderWidth: 1, borderColor: Colors.inputBorder, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: Colors.fg, backgroundColor: Colors.inputBg },
+  label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  input:   { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15 },
   inputMulti: { minHeight: 80, textAlignVertical: 'top' },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:    { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#FFFFFF' },
-  chipText:{ fontSize: 13, fontWeight: '600', color: Colors.fg },
+  chip:    { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5 },
+  chipText:{ fontSize: 13, fontWeight: '600' },
 });
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
@@ -163,8 +169,9 @@ function TaskRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  const colors = useColors();
   return (
-    <TouchableOpacity style={[taskRow.row, task.completed && taskRow.rowDone]} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[taskRow.row, { backgroundColor: colors.card, borderBottomColor: colors.border }, task.completed && taskRow.rowDone]} onPress={onPress} activeOpacity={0.85}>
       {/* Checkbox */}
       <TouchableOpacity
         style={[taskRow.check, task.completed && taskRow.checkDone]}
@@ -178,12 +185,12 @@ function TaskRow({
       <View style={taskRow.content}>
         <View style={taskRow.titleRow}>
           <PriorityDot priority={task.priority} />
-          <Text style={[taskRow.title, task.completed && taskRow.titleDone]} numberOfLines={1}>
+          <Text style={[taskRow.title, { color: colors.fg }, task.completed && { textDecorationLine: 'line-through', color: colors.grey }]} numberOfLines={1}>
             {task.title}
           </Text>
         </View>
         {task.body ? (
-          <Text style={taskRow.body} numberOfLines={2}>{task.body}</Text>
+          <Text style={[taskRow.body, { color: colors.muted }]} numberOfLines={2}>{task.body}</Text>
         ) : null}
         {task.priority && (
           <Text style={[taskRow.priority, { color: PRIORITY_COLORS[(task.priority as Priority)] }]}>
@@ -201,7 +208,7 @@ function TaskRow({
         style={taskRow.del}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Trash2 size={16} color={Colors.grey} />
+        <Trash2 size={16} color={colors.grey} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -210,8 +217,8 @@ function TaskRow({
 const taskRow = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   rowDone: { opacity: 0.55 },
   check: {
@@ -221,9 +228,8 @@ const taskRow = StyleSheet.create({
   checkDone: { backgroundColor: Colors.brg, borderColor: Colors.brg },
   content:  { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  title:    { flex: 1, fontSize: 15, fontWeight: '700', color: Colors.fg },
-  titleDone:{ textDecorationLine: 'line-through', color: Colors.grey },
-  body:     { fontSize: 13, color: Colors.muted, lineHeight: 18 },
+  title:    { flex: 1, fontSize: 15, fontWeight: '700' },
+  body:     { fontSize: 13, lineHeight: 18 },
   priority: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.3 },
   del:      { padding: 2, marginTop: 2 },
   dot:      { width: 8, height: 8, borderRadius: 4 },
@@ -232,6 +238,7 @@ const taskRow = StyleSheet.create({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   const { carId } = route.params;
+  const colors = useColors();
   const [showArchived, setShowArchived] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<CarTask | undefined>(undefined);
@@ -273,7 +280,7 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={[...open, ...done]}
         keyExtractor={(item) => item.internal_id}
@@ -288,26 +295,26 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
         ListHeaderComponent={
           <View style={styles.header}>
             <View>
-              <Text style={styles.openCount}>{open.length} open</Text>
+              <Text style={[styles.openCount, { color: colors.fg }]}>{open.length} open</Text>
               {done.length > 0 && (
-                <Text style={styles.doneCount}>{done.length} completed</Text>
+                <Text style={[styles.doneCount, { color: colors.grey }]}>{done.length} completed</Text>
               )}
             </View>
             <TouchableOpacity
               style={styles.archivedBtn}
               onPress={() => setShowArchived((v) => !v)}
             >
-              <Archive size={15} color={Colors.grey} />
-              <Text style={styles.archivedText}>Archived</Text>
-              <ChevronDown size={14} color={Colors.grey} style={showArchived && { transform: [{ rotate: '180deg' }] }} />
+              <Archive size={15} color={colors.grey} />
+              <Text style={[styles.archivedText, { color: colors.grey }]}>Archived</Text>
+              <ChevronDown size={14} color={colors.grey} style={showArchived && { transform: [{ rotate: '180deg' }] }} />
             </TouchableOpacity>
           </View>
         }
         ListFooterComponent={
           showArchived && archived.length > 0 ? (
             <View>
-              <View style={styles.divider}>
-                <Text style={styles.dividerText}>Archived</Text>
+              <View style={[styles.divider, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[styles.dividerText, { color: colors.grey }]}>Archived</Text>
               </View>
               {archived.map((item) => (
                 <TaskRow
@@ -348,21 +355,21 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   list: { flexGrow: 1, paddingBottom: 80 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  openCount: { fontSize: 20, fontWeight: '800', color: Colors.fg },
-  doneCount: { fontSize: 13, color: Colors.grey, marginTop: 2 },
+  openCount: { fontSize: 20, fontWeight: '800' },
+  doneCount: { fontSize: 13, marginTop: 2 },
   archivedBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  archivedText: { fontSize: 13, color: Colors.grey, fontWeight: '600' },
+  archivedText: { fontSize: 13, fontWeight: '600' },
   divider: {
     paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: Colors.segment, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.border,
+    borderTopWidth: 1, borderBottomWidth: 1,
   },
-  dividerText: { fontSize: 11, fontWeight: '700', color: Colors.grey, textTransform: 'uppercase', letterSpacing: 0.5 },
+  dividerText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,

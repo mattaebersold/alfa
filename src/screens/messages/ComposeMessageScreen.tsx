@@ -13,22 +13,24 @@ import {
 } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function UserResult({ user, onSelect }: { user: User; onSelect: () => void }) {
+  const colors = useColors();
   return (
-    <TouchableOpacity style={styles.userRow} onPress={onSelect} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.userRow, { borderBottomColor: colors.border }]} onPress={onSelect} activeOpacity={0.7}>
       <Avatar
         filename={user.gallery?.[0]?.filename}
         name={user.firstName}
         size={36}
       />
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{user.firstName} {user.lastName}</Text>
-        <Text style={styles.userHandle}>@{user.username}</Text>
+        <Text style={[styles.userName, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
+        <Text style={[styles.userHandle, { color: colors.grey }]}>@{user.username}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -36,6 +38,7 @@ function UserResult({ user, onSelect }: { user: User; onSelect: () => void }) {
 
 export default function ComposeMessageScreen({ route }: { route: any }) {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [recipient, setRecipient] = useState<User | null>(
     route.params?.userId ? { user_id: route.params.userId, username: route.params.username ?? '' } as User : null
   );
@@ -68,33 +71,33 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
   }, [recipient, subject, body, sendMessage, navigation]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* To: field */}
-        <View style={styles.field}>
-          <Text style={styles.label}>To</Text>
+        <View style={[styles.field, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.label, { color: colors.grey }]}>To</Text>
           {recipient ? (
-            <View style={styles.recipientPill}>
-              <Text style={styles.recipientName}>
+            <View style={[styles.recipientPill, { backgroundColor: colors.segment }]}>
+              <Text style={[styles.recipientName, { color: colors.fg }]}>
                 {recipient.firstName} {recipient.lastName} (@{recipient.username})
               </Text>
               <TouchableOpacity onPress={() => setRecipient(null)}>
-                <X size={14} color={Colors.fg} />
+                <X size={14} color={colors.fg} />
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.searchRow}>
-              <Search size={15} color={Colors.grey} />
+              <Search size={15} color={colors.grey} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: colors.fg }]}
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Search members..."
-                placeholderTextColor={Colors.grey}
+                placeholderTextColor={colors.grey}
                 autoCapitalize="none"
               />
             </View>
@@ -103,7 +106,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
 
         {/* User search results */}
         {!recipient && search.length >= 2 && results.length > 0 && (
-          <View style={styles.results}>
+          <View style={[styles.results, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
             {results.slice(0, 6).map((u) => (
               <UserResult
                 key={u.user_id}
@@ -115,33 +118,33 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
         )}
 
         {/* Subject */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Subject</Text>
+        <View style={[styles.field, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.label, { color: colors.grey }]}>Subject</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { color: colors.fg }]}
             value={subject}
             onChangeText={setSubject}
             placeholder="Optional subject"
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
           />
         </View>
 
         {/* Body */}
-        <View style={[styles.field, styles.bodyField]}>
-          <Text style={styles.label}>Message</Text>
+        <View style={[styles.field, styles.bodyField, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.label, { color: colors.grey }]}>Message</Text>
           <TextInput
-            style={[styles.textInput, styles.bodyInput]}
+            style={[styles.textInput, styles.bodyInput, { color: colors.fg }]}
             value={body}
             onChangeText={setBody}
             placeholder="Write your message..."
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
             multiline
             textAlignVertical="top"
           />
         </View>
 
         {/* Send button */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <TouchableOpacity
             style={[styles.sendBtn, (!recipient || !body.trim() || sending) && styles.sendBtnDisabled]}
             onPress={handleSend}
@@ -159,30 +162,30 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.cream },
+  safe:    { flex: 1 },
   flex:    { flex: 1 },
   field:   {
     paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
   },
   bodyField: { flex: 1 },
-  label:   { fontSize: 12, fontWeight: '700', color: Colors.grey, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  textInput: { fontSize: 15, color: Colors.fg },
+  label:   { fontSize: 12, fontWeight: '700', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  textInput: { fontSize: 15 },
   bodyInput: { flex: 1, minHeight: 120 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: Colors.fg },
-  results: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border },
-  userRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  searchInput: { flex: 1, fontSize: 15 },
+  results: { borderBottomWidth: 1 },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   userInfo: { flex: 1 },
-  userName: { fontSize: 14, fontWeight: '600', color: Colors.fg },
-  userHandle: { fontSize: 12, color: Colors.grey },
+  userName: { fontSize: 14, fontWeight: '600' },
+  userHandle: { fontSize: 12 },
   recipientPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.segment, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
     alignSelf: 'flex-start', gap: 8,
   },
-  recipientName: { fontSize: 14, fontWeight: '600', color: Colors.fg },
-  footer: { padding: 16, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: Colors.border },
+  recipientName: { fontSize: 14, fontWeight: '600' },
+  footer: { padding: 16, borderTopWidth: 1 },
   sendBtn: {
     backgroundColor: Colors.brg, borderRadius: 10,
     paddingVertical: 14, alignItems: 'center',

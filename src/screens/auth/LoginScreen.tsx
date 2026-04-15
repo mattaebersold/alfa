@@ -8,11 +8,13 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 
 export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const dispatch = useAppDispatch();
   const { loading, error } = useAppSelector((s) => s.auth);
+  const colors = useColors();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +29,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -40,12 +42,12 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
           {/* Logo / Header */}
           <View style={styles.header}>
             <Text style={styles.logoText}>Open Road</Text>
-            <Text style={styles.logoSub}>Society</Text>
+            <Text style={[styles.logoSub, { color: colors.grey }]}>Society</Text>
           </View>
 
           {/* Form */}
-          <View style={styles.form}>
-            <Text style={styles.title}>Sign In</Text>
+          <View style={[styles.form, { backgroundColor: colors.card }]}>
+            <Text style={[styles.title, { color: colors.fg }]}>Sign In</Text>
 
             {error && (
               <View style={styles.errorBox}>
@@ -54,13 +56,13 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             )}
 
             <View style={styles.field}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor={Colors.grey}
+                placeholderTextColor={colors.grey}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoCorrect={false}
@@ -68,13 +70,13 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={[styles.label, { color: colors.fg }]}>Password</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"
-                placeholderTextColor={Colors.grey}
+                placeholderTextColor={colors.grey}
                 secureTextEntry
                 autoCapitalize="none"
               />
@@ -96,9 +98,9 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             />
 
             <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerText, { color: colors.grey }]}>or</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             </View>
 
             <Button
@@ -115,7 +117,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   container: {
     flexGrow: 1,
@@ -136,13 +138,11 @@ const styles = StyleSheet.create({
   logoSub: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.grey,
     letterSpacing: 4,
     textTransform: 'uppercase',
     marginTop: -4,
   },
   form: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
     shadowColor: '#000',
@@ -154,7 +154,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.fg,
     marginBottom: 20,
   },
   errorBox: {
@@ -172,18 +171,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.fg,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.fg,
-    backgroundColor: Colors.inputBg,
   },
   forgotLink: {
     alignSelf: 'flex-end',
@@ -204,11 +199,9 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.border,
   },
   dividerText: {
     fontSize: 13,
-    color: Colors.grey,
     fontWeight: '500',
   },
 });

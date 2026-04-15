@@ -19,6 +19,7 @@ import FeedItemCard from '../../components/cards/FeedItemCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps, AppStackParamList } from '../../navigation/types';
 
@@ -28,6 +29,7 @@ type Tab = 'info' | 'posts';
 export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDetail'>) {
   const { eventId } = route.params;
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const colors = useColors();
   const [tab, setTab] = useState<Tab>('info');
   const [galleryIndex, setGalleryIndex] = useState(0);
 
@@ -91,13 +93,13 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
       )}
 
       {/* Title + meta */}
-      <View style={styles.infoBlock}>
-        <Text style={styles.title}>{event.title}</Text>
+      <View style={[styles.infoBlock, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.fg }]}>{event.title}</Text>
 
         {date && (
           <View style={styles.metaRow}>
-            <Clock size={15} color={Colors.grey} />
-            <Text style={styles.metaText}>{date}{event.event_time ? ` · ${event.event_time}` : ''}</Text>
+            <Clock size={15} color={colors.grey} />
+            <Text style={[styles.metaText, { color: colors.grey }]}>{date}{event.event_time ? ` · ${event.event_time}` : ''}</Text>
           </View>
         )}
 
@@ -119,25 +121,25 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
             <Text style={styles.rsvpBtnText}>Attend</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.rsvpBtn, styles.rsvpDecline]}
+            style={[styles.rsvpBtn, { backgroundColor: colors.segment, borderWidth: 1, borderColor: colors.border }]}
             onPress={() => declineEvent({ event_id: eventId })}
             disabled={declining}
           >
-            <X size={16} color={Colors.fg} />
-            <Text style={[styles.rsvpBtnText, { color: Colors.fg }]}>Decline</Text>
+            <X size={16} color={colors.fg} />
+            <Text style={[styles.rsvpBtnText, { color: colors.fg }]}>Decline</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {(['info', 'posts'] as Tab[]).map((t) => (
           <TouchableOpacity
             key={t}
             style={[styles.tabItem, tab === t && styles.tabItemActive]}
             onPress={() => setTab(t)}
           >
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+            <Text style={[styles.tabText, { color: colors.grey }, tab === t && styles.tabTextActive]}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -146,11 +148,11 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 
       {/* Info tab content */}
       {tab === 'info' && (
-        <View style={styles.bodyBlock}>
+        <View style={[styles.bodyBlock, { backgroundColor: colors.card }]}>
           {event.body ? (
-            <Text style={styles.body}>{event.body.replace(/<[^>]*>/g, '')}</Text>
+            <Text style={[styles.body, { color: colors.fg }]}>{event.body.replace(/<[^>]*>/g, '')}</Text>
           ) : (
-            <Text style={styles.muted}>No description provided.</Text>
+            <Text style={[styles.muted, { color: colors.grey }]}>No description provided.</Text>
           )}
         </View>
       )}
@@ -159,7 +161,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 
   if (tab === 'posts') {
     return (
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
         <FlatList
           data={posts}
           keyExtractor={(p) => p.internal_id}
@@ -179,7 +181,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
         {header}
       </ScrollView>
@@ -188,28 +190,27 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: Colors.cream },
+  safe:            { flex: 1 },
   list:            { paddingBottom: 32 },
   imagePlaceholder:{ backgroundColor: Colors.brg },
   dotRow:          { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 8 },
   dot:             { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.greyLight },
   dotActive:       { backgroundColor: Colors.brg },
-  infoBlock:       { backgroundColor: '#FFFFFF', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  title:           { fontSize: 22, fontWeight: '800', color: Colors.fg, marginBottom: 10 },
+  infoBlock:       { padding: 16, borderBottomWidth: 1 },
+  title:           { fontSize: 22, fontWeight: '800', marginBottom: 10 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  metaText:        { fontSize: 14, color: Colors.grey },
+  metaText:        { fontSize: 14 },
   metaLink:        { color: Colors.brg, fontWeight: '600' },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginTop: 14 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
   rsvpAttend:      { backgroundColor: Colors.brg },
-  rsvpDecline:     { backgroundColor: Colors.segment, borderWidth: 1, borderColor: Colors.border },
   rsvpBtnText:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  tabBar:          { flexDirection: 'row', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  tabBar:          { flexDirection: 'row', borderBottomWidth: 1 },
   tabItem:         { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabItemActive:   { borderBottomColor: Colors.brg },
-  tabText:         { fontSize: 14, fontWeight: '600', color: Colors.grey },
+  tabText:         { fontSize: 14, fontWeight: '600' },
   tabTextActive:   { color: Colors.brg },
-  bodyBlock:       { padding: 16, backgroundColor: '#FFFFFF' },
-  body:            { fontSize: 15, color: Colors.fg, lineHeight: 22 },
-  muted:           { fontSize: 15, color: Colors.grey, fontStyle: 'italic' },
+  bodyBlock:       { padding: 16 },
+  body:            { fontSize: 15, lineHeight: 22 },
+  muted:           { fontSize: 15, fontStyle: 'italic' },
 });

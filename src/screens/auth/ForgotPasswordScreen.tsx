@@ -7,12 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { CONFIG } from '../../constants/config';
 import type { AuthScreenProps } from '../../navigation/types';
 
 export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'ForgotPassword'>) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const colors = useColors();
 
   const handleSubmit = async () => {
     if (!email.trim()) {
@@ -37,7 +39,7 @@ export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'Fo
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -47,19 +49,19 @@ export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'Fo
             <Text style={styles.back}>← Back</Text>
           </TouchableOpacity>
 
-          <Text style={styles.title}>Forgot Password</Text>
-          <Text style={styles.sub}>
+          <Text style={[styles.title, { color: colors.fg }]}>Forgot Password</Text>
+          <Text style={[styles.sub, { color: colors.muted }]}>
             Enter the email associated with your account and we'll send a reset link.
           </Text>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor={Colors.grey}
+              placeholderTextColor={colors.grey}
               autoCapitalize="none"
               keyboardType="email-address"
               autoCorrect={false}
@@ -80,23 +82,20 @@ export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'Fo
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   container: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
   backBtn: { marginBottom: 24 },
   back: { fontSize: 14, color: Colors.brg, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.fg, marginBottom: 8 },
-  sub: { fontSize: 14, color: Colors.muted, lineHeight: 20, marginBottom: 28 },
+  title: { fontSize: 26, fontWeight: '800', marginBottom: 8 },
+  sub: { fontSize: 14, lineHeight: 20, marginBottom: 28 },
   field: { marginBottom: 20 },
-  label: { fontSize: 13, fontWeight: '600', color: Colors.fg, marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: Colors.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.fg,
-    backgroundColor: Colors.inputBg,
   },
 });

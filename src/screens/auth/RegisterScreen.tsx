@@ -8,11 +8,13 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError, clearSuccess } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
   const { loading, error, success } = useAppSelector((s) => s.auth);
+  const colors = useColors();
 
   const [form, setForm] = useState({
     firstName: '',
@@ -74,7 +76,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -88,7 +90,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.back}>← Back</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={[styles.title, { color: colors.fg }]}>Create Account</Text>
           </View>
 
           <View style={styles.form}>
@@ -100,13 +102,13 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
 
             {fields.map(({ key, label, placeholder, secure, keyboard }) => (
               <View key={key} style={styles.field}>
-                <Text style={styles.label}>{label}</Text>
+                <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                   value={form[key]}
                   onChangeText={handleChange(key)}
                   placeholder={placeholder}
-                  placeholderTextColor={Colors.grey}
+                  placeholderTextColor={colors.grey}
                   secureTextEntry={secure}
                   autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
                   keyboardType={keyboard ?? 'default'}
@@ -139,26 +141,23 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 24 },
   topRow: { marginBottom: 24 },
   back: { fontSize: 14, color: Colors.brg, fontWeight: '600', marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.fg },
+  title: { fontSize: 26, fontWeight: '800' },
   form: { gap: 0 },
   errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
   errorText: { color: Colors.red, fontSize: 14, fontWeight: '500' },
   field: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: Colors.fg, marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: Colors.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.fg,
-    backgroundColor: Colors.inputBg,
   },
   gap: { height: 8 },
   signinLink: { alignItems: 'center', marginTop: 16 },

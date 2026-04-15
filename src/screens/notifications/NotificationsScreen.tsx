@@ -17,6 +17,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { Notification } from '../../types/api';
 
 function NotificationRow({
@@ -30,13 +31,18 @@ function NotificationRow({
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const colors = useColors();
   const timeAgo = notification.createdAt
     ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })
     : '';
 
   return (
     <TouchableOpacity
-      style={[styles.row, !notification.read_status && styles.rowUnread]}
+      style={[
+        styles.row,
+        { backgroundColor: colors.card, borderBottomColor: colors.border },
+        !notification.read_status && styles.rowUnread,
+      ]}
       onPress={onRead}
       activeOpacity={0.8}
     >
@@ -46,12 +52,12 @@ function NotificationRow({
         size={38}
       />
       <View style={styles.rowContent}>
-        <Text style={styles.message} numberOfLines={3}>{notification.message}</Text>
-        <Text style={styles.time}>{timeAgo}</Text>
+        <Text style={[styles.message, { color: colors.fg }]} numberOfLines={3}>{notification.message}</Text>
+        <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
       </View>
       <View style={styles.rowActions}>
         <TouchableOpacity onPress={onArchive} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Archive size={16} color={Colors.grey} />
+          <Archive size={16} color={colors.grey} />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => Alert.alert('Delete notification?', '', [
@@ -60,7 +66,7 @@ function NotificationRow({
           ])}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Trash2 size={16} color={Colors.grey} />
+          <Trash2 size={16} color={colors.grey} />
         </TouchableOpacity>
       </View>
       {!notification.read_status && <View style={styles.unreadDot} />}
@@ -69,6 +75,7 @@ function NotificationRow({
 }
 
 export default function NotificationsScreen() {
+  const colors = useColors();
   const { data, isLoading, refetch } = useGetNotificationsQuery({ limit: 50 });
   const [markRead] = useMarkNotificationReadMutation();
   const [markAllRead] = useMarkAllNotificationsReadMutation();
@@ -93,10 +100,10 @@ export default function NotificationsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {/* Toolbar */}
       {notifications.length > 0 && (
-        <View style={styles.toolbar}>
+        <View style={[styles.toolbar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {unreadCount > 0 ? (
             <TouchableOpacity style={styles.toolBtn} onPress={handleMarkAll}>
               <CheckCheck size={15} color={Colors.brg} />
@@ -104,8 +111,8 @@ export default function NotificationsScreen() {
             </TouchableOpacity>
           ) : <View />}
           <TouchableOpacity style={styles.toolBtn} onPress={handleArchiveAll}>
-            <Archive size={15} color={Colors.grey} />
-            <Text style={[styles.toolBtnText, { color: Colors.grey }]}>Archive all</Text>
+            <Archive size={15} color={colors.grey} />
+            <Text style={[styles.toolBtnText, { color: colors.grey }]}>Archive all</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -134,25 +141,25 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: Colors.cream },
+  safe:        { flex: 1 },
   toolbar:     {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
   },
   toolBtn:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
   toolBtnText: { fontSize: 13, fontWeight: '600', color: Colors.brg },
   list:        { flexGrow: 1, paddingBottom: 24 },
   row: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1,
     position: 'relative',
   },
   rowUnread:   { backgroundColor: '#F0F7F7' },
   rowContent:  { flex: 1 },
-  message:     { fontSize: 14, color: Colors.fg, lineHeight: 20 },
-  time:        { fontSize: 12, color: Colors.grey, marginTop: 3 },
+  message:     { fontSize: 14, lineHeight: 20 },
+  time:        { fontSize: 12, marginTop: 3 },
   rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   unreadDot:   {
     position: 'absolute', top: 14, left: 4,

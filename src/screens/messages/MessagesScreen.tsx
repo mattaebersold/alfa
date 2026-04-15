@@ -16,6 +16,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Message } from '../../types/api';
 
@@ -32,6 +33,7 @@ function ThreadRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  const colors = useColors();
   const isMine = message.sender_id === myUserId;
   const other = isMine ? message.recipient : message.sender;
   const name = other ? `${other.firstName} ${other.lastName}` : 'Unknown';
@@ -42,7 +44,11 @@ function ThreadRow({
 
   return (
     <TouchableOpacity
-      style={[styles.row, isUnread && styles.rowUnread]}
+      style={[
+        styles.row,
+        { backgroundColor: colors.card, borderBottomColor: colors.border },
+        isUnread && styles.rowUnread,
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
     >
@@ -53,13 +59,13 @@ function ThreadRow({
       />
       <View style={styles.rowContent}>
         <View style={styles.rowHeader}>
-          <Text style={[styles.name, isUnread && styles.nameBold]} numberOfLines={1}>{name}</Text>
-          <Text style={styles.time}>{timeAgo}</Text>
+          <Text style={[styles.name, { color: colors.fg }, isUnread && styles.nameBold]} numberOfLines={1}>{name}</Text>
+          <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
         </View>
         {message.subject ? (
-          <Text style={styles.subject} numberOfLines={1}>{message.subject}</Text>
+          <Text style={[styles.subject, { color: colors.muted }]} numberOfLines={1}>{message.subject}</Text>
         ) : null}
-        <Text style={styles.preview} numberOfLines={1}>{message.body}</Text>
+        <Text style={[styles.preview, { color: colors.grey }]} numberOfLines={1}>{message.body}</Text>
       </View>
       <TouchableOpacity
         onPress={() => Alert.alert('Delete thread?', 'This cannot be undone.', [
@@ -68,7 +74,7 @@ function ThreadRow({
         ])}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Trash2 size={16} color={Colors.grey} />
+        <Trash2 size={16} color={colors.grey} />
       </TouchableOpacity>
       {isUnread && <View style={styles.unreadDot} />}
     </TouchableOpacity>
@@ -77,6 +83,7 @@ function ThreadRow({
 
 export default function MessagesScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
 
@@ -111,7 +118,7 @@ export default function MessagesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={threads}
         keyExtractor={(item) => item.thread_id}
@@ -144,22 +151,22 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: Colors.cream },
+  safe:      { flex: 1 },
   list:      { flexGrow: 1, paddingBottom: 80 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1,
     position: 'relative',
   },
   rowUnread: { backgroundColor: '#F0F7F7' },
   rowContent:{ flex: 1, minWidth: 0 },
   rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name:      { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.fg },
+  name:      { flex: 1, fontSize: 15, fontWeight: '600' },
   nameBold:  { fontWeight: '800' },
-  time:      { fontSize: 12, color: Colors.grey, marginLeft: 8 },
-  subject:   { fontSize: 13, fontWeight: '600', color: Colors.muted, marginTop: 2 },
-  preview:   { fontSize: 13, color: Colors.grey, marginTop: 2 },
+  time:      { fontSize: 12, marginLeft: 8 },
+  subject:   { fontSize: 13, fontWeight: '600', marginTop: 2 },
+  preview:   { fontSize: 13, marginTop: 2 },
   unreadDot: {
     position: 'absolute', top: 14, left: 4,
     width: 8, height: 8, borderRadius: 4,

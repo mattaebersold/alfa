@@ -8,12 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetCarsQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
+  const colors = useColors();
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,7 +43,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   }, [isFetching, data, allCars.length]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
       {/* Browse Brands button */}
       <TouchableOpacity
         style={styles.brandsBtn}
@@ -61,7 +63,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
           const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
           return (
             <TouchableOpacity
-              style={styles.card}
+              style={[styles.card, { backgroundColor: colors.card }]}
               onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
               activeOpacity={0.9}
             >
@@ -69,11 +71,11 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
                 {hero ? (
                   <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
                 ) : (
-                  <View style={[styles.cardImage, styles.imagePlaceholder]} />
+                  <View style={[styles.cardImage, { backgroundColor: colors.secondary }]} />
                 )}
               </View>
               <View style={styles.cardInfo}>
-                <Text style={styles.carTitle} numberOfLines={1}>
+                <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
                   {item.year} {item.make} {item.model}
                 </Text>
                 {item.user && (
@@ -83,7 +85,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
                       name={item.user?.firstName ?? '?'}
                       size={20}
                     />
-                    <Text style={styles.ownerName} numberOfLines={1}>
+                    <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
                       {item.user.firstName} {item.user.lastName}
                     </Text>
                   </View>
@@ -101,7 +103,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         }
         ListFooterComponent={
           isFetching && page > 0 ? (
-            <ActivityIndicator size="small" color={Colors.grey} style={{ padding: 20 }} />
+            <ActivityIndicator size="small" color={colors.grey} style={{ padding: 20 }} />
           ) : null
         }
         refreshControl={
@@ -115,7 +117,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   brandsBtn: {
     marginHorizontal: 12,
     marginVertical: 10,
@@ -130,7 +132,6 @@ const styles = StyleSheet.create({
   row: { gap: 8, marginBottom: 8 },
   card: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -141,9 +142,8 @@ const styles = StyleSheet.create({
   },
   cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
   cardImage: { width: '100%', height: '100%' },
-  imagePlaceholder: { backgroundColor: Colors.secondary },
   cardInfo: { padding: 8 },
-  carTitle: { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 4 },
+  carTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ownerName: { fontSize: 11, color: Colors.grey, flex: 1 },
+  ownerName: { fontSize: 11, flex: 1 },
 });

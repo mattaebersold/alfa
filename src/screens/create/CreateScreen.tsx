@@ -14,20 +14,22 @@ import { useCreatePostMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 type PostType = 'post' | 'listing' | 'want';
 
-const TYPE_OPTIONS: { type: PostType; label: string; icon: React.ReactNode; color: string }[] = [
-  { type: 'post',    label: 'Post',     icon: <FileText size={22} color={Colors.brg} />,     color: Colors.brg },
-  { type: 'listing', label: 'Listing',  icon: <ShoppingBag size={22} color='#00C851' />,      color: '#00C851' },
-  { type: 'want',    label: 'Want Ad',  icon: <Search size={22} color='#F1184C' />,            color: '#F1184C' },
+const TYPE_OPTIONS: { type: PostType; label: string; icon: (c: string) => React.ReactNode; color: string }[] = [
+  { type: 'post',    label: 'Post',    icon: (c) => <FileText size={22} color={c} />,    color: Colors.brg },
+  { type: 'listing', label: 'Listing', icon: () => <ShoppingBag size={22} color='#00C851' />, color: '#00C851' },
+  { type: 'want',    label: 'Want Ad', icon: () => <Search size={22} color='#F1184C' />,  color: '#F1184C' },
 ];
 
 export default function CreateScreen() {
   const appNav = useNavigation<AppNav>();
+  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
 
   const [postType, setPostType] = useState<PostType>('post');
@@ -75,7 +77,7 @@ export default function CreateScreen() {
     if (body.trim()) fd.append('body', body.trim());
     if (price.trim()) fd.append('price', price.trim());
 
-    images.forEach((img, i) => {
+    images.forEach((img) => {
       fd.append('gallery', {
         uri: Platform.OS === 'ios' ? img.uri.replace('file://', '') : img.uri,
         name: img.name,
@@ -101,53 +103,56 @@ export default function CreateScreen() {
     : '';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         {/* Type selector */}
-        <View style={styles.typeRow}>
+        <View style={[styles.typeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {TYPE_OPTIONS.map(({ type, label, icon, color }) => (
             <TouchableOpacity
               key={type}
               style={[
                 styles.typeBtn,
+                { borderColor: colors.border },
                 postType === type && { borderColor: color, backgroundColor: color + '15' },
               ]}
               onPress={() => setPostType(type)}
             >
-              {icon}
-              <Text style={[styles.typeLabel, postType === type && { color }]}>{label}</Text>
+              {icon(postType === type ? color : colors.grey)}
+              <Text style={[styles.typeLabel, { color: colors.grey }, postType === type && { color }]}>
+                {label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Author row */}
-        <View style={styles.authorRow}>
+        <View style={[styles.authorRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <Avatar
             filename={userInfo?.gallery?.[0]?.filename ?? userInfo?.profilePicture}
             name={displayName}
             size={40}
           />
-          <Text style={styles.authorName}>{displayName}</Text>
+          <Text style={[styles.authorName, { color: colors.fg }]}>{displayName}</Text>
         </View>
 
         {/* Title (for listings / want ads) */}
         {showTitle && (
           <TextInput
-            style={styles.titleInput}
+            style={[styles.titleInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
             value={title}
             onChangeText={setTitle}
             placeholder="Title..."
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
           />
         )}
 
         {/* Body */}
         <TextInput
-          style={styles.bodyInput}
+          style={[styles.bodyInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
           value={body}
           onChangeText={setBody}
           placeholder={
@@ -155,7 +160,7 @@ export default function CreateScreen() {
             : postType === 'listing' ? 'Describe your item...'
             : 'What are you looking for?'
           }
-          placeholderTextColor={Colors.grey}
+          placeholderTextColor={colors.grey}
           multiline
           textAlignVertical="top"
         />
@@ -163,18 +168,18 @@ export default function CreateScreen() {
         {/* Price (listings only) */}
         {showPrice && (
           <TextInput
-            style={styles.priceInput}
+            style={[styles.priceInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
             value={price}
             onChangeText={setPrice}
             placeholder="Price (e.g. 1500)"
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
             keyboardType="numeric"
           />
         )}
 
         {/* Image previews */}
         {images.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.imageRow, { backgroundColor: colors.card }]}>
             {images.map((img, idx) => (
               <View key={idx} style={styles.imageWrap}>
                 <Image source={{ uri: img.uri }} style={styles.imageThumb} contentFit="cover" />
@@ -187,14 +192,17 @@ export default function CreateScreen() {
         )}
 
         {/* Add image button */}
-        <TouchableOpacity style={styles.addImageBtn} onPress={pickImage}>
+        <TouchableOpacity
+          style={[styles.addImageBtn, { backgroundColor: colors.card, borderTopColor: colors.border }]}
+          onPress={pickImage}
+        >
           <ImagePlus size={18} color={Colors.brg} />
           <Text style={styles.addImageText}>Add Photos</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* Submit button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           onPress={handleSubmit}
@@ -214,41 +222,41 @@ export default function CreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: Colors.cream },
+  safe:          { flex: 1 },
   scroll:        { flex: 1 },
   content:       { paddingBottom: 16 },
   typeRow:       {
     flexDirection: 'row', gap: 10, padding: 14,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
   },
   typeBtn:       {
     flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, borderRadius: 10,
-    borderWidth: 2, borderColor: Colors.border,
+    borderWidth: 2,
   },
-  typeLabel:     { fontSize: 12, fontWeight: '700', color: Colors.grey },
+  typeLabel:     { fontSize: 12, fontWeight: '700' },
   authorRow:     {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 14, backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    padding: 14,
+    borderBottomWidth: 1,
   },
-  authorName:    { fontSize: 15, fontWeight: '700', color: Colors.fg },
+  authorName:    { fontSize: 15, fontWeight: '700' },
   titleInput:    {
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 14,
-    fontSize: 18, fontWeight: '700', color: Colors.fg,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 18, fontWeight: '700',
+    borderBottomWidth: 1,
   },
   bodyInput:     {
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 14,
-    fontSize: 15, color: Colors.fg, minHeight: 120,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 15, minHeight: 120,
+    borderBottomWidth: 1,
     lineHeight: 22,
   },
   priceInput:    {
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 14,
-    fontSize: 15, color: Colors.fg,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 15,
+    borderBottomWidth: 1,
   },
-  imageRow:      { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#FFFFFF' },
+  imageRow:      { paddingHorizontal: 14, paddingVertical: 10 },
   imageWrap:     { marginRight: 8, position: 'relative' },
   imageThumb:    { width: 80, height: 80, borderRadius: 8 },
   imageRemove:   {
@@ -258,13 +266,13 @@ const styles = StyleSheet.create({
   },
   addImageBtn:   {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    padding: 14, backgroundColor: '#FFFFFF',
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    padding: 14,
+    borderTopWidth: 1,
   },
   addImageText:  { fontSize: 14, fontWeight: '600', color: Colors.brg },
   footer:        {
-    backgroundColor: '#FFFFFF', padding: 14,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    padding: 14,
+    borderTopWidth: 1,
   },
   submitBtn:     {
     backgroundColor: Colors.brg, borderRadius: 12,

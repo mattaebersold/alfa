@@ -1,4 +1,5 @@
 import React from 'react';
+import { useColorScheme } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { SocietyStackParamList } from './types';
 import SocietyScreen from '../screens/society/SocietyScreen';
@@ -12,10 +13,13 @@ import { Colors } from '../constants/colors';
 const Stack = createNativeStackNavigator<SocietyStackParamList>();
 
 export default function SocietyStackNavigator() {
+  const isDark = useColorScheme() === 'dark';
+  const headerBg = isDark ? Colors.brgDark : Colors.brg;
+
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.brg },
+        headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
       }}

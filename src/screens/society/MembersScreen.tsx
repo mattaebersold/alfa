@@ -11,27 +11,30 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
+  const colors = useColors();
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={44} />
       <View style={styles.info}>
-        <Text style={styles.name}>{user.firstName} {user.lastName}</Text>
-        <Text style={styles.username}>@{user.username}</Text>
-        {user.cityState && <Text style={styles.location}>{user.cityState}</Text>}
+        <Text style={[styles.name, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
+        <Text style={[styles.username, { color: colors.grey }]}>@{user.username}</Text>
+        {user.cityState && <Text style={[styles.location, { color: colors.grey }]}>{user.cityState}</Text>}
       </View>
-      <Text style={styles.arrow}>›</Text>
+      <Text style={[styles.arrow, { color: colors.grey }]}>›</Text>
     </TouchableOpacity>
   );
 }
 
 export default function MembersScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [query, setQuery] = useState('');
 
   const { data: users = [], isLoading } = useSearchUsersQuery(query, {
@@ -39,15 +42,15 @@ export default function MembersScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <View style={styles.searchBar}>
-        <Search size={16} color={Colors.grey} />
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Search size={16} color={colors.grey} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.fg }]}
           value={query}
           onChangeText={setQuery}
           placeholder="Search members..."
-          placeholderTextColor={Colors.grey}
+          placeholderTextColor={colors.grey}
           autoCapitalize="none"
         />
       </View>
@@ -56,7 +59,7 @@ export default function MembersScreen() {
         <Spinner fullScreen />
       ) : query.length < 1 ? (
         <View style={styles.hint}>
-          <Text style={styles.hintText}>Search to find members</Text>
+          <Text style={[styles.hintText, { color: colors.grey }]}>Search to find members</Text>
         </View>
       ) : (
         <FlatList
@@ -78,24 +81,24 @@ export default function MembersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: Colors.cream },
+  safe:        { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, color: Colors.fg },
+  searchInput: { flex: 1, fontSize: 15 },
   hint:        { flex: 1, alignItems: 'center', paddingTop: 60 },
-  hintText:    { fontSize: 15, color: Colors.grey },
+  hintText:    { fontSize: 15 },
   list:        { paddingBottom: 24 },
   row:         {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   info:        { flex: 1 },
-  name:        { fontSize: 15, fontWeight: '700', color: Colors.fg },
-  username:    { fontSize: 13, color: Colors.grey, marginTop: 1 },
-  location:    { fontSize: 12, color: Colors.grey, marginTop: 2 },
-  arrow:       { fontSize: 20, color: Colors.grey },
+  name:        { fontSize: 15, fontWeight: '700' },
+  username:    { fontSize: 13, marginTop: 1 },
+  location:    { fontSize: 12, marginTop: 2 },
+  arrow:       { fontSize: 20 },
 });

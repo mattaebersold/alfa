@@ -18,10 +18,12 @@ import LikeButton from '../../components/social/LikeButton';
 import Spinner from '../../components/ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { MarketScreenProps } from '../../navigation/types';
 
 export default function ListingDetailScreen({ route }: MarketScreenProps<'ListingDetail'>) {
   const { postId } = route.params;
+  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
 
   const { data: post, isLoading } = useGetPostQuery(postId);
@@ -55,7 +57,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -67,24 +69,24 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              <View style={styles.postHeader}>
+              <View style={[styles.postHeader, { backgroundColor: colors.card }]}>
                 <Avatar
                   filename={post.user?.gallery?.[0]?.filename ?? post.user?.profilePicture}
                   name={displayName}
                   size={40}
                 />
                 <View style={styles.postHeaderText}>
-                  <Text style={styles.author}>{displayName}</Text>
+                  <Text style={[styles.author, { color: colors.fg }]}>{displayName}</Text>
                   {post.user?.username && (
-                    <Text style={styles.username}>@{post.user.username}</Text>
+                    <Text style={[styles.username, { color: colors.grey }]}>@{post.user.username}</Text>
                   )}
                 </View>
                 <Badge variant={entryType} />
               </View>
 
-              {post.title && <Text style={styles.postTitle}>{post.title}</Text>}
+              {post.title && <Text style={[styles.postTitle, { color: colors.fg, backgroundColor: colors.card }]}>{post.title}</Text>}
               {post.body && (
-                <Text style={styles.postBody}>{post.body.replace(/<[^>]*>/g, '')}</Text>
+                <Text style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}>{post.body.replace(/<[^>]*>/g, '')}</Text>
               )}
 
               {heroImage && (
@@ -92,7 +94,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
               )}
 
               {post.price && (
-                <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>
+                <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>
               )}
 
               {post.sold && (
@@ -102,14 +104,14 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
               )}
 
               {(post.make || post.model || post.year) && (
-                <View style={styles.specRow}>
-                  {post.year && <Text style={styles.specText}>{post.year}</Text>}
-                  {post.make && <Text style={styles.specText}>{post.make}</Text>}
-                  {post.model && <Text style={styles.specText}>{post.model}</Text>}
+                <View style={[styles.specRow, { backgroundColor: colors.card }]}>
+                  {post.year && <Text style={[styles.specText, { color: colors.grey, backgroundColor: colors.segment }]}>{post.year}</Text>}
+                  {post.make && <Text style={[styles.specText, { color: colors.grey, backgroundColor: colors.segment }]}>{post.make}</Text>}
+                  {post.model && <Text style={[styles.specText, { color: colors.grey, backgroundColor: colors.segment }]}>{post.model}</Text>}
                 </View>
               )}
 
-              <View style={styles.likeRow}>
+              <View style={[styles.likeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
                 <LikeButton
                   documentId={post.internal_id}
                   entryType={entryType}
@@ -119,25 +121,25 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
               </View>
 
               <View style={styles.commentsDivider}>
-                <Text style={styles.commentsLabel}>
+                <Text style={[styles.commentsLabel, { color: colors.grey }]}>
                   Comments {comments.length > 0 ? `(${comments.length})` : ''}
                 </Text>
               </View>
             </View>
           }
           renderItem={({ item }: { item: any }) => (
-            <View style={styles.comment}>
+            <View style={[styles.comment, { backgroundColor: colors.card }]}>
               <Avatar
                 filename={item.user?.gallery?.[0]?.filename}
                 name={item.user?.firstName ?? '?'}
                 size={32}
               />
               <View style={styles.commentBody}>
-                <Text style={styles.commentAuthor}>
+                <Text style={[styles.commentAuthor, { color: colors.fg }]}>
                   {item.user?.firstName} {item.user?.lastName}
                 </Text>
-                <Text style={styles.commentText}>{item.body}</Text>
-                <Text style={styles.commentTime}>
+                <Text style={[styles.commentText, { color: colors.muted }]}>{item.body}</Text>
+                <Text style={[styles.commentTime, { color: colors.grey }]}>
                   {item.created_at
                     ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
                     : ''}
@@ -146,23 +148,23 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
             </View>
           )}
           ListEmptyComponent={
-            <Text style={styles.noComments}>No comments yet.</Text>
+            <Text style={[styles.noComments, { color: colors.grey }]}>No comments yet.</Text>
           }
           contentContainerStyle={styles.list}
         />
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <Avatar
             filename={userInfo?.gallery?.[0]?.filename}
             name={userInfo?.firstName ?? '?'}
             size={32}
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { borderColor: colors.border, color: colors.fg }]}
             value={commentText}
             onChangeText={setCommentText}
             placeholder="Write a comment..."
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
             multiline
           />
           <TouchableOpacity
@@ -179,28 +181,28 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: Colors.cream },
+  safe:            { flex: 1 },
   flex:            { flex: 1 },
   list:            { paddingBottom: 16 },
   postHeader:      {
     flexDirection: 'row', alignItems: 'center',
-    padding: 16, gap: 12, backgroundColor: '#FFFFFF',
+    padding: 16, gap: 12,
   },
   postHeaderText:  { flex: 1 },
-  author:          { fontSize: 15, fontWeight: '700', color: Colors.fg },
-  username:        { fontSize: 12, color: Colors.grey },
+  author:          { fontSize: 15, fontWeight: '700' },
+  username:        { fontSize: 12 },
   postTitle:       {
-    fontSize: 18, fontWeight: '800', color: Colors.fg,
-    paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#FFFFFF',
+    fontSize: 18, fontWeight: '800',
+    paddingHorizontal: 16, paddingTop: 12,
   },
   postBody:        {
-    fontSize: 15, color: Colors.muted, lineHeight: 22,
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF',
+    fontSize: 15, lineHeight: 22,
+    paddingHorizontal: 16, paddingVertical: 12,
   },
   heroImage:       { width: '100%', height: 280 },
   price:           {
     fontSize: 24, fontWeight: '800', color: Colors.brg,
-    paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16, paddingTop: 12,
   },
   soldBadge:       {
     backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6,
@@ -209,38 +211,37 @@ const styles = StyleSheet.create({
   soldText:        { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   specRow:         {
     flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
   },
   specText:        {
-    fontSize: 13, color: Colors.grey, backgroundColor: Colors.segment,
+    fontSize: 13,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, fontWeight: '600',
   },
   likeRow:         {
     flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    borderBottomWidth: 1,
   },
   commentsDivider: { paddingHorizontal: 16, paddingVertical: 12 },
   commentsLabel:   {
-    fontSize: 13, fontWeight: '700', color: Colors.grey,
+    fontSize: 13, fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   comment:         {
     flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10,
-    gap: 10, backgroundColor: '#FFFFFF', marginBottom: 1,
+    gap: 10, marginBottom: 1,
   },
   commentBody:     { flex: 1 },
-  commentAuthor:   { fontSize: 13, fontWeight: '700', color: Colors.fg },
-  commentText:     { fontSize: 14, color: Colors.muted, marginTop: 2, lineHeight: 20 },
-  commentTime:     { fontSize: 11, color: Colors.grey, marginTop: 4 },
-  noComments:      { textAlign: 'center', padding: 24, color: Colors.grey, fontSize: 14 },
+  commentAuthor:   { fontSize: 13, fontWeight: '700' },
+  commentText:     { fontSize: 14, marginTop: 2, lineHeight: 20 },
+  commentTime:     { fontSize: 11, marginTop: 4 },
+  noComments:      { textAlign: 'center', padding: 24, fontSize: 14 },
   inputRow:        {
     flexDirection: 'row', alignItems: 'flex-end',
     paddingHorizontal: 12, paddingVertical: 10,
-    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#F0F0F0', gap: 10,
+    borderTopWidth: 1, gap: 10,
   },
   input:           {
-    flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, color: Colors.fg, maxHeight: 100,
+    flex: 1, borderWidth: 1, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, maxHeight: 100,
   },
   sendBtn:         { backgroundColor: Colors.brg, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },

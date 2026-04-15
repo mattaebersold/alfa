@@ -12,6 +12,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Article } from '../../types/api';
@@ -19,6 +20,7 @@ import type { Article } from '../../types/api';
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
+  const colors = useColors();
   const hero = firstGalleryUrl(article.gallery) ?? firstGalleryUrl(article.banners);
   const displayName = article.user
     ? `${article.user.firstName} ${article.user.lastName}`.trim() || article.user.username
@@ -28,7 +30,11 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
     : '';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: colors.card }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
       {hero && (
         <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
       )}
@@ -36,9 +42,9 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
         {article.category && (
           <Text style={styles.category}>{article.category.toUpperCase()}</Text>
         )}
-        <Text style={styles.title} numberOfLines={3}>{article.title}</Text>
+        <Text style={[styles.title, { color: colors.fg }]} numberOfLines={3}>{article.title}</Text>
         {article.body && (
-          <Text style={styles.excerpt} numberOfLines={2}>
+          <Text style={[styles.excerpt, { color: colors.grey }]} numberOfLines={2}>
             {article.body.replace(/<[^>]*>/g, '')}
           </Text>
         )}
@@ -50,9 +56,9 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
               size={24}
             />
           )}
-          <Text style={styles.metaText}>{displayName}</Text>
-          {date && <Text style={styles.metaDot}>·</Text>}
-          <Text style={styles.metaText}>{date}</Text>
+          <Text style={[styles.metaText, { color: colors.grey }]}>{displayName}</Text>
+          {date && <Text style={[styles.metaDot, { color: colors.grey }]}>·</Text>}
+          <Text style={[styles.metaText, { color: colors.grey }]}>{date}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -60,6 +66,7 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
 }
 
 export default function ArticlesScreen() {
+  const colors = useColors();
   const appNav = useNavigation<AppNav>();
   const { data, isLoading } = useGetArticlesQuery({ limit: 20 });
   const articles = data?.entries ?? [];
@@ -67,7 +74,7 @@ export default function ArticlesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={articles}
         keyExtractor={(a) => a.internal_id}
@@ -86,10 +93,9 @@ export default function ArticlesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: Colors.cream },
+  safe:      { flex: 1 },
   list:      { paddingBottom: 24, paddingTop: 8 },
   card:      {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginHorizontal: 12,
     marginVertical: 6,
@@ -103,9 +109,9 @@ const styles = StyleSheet.create({
   hero:      { width: '100%', aspectRatio: 16 / 9 },
   cardBody:  { padding: 14, gap: 6 },
   category:  { fontSize: 11, fontWeight: '800', color: Colors.brg, letterSpacing: 0.8 },
-  title:     { fontSize: 17, fontWeight: '800', color: Colors.fg, lineHeight: 24 },
-  excerpt:   { fontSize: 13, color: Colors.grey, lineHeight: 19 },
+  title:     { fontSize: 17, fontWeight: '800', lineHeight: 24 },
+  excerpt:   { fontSize: 13, lineHeight: 19 },
   meta:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  metaText:  { fontSize: 12, color: Colors.grey },
-  metaDot:   { fontSize: 12, color: Colors.grey },
+  metaText:  { fontSize: 12 },
+  metaDot:   { fontSize: 12 },
 });

@@ -11,23 +11,25 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { GroupsStackParamList } from '../../navigation/types';
 import type { Group } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<GroupsStackParamList>;
 
 function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
+  const colors = useColors();
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {banner
         ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
         : <View style={[styles.cardBanner, styles.cardBannerPlaceholder]} />
       }
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={1}>{group.title}</Text>
-        {group.subtitle && <Text style={styles.cardSub} numberOfLines={1}>{group.subtitle}</Text>}
-        {group.region && <Text style={styles.cardRegion}>{group.region}</Text>}
+        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
+        {group.subtitle && <Text style={[styles.cardSub, { color: colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>}
+        {group.region && <Text style={[styles.cardRegion, { color: colors.grey }]}>{group.region}</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -35,6 +37,7 @@ function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
 
 export default function GroupsScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
 
@@ -58,7 +61,7 @@ export default function GroupsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
       <FlatList
         data={allGroups}
         keyExtractor={(g) => g.internal_id}
@@ -82,18 +85,18 @@ export default function GroupsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   list: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 24 },
   row:  { gap: 8, marginBottom: 8 },
   card: {
-    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10, overflow: 'hidden',
+    flex: 1, borderRadius: 10, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,
   },
   cardBanner:            { width: '100%', aspectRatio: 3 / 2 },
   cardBannerPlaceholder: { backgroundColor: Colors.brg },
   cardBody:    { padding: 8 },
-  cardTitle:   { fontSize: 13, fontWeight: '700', color: Colors.fg },
-  cardSub:     { fontSize: 12, color: Colors.muted, marginTop: 2 },
-  cardRegion:  { fontSize: 11, color: Colors.grey, marginTop: 2 },
+  cardTitle:   { fontSize: 13, fontWeight: '700' },
+  cardSub:     { fontSize: 12, marginTop: 2 },
+  cardRegion:  { fontSize: 11, marginTop: 2 },
 });

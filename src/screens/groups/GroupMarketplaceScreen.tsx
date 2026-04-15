@@ -8,6 +8,7 @@ import { useGetPostsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
@@ -15,17 +16,18 @@ import type { Post } from '../../types/api';
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
+  const colors = useColors();
   const hero = firstGalleryUrl(post.gallery);
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.thumb} contentFit="cover" />
-        : <View style={[styles.thumb, styles.thumbPlaceholder]} />
+        : <View style={[styles.thumb, { backgroundColor: colors.secondary }]} />
       }
       <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={2}>{post.title}</Text>
+        <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
         {post.price && <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>}
-        {post.body && <Text style={styles.body} numberOfLines={1}>{post.body.replace(/<[^>]*>/g, '')}</Text>}
+        {post.body && <Text style={[styles.body, { color: colors.grey }]} numberOfLines={1}>{post.body.replace(/<[^>]*>/g, '')}</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -34,6 +36,7 @@ function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
 export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'GroupMarketplace'>) {
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
+  const colors = useColors();
   const { data, isLoading } = useGetPostsQuery({
     group_id: groupId, type: 'listing', limit: 20,
   });
@@ -42,7 +45,7 @@ export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'Gro
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
@@ -61,17 +64,16 @@ export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'Gro
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: Colors.cream },
+  safe:             { flex: 1 },
   list:             { flexGrow: 1, paddingBottom: 24 },
   row:              {
     flexDirection: 'row', gap: 12, alignItems: 'center',
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   thumb:            { width: 72, height: 54, borderRadius: 8 },
-  thumbPlaceholder: { backgroundColor: Colors.secondary },
   info:             { flex: 1 },
-  title:            { fontSize: 14, fontWeight: '700', color: Colors.fg, marginBottom: 4 },
+  title:            { fontSize: 14, fontWeight: '700', marginBottom: 4 },
   price:            { fontSize: 15, fontWeight: '800', color: Colors.brg, marginBottom: 2 },
-  body:             { fontSize: 12, color: Colors.grey },
+  body:             { fontSize: 12 },
 });

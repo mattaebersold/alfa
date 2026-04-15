@@ -9,6 +9,7 @@ import { MapPin, Clock, Check, X } from 'lucide-react-native';
 import { useGetRallyQuery, useAttendRallyMutation, useDeclineRallyMutation } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps } from '../../navigation/types';
 
@@ -16,6 +17,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDetail'>) {
   const { rallyId } = route.params;
+  const colors = useColors();
   const { data: rally, isLoading } = useGetRallyQuery(rallyId);
   const [attend, { isLoading: attending }] = useAttendRallyMutation();
   const [decline, { isLoading: declining }] = useDeclineRallyMutation();
@@ -36,7 +38,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const date = rally.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Hero */}
         {hero
@@ -59,12 +61,12 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
         )}
 
         <View style={styles.body}>
-          <Text style={styles.title}>{rally.title}</Text>
+          <Text style={[styles.title, { color: colors.fg }]}>{rally.title}</Text>
 
           {date && (
             <View style={styles.metaRow}>
-              <Clock size={15} color={Colors.grey} />
-              <Text style={styles.metaText}>{date}{rally.event_time ? ` · ${rally.event_time}` : ''}</Text>
+              <Clock size={15} color={colors.grey} />
+              <Text style={[styles.metaText, { color: colors.grey }]}>{date}{rally.event_time ? ` · ${rally.event_time}` : ''}</Text>
             </View>
           )}
 
@@ -90,17 +92,17 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
               <Text style={styles.rsvpText}>Attend</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.rsvpBtn, styles.rsvpDecline]}
+              style={[styles.rsvpBtn, { backgroundColor: colors.segment, borderWidth: 1, borderColor: colors.border }]}
               onPress={() => decline({ rally_id: rallyId })}
               disabled={declining}
             >
-              <X size={16} color={Colors.fg} />
-              <Text style={[styles.rsvpText, { color: Colors.fg }]}>Decline</Text>
+              <X size={16} color={colors.fg} />
+              <Text style={[styles.rsvpText, { color: colors.fg }]}>Decline</Text>
             </TouchableOpacity>
           </View>
 
           {rally.body ? (
-            <Text style={styles.description}>{rally.body.replace(/<[^>]*>/g, '')}</Text>
+            <Text style={[styles.description, { color: colors.fg }]}>{rally.body.replace(/<[^>]*>/g, '')}</Text>
           ) : null}
         </View>
       </ScrollView>
@@ -109,22 +111,21 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: Colors.cream },
+  safe:            { flex: 1 },
   scroll:          { paddingBottom: 32 },
   hero:            { width: '100%', aspectRatio: 16 / 9 },
   heroPlaceholder: { width: '100%', aspectRatio: 16 / 9, backgroundColor: Colors.brg },
   galleryStrip:    { padding: 8, gap: 6 },
   galleryThumb:    { width: 80, height: 60, borderRadius: 6 },
   body:            { padding: 16 },
-  title:           { fontSize: 22, fontWeight: '800', color: Colors.fg, marginBottom: 12 },
+  title:           { fontSize: 22, fontWeight: '800', marginBottom: 12 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  metaText:        { fontSize: 14, color: Colors.grey },
+  metaText:        { fontSize: 14 },
   metaLink:        { color: Colors.brg, fontWeight: '600' },
   slots:           { fontSize: 13, fontWeight: '700', color: Colors.brg, marginBottom: 12 },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginBottom: 20 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
   rsvpAttend:      { backgroundColor: Colors.brg },
-  rsvpDecline:     { backgroundColor: Colors.segment, borderWidth: 1, borderColor: Colors.border },
   rsvpText:        { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  description:     { fontSize: 15, color: Colors.fg, lineHeight: 22 },
+  description:     { fontSize: 15, lineHeight: 22 },
 });

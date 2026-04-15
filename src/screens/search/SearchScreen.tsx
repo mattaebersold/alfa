@@ -11,6 +11,7 @@ import { useSearchQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User, Post, GarageCar } from '../../types/api';
@@ -18,39 +19,42 @@ import type { User, Post, GarageCar } from '../../types/api';
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function UserRow({ user, onPress }: { user: User; onPress: () => void }) {
+  const colors = useColors();
   return (
-    <TouchableOpacity style={styles.resultRow} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={36} />
       <View style={styles.resultInfo}>
-        <Text style={styles.resultTitle}>{user.firstName} {user.lastName}</Text>
-        <Text style={styles.resultSub}>@{user.username}</Text>
+        <Text style={[styles.resultTitle, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
+        <Text style={[styles.resultSub, { color: colors.grey }]}>@{user.username}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
+  const colors = useColors();
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   return (
-    <TouchableOpacity style={styles.resultRow} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.resultThumb} contentFit="cover" />
-        : <View style={[styles.resultThumb, styles.thumbPlaceholder]} />
+        : <View style={[styles.resultThumb, { backgroundColor: colors.secondary }]} />
       }
       <View style={styles.resultInfo}>
-        <Text style={styles.resultTitle}>{car.year} {car.make} {car.model}</Text>
-        {car.type && <Text style={styles.resultSub}>{car.type}</Text>}
+        <Text style={[styles.resultTitle, { color: colors.fg }]}>{car.year} {car.make} {car.model}</Text>
+        {car.type && <Text style={[styles.resultSub, { color: colors.grey }]}>{car.type}</Text>}
       </View>
     </TouchableOpacity>
   );
 }
 
 function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
+  const colors = useColors();
   return (
-    <TouchableOpacity style={styles.resultRow} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.resultInfo}>
-        <Text style={styles.resultTitle} numberOfLines={1}>{post.title ?? '(Untitled)'}</Text>
-        {post.body && <Text style={styles.resultSub} numberOfLines={1}>{post.body.replace(/<[^>]*>/g, '')}</Text>}
+        <Text style={[styles.resultTitle, { color: colors.fg }]} numberOfLines={1}>{post.title ?? '(Untitled)'}</Text>
+        {post.body && <Text style={[styles.resultSub, { color: colors.grey }]} numberOfLines={1}>{post.body.replace(/<[^>]*>/g, '')}</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -58,6 +62,7 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
 
 export default function SearchScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [query, setQuery] = useState('');
   const debouncedQuery = query.trim();
 
@@ -72,23 +77,23 @@ export default function SearchScreen() {
   const hasResults = users.length > 0 || cars.length > 0 || posts.length > 0;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {/* Search bar */}
-      <View style={styles.searchBar}>
-        <SearchIcon size={16} color={Colors.grey} />
+      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <SearchIcon size={16} color={colors.grey} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.fg }]}
           value={query}
           onChangeText={setQuery}
           placeholder="Search members, cars, posts..."
-          placeholderTextColor={Colors.grey}
+          placeholderTextColor={colors.grey}
           autoFocus
           autoCapitalize="none"
           returnKeyType="search"
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={() => setQuery('')}>
-            <Text style={styles.clearBtn}>✕</Text>
+            <Text style={[styles.clearBtn, { color: colors.grey }]}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -97,18 +102,18 @@ export default function SearchScreen() {
         <Spinner fullScreen />
       ) : debouncedQuery.length < 2 ? (
         <View style={styles.hint}>
-          <Text style={styles.hintText}>Type at least 2 characters to search</Text>
+          <Text style={[styles.hintText, { color: colors.grey }]}>Type at least 2 characters to search</Text>
         </View>
       ) : !hasResults ? (
         <View style={styles.hint}>
-          <Text style={styles.hintText}>No results for "{debouncedQuery}"</Text>
+          <Text style={[styles.hintText, { color: colors.grey }]}>No results for "{debouncedQuery}"</Text>
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {users.length > 0 && (
             <View>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Members</Text>
+              <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[styles.sectionTitle, { color: colors.grey }]}>Members</Text>
               </View>
               {users.slice(0, 5).map((u) => (
                 <UserRow
@@ -122,8 +127,8 @@ export default function SearchScreen() {
 
           {cars.length > 0 && (
             <View>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Cars</Text>
+              <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[styles.sectionTitle, { color: colors.grey }]}>Cars</Text>
               </View>
               {cars.slice(0, 5).map((c) => (
                 <CarRow
@@ -137,8 +142,8 @@ export default function SearchScreen() {
 
           {posts.length > 0 && (
             <View>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Posts</Text>
+              <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[styles.sectionTitle, { color: colors.grey }]}>Posts</Text>
               </View>
               {posts.slice(0, 5).map((p) => (
                 <PostRow
@@ -156,30 +161,29 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: Colors.cream },
+  safe:        { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, color: Colors.fg },
-  clearBtn:    { fontSize: 14, color: Colors.grey, padding: 4 },
+  searchInput: { flex: 1, fontSize: 15 },
+  clearBtn:    { fontSize: 14, padding: 4 },
   hint:        { flex: 1, alignItems: 'center', paddingTop: 60 },
-  hintText:    { fontSize: 15, color: Colors.grey },
+  hintText:    { fontSize: 15 },
   list:        { paddingBottom: 24 },
   sectionHeader: {
     paddingHorizontal: 16, paddingVertical: 8,
-    backgroundColor: Colors.segment, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.border,
+    borderTopWidth: 1, borderBottomWidth: 1,
   },
-  sectionTitle:{ fontSize: 12, fontWeight: '800', color: Colors.grey, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle:{ fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   resultRow:   {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   resultThumb: { width: 40, height: 40, borderRadius: 6 },
-  thumbPlaceholder: { backgroundColor: Colors.secondary },
   resultInfo:  { flex: 1 },
-  resultTitle: { fontSize: 15, fontWeight: '600', color: Colors.fg },
-  resultSub:   { fontSize: 13, color: Colors.grey, marginTop: 2 },
+  resultTitle: { fontSize: 15, fontWeight: '600' },
+  resultSub:   { fontSize: 13, marginTop: 2 },
 });

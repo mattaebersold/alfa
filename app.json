@@ -18,7 +18,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Used to take photos for posts, cars, and profile.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
-        "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app."
+        "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -33,7 +34,8 @@
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -61,7 +63,7 @@
     "scheme": "openroadsociety",
     "extra": {
       "eas": {
-        "projectId": "replace-with-eas-project-id"
+        "projectId": "af9639be-2958-49fd-8191-54bee7bd6255"
       }
     }
   }

@@ -12,27 +12,29 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
+  const colors = useColors();
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.85}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.thumb} contentFit="cover" />
-        : <View style={[styles.thumb, styles.thumbPlaceholder]} />
+        : <View style={[styles.thumb, { backgroundColor: colors.secondary }]} />
       }
       <View style={styles.info}>
-        <Text style={styles.carName} numberOfLines={1}>
+        <Text style={[styles.carName, { color: colors.fg }]} numberOfLines={1}>
           {car.year} {car.make} {car.model}
         </Text>
         {car.user && (
           <View style={styles.ownerRow}>
             <Avatar filename={car.user.gallery?.[0]?.filename} name={car.user.firstName ?? '?'} size={18} />
-            <Text style={styles.ownerName} numberOfLines={1}>
+            <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
               {car.user.firstName} {car.user.lastName}
             </Text>
           </View>
@@ -45,6 +47,7 @@ function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
 export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'>) {
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
+  const colors = useColors();
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
 
@@ -69,7 +72,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={allCars}
         keyExtractor={(c) => c.internal_id}
@@ -91,17 +94,16 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: Colors.cream },
+  safe:             { flex: 1 },
   list:             { flexGrow: 1, paddingBottom: 24 },
   row:              {
     flexDirection: 'row', gap: 12, alignItems: 'center',
-    backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 1,
   },
   thumb:            { width: 72, height: 54, borderRadius: 8 },
-  thumbPlaceholder: { backgroundColor: Colors.secondary },
   info:             { flex: 1 },
-  carName:          { fontSize: 14, fontWeight: '700', color: Colors.fg },
+  carName:          { fontSize: 14, fontWeight: '700' },
   ownerRow:         { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
-  ownerName:        { fontSize: 12, color: Colors.grey, flex: 1 },
+  ownerName:        { fontSize: 12, flex: 1 },
 });

@@ -10,11 +10,13 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
   const { brand } = route.params;
+  const colors = useColors();
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
@@ -53,7 +55,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   }, [isFetching, data, allCars.length]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
       {/* Model filter chips */}
       {models.length > 0 && (
         <View>
@@ -65,10 +67,18 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
             contentContainerStyle={styles.modelChips}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[styles.chip, selectedModel === item.key && styles.chipActive]}
+                style={[
+                  styles.chip,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                  selectedModel === item.key && styles.chipActive,
+                ]}
                 onPress={() => handleModelChange(item.key)}
               >
-                <Text style={[styles.chipText, selectedModel === item.key && styles.chipTextActive]}>
+                <Text style={[
+                  styles.chipText,
+                  { color: colors.fg },
+                  selectedModel === item.key && styles.chipTextActive,
+                ]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -96,7 +106,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
             (item.profile_image ? imageUrl(item.profile_image) : null);
           return (
             <TouchableOpacity
-              style={styles.card}
+              style={[styles.card, { backgroundColor: colors.card }]}
               onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
               activeOpacity={0.9}
             >
@@ -104,11 +114,11 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                 {hero ? (
                   <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
                 ) : (
-                  <View style={[styles.cardImage, styles.placeholder]} />
+                  <View style={[styles.cardImage, { backgroundColor: colors.secondary }]} />
                 )}
               </View>
               <View style={styles.cardInfo}>
-                <Text style={styles.carTitle} numberOfLines={1}>
+                <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
                   {item.year} {item.make} {item.model}
                 </Text>
                 {item.user && (
@@ -118,7 +128,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                       name={item.user.firstName ?? '?'}
                       size={18}
                     />
-                    <Text style={styles.ownerName} numberOfLines={1}>
+                    <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
                       {item.user.firstName} {item.user.lastName}
                     </Text>
                   </View>
@@ -136,7 +146,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
         }
         ListFooterComponent={
           isFetching && page > 0 ? (
-            <ActivityIndicator size="small" color={Colors.grey} style={{ padding: 20 }} />
+            <ActivityIndicator size="small" color={colors.grey} style={{ padding: 20 }} />
           ) : null
         }
       />
@@ -145,27 +155,26 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   modelChips: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
   },
   chipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
-  chipText:   { fontSize: 13, fontWeight: '600', color: Colors.fg },
+  chipText:   { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
   list:  { paddingHorizontal: 8, paddingBottom: 24 },
   row:   { gap: 8, marginBottom: 8 },
   card:  {
-    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 10, overflow: 'hidden',
+    flex: 1, borderRadius: 10, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,
   },
   cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
   cardImage: { width: '100%', height: '100%' },
-  placeholder: { backgroundColor: Colors.secondary },
   cardInfo:  { padding: 8 },
-  carTitle:  { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 4 },
+  carTitle:  { fontSize: 13, fontWeight: '700', marginBottom: 4 },
   ownerRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ownerName: { fontSize: 11, color: Colors.grey, flex: 1 },
+  ownerName: { fontSize: 11, flex: 1 },
 });

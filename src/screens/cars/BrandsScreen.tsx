@@ -7,10 +7,11 @@ import { Search } from 'lucide-react-native';
 import { useGetCarBrandsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
+  const colors = useColors();
   const [query, setQuery] = useState('');
   const { data: brands = [], isLoading } = useGetCarBrandsQuery();
 
@@ -36,16 +37,16 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
       {/* Search */}
-      <View style={styles.searchBar}>
-        <Search size={16} color={Colors.grey} />
+      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Search size={16} color={colors.grey} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.fg }]}
           value={query}
           onChangeText={setQuery}
           placeholder="Search makes..."
-          placeholderTextColor={Colors.grey}
+          placeholderTextColor={colors.grey}
           autoCapitalize="words"
         />
       </View>
@@ -58,18 +59,18 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
         ListEmptyComponent={<EmptyState title="No brands found" />}
         renderItem={({ item: [letter, makes] }) => (
           <View>
-            <View style={styles.letterHeader}>
-              <Text style={styles.letter}>{letter}</Text>
+            <View style={[styles.letterHeader, { backgroundColor: colors.segment }]}>
+              <Text style={[styles.letter, { color: colors.grey }]}>{letter}</Text>
             </View>
             {makes.map((make) => (
               <TouchableOpacity
                 key={make}
-                style={styles.row}
+                style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
                 onPress={() => navigation.navigate('BrandDetail', { brand: make })}
                 activeOpacity={0.7}
               >
-                <Text style={styles.makeName}>{make}</Text>
-                <Text style={styles.arrow}>›</Text>
+                <Text style={[styles.makeName, { color: colors.fg }]}>{make}</Text>
+                <Text style={[styles.arrow, { color: colors.grey }]}>›</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -80,21 +81,21 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: Colors.cream },
+  safe:        { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, color: Colors.fg },
+  searchInput: { flex: 1, fontSize: 15 },
   list:        { paddingBottom: 24 },
-  letterHeader:{ paddingHorizontal: 16, paddingVertical: 6, backgroundColor: Colors.segment },
-  letter:      { fontSize: 13, fontWeight: '800', color: Colors.grey, letterSpacing: 0.5 },
+  letterHeader:{ paddingHorizontal: 16, paddingVertical: 6 },
+  letter:      { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
   row:         {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+    borderBottomWidth: 1,
   },
-  makeName:    { fontSize: 15, fontWeight: '600', color: Colors.fg },
-  arrow:       { fontSize: 20, color: Colors.grey },
+  makeName:    { fontSize: 15, fontWeight: '600' },
+  arrow:       { fontSize: 20 },
 });

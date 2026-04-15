@@ -10,6 +10,7 @@ import { X, Plus, Camera } from 'lucide-react-native';
 import { useCreateCarMutation, useGetCarBrandsQuery, useGetCarModelsQuery } from '../../api/apiService';
 import Button from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
 import type { AppScreenProps } from '../../navigation/types';
 
@@ -37,17 +38,18 @@ const pb = StyleSheet.create({
 function ChipSelect<T extends { key: string; label: string }>({
   items, value, onChange, label,
 }: { items: T[]; value: string; onChange: (k: string) => void; label: string }) {
+  const colors = useColors();
   return (
     <View style={cs.wrapper}>
-      <Text style={cs.label}>{label}</Text>
+      <Text style={[cs.label, { color: colors.fg }]}>{label}</Text>
       <View style={cs.chips}>
         {items.map((item) => (
           <TouchableOpacity
             key={item.key}
-            style={[cs.chip, value === item.key && cs.chipActive]}
+            style={[cs.chip, { borderColor: colors.border, backgroundColor: colors.card }, value === item.key && cs.chipActive]}
             onPress={() => onChange(item.key)}
           >
-            <Text style={[cs.chipText, value === item.key && cs.chipTextActive]}>
+            <Text style={[cs.chipText, { color: colors.fg }, value === item.key && cs.chipTextActive]}>
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -58,11 +60,11 @@ function ChipSelect<T extends { key: string; label: string }>({
 }
 const cs = StyleSheet.create({
   wrapper: { marginBottom: 20 },
-  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 8 },
+  label:   { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:    { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#FFFFFF' },
+  chip:    { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
   chipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
-  chipText:   { fontSize: 13, color: Colors.fg, fontWeight: '600' },
+  chipText:   { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
 });
 
@@ -73,17 +75,18 @@ function Field({
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; numeric?: boolean; optional?: boolean; multiline?: boolean;
 }) {
+  const colors = useColors();
   return (
     <View style={f.wrapper}>
-      <Text style={f.label}>
-        {label} {optional && <Text style={f.opt}>(optional)</Text>}
+      <Text style={[f.label, { color: colors.fg }]}>
+        {label} {optional && <Text style={[f.opt, { color: colors.grey }]}>(optional)</Text>}
       </Text>
       <TextInput
-        style={[f.input, multiline && f.inputMulti]}
+        style={[f.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }, multiline && f.inputMulti]}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder ?? ''}
-        placeholderTextColor={Colors.grey}
+        placeholderTextColor={colors.grey}
         keyboardType={numeric ? 'numeric' : 'default'}
         autoCapitalize="none"
         multiline={multiline}
@@ -94,12 +97,11 @@ function Field({
 }
 const f = StyleSheet.create({
   wrapper: { marginBottom: 16 },
-  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 6 },
-  opt:     { fontWeight: '400', color: Colors.grey, fontSize: 12 },
+  label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  opt:     { fontWeight: '400', fontSize: 12 },
   input:   {
-    borderWidth: 1, borderColor: Colors.inputBorder, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: Colors.fg,
-    backgroundColor: Colors.inputBg,
+    borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
   },
   inputMulti: { minHeight: 90, textAlignVertical: 'top' },
 });
@@ -111,6 +113,7 @@ function MakeModelPicker({
   make: string; model: string;
   onMakeChange: (v: string) => void; onModelChange: (v: string) => void;
 }) {
+  const colors = useColors();
   const [makeQuery, setMakeQuery] = useState(make);
   const [showMakeSuggestions, setShowMakeSuggestions] = useState(false);
 
@@ -131,20 +134,20 @@ function MakeModelPicker({
   return (
     <View>
       <View style={mm.wrapper}>
-        <Text style={mm.label}>Make *</Text>
+        <Text style={[mm.label, { color: colors.fg }]}>Make *</Text>
         <TextInput
-          style={mm.input}
+          style={[mm.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
           value={makeQuery}
           onChangeText={(v) => { setMakeQuery(v); onMakeChange(v); setShowMakeSuggestions(true); }}
           placeholder="e.g. Porsche"
-          placeholderTextColor={Colors.grey}
+          placeholderTextColor={colors.grey}
           autoCapitalize="words"
         />
         {showMakeSuggestions && filteredBrands.length > 0 && (
-          <View style={mm.suggestions}>
+          <View style={[mm.suggestions, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {filteredBrands.map((b) => (
-              <TouchableOpacity key={b} style={mm.suggestion} onPress={() => handleMakeSelect(b)}>
-                <Text style={mm.suggestionText}>{b}</Text>
+              <TouchableOpacity key={b} style={[mm.suggestion, { borderBottomColor: colors.border }]} onPress={() => handleMakeSelect(b)}>
+                <Text style={[mm.suggestionText, { color: colors.fg }]}>{b}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -152,26 +155,26 @@ function MakeModelPicker({
       </View>
 
       <View style={mm.wrapper}>
-        <Text style={mm.label}>Model *</Text>
+        <Text style={[mm.label, { color: colors.fg }]}>Model *</Text>
         {models.length > 0 ? (
           <View style={mm.modelChips}>
             {models.map((m) => (
               <TouchableOpacity
                 key={m}
-                style={[mm.modelChip, model === m && mm.modelChipActive]}
+                style={[mm.modelChip, { borderColor: colors.border, backgroundColor: colors.card }, model === m && mm.modelChipActive]}
                 onPress={() => onModelChange(m)}
               >
-                <Text style={[mm.modelChipText, model === m && mm.modelChipTextActive]}>{m}</Text>
+                <Text style={[mm.modelChipText, { color: colors.fg }, model === m && mm.modelChipTextActive]}>{m}</Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
           <TextInput
-            style={mm.input}
+            style={[mm.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
             value={model}
             onChangeText={onModelChange}
             placeholder="e.g. 911"
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
             autoCapitalize="words"
           />
         )}
@@ -181,23 +184,22 @@ function MakeModelPicker({
 }
 const mm = StyleSheet.create({
   wrapper: { marginBottom: 16, position: 'relative' },
-  label:   { fontSize: 13, fontWeight: '700', color: Colors.fg, marginBottom: 6 },
+  label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
   input:   {
-    borderWidth: 1, borderColor: Colors.inputBorder, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: Colors.fg,
-    backgroundColor: Colors.inputBg,
+    borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
   },
   suggestions: {
     position: 'absolute', top: 70, left: 0, right: 0, zIndex: 99,
-    backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 8, borderWidth: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
   },
-  suggestion: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  suggestionText: { fontSize: 15, color: Colors.fg },
+  suggestion: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
+  suggestionText: { fontSize: 15 },
   modelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: '#FFFFFF' },
+  modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
   modelChipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
-  modelChipText: { fontSize: 13, color: Colors.fg, fontWeight: '600' },
+  modelChipText: { fontSize: 13, fontWeight: '600' },
   modelChipTextActive: { color: '#FFFFFF' },
 });
 
@@ -219,6 +221,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreate'>) {
+  const colors = useColors();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, type: 'daily', category: CAR_CATEGORIES['daily'][0]?.key ?? '' });
   const [createCar, { isLoading }] = useCreateCarMutation();
@@ -312,7 +315,7 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -328,7 +331,7 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
           {/* ── STEP 1: Required ───────────────────────────────────────── */}
           {step === 1 && (
             <View>
-              <Text style={styles.stepTitle}>Step 1 — The Basics</Text>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 1 — The Basics</Text>
 
               <Field label="Title *" value={form.title} onChange={set('title')} placeholder="e.g. Weekend Track Build" />
               <Field label="Year *" value={form.year} onChange={set('year')} placeholder="e.g. 1991" numeric />
@@ -351,7 +354,7 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
           {/* ── STEP 2: Optional specs ─────────────────────────────────── */}
           {step === 2 && (
             <View>
-              <Text style={styles.stepTitle}>Step 2 — Specs</Text>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 2 — Specs</Text>
               <Field label="Description" value={form.body} onChange={set('body')} placeholder="Tell us about it..." optional multiline />
               <Field label="Trim" value={form.trim} onChange={set('trim')} placeholder="e.g. Turbo S" optional />
               <Field label="Color" value={form.color} onChange={set('color')} placeholder="e.g. Guards Red" optional />
@@ -367,11 +370,11 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
           {/* ── STEP 3: Mods ───────────────────────────────────────────── */}
           {step === 3 && (
             <View>
-              <Text style={styles.stepTitle}>Step 3 — Modifications</Text>
-              <Text style={styles.stepSub}>Add any mods you want to document. You can always add more later.</Text>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 3 — Modifications</Text>
+              <Text style={[styles.stepSub, { color: colors.grey }]}>Add any mods you want to document. You can always add more later.</Text>
 
               {form.mods.map((mod, i) => (
-                <View key={i} style={styles.modCard}>
+                <View key={i} style={[styles.modCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={styles.modHeader}>
                     <Text style={styles.modIndex}>Mod #{i + 1}</Text>
                     <TouchableOpacity onPress={() => removeMod(i)}>
@@ -411,10 +414,10 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
           {/* ── STEP 4: Photos ─────────────────────────────────────────── */}
           {step === 4 && (
             <View>
-              <Text style={styles.stepTitle}>Step 4 — Photos</Text>
-              <Text style={styles.stepSub}>Add up to 10 photos. First photo will be the cover image.</Text>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 4 — Photos</Text>
+              <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. First photo will be the cover image.</Text>
 
-              <TouchableOpacity style={styles.photoPickerBtn} onPress={pickImage}>
+              <TouchableOpacity style={[styles.photoPickerBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={pickImage}>
                 <Camera size={22} color={Colors.brg} />
                 <Text style={styles.photoPickerText}>Choose Photos</Text>
               </TouchableOpacity>
@@ -454,7 +457,7 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
         </ScrollView>
 
         {/* Navigation buttons */}
-        <View style={styles.nav}>
+        <View style={[styles.nav, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           {step > 1 && (
             <Button
               label="Back"
@@ -494,15 +497,15 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: Colors.cream },
+  safe:      { flex: 1 },
   flex:      { flex: 1 },
   scroll:    { paddingHorizontal: 16, paddingBottom: 24 },
-  stepTitle: { fontSize: 20, fontWeight: '800', color: Colors.fg, marginBottom: 6, marginTop: 4 },
-  stepSub:   { fontSize: 14, color: Colors.grey, marginBottom: 20, lineHeight: 20 },
+  stepTitle: { fontSize: 20, fontWeight: '800', marginBottom: 6, marginTop: 4 },
+  stepSub:   { fontSize: 14, marginBottom: 20, lineHeight: 20 },
 
   modCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 10, padding: 14,
-    marginBottom: 14, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 10, padding: 14,
+    marginBottom: 14, borderWidth: 1,
   },
   modHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modIndex:  { fontSize: 13, fontWeight: '700', color: Colors.brg },
@@ -516,7 +519,7 @@ const styles = StyleSheet.create({
   photoPickerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 20, borderRadius: 12,
-    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: Colors.border,
+    borderWidth: 1.5,
     marginBottom: 16,
   },
   photoPickerText: { fontSize: 15, fontWeight: '700', color: Colors.brg },
@@ -540,7 +543,7 @@ const styles = StyleSheet.create({
   nav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: Colors.border,
+    borderTopWidth: 1,
   },
   navRight: { marginLeft: 'auto' },
 });

@@ -14,11 +14,13 @@ import LikeButton from '../../components/social/LikeButton';
 import Spinner from '../../components/ui/Spinner';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { FeedScreenProps } from '../../navigation/types';
 
 export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'>) {
   const { postId } = route.params;
   const { userInfo } = useAppSelector((s) => s.auth);
+  const colors = useColors();
 
   const { data: post, isLoading } = useGetPostQuery(postId);
   const { data: comments = [] } = useGetCommentsQuery(
@@ -52,7 +54,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -65,24 +67,24 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           ListHeaderComponent={
             <View>
               {/* Post content */}
-              <View style={styles.postHeader}>
+              <View style={[styles.postHeader, { backgroundColor: colors.card }]}>
                 <Avatar
                   filename={post.user?.gallery?.[0]?.filename ?? post.user?.profilePicture}
                   name={displayName}
                   size={40}
                 />
                 <View style={styles.postHeaderText}>
-                  <Text style={styles.author}>{displayName}</Text>
+                  <Text style={[styles.author, { color: colors.fg }]}>{displayName}</Text>
                   {post.user?.username && (
-                    <Text style={styles.username}>@{post.user.username}</Text>
+                    <Text style={[styles.username, { color: colors.grey }]}>@{post.user.username}</Text>
                   )}
                 </View>
                 <Badge variant={entryType} />
               </View>
 
-              {post.title && <Text style={styles.postTitle}>{post.title}</Text>}
+              {post.title && <Text style={[styles.postTitle, { color: colors.fg, backgroundColor: colors.card }]}>{post.title}</Text>}
               {post.body && (
-                <Text style={styles.postBody}>{post.body.replace(/<[^>]*>/g, '')}</Text>
+                <Text style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}>{post.body.replace(/<[^>]*>/g, '')}</Text>
               )}
 
               {heroImage && (
@@ -90,10 +92,10 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               )}
 
               {post.price && (
-                <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>
+                <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>
               )}
 
-              <View style={styles.likeRow}>
+              <View style={[styles.likeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
                 <LikeButton
                   documentId={post.internal_id}
                   entryType={entryType}
@@ -103,25 +105,25 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               </View>
 
               <View style={styles.commentsDivider}>
-                <Text style={styles.commentsLabel}>
+                <Text style={[styles.commentsLabel, { color: colors.grey }]}>
                   Comments {comments.length > 0 ? `(${comments.length})` : ''}
                 </Text>
               </View>
             </View>
           }
           renderItem={({ item }: { item: any }) => (
-            <View style={styles.comment}>
+            <View style={[styles.comment, { backgroundColor: colors.card }]}>
               <Avatar
                 filename={item.user?.gallery?.[0]?.filename}
                 name={item.user?.firstName ?? '?'}
                 size={32}
               />
               <View style={styles.commentBody}>
-                <Text style={styles.commentAuthor}>
+                <Text style={[styles.commentAuthor, { color: colors.fg }]}>
                   {item.user?.firstName} {item.user?.lastName}
                 </Text>
-                <Text style={styles.commentText}>{item.body}</Text>
-                <Text style={styles.commentTime}>
+                <Text style={[styles.commentText, { color: colors.muted }]}>{item.body}</Text>
+                <Text style={[styles.commentTime, { color: colors.grey }]}>
                   {item.created_at
                     ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
                     : ''}
@@ -130,20 +132,20 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             </View>
           )}
           ListEmptyComponent={
-            <Text style={styles.noComments}>No comments yet. Be first!</Text>
+            <Text style={[styles.noComments, { color: colors.grey }]}>No comments yet. Be first!</Text>
           }
           contentContainerStyle={styles.list}
         />
 
         {/* Comment input */}
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.firstName ?? '?'} size={32} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { borderColor: colors.border, color: colors.fg }]}
             value={commentText}
             onChangeText={setCommentText}
             placeholder="Write a comment..."
-            placeholderTextColor={Colors.grey}
+            placeholderTextColor={colors.grey}
             multiline
           />
           <TouchableOpacity
@@ -160,7 +162,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   list: { paddingBottom: 16 },
   postHeader: {
@@ -168,38 +170,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     gap: 12,
-    backgroundColor: '#FFFFFF',
   },
   postHeaderText: { flex: 1 },
-  author: { fontSize: 15, fontWeight: '700', color: Colors.fg },
-  username: { fontSize: 12, color: Colors.grey },
+  author: { fontSize: 15, fontWeight: '700' },
+  username: { fontSize: 12 },
   postTitle: {
-    fontSize: 18, fontWeight: '800', color: Colors.fg,
-    paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#FFFFFF',
+    fontSize: 18, fontWeight: '800',
+    paddingHorizontal: 16, paddingTop: 12,
   },
   postBody: {
-    fontSize: 15, color: Colors.muted, lineHeight: 22,
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF',
+    fontSize: 15, lineHeight: 22,
+    paddingHorizontal: 16, paddingVertical: 12,
   },
   heroImage: { width: '100%', height: 280 },
   price: {
     fontSize: 22, fontWeight: '800', color: Colors.brg,
-    paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16, paddingTop: 12,
   },
   likeRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   commentsDivider: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   commentsLabel: {
-    fontSize: 13, fontWeight: '700', color: Colors.grey,
+    fontSize: 13, fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   comment: {
@@ -207,36 +206,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 10,
-    backgroundColor: '#FFFFFF',
     marginBottom: 1,
   },
   commentBody: { flex: 1 },
-  commentAuthor: { fontSize: 13, fontWeight: '700', color: Colors.fg },
-  commentText: { fontSize: 14, color: Colors.muted, marginTop: 2, lineHeight: 20 },
-  commentTime: { fontSize: 11, color: Colors.grey, marginTop: 4 },
+  commentAuthor: { fontSize: 13, fontWeight: '700' },
+  commentText: { fontSize: 14, marginTop: 2, lineHeight: 20 },
+  commentTime: { fontSize: 11, marginTop: 4 },
   noComments: {
     textAlign: 'center', padding: 24,
-    color: Colors.grey, fontSize: 14,
+    fontSize: 14,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
     gap: 10,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
     fontSize: 14,
-    color: Colors.fg,
     maxHeight: 100,
   },
   sendBtn: {

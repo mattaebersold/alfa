@@ -19,23 +19,26 @@ import { logout } from '../../store/authSlice';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function SectionHeader({ title }: { title: string }) {
+  const colors = useColors();
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+      <Text style={[styles.sectionTitle, { color: colors.grey }]}>{title}</Text>
     </View>
   );
 }
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const colors = useColors();
   return (
-    <View style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
+    <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
+      <Text style={[styles.settingLabel, { color: colors.fg }]}>{label}</Text>
       <View style={styles.settingControl}>{children}</View>
     </View>
   );
@@ -43,6 +46,7 @@ function SettingRow({ label, children }: { label: string; children: React.ReactN
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const dispatch = useAppDispatch();
 
   const { data: user, isLoading } = useGetLoggedInUserQuery();
@@ -157,22 +161,22 @@ export default function SettingsScreen() {
   const bannerUri = user?.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Avatar / Banner */}
         <SectionHeader title="Photos" />
-        <View style={styles.photoRow}>
+        <View style={[styles.photoRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.photoItem} onPress={handlePickAvatar} disabled={uploadingImage}>
             <Avatar filename={user?.gallery?.[0]?.filename} name={user?.firstName ?? '?'} size={64} />
-            <Text style={styles.photoLabel}>Avatar</Text>
+            <Text style={[styles.photoLabel, { color: colors.grey }]}>Avatar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.photoBanner} onPress={handlePickBanner} disabled={uploadingImage}>
             {bannerUri
               ? <Image source={{ uri: bannerUri }} style={styles.bannerPreview} contentFit="cover" />
               : <View style={styles.bannerPreviewEmpty} />
             }
-            <Text style={styles.photoLabel}>Banner</Text>
+            <Text style={[styles.photoLabel, { color: colors.grey }]}>Banner</Text>
           </TouchableOpacity>
           {uploadingImage && (
             <View style={styles.uploadingOverlay}>
@@ -183,43 +187,43 @@ export default function SettingsScreen() {
 
         {/* Profile */}
         <SectionHeader title="Profile" />
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <SettingRow label="First Name">
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
               value={firstName}
               onChangeText={setFirstName}
               placeholder="First name"
-              placeholderTextColor={Colors.grey}
+              placeholderTextColor={colors.grey}
             />
           </SettingRow>
           <SettingRow label="Last Name">
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
               value={lastName}
               onChangeText={setLastName}
               placeholder="Last name"
-              placeholderTextColor={Colors.grey}
+              placeholderTextColor={colors.grey}
             />
           </SettingRow>
           <SettingRow label="Bio">
             <TextInput
-              style={[styles.input, styles.inputMulti]}
+              style={[styles.input, styles.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
               value={bio}
               onChangeText={setBio}
               placeholder="Tell us about yourself"
-              placeholderTextColor={Colors.grey}
+              placeholderTextColor={colors.grey}
               multiline
               numberOfLines={3}
             />
           </SettingRow>
           <SettingRow label="City / State">
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
               value={cityState}
               onChangeText={setCityState}
               placeholder="e.g. Los Angeles, CA"
-              placeholderTextColor={Colors.grey}
+              placeholderTextColor={colors.grey}
             />
           </SettingRow>
           <TouchableOpacity
@@ -236,15 +240,15 @@ export default function SettingsScreen() {
 
         {/* Email Preferences */}
         <SectionHeader title="Email Preferences" />
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           {[
             { label: 'Comments on my posts', value: emailComments, setter: setEmailComments },
             { label: 'Likes on my posts', value: emailLikes, setter: setEmailLikes },
             { label: 'New followers', value: emailFollowed, setter: setEmailFollowed },
             { label: 'Follower activity', value: emailFollowerActivity, setter: setEmailFollowerActivity },
           ].map(({ label, value, setter }, i) => (
-            <View key={label} style={[styles.switchRow, i > 0 && styles.switchRowBorder]}>
-              <Text style={styles.switchLabel}>{label}</Text>
+            <View key={label} style={[styles.switchRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
+              <Text style={[styles.switchLabel, { color: colors.fg }]}>{label}</Text>
               <Switch
                 value={value}
                 onValueChange={setter}
@@ -253,18 +257,18 @@ export default function SettingsScreen() {
               />
             </View>
           ))}
-          <TouchableOpacity style={[styles.saveBtn, styles.saveBtnSecondary]} onPress={handleSaveEmail}>
-            <Text style={[styles.saveBtnText, styles.saveBtnSecondaryText]}>Save Preferences</Text>
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.cream, borderWidth: 1.5, borderColor: Colors.brg }]} onPress={handleSaveEmail}>
+            <Text style={[styles.saveBtnText, { color: Colors.brg }]}>Save Preferences</Text>
           </TouchableOpacity>
         </View>
 
         {/* Account */}
         <SectionHeader title="Account" />
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.dangerRow} onPress={handleLogout}>
-            <Text style={styles.dangerText}>Log Out</Text>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <TouchableOpacity style={[styles.dangerRow, { borderTopColor: colors.border }]} onPress={handleLogout}>
+            <Text style={[styles.dangerText, { color: colors.fg }]}>Log Out</Text>
           </TouchableOpacity>
-          <View style={styles.switchRowBorder}>
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
             <TouchableOpacity style={[styles.dangerRow, { borderTopWidth: 0 }]} onPress={handleDeleteAccount}>
               <Text style={[styles.dangerText, { color: Colors.red }]}>Delete Account</Text>
             </TouchableOpacity>
@@ -278,22 +282,22 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:           { flex: 1, backgroundColor: Colors.cream },
+  safe:           { flex: 1 },
   scroll:         { paddingBottom: 40 },
   sectionHeader:  {
     paddingHorizontal: 16, paddingVertical: 8,
-    backgroundColor: Colors.segment, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.border,
+    borderTopWidth: 1, borderBottomWidth: 1,
   },
-  sectionTitle:   { fontSize: 12, fontWeight: '800', color: Colors.grey, textTransform: 'uppercase', letterSpacing: 0.5 },
-  card:           { backgroundColor: '#FFFFFF', marginBottom: 0 },
+  sectionTitle:   { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  card:           { marginBottom: 0 },
   photoRow:       {
     flexDirection: 'row', gap: 16, padding: 16,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
     position: 'relative',
   },
   photoItem:      { alignItems: 'center', gap: 6 },
   photoBanner:    { flex: 1, alignItems: 'center', gap: 6 },
-  photoLabel:     { fontSize: 12, color: Colors.grey, fontWeight: '600' },
+  photoLabel:     { fontSize: 12, fontWeight: '600' },
   bannerPreview:  { width: '100%', height: 60, borderRadius: 8 },
   bannerPreviewEmpty: { width: '100%', height: 60, borderRadius: 8, backgroundColor: Colors.brg },
   uploadingOverlay: {
@@ -304,14 +308,13 @@ const styles = StyleSheet.create({
   settingRow:     {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+    borderBottomWidth: 1,
   },
-  settingLabel:   { fontSize: 14, fontWeight: '600', color: Colors.fg, paddingTop: 10, width: 100 },
+  settingLabel:   { fontSize: 14, fontWeight: '600', paddingTop: 10, width: 100 },
   settingControl: { flex: 1 },
   input:          {
-    borderWidth: 1, borderColor: Colors.inputBorder, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, color: Colors.fg,
-    backgroundColor: Colors.inputBg,
+    borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 9, fontSize: 14,
   },
   inputMulti:     { minHeight: 70, textAlignVertical: 'top' },
   saveBtn:        {
@@ -320,14 +323,11 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText:    { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  saveBtnSecondary: { backgroundColor: Colors.cream, borderWidth: 1.5, borderColor: Colors.brg },
-  saveBtnSecondaryText: { color: Colors.brg },
   switchRow:      {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
   },
-  switchRowBorder: { borderTopWidth: 1, borderTopColor: '#F5F5F5' },
-  switchLabel:    { fontSize: 14, color: Colors.fg, flex: 1 },
+  switchLabel:    { fontSize: 14, flex: 1 },
   dangerRow:      { paddingHorizontal: 16, paddingVertical: 14 },
-  dangerText:     { fontSize: 15, fontWeight: '600', color: Colors.fg },
+  dangerText:     { fontSize: 15, fontWeight: '600' },
 });

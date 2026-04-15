@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLikeEntryMutation, useUnlikeEntryMutation } from '../../api/apiService';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 
 interface LikeButtonProps {
   documentId: string;
@@ -20,7 +20,7 @@ export default function LikeButton({
   initialCount = 0,
   showCount = true,
 }: LikeButtonProps) {
-  // Optimistic state
+  const colors = useColors();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
 
@@ -28,7 +28,6 @@ export default function LikeButton({
   const [unlikeEntry] = useUnlikeEntryMutation();
 
   const handlePress = async () => {
-    // Optimistic update
     const wasLiked = liked;
     setLiked(!wasLiked);
     setCount((c) => (wasLiked ? c - 1 : c + 1));
@@ -41,7 +40,6 @@ export default function LikeButton({
         await likeEntry({ document_id: documentId, document_entry_type: entryType }).unwrap();
       }
     } catch {
-      // Revert on error
       setLiked(wasLiked);
       setCount((c) => (wasLiked ? c + 1 : c - 1));
     }
@@ -51,29 +49,20 @@ export default function LikeButton({
     <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.7}>
       <Heart
         size={18}
-        color={liked ? '#FF4060' : Colors.grey}
+        color={liked ? '#FF4060' : colors.grey}
         fill={liked ? '#FF4060' : 'transparent'}
       />
       {showCount && count > 0 && (
-        <Text style={[styles.count, liked && styles.likedCount]}>{count}</Text>
+        <Text style={[styles.count, liked ? styles.likedCount : { color: colors.grey }]}>
+          {count}
+        </Text>
       )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    padding: 4,
-  },
-  count: {
-    fontSize: 13,
-    color: Colors.grey,
-    fontWeight: '500',
-  },
-  likedCount: {
-    color: '#FF4060',
-  },
+  container:  { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
+  count:      { fontSize: 13, fontWeight: '500' },
+  likedCount: { color: '#FF4060' },
 });

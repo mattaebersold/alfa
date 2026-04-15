@@ -12,24 +12,26 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Rally } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<SocietyStackParamList>;
 
 function RallyRow({ rally, onPress }: { rally: Rally; onPress: () => void }) {
+  const colors = useColors();
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(rally.gallery);
   const date = rally.event_date ? format(new Date(rally.event_date), 'MMM d, yyyy') : null;
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
         : <View style={[styles.cardImage, styles.cardPlaceholder]} />
       }
       <View style={styles.cardBody}>
         {date && <Text style={styles.date}>{date}</Text>}
-        <Text style={styles.title} numberOfLines={2}>{rally.title}</Text>
-        {rally.location && <Text style={styles.location} numberOfLines={1}>{rally.location}</Text>}
+        <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
+        {rally.location && <Text style={[styles.location, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>}
         {rally.slots_available != null && (
           <Text style={styles.slots}>{rally.slots_available} slots available</Text>
         )}
@@ -40,6 +42,7 @@ function RallyRow({ rally, onPress }: { rally: Rally; onPress: () => void }) {
 
 export default function RallysScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [page, setPage] = useState(0);
   const [allRallys, setAllRallys] = useState<Rally[]>([]);
 
@@ -63,7 +66,7 @@ export default function RallysScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={allRallys}
         keyExtractor={(item) => item.internal_id}
@@ -85,10 +88,10 @@ export default function RallysScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1, backgroundColor: Colors.cream },
+  safe:         { flex: 1 },
   list:         { paddingBottom: 24 },
   card:         {
-    backgroundColor: '#FFFFFF', marginHorizontal: 12, marginTop: 12,
+    marginHorizontal: 12, marginTop: 12,
     borderRadius: 12, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
@@ -97,7 +100,7 @@ const styles = StyleSheet.create({
   cardPlaceholder: { backgroundColor: Colors.brg },
   cardBody:     { padding: 12 },
   date:         { fontSize: 12, fontWeight: '700', color: Colors.speed, marginBottom: 4 },
-  title:        { fontSize: 16, fontWeight: '800', color: Colors.fg, lineHeight: 22 },
-  location:     { fontSize: 13, color: Colors.grey, marginTop: 4 },
+  title:        { fontSize: 16, fontWeight: '800', lineHeight: 22 },
+  location:     { fontSize: 13, marginTop: 4 },
   slots:        { fontSize: 12, color: Colors.brg, fontWeight: '700', marginTop: 6 },
 });

@@ -11,6 +11,7 @@ import CarCard from '../../components/cards/CarCard';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -38,6 +39,7 @@ function CarCardWithTasks({
 
 export default function GarageScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const { data: cars = [], isLoading, refetch } = useGetUserGarageQuery();
 
   const goToCar = useCallback(
@@ -54,7 +56,7 @@ export default function GarageScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={cars}
         keyExtractor={(item) => item.internal_id}
@@ -72,7 +74,7 @@ export default function GarageScreen() {
         )}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.count}>
+            <Text style={[styles.count, { color: colors.grey }]}>
               {cars.length} {cars.length === 1 ? 'car' : 'cars'}
             </Text>
             <TouchableOpacity
@@ -98,7 +100,7 @@ export default function GarageScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.cream },
+  safe: { flex: 1 },
   list: { paddingBottom: 24, flexGrow: 1 },
   header: {
     flexDirection: 'row',
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  count: { fontSize: 14, color: Colors.grey, fontWeight: '600' },
+  count: { fontSize: 14, fontWeight: '600' },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',

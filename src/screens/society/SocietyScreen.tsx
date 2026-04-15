@@ -17,6 +17,7 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Event, Rally } from '../../types/api';
 
@@ -24,19 +25,20 @@ type NavProp = NativeStackNavigationProp<SocietyStackParamList>;
 type Tab = 'events' | 'rallys';
 
 function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
+  const colors = useColors();
   const hero = firstGalleryUrl(event.gallery);
   const date = event.event_date ? format(new Date(event.event_date), 'MMM d, yyyy') : null;
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
         : <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
       }
       <View style={styles.cardBody}>
         {date && <Text style={styles.cardDate}>{date}</Text>}
-        <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
+        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{event.title}</Text>
         {event.location && (
-          <Text style={styles.cardMeta} numberOfLines={1}>{event.location}</Text>
+          <Text style={[styles.cardMeta, { color: colors.grey }]} numberOfLines={1}>{event.location}</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -44,19 +46,20 @@ function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
 }
 
 function RallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
+  const colors = useColors();
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(rally.gallery);
   const date = rally.event_date ? format(new Date(rally.event_date), 'MMM d, yyyy') : null;
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
         : <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
       }
       <View style={styles.cardBody}>
         {date && <Text style={styles.cardDate}>{date}</Text>}
-        <Text style={styles.cardTitle} numberOfLines={2}>{rally.title}</Text>
+        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
         {rally.location && (
-          <Text style={styles.cardMeta} numberOfLines={1}>{rally.location}</Text>
+          <Text style={[styles.cardMeta, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -65,6 +68,7 @@ function RallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
 
 export default function SocietyScreen() {
   const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const [tab, setTab] = useState<Tab>('events');
 
   const {
@@ -83,23 +87,23 @@ export default function SocietyScreen() {
   const header = (
     <View>
       {/* Quick actions */}
-      <View style={styles.quickActions}>
+      <View style={[styles.quickActions, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.quickBtn}
+          style={[styles.quickBtn, { borderColor: colors.border, backgroundColor: colors.cream }]}
           onPress={() => navigation.navigate('Calendar')}
         >
           <Calendar size={18} color={Colors.brg} />
           <Text style={styles.quickBtnText}>Calendar</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.quickBtn}
+          style={[styles.quickBtn, { borderColor: colors.border, backgroundColor: colors.cream }]}
           onPress={() => navigation.navigate('Members')}
         >
           <Users size={18} color={Colors.brg} />
           <Text style={styles.quickBtnText}>Members</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.quickBtn}
+          style={[styles.quickBtn, { borderColor: colors.border, backgroundColor: colors.cream }]}
           onPress={() => navigation.navigate('Rallys')}
         >
           <Zap size={18} color={Colors.brg} />
@@ -108,14 +112,14 @@ export default function SocietyScreen() {
       </View>
 
       {/* Tab bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {(['events', 'rallys'] as Tab[]).map((t) => (
           <TouchableOpacity
             key={t}
             style={[styles.tabItem, tab === t && styles.tabItemActive]}
             onPress={() => setTab(t)}
           >
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+            <Text style={[styles.tabText, { color: colors.grey }, tab === t && styles.tabTextActive]}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -125,14 +129,14 @@ export default function SocietyScreen() {
   );
 
   if (isLoading) return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
       {header}
       <Spinner fullScreen />
     </SafeAreaView>
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
       {tab === 'events' ? (
         <FlatList
           data={events}
@@ -171,28 +175,27 @@ export default function SocietyScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:       { flex: 1, backgroundColor: Colors.cream },
+  safe:       { flex: 1 },
   list:       { paddingBottom: 24 },
   quickActions: {
     flexDirection: 'row', gap: 8, padding: 12,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
   },
   quickBtn:   {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.cream,
+    borderWidth: 1.5,
   },
   quickBtnText: { fontSize: 13, fontWeight: '700', color: Colors.brg },
   tabBar:     {
-    flexDirection: 'row', backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    borderBottomWidth: 1,
   },
   tabItem:    { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabItemActive: { borderBottomColor: Colors.brg },
-  tabText:    { fontSize: 14, fontWeight: '600', color: Colors.grey },
+  tabText:    { fontSize: 14, fontWeight: '600' },
   tabTextActive: { color: Colors.brg },
   card:       {
-    backgroundColor: '#FFFFFF',
     marginHorizontal: 12, marginTop: 12,
     borderRadius: 12, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
@@ -202,6 +205,6 @@ const styles = StyleSheet.create({
   cardImagePlaceholder: { backgroundColor: Colors.brg },
   cardBody:   { padding: 12 },
   cardDate:   { fontSize: 12, fontWeight: '700', color: Colors.speed, marginBottom: 4 },
-  cardTitle:  { fontSize: 16, fontWeight: '800', color: Colors.fg, lineHeight: 22 },
-  cardMeta:   { fontSize: 13, color: Colors.grey, marginTop: 4 },
+  cardTitle:  { fontSize: 16, fontWeight: '800', lineHeight: 22 },
+  cardMeta:   { fontSize: 13, marginTop: 4 },
 });

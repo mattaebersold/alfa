@@ -1,10 +1,10 @@
 import React from 'react';
+import { useColorScheme } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { AppStackParamList } from './types';
 import MainTabNavigator from './MainTabNavigator';
 import { Colors } from '../constants/colors';
 
-// Modal / full-screen screens (lazy imports to keep initial bundle smaller)
 import GarageScreen from '../screens/garage/GarageScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
@@ -26,18 +26,20 @@ import CarCreateScreen from '../screens/garage/CarCreateScreen';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
-const headerOptions = {
-  headerStyle: { backgroundColor: Colors.brg },
-  headerTintColor: '#FFFFFF' as string,
-  headerTitleStyle: { fontWeight: '700' as const },
-};
-
 export default function AppNavigator() {
+  const isDark = useColorScheme() === 'dark';
+  const headerBg = isDark ? Colors.brgDark : Colors.brg;
+
+  const headerOptions = {
+    headerStyle: { backgroundColor: headerBg },
+    headerTintColor: '#FFFFFF' as string,
+    headerTitleStyle: { fontWeight: '700' as const },
+  };
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabNavigator} />
 
-      {/* Modal screens */}
       <Stack.Screen
         name="Garage"
         component={GarageScreen}
@@ -68,8 +70,6 @@ export default function AppNavigator() {
         component={CreateScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Create', presentation: 'modal' }}
       />
-
-      {/* Full-screen navigable screens */}
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
@@ -114,7 +114,6 @@ export default function AppNavigator() {
         component={CarCreateScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Add Car', presentation: 'modal' }}
       />
-      {/* Shared detail screens — navigable from any context (profile, search, etc.) */}
       <Stack.Screen
         name="CarDetailModal"
         component={CarDetailScreen}

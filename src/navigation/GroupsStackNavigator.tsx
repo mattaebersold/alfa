@@ -1,4 +1,5 @@
 import React from 'react';
+import { useColorScheme } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { GroupsStackParamList } from './types';
 import GroupsScreen from '../screens/groups/GroupsScreen';
@@ -16,10 +17,13 @@ import { Colors } from '../constants/colors';
 const Stack = createNativeStackNavigator<GroupsStackParamList>();
 
 export default function GroupsStackNavigator() {
+  const isDark = useColorScheme() === 'dark';
+  const headerBg = isDark ? Colors.brgDark : Colors.brg;
+
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.brg },
+        headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
       }}
