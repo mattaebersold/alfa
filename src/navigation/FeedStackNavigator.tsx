@@ -20,7 +20,7 @@ export default function FeedStackNavigator() {
         headerTitleStyle: { fontWeight: '700' },
       }}
     >
-      <Stack.Screen name="Feed" component={FeedScreen} options={{ title: 'Open Road' }} />
+      <Stack.Screen name="Feed" component={FeedScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Post' }} />
     </Stack.Navigator>
   );

@@ -91,9 +91,12 @@ export interface Post {
   updated_at?: string;
   // populated
   user?: User;
+  user_objectid?: User;
   likeCount?: number;
   commentCount?: number;
   isLiked?: boolean;
+  // stories
+  seen?: boolean;
 }
 
 export interface Event {
@@ -218,6 +221,18 @@ export interface GroupResource {
   user?: User;
 }
 
+export interface CarGalleryAlbum {
+  _id?: string;
+  internal_id: string;
+  car_id: string;
+  user_id?: string;
+  title?: string;
+  body?: string;
+  type?: string;
+  gallery?: GalleryItem[];
+  created_at?: string;
+}
+
 export interface CarTask {
   _id?: string;
   internal_id: string;
@@ -290,4 +305,42 @@ export interface LikeInfo {
 // Auth response
 export interface LoginResponse extends User {
   userToken: string;
+}
+
+// Podcast show
+export interface Podcast {
+  _id?: string;
+  internal_id: string;
+  title: string;
+  short_description?: string;
+  description?: string;
+  author?: string;
+  artwork_filename?: string;
+  language?: string;
+  categories?: string[];
+  explicit?: boolean;
+  website?: string;
+  status?: string;
+  user?: User;
+  created_at?: string;
+}
+
+// Podcast episode
+export interface PodcastEpisode {
+  _id?: string;
+  internal_id: string;
+  podcast_id: string;
+  title: string;
+  description?: string;
+  audio_url: string;
+  audio_filename?: string;
+  audio_size?: number;
+  audio_duration?: number;
+  episode_number?: number;
+  season_number?: number;
+  episode_type?: 'full' | 'trailer' | 'bonus';
+  explicit?: boolean;
+  published_at?: string;
+  status?: string;
+  created_at?: string;
 }

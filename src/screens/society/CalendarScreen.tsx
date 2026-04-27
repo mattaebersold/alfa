@@ -119,7 +119,7 @@ export default function CalendarScreen() {
       {isLoading ? <Spinner fullScreen /> : (
         <FlatList
           data={selectedEvents}
-          keyExtractor={(e) => e.internal_id}
+          keyExtractor={(e, i) => e.internal_id ?? String(i)}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.eventRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}

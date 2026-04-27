@@ -1,6 +1,7 @@
 import React from 'react';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Users, UsersRound, ShoppingBag, Car } from 'lucide-react-native';
+import { Home, Users, ShoppingBag, Car, Plus } from 'lucide-react-native';
 import { useColorScheme } from 'react-native';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
@@ -11,6 +12,9 @@ import CarsStackNavigator from './CarsStackNavigator';
 import { Colors } from '../constants/colors';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+// Empty placeholder — never actually rendered (Create tab intercepted before navigation)
+function EmptyScreen() { return null; }
 
 export default function MainTabNavigator() {
   const isDark = useColorScheme() === 'dark';
@@ -23,8 +27,8 @@ export default function MainTabNavigator() {
           backgroundColor: isDark ? Colors.brgDark : Colors.brg,
           borderTopWidth: 0,
           elevation: 0,
-          height: 60,
-          paddingBottom: 8,
+          height: 72,
+          paddingBottom: 16,
           paddingTop: 8,
         },
         tabBarActiveTintColor: Colors.speed,
@@ -48,18 +52,32 @@ export default function MainTabNavigator() {
         name="SocietyTab"
         component={SocietyStackNavigator}
         options={{
-          title: 'Society',
+          title: 'Events',
           tabBarIcon: ({ color, size }) => <Users color={color} size={size - 2} />,
         }}
       />
+
+      {/* Center + button */}
       <Tab.Screen
         name="GroupsTab"
-        component={GroupsStackNavigator}
+        component={EmptyScreen}
         options={{
-          title: 'Groups',
-          tabBarIcon: ({ color, size }) => <UsersRound color={color} size={size - 2} />,
+          title: '',
+          tabBarIcon: () => (
+            <View style={styles.fab}>
+              <Plus size={26} color="#FFFFFF" strokeWidth={2.5} />
+            </View>
+          ),
+          tabBarLabel: () => null,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('Create');
+          },
+        })}
       />
+
       <Tab.Screen
         name="MarketTab"
         component={MarketStackNavigator}
@@ -79,3 +97,20 @@ export default function MainTabNavigator() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  fab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.speed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+});

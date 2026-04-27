@@ -87,6 +87,15 @@ export type AppStackParamList = {
   PostDetailModal: { postId: string };
   EventDetailModal: { eventId: string };
   RallyDetailModal: { rallyId: string };
+  // Stories
+  CreateStory: undefined;
+  StoryDetails: { videoUri: string; thumbnailUri: string };
+  StoryViewer: { stories: import('../types/api').Post[]; startIndex: number };
+  // Podcasts
+  Podcasts: undefined;
+  PodcastDetail: { podcastId: string };
+  // More menu
+  More: undefined;
 };
 
 // Helper type aliases

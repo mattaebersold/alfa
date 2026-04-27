@@ -4,6 +4,7 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { formatDistanceToNow } from 'date-fns';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetPostQuery, useGetCommentsQuery, useCreateCommentMutation } from '../../api/apiService';
@@ -16,6 +17,21 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { FeedScreenProps } from '../../navigation/types';
+
+function StoryVideoPlayer({ videoId }: { videoId: string }) {
+  const player = useVideoPlayer(`https://stream.mux.com/${videoId}.m3u8`, (p) => {
+    p.loop = true;
+    p.play();
+  });
+  return (
+    <VideoView
+      player={player}
+      style={styles.heroImage}
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}
 
 export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'>) {
   const { postId } = route.params;
@@ -33,6 +49,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
   if (isLoading || !post) return <Spinner fullScreen />;
 
+  const isStory = post.type === 'story';
   const heroImage = firstGalleryUrl(post.gallery);
   const displayName = post.user
     ? `${post.user.firstName} ${post.user.lastName}`.trim() || post.user.username
@@ -87,9 +104,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 <Text style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}>{post.body.replace(/<[^>]*>/g, '')}</Text>
               )}
 
-              {heroImage && (
+              {isStory && post.video_id ? (
+                <StoryVideoPlayer videoId={post.video_id} />
+              ) : heroImage ? (
                 <Image source={{ uri: heroImage }} style={styles.heroImage} contentFit="cover" />
-              )}
+              ) : null}
 
               {post.price && (
                 <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>

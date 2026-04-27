@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
 import { Colors } from '../../constants/colors';
 
 type Variant = 'primary' | 'secondary' | 'dark' | 'outline' | 'destructive' | 'ghost' | 'link';
@@ -14,16 +14,6 @@ interface ButtonProps {
   disabled?: boolean;
 }
 
-const VARIANT_STYLES: Record<Variant, { bg: string; fg: string }> = {
-  primary:     { bg: '#08DEE3', fg: '#000000' },
-  secondary:   { bg: Colors.secondary, fg: Colors.fg },
-  dark:        { bg: Colors.brg, fg: '#FFFFFF' },
-  outline:     { bg: 'transparent', fg: Colors.brg },
-  destructive: { bg: '#FF0000', fg: '#FFFFFF' },
-  ghost:       { bg: 'transparent', fg: Colors.grey },
-  link:        { bg: 'transparent', fg: '#08DEE3' },
-};
-
 const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = {
   sm:      { py: 6,  px: 14, fontSize: 13 },
   default: { py: 10, px: 20, fontSize: 15 },
@@ -34,8 +24,22 @@ const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = 
 export default function Button({
   label, onPress, variant = 'primary', size = 'default', loading = false, disabled = false,
 }: ButtonProps) {
-  const v = VARIANT_STYLES[variant];
+  const isDark = useColorScheme() === 'dark';
   const s = SIZE_STYLES[size];
+
+  const getStyles = (): { bg: string; fg: string; border?: string } => {
+    switch (variant) {
+      case 'primary':     return { bg: '#08DEE3', fg: '#000000' };
+      case 'secondary':   return { bg: isDark ? '#2A2A2A' : Colors.secondary, fg: isDark ? '#FFFFFF' : Colors.fg };
+      case 'dark':        return { bg: Colors.brg, fg: '#FFFFFF' };
+      case 'outline':     return { bg: 'transparent', fg: isDark ? '#FFFFFF' : Colors.brg, border: isDark ? '#FFFFFF' : Colors.brg };
+      case 'destructive': return { bg: '#FF0000', fg: '#FFFFFF' };
+      case 'ghost':       return { bg: 'transparent', fg: isDark ? '#BBBBBB' : Colors.grey };
+      case 'link':        return { bg: 'transparent', fg: '#08DEE3' };
+    }
+  };
+
+  const v = getStyles();
   const isOutline = variant === 'outline';
 
   return (
@@ -50,7 +54,7 @@ export default function Button({
           paddingHorizontal: s.px,
           width: size === 'full' ? '100%' : undefined,
           borderWidth: isOutline ? 1.5 : 0,
-          borderColor: isOutline ? Colors.brg : 'transparent',
+          borderColor: isOutline ? (v.border ?? Colors.brg) : 'transparent',
           opacity: disabled ? 0.5 : 1,
         },
       ]}

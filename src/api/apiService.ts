@@ -3,7 +3,7 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, Group, GroupMember, Article,
   CarTask, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  Rally, GroupForumPost, GroupNewsPost, GroupResource,
+  Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -14,7 +14,7 @@ export const apiService = createApi({
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
-    'GroupResources', 'Following', 'Rally', 'Marketplace',
+    'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts',
   ],
   endpoints: (builder) => ({
 
@@ -46,7 +46,7 @@ export const apiService = createApi({
       providesTags: ['User'],
     }),
 
-    searchUsers: builder.query<User[], string>({
+    searchUsers: builder.query<PaginatedResponse<User>, string>({
       query: (q) => ({ url: 'api/users/search', params: { q } }),
     }),
 
@@ -157,6 +157,10 @@ export const apiService = createApi({
 
     getCarWithUser: builder.query<GarageCar, string>({
       query: (id) => `api/car/withUser/${id}`,
+      transformResponse: (response: { entry: GarageCar; user: any }) => ({
+        ...response.entry,
+        user: response.user,
+      }),
       providesTags: (result, error, id) => [{ type: 'GarageCar', id }],
     }),
 
@@ -213,6 +217,13 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'CarFollow', id }],
     }),
 
+    // ── Car Galleries ────────────────────────────────────────────────────────
+
+    getCarGalleries: builder.query<{ entries: CarGalleryAlbum[] }, string>({
+      query: (carId) => `api/car/galleries/${carId}`,
+      providesTags: (result, error, carId) => [{ type: 'CarGallery', id: carId }],
+    }),
+
     // ── Car Tasks ────────────────────────────────────────────────────────────
 
     getCarTasks: builder.query<CarTask[], string>({
@@ -259,6 +270,8 @@ export const apiService = createApi({
 
     getEvent: builder.query<Event, string>({
       query: (id) => `api/event/detail/${id}`,
+      transformResponse: (response: { entry: Event } | Event) =>
+        'entry' in response ? response.entry : response,
       providesTags: (result, error, id) => [{ type: 'Events', id }],
     }),
 
@@ -321,6 +334,8 @@ export const apiService = createApi({
 
     getRally: builder.query<Rally, string>({
       query: (id) => `api/rally/detail/${id}`,
+      transformResponse: (response: { entry: Rally } | Rally) =>
+        'entry' in response ? response.entry : response,
       providesTags: (result, error, id) => [{ type: 'Rally', id }],
     }),
 
@@ -526,6 +541,30 @@ export const apiService = createApi({
     registerDeviceToken: builder.mutation<void, { token: string; platform: string }>({
       query: (body) => ({ url: 'api/users/device-token', method: 'POST', body }),
     }),
+
+    // ── Stories ─────────────────────────────────────────────────────────────
+
+    getStoriesFeed: builder.query<{ stories: Post[] }, void>({
+      query: () => 'api/stories/feed',
+      providesTags: ['Stories'],
+    }),
+
+    markStoriesSeen: builder.mutation<{ ok: boolean }, { story_ids: string[] }>({
+      query: (body) => ({ url: 'api/stories/mark-seen', method: 'POST', body }),
+      invalidatesTags: ['Stories'],
+    }),
+
+    // ── Podcasts ─────────────────────────────────────────────────────────────
+
+    getPodcasts: builder.query<import('../types/api').Podcast[], void>({
+      query: () => 'api/podcasts',
+      providesTags: ['Podcasts'],
+    }),
+
+    getPodcast: builder.query<{ podcast: import('../types/api').Podcast; episodes: import('../types/api').PodcastEpisode[] }, string>({
+      query: (id) => `api/podcasts/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Podcasts' as const, id }],
+    }),
   }),
 });
 
@@ -565,6 +604,7 @@ export const {
   useFollowCarMutation,
   useUnfollowCarMutation,
   useGetCarFollowStatusQuery,
+  useGetCarGalleriesQuery,
   useGetCarTasksQuery,
   useGetArchivedCarTasksQuery,
   useCreateCarTaskMutation,
@@ -618,4 +658,8 @@ export const {
   useUpdateUserSettingImageMutation,
   useDeleteAccountMutation,
   useRegisterDeviceTokenMutation,
+  useGetStoriesFeedQuery,
+  useMarkStoriesSeenMutation,
+  useGetPodcastsQuery,
+  useGetPodcastQuery,
 } = apiService;

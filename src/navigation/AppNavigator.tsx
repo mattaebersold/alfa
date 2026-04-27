@@ -17,12 +17,18 @@ import ArticlesScreen from '../screens/articles/ArticlesScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import SearchScreen from '../screens/search/SearchScreen';
 import CreateScreen from '../screens/create/CreateScreen';
+import CreateStoryScreen from '../screens/create/CreateStoryScreen';
+import StoryDetailsScreen from '../screens/create/StoryDetailsScreen';
+import StoryViewerScreen from '../screens/stories/StoryViewerScreen';
 import CarDetailScreen from '../screens/cars/CarDetailScreen';
 import PostDetailScreen from '../screens/feed/PostDetailScreen';
 import EventDetailScreen from '../screens/society/EventDetailScreen';
 import RallyDetailScreen from '../screens/society/RallyDetailScreen';
 import CarTasksScreen from '../screens/garage/CarTasksScreen';
 import CarCreateScreen from '../screens/garage/CarCreateScreen';
+import PodcastsScreen from '../screens/podcasts/PodcastsScreen';
+import PodcastDetailScreen from '../screens/podcasts/PodcastDetailScreen';
+import MoreScreen from '../screens/MoreScreen';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -133,6 +139,36 @@ export default function AppNavigator() {
         name="RallyDetailModal"
         component={RallyDetailScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Rally' }}
+      />
+      <Stack.Screen
+        name="CreateStory"
+        component={CreateStoryScreen}
+        options={{ headerShown: false, presentation: 'fullScreenModal' }}
+      />
+      <Stack.Screen
+        name="StoryDetails"
+        component={StoryDetailsScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Story Details' }}
+      />
+      <Stack.Screen
+        name="StoryViewer"
+        component={StoryViewerScreen}
+        options={{ headerShown: false, presentation: 'fullScreenModal' }}
+      />
+      <Stack.Screen
+        name="Podcasts"
+        component={PodcastsScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Podcasts' }}
+      />
+      <Stack.Screen
+        name="PodcastDetail"
+        component={PodcastDetailScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Podcast' }}
+      />
+      <Stack.Screen
+        name="More"
+        component={MoreScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'More' }}
       />
     </Stack.Navigator>
   );

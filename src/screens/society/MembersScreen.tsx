@@ -37,9 +37,10 @@ export default function MembersScreen() {
   const colors = useColors();
   const [query, setQuery] = useState('');
 
-  const { data: users = [], isLoading } = useSearchUsersQuery(query, {
+  const { data: usersData, isLoading } = useSearchUsersQuery(query, {
     skip: query.length < 1,
   });
+  const users = usersData?.entries ?? [];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>

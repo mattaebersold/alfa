@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, MessageSquare, Search, Warehouse } from 'lucide-react-native';
+import { Bell, MessageSquare, Warehouse, PenLine, Menu } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
+import StoriesRow from '../../components/stories/StoriesRow';
 import Avatar from '../../components/ui/Avatar';
 import { useAppSelector } from '../../store/store';
 import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
@@ -51,8 +52,11 @@ export default function FeedScreen() {
         </TouchableOpacity>
 
         <View style={styles.rightActions}>
-          <TouchableOpacity onPress={() => navigation.navigate('Search')} style={styles.action}>
-            <Search size={22} color="#FFFFFF" />
+          <TouchableOpacity onPress={() => navigation.navigate('Create')} style={styles.action}>
+            <PenLine size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('More')} style={styles.action}>
+            <Menu size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Garage')} style={styles.action}>
             <Warehouse size={22} color="#FFFFFF" />
@@ -69,7 +73,7 @@ export default function FeedScreen() {
       </View>
 
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
-        <FeedList onPostPress={handlePostPress} />
+        <FeedList onPostPress={handlePostPress} ListHeaderComponent={StoriesRow} />
       </View>
     </SafeAreaView>
   );

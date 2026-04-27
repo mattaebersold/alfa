@@ -19,6 +19,8 @@ export const DarkColors = {
   border:   '#3C3C3C',
   // Input
   inputBorder: '#555555',
+  // Text — grey needs to be lighter on dark surfaces
+  grey:     '#BBBBBB',
   // Keep brand colors unchanged
 } as const;
 
