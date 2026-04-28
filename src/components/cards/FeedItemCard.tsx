@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import Svg, { Polygon } from 'react-native-svg';
 import { formatDistanceToNow } from 'date-fns';
 import Avatar from '../ui/Avatar';
 import Badge from '../ui/Badge';
@@ -17,9 +18,14 @@ interface FeedItemCardProps {
   onCommentPress?: () => void;
 }
 
+function muxThumbnailUrl(videoId: string) {
+  return `https://image.mux.com/${videoId}/thumbnail.jpg?width=720&fit_mode=smartcrop`;
+}
+
 export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItemCardProps) {
   const colors = useColors();
   const heroImage = firstGalleryUrl(post.gallery);
+  const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
   const avatarFilename = post.user?.gallery?.[0]?.filename ?? post.user?.profilePicture;
   const displayName = post.user
     ? `${post.user.firstName} ${post.user.lastName}`.trim() || post.user.username
@@ -73,6 +79,26 @@ export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItem
         />
       )}
 
+      {/* Video thumbnail (when no gallery image) */}
+      {videoThumbnail && (
+        <View style={styles.videoThumb}>
+          <Image
+            source={{ uri: videoThumbnail }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={300}
+          />
+          {/* Play button overlay */}
+          <View style={styles.playOverlay}>
+            <View style={styles.playCircle}>
+              <Svg width={20} height={20} viewBox="0 0 20 20">
+                <Polygon points="6,3 18,10 6,17" fill="#fff" />
+              </Svg>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Listing price */}
       {post.price && (
         <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>
@@ -113,6 +139,18 @@ const styles = StyleSheet.create({
   title:       { fontSize: 16, fontWeight: '700', paddingHorizontal: 12, paddingBottom: 6, lineHeight: 22 },
   body:        { fontSize: 14, paddingHorizontal: 12, paddingBottom: 8, lineHeight: 20 },
   image:       { width: '100%', height: 220 },
+  videoThumb:  { width: '100%', height: 220, overflow: 'hidden', position: 'relative' },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  playCircle:  {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center', justifyContent: 'center',
+    paddingLeft: 4,
+  },
   price:       { fontSize: 18, fontWeight: '800', color: Colors.brg, paddingHorizontal: 12, paddingTop: 8 },
   actions:     {
     flexDirection: 'row', alignItems: 'center',

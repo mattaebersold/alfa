@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useGetPostsQuery } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
@@ -30,8 +30,9 @@ export default function FeedList({
   const [page, setPage] = useState(0);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
 
-  const { data, isFetching, isLoading } = useGetPostsQuery({
+  const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
     page,
     limit: PAGE_SIZE,
     filter,
@@ -44,6 +45,11 @@ export default function FeedList({
     if (data?.entries) {
       if (page === 0) {
         setAllPosts(data.entries);
+        // Clear refreshing once fresh data lands
+        if (refreshingRef.current) {
+          refreshingRef.current = false;
+          setRefreshing(false);
+        }
       } else {
         setAllPosts((prev) => {
           const ids = new Set(prev.map((p) => p.internal_id));
@@ -55,10 +61,17 @@ export default function FeedList({
   }, [data, page]);
 
   const handleRefresh = useCallback(async () => {
+    refreshingRef.current = true;
     setRefreshing(true);
     setPage(0);
-    setRefreshing(false);
-  }, []);
+    // If page is already 0, RTK Query won't re-fetch automatically — force it
+    if (page === 0) {
+      await refetch();
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+    // Otherwise, setting page=0 triggers a new query; the useEffect clears refreshing
+  }, [page, refetch]);
 
   const handleLoadMore = useCallback(() => {
     if (!isFetching && data && allPosts.length < data.total) {

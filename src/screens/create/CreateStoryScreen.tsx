@@ -142,6 +142,7 @@ export default function CreateStoryScreen() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cameraRef = useRef<any>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordStartRef = useRef<number>(0);
 
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [isRecording, setIsRecording] = useState(false);
@@ -175,6 +176,7 @@ export default function CreateStoryScreen() {
     if (!cameraRef.current || isRecording || recordedUri) return;
     setIsRecording(true);
     setRecordingTime(0);
+    recordStartRef.current = Date.now();
 
     timerRef.current = setInterval(() => {
       setRecordingTime(t => t + 0.1);
@@ -182,12 +184,17 @@ export default function CreateStoryScreen() {
 
     try {
       const result = await cameraRef.current.record({ maxDuration: MAX_DURATION });
-      setRecordedUri(result.uri);
+      const elapsed = (Date.now() - recordStartRef.current) / 1000;
+      if (elapsed >= 2) {
+        setRecordedUri(result.uri);
+      }
+      // else: too short — discard and stay on camera view
     } catch {
       // released before recording started — ignore
     } finally {
       if (timerRef.current) clearInterval(timerRef.current);
       setIsRecording(false);
+      setRecordingTime(0);
     }
   }, [isRecording, recordedUri]);
 

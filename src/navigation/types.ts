@@ -90,7 +90,7 @@ export type AppStackParamList = {
   // Stories
   CreateStory: undefined;
   StoryDetails: { videoUri: string; thumbnailUri: string };
-  StoryViewer: { stories: import('../types/api').Post[]; startIndex: number };
+  StoryViewer: { groups: import('../types/api').StoryGroup[]; startGroupIndex: number };
   // Podcasts
   Podcasts: undefined;
   PodcastDetail: { podcastId: string };

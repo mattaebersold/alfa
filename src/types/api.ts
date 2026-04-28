@@ -99,6 +99,13 @@ export interface Post {
   seen?: boolean;
 }
 
+export interface StoryGroup {
+  userId: string;
+  user: User;
+  stories: Post[];
+  allSeen: boolean;
+}
+
 export interface Event {
   _id?: string;
   internal_id: string;

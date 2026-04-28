@@ -11,11 +11,31 @@ import { imageUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
-import type { Post } from '../../types/api';
+import type { Post, StoryGroup } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const BUBBLE_SIZE = 56;
+
+/** Group a flat stories array by user, preserving order of first appearance */
+function groupStories(stories: (Post & { seen?: boolean })[]): StoryGroup[] {
+  const order: string[] = [];
+  const map: Record<string, StoryGroup> = {};
+
+  for (const story of stories) {
+    const user = (story.user_objectid ?? story.user) as any;
+    const userId = String(user?._id ?? user?.user_id ?? story.user_id ?? '');
+    if (!userId) continue;
+    if (!map[userId]) {
+      order.push(userId);
+      map[userId] = { userId, user, stories: [], allSeen: true };
+    }
+    map[userId].stories.push(story);
+    if (!story.seen) map[userId].allSeen = false;
+  }
+
+  return order.map((id) => map[id]);
+}
 
 function AddStoryBubble({ onPress }: { onPress: () => void }) {
   const colors = useColors();
@@ -32,15 +52,15 @@ function AddStoryBubble({ onPress }: { onPress: () => void }) {
 }
 
 function StoryBubble({
-  story, onPress,
-}: { story: Post & { seen?: boolean }; onPress: () => void }) {
+  group, onPress,
+}: { group: StoryGroup; onPress: () => void }) {
   const colors = useColors();
-  const user = (story.user_objectid ?? story.user) as any;
+  const user = group.user as any;
   const username: string = user?.username ?? '';
   const displayName = username.length > 8 ? username.slice(0, 7) + '…' : username;
   const profileFilename: string | undefined = user?.profile_image ?? user?.gallery?.[0]?.filename;
   const profileUri = profileFilename ? imageUrl(profileFilename) : null;
-  const ringColor = story.seen ? colors.border : '#22c55e';
+  const ringColor = group.allSeen ? colors.border : '#22c55e';
 
   return (
     <TouchableOpacity style={styles.bubbleWrapper} onPress={onPress} activeOpacity={0.75}>
@@ -67,7 +87,8 @@ export default function StoriesRow() {
   const { isLoggedIn } = useAppSelector((s) => s.auth);
   const { data, isLoading } = useGetStoriesFeedQuery(undefined, { skip: !isLoggedIn });
 
-  const stories = data?.stories ?? [];
+  const stories = (data?.stories ?? []) as (Post & { seen?: boolean })[];
+  const groups = groupStories(stories);
 
   if (isLoading) {
     return (
@@ -80,21 +101,20 @@ export default function StoriesRow() {
   return (
     <FlatList
       horizontal
-      data={[null, ...stories]}
-      keyExtractor={(item, i) => (item ? (item as Post).internal_id : 'add')}
+      data={[null, ...groups]}
+      keyExtractor={(item, i) => (item ? (item as StoryGroup).userId : 'add')}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
       renderItem={({ item, index }) => {
         if (item === null) {
           return <AddStoryBubble onPress={() => navigation.navigate('CreateStory')} />;
         }
-        const story = item as Post;
+        const group = item as StoryGroup;
+        const groupIndex = index - 1; // subtract 1 for the add bubble
         return (
           <StoryBubble
-            story={story}
-            onPress={() =>
-              navigation.navigate('StoryViewer', { stories, startIndex: index - 1 })
-            }
+            group={group}
+            onPress={() => navigation.navigate('StoryViewer', { groups, startGroupIndex: groupIndex })}
           />
         );
       }}
