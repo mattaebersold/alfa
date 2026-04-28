@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, StatusBar, Dimensions,
+  View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -8,43 +8,78 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useNavigation } from '@react-navigation/native';
 import { useMarkStoriesSeenMutation } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
+import LikeButton from '../../components/social/LikeButton';
 import type { AppScreenProps } from '../../navigation/types';
 import type { StoryGroup, Post } from '../../types/api';
 
 type Props = AppScreenProps<'StoryViewer'>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MAX_DURATION = 30; // seconds — matches recording max
 
 function muxHlsUrl(videoId: string): string {
   return `https://stream.mux.com/${videoId}.m3u8`;
 }
 
-// ─── Progress bars ────────────────────────────────────────────────────────────
+// ─── Animated progress bars ───────────────────────────────────────────────────
 
-function ProgressBars({ total, current }: { total: number; current: number }) {
+function ProgressBars({
+  total,
+  current,
+  progressAnim,
+}: {
+  total: number;
+  current: number;
+  progressAnim: Animated.Value;
+}) {
   return (
     <View style={styles.progressBars}>
       {Array.from({ length: total }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.progressBar,
-            i < current && styles.progressBarDone,
-            i === current && styles.progressBarActive,
-          ]}
-        />
+        <View key={i} style={styles.progressBarTrack}>
+          {i < current ? (
+            // Completed — fully white
+            <View style={[styles.progressBarFill, { width: '100%' }]} />
+          ) : i === current ? (
+            // Active — animated
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          ) : null /* future — track only */}
+        </View>
       ))}
     </View>
   );
 }
 
-// ─── Story video (keyed so it remounts on story change) ───────────────────────
+// ─── Story video ─────────────────────────────────────────────────────────────
 
-function StoryVideo({ videoId }: { videoId: string }) {
+function StoryVideo({
+  videoId,
+  onBufferingChange,
+}: {
+  videoId: string;
+  onBufferingChange: (buffering: boolean) => void;
+}) {
   const player = useVideoPlayer(muxHlsUrl(videoId), (p) => {
     p.loop = true;
     p.play();
   });
+
+  useEffect(() => {
+    // New video always starts buffering
+    onBufferingChange(true);
+    const sub = player.addListener('statusChange', ({ status }: { status: string }) => {
+      onBufferingChange(status === 'loading' || status === 'idle');
+    });
+    return () => sub.remove();
+  }, [player]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <VideoView
@@ -56,7 +91,7 @@ function StoryVideo({ videoId }: { videoId: string }) {
   );
 }
 
-// ─── Main viewer ─────────────────────────────────────────────────────────────
+// ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function StoryViewerScreen({ route }: Props) {
   const { groups, startGroupIndex } = route.params;
@@ -65,6 +100,10 @@ export default function StoryViewerScreen({ route }: Props) {
 
   const [groupIndex, setGroupIndex] = useState(startGroupIndex);
   const [storyIndex, setStoryIndex] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(true);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const group: StoryGroup = groups[groupIndex];
   const story: Post | undefined = group?.stories[storyIndex];
@@ -73,7 +112,25 @@ export default function StoryViewerScreen({ route }: Props) {
   const profileFilename: string | undefined = user?.profile_image ?? user?.gallery?.[0]?.filename;
   const profileUri = profileFilename ? imageUrl(profileFilename) : null;
 
-  // Mark current story seen
+  // Reset buffering indicator on story change
+  useEffect(() => {
+    setIsBuffering(true);
+  }, [groupIndex, storyIndex]);
+
+  // Animate progress bar for current story
+  useEffect(() => {
+    animRef.current?.stop();
+    progressAnim.setValue(0);
+    animRef.current = Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: MAX_DURATION * 1000,
+      useNativeDriver: false,
+    });
+    animRef.current.start();
+    return () => animRef.current?.stop();
+  }, [groupIndex, storyIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mark story seen
   useEffect(() => {
     if (story?.internal_id) {
       markSeen({ story_ids: [story.internal_id] });
@@ -111,23 +168,33 @@ export default function StoryViewerScreen({ route }: Props) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
       {/* Video */}
       {story.video_id ? (
-        <StoryVideo key={`${story.internal_id}`} videoId={story.video_id} />
+        <StoryVideo
+          key={`${story.internal_id}`}
+          videoId={story.video_id}
+          onBufferingChange={setIsBuffering}
+        />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.noVideo]}>
           <Text style={styles.noVideoText}>Video processing…</Text>
         </View>
       )}
 
-      {/* Top overlay */}
-      <SafeAreaView style={styles.topOverlay} edges={['top']}>
-        {/* Progress bars */}
-        <ProgressBars total={group.stories.length} current={storyIndex} />
+      {/* Buffering spinner */}
+      {isBuffering && (
+        <View style={styles.bufferingOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color="rgba(255,255,255,0.85)" />
+        </View>
+      )}
 
-        {/* User row */}
+      {/* Top overlay: progress bars + user */}
+      <SafeAreaView style={styles.topOverlay} edges={['top']}>
+        <ProgressBars
+          total={group.stories.length}
+          current={storyIndex}
+          progressAnim={progressAnim}
+        />
         <View style={styles.topRow}>
           <View style={styles.userInfo}>
             {profileUri ? (
@@ -150,22 +217,13 @@ export default function StoryViewerScreen({ route }: Props) {
         </View>
       </SafeAreaView>
 
-      {/* Tap zones for prev/next */}
+      {/* Tap zones */}
       <View style={styles.tapZones} pointerEvents="box-none">
-        <TouchableOpacity
-          style={styles.tapLeft}
-          onPress={handlePrev}
-          disabled={isFirst}
-          activeOpacity={1}
-        />
-        <TouchableOpacity
-          style={styles.tapRight}
-          onPress={handleNext}
-          activeOpacity={1}
-        />
+        <TouchableOpacity style={styles.tapLeft} onPress={handlePrev} disabled={isFirst} activeOpacity={1} />
+        <TouchableOpacity style={styles.tapRight} onPress={handleNext} activeOpacity={1} />
       </View>
 
-      {/* Bottom nav buttons */}
+      {/* Bottom bar: prev / like / next */}
       <SafeAreaView style={styles.bottomOverlay} edges={['bottom']}>
         <View style={styles.bottomRow}>
           <TouchableOpacity
@@ -176,15 +234,18 @@ export default function StoryViewerScreen({ route }: Props) {
             <Text style={styles.navText}>‹ Prev</Text>
           </TouchableOpacity>
 
-          <Text style={styles.counter}>
-            {storyIndex + 1} / {group.stories.length}
-            {groups.length > 1 ? `  ·  ${groupIndex + 1}/${groups.length}` : ''}
-          </Text>
+          {/* Like button */}
+          <View style={styles.likeWrapper}>
+            <LikeButton
+              documentId={story.internal_id}
+              entryType="post"
+              initialLiked={story.isLiked ?? false}
+              initialCount={story.likeCount ?? 0}
+              showCount
+            />
+          </View>
 
-          <TouchableOpacity
-            onPress={handleNext}
-            style={styles.navBtn}
-          >
+          <TouchableOpacity onPress={handleNext} style={styles.navBtn}>
             <Text style={styles.navText}>{isLast ? 'Done' : 'Next ›'}</Text>
           </TouchableOpacity>
         </View>
@@ -206,14 +267,18 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 2,
   },
-  progressBar: {
+  progressBarTrack: {
     flex: 1,
     height: 2.5,
     borderRadius: 2,
     backgroundColor: 'rgba(255,255,255,0.35)',
+    overflow: 'hidden',
   },
-  progressBarDone:   { backgroundColor: '#fff' },
-  progressBarActive: { backgroundColor: '#fff' },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 2,
+  },
 
   // Top overlay
   topOverlay:   { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
@@ -239,20 +304,20 @@ const styles = StyleSheet.create({
   tapLeft:      { flex: 1 },
   tapRight:     { flex: 1 },
 
-  // Bottom nav
+  // Bottom bar
   bottomOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   bottomRow:    {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 12,
+    paddingHorizontal: 20, paddingVertical: 10,
   },
-  navBtn:       {
+  navBtn:         {
     paddingVertical: 8, paddingHorizontal: 16,
     backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 24,
   },
   navBtnDisabled: { opacity: 0.3 },
-  navText:      { color: '#fff', fontSize: 14, fontWeight: '600' },
-  counter:      { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
+  navText:        { color: '#fff', fontSize: 14, fontWeight: '600' },
+  likeWrapper:    { alignItems: 'center' },
 });
