@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { getThumbnailAsync } from 'expo-video-thumbnails';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import Svg, { Circle } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -149,6 +150,14 @@ export default function CreateStoryScreen() {
   const [processing, setProcessing] = useState(false);
 
   const hasPermissions = cameraPermission?.granted && micPermission?.granted;
+
+  // Lock to portrait for recording; restore on leave
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    return () => {
+      ScreenOrientation.unlockAsync().catch(() => {});
+    };
+  }, []);
 
   // Clean up timer on unmount
   useEffect(() => {
