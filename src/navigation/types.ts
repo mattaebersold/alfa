@@ -94,6 +94,10 @@ export type AppStackParamList = {
   // Podcasts
   Podcasts: undefined;
   PodcastDetail: { podcastId: string };
+  // Lists
+  ListDetail: { listId: string };
+  CreateList: undefined;
+  EditList: { listId: string };
   // More menu
   More: undefined;
 };

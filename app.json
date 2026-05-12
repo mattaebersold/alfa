@@ -4,7 +4,11 @@
     "slug": "alfa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": {
+      "light": "./assets/icon.png",
+      "dark": "./assets/icon-dark.png",
+      "tinted": "./assets/icon-tinted.png"
+    },
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {

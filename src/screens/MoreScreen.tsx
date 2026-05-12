@@ -46,9 +46,15 @@ export default function MoreScreen() {
         ))}
 
         <View style={styles.footer}>
-          <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
-            <Text style={[styles.footerLink, { color: colors.grey }]}>Privacy Policy</Text>
-          </TouchableOpacity>
+          <View style={styles.footerLinks}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
+              <Text style={[styles.footerLink, { color: colors.grey }]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={[styles.footerDivider, { color: colors.grey }]}>·</Text>
+            <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')}>
+              <Text style={[styles.footerLink, { color: colors.grey }]}>Terms of Service</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={[styles.footerCopy, { color: colors.grey }]}>© {new Date().getFullYear()} Open Road Society</Text>
         </View>
       </ScrollView>
@@ -64,9 +70,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  footer:      { paddingHorizontal: 16, paddingTop: 32, paddingBottom: 8, gap: 6 },
-  footerLink:  { fontSize: 12, fontWeight: '600' },
-  footerCopy:  { fontSize: 11 },
+  footer:        { paddingHorizontal: 16, paddingTop: 32, paddingBottom: 8, gap: 6 },
+  footerLinks:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  footerLink:    { fontSize: 12, fontWeight: '600' },
+  footerDivider: { fontSize: 12 },
+  footerCopy:    { fontSize: 11 },
   iconWrap:    {
     width: 40, height: 40, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',

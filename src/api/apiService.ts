@@ -14,7 +14,7 @@ export const apiService = createApi({
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
-    'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts',
+    'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
   ],
   endpoints: (builder) => ({
 
@@ -565,6 +565,49 @@ export const apiService = createApi({
       query: (id) => `api/podcasts/${id}`,
       providesTags: (result, error, id) => [{ type: 'Podcasts' as const, id }],
     }),
+
+    // ── Lists ─────────────────────────────────────────────────────────────────
+
+    getLists: builder.query<PaginatedResponse<import('../types/api').List>, { user_id?: string; page?: number; limit?: number; search?: string }>({
+      query: (params = {}) => ({ url: 'api/lists', params }),
+      providesTags: ['List'],
+    }),
+
+    getList: builder.query<import('../types/api').List, string>({
+      query: (id) => `api/lists/single/${id}`,
+      providesTags: (result, error, id) => [{ type: 'List' as const, id }],
+    }),
+
+    createList: builder.mutation<{ _id: string; entry: import('../types/api').List }, FormData>({
+      query: (formData) => ({ url: 'api/lists/create', method: 'POST', body: formData }),
+      invalidatesTags: ['List'],
+    }),
+
+    updateList: builder.mutation<import('../types/api').List, FormData>({
+      query: (formData) => ({ url: 'api/lists/update', method: 'POST', body: formData }),
+      invalidatesTags: ['List'],
+    }),
+
+    deleteList: builder.mutation<{ success: boolean }, { internal_id: string }>({
+      query: (body) => ({ url: 'api/lists/delete', method: 'POST', body }),
+      invalidatesTags: ['List'],
+    }),
+
+    createListItem: builder.mutation<{ item: import('../types/api').ListItem; list_id: string }, FormData>({
+      query: (formData) => ({ url: 'api/lists/items/create', method: 'POST', body: formData }),
+      invalidatesTags: ['List'],
+    }),
+
+    deleteListItem: builder.mutation<{ success: boolean }, { list_id: string; item_internal_id: string }>({
+      query: (body) => ({ url: 'api/lists/items/delete', method: 'POST', body }),
+      invalidatesTags: ['List'],
+    }),
+
+    reorderListItems: builder.mutation<{ success: boolean }, { list_id: string; item_order: string[] }>({
+      query: (body) => ({ url: 'api/lists/items/reorder', method: 'POST', body }),
+      invalidatesTags: ['List'],
+    }),
+
   }),
 });
 
@@ -662,4 +705,12 @@ export const {
   useMarkStoriesSeenMutation,
   useGetPodcastsQuery,
   useGetPodcastQuery,
+  useGetListsQuery,
+  useGetListQuery,
+  useCreateListMutation,
+  useUpdateListMutation,
+  useDeleteListMutation,
+  useCreateListItemMutation,
+  useDeleteListItemMutation,
+  useReorderListItemsMutation,
 } = apiService;

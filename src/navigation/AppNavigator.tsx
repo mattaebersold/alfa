@@ -28,6 +28,9 @@ import CarTasksScreen from '../screens/garage/CarTasksScreen';
 import CarCreateScreen from '../screens/garage/CarCreateScreen';
 import PodcastsScreen from '../screens/podcasts/PodcastsScreen';
 import PodcastDetailScreen from '../screens/podcasts/PodcastDetailScreen';
+import ListDetailScreen from '../screens/lists/ListDetailScreen';
+import CreateListScreen from '../screens/lists/CreateListScreen';
+import EditListScreen from '../screens/lists/EditListScreen';
 import MoreScreen from '../screens/MoreScreen';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -169,6 +172,25 @@ export default function AppNavigator() {
         name="More"
         component={MoreScreen}
         options={{ ...headerOptions, headerShown: true, title: 'More' }}
+      />
+      <Stack.Screen
+        name="ListDetail"
+        component={ListDetailScreen}
+        options={({ route }) => ({
+          ...headerOptions,
+          headerShown: true,
+          title: 'List',
+        })}
+      />
+      <Stack.Screen
+        name="CreateList"
+        component={CreateListScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'New List', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="EditList"
+        component={EditListScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Edit List' }}
       />
     </Stack.Navigator>
   );

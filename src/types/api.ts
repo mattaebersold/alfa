@@ -36,6 +36,33 @@ export interface GalleryItem {
   _id?: string;
 }
 
+export interface ListItem {
+  internal_id: string;
+  title: string;
+  description?: string;
+  gallery?: GalleryItem[];
+  deleted?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface List {
+  _id?: string;
+  internal_id: string;
+  title: string;
+  body?: string;
+  category?: string;
+  private?: boolean;
+  gallery?: GalleryItem[];
+  items?: ListItem[];
+  item_count?: number;
+  user_id: string;
+  user?: User;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface GarageCar {
   _id?: string;
   internal_id: string;

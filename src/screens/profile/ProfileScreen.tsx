@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Settings, Warehouse } from 'lucide-react-native';
+import { Settings, Warehouse, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -12,9 +12,11 @@ import {
   useGetUserStatsQuery,
   useGetPostsQuery,
   useGetCarsQuery,
+  useGetListsQuery,
 } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import FeedItemCard from '../../components/cards/FeedItemCard';
+import ListCard from '../../components/lists/ListCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { Colors } from '../../constants/colors';
@@ -24,7 +26,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type Tab = 'posts' | 'cars';
+type Tab = 'posts' | 'cars' | 'lists';
 
 function StatItem({ label, value }: { label: string; value: number }) {
   const colors = useColors();
@@ -67,6 +69,10 @@ export default function ProfileScreen() {
     { user_id: user?.user_id, limit: 24 },
     { skip: !user?.user_id || tab !== 'cars' }
   );
+  const { data: listsData, refetch: refetchLists } = useGetListsQuery(
+    { user_id: user?.user_id, limit: 50 },
+    { skip: !user?.user_id || tab !== 'lists' }
+  );
 
   if (isLoading) return <Spinner fullScreen />;
   if (!user) return <EmptyState title="Not logged in" />;
@@ -74,6 +80,7 @@ export default function ProfileScreen() {
   const bannerUri = user.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
   const posts = postsData?.entries ?? [];
   const cars = carsData?.entries ?? [];
+  const lists = listsData?.entries ?? [];
 
   const header = (
     <View>
@@ -146,6 +153,12 @@ export default function ProfileScreen() {
         >
           <Text style={[styles.tabText, { color: colors.grey }, tab === 'cars' && styles.tabTextActive]}>Cars</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, tab === 'lists' && styles.tabItemActive]}
+          onPress={() => setTab('lists')}
+        >
+          <Text style={[styles.tabText, { color: colors.grey }, tab === 'lists' && styles.tabTextActive]}>Lists</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -168,6 +181,40 @@ export default function ProfileScreen() {
           )}
           ListEmptyComponent={
             <EmptyState title="No cars yet" message="Add your first car to your garage." />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (tab === 'lists') {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+        <FlatList
+          data={lists}
+          keyExtractor={(item) => item.internal_id}
+          contentContainerStyle={[styles.list, styles.listsPadding]}
+          ListHeaderComponent={
+            <View>
+              {header}
+              <TouchableOpacity
+                style={[styles.newListBtn, { backgroundColor: colors.brg }]}
+                onPress={() => navigation.navigate('CreateList')}
+              >
+                <Plus size={16} color="#fff" />
+                <Text style={styles.newListBtnText}>New List</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <ListCard
+              list={item}
+              onPress={(l) => navigation.navigate('ListDetail', { listId: l.internal_id })}
+            />
+          )}
+          ListEmptyComponent={
+            <EmptyState title="No lists yet" message="Create a list to organize your content." />
           }
           showsVerticalScrollIndicator={false}
         />
@@ -246,4 +293,11 @@ const styles = StyleSheet.create({
   },
   carImage:       { width: '100%', aspectRatio: 4 / 3 },
   carTitle:       { fontSize: 12, fontWeight: '700', padding: 8 },
+  listsPadding:   { paddingHorizontal: 12 },
+  newListBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+  },
+  newListBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
