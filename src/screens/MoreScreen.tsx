@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -44,6 +44,13 @@ export default function MoreScreen() {
             <ChevronRight size={16} color={colors.grey} />
           </TouchableOpacity>
         ))}
+
+        <View style={styles.footer}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
+            <Text style={[styles.footerLink, { color: colors.grey }]}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={[styles.footerCopy, { color: colors.grey }]}>© {new Date().getFullYear()} Open Road Society</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -57,6 +64,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  footer:      { paddingHorizontal: 16, paddingTop: 32, paddingBottom: 8, gap: 6 },
+  footerLink:  { fontSize: 12, fontWeight: '600' },
+  footerCopy:  { fontSize: 11 },
   iconWrap:    {
     width: 40, height: 40, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
