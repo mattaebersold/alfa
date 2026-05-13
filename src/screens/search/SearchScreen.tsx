@@ -10,11 +10,13 @@ import { Image } from 'expo-image';
 import { useSearchQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
+import AppHeader from '../../components/ui/AppHeader';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User, Post, GarageCar } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -54,7 +56,7 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
     <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.resultInfo}>
         <Text style={[styles.resultTitle, { color: colors.fg }]} numberOfLines={1}>{post.title ?? '(Untitled)'}</Text>
-        {post.body && <Text style={[styles.resultSub, { color: colors.grey }]} numberOfLines={1}>{post.body.replace(/<[^>]*>/g, '')}</Text>}
+        {post.body && <Text style={[styles.resultSub, { color: colors.grey }]} numberOfLines={1}>{stripHtml(post.body)}</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -77,7 +79,9 @@ export default function SearchScreen() {
   const hasResults = users.length > 0 || cars.length > 0 || posts.length > 0;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+      <AppHeader />
+      <View style={[styles.searchContent, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <SearchIcon size={16} color={colors.grey} />
@@ -156,12 +160,14 @@ export default function SearchScreen() {
           )}
         </ScrollView>
       )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
+  safe:          { flex: 1 },
+  searchContent: { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,

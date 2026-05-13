@@ -3,10 +3,10 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Users, ShoppingBag, Car, Plus } from 'lucide-react-native';
 import { useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
-import GroupsStackNavigator from './GroupsStackNavigator';
 import MarketStackNavigator from './MarketStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
 import { Colors } from '../constants/colors';
@@ -18,6 +18,8 @@ function EmptyScreen() { return null; }
 
 export default function MainTabNavigator() {
   const isDark = useColorScheme() === 'dark';
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 56 + insets.bottom;
 
   return (
     <Tab.Navigator
@@ -27,8 +29,8 @@ export default function MainTabNavigator() {
           backgroundColor: isDark ? Colors.brgDark : Colors.brg,
           borderTopWidth: 0,
           elevation: 0,
-          height: 72,
-          paddingBottom: 16,
+          height: tabBarHeight,
+          paddingBottom: insets.bottom + 8,
           paddingTop: 8,
         },
         tabBarActiveTintColor: Colors.speed,
@@ -73,7 +75,7 @@ export default function MainTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('Create');
+            (navigation as any).navigate('Create');
           },
         })}
       />

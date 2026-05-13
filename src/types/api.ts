@@ -90,8 +90,10 @@ export interface GarageCar {
   private?: boolean;
   created_at?: string;
   updated_at?: string;
+  coowner_id?: string;
   // populated
   user?: User;
+  coowner?: User;
 }
 
 export interface Post {
@@ -119,6 +121,10 @@ export interface Post {
   // populated
   user?: User;
   user_objectid?: User;
+  // snake_case from feed/list endpoints
+  like_count?: number;
+  comment_count?: number;
+  // camelCase aliases (some endpoints may use these)
   likeCount?: number;
   commentCount?: number;
   isLiked?: boolean;
@@ -165,6 +171,7 @@ export interface Group {
   type?: string;
   category?: string;
   created_at?: string;
+  membership?: { member_type: 'basic' | 'admin'; status: string };
 }
 
 export interface GroupMember {
@@ -278,6 +285,20 @@ export interface CarTask {
   completed?: boolean;
   position?: number;
   priority?: 'critical' | 'high' | 'medium' | 'low';
+  created_at?: string;
+}
+
+export interface Mod {
+  _id?: string;
+  internal_id: string;
+  car_id: string;
+  user_id?: string;
+  title?: string;
+  body?: string;
+  type?: string;
+  category?: string;
+  gallery?: GalleryItem[];
+  status?: string;
   created_at?: string;
 }
 

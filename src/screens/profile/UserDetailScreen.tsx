@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { X } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -24,16 +25,7 @@ import type { GarageCar } from '../../types/api';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type Tab = 'posts' | 'cars';
-
-function StatItem({ label, value }: { label: string; value: number }) {
-  const colors = useColors();
-  return (
-    <View style={styles.statItem}>
-      <Text style={[styles.statValue, { color: colors.fg }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: colors.grey }]}>{label}</Text>
-    </View>
-  );
-}
+type SheetType = 'posts' | 'cars' | null;
 
 function CarGridItem({ car, onPress }: { car: GarageCar; onPress: () => void }) {
   const colors = useColors();
@@ -56,16 +48,13 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const [tab, setTab] = useState<Tab>('posts');
+  const [sheet, setSheet] = useState<SheetType>(null);
 
   const { data: user, isLoading } = useGetPublicUserByIdQuery(userId);
-  const { data: postsData } = useGetPostsQuery(
-    { user_id: userId, limit: 20 },
-    { skip: tab !== 'posts' }
-  );
-  const { data: carsData } = useGetCarsQuery(
-    { user_id: userId, limit: 24 },
-    { skip: tab !== 'cars' }
-  );
+
+  // Always fetch both; tab just controls which to display
+  const { data: postsData } = useGetPostsQuery({ user_id: userId, limit: 30 });
+  const { data: carsData } = useGetCarsQuery({ user_id: userId, limit: 30 });
 
   if (isLoading) return <Spinner fullScreen />;
   if (!user) return <EmptyState title="User not found" />;
@@ -87,11 +76,7 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
       {/* Avatar + follow row */}
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrap}>
-          <Avatar
-            filename={user.gallery?.[0]?.filename}
-            name={user.firstName}
-            size={80}
-          />
+          <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={80} />
         </View>
         <View style={styles.followRow}>
           <FollowButton username={user.username} />
@@ -112,15 +97,27 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
         {user.cityState ? <Text style={[styles.location, { color: colors.grey }]}>{user.cityState}</Text> : null}
       </View>
 
-      {/* Stats */}
+      {/* Stats — tappable */}
       <View style={[styles.statsRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <StatItem label="Posts" value={posts.length} />
+        <TouchableOpacity style={styles.statItem} onPress={() => setSheet('posts')}>
+          <Text style={[styles.statValue, { color: colors.fg }]}>{posts.length}</Text>
+          <Text style={[styles.statLabel, { color: Colors.brg }]}>Posts</Text>
+        </TouchableOpacity>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <StatItem label="Cars" value={cars.length} />
+        <TouchableOpacity style={styles.statItem} onPress={() => setSheet('cars')}>
+          <Text style={[styles.statValue, { color: colors.fg }]}>{cars.length}</Text>
+          <Text style={[styles.statLabel, { color: Colors.brg }]}>Cars</Text>
+        </TouchableOpacity>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <StatItem label="Followers" value={user.followersCount ?? 0} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.fg }]}>{user.followersCount ?? 0}</Text>
+          <Text style={[styles.statLabel, { color: colors.grey }]}>Followers</Text>
+        </View>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <StatItem label="Following" value={user.followingCount ?? 0} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.fg }]}>{user.followingCount ?? 0}</Text>
+          <Text style={[styles.statLabel, { color: colors.grey }]}>Following</Text>
+        </View>
       </View>
 
       {/* Tabs */}
@@ -141,10 +138,12 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
     </View>
   );
 
-  if (tab === 'cars') {
-    return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      {/* Single FlatList with key to avoid numColumns error */}
+      {tab === 'cars' ? (
         <FlatList
+          key="cars"
           data={cars}
           keyExtractor={(item) => item.internal_id}
           numColumns={2}
@@ -160,26 +159,71 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
           ListEmptyComponent={<EmptyState title="No cars yet" />}
           showsVerticalScrollIndicator={false}
         />
-      </SafeAreaView>
-    );
-  }
+      ) : (
+        <FlatList
+          key="posts"
+          data={posts}
+          keyExtractor={(item) => item.internal_id}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={header}
+          renderItem={({ item }) => (
+            <FeedItemCard
+              post={item}
+              onPress={() => navigation.navigate('PostDetailModal', { postId: item.internal_id })}
+            />
+          )}
+          ListEmptyComponent={<EmptyState title="No posts yet" />}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
-  return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.internal_id}
-        contentContainerStyle={styles.list}
-        ListHeaderComponent={header}
-        renderItem={({ item }) => (
-          <FeedItemCard
-            post={item}
-            onPress={() => navigation.navigate('PostDetailModal', { postId: item.internal_id })}
+      {/* Posts sheet */}
+      <Modal visible={sheet === 'posts'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
+        <SafeAreaView style={[styles.sheetSafe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+          <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.sheetTitle, { color: colors.fg }]}>Posts</Text>
+            <TouchableOpacity onPress={() => setSheet(null)} hitSlop={10}><X size={20} color={colors.fg} /></TouchableOpacity>
+          </View>
+          <FlatList
+            data={posts}
+            keyExtractor={(p) => p.internal_id}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            renderItem={({ item }) => (
+              <FeedItemCard
+                post={item}
+                onPress={() => { setSheet(null); navigation.navigate('PostDetailModal', { postId: item.internal_id }); }}
+              />
+            )}
+            ListEmptyComponent={<EmptyState title="No posts yet" />}
+            showsVerticalScrollIndicator={false}
           />
-        )}
-        ListEmptyComponent={<EmptyState title="No posts yet" />}
-        showsVerticalScrollIndicator={false}
-      />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Cars sheet */}
+      <Modal visible={sheet === 'cars'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
+        <SafeAreaView style={[styles.sheetSafe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+          <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.sheetTitle, { color: colors.fg }]}>Cars</Text>
+            <TouchableOpacity onPress={() => setSheet(null)} hitSlop={10}><X size={20} color={colors.fg} /></TouchableOpacity>
+          </View>
+          <FlatList
+            data={cars}
+            keyExtractor={(c) => c.internal_id}
+            numColumns={2}
+            columnWrapperStyle={styles.carRow}
+            contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 8 }}
+            renderItem={({ item }) => (
+              <CarGridItem
+                car={item}
+                onPress={() => { setSheet(null); navigation.navigate('CarDetailModal', { carId: item.internal_id }); }}
+              />
+            )}
+            ListEmptyComponent={<EmptyState title="No cars yet" />}
+            showsVerticalScrollIndicator={false}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -197,10 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brg,
   },
   followRow:  { flexDirection: 'row', gap: 8, paddingBottom: 4 },
-  msgBtn:     {
-    borderWidth: 1.5, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 6,
-  },
+  msgBtn:     { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
   msgBtnText: { fontSize: 14, fontWeight: '600' },
   info:       { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
   name:       { fontSize: 20, fontWeight: '800' },
@@ -214,12 +255,9 @@ const styles = StyleSheet.create({
   },
   statItem:   { flex: 1, alignItems: 'center' },
   statValue:  { fontSize: 18, fontWeight: '800' },
-  statLabel:  { fontSize: 12, marginTop: 2 },
+  statLabel:  { fontSize: 12, marginTop: 2, fontWeight: '600' },
   statDivider:{ width: 1, height: 30 },
-  tabBar:     {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-  },
+  tabBar:     { flexDirection: 'row', borderBottomWidth: 1 },
   tabItem:      { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabItemActive: { borderBottomColor: Colors.brg },
   tabText:      { fontSize: 14, fontWeight: '600' },
@@ -232,4 +270,10 @@ const styles = StyleSheet.create({
   },
   carImage:       { width: '100%', aspectRatio: 4 / 3 },
   carTitle:       { fontSize: 12, fontWeight: '700', padding: 8 },
+  sheetSafe:      { flex: 1 },
+  sheetHeader:    {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
+  },
+  sheetTitle:     { fontSize: 17, fontWeight: '700' },
 });

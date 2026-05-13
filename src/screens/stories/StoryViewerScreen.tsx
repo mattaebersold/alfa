@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useNavigation } from '@react-navigation/native';
@@ -96,6 +96,7 @@ function StoryVideo({
 export default function StoryViewerScreen({ route }: Props) {
   const { groups, startGroupIndex } = route.params;
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [markSeen] = useMarkStoriesSeenMutation();
 
   const [groupIndex, setGroupIndex] = useState(startGroupIndex);
@@ -189,7 +190,7 @@ export default function StoryViewerScreen({ route }: Props) {
       )}
 
       {/* Top overlay: progress bars + user */}
-      <SafeAreaView style={styles.topOverlay} edges={['top']}>
+      <View style={[styles.topOverlay, { paddingTop: insets.top }]}>
         <ProgressBars
           total={group.stories.length}
           current={storyIndex}
@@ -215,7 +216,7 @@ export default function StoryViewerScreen({ route }: Props) {
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Tap zones */}
       <View style={styles.tapZones} pointerEvents="box-none">
@@ -224,7 +225,7 @@ export default function StoryViewerScreen({ route }: Props) {
       </View>
 
       {/* Bottom bar: prev / like / next */}
-      <SafeAreaView style={styles.bottomOverlay} edges={['bottom']}>
+      <View style={[styles.bottomOverlay, { paddingBottom: insets.bottom }]}>
         <View style={styles.bottomRow}>
           <TouchableOpacity
             onPress={handlePrev}
@@ -249,15 +250,16 @@ export default function StoryViewerScreen({ route }: Props) {
             <Text style={styles.navText}>{isLast ? 'Done' : 'Next ›'}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: '#000' },
-  noVideo:      { alignItems: 'center', justifyContent: 'center' },
-  noVideoText:  { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
+  container:       { flex: 1, backgroundColor: '#000' },
+  noVideo:         { alignItems: 'center', justifyContent: 'center' },
+  noVideoText:     { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
+  bufferingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
 
   // Progress bars
   progressBars: {

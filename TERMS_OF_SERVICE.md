@@ -12,7 +12,7 @@ You must be at least 13 years old to use the Service. By using it, you represent
 
 ## Your Account
 
-You are responsible for maintaining the security of your account credentials. You are responsible for all activity that occurs under your account. Notify us at mattaebersold@gmail.com if you believe your account has been compromised.
+You are responsible for maintaining the security of your account credentials. You are responsible for all activity that occurs under your account. Notify us at matt@openroadsociety.co if you believe your account has been compromised.
 
 ## User-Generated Content
 
@@ -67,4 +67,4 @@ We may update these Terms from time to time. Continued use of the Service after 
 
 ## Contact
 
-Questions about these Terms? Contact us at **mattaebersold@gmail.com**
+Questions about these Terms? Contact us at **matt@openroadsociety.co**

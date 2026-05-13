@@ -4,13 +4,13 @@
 
 export const Colors = {
   // Brand
-  brg:       '#1C3738',
-  brgDark:   '#142627',
-  brgLight:  '#254A4B',
+  brg:       '#191919',
+  brgDark:   '#0A0A0A',
+  brgLight:  '#252525',
 
   // Accent
-  cyan:      '#08DEE3',
-  speed:     '#FEB829',
+  cyan:      '#23cfb8',
+  speed:     '#23cfb8',
   pro:       '#CDA96F',
   guards:    '#D00000',
   tangerine: '#FA7921',

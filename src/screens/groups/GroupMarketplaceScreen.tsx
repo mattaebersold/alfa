@@ -12,6 +12,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -27,7 +28,7 @@ function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
       <View style={styles.info}>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
         {post.price && <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>}
-        {post.body && <Text style={[styles.body, { color: colors.grey }]} numberOfLines={1}>{post.body.replace(/<[^>]*>/g, '')}</Text>}
+        {post.body && <Text style={[styles.body, { color: colors.grey }]} numberOfLines={1}>{stripHtml(post.body)}</Text>}
       </View>
     </TouchableOpacity>
   );

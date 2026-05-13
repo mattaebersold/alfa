@@ -243,8 +243,10 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<CarTask | undefined>(undefined);
 
-  const { data: tasks = [], isLoading } = useGetCarTasksQuery(carId);
-  const { data: archived = [] } = useGetArchivedCarTasksQuery(carId, { skip: !showArchived });
+  const { data: tasksData, isLoading } = useGetCarTasksQuery(carId);
+  const tasks = tasksData?.entries ?? [];
+  const { data: archivedData } = useGetArchivedCarTasksQuery(carId, { skip: !showArchived });
+  const archived = archivedData?.entries ?? [];
 
   const [createTask, { isLoading: creating }] = useCreateCarTaskMutation();
   const [updateTask, { isLoading: updating }] = useUpdateCarTaskMutation();

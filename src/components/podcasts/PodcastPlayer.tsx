@@ -1,20 +1,19 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { Audio, type AVPlaybackStatus } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { Podcast, PodcastEpisode } from '../../types/api';
 
 const SPEED_STEPS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
-const formatTime = (ms: number): string => {
-  const totalSecs = Math.floor(ms / 1000);
-  const h = Math.floor(totalSecs / 3600);
-  const m = Math.floor((totalSecs % 3600) / 60);
-  const s = totalSecs % 60;
+const formatTime = (secs: number): string => {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 };
@@ -27,70 +26,53 @@ interface Props {
 
 export default function PodcastPlayer({ episode, podcast, onClose }: Props) {
   const colors = useColors();
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [positionMs, setPositionMs] = useState(0);
-  const [durationMs, setDurationMs] = useState(0);
-  const [speedIndex, setSpeedIndex] = useState(1); // default 1.0x
+  const [speedIndex, setSpeedIndex] = useState(1);
+  const hasAutoPlayed = useRef(false);
+
+  const player = useAudioPlayer({ uri: episode.audio_url });
+  const status = useAudioPlayerStatus(player);
 
   const artwork = podcast.artwork_filename ? imageUrl(podcast.artwork_filename) : null;
 
-  const onPlaybackStatus = useCallback((status: AVPlaybackStatus) => {
-    if (!status.isLoaded) return;
-    setIsLoading(false);
-    setIsPlaying(status.isPlaying);
-    setPositionMs(status.positionMillis);
-    setDurationMs(status.durationMillis ?? 0);
-    if (status.didJustFinish) {
-      setIsPlaying(false);
-      setPositionMs(0);
-    }
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentModeIOS: true });
   }, []);
 
+  // Auto-play once loaded
   useEffect(() => {
-    let sound: Audio.Sound | null = null;
+    if (status.isLoaded && !hasAutoPlayed.current) {
+      hasAutoPlayed.current = true;
+      player.play();
+    }
+  }, [status.isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const load = async () => {
-      setIsLoading(true);
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound: s } = await Audio.Sound.createAsync(
-        { uri: episode.audio_url },
-        { shouldPlay: true, rate: SPEED_STEPS[speedIndex] },
-        onPlaybackStatus,
-      );
-      sound = s;
-      soundRef.current = s;
-    };
+  // Apply speed changes
+  useEffect(() => {
+    if (status.isLoaded) {
+      player.setPlaybackRate(SPEED_STEPS[speedIndex]);
+    }
+  }, [speedIndex, status.isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    load().catch(console.error);
+  const isLoading = !status.isLoaded;
+  const isPlaying = status.playing ?? false;
+  const positionSecs = status.currentTime ?? 0;
+  const durationSecs = status.duration ?? 0;
 
-    return () => {
-      sound?.unloadAsync().catch(() => {});
-    };
-  }, [episode.internal_id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const togglePlay = async () => {
-    const s = soundRef.current;
-    if (!s) return;
-    if (isPlaying) await s.pauseAsync();
-    else await s.playAsync();
+  const togglePlay = () => {
+    if (isPlaying) player.pause();
+    else player.play();
   };
 
-  const skip = async (seconds: number) => {
-    const s = soundRef.current;
-    if (!s) return;
-    const next = Math.max(0, Math.min(positionMs + seconds * 1000, durationMs));
-    await s.setPositionAsync(next);
+  const skip = (seconds: number) => {
+    const next = Math.max(0, Math.min(positionSecs + seconds, durationSecs));
+    player.seekTo(next);
   };
 
-  const cycleSpeed = async () => {
-    const next = (speedIndex + 1) % SPEED_STEPS.length;
-    setSpeedIndex(next);
-    await soundRef.current?.setRateAsync(SPEED_STEPS[next], true);
+  const cycleSpeed = () => {
+    setSpeedIndex(prev => (prev + 1) % SPEED_STEPS.length);
   };
 
-  const progress = durationMs > 0 ? positionMs / durationMs : 0;
+  const progress = durationSecs > 0 ? positionSecs / durationSecs : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
@@ -114,7 +96,7 @@ export default function PodcastPlayer({ episode, podcast, onClose }: Props) {
           <Text style={[styles.episodeTitle, { color: colors.fg }]} numberOfLines={1}>{episode.title}</Text>
           <Text style={[styles.showTitle, { color: colors.grey }]} numberOfLines={1}>{podcast.title}</Text>
           <Text style={[styles.time, { color: colors.muted }]}>
-            {formatTime(positionMs)} / {formatTime(durationMs)}
+            {formatTime(positionSecs)} / {formatTime(durationSecs)}
           </Text>
         </View>
 

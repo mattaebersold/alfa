@@ -22,9 +22,10 @@ export default function SocietyStackNavigator() {
         headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
+        animation: 'none',
       }}
     >
-      <Stack.Screen name="Society" component={SocietyScreen} options={{ title: 'Society' }} />
+      <Stack.Screen name="Society" component={SocietyScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Event' }} />
       <Stack.Screen name="Rallys" component={RallysScreen} options={{ title: 'Rallys' }} />
       <Stack.Screen name="RallyDetail" component={RallyDetailScreen} options={{ title: 'Rally' }} />

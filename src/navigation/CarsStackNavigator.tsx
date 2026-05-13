@@ -20,9 +20,10 @@ export default function CarsStackNavigator() {
         headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
+        animation: 'none',
       }}
     >
-      <Stack.Screen name="Cars" component={CarsScreen} options={{ title: 'Cars' }} />
+      <Stack.Screen name="Cars" component={CarsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ title: 'Car' }} />
       <Stack.Screen name="Brands" component={BrandsScreen} options={{ title: 'Browse Brands' }} />
       <Stack.Screen name="BrandDetail" component={BrandDetailScreen} options={({ route }) => ({ title: route.params.brand })} />

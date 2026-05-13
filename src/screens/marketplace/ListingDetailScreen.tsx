@@ -4,35 +4,42 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { formatDistanceToNow } from 'date-fns';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useGetPostQuery,
   useGetCommentsQuery,
   useCreateCommentMutation,
+  useGetPostCountsQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
+import CommentRow from '../../components/social/CommentRow';
+import LikersSheet from '../../components/social/LikersSheet';
 import Spinner from '../../components/ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { MarketScreenProps } from '../../navigation/types';
+import { stripHtml } from '../../utils/text';
 
 export default function ListingDetailScreen({ route }: MarketScreenProps<'ListingDetail'>) {
   const { postId } = route.params;
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
 
-  const { data: post, isLoading } = useGetPostQuery(postId);
-  const { data: comments = [] } = useGetCommentsQuery(
+  const { data: postData, isLoading } = useGetPostQuery(postId);
+  const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
+  const { data: commentsData } = useGetCommentsQuery(
     { type: post?.entry_type ?? 'post', id: postId, limit: 50 },
     { skip: !post }
   );
+  const comments = commentsData?.entries ?? [];
+  const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
+  const [likersOpen, setLikersOpen] = useState(false);
 
   if (isLoading || !post) return <Spinner fullScreen />;
 
@@ -86,7 +93,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
 
               {post.title && <Text style={[styles.postTitle, { color: colors.fg, backgroundColor: colors.card }]}>{post.title}</Text>}
               {post.body && (
-                <Text style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}>{post.body.replace(/<[^>]*>/g, '')}</Text>
+                <Text style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}>{stripHtml(post.body)}</Text>
               )}
 
               {heroImage && (
@@ -111,11 +118,23 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
                 </View>
               )}
 
+              {(counts?.likes ?? 0) > 0 && (
+                <TouchableOpacity
+                  style={[styles.likedByRow, { backgroundColor: colors.card }]}
+                  onPress={() => setLikersOpen(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.likedByText, { color: colors.muted }]}>
+                    Liked by {counts!.likes} {counts!.likes === 1 ? 'person' : 'people'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <View style={[styles.likeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
                 <LikeButton
                   documentId={post.internal_id}
                   entryType={entryType}
-                  initialCount={post.likeCount ?? 0}
+                  initialCount={counts?.likes ?? post.like_count ?? 0}
                   initialLiked={post.isLiked ?? false}
                 />
               </View>
@@ -128,24 +147,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
             </View>
           }
           renderItem={({ item }: { item: any }) => (
-            <View style={[styles.comment, { backgroundColor: colors.card }]}>
-              <Avatar
-                filename={item.user?.gallery?.[0]?.filename}
-                name={item.user?.firstName ?? '?'}
-                size={32}
-              />
-              <View style={styles.commentBody}>
-                <Text style={[styles.commentAuthor, { color: colors.fg }]}>
-                  {item.user?.firstName} {item.user?.lastName}
-                </Text>
-                <Text style={[styles.commentText, { color: colors.muted }]}>{item.body}</Text>
-                <Text style={[styles.commentTime, { color: colors.grey }]}>
-                  {item.created_at
-                    ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
-                    : ''}
-                </Text>
-              </View>
-            </View>
+            <CommentRow comment={item} />
           )}
           ListEmptyComponent={
             <Text style={[styles.noComments, { color: colors.grey }]}>No comments yet.</Text>
@@ -176,6 +178,12 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <LikersSheet
+        entryId={postId}
+        visible={likersOpen}
+        onClose={() => setLikersOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -216,6 +224,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, fontWeight: '600',
   },
+  likedByRow:      { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
+  likedByText:     { fontSize: 13 },
   likeRow:         {
     flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8,
     borderBottomWidth: 1,
@@ -225,14 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 13, fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  comment:         {
-    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10,
-    gap: 10, marginBottom: 1,
-  },
-  commentBody:     { flex: 1 },
-  commentAuthor:   { fontSize: 13, fontWeight: '700' },
-  commentText:     { fontSize: 14, marginTop: 2, lineHeight: 20 },
-  commentTime:     { fontSize: 11, marginTop: 4 },
   noComments:      { textAlign: 'center', padding: 24, fontSize: 14 },
   inputRow:        {
     flexDirection: 'row', alignItems: 'flex-end',

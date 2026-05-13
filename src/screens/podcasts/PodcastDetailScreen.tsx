@@ -12,6 +12,7 @@ import { imageUrl } from '../../utils/image';
 import PodcastPlayer from '../../components/podcasts/PodcastPlayer';
 import type { AppScreenProps } from '../../navigation/types';
 import type { PodcastEpisode } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 type Props = AppScreenProps<'PodcastDetail'>;
 
@@ -61,7 +62,7 @@ function EpisodeRow({
         </View>
         {episode.description && (
           <Text style={[styles.epDesc, { color: colors.muted }]} numberOfLines={2}>
-            {episode.description.replace(/<[^>]*>/g, ' ')}
+            {stripHtml(episode.description)}
           </Text>
         )}
       </View>
@@ -109,7 +110,7 @@ export default function PodcastDetailScreen({ route }: Props) {
 
       {podcast.short_description && (
         <Text style={[styles.description, { color: colors.muted, backgroundColor: colors.card }]}>
-          {podcast.short_description}
+          {stripHtml(podcast.short_description)}
         </Text>
       )}
 

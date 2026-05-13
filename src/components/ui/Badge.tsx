@@ -7,23 +7,50 @@ interface BadgeProps {
   label?: string;
 }
 
-const LABELS: Record<string, string> = {
-  listing:  'Listing',
-  'want-ad':'Want Ad',
-  want:     'Want Ad',
-  wants:    'Want Ad',
-  garage:   'Garage',
-  event:    'Event',
-  group:    'Group',
-  record:   'Record',
-  spotted:  'Spotted',
-  update:   'Update',
-  post:     'Post',
+export const TYPE_LABELS: Record<string, string> = {
+  general:   'Post',
+  record:    'Record',
+  listing:   'Listing',
+  want:      'Want Ad',
+  'want-ad': 'Want Ad',
+  wants:     'Want Ad',
+  spot:      'Spotted',
+  spotted:   'Spotted',
+  update:    'Update',
+  garage:    'Garage',
+  event:     'Event',
+  group:     'Group',
+  post:      'Post',
+  story:     'Story',
+};
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  // general
+  show:         'Show',
+  misc:         'Misc.',
+  // record
+  mod:          'Mod',
+  restoration:  'Restoration',
+  maintenance:  'Maintenance',
+  detailing:    'Detailing',
+  // listing
+  new:          'New Part',
+  used:         'Used Part',
+  accessories:  'Accessories',
+  // want / listing shared
+  car:          'Car',
+  part:         'Part',
+  other:        'Other',
+  // spot
+  museum:       'Museum',
+  wild:         'In the Wild',
+  // general catch-all
+  general:      'General',
 };
 
 export default function Badge({ variant, label }: BadgeProps) {
   const colors = BADGE_COLORS[variant] ?? BADGE_COLORS.default;
-  const text = label ?? LABELS[variant] ?? variant;
+  const text = label ?? TYPE_LABELS[variant] ?? variant;
 
   return (
     <View style={[styles.badge, { backgroundColor: colors.bg }]}>

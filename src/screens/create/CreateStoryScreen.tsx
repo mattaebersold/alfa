@@ -300,7 +300,7 @@ export default function CreateStoryScreen() {
       </SafeAreaView>
 
       {/* Record button + progress ring */}
-      <View style={styles.footer}>
+      <SafeAreaView style={styles.footer} edges={['bottom']}>
         <View style={styles.ringWrapper}>
           {isRecording && <ProgressRing progress={ringProgress} />}
           <Pressable
@@ -317,7 +317,7 @@ export default function CreateStoryScreen() {
         <Text style={styles.hintText}>
           {isRecording ? 'Release to stop' : 'Hold to record'}
         </Text>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -363,8 +363,9 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: {
-    position: 'absolute', bottom: 60, left: 0, right: 0,
-    alignItems: 'center', gap: 12,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    alignItems: 'center', gap: 12, zIndex: 10,
+    paddingBottom: 24,
   },
   ringWrapper: {
     width: RING_SIZE, height: RING_SIZE,

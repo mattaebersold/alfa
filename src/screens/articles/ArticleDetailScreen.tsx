@@ -15,6 +15,7 @@ import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppScreenProps } from '../../navigation/types';
+import { stripHtml } from '../../utils/text';
 
 interface ArticleBlock {
   internal_id?: string;
@@ -81,7 +82,7 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
         {article.body ? (
           <View style={[styles.block, { backgroundColor: colors.card }]}>
             <Text style={[styles.copyText, { color: colors.fg }]}>
-              {article.body.replace(/<[^>]*>/g, '')}
+              {stripHtml(article.body)}
             </Text>
           </View>
         ) : null}
@@ -106,7 +107,7 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
               return (
                 <View key={key} style={[styles.block, { backgroundColor: colors.card }]}>
                   <Text style={[styles.copyText, { color: colors.fg }]}>
-                    {block.content.replace(/<[^>]*>/g, '')}
+                    {stripHtml(block.content)}
                   </Text>
                 </View>
               );

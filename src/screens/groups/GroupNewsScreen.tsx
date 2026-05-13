@@ -14,6 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupNewsPost } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 function NewsCard({ post }: { post: GroupNewsPost }) {
   const colors = useColors();
@@ -27,7 +28,7 @@ function NewsCard({ post }: { post: GroupNewsPost }) {
       <View style={styles.cardBody}>
         <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
         {post.body && (
-          <Text style={[styles.cardText, { color: colors.muted }]} numberOfLines={3}>{post.body.replace(/<[^>]*>/g, '')}</Text>
+          <Text style={[styles.cardText, { color: colors.muted }]} numberOfLines={3}>{stripHtml(post.body)}</Text>
         )}
         <View style={styles.cardMeta}>
           <Avatar

@@ -2,7 +2,7 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, Group, GroupMember, Article,
-  CarTask, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
+  CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum,
 } from '../types/api';
 
@@ -73,7 +73,7 @@ export const apiService = createApi({
       providesTags: ['Post'],
     }),
 
-    getPost: builder.query<Post, string>({
+    getPost: builder.query<{ entry: Post; user: User }, string>({
       query: (id) => `api/post/single/${id}`,
       providesTags: (result, error, id) => [{ type: 'Post', id }],
     }),
@@ -100,6 +100,11 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'Like', id }],
     }),
 
+    getPostCounts: builder.query<{ likes: number; comments: number }, string>({
+      query: (entryId) => `api/likes/counts/${entryId}`,
+      providesTags: (result, error, id) => [{ type: 'Like', id }],
+    }),
+
     getBatchLikes: builder.mutation<Record<string, LikeInfo>, string[]>({
       query: (ids) => ({ url: 'api/likes/batch', method: 'POST', body: { ids } }),
     }),
@@ -114,13 +119,13 @@ export const apiService = createApi({
       invalidatesTags: (result, error, { document_id }) => [{ type: 'Like', id: document_id }],
     }),
 
-    getLikeUsers: builder.query<User[], string>({
+    getLikeUsers: builder.query<{ users: string[]; total: number }, string>({
       query: (entryId) => `api/likes/users/${entryId}`,
     }),
 
     // ── Comments ─────────────────────────────────────────────────────────────
 
-    getComments: builder.query<any[], { type: string; id: string; page?: number; limit?: number }>({
+    getComments: builder.query<{ entries: any[] }, { type: string; id: string; page?: number; limit?: number }>({
       query: ({ type, id, page = 0, limit = 20 }) =>
         `api/comment/${type}/${id}/${page}/none/${limit}`,
       providesTags: (result, error, { id }) => [{ type: 'Comment', id }],
@@ -164,7 +169,7 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'GarageCar', id }],
     }),
 
-    getUserGarage: builder.query<GarageCar[], void>({
+    getUserGarage: builder.query<{ entries: GarageCar[] }, void>({
       query: () => 'api/protected/all/garage',
       providesTags: ['GarageCar'],
     }),
@@ -224,14 +229,21 @@ export const apiService = createApi({
       providesTags: (result, error, carId) => [{ type: 'CarGallery', id: carId }],
     }),
 
+    // ── Car Mods ─────────────────────────────────────────────────────────────
+
+    getCarMods: builder.query<{ entries: Mod[] }, string>({
+      query: (carId) => `api/car/mods/${carId}`,
+      providesTags: (result, error, carId) => [{ type: 'CarGallery', id: `mods-${carId}` }],
+    }),
+
     // ── Car Tasks ────────────────────────────────────────────────────────────
 
-    getCarTasks: builder.query<CarTask[], string>({
+    getCarTasks: builder.query<{ entries: CarTask[] }, string>({
       query: (carId) => `api/cartask/car/${carId}`,
       providesTags: (result, error, carId) => [{ type: 'CarTask', id: carId }],
     }),
 
-    getArchivedCarTasks: builder.query<CarTask[], string>({
+    getArchivedCarTasks: builder.query<{ entries: CarTask[] }, string>({
       query: (carId) => `api/cartask/car/${carId}/archived`,
       providesTags: (result, error, carId) => [{ type: 'CarTask', id: `${carId}-archived` }],
     }),
@@ -554,6 +566,12 @@ export const apiService = createApi({
       invalidatesTags: ['Stories'],
     }),
 
+    // ── Site Settings ────────────────────────────────────────────────────────
+
+    getSiteSettings: builder.query<{ featured_cars?: GarageCar[]; featured_users?: User[] }, void>({
+      query: () => 'api/site-settings',
+    }),
+
     // ── Podcasts ─────────────────────────────────────────────────────────────
 
     getPodcasts: builder.query<import('../types/api').Podcast[], void>({
@@ -626,6 +644,7 @@ export const {
   useUpdatePostMutation,
   useDeletePostMutation,
   useGetLikeInfoQuery,
+  useGetPostCountsQuery,
   useGetBatchLikesMutation,
   useLikeEntryMutation,
   useUnlikeEntryMutation,
@@ -648,6 +667,7 @@ export const {
   useUnfollowCarMutation,
   useGetCarFollowStatusQuery,
   useGetCarGalleriesQuery,
+  useGetCarModsQuery,
   useGetCarTasksQuery,
   useGetArchivedCarTasksQuery,
   useCreateCarTaskMutation,
@@ -703,6 +723,7 @@ export const {
   useRegisterDeviceTokenMutation,
   useGetStoriesFeedQuery,
   useMarkStoriesSeenMutation,
+  useGetSiteSettingsQuery,
   useGetPodcastsQuery,
   useGetPodcastQuery,
   useGetListsQuery,

@@ -55,7 +55,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   }, [isFetching, data, allCars.length]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {/* Model filter chips */}
       {models.length > 0 && (
         <View>

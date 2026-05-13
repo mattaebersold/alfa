@@ -21,6 +21,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import type { AppStackParamList } from '../../navigation/types';
 import type { ListItem } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 type RouteType = RouteProp<AppStackParamList, 'ListDetail'>;
 type NavProp = NavigationProp<AppStackParamList>;
@@ -78,7 +79,7 @@ function ListItemRow({
         <Text style={[styles.itemTitle, { color: colors.fg }]}>{item.title}</Text>
         {item.description ? (
           <Text style={[styles.itemDesc, { color: colors.muted }]} numberOfLines={2}>
-            {item.description}
+            {stripHtml(item.description)}
           </Text>
         ) : null}
       </View>
@@ -226,7 +227,7 @@ export default function ListDetailScreen() {
               )}
               <View style={styles.header}>
                 {list.body ? (
-                  <Text style={[styles.description, { color: colors.muted }]}>{list.body}</Text>
+                  <Text style={[styles.description, { color: colors.muted }]}>{stripHtml(list.body)}</Text>
                 ) : null}
                 <View style={styles.metaRow}>
                   {list.category ? (

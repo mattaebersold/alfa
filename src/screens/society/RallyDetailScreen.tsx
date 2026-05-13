@@ -12,6 +12,7 @@ import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps } from '../../navigation/types';
+import { stripHtml } from '../../utils/text';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -102,7 +103,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
           </View>
 
           {rally.body ? (
-            <Text style={[styles.description, { color: colors.fg }]}>{rally.body.replace(/<[^>]*>/g, '')}</Text>
+            <Text style={[styles.description, { color: colors.fg }]}>{stripHtml(rally.body)}</Text>
           ) : null}
         </View>
       </ScrollView>

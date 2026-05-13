@@ -4,24 +4,23 @@ import { Colors } from '../constants/colors';
 // Dark-mode overrides — only surfaces that need to change from the light palette
 export const DarkColors = {
   ...Colors,
-  // Backgrounds
-  cream:    '#141414',
-  bg:       '#141414',
+  // Backgrounds — matching Murray dark mode
+  cream:    '#121212',
+  bg:       '#121212',
   segment:  '#1E1E1E',
-  secondary:'#2A2A2A',
-  inputBg:  '#1A1A1A',
+  secondary:'#282828',
+  inputBg:  '#0D0D0D',
   // Cards / surfaces
-  card:     '#1E1E1E',
+  card:     '#252525',
   // Text
-  fg:       '#E8E8E8',
-  muted:    '#AAAAAA',
+  fg:       '#E0E0E0',
+  muted:    '#A0A0A0',
   // Borders
   border:   '#3C3C3C',
   // Input
   inputBorder: '#555555',
-  // Text — grey needs to be lighter on dark surfaces
-  grey:     '#BBBBBB',
-  // Keep brand colors unchanged
+  // Grey — lighter on dark surfaces
+  grey:     '#B4B4B4',
 } as const;
 
 export type ThemeColors = typeof Colors;

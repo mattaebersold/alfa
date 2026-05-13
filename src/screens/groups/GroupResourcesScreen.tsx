@@ -11,6 +11,7 @@ import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupResource } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 function ResourceRow({ resource }: { resource: GroupResource }) {
   const colors = useColors();
@@ -25,7 +26,7 @@ function ResourceRow({ resource }: { resource: GroupResource }) {
       <View style={styles.info}>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>{resource.title}</Text>
         {resource.body && (
-          <Text style={[styles.body, { color: colors.muted }]} numberOfLines={2}>{resource.body.replace(/<[^>]*>/g, '')}</Text>
+          <Text style={[styles.body, { color: colors.muted }]} numberOfLines={2}>{stripHtml(resource.body)}</Text>
         )}
         <View style={styles.meta}>
           <Avatar

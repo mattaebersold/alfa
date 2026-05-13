@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     position: 'relative',
   },
-  rowUnread:   { backgroundColor: '#F0F7F7' },
+  rowUnread:   { backgroundColor: '#D4D4D4' },
   rowContent:  { flex: 1 },
   message:     { fontSize: 14, lineHeight: 20 },
   time:        { fontSize: 12, marginTop: 3 },

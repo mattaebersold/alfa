@@ -7,6 +7,7 @@ import { Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSearchUsersQuery } from '../../api/apiService';
+import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -59,9 +60,14 @@ export default function MembersScreen() {
       {isLoading ? (
         <Spinner fullScreen />
       ) : query.length < 1 ? (
-        <View style={styles.hint}>
-          <Text style={[styles.hintText, { color: colors.grey }]}>Search to find members</Text>
-        </View>
+        <>
+          <FeaturedMembersRow
+            onMemberPress={(userId, username) => navigation.navigate('UserDetail', { userId, username })}
+          />
+          <View style={styles.hint}>
+            <Text style={[styles.hintText, { color: colors.grey }]}>Search to find members</Text>
+          </View>
+        </>
       ) : (
         <FlatList
           data={users}

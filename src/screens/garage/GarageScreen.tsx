@@ -26,7 +26,8 @@ function CarCardWithTasks({
   onPress: () => void;
   onTasksPress: () => void;
 }) {
-  const { data: tasks = [] } = useGetCarTasksQuery(car.internal_id);
+  const { data: tasksData } = useGetCarTasksQuery(car.internal_id);
+  const tasks = tasksData?.entries ?? [];
   return (
     <CarCard
       car={car}
@@ -40,7 +41,8 @@ function CarCardWithTasks({
 export default function GarageScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
-  const { data: cars = [], isLoading, refetch } = useGetUserGarageQuery();
+  const { data, isLoading, refetch } = useGetUserGarageQuery();
+  const cars = data?.entries ?? [];
 
   const goToCar = useCallback(
     (carId: string) => navigation.navigate('CarDetailModal', { carId }),

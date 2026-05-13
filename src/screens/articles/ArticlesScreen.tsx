@@ -11,13 +11,15 @@ import { useGetArticlesQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
+import AppHeader from '../../components/ui/AppHeader';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
-import type { AppStackParamList } from '../../navigation/types';
+import type { FeedStackParamList } from '../../navigation/types';
 import type { Article } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
-type AppNav = NativeStackNavigationProp<AppStackParamList>;
+type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
   const colors = useColors();
@@ -40,12 +42,14 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
       )}
       <View style={styles.cardBody}>
         {article.category && (
-          <Text style={styles.category}>{article.category.toUpperCase()}</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.category}>{article.category.toUpperCase()}</Text>
+          </View>
         )}
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={3}>{article.title}</Text>
         {article.body && (
           <Text style={[styles.excerpt, { color: colors.grey }]} numberOfLines={2}>
-            {article.body.replace(/<[^>]*>/g, '')}
+            {stripHtml(article.body)}
           </Text>
         )}
         <View style={styles.meta}>
@@ -74,8 +78,10 @@ export default function ArticlesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+      <AppHeader />
       <FlatList
+        style={{ flex: 1, backgroundColor: colors.cream }}
         data={articles}
         keyExtractor={(a) => a.internal_id}
         renderItem={({ item }) => (
@@ -108,7 +114,12 @@ const styles = StyleSheet.create({
   },
   hero:      { width: '100%', aspectRatio: 16 / 9 },
   cardBody:  { padding: 14, gap: 6 },
-  category:  { fontSize: 11, fontWeight: '800', color: Colors.brg, letterSpacing: 0.8 },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.brg,
+    borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  category:  { fontSize: 11, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.8 },
   title:     { fontSize: 17, fontWeight: '800', lineHeight: 24 },
   excerpt:   { fontSize: 13, lineHeight: 19 },
   meta:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },

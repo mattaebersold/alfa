@@ -167,6 +167,7 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
         <FlatList
+          key="tab-cars"
           data={cars}
           keyExtractor={(item) => item.internal_id}
           numColumns={2}
@@ -192,6 +193,7 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
         <FlatList
+          key="tab-lists"
           data={lists}
           keyExtractor={(item) => item.internal_id}
           contentContainerStyle={[styles.list, styles.listsPadding]}
@@ -199,7 +201,7 @@ export default function ProfileScreen() {
             <View>
               {header}
               <TouchableOpacity
-                style={[styles.newListBtn, { backgroundColor: colors.brg }]}
+                style={[styles.newListBtn, { backgroundColor: Colors.brg }]}
                 onPress={() => navigation.navigate('CreateList')}
               >
                 <Plus size={16} color="#fff" />
@@ -225,6 +227,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
+        key="tab-posts"
         data={posts}
         keyExtractor={(item) => item.internal_id}
         contentContainerStyle={styles.list}

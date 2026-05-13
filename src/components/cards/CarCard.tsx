@@ -3,8 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { ChevronRight, Wrench } from 'lucide-react-native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { useGetUserByIdQuery } from '../../api/apiService';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import Avatar from '../ui/Avatar';
 import type { GarageCar } from '../../types/api';
 
 interface CarCardProps {
@@ -12,6 +14,38 @@ interface CarCardProps {
   onPress: () => void;
   onTasksPress?: () => void;
   taskCount?: number;
+}
+
+function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string }) {
+  const colors = useColors();
+  const { data: owner } = useGetUserByIdQuery(userId, { skip: !userId });
+  const { data: coowner } = useGetUserByIdQuery(coownerId ?? '', { skip: !coownerId });
+
+  if (!owner && !coowner) return null;
+
+  return (
+    <View style={styles.ownerRow}>
+      {owner && (
+        <View style={styles.ownerChip}>
+          <Avatar filename={owner.gallery?.[0]?.filename} name={owner.firstName} size={18} />
+          <Text style={[styles.ownerName, { color: colors.muted }]} numberOfLines={1}>
+            {owner.firstName} {owner.lastName}
+          </Text>
+        </View>
+      )}
+      {coowner && (
+        <View style={styles.ownerChip}>
+          <Avatar filename={coowner.gallery?.[0]?.filename} name={coowner.firstName} size={18} />
+          <Text style={[styles.ownerName, { color: colors.muted }]} numberOfLines={1}>
+            {coowner.firstName}
+          </Text>
+          <View style={[styles.coOwnerTag, { backgroundColor: colors.segment }]}>
+            <Text style={[styles.coOwnerTagText, { color: colors.grey }]}>co</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
 }
 
 export default function CarCard({ car, onPress, onTasksPress, taskCount = 0 }: CarCardProps) {
@@ -60,6 +94,7 @@ export default function CarCard({ car, onPress, onTasksPress, taskCount = 0 }: C
               <Text style={[styles.metaText, { color: colors.grey }]}>{car.color}</Text>
             )}
           </View>
+          <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />
         </View>
         <View style={styles.actions}>
           {onTasksPress && (
@@ -67,7 +102,8 @@ export default function CarCard({ car, onPress, onTasksPress, taskCount = 0 }: C
               onPress={onTasksPress}
               style={[styles.tasksBtn, { backgroundColor: colors.cream, borderColor: colors.border }]}
             >
-              <Wrench size={16} color={Colors.brg} />
+              <Wrench size={13} color={Colors.brg} />
+              <Text style={[styles.tasksBtnText, { color: Colors.brg }]}>Tasks</Text>
             </TouchableOpacity>
           )}
           <ChevronRight size={18} color={colors.grey} />
@@ -90,11 +126,12 @@ const styles = StyleSheet.create({
   placeholderText: { fontSize: 13 },
   taskBadge:       {
     position: 'absolute', top: 10, right: 10,
-    backgroundColor: Colors.speed, borderRadius: 12,
+    backgroundColor: Colors.cyan, borderRadius: 12,
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 7, paddingVertical: 3, gap: 3,
+    paddingHorizontal: 8, paddingVertical: 4, gap: 3,
+    borderWidth: 1.5, borderColor: '#000',
   },
-  taskBadgeText:   { fontSize: 11, fontWeight: '800', color: '#000' },
+  taskBadgeText:   { fontSize: 12, fontWeight: '800', color: '#000' },
   info:            { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
   infoMain:        { flex: 1 },
   title:           { fontSize: 16, fontWeight: '800' },
@@ -107,5 +144,12 @@ const styles = StyleSheet.create({
   },
   metaText:        { fontSize: 12, textTransform: 'capitalize' },
   actions:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  tasksBtn:        { padding: 8, borderRadius: 8, borderWidth: 1 },
+  tasksBtn:        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  tasksBtnText:    { fontSize: 12, fontWeight: '700' },
+
+  ownerRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  ownerName:       { fontSize: 12 },
+  coOwnerTag:      { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3 },
+  coOwnerTagText:  { fontSize: 10, fontWeight: '700' },
 });

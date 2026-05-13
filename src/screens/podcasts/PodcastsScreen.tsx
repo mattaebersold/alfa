@@ -9,10 +9,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetPodcastsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
+import AppHeader from '../../components/ui/AppHeader';
+import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Podcast } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -42,7 +45,7 @@ function PodcastCard({ podcast, onPress }: { podcast: Podcast; onPress: () => vo
         )}
         {podcast.short_description && (
           <Text style={[styles.description, { color: colors.muted }]} numberOfLines={2}>
-            {podcast.short_description}
+            {stripHtml(podcast.short_description)}
           </Text>
         )}
       </View>
@@ -58,8 +61,10 @@ export default function PodcastsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+      <AppHeader />
       <FlatList
+        style={{ flex: 1, backgroundColor: colors.cream }}
         data={podcasts}
         keyExtractor={(p) => p.internal_id}
         numColumns={2}

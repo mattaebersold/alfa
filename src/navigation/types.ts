@@ -1,5 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
 // ── Auth Stack ──────────────────────────────────────────────────────────────
 export type AuthStackParamList = {
@@ -13,6 +14,14 @@ export type AuthStackParamList = {
 export type FeedStackParamList = {
   Feed: undefined;
   PostDetail: { postId: string };
+  UserDetail: { userId: string; username?: string };
+  // Drawer-linked top-level screens (keep tab bar + AppHeader visible)
+  Groups: undefined;
+  Articles: undefined;
+  ArticleDetail: { articleId: string };
+  Podcasts: undefined;
+  Search: undefined;
+  Dashboard: undefined;
 };
 
 // ── Society Stack ───────────────────────────────────────────────────────────
@@ -56,16 +65,16 @@ export type CarsStackParamList = {
 
 // ── Main Tab ─────────────────────────────────────────────────────────────────
 export type MainTabParamList = {
-  FeedTab: undefined;
-  SocietyTab: undefined;
+  FeedTab: NavigatorScreenParams<FeedStackParamList> | undefined;
+  SocietyTab: NavigatorScreenParams<SocietyStackParamList> | undefined;
   GroupsTab: undefined;
-  MarketTab: undefined;
-  CarsTab: undefined;
+  MarketTab: NavigatorScreenParams<MarketStackParamList> | undefined;
+  CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
 };
 
 // ── App Stack (top-level, wraps tabs + modals) ───────────────────────────────
 export type AppStackParamList = {
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   // Modals / full-screen flows
   Garage: undefined;
   CarCreate: { step?: number; carId?: string };
@@ -100,6 +109,16 @@ export type AppStackParamList = {
   EditList: { listId: string };
   // More menu
   More: undefined;
+  // Group detail + sub-screens (tab bar hides here — acceptable for detail views)
+  GroupDetailModal: { groupId: string };
+  GroupForum: { groupId: string };
+  GroupNews: { groupId: string };
+  GroupCars: { groupId: string };
+  GroupMembers: { groupId: string };
+  GroupEvents: { groupId: string };
+  GroupMarketplace: { groupId: string };
+  GroupResources: { groupId: string };
+  GroupSettings: { groupId: string };
 };
 
 // Helper type aliases

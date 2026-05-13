@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetMessagesQuery,
   useDeleteMessageThreadMutation,
+  useGetUserByIdQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
@@ -35,8 +36,13 @@ function ThreadRow({
 }) {
   const colors = useColors();
   const isMine = message.sender_id === myUserId;
-  const other = isMine ? message.recipient : message.sender;
-  const name = other ? `${other.firstName} ${other.lastName}` : 'Unknown';
+  const otherId = isMine ? message.recipient_id : message.sender_id;
+  const populated = isMine ? message.recipient : message.sender;
+  const { data: fetched } = useGetUserByIdQuery(otherId, { skip: !otherId || !!populated });
+  const other = populated ?? fetched;
+  const name = other
+    ? ([other.firstName, other.lastName].filter(Boolean).join(' ') || other.username || 'Unknown')
+    : 'Unknown';
   const timeAgo = message.created_at
     ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
     : '';

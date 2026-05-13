@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions,
 } from 'react-native';
@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { useGetEventsQuery } from '../../api/apiService';
+import AppHeader from '../../components/ui/AppHeader';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -23,15 +24,21 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FEATURED_WIDTH = SCREEN_WIDTH - 48;
 
 function FeaturedCard({ event, onPress }: { event: Event; onPress: () => void }) {
+  const [ratio, setRatio] = useState(16 / 9);
   const hero = firstGalleryUrl(event.gallery);
   const date = event.event_date ? format(new Date(event.event_date), 'MMM d, yyyy') : null;
 
   return (
     <TouchableOpacity style={styles.featuredCard} onPress={onPress} activeOpacity={0.88}>
       {hero ? (
-        <Image source={{ uri: hero }} style={styles.featuredImage} contentFit="cover" />
+        <Image
+          source={{ uri: hero }}
+          style={[styles.featuredImage, { aspectRatio: ratio }]}
+          contentFit="cover"
+          onLoad={(e) => setRatio(e.source.width / e.source.height)}
+        />
       ) : (
-        <View style={[styles.featuredImage, { backgroundColor: Colors.brg }]} />
+        <View style={[styles.featuredImage, { aspectRatio: ratio, backgroundColor: Colors.brg }]} />
       )}
       <View style={styles.featuredOverlay}>
         {date && <Text style={styles.featuredDate}>{date}</Text>}
@@ -132,7 +139,9 @@ export default function SocietyScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+      <AppHeader />
+      <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
         data={upcoming}
         keyExtractor={(e) => e.internal_id}
@@ -149,12 +158,14 @@ export default function SocietyScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
       />
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe:             { flex: 1 },
+  content:          { flex: 1 },
   list:             { paddingBottom: 24 },
 
   // Featured
@@ -165,13 +176,11 @@ const styles = StyleSheet.create({
     width: FEATURED_WIDTH,
     borderRadius: 14,
     overflow: 'hidden',
-    height: 200,
   },
-  featuredImage:    { width: '100%', height: '100%', position: 'absolute' },
+  featuredImage:    { width: '100%' },
   featuredOverlay:  {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
     padding: 14,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   featuredDate:     { fontSize: 11, fontWeight: '700', color: Colors.speed, marginBottom: 4 },
   featuredTitle:    { fontSize: 17, fontWeight: '800', color: '#FFFFFF', lineHeight: 22 },

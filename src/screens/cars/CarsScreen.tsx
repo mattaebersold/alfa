@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useGetCarsQuery } from '../../api/apiService';
+import AppHeader from '../../components/ui/AppHeader';
+import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
+import { useGetCarsQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -13,6 +15,34 @@ import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
+
+function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }) {
+  const colors = useColors();
+  const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
+  const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
+  const displayName = owner ? `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.username : null;
+  return (
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
+      <View style={styles.cardImageContainer}>
+        {hero
+          ? <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
+          : <View style={[styles.cardImage, { backgroundColor: colors.secondary }]} />
+        }
+      </View>
+      <View style={styles.cardInfo}>
+        <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
+          {item.year} {item.make} {item.model}
+        </Text>
+        {owner && (
+          <View style={styles.ownerRow}>
+            <Avatar filename={owner.gallery?.[0]?.filename} name={owner.firstName ?? '?'} size={20} />
+            <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>{displayName}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   const colors = useColors();
@@ -43,15 +73,9 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   }, [isFetching, data, allCars.length]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={[]}>
-      {/* Browse Brands button */}
-      <TouchableOpacity
-        style={styles.brandsBtn}
-        onPress={() => navigation.navigate('Brands')}
-      >
-        <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
-      </TouchableOpacity>
-
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+      <AppHeader />
+      <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
         data={allCars}
         keyExtractor={(item) => item.internal_id}
@@ -59,41 +83,20 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
-          const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
-          return (
-            <TouchableOpacity
-              style={[styles.card, { backgroundColor: colors.card }]}
-              onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
-              activeOpacity={0.9}
-            >
-              <View style={styles.cardImageContainer}>
-                {hero ? (
-                  <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
-                ) : (
-                  <View style={[styles.cardImage, { backgroundColor: colors.secondary }]} />
-                )}
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
-                  {item.year} {item.make} {item.model}
-                </Text>
-                {item.user && (
-                  <View style={styles.ownerRow}>
-                    <Avatar
-                      filename={item.user?.gallery?.[0]?.filename}
-                      name={item.user?.firstName ?? '?'}
-                      size={20}
-                    />
-                    <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
-                      {item.user.firstName} {item.user.lastName}
-                    </Text>
-                  </View>
-                )}
-              </View>
+        ListHeaderComponent={
+          <>
+            <FeaturedCarsRow onCarPress={(id) => navigation.navigate('CarDetail', { carId: id })} />
+            <TouchableOpacity style={styles.brandsBtn} onPress={() => navigation.navigate('Brands')}>
+              <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
             </TouchableOpacity>
-          );
-        }}
+          </>
+        }
+        renderItem={({ item }) => (
+          <CarGridItem
+            item={item}
+            onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
+          />
+        )}
         ListEmptyComponent={
           isLoading ? (
             <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 40 }} />
@@ -112,12 +115,14 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
       />
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  safe:    { flex: 1 },
+  content: { flex: 1 },
   brandsBtn: {
     marginHorizontal: 12,
     marginVertical: 10,

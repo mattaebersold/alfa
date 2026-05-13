@@ -22,6 +22,7 @@ import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps, AppStackParamList } from '../../navigation/types';
+import { stripHtml } from '../../utils/text';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
@@ -150,7 +151,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
       {tab === 'info' && (
         <View style={[styles.bodyBlock, { backgroundColor: colors.card }]}>
           {event.body ? (
-            <Text style={[styles.body, { color: colors.fg }]}>{event.body.replace(/<[^>]*>/g, '')}</Text>
+            <Text style={[styles.body, { color: colors.fg }]}>{stripHtml(event.body)}</Text>
           ) : (
             <Text style={[styles.muted, { color: colors.grey }]}>No description provided.</Text>
           )}

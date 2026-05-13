@@ -63,7 +63,8 @@
           "cameraPermission": "Allow Open Road Society to use your camera to take photos."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-audio"
     ],
     "scheme": "openroadsociety",
     "extra": {

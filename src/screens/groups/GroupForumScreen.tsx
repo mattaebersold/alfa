@@ -13,6 +13,7 @@ import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupForumPost } from '../../types/api';
+import { stripHtml } from '../../utils/text';
 
 function ForumRow({ post }: { post: GroupForumPost }) {
   const colors = useColors();
@@ -28,7 +29,7 @@ function ForumRow({ post }: { post: GroupForumPost }) {
       />
       <View style={styles.rowContent}>
         <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
-        <Text style={[styles.rowBody, { color: colors.muted }]} numberOfLines={2}>{post.body?.replace(/<[^>]*>/g, '')}</Text>
+        <Text style={[styles.rowBody, { color: colors.muted }]} numberOfLines={2}>{stripHtml(post.body ?? '')}</Text>
         <View style={styles.rowMeta}>
           <Text style={[styles.rowTime, { color: colors.grey }]}>{timeAgo}</Text>
           <View style={styles.votes}>

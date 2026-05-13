@@ -18,9 +18,10 @@ import Spinner from '../../components/ui/Spinner';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import type { GroupsScreenProps, GroupsStackParamList } from '../../navigation/types';
+import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
+import { stripHtml } from '../../utils/text';
 
-type NavProp = NativeStackNavigationProp<GroupsStackParamList>;
+type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,7 +36,7 @@ const SUB_SCREENS = [
   { key: 'GroupSettings',   label: 'Settings' },
 ] as const;
 
-export default function GroupDetailScreen({ route }: GroupsScreenProps<'GroupDetail'>) {
+export default function GroupDetailScreen({ route }: AppScreenProps<'GroupDetailModal'>) {
   const { groupId } = route.params;
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
@@ -57,7 +58,7 @@ export default function GroupDetailScreen({ route }: GroupsScreenProps<'GroupDet
     : SUB_SCREENS.filter((s) => s.key !== 'GroupSettings');
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Banner */}
         {banner
@@ -106,7 +107,7 @@ export default function GroupDetailScreen({ route }: GroupsScreenProps<'GroupDet
         {/* Description */}
         {group.body && (
           <View style={[styles.bodyBlock, { backgroundColor: colors.card }]}>
-            <Text style={[styles.body, { color: colors.fg }]}>{group.body.replace(/<[^>]*>/g, '')}</Text>
+            <Text style={[styles.body, { color: colors.fg }]}>{stripHtml(group.body)}</Text>
           </View>
         )}
 

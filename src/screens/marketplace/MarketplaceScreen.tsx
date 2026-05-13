@@ -10,9 +10,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetPostsQuery } from '../../api/apiService';
+import AppHeader from '../../components/ui/AppHeader';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import Badge from '../../components/ui/Badge';
+import Badge, { CATEGORY_LABELS } from '../../components/ui/Badge';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
@@ -44,7 +45,9 @@ function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
           <Text style={styles.rowPrice}>${Number(post.price).toLocaleString()}</Text>
         )}
         <View style={styles.rowMeta}>
-          <Badge variant={post.entry_type ?? post.type ?? 'listing'} />
+          {post.category && (
+            <Badge variant={post.category} label={CATEGORY_LABELS[post.category] ?? post.category} />
+          )}
           <Text style={[styles.rowTime, { color: colors.grey }]}>{timeAgo}</Text>
         </View>
       </View>
@@ -76,7 +79,9 @@ export default function MarketplaceScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+      <AppHeader />
+      <View style={[styles.content, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
@@ -133,12 +138,14 @@ export default function MarketplaceScreen() {
           contentContainerStyle={styles.list}
         />
       )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe:           { flex: 1 },
+  content:        { flex: 1 },
   searchBar:      {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 12, paddingVertical: 10,

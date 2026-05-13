@@ -18,9 +18,10 @@ export default function MarketStackNavigator() {
         headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
+        animation: 'none',
       }}
     >
-      <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ title: 'Marketplace' }} />
+      <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ title: 'Listing' }} />
     </Stack.Navigator>
   );
