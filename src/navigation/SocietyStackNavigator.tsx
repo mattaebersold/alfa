@@ -8,13 +8,13 @@ import RallysScreen from '../screens/society/RallysScreen';
 import RallyDetailScreen from '../screens/society/RallyDetailScreen';
 import CalendarScreen from '../screens/society/CalendarScreen';
 import MembersScreen from '../screens/society/MembersScreen';
-import { Colors } from '../constants/colors';
+import { colors } from '../constants/colors';
 
 const Stack = createNativeStackNavigator<SocietyStackParamList>();
 
 export default function SocietyStackNavigator() {
   const isDark = useColorScheme() === 'dark';
-  const headerBg = isDark ? Colors.brgDark : Colors.brg;
+  const headerBg = isDark ? colors.brgDark : colors.brg;
 
   return (
     <Stack.Navigator

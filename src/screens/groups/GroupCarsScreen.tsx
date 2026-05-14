@@ -11,7 +11,7 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
@@ -83,7 +83,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
           />
         )}
         ListEmptyComponent={<EmptyState title="No cars in this group yet" />}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={Colors.brg} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}

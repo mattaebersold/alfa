@@ -9,7 +9,7 @@ import { useGetGroupForumQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupForumPost } from '../../types/api';

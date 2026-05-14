@@ -10,7 +10,7 @@ import { useGetPodcastsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -61,7 +61,7 @@ export default function PodcastsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
       <AppHeader />
       <FlatList
         style={{ flex: 1, backgroundColor: colors.cream }}

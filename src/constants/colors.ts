@@ -2,7 +2,7 @@
 // Use these in StyleSheet.create() where NativeWind classes can't be used
 // (e.g., navigator tabBarStyle, react-native-maps styles)
 
-export const Colors = {
+export const colors = {
   // Brand
   brg:       '#191919',
   brgDark:   '#0A0A0A',
@@ -59,20 +59,20 @@ export const Colors = {
   badgeFg:      '#000000',
 } as const;
 
-export type ColorKey = keyof typeof Colors;
+export type ColorKey = keyof typeof colors;
 
 // Badge variant → background color mapping
 export const BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
-  listing:  { bg: Colors.badgeListing, fg: Colors.badgeFg },
-  'want-ad':{ bg: Colors.badgeWant,    fg: Colors.badgeFg },
-  want:     { bg: Colors.badgeWant,    fg: Colors.badgeFg },
-  wants:    { bg: Colors.badgeWant,    fg: Colors.badgeFg },
-  garage:   { bg: Colors.badgeGarage,  fg: Colors.badgeFg },
-  event:    { bg: Colors.badgeEvent,   fg: Colors.badgeFg },
-  group:    { bg: Colors.badgeGroup,   fg: Colors.badgeFg },
-  record:   { bg: Colors.badgeRecord,  fg: Colors.badgeFg },
-  spotted:  { bg: Colors.badgeSpot,    fg: Colors.badgeFg },
-  update:   { bg: Colors.badgeUpdate,  fg: Colors.badgeUpdateFg },
-  post:     { bg: Colors.badgeDefault, fg: Colors.badgeFg },
-  default:  { bg: Colors.badgeDefault, fg: Colors.badgeFg },
+  listing:  { bg: colors.badgeListing, fg: colors.badgeFg },
+  'want-ad':{ bg: colors.badgeWant,    fg: colors.badgeFg },
+  want:     { bg: colors.badgeWant,    fg: colors.badgeFg },
+  wants:    { bg: colors.badgeWant,    fg: colors.badgeFg },
+  garage:   { bg: colors.badgeGarage,  fg: colors.badgeFg },
+  event:    { bg: colors.badgeEvent,   fg: colors.badgeFg },
+  group:    { bg: colors.badgeGroup,   fg: colors.badgeFg },
+  record:   { bg: colors.badgeRecord,  fg: colors.badgeFg },
+  spotted:  { bg: colors.badgeSpot,    fg: colors.badgeFg },
+  update:   { bg: colors.badgeUpdate,  fg: colors.badgeUpdateFg },
+  post:     { bg: colors.badgeDefault, fg: colors.badgeFg },
+  default:  { bg: colors.badgeDefault, fg: colors.badgeFg },
 };

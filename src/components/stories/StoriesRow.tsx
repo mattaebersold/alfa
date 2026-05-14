@@ -8,7 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetStoriesFeedQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { imageUrl } from '../../utils/image';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Post, StoryGroup } from '../../types/api';
@@ -68,7 +68,7 @@ function StoryBubble({
         {profileUri ? (
           <Image source={{ uri: profileUri }} style={styles.bubbleImage} contentFit="cover" />
         ) : (
-          <View style={[styles.bubbleFallback, { backgroundColor: Colors.brg }]}>
+          <View style={[styles.bubbleFallback, { backgroundColor: colors.cyan }]}>
             <Text style={styles.bubbleFallbackText}>
               {username.charAt(0).toUpperCase() || '?'}
             </Text>
@@ -93,7 +93,7 @@ export default function StoriesRow() {
   if (isLoading) {
     return (
       <View style={styles.loadingRow}>
-        <ActivityIndicator size="small" color={Colors.brg} />
+        <ActivityIndicator size="small" color={colors.cyan} />
       </View>
     );
   }

@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import StoriesRow from '../../components/stories/StoriesRow';
 import AppHeader from '../../components/ui/AppHeader';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
@@ -22,7 +22,7 @@ export default function FeedScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FeedList onPostPress={handlePostPress} ListHeaderComponent={StoriesRow} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 
 type Variant = 'primary' | 'secondary' | 'dark' | 'outline' | 'destructive' | 'ghost' | 'link';
 type Size = 'sm' | 'default' | 'lg' | 'full';
@@ -30,11 +30,11 @@ export default function Button({
   const getStyles = (): { bg: string; fg: string; border?: string } => {
     switch (variant) {
       case 'primary':     return { bg: '#08DEE3', fg: '#000000' };
-      case 'secondary':   return { bg: isDark ? '#2A2A2A' : Colors.secondary, fg: isDark ? '#FFFFFF' : Colors.fg };
-      case 'dark':        return { bg: Colors.brg, fg: '#FFFFFF' };
-      case 'outline':     return { bg: 'transparent', fg: isDark ? '#FFFFFF' : Colors.brg, border: isDark ? '#FFFFFF' : Colors.brg };
+      case 'secondary':   return { bg: isDark ? '#2A2A2A' : colors.secondary, fg: isDark ? '#FFFFFF' : colors.fg };
+      case 'dark':        return { bg: colors.cyan, fg: '#FFFFFF' };
+      case 'outline':     return { bg: 'transparent', fg: isDark ? '#FFFFFF' : colors.cyan, border: isDark ? '#FFFFFF' : colors.cyan };
       case 'destructive': return { bg: '#FF0000', fg: '#FFFFFF' };
-      case 'ghost':       return { bg: 'transparent', fg: isDark ? '#BBBBBB' : Colors.grey };
+      case 'ghost':       return { bg: 'transparent', fg: isDark ? '#BBBBBB' : colors.grey };
       case 'link':        return { bg: 'transparent', fg: '#08DEE3' };
     }
   };
@@ -54,7 +54,7 @@ export default function Button({
           paddingHorizontal: s.px,
           width: size === 'full' ? '100%' : undefined,
           borderWidth: isOutline ? 1.5 : 0,
-          borderColor: isOutline ? (v.border ?? Colors.brg) : 'transparent',
+          borderColor: isOutline ? (v.border ?? colors.cyan) : 'transparent',
           opacity: disabled ? 0.5 : 1,
         },
       ]}

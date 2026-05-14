@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError, clearSuccess } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 
@@ -145,11 +145,11 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 24 },
   topRow: { marginBottom: 24 },
-  back: { fontSize: 14, color: Colors.brg, fontWeight: '600', marginBottom: 12 },
+  back: { fontSize: 14, color: colors.cyan, fontWeight: '600', marginBottom: 12 },
   title: { fontSize: 26, fontWeight: '800' },
   form: { gap: 0 },
   errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
-  errorText: { color: Colors.red, fontSize: 14, fontWeight: '500' },
+  errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
   field: { marginBottom: 14 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   input: {
@@ -161,5 +161,5 @@ const styles = StyleSheet.create({
   },
   gap: { height: 8 },
   signinLink: { alignItems: 'center', marginTop: 16 },
-  signinText: { fontSize: 14, color: Colors.brg, fontWeight: '500' },
+  signinText: { fontSize: 14, color: colors.cyan, fontWeight: '500' },
 });

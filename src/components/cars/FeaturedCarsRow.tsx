@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
 import Avatar from '../ui/Avatar';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 
 const CARD_WIDTH = Dimensions.get('window').width * 0.62;
@@ -43,7 +43,7 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
               {hero ? (
                 <Image source={{ uri: hero }} style={styles.image} contentFit="cover" />
               ) : (
-                <View style={[styles.image, { backgroundColor: Colors.brg }]} />
+                <View style={[styles.image, { backgroundColor: colors.cyan }]} />
               )}
               <View style={styles.overlay}>
                 <Text style={styles.carTitle} numberOfLines={1}>

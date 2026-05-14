@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps, AppStackParamList } from '../../navigation/types';
@@ -106,7 +106,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 
         {event.location ? (
           <TouchableOpacity style={styles.metaRow} onPress={handleOpenMaps}>
-            <MapPin size={15} color={Colors.brg} />
+            <MapPin size={15} color={colors.cyan} />
             <Text style={[styles.metaText, styles.metaLink]}>{event.location}</Text>
           </TouchableOpacity>
         ) : null}
@@ -193,24 +193,24 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 const styles = StyleSheet.create({
   safe:            { flex: 1 },
   list:            { paddingBottom: 32 },
-  imagePlaceholder:{ backgroundColor: Colors.brg },
+  imagePlaceholder:{ backgroundColor: colors.cyan },
   dotRow:          { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 8 },
-  dot:             { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.greyLight },
-  dotActive:       { backgroundColor: Colors.brg },
+  dot:             { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.greyLight },
+  dotActive:       { backgroundColor: colors.cyan },
   infoBlock:       { padding: 16, borderBottomWidth: 1 },
   title:           { fontSize: 22, fontWeight: '800', marginBottom: 10 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   metaText:        { fontSize: 14 },
-  metaLink:        { color: Colors.brg, fontWeight: '600' },
+  metaLink:        { color: colors.cyan, fontWeight: '600' },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginTop: 14 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
-  rsvpAttend:      { backgroundColor: Colors.brg },
+  rsvpAttend:      { backgroundColor: colors.cyan },
   rsvpBtnText:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   tabBar:          { flexDirection: 'row', borderBottomWidth: 1 },
   tabItem:         { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabItemActive:   { borderBottomColor: Colors.brg },
+  tabItemActive:   { borderBottomColor: colors.cyan },
   tabText:         { fontSize: 14, fontWeight: '600' },
-  tabTextActive:   { color: Colors.brg },
+  tabTextActive:   { color: colors.cyan },
   bodyBlock:       { padding: 16 },
   body:            { fontSize: 15, lineHeight: 22 },
   muted:           { fontSize: 15, fontStyle: 'italic' },

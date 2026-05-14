@@ -16,7 +16,7 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Message } from '../../types/api';
@@ -176,12 +176,12 @@ const styles = StyleSheet.create({
   unreadDot: {
     position: 'absolute', top: 14, left: 4,
     width: 8, height: 8, borderRadius: 4,
-    backgroundColor: Colors.cyan,
+    backgroundColor: colors.cyan,
   },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,

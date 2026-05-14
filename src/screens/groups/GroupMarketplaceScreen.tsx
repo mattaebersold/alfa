@@ -7,7 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetPostsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
@@ -75,6 +75,6 @@ const styles = StyleSheet.create({
   thumb:            { width: 72, height: 54, borderRadius: 8 },
   info:             { flex: 1 },
   title:            { fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  price:            { fontSize: 15, fontWeight: '800', color: Colors.brg, marginBottom: 2 },
+  price:            { fontSize: 15, fontWeight: '800', color: colors.cyan, marginBottom: 2 },
   body:             { fontSize: 12 },
 });

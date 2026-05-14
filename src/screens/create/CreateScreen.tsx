@@ -13,7 +13,7 @@ import { ImagePlus, X, ChevronDown, ChevronUp, Check } from 'lucide-react-native
 import { useCreatePostMutation, useGetUserGarageQuery, useGetUserGroupsQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -24,11 +24,11 @@ type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type PostType = 'general' | 'record' | 'listing' | 'want' | 'spot';
 
 const POST_TYPES: { type: PostType; label: string; color: string }[] = [
-  { type: 'general',  label: 'General',    color: Colors.brg },
-  { type: 'record',   label: 'Car Record', color: Colors.teal },
+  { type: 'general',  label: 'General',    color: colors.cyan },
+  { type: 'record',   label: 'Car Record', color: colors.teal },
   { type: 'listing',  label: 'Listing',    color: '#00C851' },
   { type: 'want',     label: 'Want Ad',    color: '#F1184C' },
-  { type: 'spot',     label: 'Spotted',    color: Colors.tangerine },
+  { type: 'spot',     label: 'Spotted',    color: colors.tangerine },
 ];
 
 const CATEGORIES: Record<PostType, { key: string; label: string }[]> = {
@@ -254,8 +254,8 @@ export default function CreateScreen() {
                   key={key}
                   style={[
                     styles.catChip,
-                    { borderColor: active ? Colors.brg : colors.border },
-                    active && { backgroundColor: Colors.brg },
+                    { borderColor: active ? colors.cyan : colors.border },
+                    active && { backgroundColor: colors.cyan },
                   ]}
                   onPress={() => setCategory(active ? '' : key)}
                 >
@@ -302,8 +302,8 @@ export default function CreateScreen() {
         {/* Photos */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImage}>
-            <ImagePlus size={18} color={Colors.brg} />
-            <Text style={[styles.addPhotoText, { color: Colors.brg }]}>Add Photos</Text>
+            <ImagePlus size={18} color={colors.cyan} />
+            <Text style={[styles.addPhotoText, { color: colors.cyan }]}>Add Photos</Text>
           </TouchableOpacity>
           {images.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
@@ -363,7 +363,7 @@ export default function CreateScreen() {
                 return (
                   <TouchableOpacity
                     key={car.internal_id}
-                    style={[styles.assocChip, { borderColor: active ? Colors.brg : colors.border }, active && { backgroundColor: Colors.brg }]}
+                    style={[styles.assocChip, { borderColor: active ? colors.cyan : colors.border }, active && { backgroundColor: colors.cyan }]}
                     onPress={() => setSelectedCarId(active ? '' : car.internal_id)}
                   >
                     {active && <Check size={12} color="#FFFFFF" />}
@@ -387,7 +387,7 @@ export default function CreateScreen() {
                 return (
                   <TouchableOpacity
                     key={gid}
-                    style={[styles.assocChip, { borderColor: active ? Colors.brg : colors.border }, active && { backgroundColor: Colors.brg }]}
+                    style={[styles.assocChip, { borderColor: active ? colors.cyan : colors.border }, active && { backgroundColor: colors.cyan }]}
                     onPress={() => setSelectedGroupId(active ? '' : gid)}
                   >
                     {active && <Check size={12} color="#FFFFFF" />}
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12,
   },
   submitBtn:    {
-    backgroundColor: Colors.brg, borderRadius: 12,
+    backgroundColor: colors.cyan, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.6 },

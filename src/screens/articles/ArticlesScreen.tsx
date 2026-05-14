@@ -12,7 +12,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { FeedStackParamList } from '../../navigation/types';
@@ -78,7 +78,7 @@ export default function ArticlesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
       <AppHeader />
       <FlatList
         style={{ flex: 1, backgroundColor: colors.cream }}
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   cardBody:  { padding: 14, gap: 6 },
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
     borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
   },
   category:  { fontSize: 11, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.8 },

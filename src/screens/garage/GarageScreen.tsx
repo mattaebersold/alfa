@@ -10,7 +10,7 @@ import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService
 import CarCard from '../../components/cards/CarCard';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -21,10 +21,12 @@ function CarCardWithTasks({
   car,
   onPress,
   onTasksPress,
+  onEditPress,
 }: {
   car: any;
   onPress: () => void;
   onTasksPress: () => void;
+  onEditPress: () => void;
 }) {
   const { data: tasksData } = useGetCarTasksQuery(car.internal_id);
   const tasks = tasksData?.entries ?? [];
@@ -33,6 +35,7 @@ function CarCardWithTasks({
       car={car}
       onPress={onPress}
       onTasksPress={onTasksPress}
+      onEditPress={onEditPress}
       taskCount={tasks.filter((t) => !t.completed).length}
     />
   );
@@ -45,13 +48,18 @@ export default function GarageScreen() {
   const cars = data?.entries ?? [];
 
   const goToCar = useCallback(
-    (carId: string) => navigation.navigate('CarDetailModal', { carId }),
+    (carId: string) => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'CarDetail', params: { carId } } } as any),
     [navigation]
   );
 
   const goToTasks = useCallback(
     (carId: string, carTitle: string) =>
       navigation.navigate('CarTasks', { carId, carTitle }),
+    [navigation]
+  );
+
+  const goToEditCar = useCallback(
+    (carId: string) => navigation.navigate('CarCreate', { carId }),
     [navigation]
   );
 
@@ -72,6 +80,7 @@ export default function GarageScreen() {
                 [item.year, item.make, item.model].filter(Boolean).join(' ')
               )
             }
+            onEditPress={() => goToEditCar(item.internal_id)}
           />
         )}
         ListHeaderComponent={
@@ -89,10 +98,15 @@ export default function GarageScreen() {
           </View>
         }
         ListEmptyComponent={
-          <EmptyState title="No cars yet" message="Add your first car to get started." />
+          <EmptyState
+            title="No cars yet"
+            message="Add your first car to get started."
+            actionLabel="Add New Car"
+            onAction={() => navigation.navigate('CarCreate', {})}
+          />
         }
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={Colors.brg} />
+          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.cyan} />
         }
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -116,7 +130,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.brg,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,

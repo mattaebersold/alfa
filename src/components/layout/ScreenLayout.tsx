@@ -3,7 +3,7 @@ import { ScrollView, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Spinner from '../ui/Spinner';
 import EmptyState from '../ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 
 interface ScreenLayoutProps {
@@ -59,7 +59,7 @@ export default function ScreenLayout({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={Colors.brg}
+                tintColor={colors.cyan}
               />
             ) : undefined
           }

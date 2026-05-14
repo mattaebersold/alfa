@@ -9,7 +9,7 @@ import { useGetCarsQuery, useGetCarModelsQuery } from '../../api/apiService';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
@@ -96,7 +96,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={Colors.brg} />
+          <RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
@@ -139,7 +139,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
         }}
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 40 }} />
           ) : (
             <EmptyState title={`No ${brand}s yet`} message="Be the first to add one." />
           )
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
     borderWidth: 1.5,
   },
-  chipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
+  chipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   chipText:   { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
   list:  { paddingHorizontal: 8, paddingBottom: 24 },

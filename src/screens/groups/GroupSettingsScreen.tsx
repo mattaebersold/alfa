@@ -11,7 +11,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps, GroupsStackParamList } from '../../navigation/types';
 
@@ -109,5 +109,5 @@ const styles = StyleSheet.create({
   memberName:  { fontSize: 14, fontWeight: '600' },
   memberHandle:{ fontSize: 12 },
   dangerBtn:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1 },
-  dangerText:  { fontSize: 15, fontWeight: '600', color: Colors.red },
+  dangerText:  { fontSize: 15, fontWeight: '600', color: colors.red },
 });

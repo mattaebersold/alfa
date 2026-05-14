@@ -12,7 +12,7 @@ import {
   useSendMessageMutation,
 } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   recipientName: { fontSize: 14, fontWeight: '600' },
   footer: { padding: 16, borderTopWidth: 1 },
   sendBtn: {
-    backgroundColor: Colors.brg, borderRadius: 10,
+    backgroundColor: colors.cyan, borderRadius: 10,
     paddingVertical: 14, alignItems: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },

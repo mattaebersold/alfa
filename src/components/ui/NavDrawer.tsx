@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
 import { useAppSelector } from '../../store/store';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;

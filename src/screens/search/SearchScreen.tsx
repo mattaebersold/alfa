@@ -11,7 +11,7 @@ import { useSearchQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import AppHeader from '../../components/ui/AppHeader';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -79,7 +79,7 @@ export default function SearchScreen() {
   const hasResults = users.length > 0 || cars.length > 0 || posts.length > 0;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.searchContent, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
@@ -138,7 +138,7 @@ export default function SearchScreen() {
                 <CarRow
                   key={c.internal_id}
                   car={c}
-                  onPress={() => navigation.navigate('CarDetailModal', { carId: c.internal_id })}
+                  onPress={() => (navigation as any).navigate('CarDetail', { carId: c.internal_id })}
                 />
               ))}
             </View>

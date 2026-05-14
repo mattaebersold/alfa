@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 
 interface SpinnerProps {
   size?: 'small' | 'large';
@@ -11,7 +11,7 @@ interface SpinnerProps {
 
 export default function Spinner({ size = 'large', color, fullScreen = false }: SpinnerProps) {
   const colors = useColors();
-  const spinColor = color ?? Colors.brg;
+  const spinColor = color ?? colors.cyan;
 
   if (fullScreen) {
     return (

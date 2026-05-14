@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetPodcastQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { imageUrl } from '../../utils/image';
 import PodcastPlayer from '../../components/podcasts/PodcastPlayer';
 import type { AppScreenProps } from '../../navigation/types';

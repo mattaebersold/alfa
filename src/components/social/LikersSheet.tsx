@@ -6,7 +6,7 @@ import { X } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import { useGetLikeUsersQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 
 function LikerRow({ userId }: { userId: string }) {
   const colors = useColors();
@@ -49,7 +49,7 @@ export default function LikersSheet({ entryId, visible, onClose }: LikersSheetPr
             </TouchableOpacity>
           </View>
           {isLoading ? (
-            <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 40 }} />
           ) : userIds.length === 0 ? (
             <Text style={[styles.empty, { color: colors.grey }]}>No likes yet. Be the first!</Text>
           ) : (

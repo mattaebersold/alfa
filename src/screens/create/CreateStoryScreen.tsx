@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, Pressable, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet,
   Alert, StatusBar, ActivityIndicator, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,206 +8,169 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { getThumbnailAsync } from 'expo-video-thumbnails';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import Svg, { Circle } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-const MAX_DURATION = 30; // seconds
-const RING_SIZE = 96;
-const RING_RADIUS = 44;
-const RING_STROKE = 3.5;
-const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const MAX_DURATION = 30;
+const { width: SW, height: SH } = Dimensions.get('window');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// ─── Progress bar ─────────────────────────────────────────────────────────────
 
-// ─── Progress ring ───────────────────────────────────────────────────────────
-
-function ProgressRing({ progress }: { progress: number }) {
-  const dashOffset = CIRCUMFERENCE * (1 - Math.min(progress, 1));
+function ProgressBar({ elapsed }: { elapsed: number }) {
+  const pct = Math.min(elapsed / MAX_DURATION, 1);
   return (
-    <Svg
-      width={RING_SIZE}
-      height={RING_SIZE}
-      style={StyleSheet.absoluteFillObject}
-      viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-    >
-      {/* Track */}
-      <Circle
-        cx={RING_SIZE / 2}
-        cy={RING_SIZE / 2}
-        r={RING_RADIUS}
-        stroke="rgba(255,255,255,0.25)"
-        strokeWidth={RING_STROKE}
-        fill="none"
-      />
-      {/* Fill — rotated so it starts at top */}
-      <Circle
-        cx={RING_SIZE / 2}
-        cy={RING_SIZE / 2}
-        r={RING_RADIUS}
-        stroke="#ef4444"
-        strokeWidth={RING_STROKE}
-        fill="none"
-        strokeDasharray={CIRCUMFERENCE}
-        strokeDashoffset={dashOffset}
-        strokeLinecap="round"
-        rotation="-90"
-        origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-      />
-    </Svg>
+    <View style={pb.track}>
+      <View style={[pb.fill, { width: `${pct * 100}%` }]} />
+    </View>
   );
 }
+const pb = StyleSheet.create({
+  track: {
+    height: 3, backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 2, overflow: 'hidden',
+  },
+  fill: { height: '100%', backgroundColor: '#ef4444', borderRadius: 2 },
+});
 
-// ─── Recorded preview ────────────────────────────────────────────────────────
+// ─── Recorded preview ─────────────────────────────────────────────────────────
 
 function RecordedPreview({
-  uri, onReRecord, onNext, processing,
+  uri, onDiscard, onNext, processing,
 }: {
   uri: string;
-  onReRecord: () => void;
+  onDiscard: () => void;
   onNext: () => void;
   processing: boolean;
 }) {
-  const [videoReady, setVideoReady] = useState(false);
+  const [ready, setReady] = useState(false);
+  const player = useVideoPlayer(uri, (p) => { p.loop = true; });
 
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = true;
-  });
-
-  // Play only once video is ready
-  const handleReadyForDisplay = useCallback(() => {
-    setVideoReady(true);
+  const handleReady = useCallback(() => {
+    setReady(true);
     player.play();
   }, [player]);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" hidden />
 
-      {/* Portrait-constrained video */}
-      <View style={styles.videoContainer}>
-        {!videoReady && (
-          <View style={styles.videoSpinner}>
-            <ActivityIndicator color="#fff" size="large" />
-          </View>
-        )}
-        <VideoView
-          player={player}
-          style={styles.video}
-          contentFit="contain"
-          nativeControls={false}
-          onFirstFrameRender={handleReadyForDisplay}
-        />
-      </View>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+        onFirstFrameRender={handleReady}
+      />
 
-      {/* Close */}
+      {!ready && (
+        <View style={styles.overlay}>
+          <ActivityIndicator color="#fff" size="large" />
+        </View>
+      )}
+
+      {/* Top-left: discard */}
       <SafeAreaView style={styles.topBar} edges={['top']}>
-        <TouchableOpacity onPress={onReRecord} style={styles.closeBtn} hitSlop={12}>
-          <Text style={styles.closeText}>✕</Text>
+        <TouchableOpacity onPress={onDiscard} style={styles.circleBtn} hitSlop={12}>
+          <Text style={styles.circleBtnText}>✕</Text>
         </TouchableOpacity>
+        <View style={styles.previewLabel}>
+          <Text style={styles.previewLabelText}>Preview</Text>
+        </View>
+        <View style={{ width: 40 }} />
       </SafeAreaView>
 
-      {/* Footer buttons */}
+      {/* Bottom: action buttons */}
       <SafeAreaView style={styles.previewFooter} edges={['bottom']}>
-        <View style={styles.previewButtons}>
-          <TouchableOpacity onPress={onReRecord} style={[styles.previewBtn, styles.previewBtnSecondary]}>
-            <Text style={styles.previewBtnSecondaryText}>Re-record</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onNext}
-            disabled={processing || !videoReady}
-            style={[styles.previewBtn, styles.previewBtnPrimary, (processing || !videoReady) && styles.previewBtnDisabled]}
-          >
-            {processing
-              ? <ActivityIndicator color="#000" size="small" />
-              : <Text style={styles.previewBtnPrimaryText}>Next</Text>
-            }
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={onDiscard} style={styles.discardBtn}>
+          <Text style={styles.discardBtnText}>Discard</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onNext}
+          disabled={processing || !ready}
+          style={[styles.nextBtn, (processing || !ready) && { opacity: 0.5 }]}
+        >
+          {processing
+            ? <ActivityIndicator color="#000" size="small" />
+            : <Text style={styles.nextBtnText}>Use Video →</Text>
+          }
+        </TouchableOpacity>
       </SafeAreaView>
     </View>
   );
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
+// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CreateStoryScreen() {
   const navigation = useNavigation<NavProp>();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cameraRef = useRef<any>(null);
+  const cameraRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const recordStartRef = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
 
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0); // seconds, float
+  const [elapsed, setElapsed] = useState(0);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
   const hasPermissions = cameraPermission?.granted && micPermission?.granted;
 
-  // Lock to portrait for recording; restore on leave
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     return () => {
       ScreenOrientation.unlockAsync().catch(() => {});
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // Clean up timer on unmount
+  // Auto-stop at max duration
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, []);
-
-  // Auto-stop when MAX_DURATION is reached
-  useEffect(() => {
-    if (recordingTime >= MAX_DURATION && isRecording) {
-      stopRecording();
-    }
-  }, [recordingTime]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (elapsed >= MAX_DURATION && isRecording) stopRecording();
+  }, [elapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startRecording = useCallback(async () => {
     if (!cameraRef.current || isRecording || recordedUri) return;
     setIsRecording(true);
-    setRecordingTime(0);
-    recordStartRef.current = Date.now();
+    setElapsed(0);
+    startTimeRef.current = Date.now();
 
     timerRef.current = setInterval(() => {
-      setRecordingTime(t => t + 0.1);
+      setElapsed((Date.now() - startTimeRef.current) / 1000);
     }, 100);
 
     try {
       const result = await cameraRef.current.record({ maxDuration: MAX_DURATION });
-      const elapsed = (Date.now() - recordStartRef.current) / 1000;
-      if (elapsed >= 2) {
+      const duration = (Date.now() - startTimeRef.current) / 1000;
+      if (duration < 1.5) {
+        Alert.alert('Too short', 'Hold the record button for at least 2 seconds.');
+      } else {
         setRecordedUri(result.uri);
       }
-      // else: too short — discard and stay on camera view
-    } catch {
-      // released before recording started — ignore
+    } catch (err: any) {
+      if (!err?.message?.includes('Recording was stopped')) {
+        Alert.alert('Recording failed', 'Could not start recording. Please try again.');
+      }
     } finally {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
       setIsRecording(false);
-      setRecordingTime(0);
+      setElapsed(0);
     }
   }, [isRecording, recordedUri]);
 
   const stopRecording = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (cameraRef.current && isRecording) {
-      cameraRef.current.stopRecording();
-    }
-  }, [isRecording]);
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    cameraRef.current?.stopRecording();
+  }, []);
 
-  const handleReRecord = () => {
+  const handleDiscard = () => {
     setRecordedUri(null);
-    setRecordingTime(0);
+    setElapsed(0);
   };
 
   const handleNext = async () => {
@@ -215,10 +178,7 @@ export default function CreateStoryScreen() {
     setProcessing(true);
     try {
       const thumb = await getThumbnailAsync(recordedUri, { time: 100 });
-      navigation.navigate('StoryDetails', {
-        videoUri: recordedUri,
-        thumbnailUri: thumb.uri,
-      });
+      navigation.navigate('StoryDetails', { videoUri: recordedUri, thumbnailUri: thumb.uri });
     } catch {
       Alert.alert('Error', 'Could not process video. Please try again.');
     } finally {
@@ -227,16 +187,16 @@ export default function CreateStoryScreen() {
   };
 
   const requestPermissions = async () => {
-    await requestCameraPermission();
-    await requestMicPermission();
+    if (!cameraPermission?.granted) await requestCameraPermission();
+    if (!micPermission?.granted) await requestMicPermission();
   };
 
-  // ── Recorded preview ──
+  // ── Preview ──
   if (recordedUri) {
     return (
       <RecordedPreview
         uri={recordedUri}
-        onReRecord={handleReRecord}
+        onDiscard={handleDiscard}
         onNext={handleNext}
         processing={processing}
       />
@@ -248,8 +208,10 @@ export default function CreateStoryScreen() {
     return (
       <View style={styles.permGate}>
         <StatusBar barStyle="light-content" />
-        <Text style={styles.permTitle}>Camera & Microphone Access</Text>
-        <Text style={styles.permSubtitle}>Required to record stories.</Text>
+        <Text style={styles.permTitle}>Camera & Microphone</Text>
+        <Text style={styles.permSub}>
+          Open Road Society needs camera and microphone access to record video stories.
+        </Text>
         <TouchableOpacity onPress={requestPermissions} style={styles.permBtn}>
           <Text style={styles.permBtnText}>Grant Access</Text>
         </TouchableOpacity>
@@ -260,13 +222,12 @@ export default function CreateStoryScreen() {
     );
   }
 
-  const ringProgress = recordingTime / MAX_DURATION;
-  const timeRemaining = Math.ceil(MAX_DURATION - recordingTime);
+  const timeLeft = Math.max(0, Math.ceil(MAX_DURATION - elapsed));
 
-  // ── Camera view ──
+  // ── Camera ──
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" hidden />
 
       <CameraView
         ref={cameraRef}
@@ -277,46 +238,51 @@ export default function CreateStoryScreen() {
 
       {/* Top bar */}
       <SafeAreaView style={styles.topBar} edges={['top']}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn} hitSlop={12}>
-          <Text style={styles.closeText}>✕</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.circleBtn}
+          hitSlop={12}
+        >
+          <Text style={styles.circleBtnText}>✕</Text>
         </TouchableOpacity>
 
-        {/* Recording time badge */}
+        {/* Progress bar + timer — only visible while recording */}
         {isRecording && (
-          <View style={styles.recordingBadge}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingLabel}>{timeRemaining}s</Text>
+          <View style={styles.recordingInfo}>
+            <View style={styles.progressBarWrapper}>
+              <ProgressBar elapsed={elapsed} />
+            </View>
+            <View style={styles.timerBadge}>
+              <View style={styles.recDot} />
+              <Text style={styles.timerText}>{timeLeft}s</Text>
+            </View>
           </View>
         )}
 
-        {/* Flip camera */}
         <TouchableOpacity
           onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
-          style={styles.flipBtn}
+          style={styles.circleBtn}
           hitSlop={12}
         >
-          <Text style={styles.flipText}>⟳</Text>
+          <Text style={styles.circleBtnText}>⟳</Text>
         </TouchableOpacity>
       </SafeAreaView>
 
-      {/* Record button + progress ring */}
+      {/* Bottom: record button */}
       <SafeAreaView style={styles.footer} edges={['bottom']}>
-        <View style={styles.ringWrapper}>
-          {isRecording && <ProgressRing progress={ringProgress} />}
-          <Pressable
-            onPressIn={startRecording}
-            onPressOut={stopRecording}
-            style={[
-              styles.recordBtn,
-              isRecording && styles.recordBtnActive,
-            ]}
-          >
-            <View style={isRecording ? styles.recordInnerSquare : styles.recordInnerCircle} />
-          </Pressable>
-        </View>
-        <Text style={styles.hintText}>
-          {isRecording ? 'Release to stop' : 'Hold to record'}
+        <Text style={styles.hint}>
+          {isRecording ? 'Tap to stop' : 'Tap to record'}
         </Text>
+        <TouchableOpacity
+          onPress={isRecording ? stopRecording : startRecording}
+          style={styles.recordBtnOuter}
+          activeOpacity={0.85}
+        >
+          <View style={[
+            styles.recordBtnInner,
+            isRecording && styles.recordBtnInnerActive,
+          ]} />
+        </TouchableOpacity>
       </SafeAreaView>
     </View>
   );
@@ -324,101 +290,90 @@ export default function CreateStoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   // Permission gate
   permGate: {
-    flex: 1, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', padding: 32,
+    flex: 1, backgroundColor: '#0a0a0a',
+    alignItems: 'center', justifyContent: 'center', padding: 36,
   },
-  permTitle: { color: '#fff', fontSize: 20, fontWeight: '700', marginBottom: 10, textAlign: 'center' },
-  permSubtitle: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginBottom: 32 },
+  permTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginBottom: 12, textAlign: 'center' },
+  permSub: {
+    color: 'rgba(255,255,255,0.55)', fontSize: 14, textAlign: 'center',
+    lineHeight: 21, marginBottom: 36,
+  },
   permBtn: {
-    backgroundColor: '#fff', borderRadius: 50, paddingHorizontal: 32, paddingVertical: 14, marginBottom: 12,
+    backgroundColor: '#fff', borderRadius: 50,
+    paddingHorizontal: 36, paddingVertical: 15, marginBottom: 14,
   },
   permBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
-  cancelText: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+  cancelText: { color: 'rgba(255,255,255,0.45)', fontSize: 14 },
 
   // Top bar
   topBar: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 8,
+    paddingHorizontal: 16, paddingTop: 8, gap: 8,
   },
-  closeBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center',
+  circleBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
-  closeText: { color: '#fff', fontSize: 18 },
-  recordingBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
+  circleBtnText: { color: '#fff', fontSize: 18 },
+  recordingInfo: {
+    flex: 1, gap: 6,
   },
-  recordingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' },
-  recordingLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  flipBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center',
+  progressBarWrapper: { paddingHorizontal: 4 },
+  timerBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'center',
   },
-  flipText: { color: '#fff', fontSize: 22, lineHeight: 26 },
+  recDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#ef4444' },
+  timerText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
   // Footer
   footer: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    alignItems: 'center', gap: 12, zIndex: 10,
-    paddingBottom: 24,
+    position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
+    alignItems: 'center', paddingBottom: 32, gap: 14,
   },
-  ringWrapper: {
-    width: RING_SIZE, height: RING_SIZE,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  recordBtn: {
-    width: 76, height: 76, borderRadius: 38,
+  hint: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '500' },
+  recordBtnOuter: {
+    width: 80, height: 80, borderRadius: 40,
     borderWidth: 4, borderColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  recordBtnActive: {
-    borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)',
+  recordBtnInner: {
+    width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff',
   },
-  recordInnerCircle: {
-    width: 50, height: 50, borderRadius: 25, backgroundColor: '#fff',
+  recordBtnInnerActive: {
+    width: 28, height: 28, borderRadius: 6, backgroundColor: '#ef4444',
   },
-  recordInnerSquare: {
-    width: 26, height: 26, borderRadius: 4, backgroundColor: '#ef4444',
-  },
-  hintText: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
 
   // Preview
-  videoContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  video: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  videoSpinner: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
+  previewLabel: { flex: 1, alignItems: 'center' },
+  previewLabelText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   previewFooter: {
     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  previewButtons: {
     flexDirection: 'row', gap: 12, padding: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  previewBtn: {
-    flex: 1, borderRadius: 50, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
-    minHeight: 50,
+  discardBtn: {
+    flex: 1, borderRadius: 50, paddingVertical: 15,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
   },
-  previewBtnSecondary: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
-  previewBtnSecondaryText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  previewBtnPrimary: { backgroundColor: '#fff' },
-  previewBtnPrimaryText: { color: '#000', fontWeight: '700', fontSize: 15 },
-  previewBtnDisabled: { opacity: 0.4 },
+  discardBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  nextBtn: {
+    flex: 2, borderRadius: 50, paddingVertical: 15,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  nextBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
 });

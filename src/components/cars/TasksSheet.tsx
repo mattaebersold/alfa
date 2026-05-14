@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetCarTasksQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 
 interface TasksSheetProps {
@@ -38,7 +38,7 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <Wrench size={18} color={Colors.brg} />
+              <Wrench size={18} color={colors.cyan} />
               <Text style={[styles.title, { color: colors.fg }]}>Tasks</Text>
               {open.length > 0 && (
                 <View style={styles.badge}>
@@ -48,8 +48,8 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity onPress={goToFull} style={styles.manageBtn} activeOpacity={0.7}>
-                <Text style={[styles.manageBtnText, { color: Colors.brg }]}>Manage</Text>
-                <ChevronRight size={14} color={Colors.brg} />
+                <Text style={[styles.manageBtnText, { color: colors.cyan }]}>Manage</Text>
+                <ChevronRight size={14} color={colors.cyan} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} hitSlop={8}>
                 <X size={22} color={colors.grey} />
@@ -58,11 +58,11 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
           </View>
 
           {isLoading ? (
-            <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 40 }} />
           ) : tasks.length === 0 ? (
             <View style={styles.empty}>
               <Text style={[styles.emptyText, { color: colors.grey }]}>No tasks yet.</Text>
-              <TouchableOpacity onPress={goToFull} style={[styles.addBtn, { backgroundColor: Colors.brg }]}>
+              <TouchableOpacity onPress={goToFull} style={[styles.addBtn, { backgroundColor: colors.cyan }]}>
                 <Text style={styles.addBtnText}>Add Task</Text>
               </TouchableOpacity>
             </View>
@@ -73,7 +73,7 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
               contentContainerStyle={styles.list}
               renderItem={({ item }) => (
                 <View style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                  <View style={[styles.dot, item.completed ? styles.dotDone : { backgroundColor: Colors.brg }]} />
+                  <View style={[styles.dot, item.completed ? styles.dotDone : { backgroundColor: colors.cyan }]} />
                   <View style={styles.rowText}>
                     <Text style={[
                       styles.taskTitle, { color: colors.fg },
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title:       { fontSize: 17, fontWeight: '700' },
   badge:       {
-    backgroundColor: Colors.brg, borderRadius: 10,
+    backgroundColor: colors.cyan, borderRadius: 10,
     paddingHorizontal: 7, paddingVertical: 2,
   },
   badgeText:   { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
   dot:         { width: 10, height: 10, borderRadius: 5 },
-  dotDone:     { backgroundColor: Colors.green },
+  dotDone:     { backgroundColor: colors.green },
   rowText:     { flex: 1 },
   taskTitle:   { fontSize: 15, fontWeight: '500' },
   priority:    { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },

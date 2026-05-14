@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { CONFIG } from '../../constants/config';
 import type { AuthScreenProps } from '../../navigation/types';
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
   backBtn: { marginBottom: 24 },
-  back: { fontSize: 14, color: Colors.brg, fontWeight: '600' },
+  back: { fontSize: 14, color: colors.cyan, fontWeight: '600' },
   title: { fontSize: 26, fontWeight: '800', marginBottom: 8 },
   sub: { fontSize: 14, lineHeight: 20, marginBottom: 28 },
   field: { marginBottom: 20 },

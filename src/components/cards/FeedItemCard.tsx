@@ -11,7 +11,7 @@ import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingLeft: 4,
   },
-  price:       { fontSize: 18, fontWeight: '800', color: Colors.brg, paddingHorizontal: 12, paddingTop: 8 },
+  price:       { fontSize: 18, fontWeight: '800', color: colors.cyan, paddingHorizontal: 12, paddingTop: 8 },
   likedBy:     { fontSize: 13, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
   actions:     {
     flexDirection: 'row', alignItems: 'center',

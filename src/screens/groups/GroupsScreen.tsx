@@ -13,7 +13,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Group } from '../../types/api';
@@ -27,7 +27,7 @@ function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {banner
         ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
-        : <View style={[styles.cardBanner, { backgroundColor: Colors.brg + '55' }]} />
+        : <View style={[styles.cardBanner, { backgroundColor: colors.cyan + '55' }]} />
       }
       <View style={styles.cardBody}>
         <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
@@ -45,7 +45,7 @@ function GroupRow({ group, onPress }: { group: Group; onPress: () => void }) {
     <TouchableOpacity style={[styles.groupRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       {banner
         ? <Image source={{ uri: banner }} style={styles.rowThumb} contentFit="cover" />
-        : <View style={[styles.rowThumb, { backgroundColor: Colors.brg + '55' }]} />
+        : <View style={[styles.rowThumb, { backgroundColor: colors.cyan + '55' }]} />
       }
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
@@ -118,7 +118,7 @@ export default function GroupsScreen() {
   if (userGroupsLoading || allGroupsLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
@@ -127,7 +127,7 @@ export default function GroupsScreen() {
           numColumns={2}
           columnWrapperStyle={styles.cardRow}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={Colors.brg} />}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           showsVerticalScrollIndicator={false}

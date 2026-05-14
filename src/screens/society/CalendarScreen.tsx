@@ -10,7 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetCalendarEventsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
@@ -57,11 +57,11 @@ export default function CalendarScreen() {
       {/* Month nav */}
       <View style={[styles.monthNav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => setCurrentDate((d) => subMonths(d, 1))} style={styles.navBtn}>
-          <ChevronLeft size={22} color={Colors.brg} />
+          <ChevronLeft size={22} color={colors.cyan} />
         </TouchableOpacity>
         <Text style={[styles.monthLabel, { color: colors.fg }]}>{format(currentDate, 'MMMM yyyy')}</Text>
         <TouchableOpacity onPress={() => setCurrentDate((d) => addMonths(d, 1))} style={styles.navBtn}>
-          <ChevronRight size={22} color={Colors.brg} />
+          <ChevronRight size={22} color={colors.cyan} />
         </TouchableOpacity>
       </View>
 
@@ -94,7 +94,7 @@ export default function CalendarScreen() {
                 styles.dayNum,
                 { color: colors.fg },
                 isSelected && styles.dayNumSelected,
-                isToday && !isSelected && { color: Colors.brg, fontWeight: '800' },
+                isToday && !isSelected && { color: colors.cyan, fontWeight: '800' },
               ]}>
                 {day.getDate()}
               </Text>
@@ -164,17 +164,17 @@ const styles = StyleSheet.create({
   dayLabel:     { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700' },
   grid:         { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingBottom: 8 },
   dayCell:      { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 100 },
-  dayCellSelected: { backgroundColor: Colors.brg },
+  dayCellSelected: { backgroundColor: colors.cyan },
   dayNum:          { fontSize: 14, fontWeight: '600' },
   dayNumSelected:  { color: '#FFFFFF', fontWeight: '800' },
-  eventDot:        { width: 5, height: 5, borderRadius: 2.5, backgroundColor: Colors.speed, marginTop: 2 },
+  eventDot:        { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.speed, marginTop: 2 },
   listHeader:   {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 1, borderBottomWidth: 1,
   },
   listHeaderText: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  clearDate:      { fontSize: 13, color: Colors.brg, fontWeight: '600' },
+  clearDate:      { fontSize: 13, color: colors.cyan, fontWeight: '600' },
   eventList:    { paddingBottom: 24 },
   eventRow:     {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   eventDateBadge: { alignItems: 'center', width: 36 },
-  eventDay:       { fontSize: 18, fontWeight: '800', color: Colors.brg },
+  eventDay:       { fontSize: 18, fontWeight: '800', color: colors.cyan },
   eventMon:       { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   eventInfo:      { flex: 1 },
   eventTitle:     { fontSize: 15, fontWeight: '600' },

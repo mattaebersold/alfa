@@ -3,7 +3,7 @@ import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'r
 import { useGetPostsQuery } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
 import EmptyState from '../ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { Post } from '../../types/api';
 
@@ -82,7 +82,7 @@ export default function FeedList({
   if (isLoading && page === 0) {
     return (
       <View style={styles.loadingCenter}>
-        <ActivityIndicator size="large" color={Colors.brg} />
+        <ActivityIndicator size="large" color={colors.cyan} />
       </View>
     );
   }
@@ -109,7 +109,7 @@ export default function FeedList({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor={Colors.brg}
+          tintColor={colors.cyan}
         />
       }
       onEndReached={handleLoadMore}

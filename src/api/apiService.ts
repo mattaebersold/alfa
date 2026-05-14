@@ -199,11 +199,15 @@ export const apiService = createApi({
 
     getCarBrands: builder.query<string[], void>({
       query: () => 'api/garage/brands/all',
+      transformResponse: (response: { brands: { make: string; make_handle: string; qty: number }[] }) =>
+        response.brands.map((b) => b.make),
       providesTags: ['Brands'],
     }),
 
     getCarModels: builder.query<string[], string>({
       query: (brand) => `api/garage/brands/brand/${encodeURIComponent(brand)}/models`,
+      transformResponse: (response: { models: { model: string; model_handle: string }[] }) =>
+        response.models.map((m) => m.model),
       providesTags: (result, error, brand) => [{ type: 'Models', id: brand }],
     }),
 

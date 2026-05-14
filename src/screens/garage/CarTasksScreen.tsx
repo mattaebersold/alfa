@@ -15,7 +15,7 @@ import {
 } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { CarTask } from '../../types/api';
@@ -26,12 +26,12 @@ type Priority = typeof PRIORITIES[number];
 const PRIORITY_COLORS: Record<Priority, string> = {
   critical: '#FF0000',
   high:     '#FA7921',
-  medium:   Colors.speed,
-  low:      Colors.grey,
+  medium:   colors.speed,
+  low:      colors.grey,
 };
 
 function PriorityDot({ priority }: { priority?: string }) {
-  const color = PRIORITY_COLORS[(priority as Priority) ?? 'medium'] ?? Colors.grey;
+  const color = PRIORITY_COLORS[(priority as Priority) ?? 'medium'] ?? colors.grey;
   return <View style={[styles.dot, { backgroundColor: color }]} />;
 }
 
@@ -145,7 +145,7 @@ const modal = StyleSheet.create({
   header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
   title:   { fontSize: 17, fontWeight: '700' },
   cancel:  { fontSize: 16 },
-  save:    { fontSize: 16, fontWeight: '700', color: Colors.brg },
+  save:    { fontSize: 16, fontWeight: '700', color: colors.cyan },
   saveDisabled: { opacity: 0.4 },
   body:    { padding: 16 },
   field:   { marginBottom: 20 },
@@ -222,10 +222,10 @@ const taskRow = StyleSheet.create({
   },
   rowDone: { opacity: 0.55 },
   check: {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.brg,
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.cyan,
     alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0,
   },
-  checkDone: { backgroundColor: Colors.brg, borderColor: Colors.brg },
+  checkDone: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   content:  { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   title:    { flex: 1, fontSize: 15, fontWeight: '700' },
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,
   },

@@ -19,7 +19,7 @@ import CommentRow from '../../components/social/CommentRow';
 import LikersSheet from '../../components/social/LikersSheet';
 import Spinner from '../../components/ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { MarketScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   heroImage:       { width: '100%', height: 280 },
   price:           {
-    fontSize: 24, fontWeight: '800', color: Colors.brg,
+    fontSize: 24, fontWeight: '800', color: colors.cyan,
     paddingHorizontal: 16, paddingTop: 12,
   },
   soldBadge:       {
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, maxHeight: 100,
   },
-  sendBtn:         { backgroundColor: Colors.brg, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:         { backgroundColor: colors.cyan, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

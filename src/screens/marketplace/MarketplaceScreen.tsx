@@ -14,7 +14,7 @@ import AppHeader from '../../components/ui/AppHeader';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Badge, { CATEGORY_LABELS } from '../../components/ui/Badge';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -79,7 +79,7 @@ export default function MarketplaceScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
@@ -160,9 +160,9 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', paddingVertical: 12,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  tabItemActive:  { borderBottomColor: Colors.brg },
+  tabItemActive:  { borderBottomColor: colors.cyan },
   tabText:        { fontSize: 14, fontWeight: '600' },
-  tabTextActive:  { color: Colors.brg },
+  tabTextActive:  { color: colors.cyan },
   list:           { paddingBottom: 24 },
   row:            {
     flexDirection: 'row', gap: 12, alignItems: 'center',
@@ -170,10 +170,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   thumb:          { width: 80, height: 60, borderRadius: 8 },
-  thumbPlaceholder: { backgroundColor: Colors.brg },
+  thumbPlaceholder: { backgroundColor: colors.cyan },
   rowInfo:        { flex: 1, gap: 4 },
   rowTitle:       { fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  rowPrice:       { fontSize: 16, fontWeight: '800', color: Colors.brg },
+  rowPrice:       { fontSize: 16, fontWeight: '800', color: colors.cyan },
   rowMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowTime:        { fontSize: 11 },
 });

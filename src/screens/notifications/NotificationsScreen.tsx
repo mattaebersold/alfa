@@ -16,7 +16,7 @@ import {
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { Notification } from '../../types/api';
 
@@ -106,7 +106,7 @@ export default function NotificationsScreen() {
         <View style={[styles.toolbar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {unreadCount > 0 ? (
             <TouchableOpacity style={styles.toolBtn} onPress={handleMarkAll}>
-              <CheckCheck size={15} color={Colors.brg} />
+              <CheckCheck size={15} color={colors.cyan} />
               <Text style={styles.toolBtnText}>Mark all read</Text>
             </TouchableOpacity>
           ) : <View />}
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   toolBtn:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  toolBtnText: { fontSize: 13, fontWeight: '600', color: Colors.brg },
+  toolBtnText: { fontSize: 13, fontWeight: '600', color: colors.cyan },
   list:        { flexGrow: 1, paddingBottom: 24 },
   row: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -164,6 +164,6 @@ const styles = StyleSheet.create({
   unreadDot:   {
     position: 'absolute', top: 14, left: 4,
     width: 7, height: 7, borderRadius: 3.5,
-    backgroundColor: Colors.cyan,
+    backgroundColor: colors.cyan,
   },
 });

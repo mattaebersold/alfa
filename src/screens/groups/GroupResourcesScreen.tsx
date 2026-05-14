@@ -7,7 +7,7 @@ import { useGetGroupResourcesQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupResource } from '../../types/api';
@@ -21,7 +21,7 @@ function ResourceRow({ resource }: { resource: GroupResource }) {
   return (
     <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
       <View style={[styles.iconWrap, { backgroundColor: colors.cream }]}>
-        <FileText size={20} color={Colors.brg} />
+        <FileText size={20} color={colors.cyan} />
       </View>
       <View style={styles.info}>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>{resource.title}</Text>

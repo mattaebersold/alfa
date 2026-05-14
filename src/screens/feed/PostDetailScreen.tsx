@@ -18,7 +18,7 @@ import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
 import { imageUrl } from '../../utils/image';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { FeedScreenProps } from '../../navigation/types';
 import type { GalleryItem } from '../../types/api';
@@ -327,9 +327,9 @@ const styles = StyleSheet.create({
   singleImage:     { width: '100%', height: 300 },
   dots:            { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 8 },
   dot:             { width: 6, height: 6, borderRadius: 3 },
-  dotActive:       { backgroundColor: Colors.brg },
+  dotActive:       { backgroundColor: colors.cyan },
   dotInactive:     { backgroundColor: 'rgba(0,0,0,0.2)' },
-  price:           { fontSize: 24, fontWeight: '800', color: Colors.brg, paddingHorizontal: 16, paddingTop: 12 },
+  price:           { fontSize: 24, fontWeight: '800', color: colors.cyan, paddingHorizontal: 16, paddingTop: 12 },
   likedByRow:      { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   likedByText:     { fontSize: 13 },
   likeRow:         { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     flex: 1, borderWidth: 1, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, maxHeight: 100,
   },
-  sendBtn:         { backgroundColor: Colors.brg, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:         { backgroundColor: colors.cyan, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

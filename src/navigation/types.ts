@@ -15,6 +15,7 @@ export type FeedStackParamList = {
   Feed: undefined;
   PostDetail: { postId: string };
   UserDetail: { userId: string; username?: string };
+  CarDetail: { carId: string };
   // Drawer-linked top-level screens (keep tab bar + AppHeader visible)
   Groups: undefined;
   Articles: undefined;
@@ -58,6 +59,7 @@ export type MarketStackParamList = {
 export type CarsStackParamList = {
   Cars: undefined;
   CarDetail: { carId: string };
+  UserDetail: { userId: string; username?: string };
   Brands: undefined;
   BrandDetail: { brand: string };
   ModelDetail: { brand: string; model: string };
@@ -107,6 +109,8 @@ export type AppStackParamList = {
   ListDetail: { listId: string };
   CreateList: undefined;
   EditList: { listId: string };
+  // Events
+  EventCreate: undefined;
   // More menu
   More: undefined;
   // Group detail + sub-screens (tab bar hides here — acceptable for detail views)

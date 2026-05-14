@@ -134,13 +134,13 @@ export default function CreateListScreen() {
             <Switch
               value={isPrivate}
               onValueChange={setIsPrivate}
-              trackColor={{ true: colors.brg }}
+              trackColor={{ true: colors.cyan }}
             />
           </View>
 
           {/* Submit */}
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: colors.brg, opacity: isLoading || !title.trim() ? 0.5 : 1 }]}
+            style={[styles.submitBtn, { backgroundColor: colors.cyan, opacity: isLoading || !title.trim() ? 0.5 : 1 }]}
             onPress={handleSubmit}
             disabled={isLoading || !title.trim()}
           >

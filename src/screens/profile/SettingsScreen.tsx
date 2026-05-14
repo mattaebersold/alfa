@@ -18,7 +18,7 @@ import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -180,7 +180,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           {uploadingImage && (
             <View style={styles.uploadingOverlay}>
-              <ActivityIndicator size="large" color={Colors.brg} />
+              <ActivityIndicator size="large" color={colors.cyan} />
             </View>
           )}
         </View>
@@ -252,13 +252,13 @@ export default function SettingsScreen() {
               <Switch
                 value={value}
                 onValueChange={setter}
-                trackColor={{ false: Colors.greyLight, true: Colors.brg }}
+                trackColor={{ false: colors.greyLight, true: colors.cyan }}
                 thumbColor="#FFFFFF"
               />
             </View>
           ))}
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.cream, borderWidth: 1.5, borderColor: Colors.brg }]} onPress={handleSaveEmail}>
-            <Text style={[styles.saveBtnText, { color: Colors.brg }]}>Save Preferences</Text>
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.cream, borderWidth: 1.5, borderColor: colors.cyan }]} onPress={handleSaveEmail}>
+            <Text style={[styles.saveBtnText, { color: colors.cyan }]}>Save Preferences</Text>
           </TouchableOpacity>
         </View>
 
@@ -270,7 +270,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
             <TouchableOpacity style={[styles.dangerRow, { borderTopWidth: 0 }]} onPress={handleDeleteAccount}>
-              <Text style={[styles.dangerText, { color: Colors.red }]}>Delete Account</Text>
+              <Text style={[styles.dangerText, { color: colors.red }]}>Delete Account</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   photoBanner:    { flex: 1, alignItems: 'center', gap: 6 },
   photoLabel:     { fontSize: 12, fontWeight: '600' },
   bannerPreview:  { width: '100%', height: 60, borderRadius: 8 },
-  bannerPreviewEmpty: { width: '100%', height: 60, borderRadius: 8, backgroundColor: Colors.brg },
+  bannerPreviewEmpty: { width: '100%', height: 60, borderRadius: 8, backgroundColor: colors.cyan },
   uploadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.7)',
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   inputMulti:     { minHeight: 70, textAlignVertical: 'top' },
   saveBtn:        {
-    margin: 16, backgroundColor: Colors.brg, borderRadius: 10,
+    margin: 16, backgroundColor: colors.cyan, borderRadius: 10,
     paddingVertical: 13, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.4 },

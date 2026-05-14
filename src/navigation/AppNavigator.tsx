@@ -1,9 +1,22 @@
 import React from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, TouchableOpacity, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { X } from 'lucide-react-native';
 import type { AppStackParamList } from './types';
 import MainTabNavigator from './MainTabNavigator';
-import { Colors } from '../constants/colors';
+import { colors } from '../constants/colors';
+
+const MODAL_HEADER_BG = '#3C3C3E';
+
+function CloseButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} hitSlop={10}>
+      <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+        <X size={16} color="#FFFFFF" />
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 import GarageScreen from '../screens/garage/GarageScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
@@ -28,6 +41,7 @@ import PodcastDetailScreen from '../screens/podcasts/PodcastDetailScreen';
 import ListDetailScreen from '../screens/lists/ListDetailScreen';
 import CreateListScreen from '../screens/lists/CreateListScreen';
 import EditListScreen from '../screens/lists/EditListScreen';
+import EventCreateScreen from '../screens/society/EventCreateScreen';
 import MoreScreen from '../screens/MoreScreen';
 // Group detail screens (tab bar hidden — acceptable for detail drill-down)
 import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
@@ -44,7 +58,7 @@ const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export default function AppNavigator() {
   const isDark = useColorScheme() === 'dark';
-  const headerBg = isDark ? Colors.brgDark : Colors.brg;
+  const headerBg = isDark ? colors.brgDark : colors.brg;
 
   const headerOptions = {
     headerStyle: { backgroundColor: headerBg },
@@ -55,39 +69,44 @@ export default function AppNavigator() {
 
   return (
     // animation: 'none' = screens just appear, no slide. Modals override this with their own animation.
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'none' }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'none', headerBackTitle: '' }}>
       <Stack.Screen name="MainTabs" component={MainTabNavigator} />
 
       {/* ── Action overlays: slide up from bottom ──────────────────────────── */}
       <Stack.Screen
         name="Garage"
         component={GarageScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'My Garage', presentation: 'modal' }}
+        options={({ navigation }) => ({ headerShown: true, title: 'My Garage', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Notifications', presentation: 'modal' }}
+        options={({ navigation }) => ({ headerShown: true, title: 'Notifications', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="Messages"
         component={MessagesScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Messages', presentation: 'modal' }}
+        options={({ navigation }) => ({ headerShown: true, title: 'Messages', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="Create"
         component={CreateScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Create', presentation: 'modal' }}
+        options={({ navigation }) => ({ headerShown: true, title: 'Create', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="CarCreate"
         component={CarCreateScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Add Car', presentation: 'modal' }}
+        options={({ navigation }) => ({ headerShown: true, title: 'Add Car', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="CreateList"
         component={CreateListScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'New List', presentation: 'modal' }}
+        options={({ navigation }) => ({ headerShown: true, title: 'New List', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+      />
+      <Stack.Screen
+        name="EventCreate"
+        component={EventCreateScreen}
+        options={({ navigation }) => ({ headerShown: true, title: 'Create Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
 
       {/* ── Full-screen camera/viewer flows ───────────────────────────────── */}
@@ -145,12 +164,12 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CarDetailModal"
         component={CarDetailScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Car' }}
+        options={{ headerShown: true, title: 'Car', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '' }}
       />
       <Stack.Screen
         name="PostDetailModal"
         component={PostDetailScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
         name="EventDetailModal"

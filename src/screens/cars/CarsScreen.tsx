@@ -9,7 +9,7 @@ import AppHeader from '../../components/ui/AppHeader';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
@@ -73,7 +73,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   }, [isFetching, data, allCars.length]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
@@ -99,7 +99,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         )}
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 40 }} />
           ) : (
             <EmptyState title="No cars yet" message="Be the first to add your ride." />
           )
@@ -110,7 +110,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
           ) : null
         }
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.brg} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.cyan} />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   brandsBtn: {
     marginHorizontal: 12,
     marginVertical: 10,
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,

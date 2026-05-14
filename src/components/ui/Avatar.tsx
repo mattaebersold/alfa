@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { imageUrl } from '../../utils/image';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 
 interface AvatarProps {
   filename?: string | null;
@@ -36,7 +36,7 @@ export default function Avatar({ filename, name = '?', size = 40 }: AvatarProps)
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

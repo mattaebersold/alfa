@@ -15,7 +15,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   safe:              { flex: 1 },
   scroll:            { paddingBottom: 32 },
   banner:            { width: '100%', aspectRatio: 3 / 1 },
-  bannerPlaceholder: { width: '100%', aspectRatio: 3 / 1, backgroundColor: Colors.brg },
+  bannerPlaceholder: { width: '100%', aspectRatio: 3 / 1, backgroundColor: colors.cyan },
   header:            {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     padding: 16,
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   region:     { fontSize: 13, marginTop: 3 },
   joinBtn:    {
     paddingHorizontal: 18, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: Colors.brg, alignSelf: 'flex-start',
+    backgroundColor: colors.cyan, alignSelf: 'flex-start',
   },
   joinBtnText:      { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   membersStrip:  { padding: 16, borderBottomWidth: 1 },
@@ -166,5 +166,5 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 2, elevation: 1,
   },
-  sectionBtnText: { fontSize: 15, fontWeight: '700', color: Colors.brg },
+  sectionBtnText: { fontSize: 15, fontWeight: '700', color: colors.cyan },
 });

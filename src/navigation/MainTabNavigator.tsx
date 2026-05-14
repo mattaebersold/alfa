@@ -9,7 +9,7 @@ import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
 import MarketStackNavigator from './MarketStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
-import { Colors } from '../constants/colors';
+import { colors } from '../constants/colors';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -26,14 +26,14 @@ export default function MainTabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: isDark ? Colors.brgDark : Colors.brg,
+          backgroundColor: isDark ? colors.brgDark : colors.brg,
           borderTopWidth: 0,
           elevation: 0,
           height: tabBarHeight,
           paddingBottom: insets.bottom + 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: Colors.speed,
+        tabBarActiveTintColor: colors.speed,
         tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
         tabBarLabelStyle: {
           fontSize: 10,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: Colors.speed,
+    backgroundColor: colors.speed,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,

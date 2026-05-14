@@ -11,7 +11,7 @@ import { useGetRallysQuery } from '../../api/apiService';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Rally } from '../../types/api';
@@ -77,7 +77,7 @@ export default function RallysScreen() {
           />
         )}
         ListEmptyComponent={<EmptyState title="No rallys yet" />}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={Colors.brg} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
@@ -97,10 +97,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImage:    { width: '100%', aspectRatio: 16 / 9 },
-  cardPlaceholder: { backgroundColor: Colors.brg },
+  cardPlaceholder: { backgroundColor: colors.cyan },
   cardBody:     { padding: 12 },
-  date:         { fontSize: 12, fontWeight: '700', color: Colors.speed, marginBottom: 4 },
+  date:         { fontSize: 12, fontWeight: '700', color: colors.speed, marginBottom: 4 },
   title:        { fontSize: 16, fontWeight: '800', lineHeight: 22 },
   location:     { fontSize: 13, marginTop: 4 },
-  slots:        { fontSize: 12, color: Colors.brg, fontWeight: '700', marginTop: 6 },
+  slots:        { fontSize: 12, color: colors.cyan, fontWeight: '700', marginTop: 6 },
 });

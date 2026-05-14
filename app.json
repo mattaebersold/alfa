@@ -20,7 +20,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "co.openroadsociety.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Used to take photos for posts, cars, and profile.",
+        "NSCameraUsageDescription": "Used to take photos and record videos for stories, posts, and profile.",
+        "NSMicrophoneUsageDescription": "Required to record video stories with audio.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
         "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
         "ITSAppUsesNonExemptEncryption": false

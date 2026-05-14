@@ -14,7 +14,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { Message } from '../../types/api';
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   bubbleContent: {
     borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, maxWidth: '85%',
   },
-  bubbleContentMe:   { backgroundColor: Colors.brg, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  bubbleContentMe:   { backgroundColor: colors.cyan, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   bubbleText:     { fontSize: 15, lineHeight: 21 },
   bubbleTextMe:   { color: '#FFFFFF' },
   bubbleTime:     { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
     alignItems: 'center', justifyContent: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },

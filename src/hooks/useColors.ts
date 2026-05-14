@@ -1,9 +1,9 @@
 import { useColorScheme } from 'react-native';
-import { Colors } from '../constants/colors';
+import { colors } from '../constants/colors';
 
 // Dark-mode overrides — only surfaces that need to change from the light palette
 export const DarkColors = {
-  ...Colors,
+  ...colors,
   // Backgrounds — matching Murray dark mode
   cream:    '#121212',
   bg:       '#121212',
@@ -23,14 +23,14 @@ export const DarkColors = {
   grey:     '#B4B4B4',
 } as const;
 
-export type ThemeColors = typeof Colors;
+export type ThemeColors = typeof colors;
 
 /**
  * Returns the correct color palette for the current color scheme.
  * Components should call this hook and use the returned object
- * instead of importing Colors directly, to support dark mode.
+ * instead of importing colors directly, to support dark mode.
  */
 export function useColors(): ThemeColors {
   const scheme = useColorScheme();
-  return scheme === 'dark' ? (DarkColors as unknown as ThemeColors) : Colors;
+  return scheme === 'dark' ? (DarkColors as unknown as ThemeColors) : colors;
 }

@@ -7,7 +7,7 @@ import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
 import { useAppSelector } from '../../store/store';
 import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { CONFIG } from '../../constants/config';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -71,13 +71,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
   },
   rightActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   action:       { padding: 6, position: 'relative' },
   badge:        {
     position: 'absolute', top: 4, right: 4,
     width: 8, height: 8, borderRadius: 4,
-    backgroundColor: Colors.speed,
+    backgroundColor: colors.speed,
   },
 });

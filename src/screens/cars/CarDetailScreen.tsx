@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView,
-  ActivityIndicator,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Wrench, X, Images } from 'lucide-react-native';
+import { Wrench, X, Images, Settings } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
   useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery, useGetCarModsQuery,
+  useDeleteCarMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import FeedItemCard from '../../components/cards/FeedItemCard';
@@ -23,9 +24,9 @@ import FollowButton from '../../components/social/FollowButton';
 import TasksSheet from '../../components/cars/TasksSheet';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import type { CarsScreenProps, AppStackParamList } from '../../navigation/types';
+import type { AppStackParamList } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod } from '../../types/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -86,7 +87,7 @@ function AlbumCard({ album, onPress }: { album: CarGalleryAlbum; onPress: () => 
     <TouchableOpacity style={styles.albumCard} onPress={onPress} activeOpacity={0.85}>
       {thumb
         ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" />
-        : <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.brgLight }]} />
+        : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.brgLight }]} />
       }
       <View style={styles.albumOverlay}>
         <Text style={styles.albumTitle} numberOfLines={1}>{album.title ?? 'Album'}</Text>
@@ -128,7 +129,7 @@ function CarGalleryStrip({ carId, heroFilename }: { carId: string; heroFilename?
             <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
           </TouchableOpacity>
         ) : (
-          <View style={[styles.heroSlide, { backgroundColor: Colors.brgLight }]} />
+          <View style={[styles.heroSlide, { backgroundColor: colors.brgLight }]} />
         )}
         {albumCols.map((pair, colIdx) => (
           <View key={colIdx} style={styles.albumCol}>
@@ -188,13 +189,17 @@ const modStyles = StyleSheet.create({
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 
-export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>) {
+export default function CarDetailScreen({ route }: { route: { params: { carId: string } } }) {
   const { carId } = route.params;
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const localNav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
+  const scrollRef = useRef<ScrollView>(null);
+  const tabBarYRef = useRef(0);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [deleteCar] = useDeleteCarMutation();
 
   const { data: car, isLoading } = useGetCarWithUserQuery(carId);
   const { data: coOwnerData } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
@@ -213,6 +218,59 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
   );
   const mods = modsData?.entries ?? [];
 
+  const isOwner = userInfo?.user_id === (car?.user_id ?? '');
+
+  const handleCogPress = useCallback(() => {
+    if (!car) return;
+    const title = [car.year, car.make, car.model].filter(Boolean).join(' ');
+    Alert.alert(title, '', [
+      { text: 'Edit', onPress: () => appNav.navigate('CarCreate', { carId }) },
+      {
+        text: 'Delete', style: 'destructive', onPress: () => {
+          Alert.alert(
+            'Delete Car',
+            `Remove ${title} from your garage? This cannot be undone.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete', style: 'destructive', onPress: async () => {
+                  try {
+                    await deleteCar({ internal_id: car.internal_id }).unwrap();
+                    appNav.goBack();
+                  } catch {
+                    Alert.alert('Error', 'Could not delete car. Please try again.');
+                  }
+                },
+              },
+            ]
+          );
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [car, appNav, carId, deleteCar]);
+
+  const handleTabPress = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    scrollRef.current?.scrollTo({ y: tabBarYRef.current, animated: true });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!car) return;
+    const carTitle = [car.year, car.make, car.model].filter(Boolean).join(' ');
+    appNav.setOptions({
+      title: carTitle || 'Car',
+      headerStyle: { backgroundColor: '#3C3C3E' },
+      headerRight: isOwner ? () => (
+        <TouchableOpacity onPress={handleCogPress} hitSlop={8}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+            <Settings size={17} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+      ) : undefined,
+    });
+  }, [car, isOwner, handleCogPress, appNav]);
+
   if (isLoading || !car) return <Spinner fullScreen />;
 
   const owner = car.user;
@@ -222,7 +280,6 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
   const coOwnerName = coOwnerData
     ? `${coOwnerData.firstName} ${coOwnerData.lastName}`.trim() || coOwnerData.username
     : '';
-  const isOwner = userInfo?.user_id === car.user_id;
 
   const heroFilename = car.profile_image || car.gallery?.[0]?.filename || undefined;
 
@@ -248,7 +305,7 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[2]}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} stickyHeaderIndices={[2]}>
 
         {/* ── Gallery strip ── */}
         <View style={styles.galleryWrap}>
@@ -267,9 +324,9 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
             {isOwner && (
               <TouchableOpacity
                 onPress={() => setTasksOpen(true)}
-                style={[styles.taskBtn, { backgroundColor: colors.cream, borderColor: colors.border }]}
+                style={styles.taskBtn}
               >
-                <Wrench size={16} color={Colors.brg} />
+                <Wrench size={16} color="#FFFFFF" />
                 <Text style={styles.taskBtnText}>Tasks</Text>
                 {openTaskCount > 0 && (
                   <View style={styles.taskBtnBadge}>
@@ -297,7 +354,7 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
           {owner && (
             <TouchableOpacity
               style={[styles.ownerCard, { backgroundColor: colors.cream }]}
-              onPress={() => appNav.navigate('UserDetail', { userId: owner.user_id })}
+              onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
             >
               <Avatar filename={owner.gallery?.[0]?.filename ?? owner.profilePicture} name={displayName} size={44} />
               <View style={styles.ownerInfo}>
@@ -329,13 +386,16 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
         </View>
 
         {/* ── Sticky tab bar ── */}
-        <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View
+          style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+          onLayout={(e) => { tabBarYRef.current = e.nativeEvent.layout.y; }}
+        >
           <View style={[styles.tabPillRow, { backgroundColor: colors.segment }]}>
             {TABS.map((tab) => (
               <TouchableOpacity
                 key={tab.key}
                 style={[styles.tabPill, activeTab === tab.key && styles.tabPillActive]}
-                onPress={() => setActiveTab(tab.key)}
+                onPress={() => handleTabPress(tab.key)}
               >
                 <Text style={[styles.tabPillText, { color: colors.grey }, activeTab === tab.key && styles.tabPillTextActive]}>
                   {tab.label}
@@ -362,7 +422,7 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
         {activeTab === 'posts' && (
           <View>
             {postsFetching ? (
-              <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 32 }} />
+              <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 32 }} />
             ) : posts.length === 0 ? (
               <EmptyState title="No posts yet" />
             ) : (
@@ -380,7 +440,7 @@ export default function CarDetailScreen({ route }: CarsScreenProps<'CarDetail'>)
         {activeTab === 'mods' && (
           <View style={{ paddingTop: 8, paddingBottom: 24 }}>
             {modsFetching ? (
-              <ActivityIndicator size="large" color={Colors.brg} style={{ marginTop: 32 }} />
+              <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 32 }} />
             ) : mods.length === 0 ? (
               <EmptyState title="No mods yet" />
             ) : (
@@ -436,11 +496,11 @@ const styles = StyleSheet.create({
   taskBtn:        {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 7,
-    borderRadius: 8, borderWidth: 1,
+    borderRadius: 8, backgroundColor: colors.cyan,
   },
-  taskBtnText:    { fontSize: 13, fontWeight: '700', color: Colors.brg },
+  taskBtnText:    { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   taskBtnBadge:   {
-    backgroundColor: Colors.brg, borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 9,
     minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
   },
   taskBtnBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
@@ -457,7 +517,7 @@ const styles = StyleSheet.create({
   tabBar:            { borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 10 },
   tabPillRow:        { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2 },
   tabPill:           { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 8 },
-  tabPillActive:     { backgroundColor: Colors.brg, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, elevation: 2 },
+  tabPillActive:     { backgroundColor: colors.cyan, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, elevation: 2 },
   tabPillText:       { fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },
   tabPillTextActive: { color: '#FFFFFF', fontWeight: '800' },
 

@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { MapPin, Clock, Check, X } from 'lucide-react-native';
 import { useGetRallyQuery, useAttendRallyMutation, useDeclineRallyMutation } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps } from '../../navigation/types';
@@ -73,7 +73,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 
           {rally.location ? (
             <TouchableOpacity style={styles.metaRow} onPress={handleOpenMaps}>
-              <MapPin size={15} color={Colors.brg} />
+              <MapPin size={15} color={colors.cyan} />
               <Text style={[styles.metaText, styles.metaLink]}>{rally.location}</Text>
             </TouchableOpacity>
           ) : null}
@@ -115,18 +115,18 @@ const styles = StyleSheet.create({
   safe:            { flex: 1 },
   scroll:          { paddingBottom: 32 },
   hero:            { width: '100%', aspectRatio: 16 / 9 },
-  heroPlaceholder: { width: '100%', aspectRatio: 16 / 9, backgroundColor: Colors.brg },
+  heroPlaceholder: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.cyan },
   galleryStrip:    { padding: 8, gap: 6 },
   galleryThumb:    { width: 80, height: 60, borderRadius: 6 },
   body:            { padding: 16 },
   title:           { fontSize: 22, fontWeight: '800', marginBottom: 12 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:        { fontSize: 14 },
-  metaLink:        { color: Colors.brg, fontWeight: '600' },
-  slots:           { fontSize: 13, fontWeight: '700', color: Colors.brg, marginBottom: 12 },
+  metaLink:        { color: colors.cyan, fontWeight: '600' },
+  slots:           { fontSize: 13, fontWeight: '700', color: colors.cyan, marginBottom: 12 },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginBottom: 20 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
-  rsvpAttend:      { backgroundColor: Colors.brg },
+  rsvpAttend:      { backgroundColor: colors.cyan },
   rsvpText:        { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   description:     { fontSize: 15, lineHeight: 22 },
 });

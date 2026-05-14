@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 36,
     fontWeight: '900',
-    color: Colors.brg,
+    color: colors.cyan,
     letterSpacing: -0.5,
   },
   logoSub: {
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    color: Colors.red,
+    color: colors.red,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 13,
-    color: Colors.brg,
+    color: colors.cyan,
     fontWeight: '500',
   },
   divider: {

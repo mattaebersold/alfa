@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, KeyboardAvoidingView, Platform, FlatList,
@@ -7,9 +7,12 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Plus, Camera } from 'lucide-react-native';
-import { useCreateCarMutation, useGetCarBrandsQuery, useGetCarModelsQuery } from '../../api/apiService';
+import {
+  useCreateCarMutation, useUpdateCarMutation,
+  useGetCarBrandsQuery, useGetCarModelsQuery, useGetCarQuery,
+} from '../../api/apiService';
 import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
 import type { AppScreenProps } from '../../navigation/types';
@@ -29,9 +32,9 @@ function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
 }
 const pb = StyleSheet.create({
   container: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, paddingVertical: 12 },
-  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: Colors.secondary },
-  filled:  { backgroundColor: Colors.brg },
-  current: { backgroundColor: Colors.brg },
+  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.secondary },
+  filled:  { backgroundColor: colors.cyan },
+  current: { backgroundColor: colors.cyan },
 });
 
 // ── Chip selector ─────────────────────────────────────────────────────────────
@@ -63,7 +66,7 @@ const cs = StyleSheet.create({
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:    { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
-  chipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
+  chipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   chipText:   { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
 });
@@ -117,6 +120,8 @@ function MakeModelPicker({
   const [makeQuery, setMakeQuery] = useState(make);
   const [showMakeSuggestions, setShowMakeSuggestions] = useState(false);
 
+  useEffect(() => { setMakeQuery(make); }, [make]);
+
   const { data: brands = [] } = useGetCarBrandsQuery();
   const { data: models = [] } = useGetCarModelsQuery(make, { skip: !make });
 
@@ -138,7 +143,8 @@ function MakeModelPicker({
         <TextInput
           style={[mm.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
           value={makeQuery}
-          onChangeText={(v) => { setMakeQuery(v); onMakeChange(v); setShowMakeSuggestions(true); }}
+          onChangeText={(v) => { setMakeQuery(v); setShowMakeSuggestions(true); }}
+          onBlur={() => { if (makeQuery !== make) onMakeChange(makeQuery); setShowMakeSuggestions(false); }}
           placeholder="e.g. Porsche"
           placeholderTextColor={colors.grey}
           autoCapitalize="words"
@@ -198,7 +204,7 @@ const mm = StyleSheet.create({
   suggestionText: { fontSize: 15 },
   modelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
-  modelChipActive: { backgroundColor: Colors.brg, borderColor: Colors.brg },
+  modelChipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
   modelChipText: { fontSize: 13, fontWeight: '600' },
   modelChipTextActive: { color: '#FFFFFF' },
 });
@@ -220,11 +226,43 @@ const EMPTY_FORM: FormData = {
   mods: [], images: [],
 };
 
-export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreate'>) {
+export default function CarCreateScreen({ navigation, route }: AppScreenProps<'CarCreate'>) {
   const colors = useColors();
+  const carId = route.params?.carId;
+  const isEditMode = !!carId;
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, type: 'daily', category: CAR_CATEGORIES['daily'][0]?.key ?? '' });
-  const [createCar, { isLoading }] = useCreateCarMutation();
+  const [expandedMods, setExpandedMods] = useState<boolean[]>([]);
+  const [createCar, { isLoading: creating }] = useCreateCarMutation();
+  const [updateCar, { isLoading: updating }] = useUpdateCarMutation();
+  const isLoading = creating || updating;
+
+  const { data: existingCar } = useGetCarQuery(carId ?? '', { skip: !carId });
+
+  useEffect(() => {
+    if (existingCar && isEditMode) {
+      setForm({
+        title: existingCar.title ?? '',
+        year: existingCar.year ?? '',
+        make: existingCar.make ?? '',
+        model: existingCar.model ?? '',
+        type: existingCar.type ?? 'daily',
+        category: existingCar.category ?? '',
+        trim: existingCar.trim ?? '',
+        color: existingCar.color ?? '',
+        engine: existingCar.engine ?? '',
+        mileage: existingCar.mileage ?? '',
+        horsepower: existingCar.horsepower ?? '',
+        torque: existingCar.torque ?? '',
+        vin: existingCar.vin ?? '',
+        condition: existingCar.condition ?? '',
+        body: existingCar.body ?? '',
+        mods: [],
+        images: [],
+      });
+    }
+  }, [existingCar, isEditMode]);
 
   const set = (key: keyof FormData) => (val: any) =>
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -262,11 +300,10 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
     }
   };
 
-  const addMod = () =>
-    setForm((prev) => ({
-      ...prev,
-      mods: [...prev.mods, { title: '', type: 'general', body: '' }],
-    }));
+  const addMod = () => {
+    setForm((prev) => ({ ...prev, mods: [...prev.mods, { title: '', type: 'general', body: '' }] }));
+    setExpandedMods((prev) => [...prev, true]);
+  };
 
   const updateMod = (i: number, key: string, val: string) =>
     setForm((prev) => {
@@ -275,12 +312,21 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
       return { ...prev, mods };
     });
 
-  const removeMod = (i: number) =>
+  const removeMod = (i: number) => {
     setForm((prev) => ({ ...prev, mods: prev.mods.filter((_, idx) => idx !== i) }));
+    setExpandedMods((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const collapseMod = (i: number) =>
+    setExpandedMods((prev) => prev.map((v, idx) => (idx === i ? false : v)));
+
+  const expandMod = (i: number) =>
+    setExpandedMods((prev) => prev.map((v, idx) => (idx === i ? true : v)));
 
   // Final submit
   const handleSubmit = async () => {
     const fd = new FormData();
+    if (isEditMode) fd.append('internal_id', carId!);
     fd.append('title', form.title);
     fd.append('year', form.year);
     fd.append('make', form.make);
@@ -298,30 +344,70 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
     if (form.vin)        fd.append('vin', form.vin);
     if (form.condition)  fd.append('condition', form.condition);
     if (form.body)       fd.append('body', form.body);
-    fd.append('entry_type', 'garagecar');
+    if (!isEditMode)     fd.append('entry_type', 'garagecar');
 
-    // Append images
     form.images.forEach((img) => {
       fd.append('gallery', { uri: img.uri, name: img.name, type: img.type } as any);
     });
 
     try {
-      await createCar(fd).unwrap();
-      navigation.goBack();
-      Alert.alert('Car added!', 'Your car has been added to your garage.');
+      if (isEditMode) {
+        await updateCar(fd).unwrap();
+        navigation.goBack();
+      } else {
+        await createCar(fd).unwrap();
+        navigation.goBack();
+        Alert.alert('Car added!', 'Your car has been added to your garage.');
+      }
     } catch (err: any) {
-      Alert.alert('Error', err?.data?.error ?? 'Failed to create car. Please try again.');
+      Alert.alert('Error', err?.data?.error ?? `Failed to ${isEditMode ? 'update' : 'create'} car. Please try again.`);
     }
   };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <ProgressBar step={step} />
+
+      {/* Nav buttons always visible at top */}
+      <View style={[styles.nav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        {step > 1 ? (
+          <Button
+            label="← Back"
+            onPress={() => setStep((s) => s - 1)}
+            variant="secondary"
+            size="default"
+          />
+        ) : <View />}
+        <View style={styles.navRight}>
+          {step < 4 ? (
+            <Button
+              label="Next →"
+              onPress={() => {
+                if (!canAdvance()) {
+                  Alert.alert('Required fields', 'Please fill in all required fields.');
+                  return;
+                }
+                setStep((s) => s + 1);
+              }}
+              variant="dark"
+              size="default"
+            />
+          ) : (
+            <Button
+              label={isEditMode ? 'Save Changes' : 'Add to Garage'}
+              onPress={handleSubmit}
+              loading={isLoading}
+              variant="primary"
+              size="default"
+            />
+          )}
+        </View>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <ProgressBar step={step} />
-
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
@@ -373,39 +459,64 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
               <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 3 — Modifications</Text>
               <Text style={[styles.stepSub, { color: colors.grey }]}>Add any mods you want to document. You can always add more later.</Text>
 
-              {form.mods.map((mod, i) => (
-                <View key={i} style={[styles.modCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <View style={styles.modHeader}>
-                    <Text style={styles.modIndex}>Mod #{i + 1}</Text>
-                    <TouchableOpacity onPress={() => removeMod(i)}>
-                      <X size={16} color={Colors.red} />
+              {form.mods.map((mod, i) => {
+                const isExpanded = expandedMods[i] !== false;
+                return isExpanded ? (
+                  <View key={i} style={[styles.modCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={styles.modHeader}>
+                      <Text style={styles.modIndex}>Mod #{i + 1}</Text>
+                      <TouchableOpacity onPress={() => removeMod(i)}>
+                        <X size={16} color={colors.red} />
+                      </TouchableOpacity>
+                    </View>
+                    <Field
+                      label="Title"
+                      value={mod.title}
+                      onChange={(v) => updateMod(i, 'title', v)}
+                      placeholder="e.g. Bilstein PSS10 Coilovers"
+                    />
+                    <ChipSelect
+                      items={MOD_TYPES}
+                      value={mod.type}
+                      onChange={(v) => updateMod(i, 'type', v)}
+                      label="Category"
+                    />
+                    <Field
+                      label="Notes"
+                      value={mod.body}
+                      onChange={(v) => updateMod(i, 'body', v)}
+                      placeholder="Additional details..."
+                      optional
+                      multiline
+                    />
+                    <TouchableOpacity style={[styles.saveModBtn, { backgroundColor: colors.cyan }]} onPress={() => collapseMod(i)}>
+                      <Text style={styles.saveModBtnText}>Save Mod</Text>
                     </TouchableOpacity>
                   </View>
-                  <Field
-                    label="Title"
-                    value={mod.title}
-                    onChange={(v) => updateMod(i, 'title', v)}
-                    placeholder="e.g. Bilstein PSS10 Coilovers"
-                  />
-                  <ChipSelect
-                    items={MOD_TYPES}
-                    value={mod.type}
-                    onChange={(v) => updateMod(i, 'type', v)}
-                    label="Category"
-                  />
-                  <Field
-                    label="Notes"
-                    value={mod.body}
-                    onChange={(v) => updateMod(i, 'body', v)}
-                    placeholder="Additional details..."
-                    optional
-                    multiline
-                  />
-                </View>
-              ))}
+                ) : (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.modCollapsed, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => expandMod(i)}
+                  >
+                    <View style={styles.modCollapsedLeft}>
+                      <Text style={[styles.modCollapsedTitle, { color: colors.fg }]} numberOfLines={1}>
+                        {mod.title || `Mod #${i + 1}`}
+                      </Text>
+                      <Text style={[styles.modCollapsedType, { color: colors.grey }]}>{mod.type}</Text>
+                    </View>
+                    <View style={styles.modCollapsedRight}>
+                      <Text style={[styles.modEditLink, { color: colors.cyan }]}>Edit</Text>
+                      <TouchableOpacity onPress={() => removeMod(i)} hitSlop={8}>
+                        <X size={14} color={colors.red} />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
 
               <TouchableOpacity style={styles.addModBtn} onPress={addMod}>
-                <Plus size={16} color={Colors.brg} />
+                <Plus size={16} color={colors.cyan} />
                 <Text style={styles.addModText}>Add Modification</Text>
               </TouchableOpacity>
             </View>
@@ -417,8 +528,8 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
               <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 4 — Photos</Text>
               <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. First photo will be the cover image.</Text>
 
-              <TouchableOpacity style={[styles.photoPickerBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={pickImage}>
-                <Camera size={22} color={Colors.brg} />
+              <TouchableOpacity style={styles.photoPickerBtn} onPress={pickImage}>
+                <Camera size={22} color="#FFFFFF" />
                 <Text style={styles.photoPickerText}>Choose Photos</Text>
               </TouchableOpacity>
 
@@ -455,42 +566,6 @@ export default function CarCreateScreen({ navigation }: AppScreenProps<'CarCreat
             </View>
           )}
         </ScrollView>
-
-        {/* Navigation buttons */}
-        <View style={[styles.nav, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          {step > 1 && (
-            <Button
-              label="Back"
-              onPress={() => setStep((s) => s - 1)}
-              variant="secondary"
-              size="default"
-            />
-          )}
-          <View style={styles.navRight}>
-            {step < 4 ? (
-              <Button
-                label="Next →"
-                onPress={() => {
-                  if (!canAdvance()) {
-                    Alert.alert('Required fields', 'Please fill in all required fields.');
-                    return;
-                  }
-                  setStep((s) => s + 1);
-                }}
-                variant="dark"
-                size="default"
-              />
-            ) : (
-              <Button
-                label="Add to Garage"
-                onPress={handleSubmit}
-                loading={isLoading}
-                variant="primary"
-                size="default"
-              />
-            )}
-          </View>
-        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -508,21 +583,38 @@ const styles = StyleSheet.create({
     marginBottom: 14, borderWidth: 1,
   },
   modHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  modIndex:  { fontSize: 13, fontWeight: '700', color: Colors.brg },
+  modIndex:  { fontSize: 13, fontWeight: '700', color: colors.cyan },
   addModBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14, borderRadius: 10,
-    borderWidth: 1.5, borderColor: Colors.brg, borderStyle: 'dashed',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5, borderColor: colors.cyan,
   },
-  addModText: { fontSize: 14, fontWeight: '700', color: Colors.brg },
+  addModText: { fontSize: 14, fontWeight: '700', color: colors.cyan },
+
+  saveModBtn: {
+    marginTop: 8, paddingVertical: 12, borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveModBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+
+  modCollapsed: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 14, borderRadius: 10, marginBottom: 10, borderWidth: 1,
+  },
+  modCollapsedLeft: { flex: 1, marginRight: 12 },
+  modCollapsedTitle: { fontSize: 14, fontWeight: '700' },
+  modCollapsedType: { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
+  modCollapsedRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  modEditLink: { fontSize: 13, fontWeight: '700' },
 
   photoPickerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 20, borderRadius: 12,
-    borderWidth: 1.5,
+    backgroundColor: colors.cyan,
     marginBottom: 16,
   },
-  photoPickerText: { fontSize: 15, fontWeight: '700', color: Colors.brg },
+  photoPickerText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   photoList: { marginBottom: 16 },
   photoThumb: {
     width: 100, height: 100, borderRadius: 8, marginRight: 8,
@@ -531,7 +623,7 @@ const styles = StyleSheet.create({
   photoImg:    { width: '100%', height: '100%' },
   coverBadge:  {
     position: 'absolute', bottom: 4, left: 4,
-    backgroundColor: Colors.speed, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
+    backgroundColor: colors.speed, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
   },
   coverText:   { fontSize: 9, fontWeight: '800', color: '#000' },
   photoRemove: {
@@ -543,7 +635,7 @@ const styles = StyleSheet.create({
   nav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
   navRight: { marginLeft: 'auto' },
 });

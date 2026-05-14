@@ -246,7 +246,7 @@ export default function ListDetailScreen() {
                   <View style={styles.ownerActions}>
                     {reorderDirty && (
                       <TouchableOpacity
-                        style={[styles.saveOrderBtn, { backgroundColor: colors.brg }]}
+                        style={[styles.saveOrderBtn, { backgroundColor: colors.cyan }]}
                         onPress={handleSaveOrder}
                         disabled={isSavingOrder}
                       >
@@ -257,7 +257,7 @@ export default function ListDetailScreen() {
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                      style={[styles.addBtn, { backgroundColor: colors.brg }]}
+                      style={[styles.addBtn, { backgroundColor: colors.cyan }]}
                       onPress={() => setAddOpen(true)}
                     >
                       <Plus size={16} color="#fff" />

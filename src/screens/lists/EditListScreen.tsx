@@ -164,13 +164,13 @@ export default function EditListScreen() {
             <Switch
               value={isPrivate}
               onValueChange={setIsPrivate}
-              trackColor={{ true: colors.brg }}
+              trackColor={{ true: colors.cyan }}
             />
           </View>
 
           {/* Save */}
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: colors.brg, opacity: isSaving || !title.trim() ? 0.5 : 1 }]}
+            style={[styles.submitBtn, { backgroundColor: colors.cyan, opacity: isSaving || !title.trim() ? 0.5 : 1 }]}
             onPress={handleSave}
             disabled={isSaving || !title.trim()}
           >

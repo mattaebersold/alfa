@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { ChevronRight, Wrench } from 'lucide-react-native';
+import { Wrench, Settings } from 'lucide-react-native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { useGetUserByIdQuery } from '../../api/apiService';
-import { Colors } from '../../constants/colors';
+import { useGetUserByIdQuery, useDeleteCarMutation } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import Avatar from '../ui/Avatar';
 import type { GarageCar } from '../../types/api';
@@ -14,7 +15,21 @@ interface CarCardProps {
   onPress: () => void;
   onTasksPress?: () => void;
   taskCount?: number;
+  onEditPress?: () => void;
 }
+
+// Murray-style badge colors per car type
+const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  'daily':        { bg: '#F0D689', text: '#000' },
+  'weekend':      { bg: '#35B5FF', text: '#000' },
+  'project':      { bg: '#F36943', text: '#000' },
+  'garage-queen': { bg: '#FF479C', text: '#000' },
+  'part-out':     { bg: '#00FF3F', text: '#000' },
+  'other':        { bg: '#F0D689', text: '#000' },
+};
+
+const formatLabel = (key?: string) =>
+  key ? key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : null;
 
 function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string }) {
   const colors = useColors();
@@ -48,8 +63,44 @@ function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string })
   );
 }
 
-export default function CarCard({ car, onPress, onTasksPress, taskCount = 0 }: CarCardProps) {
+export default function CarCard({ car, onPress, onTasksPress, taskCount = 0, onEditPress }: CarCardProps) {
   const colors = useColors();
+  const { userInfo } = useAppSelector((s) => s.auth);
+  const isOwner = userInfo?.user_id === car.user_id;
+  const [deleteCar] = useDeleteCarMutation();
+
+  const carTitle = [car.year, car.make, car.model].filter(Boolean).join(' ');
+  const typeBadge = TYPE_COLORS[car.type ?? ''];
+  const typeLabel = formatLabel(car.type);
+  const categoryLabel = formatLabel(car.category);
+
+  const handleCogPress = () => {
+    Alert.alert(carTitle || 'Car', '', [
+      { text: 'Edit', onPress: () => onEditPress?.() },
+      {
+        text: 'Delete', style: 'destructive', onPress: () => {
+          Alert.alert(
+            'Delete Car',
+            `Remove ${carTitle} from your garage? This cannot be undone.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete', style: 'destructive', onPress: async () => {
+                  try {
+                    await deleteCar({ internal_id: car.internal_id }).unwrap();
+                  } catch {
+                    Alert.alert('Error', 'Could not delete car. Please try again.');
+                  }
+                },
+              },
+            ]
+          );
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const hero =
     firstGalleryUrl(car.gallery) ??
     (car.profile_image ? imageUrl(car.profile_image) : null);
@@ -68,10 +119,39 @@ export default function CarCard({ car, onPress, onTasksPress, taskCount = 0 }: C
             <Text style={[styles.placeholderText, { color: colors.grey }]}>No photo</Text>
           </View>
         )}
-        {taskCount > 0 && (
-          <View style={styles.taskBadge}>
-            <Wrench size={10} color="#000" />
-            <Text style={styles.taskBadgeText}>{taskCount}</Text>
+
+        {/* Top-right: task badge + cog side by side */}
+        {(taskCount > 0 || isOwner) && (
+          <View style={styles.imageTopRight}>
+            {taskCount > 0 && (
+              <View style={styles.taskBadge}>
+                <Wrench size={10} color="#000" />
+                <Text style={styles.taskBadgeText}>{taskCount}</Text>
+              </View>
+            )}
+            {isOwner && (
+              <TouchableOpacity style={styles.imageCogBtn} onPress={handleCogPress} hitSlop={4}>
+                <View style={styles.imageCogInner}>
+                  <Settings size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Type/category badges — bottom-left of image */}
+        {(typeLabel || categoryLabel) && (
+          <View style={styles.imageBadges}>
+            {typeLabel && typeBadge && (
+              <View style={[styles.imageBadge, { backgroundColor: typeBadge.bg }]}>
+                <Text style={[styles.imageBadgeText, { color: typeBadge.text }]}>{typeLabel}</Text>
+              </View>
+            )}
+            {categoryLabel && (
+              <View style={[styles.imageBadge, { backgroundColor: 'rgba(0,0,0,0.55)' }]}>
+                <Text style={[styles.imageBadgeText, { color: '#fff' }]}>{categoryLabel}</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -79,35 +159,19 @@ export default function CarCard({ car, onPress, onTasksPress, taskCount = 0 }: C
       <View style={styles.info}>
         <View style={styles.infoMain}>
           <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
-            {[car.year, car.make, car.model].filter(Boolean).join(' ')}
+            {carTitle}
           </Text>
           {car.trim && (
             <Text style={[styles.trim, { color: colors.grey }]} numberOfLines={1}>{car.trim}</Text>
           )}
-          <View style={styles.meta}>
-            {car.type && (
-              <Text style={[styles.tag, { color: Colors.brg, backgroundColor: colors.cream }]}>
-                {car.type}
-              </Text>
-            )}
-            {car.color && (
-              <Text style={[styles.metaText, { color: colors.grey }]}>{car.color}</Text>
-            )}
-          </View>
           <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />
         </View>
-        <View style={styles.actions}>
-          {onTasksPress && (
-            <TouchableOpacity
-              onPress={onTasksPress}
-              style={[styles.tasksBtn, { backgroundColor: colors.cream, borderColor: colors.border }]}
-            >
-              <Wrench size={13} color={Colors.brg} />
-              <Text style={[styles.tasksBtnText, { color: Colors.brg }]}>Tasks</Text>
-            </TouchableOpacity>
-          )}
-          <ChevronRight size={18} color={colors.grey} />
-        </View>
+        {onTasksPress && (
+          <TouchableOpacity onPress={onTasksPress} style={styles.tasksBtn}>
+            <Wrench size={13} color="#FFFFFF" />
+            <Text style={styles.tasksBtnText}>Tasks</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -124,28 +188,46 @@ const styles = StyleSheet.create({
   image:           { width: '100%', height: 180 },
   imagePlaceholder:{ alignItems: 'center', justifyContent: 'center' },
   placeholderText: { fontSize: 13 },
+
+  imageTopRight: {
+    position: 'absolute', top: 8, right: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  imageCogBtn:  {},
+  imageCogInner: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  imageBadges: {
+    position: 'absolute', bottom: 8, left: 8,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 4,
+  },
+  imageBadge: {
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 999,
+  },
+  imageBadgeText: { fontSize: 11, fontWeight: '700' },
+
   taskBadge:       {
-    position: 'absolute', top: 10, right: 10,
-    backgroundColor: Colors.cyan, borderRadius: 12,
+    backgroundColor: colors.cyan, borderRadius: 12,
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 4, gap: 3,
     borderWidth: 1.5, borderColor: '#000',
   },
   taskBadgeText:   { fontSize: 12, fontWeight: '800', color: '#000' },
+
   info:            { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
   infoMain:        { flex: 1 },
   title:           { fontSize: 16, fontWeight: '800' },
   trim:            { fontSize: 13, marginTop: 1 },
-  meta:            { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  tag:             {
-    fontSize: 11, fontWeight: '700',
-    paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 4, textTransform: 'capitalize',
+  tasksBtn:        {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 8, backgroundColor: colors.cyan,
   },
-  metaText:        { fontSize: 12, textTransform: 'capitalize' },
-  actions:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  tasksBtn:        { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  tasksBtnText:    { fontSize: 12, fontWeight: '700' },
+  tasksBtnText:    { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
 
   ownerRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 5 },

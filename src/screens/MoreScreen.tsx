@@ -9,7 +9,7 @@ import {
   Headphones, BookOpen, Search, ChevronRight,
 } from 'lucide-react-native';
 import { useColors } from '../hooks/useColors';
-import { Colors } from '../constants/colors';
+import { colors } from '../constants/colors';
 import type { AppStackParamList } from '../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -34,8 +34,8 @@ export default function MoreScreen() {
             onPress={() => navigation.navigate(screen)}
             activeOpacity={0.75}
           >
-            <View style={[styles.iconWrap, { backgroundColor: Colors.brg + '18' }]}>
-              <Icon size={20} color={Colors.brg} />
+            <View style={[styles.iconWrap, { backgroundColor: colors.cyan + '18' }]}>
+              <Icon size={20} color={colors.cyan} />
             </View>
             <View style={styles.rowText}>
               <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>

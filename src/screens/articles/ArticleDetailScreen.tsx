@@ -11,7 +11,7 @@ import {
 } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppScreenProps } from '../../navigation/types';
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   content:     { paddingBottom: 40 },
   hero:        { width: '100%', aspectRatio: 16 / 9 },
   header:      { padding: 20, gap: 10 },
-  category:    { fontSize: 11, fontWeight: '800', color: Colors.brg, letterSpacing: 0.8 },
+  category:    { fontSize: 11, fontWeight: '800', color: colors.cyan, letterSpacing: 0.8 },
   title:       { fontSize: 24, fontWeight: '800', lineHeight: 32 },
   byline:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   authorName:  { fontSize: 14, fontWeight: '700' },

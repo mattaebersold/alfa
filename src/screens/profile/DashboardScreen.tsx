@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, FileText, Users, UserPlus, Flag, UserCheck, X } from 'lucide-react-native';
+import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -9,7 +9,10 @@ import {
   useGetUserStatsQuery,
   useGetUserGarageQuery,
   useGetPostsQuery,
+  useDeleteAccountMutation,
 } from '../../api/apiService';
+import { useAppDispatch } from '../../store/store';
+import { logout } from '../../store/authSlice';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
@@ -17,7 +20,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import CarCard from '../../components/cards/CarCard';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -56,13 +59,56 @@ const sheetStyles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
   title: { fontSize: 17, fontWeight: '700' },
+  addCarBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginHorizontal: 16, marginVertical: 14,
+    paddingVertical: 13, borderRadius: 12,
+  },
+  addCarBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });
 
 export default function DashboardScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const dispatch = useAppDispatch();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [sheet, setSheet] = useState<SheetType>(null);
+  const [deleteAccount] = useDeleteAccountMutation();
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all content you created. This cannot be undone.\n\nContent created by others that references you (like tags in someone else\'s post) will not be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              'Type DELETE to confirm — this is irreversible.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteAccount().unwrap();
+                      dispatch(logout());
+                    } catch {
+                      Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
 
   const { data: user, isLoading } = useGetLoggedInUserQuery();
   const { data: stats } = useGetUserStatsQuery();
@@ -84,8 +130,8 @@ export default function DashboardScreen() {
       label: 'Cars',
       count: stats?.garageCarsCount ?? cars.length,
       Icon: Car,
-      bg: Colors.brg + '22',
-      color: Colors.brg,
+      bg: colors.cyan + '22',
+      color: colors.cyan,
       onPress: () => setSheet('cars'),
     },
     {
@@ -131,7 +177,7 @@ export default function DashboardScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
       <AppHeader />
       <ScrollView style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
@@ -150,7 +196,7 @@ export default function DashboardScreen() {
               <Text style={[styles.profileBio, { color: colors.muted }]} numberOfLines={2}>{user.bio}</Text>
             ) : (
               <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-                <Text style={[styles.profileBioAdd, { color: Colors.brg }]}>+ Add a bio</Text>
+                <Text style={[styles.profileBioAdd, { color: colors.cyan }]}>+ Add a bio</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -180,15 +226,25 @@ export default function DashboardScreen() {
         {/* Quick actions */}
         <View style={[styles.actions, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Garage')} activeOpacity={0.7}>
-            <Car size={16} color={Colors.brg} />
+            <Car size={16} color={colors.cyan} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>My Garage</Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
-            <UserCheck size={16} color={Colors.brg} />
+            <UserCheck size={16} color={colors.cyan} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Danger zone */}
+        <TouchableOpacity
+          style={[styles.deleteRow, { borderColor: colors.red + '40', backgroundColor: colors.red + '10' }]}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.75}
+        >
+          <Trash2 size={15} color={colors.red} />
+          <Text style={[styles.deleteLabel, { color: colors.red }]}>Delete Account</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Cars sheet */}
@@ -197,13 +253,24 @@ export default function DashboardScreen() {
           data={cars}
           keyExtractor={(c) => c.internal_id}
           contentContainerStyle={{ paddingBottom: 40 }}
+          ListHeaderComponent={
+            <TouchableOpacity
+              style={[sheetStyles.addCarBtn, { backgroundColor: colors.cyan }]}
+              onPress={() => { setSheet(null); navigation.navigate('CarCreate', {}); }}
+              activeOpacity={0.85}
+            >
+              <Car size={16} color="#FFFFFF" />
+              <Text style={sheetStyles.addCarBtnText}>Add New Car</Text>
+            </TouchableOpacity>
+          }
           renderItem={({ item }) => (
             <CarCard
               car={item}
-              onPress={() => { setSheet(null); navigation.navigate('CarDetailModal', { carId: item.internal_id }); }}
+              onPress={() => { setSheet(null); navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'CarDetail', params: { carId: item.internal_id } } } as any); }}
+              onEditPress={() => { setSheet(null); navigation.navigate('CarCreate', { carId: item.internal_id }); }}
             />
           )}
-          ListEmptyComponent={<EmptyState title="No cars yet" />}
+          ListEmptyComponent={<EmptyState title="No cars yet" message="Your garage is empty. Add your first car above." />}
           showsVerticalScrollIndicator={false}
         />
       </SheetModal>
@@ -258,4 +325,9 @@ const styles = StyleSheet.create({
   actionRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   actionLabel:    { fontSize: 15, fontWeight: '600', flex: 1 },
   actionDivider:  { height: 1, marginHorizontal: 16 },
+  deleteRow:      {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, borderRadius: 12, borderWidth: 1,
+  },
+  deleteLabel:    { fontSize: 14, fontWeight: '600' },
 });

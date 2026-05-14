@@ -17,7 +17,7 @@ import FollowButton from '../../components/social/FollowButton';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList, AppScreenProps } from '../../navigation/types';
@@ -101,12 +101,12 @@ export default function UserDetailScreen({ route }: AppScreenProps<'UserDetail'>
       <View style={[styles.statsRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity style={styles.statItem} onPress={() => setSheet('posts')}>
           <Text style={[styles.statValue, { color: colors.fg }]}>{posts.length}</Text>
-          <Text style={[styles.statLabel, { color: Colors.brg }]}>Posts</Text>
+          <Text style={[styles.statLabel, { color: colors.cyan }]}>Posts</Text>
         </TouchableOpacity>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <TouchableOpacity style={styles.statItem} onPress={() => setSheet('cars')}>
           <Text style={[styles.statValue, { color: colors.fg }]}>{cars.length}</Text>
-          <Text style={[styles.statLabel, { color: Colors.brg }]}>Cars</Text>
+          <Text style={[styles.statLabel, { color: colors.cyan }]}>Cars</Text>
         </TouchableOpacity>
         <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
         <View style={styles.statItem}>
@@ -233,12 +233,12 @@ const styles = StyleSheet.create({
   list:              { paddingBottom: 24 },
   bannerContainer:   { width: '100%', aspectRatio: 3 / 1 },
   banner:            { width: '100%', height: '100%' },
-  bannerPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.brg },
+  bannerPlaceholder: { width: '100%', height: '100%', backgroundColor: colors.cyan },
   avatarRow:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 16, marginTop: -40 },
   avatarWrap:        {
     width: 86, height: 86, borderRadius: 43,
     borderWidth: 3, borderColor: '#FFFFFF', overflow: 'hidden',
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
   },
   followRow:  { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   msgBtn:     { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
@@ -259,9 +259,9 @@ const styles = StyleSheet.create({
   statDivider:{ width: 1, height: 30 },
   tabBar:     { flexDirection: 'row', borderBottomWidth: 1 },
   tabItem:      { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabItemActive: { borderBottomColor: Colors.brg },
+  tabItemActive: { borderBottomColor: colors.cyan },
   tabText:      { fontSize: 14, fontWeight: '600' },
-  tabTextActive: { color: Colors.brg },
+  tabTextActive: { color: colors.cyan },
   carRow:       { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   carCard:      {
     flex: 1, borderRadius: 10, overflow: 'hidden',

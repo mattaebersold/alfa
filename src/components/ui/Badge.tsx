@@ -49,7 +49,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export default function Badge({ variant, label }: BadgeProps) {
-  const colors = BADGE_COLORS[variant] ?? BADGE_COLORS.default;
+  const colors = BADGE_COLORS[variant] ?? BADGE_colors.default;
   const text = label ?? TYPE_LABELS[variant] ?? variant;
 
   return (

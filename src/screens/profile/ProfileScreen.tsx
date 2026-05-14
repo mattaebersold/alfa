@@ -19,7 +19,7 @@ import FeedItemCard from '../../components/cards/FeedItemCard';
 import ListCard from '../../components/lists/ListCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -106,13 +106,13 @@ export default function ProfileScreen() {
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Garage')}
           >
-            <Warehouse size={20} color={Colors.brg} />
+            <Warehouse size={20} color={colors.cyan} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => navigation.navigate('Settings')}
           >
-            <Settings size={20} color={Colors.brg} />
+            <Settings size={20} color={colors.cyan} />
           </TouchableOpacity>
         </View>
       </View>
@@ -201,7 +201,7 @@ export default function ProfileScreen() {
             <View>
               {header}
               <TouchableOpacity
-                style={[styles.newListBtn, { backgroundColor: Colors.brg }]}
+                style={[styles.newListBtn, { backgroundColor: colors.cyan }]}
                 onPress={() => navigation.navigate('CreateList')}
               >
                 <Plus size={16} color="#fff" />
@@ -252,12 +252,12 @@ const styles = StyleSheet.create({
   list:            { paddingBottom: 24 },
   bannerContainer: { width: '100%', aspectRatio: 3 / 1 },
   banner:          { width: '100%', height: '100%' },
-  bannerPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.brg },
+  bannerPlaceholder: { width: '100%', height: '100%', backgroundColor: colors.cyan },
   avatarRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 16, marginTop: -40 },
   avatarWrap:      {
     width: 86, height: 86, borderRadius: 43,
     borderWidth: 3, borderColor: '#FFFFFF', overflow: 'hidden',
-    backgroundColor: Colors.brg,
+    backgroundColor: colors.cyan,
   },
   headerActions:   { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   iconBtn:         {
@@ -285,9 +285,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   tabItem:   { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabItemActive: { borderBottomColor: Colors.brg },
+  tabItemActive: { borderBottomColor: colors.cyan },
   tabText:   { fontSize: 14, fontWeight: '600' },
-  tabTextActive: { color: Colors.brg },
+  tabTextActive: { color: colors.cyan },
   carRow:    { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   carCard:   {
     flex: 1, borderRadius: 10, overflow: 'hidden',

@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { useCreatePostMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
 
 type Props = AppScreenProps<'StoryDetails'>;
@@ -125,7 +125,7 @@ export default function StoryDetailsScreen({ route }: Props) {
             disabled={isLoading || !title.trim()}
             style={[
               styles.submitBtn,
-              { backgroundColor: Colors.brg },
+              { backgroundColor: colors.cyan },
               (isLoading || !title.trim()) && styles.submitBtnDisabled,
             ]}
           >

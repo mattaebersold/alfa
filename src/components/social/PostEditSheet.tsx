@@ -6,7 +6,7 @@ import {
 import { X } from 'lucide-react-native';
 import { useUpdatePostMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { TYPE_LABELS, CATEGORY_LABELS } from '../ui/Badge';
 import type { Post } from '../../types/api';
 
@@ -117,7 +117,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                   <TouchableOpacity
                     key={t.key}
                     style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },
-                      type === t.key && { backgroundColor: Colors.brg, borderColor: Colors.brg }]}
+                      type === t.key && { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
                     onPress={() => { setType(t.key); setCategory(''); }}
                   >
                     <Text style={[styles.pillText, { color: colors.grey }, type === t.key && { color: '#FFF' }]}>
@@ -136,7 +136,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                       <TouchableOpacity
                         key={c.key}
                         style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },
-                          category === c.key && { backgroundColor: Colors.brg, borderColor: Colors.brg }]}
+                          category === c.key && { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
                         onPress={() => setCategory(c.key)}
                       >
                         <Text style={[styles.pillText, { color: colors.grey }, category === c.key && { color: '#FFF' }]}>
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   pills:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   pillText:    { fontSize: 13, fontWeight: '600' },
-  saveBtn:     { backgroundColor: Colors.brg, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
+  saveBtn:     { backgroundColor: colors.cyan, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
 });

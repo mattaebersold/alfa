@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar as CalendarIcon, ChevronRight } from 'lucide-react-native';
+import { Calendar as CalendarIcon, ChevronRight, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ import AppHeader from '../../components/ui/AppHeader';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { Colors } from '../../constants/colors';
+import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
@@ -38,7 +38,7 @@ function FeaturedCard({ event, onPress }: { event: Event; onPress: () => void })
           onLoad={(e) => setRatio(e.source.width / e.source.height)}
         />
       ) : (
-        <View style={[styles.featuredImage, { aspectRatio: ratio, backgroundColor: Colors.brg }]} />
+        <View style={[styles.featuredImage, { aspectRatio: ratio, backgroundColor: colors.cyan }]} />
       )}
       <View style={styles.featuredOverlay}>
         {date && <Text style={styles.featuredDate}>{date}</Text>}
@@ -116,16 +116,26 @@ export default function SocietyScreen() {
         </View>
       )}
 
-      {/* Calendar quick link */}
-      <TouchableOpacity
-        style={[styles.calendarBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => navigation.navigate('Calendar')}
-        activeOpacity={0.8}
-      >
-        <CalendarIcon size={18} color={Colors.brg} />
-        <Text style={[styles.calendarBtnText, { color: colors.fg }]}>View Calendar</Text>
-        <ChevronRight size={16} color={colors.grey} style={{ marginLeft: 'auto' }} />
-      </TouchableOpacity>
+      {/* Calendar quick link + Create Event */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={[styles.calendarBtn, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+          onPress={() => navigation.navigate('Calendar')}
+          activeOpacity={0.8}
+        >
+          <CalendarIcon size={18} color={colors.cyan} />
+          <Text style={[styles.calendarBtnText, { color: colors.fg }]}>View Calendar</Text>
+          <ChevronRight size={16} color={colors.grey} style={{ marginLeft: 'auto' }} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.createEventBtn}
+          onPress={() => (navigation as any).navigate('EventCreate')}
+          activeOpacity={0.8}
+        >
+          <Plus size={15} color="#FFFFFF" />
+          <Text style={styles.createEventBtnText}>Create</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Section header */}
       {upcoming.length > 0 && (
@@ -139,7 +149,7 @@ export default function SocietyScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: Colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
@@ -182,16 +192,23 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  featuredDate:     { fontSize: 11, fontWeight: '700', color: Colors.speed, marginBottom: 4 },
+  featuredDate:     { fontSize: 11, fontWeight: '700', color: colors.speed, marginBottom: 4 },
   featuredTitle:    { fontSize: 17, fontWeight: '800', color: '#FFFFFF', lineHeight: 22 },
   featuredLocation: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 3 },
 
-  // Calendar link
+  // Calendar / create row
+  quickActions:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12, marginVertical: 12 },
   calendarBtn:      {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    margin: 12, padding: 14, borderRadius: 12, borderWidth: 1,
+    padding: 14, borderRadius: 12, borderWidth: 1,
   },
   calendarBtnText:  { fontSize: 15, fontWeight: '600' },
+  createEventBtn:   {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: colors.cyan, paddingHorizontal: 14, paddingVertical: 14,
+    borderRadius: 12,
+  },
+  createEventBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 
   // Upcoming header
   upcomingHeader:   {
@@ -207,7 +224,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   rowDateBadge:     { width: 36, alignItems: 'center' },
-  rowDateDay:       { fontSize: 20, fontWeight: '800', color: Colors.brg },
+  rowDateDay:       { fontSize: 20, fontWeight: '800', color: colors.cyan },
   rowDateMon:       { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   rowInfo:          { flex: 1 },
   rowTitle:         { fontSize: 15, fontWeight: '600' },
