@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2 } from 'lucide-react-native';
+import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -234,6 +234,11 @@ export default function DashboardScreen() {
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
             <UserCheck size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.actionRow} onPress={() => dispatch(logout())} activeOpacity={0.7}>
+            <LogOut size={16} color={colors.red} />
+            <Text style={[styles.actionLabel, { color: colors.red }]}>Log Out</Text>
           </TouchableOpacity>
         </View>
 

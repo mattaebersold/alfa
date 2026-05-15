@@ -10,8 +10,10 @@ import {
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LogOut } from 'lucide-react-native';
 import Avatar from './Avatar';
-import { useAppSelector } from '../../store/store';
+import { useAppSelector, useAppDispatch } from '../../store/store';
+import { logout } from '../../store/authSlice';
 import { colors } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -60,6 +62,7 @@ interface NavDrawerProps {
 export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const dispatch = useAppDispatch();
 
   const translateX = useRef(new Animated.Value(PANEL_WIDTH)).current;
 
@@ -162,6 +165,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               <NavRow label="Dashboard" Icon={LayoutDashboard} onPress={() => goFeed('Dashboard')} />
               <NavRow label="Profile"   Icon={Settings}        onPress={() => { handleClose(); (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } }); }} />
               <NavRow label="Settings"  Icon={Settings}        onPress={() => { handleClose(); navigation.navigate('Settings'); }} />
+              <NavRow label="Log Out"   Icon={LogOut}          onPress={() => { handleClose(); dispatch(logout()); }} />
 
               <SectionLabel>More</SectionLabel>
               <TouchableOpacity

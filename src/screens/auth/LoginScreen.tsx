@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  KeyboardAvoidingView, Platform, ScrollView, Alert, ImageBackground, Image,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError } from '../../store/authSlice';
@@ -30,90 +31,96 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <ImageBackground
+      source={require('../../../assets/splash.jpg')}
+      style={ss.fill}
+      resizeMode="cover"
+    >
+      <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.flex}
         >
-          {/* Logo / Header */}
-          <View style={styles.header}>
-            <Text style={styles.logoText}>Open Road</Text>
-            <Text style={[styles.logoSub, { color: colors.grey }]}>Society</Text>
-          </View>
+          <ScrollView
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <Image
+                source={require('../../../assets/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
+            </View>
 
-          {/* Form */}
-          <View style={[styles.form, { backgroundColor: colors.card }]}>
-            <Text style={[styles.title, { color: colors.fg }]}>Sign In</Text>
+            <BlurView intensity={40} tint="dark" style={styles.form}>
+              {error && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
 
-            {error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+              <View style={styles.field}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder=""
+                  placeholderTextColor={colors.grey}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoCorrect={false}
+                />
               </View>
-            )}
 
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
-              <TextInput
-                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.grey}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoCorrect={false}
+              <View style={styles.field}>
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder=""
+                  placeholderTextColor={colors.grey}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ForgotPassword')}
+                style={styles.forgotLink}
+              >
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+
+              <Button
+                label="Sign In"
+                onPress={handleLogin}
+                loading={loading}
+                size="full"
+                variant="dark"
               />
-            </View>
 
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.fg }]}>Password</Text>
-              <TextInput
-                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor={colors.grey}
-                secureTextEntry
-                autoCapitalize="none"
+              <View style={styles.divider}>
+                <View style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
+                <Text style={[styles.dividerText, { color: 'rgba(255,255,255,0.6)' }]}>or</Text>
+                <View style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
+              </View>
+
+              <Button
+                label="Create an Account"
+                onPress={() => navigation.navigate('Register')}
+                size="full"
+                variant="outline"
               />
-            </View>
-
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.forgotLink}
-            >
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <Button
-              label="Sign In"
-              onPress={handleLogin}
-              loading={loading}
-              size="full"
-              variant="dark"
-            />
-
-            <View style={styles.divider}>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              <Text style={[styles.dividerText, { color: colors.grey }]}>or</Text>
-              <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-            </View>
-
-            <Button
-              label="Create an Account"
-              onPress={() => navigation.navigate('Register')}
-              size="full"
-              variant="outline"
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            </BlurView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
@@ -122,39 +129,31 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: 32,
+    paddingVertical: 24,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 28,
   },
-  logoText: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: colors.primaryAlt,
-    letterSpacing: -0.5,
+  logo: {
+    width: 180,
+    height: 80,
   },
-  logoSub: {
-    fontSize: 14,
+  logoTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 4,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    marginTop: -4,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 20,
   },
   form: {
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 20,
+    borderRadius: 14,
+    padding: 18,
+    overflow: 'hidden',
   },
   errorBox: {
     backgroundColor: '#FEE2E2',
@@ -167,11 +166,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  field: { marginBottom: 16 },
+  field: { marginBottom: 12 },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 4,
+    color: '#FFFFFF',
   },
   forgotLink: {
     alignSelf: 'flex-end',
@@ -180,13 +180,13 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 13,
-    color: colors.primaryAlt,
+    color: colors.cream,
     fontWeight: '500',
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 14,
     gap: 12,
   },
   dividerLine: {

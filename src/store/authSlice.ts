@@ -48,7 +48,7 @@ export const registerUser = createAsyncThunk(
   async (formData: FormData, { rejectWithValue }) => {
     try {
       const { data } = await axios.post(
-        `${CONFIG.API_BASE_URL}/api/users/register`,
+        `${CONFIG.API_BASE_URL}/api/users/register-mobile`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
@@ -56,6 +56,41 @@ export const registerUser = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue(
         error.response?.data?.message || error.response?.data?.error || 'Registration failed'
+      );
+    }
+  }
+);
+
+export const verifyEmail = createAsyncThunk(
+  'auth/verifyEmail',
+  async ({ email, code }: { email: string; code: string }, { rejectWithValue }) => {
+    try {
+      const { data } = await axios.post(
+        `${CONFIG.API_BASE_URL}/api/users/verify-email`,
+        { email, code },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || error.response?.data?.message || 'Verification failed'
+      );
+    }
+  }
+);
+
+export const resendVerification = createAsyncThunk(
+  'auth/resendVerification',
+  async (email: string, { rejectWithValue }) => {
+    try {
+      await axios.post(
+        `${CONFIG.API_BASE_URL}/api/users/resend-verification`,
+        { email },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || 'Failed to resend code'
       );
     }
   }
@@ -113,6 +148,32 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerUser.rejected, (state, { payload }) => {
+        state.loading = false;
+        state.error = payload as string;
+      })
+      // Verify email
+      .addCase(verifyEmail.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyEmail.fulfilled, (state) => {
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(verifyEmail.rejected, (state, { payload }) => {
+        state.loading = false;
+        state.error = payload as string;
+      })
+      // Resend verification
+      .addCase(resendVerification.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(resendVerification.fulfilled, (state) => {
+        state.loading = false;
+        state.error = null;
+      })
+      .addCase(resendVerification.rejected, (state, { payload }) => {
         state.loading = false;
         state.error = payload as string;
       })
