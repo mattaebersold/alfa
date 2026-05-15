@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
@@ -76,7 +77,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -104,7 +105,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
               <View key={key} style={styles.field}>
                 <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
                 <TextInput
-                  style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                  style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                   value={form[key]}
                   onChangeText={handleChange(key)}
                   placeholder={placeholder}
@@ -141,25 +142,17 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   flex: { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 24 },
   topRow: { marginBottom: 24 },
-  back: { fontSize: 14, color: colors.cyan, fontWeight: '600', marginBottom: 12 },
+  back: { fontSize: 14, color: colors.primaryAlt, fontWeight: '600', marginBottom: 12 },
   title: { fontSize: 26, fontWeight: '800' },
   form: { gap: 0 },
   errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
   errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
   field: { marginBottom: 14 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-  },
   gap: { height: 8 },
   signinLink: { alignItems: 'center', marginTop: 16 },
-  signinText: { fontSize: 14, color: colors.cyan, fontWeight: '500' },
+  signinText: { fontSize: 14, color: colors.primaryAlt, fontWeight: '500' },
 });

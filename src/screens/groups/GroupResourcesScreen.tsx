@@ -12,6 +12,7 @@ import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupResource } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 function ResourceRow({ resource }: { resource: GroupResource }) {
   const colors = useColors();
@@ -19,9 +20,9 @@ function ResourceRow({ resource }: { resource: GroupResource }) {
     ? formatDistanceToNow(new Date(resource.created_at), { addSuffix: true })
     : '';
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
       <View style={[styles.iconWrap, { backgroundColor: colors.cream }]}>
-        <FileText size={20} color={colors.cyan} />
+        <FileText size={20} color={colors.primaryAlt} />
       </View>
       <View style={styles.info}>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>{resource.title}</Text>
@@ -50,7 +51,7 @@ export default function GroupResourcesScreen({ route }: GroupsScreenProps<'Group
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={resources}
         keyExtractor={(r) => r.internal_id}
@@ -66,13 +67,7 @@ export default function GroupResourcesScreen({ route }: GroupsScreenProps<'Group
 }
 
 const styles = StyleSheet.create({
-  safe:     { flex: 1 },
   list:     { flexGrow: 1, paddingBottom: 24 },
-  row:      {
-    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   iconWrap: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   info:     { flex: 1 },
   title:    { fontSize: 15, fontWeight: '700', marginBottom: 4 },

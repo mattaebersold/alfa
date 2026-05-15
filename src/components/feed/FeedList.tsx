@@ -82,7 +82,7 @@ export default function FeedList({
   if (isLoading && page === 0) {
     return (
       <View style={styles.loadingCenter}>
-        <ActivityIndicator size="large" color={colors.cyan} />
+        <ActivityIndicator size="large" color={colors.primaryAlt} />
       </View>
     );
   }
@@ -109,7 +109,7 @@ export default function FeedList({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor={colors.cyan}
+          tintColor={colors.primaryAlt}
         />
       }
       onEndReached={handleLoadMore}

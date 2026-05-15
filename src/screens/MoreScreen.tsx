@@ -11,6 +11,7 @@ import {
 import { useColors } from '../hooks/useColors';
 import { colors } from '../constants/colors';
 import type { AppStackParamList } from '../navigation/types';
+import { ss } from '../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -25,17 +26,17 @@ export default function MoreScreen() {
   const colors = useColors();
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {items.map(({ label, icon: Icon, screen, description }) => (
           <TouchableOpacity
             key={screen}
-            style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+            style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
             onPress={() => navigation.navigate(screen)}
             activeOpacity={0.75}
           >
-            <View style={[styles.iconWrap, { backgroundColor: colors.cyan + '18' }]}>
-              <Icon size={20} color={colors.cyan} />
+            <View style={[styles.iconWrap, { backgroundColor: colors.primaryAlt + '18' }]}>
+              <Icon size={20} color={colors.primaryAlt} />
             </View>
             <View style={styles.rowText}>
               <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
@@ -63,13 +64,7 @@ export default function MoreScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   list:        { paddingVertical: 8 },
-  row:         {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
   footer:        { paddingHorizontal: 16, paddingTop: 32, paddingBottom: 8, gap: 6 },
   footerLinks:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footerLink:    { fontSize: 12, fontWeight: '600' },

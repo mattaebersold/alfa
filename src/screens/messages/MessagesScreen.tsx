@@ -20,6 +20,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Message } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -51,7 +52,7 @@ function ThreadRow({
   return (
     <TouchableOpacity
       style={[
-        styles.row,
+        ss.listRow,
         { backgroundColor: colors.card, borderBottomColor: colors.border },
         isUnread && styles.rowUnread,
       ]}
@@ -124,7 +125,7 @@ export default function MessagesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={threads}
         keyExtractor={(item) => item.thread_id}
@@ -157,14 +158,7 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1 },
   list:      { flexGrow: 1, paddingBottom: 80 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
-    position: 'relative',
-  },
   rowUnread: { backgroundColor: '#F0F7F7' },
   rowContent:{ flex: 1, minWidth: 0 },
   rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -176,12 +170,12 @@ const styles = StyleSheet.create({
   unreadDot: {
     position: 'absolute', top: 14, left: 4,
     width: 8, height: 8, borderRadius: 4,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
   },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,

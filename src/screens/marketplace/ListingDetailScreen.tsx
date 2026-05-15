@@ -23,6 +23,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { MarketScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 export default function ListingDetailScreen({ route }: MarketScreenProps<'ListingDetail'>) {
   const { postId } = route.params;
@@ -64,7 +65,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -162,7 +163,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
             size={32}
           />
           <TextInput
-            style={[styles.input, { borderColor: colors.border, color: colors.fg }]}
+            style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
             value={commentText}
             onChangeText={setCommentText}
             placeholder="Write a comment..."
@@ -189,7 +190,6 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1 },
   flex:            { flex: 1 },
   list:            { paddingBottom: 16 },
   postHeader:      {
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   heroImage:       { width: '100%', height: 280 },
   price:           {
-    fontSize: 24, fontWeight: '800', color: colors.cyan,
+    fontSize: 24, fontWeight: '800', color: colors.primaryAlt,
     paddingHorizontal: 16, paddingTop: 12,
   },
   soldBadge:       {
@@ -241,11 +241,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10,
     borderTopWidth: 1, gap: 10,
   },
-  input:           {
-    flex: 1, borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, maxHeight: 100,
-  },
-  sendBtn:         { backgroundColor: colors.cyan, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

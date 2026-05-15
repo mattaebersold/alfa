@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { Bell, MessageSquare, Warehouse, PenLine, Menu } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +12,17 @@ import { CONFIG } from '../../constants/config';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
+
+function perceivedBrightness(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+const BG = colors.primaryAlt;
+const ICON_COLOR = perceivedBrightness(BG) < 128 ? '#FFFFFF' : '#000000';
+const headerBarStyle = ICON_COLOR === '#FFFFFF' ? 'light-content' : 'dark-content';
 
 export default function AppHeader() {
   const navigation = useNavigation<NavProp>();
@@ -32,29 +43,32 @@ export default function AppHeader() {
 
   return (
     <>
+      <StatusBar barStyle={headerBarStyle} backgroundColor={BG} />
       <View style={styles.bar}>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.action}>
-          <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.firstName ?? '?'} size={28} />
+        <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })} style={styles.profileBtn}>
+          <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.firstName ?? '?'} size={36} />
+          {userInfo?.username && (
+            <Text style={[styles.username, { color: ICON_COLOR }]}>@{userInfo.username}</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.rightActions}>
           <TouchableOpacity onPress={() => navigation.navigate('Create')} style={styles.action}>
-            <PenLine size={22} color="#FFFFFF" />
+            <PenLine size={26} color={ICON_COLOR} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Garage')} style={styles.action}>
-            <Warehouse size={22} color="#FFFFFF" />
+          <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } })} style={styles.action}>
+            <Warehouse size={26} color={ICON_COLOR} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Messages')} style={styles.action}>
-            <MessageSquare size={22} color="#FFFFFF" />
+            <MessageSquare size={26} color={ICON_COLOR} />
             {msgCount > 0 && <View style={styles.badge} />}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.action}>
-            <Bell size={22} color="#FFFFFF" />
+            <Bell size={26} color={ICON_COLOR} />
             {notifCount > 0 && <View style={styles.badge} />}
           </TouchableOpacity>
-          {/* Hamburger rightmost — opens drawer */}
           <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.action}>
-            <Menu size={22} color="#FFFFFF" />
+            <Menu size={26} color={ICON_COLOR} />
           </TouchableOpacity>
         </View>
       </View>
@@ -71,13 +85,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
   },
+  profileBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 6 },
+  username:     { fontSize: 14, fontWeight: '700' },
   rightActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   action:       { padding: 6, position: 'relative' },
   badge:        {
     position: 'absolute', top: 4, right: 4,
     width: 8, height: 8, borderRadius: 4,
-    backgroundColor: colors.speed,
+    backgroundColor: '#e53935',
   },
 });

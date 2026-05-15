@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const dispatch = useAppDispatch();
@@ -29,7 +30,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -58,7 +59,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             <View style={styles.field}>
               <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
               <TextInput
-                style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
@@ -72,7 +73,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             <View style={styles.field}>
               <Text style={[styles.label, { color: colors.fg }]}>Password</Text>
               <TextInput
-                style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"
@@ -117,7 +118,6 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   flex: { flex: 1 },
   container: {
     flexGrow: 1,
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 36,
     fontWeight: '900',
-    color: colors.cyan,
+    color: colors.primaryAlt,
     letterSpacing: -0.5,
   },
   logoSub: {
@@ -173,13 +173,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 6,
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-  },
   forgotLink: {
     alignSelf: 'flex-end',
     marginBottom: 20,
@@ -187,7 +180,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 13,
-    color: colors.cyan,
+    color: colors.primaryAlt,
     fontWeight: '500',
   },
   divider: {

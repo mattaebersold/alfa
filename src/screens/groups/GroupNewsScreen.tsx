@@ -15,6 +15,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupNewsPost } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 function NewsCard({ post }: { post: GroupNewsPost }) {
   const colors = useColors();
@@ -54,7 +55,7 @@ export default function GroupNewsScreen({ route }: GroupsScreenProps<'GroupNews'
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
@@ -70,13 +71,11 @@ export default function GroupNewsScreen({ route }: GroupsScreenProps<'GroupNews'
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1 },
   list:      { paddingBottom: 24 },
   card:      {
     marginHorizontal: 12, marginTop: 12,
     borderRadius: 12, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImage: { width: '100%', aspectRatio: 16 / 9 },
   cardBody:  { padding: 12 },

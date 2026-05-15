@@ -6,25 +6,23 @@ import type { AppStackParamList } from './types';
 import MainTabNavigator from './MainTabNavigator';
 import { colors } from '../constants/colors';
 
-const MODAL_HEADER_BG = '#3C3C3E';
+const MODAL_HEADER_BG = '#202020';
 
 function CloseButton({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} hitSlop={10}>
-      <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-        <X size={16} color="#FFFFFF" />
+      <View style={{ width: 30, height: 30, borderRadius: 15, marginLeft: 2, alignItems: 'center', justifyContent: 'center' }}>
+        <X size={22} color="#FFFFFF" />
       </View>
     </TouchableOpacity>
   );
 }
 
-import GarageScreen from '../screens/garage/GarageScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import MessageThreadScreen from '../screens/messages/MessageThreadScreen';
 import ComposeMessageScreen from '../screens/messages/ComposeMessageScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
-import UserDetailScreen from '../screens/profile/UserDetailScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import CreateScreen from '../screens/create/CreateScreen';
@@ -73,11 +71,6 @@ export default function AppNavigator() {
       <Stack.Screen name="MainTabs" component={MainTabNavigator} />
 
       {/* ── Action overlays: slide up from bottom ──────────────────────────── */}
-      <Stack.Screen
-        name="Garage"
-        component={GarageScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'My Garage', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
-      />
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
@@ -133,14 +126,9 @@ export default function AppNavigator() {
         options={{ ...headerOptions, headerShown: true, title: 'New Message' }}
       />
       <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Profile' }}
-      />
-      <Stack.Screen
         name="UserDetail"
-        component={UserDetailScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Profile' }}
+        component={ProfileScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Settings"
@@ -164,7 +152,7 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CarDetailModal"
         component={CarDetailScreen}
-        options={{ headerShown: true, title: 'Car', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PostDetailModal"

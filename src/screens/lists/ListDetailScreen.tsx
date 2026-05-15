@@ -22,6 +22,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import type { AppStackParamList } from '../../navigation/types';
 import type { ListItem } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 type RouteType = RouteProp<AppStackParamList, 'ListDetail'>;
 type NavProp = NavigationProp<AppStackParamList>;
@@ -118,14 +119,14 @@ function AddItemSheet({ listId, onSuccess, onCancel }: { listId: string; onSucce
       <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sheetTitle, { color: colors.fg }]}>Add Item</Text>
         <TextInput
-          style={[styles.input, { backgroundColor: colors.secondary, color: colors.fg, borderColor: colors.border }]}
+          style={[ss.input, { backgroundColor: colors.secondary, color: colors.fg, borderColor: colors.border }]}
           placeholder="Title *"
           placeholderTextColor={colors.grey}
           value={title}
           onChangeText={setTitle}
         />
         <TextInput
-          style={[styles.input, styles.inputMulti, { backgroundColor: colors.secondary, color: colors.fg, borderColor: colors.border }]}
+          style={[ss.input, ss.inputMulti, { backgroundColor: colors.secondary, color: colors.fg, borderColor: colors.border }]}
           placeholder="Description (optional)"
           placeholderTextColor={colors.grey}
           value={description}
@@ -206,7 +207,7 @@ export default function ListDetailScreen() {
   if (!list) return <EmptyState title="List not found" />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {addOpen ? (
         <ScrollView keyboardShouldPersistTaps="handled">
           <AddItemSheet
@@ -246,7 +247,7 @@ export default function ListDetailScreen() {
                   <View style={styles.ownerActions}>
                     {reorderDirty && (
                       <TouchableOpacity
-                        style={[styles.saveOrderBtn, { backgroundColor: colors.cyan }]}
+                        style={[styles.saveOrderBtn, { backgroundColor: colors.primaryAlt }]}
                         onPress={handleSaveOrder}
                         disabled={isSavingOrder}
                       >
@@ -257,7 +258,7 @@ export default function ListDetailScreen() {
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                      style={[styles.addBtn, { backgroundColor: colors.cyan }]}
+                      style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}
                       onPress={() => setAddOpen(true)}
                     >
                       <Plus size={16} color="#fff" />
@@ -293,7 +294,6 @@ export default function ListDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   list: { paddingBottom: 40 },
   cover: { width: '100%', height: 220 },
   header: { padding: 16 },
@@ -330,11 +330,6 @@ const styles = StyleSheet.create({
   deleteBtn: { padding: 4, marginLeft: 8 },
   sheet: { margin: 16, borderRadius: 16, padding: 16, borderWidth: 1 },
   sheetTitle: { fontSize: 17, fontWeight: '700', marginBottom: 12 },
-  input: {
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12,
-    paddingVertical: 10, fontSize: 15, marginBottom: 10,
-  },
-  inputMulti: { height: 80, textAlignVertical: 'top' },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   sheetBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 10,

@@ -12,7 +12,7 @@ import PodcastsScreen from '../screens/podcasts/PodcastsScreen';
 import PodcastDetailScreen from '../screens/podcasts/PodcastDetailScreen';
 import SearchScreen from '../screens/search/SearchScreen';
 import DashboardScreen from '../screens/profile/DashboardScreen';
-import UserDetailScreen from '../screens/profile/UserDetailScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
 import CarDetailScreen from '../screens/cars/CarDetailScreen';
 import { colors } from '../constants/colors';
 
@@ -39,8 +39,9 @@ export default function FeedStackNavigator() {
       <Stack.Screen name="Podcasts" component={PodcastsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ headerShown: true, title: 'Profile', headerBackVisible: false }} />
-      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ headerShown: true, title: 'Car', headerBackVisible: false, headerStyle: { backgroundColor: '#3C3C3E' }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' } }} />
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="UserDetail" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

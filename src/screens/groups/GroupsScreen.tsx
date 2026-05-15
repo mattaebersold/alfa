@@ -17,6 +17,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Group } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -27,7 +28,7 @@ function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {banner
         ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
-        : <View style={[styles.cardBanner, { backgroundColor: colors.cyan + '55' }]} />
+        : <View style={[styles.cardBanner, { backgroundColor: colors.primaryAlt + '55' }]} />
       }
       <View style={styles.cardBody}>
         <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
@@ -45,7 +46,7 @@ function GroupRow({ group, onPress }: { group: Group; onPress: () => void }) {
     <TouchableOpacity style={[styles.groupRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       {banner
         ? <Image source={{ uri: banner }} style={styles.rowThumb} contentFit="cover" />
-        : <View style={[styles.rowThumb, { backgroundColor: colors.cyan + '55' }]} />
+        : <View style={[styles.rowThumb, { backgroundColor: colors.primaryAlt + '55' }]} />
       }
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
@@ -118,7 +119,7 @@ export default function GroupsScreen() {
   if (userGroupsLoading || allGroupsLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.brg }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
@@ -127,7 +128,7 @@ export default function GroupsScreen() {
           numColumns={2}
           columnWrapperStyle={styles.cardRow}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           showsVerticalScrollIndicator={false}
@@ -188,7 +189,6 @@ export default function GroupsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1 },
   content: { flex: 1 },
   list:    { paddingBottom: 32 },
 
@@ -220,8 +220,7 @@ const styles = StyleSheet.create({
   cardRow:  { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   card: {
     flex: 1, borderRadius: 10, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardBanner: { width: '100%', aspectRatio: 3 / 2 },
   cardBody:   { padding: 8 },

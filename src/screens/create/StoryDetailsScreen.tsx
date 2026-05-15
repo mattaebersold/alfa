@@ -11,6 +11,7 @@ import { useCreatePostMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 type Props = AppScreenProps<'StoryDetails'>;
 
@@ -63,7 +64,7 @@ export default function StoryDetailsScreen({ route }: Props) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -95,7 +96,7 @@ export default function StoryDetailsScreen({ route }: Props) {
                 onChangeText={setTitle}
                 placeholder="Give your story a title…"
                 placeholderTextColor={colors.grey}
-                style={[styles.input, { borderColor: colors.border, color: colors.fg }]}
+                style={[ss.input, { borderColor: colors.border, color: colors.fg }]}
                 maxLength={120}
                 returnKeyType="next"
               />
@@ -109,7 +110,7 @@ export default function StoryDetailsScreen({ route }: Props) {
                 onChangeText={setBody}
                 placeholder="Add a caption…"
                 placeholderTextColor={colors.grey}
-                style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.fg }]}
+                style={[ss.input, styles.textArea, { borderColor: colors.border, color: colors.fg }]}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -125,7 +126,7 @@ export default function StoryDetailsScreen({ route }: Props) {
             disabled={isLoading || !title.trim()}
             style={[
               styles.submitBtn,
-              { backgroundColor: colors.cyan },
+              { backgroundColor: colors.primaryAlt },
               (isLoading || !title.trim()) && styles.submitBtnDisabled,
             ]}
           >
@@ -142,7 +143,6 @@ export default function StoryDetailsScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1 },
   flex:             { flex: 1 },
   scroll:           { paddingBottom: 20 },
 
@@ -153,10 +153,6 @@ const styles = StyleSheet.create({
   field:            { gap: 6 },
   label:            { fontSize: 13, fontWeight: '500' },
   required:         { color: '#ef4444' },
-  input:            {
-    borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 15,
-  },
   textArea:         { minHeight: 90, paddingTop: 10 },
 
   footer:           {

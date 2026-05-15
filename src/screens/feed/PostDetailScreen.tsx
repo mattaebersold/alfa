@@ -23,6 +23,7 @@ import { useColors } from '../../hooks/useColors';
 import type { FeedScreenProps } from '../../navigation/types';
 import type { GalleryItem } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -161,7 +162,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
       {/* Custom modal header */}
       <View style={[styles.modalHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8} style={styles.modalHeaderBtn}>
@@ -272,7 +273,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.firstName ?? '?'} size={32} />
           <TextInput
-            style={[styles.input, { borderColor: colors.border, color: colors.fg }]}
+            style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
             value={commentText}
             onChangeText={setCommentText}
             placeholder="Write a comment..."
@@ -304,11 +305,10 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1 },
   flex:             { flex: 1 },
   modalHeader:      {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 4, paddingVertical: 10, borderBottomWidth: 1,
+    paddingHorizontal: 4, paddingVertical: 18, borderBottomWidth: 1,
   },
   modalHeaderBtn:   { width: 44, alignItems: 'center' },
   modalHeaderTitle: { fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
@@ -327,9 +327,9 @@ const styles = StyleSheet.create({
   singleImage:     { width: '100%', height: 300 },
   dots:            { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 8 },
   dot:             { width: 6, height: 6, borderRadius: 3 },
-  dotActive:       { backgroundColor: colors.cyan },
+  dotActive:       { backgroundColor: colors.primaryAlt },
   dotInactive:     { backgroundColor: 'rgba(0,0,0,0.2)' },
-  price:           { fontSize: 24, fontWeight: '800', color: colors.cyan, paddingHorizontal: 16, paddingTop: 12 },
+  price:           { fontSize: 24, fontWeight: '800', color: colors.primaryAlt, paddingHorizontal: 16, paddingTop: 12 },
   likedByRow:      { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   likedByText:     { fontSize: 13 },
   likeRow:         { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
@@ -341,11 +341,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10,
     borderTopWidth: 1, gap: 10,
   },
-  input:           {
-    flex: 1, borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, maxHeight: 100,
-  },
-  sendBtn:         { backgroundColor: colors.cyan, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

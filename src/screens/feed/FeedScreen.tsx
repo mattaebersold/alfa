@@ -10,6 +10,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -22,7 +23,7 @@ export default function FeedScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FeedList onPostPress={handlePostPress} ListHeaderComponent={StoriesRow} />
@@ -32,6 +33,5 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1 },
   content: { flex: 1 },
 });

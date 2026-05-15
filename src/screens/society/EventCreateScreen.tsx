@@ -13,6 +13,7 @@ import { useCreateEventMutation } from '../../api/apiService';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -118,7 +119,7 @@ export default function EventCreateScreen() {
   }, [title, type, category, body, eventDate, eventTime, location, images, createEvent, nav]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView
         style={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -132,7 +133,7 @@ export default function EventCreateScreen() {
             return (
               <TouchableOpacity
                 key={key}
-                style={[styles.typeBtn, { borderColor: active ? colors.cyan : colors.border }, active && { backgroundColor: colors.cyan }]}
+                style={[styles.typeBtn, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
                 onPress={() => handleTypeChange(key)}
               >
                 <Text style={[styles.typeBtnText, { color: active ? '#FFFFFF' : colors.grey }]}>
@@ -151,7 +152,7 @@ export default function EventCreateScreen() {
               return (
                 <TouchableOpacity
                   key={key}
-                  style={[styles.catChip, { borderColor: active ? colors.cyan : colors.border }, active && { backgroundColor: colors.cyan }]}
+                  style={[styles.catChip, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
                   onPress={() => setCategory(active ? '' : key)}
                 >
                   <Text style={[styles.catChipText, { color: active ? '#FFFFFF' : colors.grey }]}>
@@ -224,8 +225,8 @@ export default function EventCreateScreen() {
         {/* Photos */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImage}>
-            <ImagePlus size={18} color={colors.cyan} />
-            <Text style={[styles.addPhotoText, { color: colors.cyan }]}>Add Photos</Text>
+            <ImagePlus size={18} color={colors.primaryAlt} />
+            <Text style={[styles.addPhotoText, { color: colors.primaryAlt }]}>Add Photos</Text>
           </TouchableOpacity>
           {images.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
@@ -260,7 +261,6 @@ export default function EventCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1 },
   scroll: { flex: 1 },
 
   chipRow: {
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
   },
   submitBtn: {
-    backgroundColor: colors.cyan, borderRadius: 12,
+    backgroundColor: colors.primaryAlt, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.6 },

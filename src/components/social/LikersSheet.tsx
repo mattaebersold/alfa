@@ -49,7 +49,7 @@ export default function LikersSheet({ entryId, visible, onClose }: LikersSheetPr
             </TouchableOpacity>
           </View>
           {isLoading ? (
-            <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
           ) : userIds.length === 0 ? (
             <Text style={[styles.empty, { color: colors.grey }]}>No likes yet. Be the first!</Text>
           ) : (

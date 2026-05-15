@@ -17,6 +17,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<SocietyStackParamList>;
 
@@ -38,7 +39,7 @@ function FeaturedCard({ event, onPress }: { event: Event; onPress: () => void })
           onLoad={(e) => setRatio(e.source.width / e.source.height)}
         />
       ) : (
-        <View style={[styles.featuredImage, { aspectRatio: ratio, backgroundColor: colors.cyan }]} />
+        <View style={[styles.featuredImage, { aspectRatio: ratio, backgroundColor: colors.primaryAlt }]} />
       )}
       <View style={styles.featuredOverlay}>
         {date && <Text style={styles.featuredDate}>{date}</Text>}
@@ -123,7 +124,7 @@ export default function SocietyScreen() {
           onPress={() => navigation.navigate('Calendar')}
           activeOpacity={0.8}
         >
-          <CalendarIcon size={18} color={colors.cyan} />
+          <CalendarIcon size={18} color={colors.primaryAlt} />
           <Text style={[styles.calendarBtnText, { color: colors.fg }]}>View Calendar</Text>
           <ChevronRight size={16} color={colors.grey} style={{ marginLeft: 'auto' }} />
         </TouchableOpacity>
@@ -149,7 +150,7 @@ export default function SocietyScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
@@ -174,7 +175,6 @@ export default function SocietyScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1 },
   content:          { flex: 1 },
   list:             { paddingBottom: 24 },
 
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     padding: 14,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  featuredDate:     { fontSize: 11, fontWeight: '700', color: colors.speed, marginBottom: 4 },
+  featuredDate:     { fontSize: 11, fontWeight: '700', color: colors.primaryAlt, marginBottom: 4 },
   featuredTitle:    { fontSize: 17, fontWeight: '800', color: '#FFFFFF', lineHeight: 22 },
   featuredLocation: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 3 },
 
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   calendarBtnText:  { fontSize: 15, fontWeight: '600' },
   createEventBtn:   {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: colors.cyan, paddingHorizontal: 14, paddingVertical: 14,
+    backgroundColor: colors.primaryAlt, paddingHorizontal: 14, paddingVertical: 14,
     borderRadius: 12,
   },
   createEventBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   rowDateBadge:     { width: 36, alignItems: 'center' },
-  rowDateDay:       { fontSize: 20, fontWeight: '800', color: colors.cyan },
+  rowDateDay:       { fontSize: 20, fontWeight: '800', color: colors.primaryAlt },
   rowDateMon:       { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   rowInfo:          { flex: 1 },
   rowTitle:         { fontSize: 15, fontWeight: '600' },

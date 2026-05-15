@@ -14,6 +14,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<SocietyStackParamList>;
 
@@ -53,15 +54,15 @@ export default function CalendarScreen() {
   }, [events]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {/* Month nav */}
       <View style={[styles.monthNav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => setCurrentDate((d) => subMonths(d, 1))} style={styles.navBtn}>
-          <ChevronLeft size={22} color={colors.cyan} />
+          <ChevronLeft size={22} color={colors.primaryAlt} />
         </TouchableOpacity>
         <Text style={[styles.monthLabel, { color: colors.fg }]}>{format(currentDate, 'MMMM yyyy')}</Text>
         <TouchableOpacity onPress={() => setCurrentDate((d) => addMonths(d, 1))} style={styles.navBtn}>
-          <ChevronRight size={22} color={colors.cyan} />
+          <ChevronRight size={22} color={colors.primaryAlt} />
         </TouchableOpacity>
       </View>
 
@@ -94,7 +95,7 @@ export default function CalendarScreen() {
                 styles.dayNum,
                 { color: colors.fg },
                 isSelected && styles.dayNumSelected,
-                isToday && !isSelected && { color: colors.cyan, fontWeight: '800' },
+                isToday && !isSelected && { color: colors.primaryAlt, fontWeight: '800' },
               ]}>
                 {day.getDate()}
               </Text>
@@ -150,7 +151,6 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1 },
   monthNav:     {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, paddingVertical: 12,
@@ -164,17 +164,17 @@ const styles = StyleSheet.create({
   dayLabel:     { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700' },
   grid:         { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingBottom: 8 },
   dayCell:      { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 100 },
-  dayCellSelected: { backgroundColor: colors.cyan },
+  dayCellSelected: { backgroundColor: colors.primaryAlt },
   dayNum:          { fontSize: 14, fontWeight: '600' },
   dayNumSelected:  { color: '#FFFFFF', fontWeight: '800' },
-  eventDot:        { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.speed, marginTop: 2 },
+  eventDot:        { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.primaryAlt, marginTop: 2 },
   listHeader:   {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 1, borderBottomWidth: 1,
   },
   listHeaderText: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  clearDate:      { fontSize: 13, color: colors.cyan, fontWeight: '600' },
+  clearDate:      { fontSize: 13, color: colors.primaryAlt, fontWeight: '600' },
   eventList:    { paddingBottom: 24 },
   eventRow:     {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   eventDateBadge: { alignItems: 'center', width: 36 },
-  eventDay:       { fontSize: 18, fontWeight: '800', color: colors.cyan },
+  eventDay:       { fontSize: 18, fontWeight: '800', color: colors.primaryAlt },
   eventMon:       { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   eventInfo:      { flex: 1 },
   eventTitle:     { fontSize: 15, fontWeight: '600' },

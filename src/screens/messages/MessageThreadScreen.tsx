@@ -18,6 +18,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { Message } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 function MessageBubble({ message, isMe }: { message: Message; isMe: boolean }) {
   const colors = useColors();
@@ -102,7 +103,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -123,7 +124,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         {/* Reply bar */}
         <View style={[styles.replyBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.cream, borderColor: colors.border, color: colors.fg }]}
+            style={[ss.chatInput, { backgroundColor: colors.cream, borderColor: colors.border, color: colors.fg }]}
             value={body}
             onChangeText={setBody}
             placeholder="Message..."
@@ -148,7 +149,6 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1 },
   flex:    { flex: 1 },
   list:    { paddingHorizontal: 12, paddingVertical: 12 },
   bubble:  { flexDirection: 'row', marginBottom: 12, gap: 8 },
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   bubbleContent: {
     borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, maxWidth: '85%',
   },
-  bubbleContentMe:   { backgroundColor: colors.cyan, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  bubbleContentMe:   { backgroundColor: colors.primaryAlt, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   bubbleText:     { fontSize: 15, lineHeight: 21 },
   bubbleTextMe:   { color: '#FFFFFF' },
   bubbleTime:     { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
@@ -167,16 +167,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8,
     borderTopWidth: 1,
   },
-  input: {
-    flex: 1, maxHeight: 100,
-    borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 15,
-    borderWidth: 1,
-  },
   sendBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },

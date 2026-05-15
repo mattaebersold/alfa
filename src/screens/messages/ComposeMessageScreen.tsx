@@ -16,6 +16,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -71,7 +72,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
   }, [recipient, subject, body, sendMessage, navigation]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -162,7 +163,6 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
 }
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1 },
   flex:    { flex: 1 },
   field:   {
     paddingHorizontal: 16, paddingVertical: 10,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   recipientName: { fontSize: 14, fontWeight: '600' },
   footer: { padding: 16, borderTopWidth: 1 },
   sendBtn: {
-    backgroundColor: colors.cyan, borderRadius: 10,
+    backgroundColor: colors.primaryAlt, borderRadius: 10,
     paddingVertical: 14, alignItems: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },

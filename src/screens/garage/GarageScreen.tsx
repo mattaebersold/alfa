@@ -7,24 +7,24 @@ import { Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService';
+import AppHeader from '../../components/ui/AppHeader';
 import CarCard from '../../components/cards/CarCard';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import type { AppStackParamList } from '../../navigation/types';
+import type { CarsStackParamList } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
-type NavProp = NativeStackNavigationProp<AppStackParamList>;
+type NavProp = NativeStackNavigationProp<CarsStackParamList>;
 
 // Fetches open task count per car without blocking list render
 function CarCardWithTasks({
   car,
-  onPress,
   onTasksPress,
   onEditPress,
 }: {
   car: any;
-  onPress: () => void;
   onTasksPress: () => void;
   onEditPress: () => void;
 }) {
@@ -33,7 +33,6 @@ function CarCardWithTasks({
   return (
     <CarCard
       car={car}
-      onPress={onPress}
       onTasksPress={onTasksPress}
       onEditPress={onEditPress}
       taskCount={tasks.filter((t) => !t.completed).length}
@@ -47,33 +46,29 @@ export default function GarageScreen() {
   const { data, isLoading, refetch } = useGetUserGarageQuery();
   const cars = data?.entries ?? [];
 
-  const goToCar = useCallback(
-    (carId: string) => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'CarDetail', params: { carId } } } as any),
-    [navigation]
-  );
-
   const goToTasks = useCallback(
     (carId: string, carTitle: string) =>
-      navigation.navigate('CarTasks', { carId, carTitle }),
+      (navigation as any).navigate('CarTasks', { carId, carTitle }),
     [navigation]
   );
 
   const goToEditCar = useCallback(
-    (carId: string) => navigation.navigate('CarCreate', { carId }),
+    (carId: string) => (navigation as any).navigate('CarCreate', { carId }),
     [navigation]
   );
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+      <AppHeader />
       <FlatList
+        style={{ backgroundColor: colors.cream }}
         data={cars}
         keyExtractor={(item) => item.internal_id}
         renderItem={({ item }) => (
           <CarCardWithTasks
             car={item}
-            onPress={() => goToCar(item.internal_id)}
             onTasksPress={() =>
               goToTasks(
                 item.internal_id,
@@ -90,7 +85,7 @@ export default function GarageScreen() {
             </Text>
             <TouchableOpacity
               style={styles.addBtn}
-              onPress={() => navigation.navigate('CarCreate', {})}
+              onPress={() => (navigation as any).navigate('CarCreate', {})}
             >
               <Plus size={16} color="#FFFFFF" />
               <Text style={styles.addBtnText}>Add Car</Text>
@@ -102,11 +97,11 @@ export default function GarageScreen() {
             title="No cars yet"
             message="Add your first car to get started."
             actionLabel="Add New Car"
-            onAction={() => navigation.navigate('CarCreate', {})}
+            onAction={() => (navigation as any).navigate('CarCreate', {})}
           />
         }
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.cyan} />
+          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primaryAlt} />
         }
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -116,7 +111,6 @@ export default function GarageScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   list: { paddingBottom: 24, flexGrow: 1 },
   header: {
     flexDirection: 'row',

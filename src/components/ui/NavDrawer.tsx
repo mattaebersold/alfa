@@ -19,7 +19,21 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.8, 320);
 const SLIDE_DURATION = 220;
-const BRG_DARK = '#1f3e40';
+
+function perceivedBrightness(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+const PANEL_BG   = colors.primaryAlt;
+const IS_DARK    = perceivedBrightness(PANEL_BG) < 128;
+const TEXT_HI    = IS_DARK ? '#FFFFFF' : '#000000';
+const TEXT_MID   = IS_DARK ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)';
+const TEXT_LO    = IS_DARK ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
+const DIVIDER    = IS_DARK ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+const USER_CARD_BG = IS_DARK ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
 
 function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children.toUpperCase()}</Text>;
@@ -32,7 +46,7 @@ function NavRow({ label, Icon, onPress }: {
 }) {
   return (
     <TouchableOpacity style={styles.navRow} onPress={onPress} activeOpacity={0.7}>
-      <Icon size={16} color="rgba(255,255,255,0.7)" />
+      <Icon size={16} color={TEXT_MID} />
       <Text style={styles.navLabel}>{label}</Text>
     </TouchableOpacity>
   );
@@ -94,7 +108,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
             <View style={styles.panelHeader}>
               <Text style={styles.panelLogo}>Open Road Society</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
-                <X size={16} color="rgba(255,255,255,0.7)" />
+                <X size={16} color={TEXT_MID} />
               </TouchableOpacity>
             </View>
 
@@ -114,7 +128,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   <Text style={styles.userCardName}>{displayName}</Text>
                   <Text style={styles.userCardSub}>Your Dashboard</Text>
                 </View>
-                <ChevronRight size={14} color="rgba(255,255,255,0.7)" />
+                <ChevronRight size={14} color={TEXT_MID} />
               </TouchableOpacity>
             )}
 
@@ -131,10 +145,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 handleClose();
                 navigation.navigate('MainTabs', { screen: 'SocietyTab' });
               }} />
-              <NavRow label="Marketplace" Icon={ShoppingBag} onPress={() => {
-                handleClose();
-                navigation.navigate('MainTabs', { screen: 'MarketTab' });
-              }} />
               <NavRow label="Cars" Icon={Car} onPress={() => {
                 handleClose();
                 navigation.navigate('MainTabs', { screen: 'CarsTab' });
@@ -146,7 +156,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
 
               <SectionLabel>My Account</SectionLabel>
               <NavRow label="Dashboard" Icon={LayoutDashboard} onPress={() => goFeed('Dashboard')} />
-              <NavRow label="Profile"   Icon={Settings}        onPress={() => { handleClose(); navigation.navigate('Profile'); }} />
+              <NavRow label="Profile"   Icon={Settings}        onPress={() => { handleClose(); (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } }); }} />
               <NavRow label="Settings"  Icon={Settings}        onPress={() => { handleClose(); navigation.navigate('Settings'); }} />
 
               <SectionLabel>More</SectionLabel>
@@ -155,7 +165,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 onPress={() => Linking.openURL('https://instagram.com/open.road.society/')}
                 activeOpacity={0.7}
               >
-                <Link size={16} color="rgba(255,255,255,0.7)" />
+                <Link size={16} color={TEXT_MID} />
                 <Text style={styles.navLabel}>Instagram</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -163,18 +173,18 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 onPress={() => Linking.openURL('http://shop.openroadsociety.co')}
                 activeOpacity={0.7}
               >
-                <ShoppingBag size={16} color="rgba(255,255,255,0.7)" />
+                <ShoppingBag size={16} color={TEXT_MID} />
                 <Text style={styles.navLabel}>Shop</Text>
               </TouchableOpacity>
             </ScrollView>
 
             <View style={styles.footer}>
               <View style={styles.footerLinks}>
-                <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')} hitSlop={8} style={styles.footerLinkBtn}>
                   <Text style={styles.footerLink}>Privacy</Text>
                 </TouchableOpacity>
                 <Text style={styles.footerDot}>·</Text>
-                <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')} hitSlop={8} style={styles.footerLinkBtn}>
                   <Text style={styles.footerLink}>Terms</Text>
                 </TouchableOpacity>
               </View>
@@ -191,41 +201,42 @@ const styles = StyleSheet.create({
   overlay:    { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.5)' },
   panel:      {
     width: PANEL_WIDTH, height: '100%',
-    backgroundColor: BRG_DARK,
+    backgroundColor: PANEL_BG,
     shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20,
   },
   panelHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16,
   },
-  panelLogo:  { color: '#FFFFFF', fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  panelLogo:  { color: TEXT_HI, fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
   closeBtn:   {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: IS_DARK ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
     alignItems: 'center', justifyContent: 'center',
   },
   userCard:   {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 12, marginBottom: 8, padding: 12,
-    borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16, backgroundColor: USER_CARD_BG,
   },
   userCardText: { flex: 1 },
-  userCardName: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  userCardSub:  { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 1 },
+  userCardName: { color: TEXT_HI, fontSize: 15, fontWeight: '600' },
+  userCardSub:  { color: TEXT_MID, fontSize: 13, marginTop: 1 },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 12, paddingBottom: 8 },
   navRow:        {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: 12, paddingVertical: 14, borderRadius: 12,
   },
-  navLabel:      { color: 'rgba(255,255,255,0.85)', fontSize: 16, fontWeight: '600', flex: 1 },
+  navLabel:      { color: TEXT_HI, fontSize: 16, fontWeight: '600', flex: 1 },
   sectionLabel:  {
-    color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '800',
+    color: TEXT_LO, fontSize: 11, fontWeight: '800',
     letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 20, paddingBottom: 4,
   },
-  footer:        { paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.15)' },
-  footerLinks:   { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  footerLink:    { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
-  footerDot:     { color: 'rgba(255,255,255,0.2)', fontSize: 11 },
-  footerCopy:    { color: 'rgba(255,255,255,0.2)', fontSize: 11 },
+  footer:        { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: DIVIDER },
+  footerLinks:   { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  footerLinkBtn: { paddingVertical: 6, paddingHorizontal: 4 },
+  footerLink:    { color: TEXT_LO, fontSize: 11 },
+  footerDot:     { color: TEXT_LO, fontSize: 11, lineHeight: 23 },
+  footerCopy:    { color: TEXT_LO, fontSize: 11 },
 });

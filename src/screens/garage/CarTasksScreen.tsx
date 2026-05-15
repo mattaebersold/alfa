@@ -19,6 +19,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { CarTask } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 type Priority = typeof PRIORITIES[number];
@@ -26,7 +27,7 @@ type Priority = typeof PRIORITIES[number];
 const PRIORITY_COLORS: Record<Priority, string> = {
   critical: '#FF0000',
   high:     '#FA7921',
-  medium:   colors.speed,
+  medium:   colors.primaryAlt,
   low:      colors.grey,
 };
 
@@ -64,7 +65,7 @@ function TaskModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={[modal.safe, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={modal.flex}
@@ -90,7 +91,7 @@ function TaskModal({
             <View style={modal.field}>
               <Text style={[modal.label, { color: colors.fg }]}>Title *</Text>
               <TextInput
-                style={[modal.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
                 value={title}
                 onChangeText={setTitle}
                 placeholder="e.g. Replace brake pads"
@@ -102,7 +103,7 @@ function TaskModal({
             <View style={modal.field}>
               <Text style={[modal.label, { color: colors.fg }]}>Notes</Text>
               <TextInput
-                style={[modal.input, modal.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+                style={[ss.input, ss.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
                 value={body}
                 onChangeText={setBody}
                 placeholder="Details, part numbers, etc."
@@ -140,18 +141,15 @@ function TaskModal({
 }
 
 const modal = StyleSheet.create({
-  safe:    { flex: 1 },
   flex:    { flex: 1 },
   header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
   title:   { fontSize: 17, fontWeight: '700' },
   cancel:  { fontSize: 16 },
-  save:    { fontSize: 16, fontWeight: '700', color: colors.cyan },
+  save:    { fontSize: 16, fontWeight: '700', color: colors.primaryAlt },
   saveDisabled: { opacity: 0.4 },
   body:    { padding: 16 },
   field:   { marginBottom: 20 },
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  input:   { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15 },
-  inputMulti: { minHeight: 80, textAlignVertical: 'top' },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:    { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5 },
   chipText:{ fontSize: 13, fontWeight: '600' },
@@ -222,10 +220,10 @@ const taskRow = StyleSheet.create({
   },
   rowDone: { opacity: 0.55 },
   check: {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.cyan,
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0,
   },
-  checkDone: { backgroundColor: colors.cyan, borderColor: colors.cyan },
+  checkDone: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
   content:  { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   title:    { flex: 1, fontSize: 15, fontWeight: '700' },
@@ -282,7 +280,7 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={[...open, ...done]}
         keyExtractor={(item) => item.internal_id}
@@ -357,7 +355,6 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   list: { flexGrow: 1, paddingBottom: 80 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -375,7 +372,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,
   },

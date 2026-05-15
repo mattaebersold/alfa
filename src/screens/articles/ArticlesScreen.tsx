@@ -18,6 +18,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Article } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -78,7 +79,7 @@ export default function ArticlesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.brg }]} edges={['top']}>
       <AppHeader />
       <FlatList
         style={{ flex: 1, backgroundColor: colors.cream }}
@@ -99,24 +100,19 @@ export default function ArticlesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1 },
   list:      { paddingBottom: 24, paddingTop: 8 },
   card:      {
     borderRadius: 12,
     marginHorizontal: 12,
     marginVertical: 6,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   hero:      { width: '100%', aspectRatio: 16 / 9 },
   cardBody:  { padding: 14, gap: 6 },
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
     borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
   },
   category:  { fontSize: 11, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.8 },

@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wrench, X, Images, Settings } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import AppHeader from '../../components/ui/AppHeader';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
@@ -28,6 +29,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_WIDTH = SCREEN_WIDTH * 0.88;
@@ -304,7 +306,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+      <AppHeader />
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} stickyHeaderIndices={[2]}>
 
         {/* ── Gallery strip ── */}
@@ -313,7 +316,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         </View>
 
         {/* ── Title + owners ── */}
-        <View style={[styles.titleSection, { backgroundColor: colors.card }]}>
+        <View style={[styles.titleSection, { backgroundColor: colors.bgDark }]}>
           <View style={styles.titleRow}>
             <View style={styles.titleLeft}>
               <Text style={[styles.carTitle, { color: colors.fg }]}>
@@ -407,7 +410,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
         {/* ── Tab content — no nested FlatList, use map() ── */}
         {activeTab === 'overview' && (
-          <View style={styles.section}>
+          <View style={[styles.section, { backgroundColor: colors.bgDark }]}>
             <Text style={[styles.sectionTitle, { color: colors.fg }]}>Specs</Text>
             {specs.map((s) => (
               <View key={s.label} style={[styles.specRow, { borderBottomColor: colors.border }]}>
@@ -420,9 +423,9 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         )}
 
         {activeTab === 'posts' && (
-          <View>
+          <View style={{ backgroundColor: colors.bgDark }}>
             {postsFetching ? (
-              <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 32 }} />
+              <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 32 }} />
             ) : posts.length === 0 ? (
               <EmptyState title="No posts yet" />
             ) : (
@@ -438,9 +441,9 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         )}
 
         {activeTab === 'mods' && (
-          <View style={{ paddingTop: 8, paddingBottom: 24 }}>
+          <View style={{ paddingTop: 8, paddingBottom: 24, backgroundColor: colors.bgDark }}>
             {modsFetching ? (
-              <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 32 }} />
+              <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 32 }} />
             ) : mods.length === 0 ? (
               <EmptyState title="No mods yet" />
             ) : (
@@ -464,7 +467,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
 
   galleryWrap:    { height: GALLERY_HEIGHT + 24, backgroundColor: '#000' },
   galleryStrip:   { paddingHorizontal: 12, paddingVertical: 12, gap: 10, alignItems: 'flex-start' },
@@ -496,7 +498,7 @@ const styles = StyleSheet.create({
   taskBtn:        {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 7,
-    borderRadius: 8, backgroundColor: colors.cyan,
+    borderRadius: 8, backgroundColor: colors.primaryAlt,
   },
   taskBtnText:    { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   taskBtnBadge:   {
@@ -517,7 +519,7 @@ const styles = StyleSheet.create({
   tabBar:            { borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 10 },
   tabPillRow:        { flexDirection: 'row', borderRadius: 10, padding: 3, gap: 2 },
   tabPill:           { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 8 },
-  tabPillActive:     { backgroundColor: colors.cyan, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, elevation: 2 },
+  tabPillActive:     { backgroundColor: colors.primaryAlt, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, elevation: 2 },
   tabPillText:       { fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },
   tabPillTextActive: { color: '#FFFFFF', fontWeight: '800' },
 

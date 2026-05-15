@@ -14,6 +14,7 @@ import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps, GroupsStackParamList } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<GroupsStackParamList>;
 
@@ -47,7 +48,7 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Group info */}
         <View style={[styles.section, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -97,7 +98,6 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   scroll:      { paddingBottom: 40 },
   section:     { marginBottom: 0, borderBottomWidth: 1 },
   sectionTitle:{ paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },

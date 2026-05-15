@@ -13,6 +13,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { GroupMember } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -20,7 +21,7 @@ function MemberRow({ member, onPress }: { member: GroupMember; onPress: () => vo
   const colors = useColors();
   const isAdmin = member.member_type === 'admin';
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <Avatar
         filename={member.user?.gallery?.[0]?.filename}
         name={member.user?.firstName ?? '?'}
@@ -52,7 +53,7 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={active}
         keyExtractor={(m) => m.user_id}
@@ -76,18 +77,12 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   list:        { flexGrow: 1, paddingBottom: 24 },
   listHeader:  { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   listHeaderText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  row:         {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   info:        { flex: 1 },
   name:        { fontSize: 15, fontWeight: '600' },
   username:    { fontSize: 13, marginTop: 1 },
-  adminBadge:  { backgroundColor: colors.cyan, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  adminBadge:  { backgroundColor: colors.primaryAlt, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   adminText:   { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
 });

@@ -15,6 +15,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -23,7 +24,7 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
   const hero = firstGalleryUrl(event.gallery);
   const date = event.event_date ? format(new Date(event.event_date), 'MMM d') : null;
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.thumb} contentFit="cover" />
         : <View style={[styles.thumb, styles.thumbPlaceholder]} />
@@ -47,7 +48,7 @@ export default function GroupEventsScreen({ route }: GroupsScreenProps<'GroupEve
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={events}
         keyExtractor={(e) => e.internal_id}
@@ -66,17 +67,11 @@ export default function GroupEventsScreen({ route }: GroupsScreenProps<'GroupEve
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1 },
   list:             { flexGrow: 1, paddingBottom: 24 },
-  row:              {
-    flexDirection: 'row', gap: 12, alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   thumb:            { width: 72, height: 54, borderRadius: 8 },
-  thumbPlaceholder: { backgroundColor: colors.cyan },
+  thumbPlaceholder: { backgroundColor: colors.primaryAlt },
   info:             { flex: 1 },
-  date:             { fontSize: 11, fontWeight: '700', color: colors.speed, marginBottom: 2 },
+  date:             { fontSize: 11, fontWeight: '700', color: colors.primaryAlt, marginBottom: 2 },
   title:            { fontSize: 14, fontWeight: '700', lineHeight: 20 },
   location:         { fontSize: 12, marginTop: 2 },
 });

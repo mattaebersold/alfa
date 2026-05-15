@@ -13,6 +13,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
   const { brand } = route.params;
@@ -55,7 +56,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   }, [isFetching, data, allCars.length]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {/* Model filter chips */}
       {models.length > 0 && (
         <View>
@@ -96,7 +97,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />
+          <RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
@@ -107,7 +108,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
           return (
             <TouchableOpacity
               style={[styles.card, { backgroundColor: colors.card }]}
-              onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
+              onPress={() => (navigation as any).navigate('CarDetailModal', { carId: item.internal_id })}
               activeOpacity={0.9}
             >
               <View style={styles.cardImageContainer}>
@@ -139,7 +140,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
         }}
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={colors.cyan} style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
           ) : (
             <EmptyState title={`No ${brand}s yet`} message="Be the first to add one." />
           )
@@ -155,21 +156,19 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   modelChips: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
     borderWidth: 1.5,
   },
-  chipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
+  chipActive: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
   chipText:   { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
   list:  { paddingHorizontal: 8, paddingBottom: 24 },
   row:   { gap: 8, marginBottom: 8 },
   card:  {
     flex: 1, borderRadius: 10, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
   cardImage: { width: '100%', height: '100%' },

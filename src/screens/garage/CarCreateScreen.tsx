@@ -16,6 +16,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
 import type { AppScreenProps } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 // ── Step progress bar ────────────────────────────────────────────────────────
 function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
@@ -33,8 +34,8 @@ function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
 const pb = StyleSheet.create({
   container: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, paddingVertical: 12 },
   segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.secondary },
-  filled:  { backgroundColor: colors.cyan },
-  current: { backgroundColor: colors.cyan },
+  filled:  { backgroundColor: colors.primaryAlt },
+  current: { backgroundColor: colors.primaryAlt },
 });
 
 // ── Chip selector ─────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ const cs = StyleSheet.create({
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:    { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
-  chipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
+  chipActive: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
   chipText:   { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
 });
@@ -85,7 +86,7 @@ function Field({
         {label} {optional && <Text style={[f.opt, { color: colors.grey }]}>(optional)</Text>}
       </Text>
       <TextInput
-        style={[f.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }, multiline && f.inputMulti]}
+        style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }, multiline && ss.inputMulti]}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder ?? ''}
@@ -102,11 +103,6 @@ const f = StyleSheet.create({
   wrapper: { marginBottom: 16 },
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
   opt:     { fontWeight: '400', fontSize: 12 },
-  input:   {
-    borderWidth: 1, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
-  },
-  inputMulti: { minHeight: 90, textAlignVertical: 'top' },
 });
 
 // ── Make/Model autocomplete picker ────────────────────────────────────────────
@@ -141,7 +137,7 @@ function MakeModelPicker({
       <View style={mm.wrapper}>
         <Text style={[mm.label, { color: colors.fg }]}>Make *</Text>
         <TextInput
-          style={[mm.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+          style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
           value={makeQuery}
           onChangeText={(v) => { setMakeQuery(v); setShowMakeSuggestions(true); }}
           onBlur={() => { if (makeQuery !== make) onMakeChange(makeQuery); setShowMakeSuggestions(false); }}
@@ -176,7 +172,7 @@ function MakeModelPicker({
           </View>
         ) : (
           <TextInput
-            style={[mm.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+            style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
             value={model}
             onChangeText={onModelChange}
             placeholder="e.g. 911"
@@ -191,10 +187,6 @@ function MakeModelPicker({
 const mm = StyleSheet.create({
   wrapper: { marginBottom: 16, position: 'relative' },
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  input:   {
-    borderWidth: 1, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
-  },
   suggestions: {
     position: 'absolute', top: 70, left: 0, right: 0, zIndex: 99,
     borderRadius: 8, borderWidth: 1,
@@ -204,7 +196,7 @@ const mm = StyleSheet.create({
   suggestionText: { fontSize: 15 },
   modelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
-  modelChipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
+  modelChipActive: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
   modelChipText: { fontSize: 13, fontWeight: '600' },
   modelChipTextActive: { color: '#FFFFFF' },
 });
@@ -365,7 +357,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ProgressBar step={step} />
 
       {/* Nav buttons always visible at top */}
@@ -489,7 +481,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
                       optional
                       multiline
                     />
-                    <TouchableOpacity style={[styles.saveModBtn, { backgroundColor: colors.cyan }]} onPress={() => collapseMod(i)}>
+                    <TouchableOpacity style={[styles.saveModBtn, { backgroundColor: colors.primaryAlt }]} onPress={() => collapseMod(i)}>
                       <Text style={styles.saveModBtnText}>Save Mod</Text>
                     </TouchableOpacity>
                   </View>
@@ -506,7 +498,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
                       <Text style={[styles.modCollapsedType, { color: colors.grey }]}>{mod.type}</Text>
                     </View>
                     <View style={styles.modCollapsedRight}>
-                      <Text style={[styles.modEditLink, { color: colors.cyan }]}>Edit</Text>
+                      <Text style={[styles.modEditLink, { color: colors.primaryAlt }]}>Edit</Text>
                       <TouchableOpacity onPress={() => removeMod(i)} hitSlop={8}>
                         <X size={14} color={colors.red} />
                       </TouchableOpacity>
@@ -516,7 +508,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
               })}
 
               <TouchableOpacity style={styles.addModBtn} onPress={addMod}>
-                <Plus size={16} color={colors.cyan} />
+                <Plus size={16} color={colors.primaryAlt} />
                 <Text style={styles.addModText}>Add Modification</Text>
               </TouchableOpacity>
             </View>
@@ -572,7 +564,6 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1 },
   flex:      { flex: 1 },
   scroll:    { paddingHorizontal: 16, paddingBottom: 24 },
   stepTitle: { fontSize: 20, fontWeight: '800', marginBottom: 6, marginTop: 4 },
@@ -583,14 +574,14 @@ const styles = StyleSheet.create({
     marginBottom: 14, borderWidth: 1,
   },
   modHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  modIndex:  { fontSize: 13, fontWeight: '700', color: colors.cyan },
+  modIndex:  { fontSize: 13, fontWeight: '700', color: colors.primaryAlt },
   addModBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14, borderRadius: 10,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5, borderColor: colors.cyan,
+    borderWidth: 1.5, borderColor: colors.primaryAlt,
   },
-  addModText: { fontSize: 14, fontWeight: '700', color: colors.cyan },
+  addModText: { fontSize: 14, fontWeight: '700', color: colors.primaryAlt },
 
   saveModBtn: {
     marginTop: 8, paddingVertical: 12, borderRadius: 8,
@@ -611,7 +602,7 @@ const styles = StyleSheet.create({
   photoPickerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, paddingVertical: 20, borderRadius: 12,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
     marginBottom: 16,
   },
   photoPickerText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
@@ -623,7 +614,7 @@ const styles = StyleSheet.create({
   photoImg:    { width: '100%', height: '100%' },
   coverBadge:  {
     position: 'absolute', bottom: 4, left: 4,
-    backgroundColor: colors.speed, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
+    backgroundColor: colors.primaryAlt, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2,
   },
   coverText:   { fontSize: 9, fontWeight: '800', color: '#000' },
   photoRemove: {

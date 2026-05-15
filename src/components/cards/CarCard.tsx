@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Wrench, Settings } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useGetUserByIdQuery, useDeleteCarMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -12,7 +13,8 @@ import type { GarageCar } from '../../types/api';
 
 interface CarCardProps {
   car: GarageCar;
-  onPress: () => void;
+  /** Called before navigating — use to close a parent modal/sheet. */
+  onBeforeNavigate?: () => void;
   onTasksPress?: () => void;
   taskCount?: number;
   onEditPress?: () => void;
@@ -63,9 +65,15 @@ function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string })
   );
 }
 
-export default function CarCard({ car, onPress, onTasksPress, taskCount = 0, onEditPress }: CarCardProps) {
+export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount = 0, onEditPress }: CarCardProps) {
   const colors = useColors();
+  const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
+
+  const handlePress = () => {
+    onBeforeNavigate?.();
+    (nav as any).navigate('CarDetailModal', { carId: car.internal_id });
+  };
   const isOwner = userInfo?.user_id === car.user_id;
   const [deleteCar] = useDeleteCarMutation();
 
@@ -108,7 +116,7 @@ export default function CarCard({ car, onPress, onTasksPress, taskCount = 0, onE
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.card }]}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.92}
     >
       <View style={styles.imageContainer}>
@@ -168,7 +176,7 @@ export default function CarCard({ car, onPress, onTasksPress, taskCount = 0, onE
         </View>
         {onTasksPress && (
           <TouchableOpacity onPress={onTasksPress} style={styles.tasksBtn}>
-            <Wrench size={13} color="#FFFFFF" />
+            <Wrench size={13} color="#000000" />
             <Text style={styles.tasksBtnText}>Tasks</Text>
           </TouchableOpacity>
         )}
@@ -181,8 +189,7 @@ const styles = StyleSheet.create({
   card:            {
     borderRadius: 12, overflow: 'hidden',
     marginHorizontal: 12, marginVertical: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   imageContainer:  { position: 'relative' },
   image:           { width: '100%', height: 180 },
@@ -211,7 +218,7 @@ const styles = StyleSheet.create({
   imageBadgeText: { fontSize: 11, fontWeight: '700' },
 
   taskBadge:       {
-    backgroundColor: colors.cyan, borderRadius: 12,
+    backgroundColor: colors.primaryAlt, borderRadius: 12,
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 4, gap: 3,
     borderWidth: 1.5, borderColor: '#000',
@@ -225,9 +232,9 @@ const styles = StyleSheet.create({
   tasksBtn:        {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 8, backgroundColor: colors.cyan,
+    borderRadius: 8, backgroundColor: colors.primaryAlt,
   },
-  tasksBtnText:    { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  tasksBtnText:    { fontSize: 12, fontWeight: '700', color: '#000000' },
 
   ownerRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 5 },

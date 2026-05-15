@@ -71,6 +71,15 @@ export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItem
         <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
       </TouchableOpacity>
 
+      {/* Listing price — centered pill, shown before title */}
+      {post.price && (
+        <View style={styles.priceRow}>
+          <View style={styles.pricePill}>
+            <Text style={styles.priceText}>${Number(post.price).toLocaleString()}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Title */}
       {post.title && (
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
@@ -137,11 +146,6 @@ export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItem
         </View>
       )}
 
-      {/* Listing price */}
-      {post.price && (
-        <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>
-      )}
-
       {/* Liked-by row */}
       {(post.like_count ?? post.likeCount ?? 0) > 0 && (
         <Text style={[styles.likedBy, { color: colors.muted }]}>
@@ -169,11 +173,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginVertical: 6,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   header:      { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
   headerText:  { flex: 1 },
@@ -223,7 +223,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingLeft: 4,
   },
-  price:       { fontSize: 18, fontWeight: '800', color: colors.cyan, paddingHorizontal: 12, paddingTop: 8 },
+  priceRow:    { alignItems: 'center', paddingTop: 10 },
+  pricePill:   { backgroundColor: '#3a8a3a', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5 },
+  priceText:   { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
   likedBy:     { fontSize: 13, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
   actions:     {
     flexDirection: 'row', alignItems: 'center',

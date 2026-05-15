@@ -59,7 +59,7 @@ export default function ScreenLayout({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={colors.cyan}
+                tintColor={colors.primaryAlt}
               />
             ) : undefined
           }

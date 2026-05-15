@@ -19,6 +19,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { Notification } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 function NotificationRow({
   notification,
@@ -36,28 +37,37 @@ function NotificationRow({
     ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })
     : '';
 
+  const isUnread = !notification.read_status;
+  const senderName = [notification.sender?.firstName, notification.sender?.lastName].filter(Boolean).join(' ')
+    || notification.sender?.username
+    || null;
+
   return (
     <TouchableOpacity
       style={[
-        styles.row,
-        { backgroundColor: colors.card, borderBottomColor: colors.border },
-        !notification.read_status && styles.rowUnread,
+        ss.listRow,
+        isUnread ? styles.rowUnread : styles.rowRead,
+        { borderBottomColor: '#333' },
       ]}
       onPress={onRead}
       activeOpacity={0.8}
     >
+      {isUnread && <View style={styles.unreadDot} />}
       <Avatar
         filename={notification.sender?.gallery?.[0]?.filename}
-        name={notification.sender?.firstName ?? '?'}
+        name={senderName ?? '?'}
         size={38}
       />
       <View style={styles.rowContent}>
-        <Text style={[styles.message, { color: colors.fg }]} numberOfLines={3}>{notification.message}</Text>
-        <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
+        <Text style={[styles.message, { color: '#fff' }]} numberOfLines={3}>
+          {senderName ? <Text style={styles.senderName}>{senderName} </Text> : null}
+          {notification.message}
+        </Text>
+        <Text style={[styles.time, { color: '#888' }]}>{timeAgo}</Text>
       </View>
       <View style={styles.rowActions}>
         <TouchableOpacity onPress={onArchive} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Archive size={16} color={colors.grey} />
+          <Archive size={16} color="#666" />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => Alert.alert('Delete notification?', '', [
@@ -66,10 +76,9 @@ function NotificationRow({
           ])}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Trash2 size={16} color={colors.grey} />
+          <Trash2 size={16} color="#666" />
         </TouchableOpacity>
       </View>
-      {!notification.read_status && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 }
@@ -100,13 +109,13 @@ export default function NotificationsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: '#000' }]} edges={['bottom']}>
       {/* Toolbar */}
       {notifications.length > 0 && (
-        <View style={[styles.toolbar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.toolbar, { backgroundColor: '#111', borderBottomColor: '#333' }]}>
           {unreadCount > 0 ? (
             <TouchableOpacity style={styles.toolBtn} onPress={handleMarkAll}>
-              <CheckCheck size={15} color={colors.cyan} />
+              <CheckCheck size={15} color={colors.primaryAlt} />
               <Text style={styles.toolBtnText}>Mark all read</Text>
             </TouchableOpacity>
           ) : <View />}
@@ -141,29 +150,24 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   toolbar:     {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: 1,
   },
   toolBtn:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  toolBtnText: { fontSize: 13, fontWeight: '600', color: colors.cyan },
+  toolBtnText: { fontSize: 13, fontWeight: '600', color: colors.primaryAlt },
   list:        { flexGrow: 1, paddingBottom: 24 },
-  row: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
-    position: 'relative',
-  },
-  rowUnread:   { backgroundColor: '#D4D4D4' },
+  rowRead:     { backgroundColor: '#000' },
+  rowUnread:   { backgroundColor: '#1c1c1c' },
   rowContent:  { flex: 1 },
   message:     { fontSize: 14, lineHeight: 20 },
+  senderName:  { fontWeight: '700' },
   time:        { fontSize: 12, marginTop: 3 },
   rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   unreadDot:   {
     position: 'absolute', top: 14, left: 4,
     width: 7, height: 7, borderRadius: 3.5,
-    backgroundColor: colors.cyan,
+    backgroundColor: '#e53935',
   },
 });

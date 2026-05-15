@@ -23,6 +23,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps, AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
@@ -106,7 +107,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 
         {event.location ? (
           <TouchableOpacity style={styles.metaRow} onPress={handleOpenMaps}>
-            <MapPin size={15} color={colors.cyan} />
+            <MapPin size={15} color={colors.primaryAlt} />
             <Text style={[styles.metaText, styles.metaLink]}>{event.location}</Text>
           </TouchableOpacity>
         ) : null}
@@ -133,14 +134,14 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={[ss.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {(['info', 'posts'] as Tab[]).map((t) => (
           <TouchableOpacity
             key={t}
-            style={[styles.tabItem, tab === t && styles.tabItemActive]}
+            style={[ss.tabItem, tab === t && styles.tabItemActive]}
             onPress={() => setTab(t)}
           >
-            <Text style={[styles.tabText, { color: colors.grey }, tab === t && styles.tabTextActive]}>
+            <Text style={[ss.tabText, { color: colors.grey }, tab === t && styles.tabTextActive]}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -162,7 +163,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 
   if (tab === 'posts') {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
         <FlatList
           data={posts}
           keyExtractor={(p) => p.internal_id}
@@ -182,7 +183,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
         {header}
       </ScrollView>
@@ -191,26 +192,22 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1 },
   list:            { paddingBottom: 32 },
-  imagePlaceholder:{ backgroundColor: colors.cyan },
+  imagePlaceholder:{ backgroundColor: colors.primaryAlt },
   dotRow:          { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 8 },
   dot:             { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.greyLight },
-  dotActive:       { backgroundColor: colors.cyan },
+  dotActive:       { backgroundColor: colors.primaryAlt },
   infoBlock:       { padding: 16, borderBottomWidth: 1 },
   title:           { fontSize: 22, fontWeight: '800', marginBottom: 10 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   metaText:        { fontSize: 14 },
-  metaLink:        { color: colors.cyan, fontWeight: '600' },
+  metaLink:        { color: colors.primaryAlt, fontWeight: '600' },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginTop: 14 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
-  rsvpAttend:      { backgroundColor: colors.cyan },
+  rsvpAttend:      { backgroundColor: colors.primaryAlt },
   rsvpBtnText:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  tabBar:          { flexDirection: 'row', borderBottomWidth: 1 },
-  tabItem:         { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabItemActive:   { borderBottomColor: colors.cyan },
-  tabText:         { fontSize: 14, fontWeight: '600' },
-  tabTextActive:   { color: colors.cyan },
+  tabItemActive:   { borderBottomColor: colors.primaryAlt },
+  tabTextActive:   { color: colors.primaryAlt },
   bodyBlock:       { padding: 16 },
   body:            { fontSize: 15, lineHeight: 22 },
   muted:           { fontSize: 15, fontStyle: 'italic' },

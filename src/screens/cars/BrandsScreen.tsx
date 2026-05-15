@@ -9,6 +9,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
   const colors = useColors();
@@ -37,7 +38,7 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {/* Search */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
@@ -81,7 +82,6 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,

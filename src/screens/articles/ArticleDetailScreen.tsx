@@ -16,6 +16,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 interface ArticleBlock {
   internal_id?: string;
@@ -46,7 +47,7 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
   const blocks: ArticleBlock[] = blocksData?.blocks ?? [];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Hero image */}
         {hero && (
@@ -121,11 +122,10 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   content:     { paddingBottom: 40 },
   hero:        { width: '100%', aspectRatio: 16 / 9 },
   header:      { padding: 20, gap: 10 },
-  category:    { fontSize: 11, fontWeight: '800', color: colors.cyan, letterSpacing: 0.8 },
+  category:    { fontSize: 11, fontWeight: '800', color: colors.primaryAlt, letterSpacing: 0.8 },
   title:       { fontSize: 24, fontWeight: '800', lineHeight: 32 },
   byline:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   authorName:  { fontSize: 14, fontWeight: '700' },

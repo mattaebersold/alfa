@@ -117,7 +117,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                   <TouchableOpacity
                     key={t.key}
                     style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },
-                      type === t.key && { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
+                      type === t.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
                     onPress={() => { setType(t.key); setCategory(''); }}
                   >
                     <Text style={[styles.pillText, { color: colors.grey }, type === t.key && { color: '#FFF' }]}>
@@ -136,7 +136,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                       <TouchableOpacity
                         key={c.key}
                         style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },
-                          category === c.key && { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
+                          category === c.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
                         onPress={() => setCategory(c.key)}
                       >
                         <Text style={[styles.pillText, { color: colors.grey }, category === c.key && { color: '#FFF' }]}>
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   pills:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   pillText:    { fontSize: 13, fontWeight: '600' },
-  saveBtn:     { backgroundColor: colors.cyan, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
+  saveBtn:     { backgroundColor: colors.primaryAlt, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
 });

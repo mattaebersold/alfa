@@ -13,6 +13,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { SocietyScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -39,7 +40,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const date = rally.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Hero */}
         {hero
@@ -73,7 +74,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 
           {rally.location ? (
             <TouchableOpacity style={styles.metaRow} onPress={handleOpenMaps}>
-              <MapPin size={15} color={colors.cyan} />
+              <MapPin size={15} color={colors.primaryAlt} />
               <Text style={[styles.metaText, styles.metaLink]}>{rally.location}</Text>
             </TouchableOpacity>
           ) : null}
@@ -112,21 +113,20 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 }
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1 },
   scroll:          { paddingBottom: 32 },
   hero:            { width: '100%', aspectRatio: 16 / 9 },
-  heroPlaceholder: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.cyan },
+  heroPlaceholder: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.primaryAlt },
   galleryStrip:    { padding: 8, gap: 6 },
   galleryThumb:    { width: 80, height: 60, borderRadius: 6 },
   body:            { padding: 16 },
   title:           { fontSize: 22, fontWeight: '800', marginBottom: 12 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:        { fontSize: 14 },
-  metaLink:        { color: colors.cyan, fontWeight: '600' },
-  slots:           { fontSize: 13, fontWeight: '700', color: colors.cyan, marginBottom: 12 },
+  metaLink:        { color: colors.primaryAlt, fontWeight: '600' },
+  slots:           { fontSize: 13, fontWeight: '700', color: colors.primaryAlt, marginBottom: 12 },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginBottom: 20 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
-  rsvpAttend:      { backgroundColor: colors.cyan },
+  rsvpAttend:      { backgroundColor: colors.primaryAlt },
   rsvpText:        { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   description:     { fontSize: 15, lineHeight: 22 },
 });

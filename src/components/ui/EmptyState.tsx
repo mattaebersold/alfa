@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   title:     { fontSize: 18, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
   message:   { fontSize: 14, textAlign: 'center', marginBottom: 20 },
   btn:       {
-    backgroundColor: colors.cyan, paddingHorizontal: 24, paddingVertical: 12,
+    backgroundColor: colors.primaryAlt2, paddingHorizontal: 24, paddingVertical: 12,
     borderRadius: 999,
   },
   btnText:   { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },

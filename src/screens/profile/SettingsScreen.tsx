@@ -22,14 +22,15 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function SectionHeader({ title }: { title: string }) {
   const colors = useColors();
   return (
-    <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
-      <Text style={[styles.sectionTitle, { color: colors.grey }]}>{title}</Text>
+    <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+      <Text style={[ss.sectionTitle, { color: colors.grey }]}>{title}</Text>
     </View>
   );
 }
@@ -161,12 +162,12 @@ export default function SettingsScreen() {
   const bannerUri = user?.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Avatar / Banner */}
         <SectionHeader title="Photos" />
-        <View style={[styles.photoRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.photoRow, { backgroundColor: colors.bgDark, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.photoItem} onPress={handlePickAvatar} disabled={uploadingImage}>
             <Avatar filename={user?.gallery?.[0]?.filename} name={user?.firstName ?? '?'} size={64} />
             <Text style={[styles.photoLabel, { color: colors.grey }]}>Avatar</Text>
@@ -180,17 +181,17 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           {uploadingImage && (
             <View style={styles.uploadingOverlay}>
-              <ActivityIndicator size="large" color={colors.cyan} />
+              <ActivityIndicator size="large" color={colors.primaryAlt} />
             </View>
           )}
         </View>
 
         {/* Profile */}
         <SectionHeader title="Profile" />
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
           <SettingRow label="First Name">
             <TextInput
-              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+              style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.bgDark }]}
               value={firstName}
               onChangeText={setFirstName}
               placeholder="First name"
@@ -199,7 +200,7 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow label="Last Name">
             <TextInput
-              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+              style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.bgDark }]}
               value={lastName}
               onChangeText={setLastName}
               placeholder="Last name"
@@ -208,7 +209,7 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow label="Bio">
             <TextInput
-              style={[styles.input, styles.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+              style={[ss.input, ss.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.bgDark }]}
               value={bio}
               onChangeText={setBio}
               placeholder="Tell us about yourself"
@@ -219,7 +220,7 @@ export default function SettingsScreen() {
           </SettingRow>
           <SettingRow label="City / State">
             <TextInput
-              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+              style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.bgDark }]}
               value={cityState}
               onChangeText={setCityState}
               placeholder="e.g. Los Angeles, CA"
@@ -240,7 +241,7 @@ export default function SettingsScreen() {
 
         {/* Email Preferences */}
         <SectionHeader title="Email Preferences" />
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
           {[
             { label: 'Comments on my posts', value: emailComments, setter: setEmailComments },
             { label: 'Likes on my posts', value: emailLikes, setter: setEmailLikes },
@@ -252,19 +253,19 @@ export default function SettingsScreen() {
               <Switch
                 value={value}
                 onValueChange={setter}
-                trackColor={{ false: colors.greyLight, true: colors.cyan }}
+                trackColor={{ false: colors.greyLight, true: colors.primaryAlt }}
                 thumbColor="#FFFFFF"
               />
             </View>
           ))}
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.cream, borderWidth: 1.5, borderColor: colors.cyan }]} onPress={handleSaveEmail}>
-            <Text style={[styles.saveBtnText, { color: colors.cyan }]}>Save Preferences</Text>
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.cream, borderWidth: 1.5, borderColor: colors.primaryAlt }]} onPress={handleSaveEmail}>
+            <Text style={[styles.saveBtnText, { color: colors.primaryAlt }]}>Save Preferences</Text>
           </TouchableOpacity>
         </View>
 
         {/* Account */}
         <SectionHeader title="Account" />
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
           <TouchableOpacity style={[styles.dangerRow, { borderTopColor: colors.border }]} onPress={handleLogout}>
             <Text style={[styles.dangerText, { color: colors.fg }]}>Log Out</Text>
           </TouchableOpacity>
@@ -282,13 +283,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:           { flex: 1 },
   scroll:         { paddingBottom: 40 },
-  sectionHeader:  {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderTopWidth: 1, borderBottomWidth: 1,
-  },
-  sectionTitle:   { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   card:           { marginBottom: 0 },
   photoRow:       {
     flexDirection: 'row', gap: 16, padding: 16,
@@ -299,7 +294,7 @@ const styles = StyleSheet.create({
   photoBanner:    { flex: 1, alignItems: 'center', gap: 6 },
   photoLabel:     { fontSize: 12, fontWeight: '600' },
   bannerPreview:  { width: '100%', height: 60, borderRadius: 8 },
-  bannerPreviewEmpty: { width: '100%', height: 60, borderRadius: 8, backgroundColor: colors.cyan },
+  bannerPreviewEmpty: { width: '100%', height: 60, borderRadius: 8, backgroundColor: colors.primaryAlt },
   uploadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.7)',
@@ -312,13 +307,8 @@ const styles = StyleSheet.create({
   },
   settingLabel:   { fontSize: 14, fontWeight: '600', paddingTop: 10, width: 100 },
   settingControl: { flex: 1 },
-  input:          {
-    borderWidth: 1, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 9, fontSize: 14,
-  },
-  inputMulti:     { minHeight: 70, textAlignVertical: 'top' },
   saveBtn:        {
-    margin: 16, backgroundColor: colors.cyan, borderRadius: 10,
+    margin: 16, backgroundColor: colors.primaryAlt, borderRadius: 10,
     paddingVertical: 13, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.4 },

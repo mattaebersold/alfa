@@ -15,13 +15,14 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
   const colors = useColors();
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={44} />
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
@@ -44,7 +45,7 @@ export default function MembersScreen() {
   const users = usersData?.entries ?? [];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
         <TextInput
@@ -88,7 +89,6 @@ export default function MembersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,
@@ -98,11 +98,6 @@ const styles = StyleSheet.create({
   hint:        { flex: 1, alignItems: 'center', paddingTop: 60 },
   hintText:    { fontSize: 15 },
   list:        { paddingBottom: 24 },
-  row:         {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   info:        { flex: 1 },
   name:        { fontSize: 15, fontWeight: '700' },
   username:    { fontSize: 13, marginTop: 1 },

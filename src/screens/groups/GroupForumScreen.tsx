@@ -14,6 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupForumPost } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 function ForumRow({ post }: { post: GroupForumPost }) {
   const colors = useColors();
@@ -21,7 +22,7 @@ function ForumRow({ post }: { post: GroupForumPost }) {
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
       <Avatar
         filename={post.user?.gallery?.[0]?.filename}
         name={post.user?.firstName ?? '?'}
@@ -53,7 +54,7 @@ export default function GroupForumScreen({ route }: GroupsScreenProps<'GroupForu
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
@@ -69,13 +70,7 @@ export default function GroupForumScreen({ route }: GroupsScreenProps<'GroupForu
 }
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1 },
   list:        { flexGrow: 1, paddingBottom: 24 },
-  row:         {
-    flexDirection: 'row', gap: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   rowContent:  { flex: 1 },
   rowTitle:    { fontSize: 15, fontWeight: '700', marginBottom: 4 },
   rowBody:     { fontSize: 13, lineHeight: 18, marginBottom: 6 },

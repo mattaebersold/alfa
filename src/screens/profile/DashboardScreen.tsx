@@ -23,6 +23,7 @@ import CarCard from '../../components/cards/CarCard';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type SheetType = 'cars' | 'posts' | null;
@@ -130,8 +131,8 @@ export default function DashboardScreen() {
       label: 'Cars',
       count: stats?.garageCarsCount ?? cars.length,
       Icon: Car,
-      bg: colors.cyan + '22',
-      color: colors.cyan,
+      bg: colors.primaryAlt + '22',
+      color: colors.primaryAlt,
       onPress: () => setSheet('cars'),
     },
     {
@@ -148,7 +149,7 @@ export default function DashboardScreen() {
       Icon: Users,
       bg: '#5b7fa622',
       color: '#5b7fa6',
-      onPress: undefined,
+      onPress: () => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'followers' } } }),
     },
     {
       label: 'Following',
@@ -156,7 +157,7 @@ export default function DashboardScreen() {
       Icon: UserPlus,
       bg: '#7a6abf22',
       color: '#7a6abf',
-      onPress: undefined,
+      onPress: () => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'following' } } }),
     },
     {
       label: 'Events',
@@ -177,13 +178,13 @@ export default function DashboardScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <ScrollView style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <TouchableOpacity
           style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })}
           activeOpacity={0.8}
         >
           <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName ?? '?'} size={56} />
@@ -196,7 +197,7 @@ export default function DashboardScreen() {
               <Text style={[styles.profileBio, { color: colors.muted }]} numberOfLines={2}>{user.bio}</Text>
             ) : (
               <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-                <Text style={[styles.profileBioAdd, { color: colors.cyan }]}>+ Add a bio</Text>
+                <Text style={[styles.profileBioAdd, { color: colors.primaryAlt }]}>+ Add a bio</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -225,13 +226,13 @@ export default function DashboardScreen() {
 
         {/* Quick actions */}
         <View style={[styles.actions, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Garage')} activeOpacity={0.7}>
-            <Car size={16} color={colors.cyan} />
+          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } } as any)} activeOpacity={0.7}>
+            <Car size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>My Garage</Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
-            <UserCheck size={16} color={colors.cyan} />
+            <UserCheck size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
           </TouchableOpacity>
         </View>
@@ -255,7 +256,7 @@ export default function DashboardScreen() {
           contentContainerStyle={{ paddingBottom: 40 }}
           ListHeaderComponent={
             <TouchableOpacity
-              style={[sheetStyles.addCarBtn, { backgroundColor: colors.cyan }]}
+              style={[sheetStyles.addCarBtn, { backgroundColor: colors.primaryAlt }]}
               onPress={() => { setSheet(null); navigation.navigate('CarCreate', {}); }}
               activeOpacity={0.85}
             >
@@ -266,7 +267,7 @@ export default function DashboardScreen() {
           renderItem={({ item }) => (
             <CarCard
               car={item}
-              onPress={() => { setSheet(null); navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'CarDetail', params: { carId: item.internal_id } } } as any); }}
+              onBeforeNavigate={() => setSheet(null)}
               onEditPress={() => { setSheet(null); navigation.navigate('CarCreate', { carId: item.internal_id }); }}
             />
           )}
@@ -296,7 +297,6 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:           { flex: 1 },
   content:        { padding: 16, gap: 14, paddingBottom: 40 },
 
   profileCard:    {

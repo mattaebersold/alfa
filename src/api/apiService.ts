@@ -517,11 +517,35 @@ export const apiService = createApi({
       invalidatesTags: (result, error, username) => [{ type: 'Following', id: username }],
     }),
 
+    getUserFollowers: builder.query<{ entries: User[]; total: number }, { userId: string; index?: number; limit?: number }>({
+      query: ({ userId, index = 0, limit = 50 }) => `api/follow/user/${userId}/followers/${index}/${limit}`,
+    }),
+
+    getUserFollowing: builder.query<{ entries: User[]; total: number }, { userId: string; index?: number; limit?: number }>({
+      query: ({ userId, index = 0, limit = 50 }) => `api/follow/user/${userId}/following/${index}/${limit}`,
+    }),
+
     // ── Tags ──────────────────────────────────────────────────────────────────
 
     getTagsByPost: builder.query<Tag[], string>({
       query: (postId) => `api/tags/post/${postId}`,
       providesTags: (result, error, id) => [{ type: 'Tags', id }],
+    }),
+
+    getPreviouslyTaggedUsers: builder.query<{ users: User[]; total: number }, number | void>({
+      query: (limit = 12) => `api/tags/previously-tagged/users?limit=${limit ?? 12}`,
+    }),
+
+    getPreviouslyTaggedCars: builder.query<{ cars: GarageCar[]; total: number }, number | void>({
+      query: (limit = 12) => `api/tags/previously-tagged/cars?limit=${limit ?? 12}`,
+    }),
+
+    getPreviouslyTaggedEvents: builder.query<{ events: Event[]; total: number }, number | void>({
+      query: (limit = 12) => `api/tags/previously-tagged/events?limit=${limit ?? 12}`,
+    }),
+
+    syncPostTags: builder.mutation<void, { post_id: string; tagged_users: string[]; tagged_cars: string[]; tagged_events: string[] }>({
+      query: (body) => ({ url: 'api/tags/sync', method: 'POST', body }),
     }),
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -719,7 +743,13 @@ export const {
   useGetFollowStatusQuery,
   useFollowUserMutation,
   useUnfollowUserMutation,
+  useGetUserFollowersQuery,
+  useGetUserFollowingQuery,
   useGetTagsByPostQuery,
+  useGetPreviouslyTaggedUsersQuery,
+  useGetPreviouslyTaggedCarsQuery,
+  useGetPreviouslyTaggedEventsQuery,
+  useSyncPostTagsMutation,
   useSearchQuery,
   useUpdateUserSettingMutation,
   useUpdateUserSettingImageMutation,

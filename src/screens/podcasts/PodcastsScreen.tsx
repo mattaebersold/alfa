@@ -16,6 +16,7 @@ import { imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Podcast } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -61,7 +62,7 @@ export default function PodcastsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <FlatList
         style={{ flex: 1, backgroundColor: colors.cream }}
@@ -84,13 +85,11 @@ export default function PodcastsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:               { flex: 1 },
   list:               { paddingBottom: 24, paddingTop: 8, paddingHorizontal: 8 },
   row:                { gap: 8 },
   card:               {
     flex: 1, borderRadius: 12, margin: 4, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   artwork:            { width: '100%', aspectRatio: 1 },
   artworkImg:         { width: '100%', height: '100%' },

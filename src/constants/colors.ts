@@ -9,8 +9,8 @@ export const colors = {
   brgLight:  '#252525',
 
   // Accent
-  cyan:      '#23cfb8',
-  speed:     '#23cfb8',
+  primaryAlt:'#136dd4ff',
+  primaryPro: '#877c68ff',
   pro:       '#CDA96F',
   guards:    '#D00000',
   tangerine: '#FA7921',

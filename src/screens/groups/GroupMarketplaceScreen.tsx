@@ -13,6 +13,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -20,7 +21,7 @@ function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
   const colors = useColors();
   const hero = firstGalleryUrl(post.gallery);
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.thumb} contentFit="cover" />
         : <View style={[styles.thumb, { backgroundColor: colors.secondary }]} />
@@ -46,7 +47,7 @@ export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'Gro
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
@@ -65,16 +66,10 @@ export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'Gro
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1 },
   list:             { flexGrow: 1, paddingBottom: 24 },
-  row:              {
-    flexDirection: 'row', gap: 12, alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   thumb:            { width: 72, height: 54, borderRadius: 8 },
   info:             { flex: 1 },
   title:            { fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  price:            { fontSize: 15, fontWeight: '800', color: colors.cyan, marginBottom: 2 },
+  price:            { fontSize: 15, fontWeight: '800', color: colors.primaryAlt, marginBottom: 2 },
   body:             { fontSize: 12 },
 });

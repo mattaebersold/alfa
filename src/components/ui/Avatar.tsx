@@ -36,7 +36,7 @@ export default function Avatar({ filename, name = '?', size = 40 }: AvatarProps)
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.primaryAlt,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

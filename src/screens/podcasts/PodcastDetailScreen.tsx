@@ -13,6 +13,7 @@ import PodcastPlayer from '../../components/podcasts/PodcastPlayer';
 import type { AppScreenProps } from '../../navigation/types';
 import type { PodcastEpisode } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 type Props = AppScreenProps<'PodcastDetail'>;
 
@@ -121,7 +122,7 @@ export default function PodcastDetailScreen({ route }: Props) {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={episodes}
         keyExtractor={(ep) => ep.internal_id}
@@ -153,7 +154,6 @@ export default function PodcastDetailScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safe:               { flex: 1 },
   list:               { paddingBottom: 24 },
   listWithPlayer:     { paddingBottom: 100 },
 

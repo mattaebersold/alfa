@@ -31,8 +31,8 @@ export default function Button({
     switch (variant) {
       case 'primary':     return { bg: '#08DEE3', fg: '#000000' };
       case 'secondary':   return { bg: isDark ? '#2A2A2A' : colors.secondary, fg: isDark ? '#FFFFFF' : colors.fg };
-      case 'dark':        return { bg: colors.cyan, fg: '#FFFFFF' };
-      case 'outline':     return { bg: 'transparent', fg: isDark ? '#FFFFFF' : colors.cyan, border: isDark ? '#FFFFFF' : colors.cyan };
+      case 'dark':        return { bg: colors.primaryAlt, fg: '#FFFFFF' };
+      case 'outline':     return { bg: 'transparent', fg: isDark ? '#FFFFFF' : colors.primaryAlt, border: isDark ? '#FFFFFF' : colors.primaryAlt };
       case 'destructive': return { bg: '#FF0000', fg: '#FFFFFF' };
       case 'ghost':       return { bg: 'transparent', fg: isDark ? '#BBBBBB' : colors.grey };
       case 'link':        return { bg: 'transparent', fg: '#08DEE3' };
@@ -54,7 +54,7 @@ export default function Button({
           paddingHorizontal: s.px,
           width: size === 'full' ? '100%' : undefined,
           borderWidth: isOutline ? 1.5 : 0,
-          borderColor: isOutline ? (v.border ?? colors.cyan) : 'transparent',
+          borderColor: isOutline ? (v.border ?? colors.primaryAlt) : 'transparent',
           opacity: disabled ? 0.5 : 1,
         },
       ]}

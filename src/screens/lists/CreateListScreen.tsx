@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { ImagePlus, X } from 'lucide-react-native';
 import { useCreateListMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import { ss } from '../../styles/shared';
 
 export default function CreateListScreen() {
   const navigation = useNavigation();
@@ -62,7 +63,7 @@ export default function CreateListScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
@@ -90,7 +91,7 @@ export default function CreateListScreen() {
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.muted }]}>Title *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+              style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
               value={title}
               onChangeText={setTitle}
               placeholder="List title..."
@@ -102,7 +103,7 @@ export default function CreateListScreen() {
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.muted }]}>Description</Text>
             <TextInput
-              style={[styles.input, styles.inputMulti, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+              style={[ss.input, ss.inputMulti, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
               value={description}
               onChangeText={setDescription}
               placeholder="What's this list about?"
@@ -117,7 +118,7 @@ export default function CreateListScreen() {
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.muted }]}>Category</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+              style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
               value={category}
               onChangeText={setCategory}
               placeholder="e.g. Restoration, Parts, Resources..."
@@ -134,13 +135,13 @@ export default function CreateListScreen() {
             <Switch
               value={isPrivate}
               onValueChange={setIsPrivate}
-              trackColor={{ true: colors.cyan }}
+              trackColor={{ true: colors.primaryAlt }}
             />
           </View>
 
           {/* Submit */}
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: colors.cyan, opacity: isLoading || !title.trim() ? 0.5 : 1 }]}
+            style={[styles.submitBtn, { backgroundColor: colors.primaryAlt, opacity: isLoading || !title.trim() ? 0.5 : 1 }]}
             onPress={handleSubmit}
             disabled={isLoading || !title.trim()}
           >
@@ -154,7 +155,6 @@ export default function CreateListScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   scroll: { padding: 16, paddingBottom: 40 },
   imagePicker: {
     width: '100%', height: 180, borderRadius: 14,
@@ -169,11 +169,6 @@ const styles = StyleSheet.create({
   imagePlaceholderText: { fontSize: 14 },
   field: { marginBottom: 14 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: {
-    borderRadius: 10, borderWidth: 1,
-    paddingHorizontal: 12, paddingVertical: 11, fontSize: 15,
-  },
-  inputMulti: { height: 100, textAlignVertical: 'top' },
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 20,

@@ -43,7 +43,7 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
               {hero ? (
                 <Image source={{ uri: hero }} style={styles.image} contentFit="cover" />
               ) : (
-                <View style={[styles.image, { backgroundColor: colors.cyan }]} />
+                <View style={[styles.image, { backgroundColor: colors.primaryAlt }]} />
               )}
               <View style={styles.overlay}>
                 <Text style={styles.carTitle} numberOfLines={1}>
@@ -72,12 +72,12 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
 
 const styles = StyleSheet.create({
   container:  { paddingTop: 14, paddingBottom: 4, borderBottomWidth: 1 },
-  heading:    { fontSize: 13, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 12, marginBottom: 10 },
+  heading:    { fontSize: 16, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 12, marginBottom: 10 },
   scroll:     { paddingHorizontal: 12, gap: 10, paddingBottom: 12 },
   card:       { width: CARD_WIDTH, borderRadius: 10, overflow: 'hidden' },
   image:      { width: '100%', aspectRatio: 16 / 9 },
   overlay:    { padding: 8 },
-  carTitle:   { fontSize: 12, fontWeight: '700', color: '#111' },
+  carTitle:   { fontSize: 12, fontWeight: '700', color: '#e0e0e0' },
   ownerRow:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
   ownerName:  { fontSize: 11, color: '#555', flex: 1 },
 });

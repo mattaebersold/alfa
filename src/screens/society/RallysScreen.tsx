@@ -15,6 +15,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyStackParamList } from '../../navigation/types';
 import type { Rally } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<SocietyStackParamList>;
 
@@ -66,7 +67,7 @@ export default function RallysScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={allRallys}
         keyExtractor={(item) => item.internal_id}
@@ -77,7 +78,7 @@ export default function RallysScreen() {
           />
         )}
         ListEmptyComponent={<EmptyState title="No rallys yet" />}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
@@ -88,19 +89,17 @@ export default function RallysScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:         { flex: 1 },
   list:         { paddingBottom: 24 },
   card:         {
     marginHorizontal: 12, marginTop: 12,
     borderRadius: 12, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImage:    { width: '100%', aspectRatio: 16 / 9 },
-  cardPlaceholder: { backgroundColor: colors.cyan },
+  cardPlaceholder: { backgroundColor: colors.primaryAlt },
   cardBody:     { padding: 12 },
-  date:         { fontSize: 12, fontWeight: '700', color: colors.speed, marginBottom: 4 },
+  date:         { fontSize: 12, fontWeight: '700', color: colors.primaryAlt, marginBottom: 4 },
   title:        { fontSize: 16, fontWeight: '800', lineHeight: 22 },
   location:     { fontSize: 13, marginTop: 4 },
-  slots:        { fontSize: 12, color: colors.cyan, fontWeight: '700', marginTop: 6 },
+  slots:        { fontSize: 12, color: colors.primaryAlt, fontWeight: '700', marginTop: 6 },
 });

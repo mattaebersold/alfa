@@ -23,6 +23,7 @@ export type FeedStackParamList = {
   Podcasts: undefined;
   Search: undefined;
   Dashboard: undefined;
+  Profile: undefined;
 };
 
 // ── Society Stack ───────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ export type MarketStackParamList = {
 // ── Cars Stack ───────────────────────────────────────────────────────────────
 export type CarsStackParamList = {
   Cars: undefined;
+  Garage: undefined;
   CarDetail: { carId: string };
   UserDetail: { userId: string; username?: string };
   Brands: undefined;
@@ -69,8 +71,8 @@ export type CarsStackParamList = {
 export type MainTabParamList = {
   FeedTab: NavigatorScreenParams<FeedStackParamList> | undefined;
   SocietyTab: NavigatorScreenParams<SocietyStackParamList> | undefined;
-  GroupsTab: undefined;
-  MarketTab: NavigatorScreenParams<MarketStackParamList> | undefined;
+  MarketTab: undefined;
+  GroupsTab: NavigatorScreenParams<GroupsStackParamList> | undefined;
   CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
 };
 
@@ -78,14 +80,12 @@ export type MainTabParamList = {
 export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   // Modals / full-screen flows
-  Garage: undefined;
   CarCreate: { step?: number; carId?: string };
   CarTasks: { carId: string; carTitle?: string };
   Notifications: undefined;
   Messages: undefined;
   MessageThread: { threadId: string; recipientId?: string; subject?: string };
   ComposeMessage: { userId?: string; username?: string };
-  Profile: undefined;
   UserDetail: { userId: string; username?: string };
   Settings: undefined;
   Articles: undefined;

@@ -15,6 +15,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -22,7 +23,7 @@ function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
   const colors = useColors();
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   return (
-    <TouchableOpacity style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.85}>
       {hero
         ? <Image source={{ uri: hero }} style={styles.thumb} contentFit="cover" />
         : <View style={[styles.thumb, { backgroundColor: colors.secondary }]} />
@@ -72,7 +73,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
         data={allCars}
         keyExtractor={(c) => c.internal_id}
@@ -83,7 +84,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
           />
         )}
         ListEmptyComponent={<EmptyState title="No cars in this group yet" />}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.cyan} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
@@ -94,13 +95,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1 },
   list:             { flexGrow: 1, paddingBottom: 24 },
-  row:              {
-    flexDirection: 'row', gap: 12, alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
   thumb:            { width: 72, height: 54, borderRadius: 8 },
   info:             { flex: 1 },
   carName:          { fontSize: 14, fontWeight: '700' },

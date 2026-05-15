@@ -11,7 +11,7 @@ interface SpinnerProps {
 
 export default function Spinner({ size = 'large', color, fullScreen = false }: SpinnerProps) {
   const colors = useColors();
-  const spinColor = color ?? colors.cyan;
+  const spinColor = color ?? colors.primaryAlt;
 
   if (fullScreen) {
     return (

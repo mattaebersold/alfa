@@ -68,7 +68,7 @@ function StoryBubble({
         {profileUri ? (
           <Image source={{ uri: profileUri }} style={styles.bubbleImage} contentFit="cover" />
         ) : (
-          <View style={[styles.bubbleFallback, { backgroundColor: colors.cyan }]}>
+          <View style={[styles.bubbleFallback, { backgroundColor: colors.primaryAlt }]}>
             <Text style={styles.bubbleFallbackText}>
               {username.charAt(0).toUpperCase() || '?'}
             </Text>
@@ -93,7 +93,7 @@ export default function StoriesRow() {
   if (isLoading) {
     return (
       <View style={styles.loadingRow}>
-        <ActivityIndicator size="small" color={colors.cyan} />
+        <ActivityIndicator size="small" color={colors.primaryAlt} />
       </View>
     );
   }

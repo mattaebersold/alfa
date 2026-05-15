@@ -24,7 +24,6 @@ const linking = {
           FeedTab:    { screens: { Feed: 'feed' } },
           SocietyTab: { screens: { Society: 'society', Calendar: 'calendar', Rallys: 'rallys' } },
           GroupsTab:  { screens: { Groups: 'groups' } },
-          MarketTab:  { screens: { Marketplace: 'marketplace' } },
           CarsTab:    { screens: { Cars: 'cars' } },
         },
       },

@@ -17,6 +17,7 @@ import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User, Post, GarageCar } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -79,7 +80,7 @@ export default function SearchScreen() {
   const hasResults = users.length > 0 || cars.length > 0 || posts.length > 0;
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cyan }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.searchContent, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
@@ -116,8 +117,8 @@ export default function SearchScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {users.length > 0 && (
             <View>
-              <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
-                <Text style={[styles.sectionTitle, { color: colors.grey }]}>Members</Text>
+              <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[ss.sectionTitle, { color: colors.grey }]}>Members</Text>
               </View>
               {users.slice(0, 5).map((u) => (
                 <UserRow
@@ -131,14 +132,14 @@ export default function SearchScreen() {
 
           {cars.length > 0 && (
             <View>
-              <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
-                <Text style={[styles.sectionTitle, { color: colors.grey }]}>Cars</Text>
+              <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[ss.sectionTitle, { color: colors.grey }]}>Cars</Text>
               </View>
               {cars.slice(0, 5).map((c) => (
                 <CarRow
                   key={c.internal_id}
                   car={c}
-                  onPress={() => (navigation as any).navigate('CarDetail', { carId: c.internal_id })}
+                  onPress={() => (navigation as any).navigate('CarDetailModal', { carId: c.internal_id })}
                 />
               ))}
             </View>
@@ -146,8 +147,8 @@ export default function SearchScreen() {
 
           {posts.length > 0 && (
             <View>
-              <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
-                <Text style={[styles.sectionTitle, { color: colors.grey }]}>Posts</Text>
+              <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[ss.sectionTitle, { color: colors.grey }]}>Posts</Text>
               </View>
               {posts.slice(0, 5).map((p) => (
                 <PostRow
@@ -166,7 +167,6 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1 },
   searchContent: { flex: 1 },
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -178,11 +178,6 @@ const styles = StyleSheet.create({
   hint:        { flex: 1, alignItems: 'center', paddingTop: 60 },
   hintText:    { fontSize: 15 },
   list:        { paddingBottom: 24 },
-  sectionHeader: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderTopWidth: 1, borderBottomWidth: 1,
-  },
-  sectionTitle:{ fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   resultRow:   {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 12,

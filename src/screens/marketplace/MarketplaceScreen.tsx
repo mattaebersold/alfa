@@ -19,6 +19,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
+import { ss } from '../../styles/shared';
 
 type Tab = 'listing' | 'want';
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -79,7 +80,7 @@ export default function MarketplaceScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
@@ -102,14 +103,14 @@ export default function MarketplaceScreen() {
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={[ss.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {(['listing', 'want'] as Tab[]).map((t) => (
           <TouchableOpacity
             key={t}
-            style={[styles.tabItem, tab === t && styles.tabItemActive]}
+            style={[ss.tabItem, tab === t && styles.tabItemActive]}
             onPress={() => setTab(t)}
           >
-            <Text style={[styles.tabText, { color: colors.grey }, tab === t && styles.tabTextActive]}>
+            <Text style={[ss.tabText, { color: colors.grey }, tab === t && styles.tabTextActive]}>
               {t === 'listing' ? 'Listings' : 'Want Ads'}
             </Text>
           </TouchableOpacity>
@@ -144,7 +145,6 @@ export default function MarketplaceScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:           { flex: 1 },
   content:        { flex: 1 },
   searchBar:      {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -160,9 +160,8 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', paddingVertical: 12,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  tabItemActive:  { borderBottomColor: colors.cyan },
-  tabText:        { fontSize: 14, fontWeight: '600' },
-  tabTextActive:  { color: colors.cyan },
+  tabItemActive:  { borderBottomColor: colors.primaryAlt },
+  tabTextActive:  { color: colors.primaryAlt },
   list:           { paddingBottom: 24 },
   row:            {
     flexDirection: 'row', gap: 12, alignItems: 'center',
@@ -170,10 +169,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   thumb:          { width: 80, height: 60, borderRadius: 8 },
-  thumbPlaceholder: { backgroundColor: colors.cyan },
+  thumbPlaceholder: { backgroundColor: colors.primaryAlt },
   rowInfo:        { flex: 1, gap: 4 },
   rowTitle:       { fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  rowPrice:       { fontSize: 16, fontWeight: '800', color: colors.cyan },
+  rowPrice:       { fontSize: 16, fontWeight: '800', color: colors.primaryAlt },
   rowMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowTime:        { fontSize: 11 },
 });
