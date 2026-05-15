@@ -48,6 +48,7 @@ import GroupNewsScreen from '../screens/groups/GroupNewsScreen';
 import GroupCarsScreen from '../screens/groups/GroupCarsScreen';
 import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
+import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import GroupMarketplaceScreen from '../screens/groups/GroupMarketplaceScreen';
 import GroupResourcesScreen from '../screens/groups/GroupResourcesScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
@@ -139,6 +140,11 @@ export default function AppNavigator() {
         name="ArticleDetail"
         component={ArticleDetailScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Article' }}
+      />
+      <Stack.Screen
+        name="Marketplace"
+        component={MarketplaceScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CarTasks"

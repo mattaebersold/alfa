@@ -145,6 +145,10 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 handleClose();
                 navigation.navigate('MainTabs', { screen: 'SocietyTab' });
               }} />
+              <NavRow label="Marketplace" Icon={ShoppingBag} onPress={() => {
+                handleClose();
+                navigation.navigate('Marketplace');
+              }} />
               <NavRow label="Cars" Icon={Car} onPress={() => {
                 handleClose();
                 navigation.navigate('MainTabs', { screen: 'CarsTab' });

@@ -90,6 +90,7 @@ export type AppStackParamList = {
   Settings: undefined;
   Articles: undefined;
   ArticleDetail: { articleId: string };
+  Marketplace: undefined;
   Search: undefined;
   Create: undefined;
   ProjectDetail: { projectId: string };
