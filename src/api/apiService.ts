@@ -50,6 +50,13 @@ export const apiService = createApi({
       query: (q) => ({ url: 'api/users/search', params: { q } }),
     }),
 
+    getUsers: builder.query<PaginatedResponse<User>, { page?: number; limit?: number; q?: string } | void>({
+      query: (args = {}) => {
+        const { page = 0, limit = 20, q } = args ?? {};
+        return { url: 'api/users', params: { page, limit, ...(q ? { q } : {}) } };
+      },
+    }),
+
     // ── Feed & Posts ────────────────────────────────────────────────────────
 
     getFeed: builder.query<PaginatedResponse<Post>, { page?: number; limit?: number; filter?: string }>({
@@ -747,6 +754,7 @@ export const {
   useGetPublicUserByIdQuery,
   useGetUserStatsQuery,
   useSearchUsersQuery,
+  useGetUsersQuery,
   useGetFeedQuery,
   useGetPostsQuery,
   useGetPostQuery,

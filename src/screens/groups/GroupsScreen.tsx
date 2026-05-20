@@ -8,7 +8,7 @@ import { Search, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
-import { useIsPro } from '../../hooks/useBrandColor';
+import { useIsPro, useBrandTextColor } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
@@ -71,6 +71,7 @@ export default function GroupsScreen() {
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const isPro = useIsPro();
+  const brandTextColor = useBrandTextColor();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
@@ -143,8 +144,8 @@ export default function GroupsScreen() {
                     onPress={() => Alert.alert('Coming soon', 'Group creation will be available in a future update.')}
                     activeOpacity={0.8}
                   >
-                    <Plus size={16} color="#FFFFFF" />
-                    <Text style={styles.createGroupText}>Create Group</Text>
+                    <Plus size={16} color={brandTextColor} />
+                    <Text style={[styles.createGroupText, { color: brandTextColor }]}>Create Group</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -255,5 +256,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 9,
     borderRadius: 999,
   },
-  createGroupText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  createGroupText: { fontWeight: '700', fontSize: 14 },
 });

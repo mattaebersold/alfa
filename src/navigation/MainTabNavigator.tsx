@@ -115,6 +115,12 @@ export default function MainTabNavigator() {
           title: 'Cars',
           tabBarIcon: ({ color, size }) => <Car color={color} size={size - 2} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('CarsTab', { screen: 'Cars' });
+          },
+        })}
       />
     </Tab.Navigator>
   );

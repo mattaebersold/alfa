@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
 } from 'react-native';
@@ -6,13 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSearchUsersQuery } from '../../api/apiService';
+import { useGetUsersQuery } from '../../api/apiService';
 import FollowButton from '../../components/social/FollowButton';
 import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import type { AppStackParamList } from '../../navigation/types';
@@ -20,6 +19,8 @@ import type { User } from '../../types/api';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
+
+const LIMIT = 20;
 
 function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
   const colors = useColors();
@@ -42,52 +43,77 @@ export default function MembersScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
-  const { data: usersData, isLoading } = useSearchUsersQuery(query, {
-    skip: query.length < 1,
-  });
-  const users = usersData?.entries ?? [];
+  const { data, isLoading, isFetching } = useGetUsersQuery({ page, limit: LIMIT, q: query || undefined });
 
-  return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+  React.useEffect(() => {
+    if (data?.entries) {
+      if (page === 0) setAllUsers(data.entries);
+      else setAllUsers((prev) => {
+        const ids = new Set(prev.map((u) => u.user_id));
+        return [...prev, ...data.entries.filter((u) => !ids.has(u.user_id))];
+      });
+    }
+  }, [data, page]);
+
+  const handleQueryChange = useCallback((text: string) => {
+    setQuery(text);
+    setPage(0);
+    setAllUsers([]);
+  }, []);
+
+  const handleLoadMore = useCallback(() => {
+    if (!isFetching && data && allUsers.length < data.total) setPage((p) => p + 1);
+  }, [isFetching, data, allUsers.length]);
+
+  const handleRefresh = useCallback(() => {
+    setPage(0);
+    setAllUsers([]);
+  }, []);
+
+  const ListHeader = (
+    <>
+      <FeaturedMembersRow
+        onMemberPress={(userId, username) => navigation.navigate('UserDetail', { userId, username })}
+      />
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
         <TextInput
           style={[styles.searchInput, { color: colors.fg }]}
           value={query}
-          onChangeText={setQuery}
+          onChangeText={handleQueryChange}
           placeholder="Search members..."
           placeholderTextColor={colors.grey}
           autoCapitalize="none"
         />
       </View>
+    </>
+  );
 
-      {isLoading ? (
-        <Spinner fullScreen />
-      ) : query.length < 1 ? (
-        <>
-          <FeaturedMembersRow
-            onMemberPress={(userId, username) => navigation.navigate('UserDetail', { userId, username })}
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <FlatList
+        data={allUsers}
+        keyExtractor={(u) => u.user_id}
+        ListHeaderComponent={ListHeader}
+        renderItem={({ item }) => (
+          <MemberRow
+            user={item}
+            onPress={() => navigation.navigate('UserDetail', { userId: item.user_id, username: item.username })}
           />
-          <View style={styles.hint}>
-            <Text style={[styles.hintText, { color: colors.grey }]}>Search to find members</Text>
-          </View>
-        </>
-      ) : (
-        <FlatList
-          data={users}
-          keyExtractor={(u) => u.user_id}
-          renderItem={({ item }) => (
-            <MemberRow
-              user={item}
-              onPress={() => navigation.navigate('UserDetail', { userId: item.user_id, username: item.username })}
-            />
-          )}
-          ListEmptyComponent={<EmptyState title="No members found" />}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.list}
-        />
-      )}
+        )}
+        ListEmptyComponent={
+          isLoading ? <Spinner fullScreen /> : <EmptyState title="No members found" />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.list}
+        onRefresh={handleRefresh}
+        refreshing={false}
+      />
     </SafeAreaView>
   );
 }
@@ -99,12 +125,8 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 15 },
-  hint:        { flex: 1, alignItems: 'center', paddingTop: 60 },
-  hintText:    { fontSize: 15 },
   list:        { paddingBottom: 24 },
   info:        { flex: 1 },
   name:        { fontSize: 15, fontWeight: '700' },
-  username:    { fontSize: 13, marginTop: 1 },
   location:    { fontSize: 12, marginTop: 2 },
-  arrow:       { fontSize: 20 },
 });

@@ -7,7 +7,10 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
+import { StackActions } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import { useCreatePostMutation } from '../../api/apiService';
+import { apiService } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
@@ -18,6 +21,7 @@ type Props = AppScreenProps<'StoryDetails'>;
 export default function StoryDetailsScreen({ route }: Props) {
   const { videoUri, thumbnailUri } = route.params;
   const navigation = useNavigation();
+  const dispatch = useDispatch();
   const colors = useColors();
   const [createPost, { isLoading }] = useCreatePostMutation();
 
@@ -55,8 +59,11 @@ export default function StoryDetailsScreen({ route }: Props) {
       await createPost(fd).unwrap();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Pop back to the feed (close both story screens)
-      navigation.getParent()?.goBack();
+      // Refresh the stories row on the feed
+      dispatch(apiService.util.invalidateTags(['Stories']));
+
+      // Pop all story screens off the stack and return to MainTabs
+      navigation.dispatch(StackActions.popToTop());
     } catch (err: any) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', err?.data?.error ?? 'Something went wrong. Please try again.');

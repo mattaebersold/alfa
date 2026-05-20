@@ -12,6 +12,7 @@ import {
   useGetMessagesQuery,
   useDeleteMessageThreadMutation,
   useGetUserByIdQuery,
+  useMarkMessageReadMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
@@ -28,9 +29,10 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type ConversationSummary = {
   otherUserId: string;
   allThreadIds: string[];
-  representative: Message;      // latest message across all threads with this person
-  lastFromOther: Message | null; // latest message from the other person
+  representative: Message;
+  lastFromOther: Message | null;
   hasUnread: boolean;
+  unreadFromOtherIds: string[];
 };
 
 function ConversationRow({
@@ -116,6 +118,7 @@ export default function MessagesScreen() {
 
   const { data, isLoading, refetch } = useGetMessagesQuery({ limit: 50 });
   const [deleteThread] = useDeleteMessageThreadMutation();
+  const [markRead] = useMarkMessageReadMutation();
 
   // Refetch when returning from a thread so read status is always current
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
@@ -145,18 +148,21 @@ export default function MessagesScreen() {
         const otherId = representative.sender_id === myId ? representative.recipient_id : representative.sender_id;
         const userMsgs = byUser.get(otherId) ?? [representative];
         const fromOther = userMsgs.filter((m) => m.sender_id !== myId);
+        const unreadFromOther = fromOther.filter((m) => !m.read);
         const allThreadIds = [...new Set(userMsgs.map((m) => m.thread_id))];
         return {
           otherUserId: otherId,
           allThreadIds,
           representative,
           lastFromOther: fromOther[0] ?? null,
-          hasUnread: fromOther.some((m) => !m.read),
+          hasUnread: unreadFromOther.length > 0,
+          unreadFromOtherIds: unreadFromOther.map((m) => m.internal_id),
         };
       });
   }, [messages, myId]);
 
   const handlePress = useCallback((summary: ConversationSummary) => {
+    summary.unreadFromOtherIds.forEach((id) => markRead(id));
     const { representative: msg } = summary;
     const isMine = msg.sender_id === myId;
     navigation.navigate('MessageThread', {
@@ -164,7 +170,7 @@ export default function MessagesScreen() {
       recipientId: isMine ? msg.recipient_id : msg.sender_id,
       subject: msg.subject,
     });
-  }, [navigation, myId]);
+  }, [navigation, myId, markRead]);
 
   const handleDelete = useCallback((summary: ConversationSummary) => {
     summary.allThreadIds.forEach((tid) => deleteThread(tid));
