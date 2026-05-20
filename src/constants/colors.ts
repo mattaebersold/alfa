@@ -10,7 +10,7 @@ export const colors = {
 
   // Accent
   primaryAlt:'rgb(37, 162, 211)',
-  primaryPro: '#877c68ff',
+  primaryPro: 'rgb(196, 160, 92)',
   pro:       '#CDA96F',
   guards:    '#D00000',
   tangerine: '#FA7921',
