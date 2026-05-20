@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, KeyboardAvoidingView, Platform, FlatList,
+  TextInput, Alert, FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,10 +10,13 @@ import { X, Plus, Camera } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
   useGetCarBrandsQuery, useGetCarModelsQuery, useGetCarQuery,
+  useGetUserGroupsQuery,
 } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -119,7 +122,8 @@ function MakeModelPicker({
   useEffect(() => { setMakeQuery(make); }, [make]);
 
   const { data: brands = [] } = useGetCarBrandsQuery();
-  const { data: models = [] } = useGetCarModelsQuery(make, { skip: !make });
+  const { data: rawModels = [] } = useGetCarModelsQuery(make, { skip: !make });
+  const models = rawModels.map((m) => m.model);
 
   const filteredBrands = makeQuery.length > 0
     ? brands.filter((b) => b.toLowerCase().startsWith(makeQuery.toLowerCase())).slice(0, 6)
@@ -207,6 +211,7 @@ type FormData = {
   type: string; category: string;
   trim: string; color: string; engine: string; mileage: string;
   horsepower: string; torque: string; vin: string; condition: string; body: string;
+  group_id: string;
   mods: { title: string; type: string; body: string }[];
   images: { uri: string; name: string; type: string }[];
 };
@@ -214,14 +219,16 @@ type FormData = {
 const EMPTY_FORM: FormData = {
   title: '', year: '', make: '', model: '', type: 'daily', category: '',
   trim: '', color: '', engine: '', mileage: '', horsepower: '', torque: '',
-  vin: '', condition: '', body: '',
+  vin: '', condition: '', body: '', group_id: '',
   mods: [], images: [],
 };
 
 export default function CarCreateScreen({ navigation, route }: AppScreenProps<'CarCreate'>) {
   const colors = useColors();
+  const keyboardHeight = useKeyboardHeight();
   const carId = route.params?.carId;
   const isEditMode = !!carId;
+  const { userInfo } = useAppSelector((s) => s.auth);
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM, type: 'daily', category: CAR_CATEGORIES['daily'][0]?.key ?? '' });
@@ -231,6 +238,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
   const isLoading = creating || updating;
 
   const { data: existingCar } = useGetCarQuery(carId ?? '', { skip: !carId });
+  const { data: userGroups = [] } = useGetUserGroupsQuery(userInfo?.user_id ?? '', { skip: !userInfo?.user_id });
 
   useEffect(() => {
     if (existingCar && isEditMode) {
@@ -250,6 +258,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
         vin: existingCar.vin ?? '',
         condition: existingCar.condition ?? '',
         body: existingCar.body ?? '',
+        group_id: existingCar.group_id ?? '',
         mods: [],
         images: [],
       });
@@ -276,20 +285,46 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
   };
 
   // Image picker
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.85,
-    });
-    if (!result.canceled) {
-      const newImages = result.assets.map((a) => ({
-        uri: a.uri,
-        name: a.fileName ?? `photo_${Date.now()}.jpg`,
-        type: a.mimeType ?? 'image/jpeg',
-      }));
-      setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages].slice(0, 10) }));
-    }
+  const pickImage = () => {
+    Alert.alert('Add Photo', 'How would you like to add a photo?', [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+          if (!result.canceled) {
+            const a = result.assets[0];
+            setForm((prev) => ({
+              ...prev,
+              images: [...prev.images, { uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }].slice(0, 10),
+            }));
+          }
+        },
+      },
+      {
+        text: 'Choose from Library',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            quality: 0.85,
+          });
+          if (!result.canceled) {
+            const newImages = result.assets.map((a) => ({
+              uri: a.uri,
+              name: a.fileName ?? `photo_${Date.now()}.jpg`,
+              type: a.mimeType ?? 'image/jpeg',
+            }));
+            setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages].slice(0, 10) }));
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const addMod = () => {
@@ -336,6 +371,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
     if (form.vin)        fd.append('vin', form.vin);
     if (form.condition)  fd.append('condition', form.condition);
     if (form.body)       fd.append('body', form.body);
+    fd.append('group_id', form.group_id ?? '');
     if (!isEditMode)     fd.append('entry_type', 'garagecar');
 
     form.images.forEach((img) => {
@@ -358,7 +394,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ProgressBar step={step} />
+      <ProgressBar step={step} total={5} />
 
       {/* Nav buttons always visible at top */}
       <View style={[styles.nav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -371,7 +407,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
           />
         ) : <View />}
         <View style={styles.navRight}>
-          {step < 4 ? (
+          {step < 5 ? (
             <Button
               label="Next →"
               onPress={() => {
@@ -396,12 +432,9 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
         </View>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
+      <View style={styles.flex}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -429,10 +462,54 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
             </View>
           )}
 
-          {/* ── STEP 2: Optional specs ─────────────────────────────────── */}
+          {/* ── STEP 2: Photos ─────────────────────────────────────────── */}
           {step === 2 && (
             <View>
-              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 2 — Specs</Text>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 2 — Photos</Text>
+              <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. First photo will be the cover image.</Text>
+
+              <TouchableOpacity style={styles.photoPickerBtn} onPress={pickImage}>
+                <Camera size={22} color="#FFFFFF" />
+                <Text style={styles.photoPickerText}>Add Photos</Text>
+              </TouchableOpacity>
+
+              {form.images.length > 0 && (
+                <FlatList
+                  data={form.images}
+                  keyExtractor={(item) => item.uri}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.photoList}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.photoThumb}>
+                      <Image source={{ uri: item.uri }} style={styles.photoImg} contentFit="cover" />
+                      {index === 0 && (
+                        <View style={styles.coverBadge}>
+                          <Text style={styles.coverText}>Cover</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={styles.photoRemove}
+                        onPress={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            images: prev.images.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <X size={12} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          )}
+
+          {/* ── STEP 3: Optional specs ─────────────────────────────────── */}
+          {step === 3 && (
+            <View>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 3 — Specs</Text>
               <Field label="Description" value={form.body} onChange={set('body')} placeholder="Tell us about it..." optional multiline />
               <Field label="Trim" value={form.trim} onChange={set('trim')} placeholder="e.g. Turbo S" optional />
               <Field label="Color" value={form.color} onChange={set('color')} placeholder="e.g. Guards Red" optional />
@@ -445,10 +522,38 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
             </View>
           )}
 
-          {/* ── STEP 3: Mods ───────────────────────────────────────────── */}
-          {step === 3 && (
+          {/* ── STEP 4: Groups ─────────────────────────────────────────── */}
+          {step === 4 && (
             <View>
-              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 3 — Modifications</Text>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 4 — Groups</Text>
+              <Text style={[styles.stepSub, { color: colors.grey }]}>Associate this car with one of your groups so it shows up in that group's Cars tab.</Text>
+              {userGroups.length === 0 ? (
+                <Text style={[styles.stepSub, { color: colors.grey }]}>You're not a member of any groups yet.</Text>
+              ) : (
+                <View style={cs.chips}>
+                  {userGroups.map((g) => {
+                    const active = form.group_id === g.internal_id;
+                    return (
+                      <TouchableOpacity
+                        key={g.internal_id}
+                        style={[cs.chip, { borderColor: colors.border, backgroundColor: colors.card }, active && cs.chipActive]}
+                        onPress={() => set('group_id')(active ? '' : g.internal_id)}
+                      >
+                        <Text style={[cs.chipText, { color: colors.fg }, active && cs.chipTextActive]}>
+                          {g.title}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── STEP 5: Mods ───────────────────────────────────────────── */}
+          {step === 5 && (
+            <View>
+              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 5 — Modifications</Text>
               <Text style={[styles.stepSub, { color: colors.grey }]}>Add any mods you want to document. You can always add more later.</Text>
 
               {form.mods.map((mod, i) => {
@@ -513,52 +618,8 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
               </TouchableOpacity>
             </View>
           )}
-
-          {/* ── STEP 4: Photos ─────────────────────────────────────────── */}
-          {step === 4 && (
-            <View>
-              <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 4 — Photos</Text>
-              <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. First photo will be the cover image.</Text>
-
-              <TouchableOpacity style={styles.photoPickerBtn} onPress={pickImage}>
-                <Camera size={22} color="#FFFFFF" />
-                <Text style={styles.photoPickerText}>Choose Photos</Text>
-              </TouchableOpacity>
-
-              {form.images.length > 0 && (
-                <FlatList
-                  data={form.images}
-                  keyExtractor={(item) => item.uri}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.photoList}
-                  renderItem={({ item, index }) => (
-                    <View style={styles.photoThumb}>
-                      <Image source={{ uri: item.uri }} style={styles.photoImg} contentFit="cover" />
-                      {index === 0 && (
-                        <View style={styles.coverBadge}>
-                          <Text style={styles.coverText}>Cover</Text>
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={styles.photoRemove}
-                        onPress={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            images: prev.images.filter((_, i) => i !== index),
-                          }))
-                        }
-                      >
-                        <X size={12} color="#FFFFFF" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                />
-              )}
-            </View>
-          )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }

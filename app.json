@@ -4,11 +4,7 @@
     "slug": "alfa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": {
-      "light": "./assets/icon.png",
-      "dark": "./assets/icon-dark.png",
-      "tinted": "./assets/icon-tinted.png"
-    },
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -38,9 +34,7 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -65,7 +59,8 @@
         }
       ],
       "expo-video",
-      "expo-audio"
+      "expo-audio",
+      "expo-asset"
     ],
     "scheme": "openroadsociety",
     "extra": {

@@ -9,7 +9,7 @@ export const colors = {
   brgLight:  '#252525',
 
   // Accent
-  primaryAlt:'#136dd4ff',
+  primaryAlt:'rgb(37, 162, 211)',
   primaryPro: '#877c68ff',
   pro:       '#CDA96F',
   guards:    '#D00000',

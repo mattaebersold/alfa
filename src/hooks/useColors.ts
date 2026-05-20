@@ -1,5 +1,6 @@
 import { useColorScheme } from 'react-native';
 import { colors } from '../constants/colors';
+import { useAppSelector } from '../store/store';
 
 // Dark-mode overrides — only surfaces that need to change from the light palette
 export const DarkColors = {
@@ -26,11 +27,15 @@ export const DarkColors = {
 export type ThemeColors = typeof colors;
 
 /**
- * Returns the correct color palette for the current color scheme.
- * Components should call this hook and use the returned object
- * instead of importing colors directly, to support dark mode.
+ * Returns the correct color palette for the current color scheme and account type.
+ * For pro/admin users, primaryAlt is remapped to primaryPro so all screens
+ * automatically pick up the brand color without individual changes.
  */
 export function useColors(): ThemeColors {
   const scheme = useColorScheme();
-  return scheme === 'dark' ? (DarkColors as unknown as ThemeColors) : colors;
+  const { userInfo } = useAppSelector((s) => s.auth);
+  const isPro = userInfo?.accountType === 'pro' || userInfo?.accountType === 'admin';
+  const base = scheme === 'dark' ? (DarkColors as unknown as ThemeColors) : colors;
+  if (!isPro) return base;
+  return { ...base, primaryAlt: colors.primaryPro as unknown as typeof colors.primaryAlt };
 }

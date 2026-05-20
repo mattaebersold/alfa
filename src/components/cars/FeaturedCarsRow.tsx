@@ -53,11 +53,11 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
                   <View style={styles.ownerRow}>
                     <Avatar
                       filename={car.user?.gallery?.[0]?.filename}
-                      name={car.user?.firstName ?? '?'}
+                      name={car.user?.username ?? '?'}
                       size={14}
                     />
                     <Text style={styles.ownerName} numberOfLines={1}>
-                      {car.user.firstName} {car.user.lastName}
+                      @{car.user.username}
                     </Text>
                   </View>
                 )}

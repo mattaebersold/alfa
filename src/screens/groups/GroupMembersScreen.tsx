@@ -24,14 +24,11 @@ function MemberRow({ member, onPress }: { member: GroupMember; onPress: () => vo
     <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <Avatar
         filename={member.user?.gallery?.[0]?.filename}
-        name={member.user?.firstName ?? '?'}
+        name={member.user?.username ?? '?'}
         size={42}
       />
       <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]}>
-          {member.user?.firstName} {member.user?.lastName}
-        </Text>
-        <Text style={[styles.username, { color: colors.grey }]}>@{member.user?.username}</Text>
+        <Text style={[styles.name, { color: colors.fg }]}>@{member.user?.username}</Text>
       </View>
       {isAdmin && (
         <View style={styles.adminBadge}>

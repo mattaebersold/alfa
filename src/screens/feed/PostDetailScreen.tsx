@@ -6,21 +6,23 @@ import {
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Settings } from 'lucide-react-native';
+import { X, Settings, MessageCircle } from 'lucide-react-native';
+import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation } from '@react-navigation/native';
-import { useGetPostQuery, useGetCommentsQuery, useCreateCommentMutation, useGetPostCountsQuery } from '../../api/apiService';
+import { useGetPostQuery, useGetCommentsQuery, useCreateCommentMutation, useGetPostCountsQuery, useGetLikeInfoQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
-import CommentRow from '../../components/social/CommentRow';
+import CommentRow, { type CommentData } from '../../components/social/CommentRow';
 import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
 import { imageUrl } from '../../utils/image';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import type { FeedScreenProps } from '../../navigation/types';
+import type { FeedScreenProps, AppStackParamList } from '../../navigation/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GalleryItem } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
@@ -121,7 +123,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const { postId } = route.params;
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   const { data: postData, isLoading } = useGetPostQuery(postId);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
@@ -131,9 +133,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   );
   const comments = commentsData?.entries ?? [];
   const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
+  const { data: likeInfo } = useGetLikeInfoQuery(postId, { skip: !post });
 
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const [likersOpen, setLikersOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -142,20 +146,20 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const isOwner = userInfo?.user_id === post.user_id;
   const isStory = post.type === 'story';
   const gallery = post.gallery ?? [];
-  const displayName = post.user
-    ? `${post.user.firstName} ${post.user.lastName}`.trim() || post.user.username
-    : 'Unknown';
+  const displayName = post.user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';
 
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return;
     const fd = new FormData();
     fd.append('document_id', post.internal_id);
-    fd.append('document_entry_type', entryType);
+    fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
+    if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     try {
       await createComment(fd).unwrap();
       setCommentText('');
+      setReplyingTo(null);
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }
@@ -174,7 +178,9 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             <Settings size={22} color={colors.fg} />
           </TouchableOpacity>
         ) : (
-          <View style={styles.modalHeaderBtn} />
+          <View style={styles.modalHeaderBtn}>
+            <ReportButton contentType="post" contentId={postId} size={22} />
+          </View>
         )}
       </View>
 
@@ -201,10 +207,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                     size={40}
                   />
                   <View style={styles.postHeaderText}>
-                    <Text style={[styles.author, { color: colors.fg }]}>{displayName}</Text>
-                    {post.user?.username && (
-                      <Text style={[styles.username, { color: colors.grey }]}>@{post.user.username}</Text>
-                    )}
+                    <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
                   </View>
                 </TouchableOpacity>
                 <View style={styles.badgeRow}>
@@ -233,6 +236,19 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>
               )}
 
+              {(post.type === 'listing' || post.type === 'want') && post.user && !isOwner && (
+                <TouchableOpacity
+                  style={[styles.messageBtn, { backgroundColor: colors.card, borderTopColor: colors.border, borderBottomColor: colors.border }]}
+                  onPress={() => navigation.navigate('ComposeMessage', { userId: post.user!.user_id, username: post.user!.username })}
+                  activeOpacity={0.8}
+                >
+                  <MessageCircle size={18} color={colors.primaryAlt} />
+                  <Text style={[styles.messageBtnText, { color: colors.primaryAlt }]}>
+                    Message @{post.user.username} about this
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {(counts?.likes ?? 0) > 0 && (
                 <TouchableOpacity
                   style={[styles.likedByRow, { backgroundColor: colors.card }]}
@@ -250,7 +266,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   documentId={post.internal_id}
                   entryType={entryType}
                   initialCount={counts?.likes ?? post.like_count ?? 0}
-                  initialLiked={post.isLiked ?? false}
+                  initialLiked={likeInfo?.hasLiked ?? post.isLiked ?? false}
                 />
               </View>
 
@@ -261,8 +277,16 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               </View>
             </View>
           }
-          renderItem={({ item }: { item: any }) => (
-            <CommentRow comment={item} />
+          renderItem={({ item }: { item: CommentData }) => (
+            <CommentRow
+              comment={item}
+              currentUserId={userInfo?.user_id}
+              isReply={!!item.parent_id}
+              onReply={(commentId, username) => {
+                setReplyingTo({ commentId, username });
+                setCommentText(`@${username} `);
+              }}
+            />
           )}
           ListEmptyComponent={
             <Text style={[styles.noComments, { color: colors.grey }]}>No comments yet. Be first!</Text>
@@ -270,23 +294,36 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           contentContainerStyle={styles.list}
         />
 
-        <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.firstName ?? '?'} size={32} />
-          <TextInput
-            style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
-            value={commentText}
-            onChangeText={setCommentText}
-            placeholder="Write a comment..."
-            placeholderTextColor={colors.grey}
-            multiline
-          />
-          <TouchableOpacity
-            onPress={handleSubmitComment}
-            disabled={submitting || !commentText.trim()}
-            style={[styles.sendBtn, (!commentText.trim() || submitting) && styles.sendBtnDisabled]}
-          >
-            <Text style={styles.sendText}>Post</Text>
-          </TouchableOpacity>
+        <View style={{ backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {replyingTo && (
+            <View style={[styles.replyBanner, { backgroundColor: colors.segment, borderBottomColor: colors.border }]}>
+              <Text style={[styles.replyBannerText, { color: colors.grey }]}>
+                Replying to <Text style={{ fontWeight: '700', color: colors.fg }}>@{replyingTo.username}</Text>
+              </Text>
+              <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
+                <X size={16} color={colors.grey} />
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={styles.inputRow}>
+            <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={32} />
+            <TextInput
+              style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
+              placeholderTextColor={colors.grey}
+              multiline
+              autoFocus={!!replyingTo}
+            />
+            <TouchableOpacity
+              onPress={handleSubmitComment}
+              disabled={submitting || !commentText.trim()}
+              style={[styles.sendBtn, (!commentText.trim() || submitting) && styles.sendBtnDisabled]}
+            >
+              <Text style={styles.sendText}>Post</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -330,16 +367,27 @@ const styles = StyleSheet.create({
   dotActive:       { backgroundColor: colors.primaryAlt },
   dotInactive:     { backgroundColor: 'rgba(0,0,0,0.2)' },
   price:           { fontSize: 24, fontWeight: '800', color: colors.primaryAlt, paddingHorizontal: 16, paddingTop: 12 },
+  messageBtn:      {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderTopWidth: 1, borderBottomWidth: 1, marginTop: 4,
+  },
+  messageBtnText:  { fontSize: 15, fontWeight: '700' },
   likedByRow:      { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   likedByText:     { fontSize: 13 },
   likeRow:         { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
   commentsDivider: { paddingHorizontal: 16, paddingVertical: 12 },
   commentsLabel:   { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   noComments:      { textAlign: 'center', padding: 24, fontSize: 14 },
+  replyBanner:     {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1,
+  },
+  replyBannerText: { fontSize: 13 },
   inputRow:        {
     flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderTopWidth: 1, gap: 10,
+    paddingHorizontal: 16, paddingVertical: 14,
+    gap: 10,
   },
   sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },

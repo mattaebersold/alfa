@@ -21,7 +21,6 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
   const colors = useColors();
   const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
   const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
-  const displayName = owner ? `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.username : null;
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.cardImageContainer}>
@@ -36,8 +35,8 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
         </Text>
         {owner && (
           <View style={styles.ownerRow}>
-            <Avatar filename={owner.gallery?.[0]?.filename} name={owner.firstName ?? '?'} size={20} />
-            <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>{displayName}</Text>
+            <Avatar filename={owner.gallery?.[0]?.filename} name={owner.username ?? '?'} size={20} />
+            <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
           </View>
         )}
       </View>

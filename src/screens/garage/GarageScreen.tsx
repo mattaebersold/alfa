@@ -7,35 +7,40 @@ import { Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import AppHeader from '../../components/ui/AppHeader';
 import CarCard from '../../components/cards/CarCard';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useIsPro } from '../../hooks/useBrandColor';
 import type { CarsStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<CarsStackParamList>;
 
-// Fetches open task count per car without blocking list render
+const CAR_LIMIT_BASIC = 3;
+
 function CarCardWithTasks({
   car,
+  isPro,
   onTasksPress,
   onEditPress,
 }: {
   car: any;
+  isPro: boolean;
   onTasksPress: () => void;
   onEditPress: () => void;
 }) {
-  const { data: tasksData } = useGetCarTasksQuery(car.internal_id);
+  const { data: tasksData } = useGetCarTasksQuery(car.internal_id, { skip: !isPro });
   const tasks = tasksData?.entries ?? [];
   return (
     <CarCard
       car={car}
-      onTasksPress={onTasksPress}
+      onTasksPress={isPro ? onTasksPress : undefined}
       onEditPress={onEditPress}
-      taskCount={tasks.filter((t) => !t.completed).length}
+      taskCount={isPro ? tasks.filter((t) => !t.completed).length : 0}
     />
   );
 }
@@ -43,8 +48,11 @@ function CarCardWithTasks({
 export default function GarageScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const isPro = useIsPro();
   const { data, isLoading, refetch } = useGetUserGarageQuery();
   const cars = data?.entries ?? [];
+
+  const carLimitReached = !isPro && cars.length >= CAR_LIMIT_BASIC;
 
   const goToTasks = useCallback(
     (carId: string, carTitle: string) =>
@@ -69,6 +77,7 @@ export default function GarageScreen() {
         renderItem={({ item }) => (
           <CarCardWithTasks
             car={item}
+            isPro={isPro}
             onTasksPress={() =>
               goToTasks(
                 item.internal_id,
@@ -83,13 +92,23 @@ export default function GarageScreen() {
             <Text style={[styles.count, { color: colors.grey }]}>
               {cars.length} {cars.length === 1 ? 'car' : 'cars'}
             </Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => (navigation as any).navigate('CarCreate', {})}
-            >
-              <Plus size={16} color="#FFFFFF" />
-              <Text style={styles.addBtnText}>Add Car</Text>
-            </TouchableOpacity>
+            {carLimitReached ? (
+              <TouchableOpacity
+                style={styles.proCtaBtn}
+                onPress={() => {}}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.proCtaText}>Add more — become Pro (coming soon)</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => (navigation as any).navigate('CarCreate', {})}
+              >
+                <Plus size={16} color="#FFFFFF" />
+                <Text style={styles.addBtnText}>Add Car</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -118,6 +137,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   count: { fontSize: 14, fontWeight: '600' },
   addBtn: {
@@ -130,4 +151,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   addBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  proCtaBtn: {
+    backgroundColor: colors.pro,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    maxWidth: 240,
+  },
+  proCtaText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12, textAlign: 'center' },
 });

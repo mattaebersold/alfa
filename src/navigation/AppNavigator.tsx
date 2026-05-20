@@ -35,6 +35,7 @@ import EventDetailScreen from '../screens/society/EventDetailScreen';
 import RallyDetailScreen from '../screens/society/RallyDetailScreen';
 import CarTasksScreen from '../screens/garage/CarTasksScreen';
 import CarCreateScreen from '../screens/garage/CarCreateScreen';
+import ModCreateScreen from '../screens/cars/ModCreateScreen';
 import PodcastDetailScreen from '../screens/podcasts/PodcastDetailScreen';
 import ListDetailScreen from '../screens/lists/ListDetailScreen';
 import CreateListScreen from '../screens/lists/CreateListScreen';
@@ -91,6 +92,11 @@ export default function AppNavigator() {
         name="CarCreate"
         component={CarCreateScreen}
         options={({ navigation }) => ({ headerShown: true, title: 'Add Car', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+      />
+      <Stack.Screen
+        name="ModCreate"
+        component={ModCreateScreen}
+        options={({ navigation }) => ({ headerShown: true, title: 'Add Mod', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="CreateList"
@@ -162,17 +168,17 @@ export default function AppNavigator() {
       />
       <Stack.Screen
         name="PostDetailModal"
-        component={PostDetailScreen}
+        component={PostDetailScreen as React.ComponentType<object>}
         options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
         name="EventDetailModal"
-        component={EventDetailScreen}
+        component={EventDetailScreen as React.ComponentType<object>}
         options={{ ...headerOptions, headerShown: true, title: 'Event' }}
       />
       <Stack.Screen
         name="RallyDetailModal"
-        component={RallyDetailScreen}
+        component={RallyDetailScreen as React.ComponentType<object>}
         options={{ ...headerOptions, headerShown: true, title: 'Rally' }}
       />
       <Stack.Screen

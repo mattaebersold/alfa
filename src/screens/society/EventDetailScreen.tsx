@@ -76,7 +76,7 @@ export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDe
             }}
             renderItem={({ item }) => (
               <Image
-                source={{ uri: imageUrl(item.filename) }}
+                source={{ uri: imageUrl(item.filename) ?? undefined }}
                 style={{ width: SCREEN_WIDTH, aspectRatio: 16 / 9 }}
                 contentFit="cover"
               />

@@ -41,13 +41,18 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
   }, [cooldown]);
 
   const handleDigitChange = (index: number, value: string) => {
-    const clean = value.replace(/[^0-9]/g, '').slice(-1);
+    const clean = value.replace(/[^0-9]/g, '');
+    if (clean.length > 1) {
+      // Autofill / paste — distribute all digits at once
+      const next = Array.from({ length: 6 }, (_, i) => clean[i] ?? '');
+      setDigits(next);
+      refs[Math.min(clean.length - 1, 5)].current?.focus();
+      return;
+    }
     const next = [...digits];
     next[index] = clean;
     setDigits(next);
-    if (clean && index < 5) {
-      refs[index + 1].current?.focus();
-    }
+    if (clean && index < 5) refs[index + 1].current?.focus();
   };
 
   const handleKeyPress = (index: number, key: string) => {

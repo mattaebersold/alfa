@@ -25,9 +25,7 @@ type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
   const colors = useColors();
   const hero = firstGalleryUrl(article.gallery) ?? firstGalleryUrl(article.banners);
-  const displayName = article.user
-    ? `${article.user.firstName} ${article.user.lastName}`.trim() || article.user.username
-    : '';
+  const displayName = article.user?.username ?? '';
   const date = article.created_at
     ? format(new Date(article.created_at), 'MMM d, yyyy')
     : '';
@@ -61,7 +59,7 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
               size={24}
             />
           )}
-          <Text style={[styles.metaText, { color: colors.grey }]}>{displayName}</Text>
+          {displayName ? <Text style={[styles.metaText, { color: colors.grey }]}>@{displayName}</Text> : null}
           {date && <Text style={[styles.metaDot, { color: colors.grey }]}>·</Text>}
           <Text style={[styles.metaText, { color: colors.grey }]}>{date}</Text>
         </View>
@@ -79,7 +77,7 @@ export default function ArticlesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <FlatList
         style={{ flex: 1, backgroundColor: colors.cream }}

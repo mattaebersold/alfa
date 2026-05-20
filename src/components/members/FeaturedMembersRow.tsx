@@ -45,9 +45,6 @@ export default function FeaturedMembersRow({ onMemberPress }: Props) {
               <View style={styles.gradient} />
               <View style={styles.info}>
                 <Text style={styles.username} numberOfLines={1}>@{member.username}</Text>
-                {member.firstName ? (
-                  <Text style={styles.name} numberOfLines={1}>{member.firstName}</Text>
-                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -69,9 +66,7 @@ const styles = StyleSheet.create({
   photo:      { ...StyleSheet.absoluteFillObject },
   gradient:   {
     ...StyleSheet.absoluteFillObject,
-    // dark overlay at bottom
     backgroundColor: 'transparent',
-    backgroundImage: undefined,
   },
   info:       {
     position: 'absolute', bottom: 0, left: 0, right: 0,

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, X } from 'lucide-react-native';
+import { Search, X, MessageCircle } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,7 +24,7 @@ import { ss } from '../../styles/shared';
 type Tab = 'listing' | 'want';
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
-function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
+function ListingRow({ post, onPress, onMessage }: { post: Post; onPress: () => void; onMessage: () => void }) {
   const colors = useColors();
   const hero = firstGalleryUrl(post.gallery);
   const timeAgo = post.created_at
@@ -42,9 +42,13 @@ function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
         {post.title && (
           <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
         )}
-        {post.price && (
-          <Text style={styles.rowPrice}>${Number(post.price).toLocaleString()}</Text>
-        )}
+        <View style={styles.rowPriceRow}>
+          {post.price && (
+            <View style={styles.pricePill}>
+              <Text style={styles.priceText}>${Number(post.price).toLocaleString()}</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.rowMeta}>
           {post.category && (
             <Badge variant={post.category} label={CATEGORY_LABELS[post.category] ?? post.category} />
@@ -52,6 +56,15 @@ function ListingRow({ post, onPress }: { post: Post; onPress: () => void }) {
           <Text style={[styles.rowTime, { color: colors.grey }]}>{timeAgo}</Text>
         </View>
       </View>
+      <TouchableOpacity
+        style={[styles.msgBtn, { backgroundColor: colors.primaryAlt + '18', borderColor: colors.primaryAlt + '44' }]}
+        onPress={(e) => { e.stopPropagation(); onMessage(); }}
+        hitSlop={4}
+        activeOpacity={0.7}
+      >
+        <MessageCircle size={15} color={colors.primaryAlt} />
+        <Text style={[styles.msgBtnText, { color: colors.primaryAlt }]}>Message</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -127,6 +140,11 @@ export default function MarketplaceScreen() {
             <ListingRow
               post={item}
               onPress={() => appNav.navigate('PostDetailModal', { postId: item.internal_id })}
+              onMessage={() => item.user && appNav.navigate('ComposeMessage', {
+                userId: item.user.user_id,
+                username: item.user.username,
+                initialBody: `I'm interested in your listing "${item.title}"…`,
+              })}
             />
           )}
           ListEmptyComponent={
@@ -172,7 +190,16 @@ const styles = StyleSheet.create({
   thumbPlaceholder: { backgroundColor: colors.primaryAlt },
   rowInfo:        { flex: 1, gap: 4 },
   rowTitle:       { fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  rowPrice:       { fontSize: 16, fontWeight: '800', color: colors.primaryAlt },
+  rowPriceRow:    { flexDirection: 'row' },
+  pricePill:      { backgroundColor: '#16A34A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' },
+  priceText:      { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   rowMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowTime:        { fontSize: 11 },
+  msgBtn:         {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 9, paddingVertical: 6,
+    borderRadius: 8, borderWidth: 1,
+    alignSelf: 'center', marginLeft: 4,
+  },
+  msgBtnText:     { fontSize: 12, fontWeight: '700' },
 });

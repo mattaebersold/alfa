@@ -114,6 +114,7 @@ export default function CreateStoryScreen() {
   const startTimeRef = useRef<number>(0);
 
   const [facing, setFacing] = useState<'back' | 'front'>('back');
+  const [cameraReady, setCameraReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
@@ -135,7 +136,7 @@ export default function CreateStoryScreen() {
   }, [elapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startRecording = useCallback(async () => {
-    if (!cameraRef.current || isRecording || recordedUri) return;
+    if (!cameraRef.current || !cameraReady || isRecording || recordedUri) return;
     setIsRecording(true);
     setElapsed(0);
     startTimeRef.current = Date.now();
@@ -145,7 +146,7 @@ export default function CreateStoryScreen() {
     }, 100);
 
     try {
-      const result = await cameraRef.current.record({ maxDuration: MAX_DURATION });
+      const result = await cameraRef.current.recordAsync({ maxDuration: MAX_DURATION });
       const duration = (Date.now() - startTimeRef.current) / 1000;
       if (duration < 1.5) {
         Alert.alert('Too short', 'Hold the record button for at least 2 seconds.');
@@ -153,7 +154,9 @@ export default function CreateStoryScreen() {
         setRecordedUri(result.uri);
       }
     } catch (err: any) {
-      if (!err?.message?.includes('Recording was stopped')) {
+      const msg: string = err?.message ?? '';
+      if (!msg.includes('Recording was stopped') && !msg.includes('aborted')) {
+        console.error('[Story] record error:', err);
         Alert.alert('Recording failed', 'Could not start recording. Please try again.');
       }
     } finally {
@@ -161,7 +164,7 @@ export default function CreateStoryScreen() {
       setIsRecording(false);
       setElapsed(0);
     }
-  }, [isRecording, recordedUri]);
+  }, [isRecording, recordedUri, cameraReady]);
 
   const stopRecording = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -234,6 +237,8 @@ export default function CreateStoryScreen() {
         style={StyleSheet.absoluteFill}
         facing={facing}
         mode="video"
+        zoom={0}
+        onCameraReady={() => setCameraReady(true)}
       />
 
       {/* Top bar */}
@@ -260,7 +265,7 @@ export default function CreateStoryScreen() {
         )}
 
         <TouchableOpacity
-          onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
+          onPress={() => { setCameraReady(false); setFacing(f => f === 'back' ? 'front' : 'back'); }}
           style={styles.circleBtn}
           hitSlop={12}
         >
@@ -275,8 +280,9 @@ export default function CreateStoryScreen() {
         </Text>
         <TouchableOpacity
           onPress={isRecording ? stopRecording : startRecording}
-          style={styles.recordBtnOuter}
+          style={[styles.recordBtnOuter, !cameraReady && styles.recordBtnDisabled]}
           activeOpacity={0.85}
+          disabled={!cameraReady && !isRecording}
         >
           <View style={[
             styles.recordBtnInner,
@@ -355,6 +361,7 @@ const styles = StyleSheet.create({
   recordBtnInnerActive: {
     width: 28, height: 28, borderRadius: 6, backgroundColor: '#ef4444',
   },
+  recordBtnDisabled: { opacity: 0.4 },
 
   // Preview
   previewLabel: { flex: 1, alignItems: 'center' },

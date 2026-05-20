@@ -44,17 +44,17 @@ function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string })
     <View style={styles.ownerRow}>
       {owner && (
         <View style={styles.ownerChip}>
-          <Avatar filename={owner.gallery?.[0]?.filename} name={owner.firstName} size={18} />
+          <Avatar filename={owner.gallery?.[0]?.filename} name={owner.username ?? '?'} size={18} />
           <Text style={[styles.ownerName, { color: colors.muted }]} numberOfLines={1}>
-            {owner.firstName} {owner.lastName}
+            @{owner.username}
           </Text>
         </View>
       )}
       {coowner && (
         <View style={styles.ownerChip}>
-          <Avatar filename={coowner.gallery?.[0]?.filename} name={coowner.firstName} size={18} />
+          <Avatar filename={coowner.gallery?.[0]?.filename} name={coowner.username ?? '?'} size={18} />
           <Text style={[styles.ownerName, { color: colors.muted }]} numberOfLines={1}>
-            {coowner.firstName}
+            @{coowner.username}
           </Text>
           <View style={[styles.coOwnerTag, { backgroundColor: colors.segment }]}>
             <Text style={[styles.coOwnerTagText, { color: colors.grey }]}>co</Text>
@@ -78,6 +78,10 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const [deleteCar] = useDeleteCarMutation();
 
   const carTitle = [car.year, car.make, car.model].filter(Boolean).join(' ');
+  const displayTitle = car.title || carTitle;
+  const displaySubtitle = car.title
+    ? [car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')
+    : car.trim || undefined;
   const typeBadge = TYPE_COLORS[car.type ?? ''];
   const typeLabel = formatLabel(car.type);
   const categoryLabel = formatLabel(car.category);
@@ -167,10 +171,10 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
       <View style={styles.info}>
         <View style={styles.infoMain}>
           <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
-            {carTitle}
+            {displayTitle}
           </Text>
-          {car.trim && (
-            <Text style={[styles.trim, { color: colors.grey }]} numberOfLines={1}>{car.trim}</Text>
+          {displaySubtitle && (
+            <Text style={[styles.subtitle, { color: colors.grey }]} numberOfLines={1}>{displaySubtitle}</Text>
           )}
           <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />
         </View>
@@ -228,6 +232,7 @@ const styles = StyleSheet.create({
   info:            { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 8 },
   infoMain:        { flex: 1 },
   title:           { fontSize: 16, fontWeight: '800' },
+  subtitle:        { fontSize: 13, marginTop: 2, fontWeight: '500' },
   trim:            { fontSize: 13, marginTop: 1 },
   tasksBtn:        {
     flexDirection: 'row', alignItems: 'center', gap: 4,

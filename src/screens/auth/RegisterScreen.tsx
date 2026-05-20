@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
-  ImageBackground, Image,
+  ImageBackground, Image, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 import * as ImagePicker from 'expo-image-picker';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError } from '../../store/authSlice';
@@ -32,6 +35,10 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     confirmPassword: '',
     zip: '',
   });
+
+  const [showPasswords, setShowPasswords] = useState<Partial<Record<keyof typeof form, boolean>>>({});
+  const toggleShow = (key: keyof typeof form) =>
+    setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleChange = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -64,6 +71,20 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     if (!result.canceled) setPhoto(result.assets[0]);
   };
 
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow camera access to take a profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setPhoto(result.assets[0]);
+  };
+
   const handleRegister = async () => {
     const fd = new FormData();
     fd.append('firstName', form.firstName.trim());
@@ -88,14 +109,21 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     }
   };
 
-  const fields: { key: keyof typeof form; label: string; secure?: boolean; keyboard?: any }[] = [
-    { key: 'firstName',       label: 'First Name *' },
-    { key: 'lastName',        label: 'Last Name *' },
-    { key: 'username',        label: 'Username *' },
-    { key: 'email',           label: 'Email *', keyboard: 'email-address' },
-    { key: 'password',        label: 'Password *', secure: true },
-    { key: 'confirmPassword', label: 'Confirm Password *', secure: true },
-    { key: 'zip',             label: 'Zip Code', keyboard: 'numeric' },
+  const fields: {
+    key: keyof typeof form;
+    label: string;
+    secure?: boolean;
+    keyboard?: any;
+    contentType?: any;
+    autoComplete?: any;
+  }[] = [
+    { key: 'firstName',       label: 'First Name *',        contentType: 'givenName',     autoComplete: 'name-given' },
+    { key: 'lastName',        label: 'Last Name *',         contentType: 'familyName',    autoComplete: 'name-family' },
+    { key: 'username',        label: 'Username *',          contentType: 'username',      autoComplete: 'username-new' },
+    { key: 'email',           label: 'Email *',             contentType: 'emailAddress',  autoComplete: 'email',        keyboard: 'email-address' },
+    { key: 'password',        label: 'Password *',          contentType: 'newPassword',   autoComplete: 'new-password', secure: true },
+    { key: 'confirmPassword', label: 'Confirm Password *',  contentType: 'newPassword',   autoComplete: 'new-password', secure: true },
+    { key: 'zip',             label: 'Zip Code',            contentType: 'postalCode',    autoComplete: 'postal-code',  keyboard: 'numeric' },
   ];
 
   return (
@@ -105,6 +133,16 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
       resizeMode="cover"
     >
       <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => step === 2 ? setStep(1) : navigation.navigate('Login')}
+          hitSlop={8}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={18} color="#FFFFFF" />
+          <Text style={styles.backToLogin}>Back to login</Text>
+        </TouchableOpacity>
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
@@ -114,31 +152,10 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.header}>
-              <Image
-                source={require('../../../assets/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
-            </View>
-
             <BlurView intensity={40} tint="dark" style={styles.form}>
-              <TouchableOpacity
-                onPress={() => step === 2 ? setStep(1) : navigation.goBack()}
-                style={styles.backBtn}
-              >
-                <Text style={styles.back}>← Back</Text>
-              </TouchableOpacity>
-
-              <View style={styles.stepRow}>
-                <Text style={styles.title}>
-                  {step === 1 ? 'Create Account' : 'Profile Photo'}
-                </Text>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepText}>Step {step} of 2</Text>
-                </View>
-              </View>
+              <Text style={styles.title}>
+                {step === 1 ? 'Create Account' : 'Profile Photo'}
+              </Text>
 
               {error && (
                 <View style={styles.errorBox}>
@@ -148,20 +165,31 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
 
               {step === 1 ? (
                 <>
-                  {fields.map(({ key, label, secure, keyboard }) => (
+                  {fields.map(({ key, label, secure, keyboard, contentType, autoComplete }) => (
                     <View key={key} style={styles.field}>
                       <Text style={styles.label}>{label}</Text>
-                      <TextInput
-                        style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                        value={form[key]}
-                        onChangeText={handleChange(key)}
-                        placeholder=""
-                        placeholderTextColor={colors.grey}
-                        secureTextEntry={secure}
-                        autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
-                        keyboardType={keyboard ?? 'default'}
-                        autoCorrect={false}
-                      />
+                      <View style={secure ? styles.inputWrap : undefined}>
+                        <TextInput
+                          style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                          value={form[key]}
+                          onChangeText={handleChange(key)}
+                          placeholder=""
+                          placeholderTextColor={colors.grey}
+                          secureTextEntry={secure && !showPasswords[key]}
+                          autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
+                          keyboardType={keyboard ?? 'default'}
+                          autoCorrect={false}
+                          textContentType={contentType}
+                          autoComplete={autoComplete}
+                        />
+                        {secure && (
+                          <TouchableOpacity style={styles.eyeBtn} onPress={() => toggleShow(key)} hitSlop={8}>
+                            {showPasswords[key]
+                              ? <Eye size={18} color={colors.grey} />
+                              : <EyeOff size={18} color={colors.grey} />}
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   ))}
 
@@ -174,12 +202,6 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                     variant="dark"
                   />
 
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('Login')}
-                    style={styles.signinLink}
-                  >
-                    <Text style={styles.signinText}>Already have an account? Sign in</Text>
-                  </TouchableOpacity>
                 </>
               ) : (
                 <>
@@ -187,16 +209,22 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                     Add a profile photo so people know who you are. This is optional — you can always add one later.
                   </Text>
 
-                  <TouchableOpacity style={styles.photoPicker} onPress={handlePickPhoto} activeOpacity={0.8}>
+                  <View style={styles.photoCircle}>
                     {photo ? (
                       <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
                     ) : (
-                      <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoPlaceholderIcon}>📷</Text>
-                        <Text style={styles.photoPlaceholderText}>Tap to choose a photo</Text>
-                      </View>
+                      <View style={styles.photoPlaceholder} />
                     )}
-                  </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.photoButtons}>
+                    <TouchableOpacity style={styles.photoBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
+                      <Text style={styles.photoBtnText}>Take Photo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} activeOpacity={0.8}>
+                      <Text style={styles.photoBtnText}>Choose Photo</Text>
+                    </TouchableOpacity>
+                  </View>
 
                   {photo && (
                     <TouchableOpacity onPress={() => setPhoto(null)} style={styles.removePhotoBtn}>
@@ -214,12 +242,6 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                     variant="dark"
                   />
 
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('Login')}
-                    style={styles.signinLink}
-                  >
-                    <Text style={styles.signinText}>Already have an account? Sign in</Text>
-                  </TouchableOpacity>
                 </>
               )}
             </BlurView>
@@ -234,81 +256,73 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: {
     flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 32,
-    paddingVertical: 24,
+    paddingTop: 24,
+    paddingBottom: SCREEN_HEIGHT * 0.1 + 24,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  logo: { width: 180, height: 80 },
-  logoTitle: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 20,
-  },
-  form: {
-    borderRadius: 14,
-    padding: 18,
-    overflow: 'hidden',
-  },
-  backBtn: { marginBottom: 12 },
-  back: { fontSize: 14, color: colors.primaryAlt, fontWeight: '600' },
-  stepRow: {
+  backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 2,
   },
-  title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-  stepBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  backToLogin: { fontSize: 14, color: '#FFFFFF', fontWeight: '500' },
+  form: {
+    borderRadius: 24,
+    padding: 18,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  stepText: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
+  title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 16 },
   errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
   errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
   field: { marginBottom: 12 },
   label: { fontSize: 12, fontWeight: '600', marginBottom: 4, color: '#FFFFFF' },
+  inputWrap: { position: 'relative' },
+  inputWithEye: { paddingRight: 44 },
+  eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
   gap: { height: 8 },
-  signinLink: { alignItems: 'center', marginTop: 16 },
-  signinText: { fontSize: 14, color: colors.cream, fontWeight: '400' },
   photoHint: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 19,
     marginBottom: 20,
   },
-  photoPicker: {
+  photoCircle: {
     alignSelf: 'center',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  photoPreview: { width: 120, height: 120 },
+  photoPreview: { width: 100, height: 100 },
   photoPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.25)',
     borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
   },
-  photoPlaceholderIcon: { fontSize: 28 },
-  photoPlaceholderText: { fontSize: 11, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
+  photoButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  photoBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  photoBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   removePhotoBtn: { alignSelf: 'center', marginBottom: 8 },
   removePhotoText: { fontSize: 13, color: 'rgba(255,255,255,0.55)' },
 });

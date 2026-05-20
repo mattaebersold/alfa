@@ -186,8 +186,7 @@ export default function CreateScreen() {
 
   const handleTypeChange = (t: PostType) => { setPostType(t); setCategory(''); };
 
-  const pickImage = useCallback(async () => {
-    Keyboard.dismiss();
+  const addFromLibrary = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
@@ -202,6 +201,31 @@ export default function CreateScreen() {
       setImages((prev) => [...prev, ...picked].slice(0, 8));
     }
   }, []);
+
+  const addFromCamera = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera access needed', 'Please allow camera access in Settings to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const a = result.assets[0];
+      setImages((prev) => [...prev, { uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }].slice(0, 8));
+    }
+  }, []);
+
+  const pickImage = useCallback(() => {
+    Keyboard.dismiss();
+    Alert.alert('Add Photo', undefined, [
+      { text: 'Take Photo', onPress: addFromCamera },
+      { text: 'Choose from Library', onPress: addFromLibrary },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [addFromCamera, addFromLibrary]);
 
   const removeImage = useCallback((idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));

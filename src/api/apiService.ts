@@ -106,7 +106,7 @@ export const apiService = createApi({
     }),
 
     getBatchLikes: builder.mutation<Record<string, LikeInfo>, string[]>({
-      query: (ids) => ({ url: 'api/likes/batch', method: 'POST', body: { ids } }),
+      query: (ids) => ({ url: 'api/likes/batch', method: 'POST', body: { document_ids: ids } }),
     }),
 
     likeEntry: builder.mutation<void, { document_id: string; document_entry_type: string }>({
@@ -204,10 +204,10 @@ export const apiService = createApi({
       providesTags: ['Brands'],
     }),
 
-    getCarModels: builder.query<string[], string>({
+    getCarModels: builder.query<{ model: string; model_handle: string; qty: number }[], string>({
       query: (brand) => `api/garage/brands/brand/${encodeURIComponent(brand)}/models`,
-      transformResponse: (response: { models: { model: string; model_handle: string }[] }) =>
-        response.models.map((m) => m.model),
+      transformResponse: (response: { models: { model: string; model_handle: string; qty?: number }[] }) =>
+        response.models.map((m) => ({ model: m.model, model_handle: m.model_handle, qty: m.qty ?? 0 })),
       providesTags: (result, error, brand) => [{ type: 'Models', id: brand }],
     }),
 
@@ -233,11 +233,53 @@ export const apiService = createApi({
       providesTags: (result, error, carId) => [{ type: 'CarGallery', id: carId }],
     }),
 
+    createCarGallery: builder.mutation<{ _id: string }, FormData>({
+      query: (body) => ({ url: 'api/cargallery/create', method: 'POST', body }),
+      invalidatesTags: (result, error, body) => {
+        const carId = (body as any).get?.('car_id');
+        return carId ? [{ type: 'CarGallery', id: carId }] : [];
+      },
+    }),
+
     // ── Car Mods ─────────────────────────────────────────────────────────────
 
     getCarMods: builder.query<{ entries: Mod[] }, string>({
       query: (carId) => `api/car/mods/${carId}`,
       providesTags: (result, error, carId) => [{ type: 'CarGallery', id: `mods-${carId}` }],
+    }),
+
+    createMod: builder.mutation<{ _id: string }, FormData>({
+      query: (body) => ({ url: 'api/mod/create', method: 'POST', body }),
+      invalidatesTags: (result, error, body) => {
+        const carId = (body as any).get?.('car_id');
+        return carId ? [{ type: 'CarGallery', id: `mods-${carId}` }] : [];
+      },
+    }),
+
+    updateMod: builder.mutation<Mod, FormData>({
+      query: (body) => ({ url: 'api/mod/update', method: 'POST', body }),
+      invalidatesTags: (result, error, body) => {
+        const carId = (body as any).get?.('car_id');
+        return carId ? [{ type: 'CarGallery', id: `mods-${carId}` }] : ['CarGallery'];
+      },
+    }),
+
+    deleteMod: builder.mutation<void, { internal_id: string }>({
+      query: (body) => ({ url: 'api/mod/delete', method: 'POST', body }),
+      invalidatesTags: ['CarGallery'],
+    }),
+
+    updateCarGallery: builder.mutation<CarGalleryAlbum, FormData>({
+      query: (body) => ({ url: 'api/cargallery/update', method: 'POST', body }),
+      invalidatesTags: (result, error, body) => {
+        const carId = (body as any).get?.('car_id');
+        return carId ? [{ type: 'CarGallery', id: carId }] : ['CarGallery'];
+      },
+    }),
+
+    deleteCarGallery: builder.mutation<void, { internal_id: string }>({
+      query: (body) => ({ url: 'api/cargallery/delete', method: 'POST', body }),
+      invalidatesTags: ['CarGallery'],
     }),
 
     // ── Car Tasks ────────────────────────────────────────────────────────────
@@ -315,6 +357,7 @@ export const apiService = createApi({
 
     getGroup: builder.query<Group, string>({
       query: (id) => `api/group/detail/${id}`,
+      transformResponse: (response: any): Group => response?.entry ?? response,
       providesTags: (result, error, id) => [{ type: 'Group', id }],
     }),
 
@@ -325,6 +368,8 @@ export const apiService = createApi({
 
     getGroupMembers: builder.query<GroupMember[], string>({
       query: (groupId) => `api/group/${groupId}/members`,
+      transformResponse: (response: any): GroupMember[] =>
+        Array.isArray(response) ? response : response?.members ?? response?.entries ?? [],
       providesTags: (result, error, id) => [{ type: 'GroupMembers', id }],
     }),
 
@@ -414,6 +459,7 @@ export const apiService = createApi({
 
     getArticle: builder.query<Article, string>({
       query: (id) => `api/article/detail/${id}`,
+      transformResponse: (response: any): Article => response?.entry ?? response,
       providesTags: (result, error, id) => [{ type: 'Articles', id }],
     }),
 
@@ -468,6 +514,8 @@ export const apiService = createApi({
 
     getMessageThread: builder.query<Message[], string>({
       query: (threadId) => `api/message/thread/${threadId}`,
+      transformResponse: (response: any): Message[] =>
+        Array.isArray(response) ? response : response?.entries ?? [],
       providesTags: (result, error, id) => [{ type: 'Message', id }],
     }),
 
@@ -476,8 +524,8 @@ export const apiService = createApi({
       providesTags: ['Message'],
     }),
 
-    sendMessage: builder.mutation<Message, { recipient_id: string; subject?: string; body: string; thread_id?: string }>({
-      query: (body) => ({ url: 'api/message/create', method: 'POST', body }),
+    sendMessage: builder.mutation<Message, { recipient_id: string; subject?: string; body: string; parent_message_id?: string }>({
+      query: (data) => ({ url: 'api/message/create', method: 'POST', body: data }),
       invalidatesTags: ['Message'],
     }),
 
@@ -498,11 +546,13 @@ export const apiService = createApi({
 
     searchMessageUsers: builder.query<User[], string>({
       query: (q) => ({ url: 'api/message/users/search', params: { q } }),
+      transformResponse: (response: any): User[] =>
+        Array.isArray(response) ? response : response?.entries ?? [],
     }),
 
     // ── Follow ────────────────────────────────────────────────────────────────
 
-    getFollowStatus: builder.query<{ following: boolean }, string>({
+    getFollowStatus: builder.query<{ isFollowing: boolean }, string>({
       query: (username) => `api/protected/followstatus/${username}`,
       providesTags: (result, error, username) => [{ type: 'Following', id: username }],
     }),
@@ -556,7 +606,7 @@ export const apiService = createApi({
 
     // ── User settings ─────────────────────────────────────────────────────────
 
-    updateUserSetting: builder.mutation<User, { type: string; [key: string]: any }>({
+    updateUserSetting: builder.mutation<{ success: boolean; message?: string }, { type: string; [key: string]: any }>({
       query: ({ type, ...body }) => ({
         url: `api/users/settings/update/${type}`,
         method: 'POST',
@@ -572,6 +622,32 @@ export const apiService = createApi({
         body: formData,
       }),
       invalidatesTags: ['User'],
+    }),
+
+    checkUsername: builder.mutation<{ msg: 'true' | 'false' }, { username: string }>({
+      query: (body) => ({ url: 'api/users/checkUsername', method: 'POST', body }),
+    }),
+
+    checkEmail: builder.mutation<{ msg: 'true' | 'false' }, { email: string }>({
+      query: (body) => ({ url: 'api/users/checkEmail', method: 'POST', body }),
+    }),
+
+    getGroupCars: builder.query<{ entries: GarageCar[] }, string>({
+      query: (groupId) => `api/garage/group/${groupId}`,
+      transformResponse: (response: any): { entries: GarageCar[] } => ({
+        entries: Array.isArray(response) ? response : response?.entries ?? [],
+      }),
+      providesTags: (result, error, id) => [{ type: 'Cars', id }],
+    }),
+
+    updateCarGroup: builder.mutation<void, { carId: string; groupId: string | null }>({
+      query: ({ carId, groupId }) => {
+        const fd = new FormData();
+        fd.append('internal_id', carId);
+        fd.append('group_id', groupId ?? '');
+        return { url: 'api/car/update', method: 'POST', body: fd };
+      },
+      invalidatesTags: ['GarageCar', 'Cars'],
     }),
 
     deleteAccount: builder.mutation<void, void>({
@@ -654,6 +730,12 @@ export const apiService = createApi({
       invalidatesTags: ['List'],
     }),
 
+    // ── Reports ─────────────────────────────────────────────────────────────
+
+    createReport: builder.mutation<void, { content_type: 'post' | 'car' | 'comment'; content_id: string; reason?: string }>({
+      query: (body) => ({ url: 'api/reports/create', method: 'POST', body }),
+    }),
+
   }),
 });
 
@@ -695,7 +777,13 @@ export const {
   useUnfollowCarMutation,
   useGetCarFollowStatusQuery,
   useGetCarGalleriesQuery,
+  useCreateCarGalleryMutation,
   useGetCarModsQuery,
+  useCreateModMutation,
+  useUpdateModMutation,
+  useDeleteModMutation,
+  useUpdateCarGalleryMutation,
+  useDeleteCarGalleryMutation,
   useGetCarTasksQuery,
   useGetArchivedCarTasksQuery,
   useCreateCarTaskMutation,
@@ -753,6 +841,10 @@ export const {
   useSearchQuery,
   useUpdateUserSettingMutation,
   useUpdateUserSettingImageMutation,
+  useCheckUsernameMutation,
+  useCheckEmailMutation,
+  useGetGroupCarsQuery,
+  useUpdateCarGroupMutation,
   useDeleteAccountMutation,
   useRegisterDeviceTokenMutation,
   useGetStoriesFeedQuery,
@@ -768,4 +860,5 @@ export const {
   useCreateListItemMutation,
   useDeleteListItemMutation,
   useReorderListItemsMutation,
+  useCreateReportMutation,
 } = apiService;

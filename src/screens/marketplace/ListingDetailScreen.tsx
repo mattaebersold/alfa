@@ -5,6 +5,9 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MessageCircle } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetPostQuery,
   useGetCommentsQuery,
@@ -15,13 +18,13 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
-import CommentRow from '../../components/social/CommentRow';
+import CommentRow, { type CommentData } from '../../components/social/CommentRow';
 import LikersSheet from '../../components/social/LikersSheet';
 import Spinner from '../../components/ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import type { MarketScreenProps } from '../../navigation/types';
+import type { MarketScreenProps, AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 
@@ -29,6 +32,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
   const { postId } = route.params;
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   const { data: postData, isLoading } = useGetPostQuery(postId);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
@@ -40,14 +44,13 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
   const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const [likersOpen, setLikersOpen] = useState(false);
 
   if (isLoading || !post) return <Spinner fullScreen />;
 
   const heroImage = firstGalleryUrl(post.gallery);
-  const displayName = post.user
-    ? `${post.user.firstName} ${post.user.lastName}`.trim() || post.user.username
-    : 'Unknown';
+  const displayName = post.user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'listing';
 
   const handleSubmit = async () => {
@@ -56,9 +59,11 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
     fd.append('document_id', post.internal_id);
     fd.append('document_entry_type', entryType);
     fd.append('body', commentText.trim());
+    if (replyingTo) fd.append('parent_id', replyingTo.commentId);
     try {
       await createComment(fd).unwrap();
       setCommentText('');
+      setReplyingTo(null);
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }
@@ -84,10 +89,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
                   size={40}
                 />
                 <View style={styles.postHeaderText}>
-                  <Text style={[styles.author, { color: colors.fg }]}>{displayName}</Text>
-                  {post.user?.username && (
-                    <Text style={[styles.username, { color: colors.grey }]}>@{post.user.username}</Text>
-                  )}
+                  <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
                 </View>
                 <Badge variant={entryType} />
               </View>
@@ -101,14 +103,36 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
                 <Image source={{ uri: heroImage }} style={styles.heroImage} contentFit="cover" />
               )}
 
-              {post.price && (
-                <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>
+              {(post.price || post.sold) && (
+                <View style={[styles.priceRow, { backgroundColor: colors.card }]}>
+                  {post.price && !post.sold && (
+                    <View style={styles.pricePill}>
+                      <Text style={styles.priceText}>${Number(post.price).toLocaleString()}</Text>
+                    </View>
+                  )}
+                  {post.sold && (
+                    <View style={styles.soldPill}>
+                      <Text style={styles.soldText}>SOLD</Text>
+                    </View>
+                  )}
+                </View>
               )}
 
-              {post.sold && (
-                <View style={styles.soldBadge}>
-                  <Text style={styles.soldText}>SOLD</Text>
-                </View>
+              {post.user && post.user.user_id !== userInfo?.user_id && (
+                <TouchableOpacity
+                  style={[styles.messageBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => appNav.navigate('ComposeMessage', {
+                    userId: post.user!.user_id,
+                    username: post.user!.username,
+                    initialBody: `I'm interested in your listing "${post.title}"…`,
+                  })}
+                >
+                  <MessageCircle size={18} color={colors.primaryAlt} />
+                  <Text style={[styles.messageBtnText, { color: colors.fg }]}>
+                    Message {post.user.username ? `@${post.user.username}` : displayName} about this
+                  </Text>
+                </TouchableOpacity>
               )}
 
               {(post.make || post.model || post.year) && (
@@ -147,8 +171,16 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
               </View>
             </View>
           }
-          renderItem={({ item }: { item: any }) => (
-            <CommentRow comment={item} />
+          renderItem={({ item }: { item: CommentData }) => (
+            <CommentRow
+              comment={item}
+              currentUserId={userInfo?.user_id}
+              isReply={!!item.parent_id}
+              onReply={(commentId, username) => {
+                setReplyingTo({ commentId, username });
+                setCommentText(`@${username} `);
+              }}
+            />
           )}
           ListEmptyComponent={
             <Text style={[styles.noComments, { color: colors.grey }]}>No comments yet.</Text>
@@ -156,27 +188,40 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
           contentContainerStyle={styles.list}
         />
 
-        <View style={[styles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <Avatar
-            filename={userInfo?.gallery?.[0]?.filename}
-            name={userInfo?.firstName ?? '?'}
-            size={32}
-          />
-          <TextInput
-            style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
-            value={commentText}
-            onChangeText={setCommentText}
-            placeholder="Write a comment..."
-            placeholderTextColor={colors.grey}
-            multiline
-          />
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={submitting || !commentText.trim()}
-            style={[styles.sendBtn, (!commentText.trim() || submitting) && styles.sendBtnDisabled]}
-          >
-            <Text style={styles.sendText}>Post</Text>
-          </TouchableOpacity>
+        <View style={{ backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {replyingTo && (
+            <View style={[styles.replyBanner, { backgroundColor: colors.segment, borderBottomColor: colors.border }]}>
+              <Text style={[styles.replyBannerText, { color: colors.grey }]}>
+                Replying to <Text style={{ fontWeight: '700', color: colors.fg }}>@{replyingTo.username}</Text>
+              </Text>
+              <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
+                <Text style={{ fontSize: 18, color: colors.grey }}>×</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={styles.inputRow}>
+            <Avatar
+              filename={userInfo?.gallery?.[0]?.filename}
+              name={userInfo?.username ?? '?'}
+              size={32}
+            />
+            <TextInput
+              style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
+              placeholderTextColor={colors.grey}
+              multiline
+              autoFocus={!!replyingTo}
+            />
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={submitting || !commentText.trim()}
+              style={[styles.sendBtn, (!commentText.trim() || submitting) && styles.sendBtnDisabled]}
+            >
+              <Text style={styles.sendText}>Post</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -208,15 +253,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12,
   },
   heroImage:       { width: '100%', height: 280 },
-  price:           {
-    fontSize: 24, fontWeight: '800', color: colors.primaryAlt,
-    paddingHorizontal: 16, paddingTop: 12,
+  priceRow:        { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
+  pricePill:       { backgroundColor: '#16A34A', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  priceText:       { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  soldPill:        { backgroundColor: '#EF4444', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  soldText:        { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
+  messageBtn:      {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 16, marginTop: 10, marginBottom: 4,
+    padding: 14, borderRadius: 12, borderWidth: 1,
   },
-  soldBadge:       {
-    backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6,
-    marginHorizontal: 16, marginTop: 8, borderRadius: 6, alignSelf: 'flex-start',
-  },
-  soldText:        { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
+  messageBtnText:  { fontSize: 15, fontWeight: '600', flex: 1 },
   specRow:         {
     flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10,
   },
@@ -236,10 +283,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   noComments:      { textAlign: 'center', padding: 24, fontSize: 14 },
+  replyBanner:     {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1,
+  },
+  replyBannerText: { fontSize: 13 },
   inputRow:        {
     flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderTopWidth: 1, gap: 10,
+    paddingHorizontal: 12, paddingVertical: 10, gap: 10,
   },
   sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },

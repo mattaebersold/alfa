@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
 import { Plus, Trash2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -24,55 +25,75 @@ import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-function ThreadRow({
-  message,
+type ConversationSummary = {
+  otherUserId: string;
+  allThreadIds: string[];
+  representative: Message;      // latest message across all threads with this person
+  lastFromOther: Message | null; // latest message from the other person
+  hasUnread: boolean;
+};
+
+function ConversationRow({
+  summary,
   myUserId,
   onPress,
   onDelete,
 }: {
-  message: Message;
+  summary: ConversationSummary;
   myUserId: string;
   onPress: () => void;
   onDelete: () => void;
 }) {
   const colors = useColors();
-  const isMine = message.sender_id === myUserId;
-  const otherId = isMine ? message.recipient_id : message.sender_id;
-  const populated = isMine ? message.recipient : message.sender;
+  const { representative: msg, lastFromOther, hasUnread } = summary;
+
+  const isMine = msg.sender_id === myUserId;
+  const otherId = isMine ? msg.recipient_id : msg.sender_id;
+  const populated = isMine ? msg.recipient : msg.sender;
   const { data: fetched } = useGetUserByIdQuery(otherId, { skip: !otherId || !!populated });
   const other = populated ?? fetched;
-  const name = other
-    ? ([other.firstName, other.lastName].filter(Boolean).join(' ') || other.username || 'Unknown')
-    : 'Unknown';
-  const timeAgo = message.created_at
-    ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
+  const name = other?.username || 'Unknown';
+
+  const previewMsg = lastFromOther ?? msg;
+  const timeAgo = previewMsg.created_at
+    ? formatDistanceToNow(new Date(previewMsg.created_at), { addSuffix: true })
     : '';
-  const isUnread = !message.read && !isMine;
 
   return (
     <TouchableOpacity
       style={[
         ss.listRow,
         { backgroundColor: colors.card, borderBottomColor: colors.border },
-        isUnread && styles.rowUnread,
+        hasUnread && { backgroundColor: colors.primaryAlt + '12' },
       ]}
       onPress={onPress}
       activeOpacity={0.8}
     >
+      {hasUnread && <View style={styles.unreadDot} />}
       <Avatar
         filename={other?.gallery?.[0]?.filename}
-        name={other?.firstName ?? '?'}
+        name={other?.username ?? '?'}
         size={44}
       />
       <View style={styles.rowContent}>
         <View style={styles.rowHeader}>
-          <Text style={[styles.name, { color: colors.fg }, isUnread && styles.nameBold]} numberOfLines={1}>{name}</Text>
+          <Text style={[styles.name, { color: colors.fg }, hasUnread && styles.nameBold]} numberOfLines={1}>
+            @{name}
+          </Text>
           <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
         </View>
-        {message.subject ? (
-          <Text style={[styles.subject, { color: colors.muted }]} numberOfLines={1}>{message.subject}</Text>
+        {msg.subject ? (
+          <Text style={[styles.subject, { color: colors.muted }]} numberOfLines={1}>{msg.subject}</Text>
         ) : null}
-        <Text style={[styles.preview, { color: colors.grey }]} numberOfLines={1}>{message.body}</Text>
+        {lastFromOther ? (
+          <Text style={[styles.preview, { color: hasUnread ? colors.fg : colors.grey }, hasUnread && styles.previewBold]} numberOfLines={1}>
+            {lastFromOther.body}
+          </Text>
+        ) : (
+          <Text style={[styles.preview, { color: colors.grey }]} numberOfLines={1}>
+            You: {msg.body}
+          </Text>
+        )}
       </View>
       <TouchableOpacity
         onPress={() => Alert.alert('Delete thread?', 'This cannot be undone.', [
@@ -83,7 +104,6 @@ function ThreadRow({
       >
         <Trash2 size={16} color={colors.grey} />
       </TouchableOpacity>
-      {isUnread && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 }
@@ -97,24 +117,48 @@ export default function MessagesScreen() {
   const { data, isLoading, refetch } = useGetMessagesQuery({ limit: 50 });
   const [deleteThread] = useDeleteMessageThreadMutation();
 
+  // Refetch when returning from a thread so read status is always current
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
   const messages = data?.entries ?? [];
 
-  // Deduplicate by thread_id — keep the latest message per thread
-  const threads = React.useMemo(() => {
-    const seen = new Set<string>();
-    const out: Message[] = [];
+  // Build one summary per other-user (collapses multiple threads with the same person)
+  const conversations = React.useMemo<ConversationSummary[]>(() => {
+    // Group all messages by the other person's user_id (API returns newest-first)
+    const byUser = new Map<string, Message[]>();
     for (const m of messages) {
-      if (!seen.has(m.thread_id)) {
-        seen.add(m.thread_id);
-        out.push(m);
-      }
+      const otherId = m.sender_id === myId ? m.recipient_id : m.sender_id;
+      const arr = byUser.get(otherId) ?? [];
+      arr.push(m);
+      byUser.set(otherId, arr);
     }
-    return out;
-  }, [messages]);
 
-  const handlePress = useCallback((msg: Message) => {
+    const seenUsers = new Set<string>();
+    return messages
+      .filter((m) => {
+        const otherId = m.sender_id === myId ? m.recipient_id : m.sender_id;
+        if (seenUsers.has(otherId)) return false;
+        seenUsers.add(otherId);
+        return true;
+      })
+      .map((representative) => {
+        const otherId = representative.sender_id === myId ? representative.recipient_id : representative.sender_id;
+        const userMsgs = byUser.get(otherId) ?? [representative];
+        const fromOther = userMsgs.filter((m) => m.sender_id !== myId);
+        const allThreadIds = [...new Set(userMsgs.map((m) => m.thread_id))];
+        return {
+          otherUserId: otherId,
+          allThreadIds,
+          representative,
+          lastFromOther: fromOther[0] ?? null,
+          hasUnread: fromOther.some((m) => !m.read),
+        };
+      });
+  }, [messages, myId]);
+
+  const handlePress = useCallback((summary: ConversationSummary) => {
+    const { representative: msg } = summary;
     const isMine = msg.sender_id === myId;
-    const other = isMine ? msg.recipient : msg.sender;
     navigation.navigate('MessageThread', {
       threadId: msg.thread_id,
       recipientId: isMine ? msg.recipient_id : msg.sender_id,
@@ -122,19 +166,23 @@ export default function MessagesScreen() {
     });
   }, [navigation, myId]);
 
+  const handleDelete = useCallback((summary: ConversationSummary) => {
+    summary.allThreadIds.forEach((tid) => deleteThread(tid));
+  }, [deleteThread]);
+
   if (isLoading) return <Spinner fullScreen />;
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
-        data={threads}
-        keyExtractor={(item) => item.thread_id}
+        data={conversations}
+        keyExtractor={(item) => item.otherUserId}
         renderItem={({ item }) => (
-          <ThreadRow
-            message={item}
+          <ConversationRow
+            summary={item}
             myUserId={myId}
             onPress={() => handlePress(item)}
-            onDelete={() => deleteThread(item.thread_id)}
+            onDelete={() => handleDelete(item)}
           />
         )}
         ListEmptyComponent={
@@ -146,7 +194,6 @@ export default function MessagesScreen() {
         refreshing={false}
       />
 
-      {/* FAB — compose */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('ComposeMessage', {})}
@@ -158,17 +205,17 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  list:      { flexGrow: 1, paddingBottom: 80 },
-  rowUnread: { backgroundColor: '#F0F7F7' },
-  rowContent:{ flex: 1, minWidth: 0 },
-  rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name:      { flex: 1, fontSize: 15, fontWeight: '600' },
-  nameBold:  { fontWeight: '800' },
-  time:      { fontSize: 12, marginLeft: 8 },
-  subject:   { fontSize: 13, fontWeight: '600', marginTop: 2 },
-  preview:   { fontSize: 13, marginTop: 2 },
-  unreadDot: {
-    position: 'absolute', top: 14, left: 4,
+  list:        { flexGrow: 1, paddingBottom: 80 },
+  rowContent:  { flex: 1, minWidth: 0 },
+  rowHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  name:        { flex: 1, fontSize: 15, fontWeight: '600' },
+  nameBold:    { fontWeight: '800' },
+  time:        { fontSize: 12, marginLeft: 8 },
+  subject:     { fontSize: 13, fontWeight: '600', marginTop: 2 },
+  preview:     { fontSize: 13, marginTop: 2 },
+  previewBold: { fontWeight: '600' },
+  unreadDot:   {
+    position: 'absolute', top: 18, left: 6,
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: colors.primaryAlt,
   },

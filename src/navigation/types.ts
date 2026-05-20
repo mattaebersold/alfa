@@ -82,11 +82,12 @@ export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   // Modals / full-screen flows
   CarCreate: { step?: number; carId?: string };
+  ModCreate: { carId: string; carTitle?: string };
   CarTasks: { carId: string; carTitle?: string };
   Notifications: undefined;
   Messages: undefined;
   MessageThread: { threadId: string; recipientId?: string; subject?: string };
-  ComposeMessage: { userId?: string; username?: string };
+  ComposeMessage: { userId?: string; username?: string; initialBody?: string };
   UserDetail: { userId: string; username?: string };
   Settings: undefined;
   Articles: undefined;

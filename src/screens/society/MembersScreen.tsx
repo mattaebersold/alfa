@@ -7,12 +7,14 @@ import { Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSearchUsersQuery } from '../../api/apiService';
+import FollowButton from '../../components/social/FollowButton';
 import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useAppSelector } from '../../store/store';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 import { ss } from '../../styles/shared';
@@ -21,15 +23,17 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
   const colors = useColors();
+  const { userInfo } = useAppSelector((s: any) => s.auth);
   return (
     <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={44} />
+      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={44} />
       <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
-        <Text style={[styles.username, { color: colors.grey }]}>@{user.username}</Text>
+        <Text style={[styles.name, { color: colors.fg }]}>@{user.username}</Text>
         {user.cityState && <Text style={[styles.location, { color: colors.grey }]}>{user.cityState}</Text>}
       </View>
-      <Text style={[styles.arrow, { color: colors.grey }]}>›</Text>
+      {user.username && user.user_id !== userInfo?.user_id && (
+        <FollowButton username={user.username} />
+      )}
     </TouchableOpacity>
   );
 }

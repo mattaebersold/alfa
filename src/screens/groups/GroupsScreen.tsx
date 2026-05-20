@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search } from 'lucide-react-native';
+import { Search, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
+import { useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
@@ -69,6 +70,7 @@ export default function GroupsScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const isPro = useIsPro();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
@@ -113,13 +115,13 @@ export default function GroupsScreen() {
   }, [isFetching, data, allGroups.length]);
 
   const goToGroup = useCallback((groupId: string) => {
-    navigation.navigate('GroupDetailModal', { groupId });
+    (navigation as any).navigate('GroupDetail', { groupId });
   }, [navigation]);
 
   if (userGroupsLoading || allGroupsLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.brg }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
@@ -134,6 +136,19 @@ export default function GroupsScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
+              {isPro && (
+                <View style={[styles.createGroupRow, { borderBottomColor: colors.border }]}>
+                  <TouchableOpacity
+                    style={[styles.createGroupBtn, { backgroundColor: colors.primaryAlt }]}
+                    onPress={() => Alert.alert('Coming soon', 'Group creation will be available in a future update.')}
+                    activeOpacity={0.8}
+                  >
+                    <Plus size={16} color="#FFFFFF" />
+                    <Text style={styles.createGroupText}>Create Group</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {adminGroups.length > 0 && (
                 <View>
                   <SectionHeader title="Groups You Manage" colors={colors} />
@@ -229,4 +244,16 @@ const styles = StyleSheet.create({
   cardRegion: { fontSize: 11, marginTop: 2 },
 
   emptyWrap: { paddingTop: 20 },
+
+  createGroupRow: {
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: 'flex-start',
+  },
+  createGroupBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 16, paddingVertical: 9,
+    borderRadius: 999,
+  },
+  createGroupText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

@@ -70,8 +70,8 @@ function AuthGate() {
 
 export default function RootNavigator() {
   const dispatch = useAppDispatch();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
     dispatch(restoreSession());
@@ -93,7 +93,7 @@ export default function RootNavigator() {
   }, [dispatch]);
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer linking={linking as any}>
       <AuthGate />
     </NavigationContainer>
   );

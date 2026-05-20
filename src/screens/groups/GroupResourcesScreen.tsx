@@ -32,7 +32,7 @@ function ResourceRow({ resource }: { resource: GroupResource }) {
         <View style={styles.meta}>
           <Avatar
             filename={resource.user?.gallery?.[0]?.filename}
-            name={resource.user?.firstName ?? '?'}
+            name={resource.user?.username ?? '?'}
             size={16}
           />
           <Text style={[styles.metaText, { color: colors.grey }]}>{timeAgo}</Text>

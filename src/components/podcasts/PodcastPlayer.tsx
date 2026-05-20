@@ -35,7 +35,7 @@ export default function PodcastPlayer({ episode, podcast, onClose }: Props) {
   const artwork = podcast.artwork_filename ? imageUrl(podcast.artwork_filename) : null;
 
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentModeIOS: true });
+    setAudioModeAsync({ playsInSilentMode: true });
   }, []);
 
   // Auto-play once loaded

@@ -122,7 +122,7 @@ export default function DashboardScreen() {
   if (isLoading) return <Spinner fullScreen />;
   if (!user) return null;
 
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
+  const displayName = user.username;
   const cars = garageData?.entries ?? [];
   const posts = postsData?.entries ?? [];
 
@@ -187,12 +187,9 @@ export default function DashboardScreen() {
           onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })}
           activeOpacity={0.8}
         >
-          <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName ?? '?'} size={56} />
+          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={56} />
           <View style={styles.profileText}>
-            <Text style={[styles.profileName, { color: colors.fg }]}>{displayName}</Text>
-            {user.username && (
-              <Text style={[styles.profileUsername, { color: colors.grey }]}>@{user.username}</Text>
-            )}
+            <Text style={[styles.profileName, { color: colors.fg }]}>@{displayName}</Text>
             {user.bio ? (
               <Text style={[styles.profileBio, { color: colors.muted }]} numberOfLines={2}>{user.bio}</Text>
             ) : (
@@ -209,9 +206,8 @@ export default function DashboardScreen() {
             <TouchableOpacity
               key={card.label}
               style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={card.onPress ?? undefined}
-              activeOpacity={card.onPress ? 0.75 : 1}
-              disabled={!card.onPress}
+              onPress={card.onPress}
+              activeOpacity={0.75}
             >
               <View style={[styles.statIcon, { backgroundColor: card.bg }]}>
                 <card.Icon size={18} color={card.color} />

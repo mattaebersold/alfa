@@ -12,7 +12,7 @@ export default function FollowButton({ username }: FollowButtonProps) {
   const [follow, { isLoading: following }] = useFollowUserMutation();
   const [unfollow, { isLoading: unfollowing }] = useUnfollowUserMutation();
 
-  const isFollowing = data?.following ?? false;
+  const isFollowing = data?.isFollowing ?? false;
   const busy = following || unfollowing;
 
   const handlePress = async () => {

@@ -21,6 +21,7 @@ type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 
 interface FeedItemCardProps {
   post: Post;
+  isLiked?: boolean;
   onPress?: () => void;
   onCommentPress?: () => void;
 }
@@ -29,7 +30,7 @@ function muxThumbnailUrl(videoId: string) {
   return `https://image.mux.com/${videoId}/thumbnail.jpg?width=720&fit_mode=smartcrop`;
 }
 
-export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItemCardProps) {
+export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
   const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
@@ -39,9 +40,7 @@ export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItem
   const { data: fetchedUser } = useGetUserByIdQuery(post.user_id, { skip: !post.user_id });
   const user = fetchedUser ?? post.user ?? post.user_objectid;
   const avatarFilename = user?.gallery?.[0]?.filename ?? user?.profilePicture;
-  const displayName = user
-    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'Unknown'
-    : 'Unknown';
+  const displayName = user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';  // for LikeButton API calls
   const badgeType = post.type ?? post.entry_type ?? 'post';  // what the user actually chose
   const timeAgo = post.created_at
@@ -63,10 +62,7 @@ export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItem
       >
         <Avatar filename={avatarFilename} name={displayName} size={36} />
         <View style={styles.headerText}>
-          <Text style={[styles.author, { color: colors.fg }]}>{displayName}</Text>
-          {user?.username && (
-            <Text style={[styles.username, { color: colors.grey }]}>@{user.username}</Text>
-          )}
+          <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
         </View>
         <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
       </TouchableOpacity>
@@ -159,7 +155,7 @@ export default function FeedItemCard({ post, onPress, onCommentPress }: FeedItem
           documentId={post.internal_id}
           entryType={entryType}
           initialCount={post.like_count ?? post.likeCount ?? 0}
-          initialLiked={post.isLiked ?? false}
+          initialLiked={isLiked ?? post.isLiked ?? false}
         />
         <CommentButton count={post.comment_count ?? post.commentCount ?? 0} onPress={onCommentPress} />
       </View>

@@ -25,11 +25,8 @@ function UserRow({ user, onPress }: { user: User; onPress: () => void }) {
   const colors = useColors();
   return (
     <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={36} />
-      <View style={styles.resultInfo}>
-        <Text style={[styles.resultTitle, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
-        <Text style={[styles.resultSub, { color: colors.grey }]}>@{user.username}</Text>
-      </View>
+      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={36} />
+      <Text style={[styles.resultTitle, { color: colors.fg }]}>@{user.username}</Text>
     </TouchableOpacity>
   );
 }

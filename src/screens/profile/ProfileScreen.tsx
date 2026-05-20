@@ -69,22 +69,19 @@ function CarGridItem({ car, onPress }: { car: GarageCar; onPress: () => void }) 
   );
 }
 
-function UserRow({ user, onPress }: { user: User; onPress: () => void }) {
+function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => void; currentUserId?: string }) {
   const colors = useColors();
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
   return (
     <TouchableOpacity
       style={[ss.listRow, { borderBottomColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName ?? '?'} size={44} />
-      <View style={styles.userRowText}>
-        <Text style={[styles.userRowName, { color: colors.fg }]}>{displayName}</Text>
-        {user.username && (
-          <Text style={[styles.userRowUsername, { color: colors.grey }]}>@{user.username}</Text>
-        )}
-      </View>
+      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={44} />
+      <Text style={[styles.userRowName, { color: colors.fg, flex: 1 }]}>@{user.username}</Text>
+      {user.username && user.user_id !== currentUserId && (
+        <FollowButton username={user.username} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -97,6 +94,8 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const isPro = userInfo?.accountType === 'pro' || userInfo?.accountType === 'admin';
+  const visibleTabs = isPro ? TABS : TABS.filter((t) => t.key !== 'lists');
   const [tab, setTab] = useState<Tab>(paramInitialTab ?? 'posts');
   const listRef = useRef<FlatList>(null);
 
@@ -152,7 +151,7 @@ export default function ProfileScreen() {
       style={{ backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border }}
       contentContainerStyle={styles.tabBar}
     >
-      {TABS.map((t) => (
+      {visibleTabs.map((t) => (
         <TouchableOpacity
           key={t.key}
           style={[styles.tabItem, tab === t.key && styles.tabItemActive]}
@@ -175,7 +174,7 @@ export default function ProfileScreen() {
       </View>
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrap}>
-          <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName} size={80} />
+          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={80} />
         </View>
         {isOwnProfile ? (
           <View style={styles.headerActions}>
@@ -205,8 +204,7 @@ export default function ProfileScreen() {
         )}
       </View>
       <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]}>{user.firstName} {user.lastName}</Text>
-        <Text style={[styles.username, { color: colors.grey }]}>@{user.username}</Text>
+        <Text style={[styles.name, { color: colors.fg }]}>@{user.username}</Text>
         {user.bio ? <Text style={[styles.bio, { color: colors.muted }]}>{user.bio}</Text> : null}
         {user.cityState ? <Text style={[styles.location, { color: colors.grey }]}>{user.cityState}</Text> : null}
         {isOwnProfile && user.memberNumber ? (
@@ -301,6 +299,7 @@ export default function ProfileScreen() {
       return (
         <UserRow
           user={item}
+          currentUserId={userInfo?.user_id}
           onPress={() => (navigation as any).navigate('UserDetail', { userId: item.user_id, username: item.username })}
         />
       );

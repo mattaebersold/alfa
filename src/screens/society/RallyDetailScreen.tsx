@@ -57,7 +57,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.galleryStrip}
             renderItem={({ item }) => (
-              <Image source={{ uri: imageUrl(item.filename) }} style={styles.galleryThumb} contentFit="cover" />
+              <Image source={{ uri: imageUrl(item.filename) ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
             )}
           />
         )}

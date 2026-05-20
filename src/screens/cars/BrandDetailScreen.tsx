@@ -23,11 +23,12 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
 
   const { data: models = [] } = useGetCarModelsQuery(brand);
+  const selectedModelHandle = selectedModel?.toLowerCase().replace(/ /g, '-') ?? undefined;
   const { data, isFetching, isLoading } = useGetCarsQuery({
     page,
     limit: 12,
     make: brand.toLowerCase(),
-    model: selectedModel?.toLowerCase() ?? undefined,
+    model: selectedModelHandle,
   });
 
   React.useEffect(() => {
@@ -41,7 +42,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   }, [data, page]);
 
   const handleModelChange = (model: string | null) => {
-    setSelectedModel(model);
+    setSelectedModel(model === selectedModel ? null : model);
     setPage(0);
     setAllCars([]);
   };
@@ -61,29 +62,38 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
       {models.length > 0 && (
         <View>
           <FlatList
-            data={[{ key: null, label: 'All' }, ...models.map((m) => ({ key: m, label: m }))]}
-            keyExtractor={(item) => item.label}
+            data={[{ model: 'All', model_handle: null as any, qty: data?.total ?? 0 }, ...models]}
+            keyExtractor={(item) => item.model}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.modelChips}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.chip,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                  selectedModel === item.key && styles.chipActive,
-                ]}
-                onPress={() => handleModelChange(item.key)}
-              >
-                <Text style={[
-                  styles.chipText,
-                  { color: colors.fg },
-                  selectedModel === item.key && styles.chipTextActive,
-                ]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const isAll = item.model_handle === null;
+              const active = isAll ? selectedModel === null : selectedModel === item.model;
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.chip,
+                    { borderColor: colors.border, backgroundColor: colors.card },
+                    active && styles.chipActive,
+                  ]}
+                  onPress={() => handleModelChange(isAll ? null : item.model)}
+                >
+                  <Text style={[
+                    styles.chipText,
+                    { color: colors.fg },
+                    active && styles.chipTextActive,
+                  ]}>
+                    {item.model}
+                    {item.qty > 0 && (
+                      <Text style={[styles.chipCount, active && styles.chipTextActive]}>
+                        {' '}({item.qty})
+                      </Text>
+                    )}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
           />
         </View>
       )}
@@ -162,8 +172,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   chipActive: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-  chipText:   { fontSize: 13, fontWeight: '600' },
+  chipText:      { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
+  chipCount:     { fontSize: 12, fontWeight: '400', opacity: 0.75 },
   list:  { paddingHorizontal: 8, paddingBottom: 24 },
   row:   { gap: 8, marginBottom: 8 },
   card:  {

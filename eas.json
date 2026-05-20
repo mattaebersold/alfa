@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 12.0.0",
+    "version": "19.0.1",
     "requireCommit": false,
     "appVersionSource": "remote"
   },
@@ -8,18 +8,21 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
+      "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
       "ios": {
         "simulator": false
       }
     },
     "production": {
       "distribution": "store",
+      "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
       "ios": {
         "autoIncrement": true
       },
@@ -31,13 +34,13 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "replace-with-apple-id",
-        "ascAppId": "replace-with-app-store-connect-id",
-        "appleTeamId": "replace-with-team-id"
+        "appleId": "mattaebersold@gmail.com",
+        "ascAppId": "6771187557",
+        "appleTeamId": "TW685M22R4"
       },
       "android": {
         "serviceAccountKeyPath": "./google-services.json",
-        "track": "internal"
+        "track": "production"
       }
     }
   }

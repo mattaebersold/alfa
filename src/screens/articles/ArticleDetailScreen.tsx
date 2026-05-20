@@ -1,22 +1,71 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
+import { Car } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetArticleQuery,
   useGetArticleBlocksQuery,
+  useGetCarWithUserQuery,
 } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import type { AppScreenProps } from '../../navigation/types';
+import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+
+type NavProp = NativeStackNavigationProp<AppStackParamList>;
+
+type ContentSegment = { type: 'text'; content: string } | { type: 'image'; src: string };
+
+function parseContent(html: string): ContentSegment[] {
+  const parts: ContentSegment[] = [];
+  const regex = /\[img:([^\]]+)\]/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(html)) !== null) {
+    if (match.index > last) {
+      const text = stripHtml(html.slice(last, match.index)).trim();
+      if (text) parts.push({ type: 'text', content: text });
+    }
+    parts.push({ type: 'image', src: match[1] });
+    last = match.index + match[0].length;
+  }
+  if (last < html.length) {
+    const text = stripHtml(html.slice(last)).trim();
+    if (text) parts.push({ type: 'text', content: text });
+  }
+  return parts;
+}
+
+function renderSegments(segments: ContentSegment[], c: ReturnType<typeof useColors>) {
+  return segments.map((seg, i) => {
+    if (seg.type === 'image') {
+      const uri = seg.src.startsWith('http') ? seg.src : (imageUrl(seg.src) ?? undefined);
+      return (
+        <Image
+          key={i}
+          source={{ uri }}
+          style={styles.blockImage}
+          contentFit="cover"
+        />
+      );
+    }
+    return (
+      <View key={i} style={[styles.block, { backgroundColor: c.card }]}>
+        <Text style={[styles.copyText, { color: c.fg }]}>{seg.content}</Text>
+      </View>
+    );
+  });
+}
 
 interface ArticleBlock {
   internal_id?: string;
@@ -30,16 +79,16 @@ interface ArticleBlock {
 export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDetail'>) {
   const { articleId } = route.params;
   const colors = useColors();
+  const navigation = useNavigation<NavProp>();
 
   const { data: article, isLoading: loadingArticle } = useGetArticleQuery(articleId);
   const { data: blocksData, isLoading: loadingBlocks } = useGetArticleBlocksQuery(articleId);
+  const { data: featuredCar } = useGetCarWithUserQuery(article?.car_id ?? '', { skip: !article?.car_id });
 
   if (loadingArticle || !article) return <Spinner fullScreen />;
 
   const hero = firstGalleryUrl(article.gallery) ?? firstGalleryUrl(article.banners);
-  const displayName = article.user
-    ? `${article.user.firstName} ${article.user.lastName}`.trim() || article.user.username
-    : '';
+  const displayName = article.user?.username ?? '';
   const date = article.created_at
     ? format(new Date(article.created_at), 'MMMM d, yyyy')
     : '';
@@ -72,21 +121,38 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
             )}
             <View>
               {displayName ? (
-                <Text style={[styles.authorName, { color: colors.fg }]}>{displayName}</Text>
+                <Text style={[styles.authorName, { color: colors.fg }]}>@{displayName}</Text>
               ) : null}
               {date ? <Text style={[styles.date, { color: colors.grey }]}>{date}</Text> : null}
             </View>
           </View>
         </View>
 
-        {/* Article intro body (from article.body field) */}
-        {article.body ? (
-          <View style={[styles.block, { backgroundColor: colors.card }]}>
-            <Text style={[styles.copyText, { color: colors.fg }]}>
-              {stripHtml(article.body)}
-            </Text>
+        {/* Featured car / author meta rows */}
+        {(featuredCar) && (
+          <View style={[styles.metaSection, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+            {featuredCar && (
+              <TouchableOpacity
+                style={styles.metaRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('CarDetail', { carId: featuredCar.internal_id })}
+              >
+                <View style={[styles.metaIconWrap, { backgroundColor: colors.primaryAlt + '22' }]}>
+                  <Car size={14} color={colors.primaryAlt} />
+                </View>
+                <View style={styles.metaBody}>
+                  <Text style={[styles.metaLabel, { color: colors.grey }]}>Featured Car</Text>
+                  <Text style={[styles.metaValue, { color: colors.fg }]} numberOfLines={1}>
+                    {[featuredCar.year, featuredCar.make, featuredCar.model].filter(Boolean).join(' ') || featuredCar.title || 'View Car'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
-        ) : null}
+        )}
+
+        {/* Article intro body (from article.body field) */}
+        {article.body ? renderSegments(parseContent(article.body), colors) : null}
 
         {/* Content blocks */}
         {loadingBlocks ? (
@@ -98,7 +164,7 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
               return (
                 <Image
                   key={key}
-                  source={{ uri: imageUrl(block.image.filename) }}
+                  source={{ uri: imageUrl(block.image.filename) ?? undefined }}
                   style={styles.blockImage}
                   contentFit="cover"
                 />
@@ -106,11 +172,9 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
             }
             if (block.type === 'copy' && block.content) {
               return (
-                <View key={key} style={[styles.block, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.copyText, { color: colors.fg }]}>
-                    {stripHtml(block.content)}
-                  </Text>
-                </View>
+                <React.Fragment key={key}>
+                  {renderSegments(parseContent(block.content), colors)}
+                </React.Fragment>
               );
             }
             return null;
@@ -136,4 +200,19 @@ const styles = StyleSheet.create({
   },
   copyText:    { fontSize: 16, lineHeight: 26 },
   blockImage:  { width: '100%', aspectRatio: 16 / 9, marginTop: 2 },
+
+  metaSection: {
+    marginTop: 2, borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  metaRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
+  },
+  metaIconWrap: {
+    width: 32, height: 32, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  metaBody:  { flex: 1 },
+  metaLabel: { fontSize: 11, fontWeight: '600', marginBottom: 1 },
+  metaValue: { fontSize: 14, fontWeight: '700' },
 });

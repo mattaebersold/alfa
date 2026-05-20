@@ -22,7 +22,7 @@ import { ss } from '../../styles/shared';
 type NavProp = NativeStackNavigationProp<SocietyStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const FEATURED_WIDTH = SCREEN_WIDTH - 48;
+const FEATURED_WIDTH = Math.round(SCREEN_WIDTH * (2 / 3));
 
 function FeaturedCard({ event, onPress }: { event: Event; onPress: () => void }) {
   const [ratio, setRatio] = useState(16 / 9);

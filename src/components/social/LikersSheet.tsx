@@ -12,16 +12,10 @@ function LikerRow({ userId }: { userId: string }) {
   const colors = useColors();
   const { data: user } = useGetUserByIdQuery(userId, { skip: !userId });
   if (!user) return null;
-  const displayName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username;
   return (
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.firstName ?? '?'} size={40} />
-      <View>
-        <Text style={[styles.name, { color: colors.fg }]}>{displayName}</Text>
-        {user.username && (
-          <Text style={[styles.username, { color: colors.grey }]}>@{user.username}</Text>
-        )}
-      </View>
+      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={40} />
+      <Text style={[styles.name, { color: colors.fg }]}>@{user.username}</Text>
     </View>
   );
 }

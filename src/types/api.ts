@@ -12,7 +12,7 @@ export interface User {
   profilePicture?: string;
   gallery?: GalleryItem[];
   banners?: GalleryItem[];
-  accountType?: 'admin' | 'basic';
+  accountType?: 'admin' | 'pro' | 'basic';
   standing?: string;
   displayMode?: 'light' | 'dark';
   followersCount?: number;
@@ -91,6 +91,7 @@ export interface GarageCar {
   created_at?: string;
   updated_at?: string;
   coowner_id?: string;
+  group_id?: string;
   // populated
   user?: User;
   coowner?: User;
@@ -194,6 +195,7 @@ export interface Article {
   banners?: GalleryItem[];
   type?: string;
   category?: string;
+  car_id?: string;
   created_at?: string;
   user?: User;
 }
@@ -352,8 +354,10 @@ export interface PaginatedResponse<T> {
 // Like info
 export interface LikeInfo {
   document_id: string;
-  count: number;
-  liked: boolean;
+  count?: number;
+  total?: number;
+  liked?: boolean;
+  hasLiked?: boolean;
   users?: User[];
 }
 

@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert, ImageBackground, Image,
+  Dimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Eye, EyeOff } from 'lucide-react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
@@ -20,6 +24,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -63,7 +68,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
               )}
 
               <View style={styles.field}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>Email or Username</Text>
                 <TextInput
                   style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
                   value={email}
@@ -71,22 +76,33 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
                   placeholder=""
                   placeholderTextColor={colors.grey}
                   autoCapitalize="none"
-                  keyboardType="email-address"
+                  keyboardType="default"
                   autoCorrect={false}
+                  textContentType="username"
+                  autoComplete="username"
                 />
               </View>
 
               <View style={styles.field}>
                 <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder=""
-                  placeholderTextColor={colors.grey}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
+                <View style={styles.inputWrap}>
+                  <TextInput
+                    style={[ss.input, styles.inputWithEye, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder=""
+                    placeholderTextColor={colors.grey}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="password"
+                    autoComplete="current-password"
+                  />
+                  <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)} hitSlop={8}>
+                    {showPassword
+                      ? <Eye size={18} color={colors.grey} />
+                      : <EyeOff size={18} color={colors.grey} />}
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -96,26 +112,18 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
 
-              <Button
-                label="Sign In"
-                onPress={handleLogin}
-                loading={loading}
-                size="full"
-                variant="dark"
-              />
-
-              <View style={styles.divider}>
-                <View style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
-                <Text style={[styles.dividerText, { color: 'rgba(255,255,255,0.6)' }]}>or</Text>
-                <View style={[styles.dividerLine, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
+              <View style={styles.actionRow}>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')} activeOpacity={0.7}>
+                  <Text style={styles.registerLink}>Register</Text>
+                </TouchableOpacity>
+                <Button
+                  label="Sign In"
+                  onPress={handleLogin}
+                  loading={loading}
+                  size="default"
+                  variant="dark"
+                />
               </View>
-
-              <Button
-                label="Create an Account"
-                onPress={() => navigation.navigate('Register')}
-                size="full"
-                variant="outline"
-              />
             </BlurView>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -130,7 +138,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
-    paddingVertical: 24,
+    paddingTop: 24,
+    paddingBottom: SCREEN_HEIGHT * 0.2 + 24,
   },
   header: {
     alignItems: 'center',
@@ -151,9 +160,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   form: {
-    borderRadius: 14,
+    borderRadius: 24,
     padding: 18,
     overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
   errorBox: {
     backgroundColor: '#FEE2E2',
@@ -167,6 +177,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   field: { marginBottom: 12 },
+  inputWrap: { position: 'relative' },
+  inputWithEye: { paddingRight: 44 },
+  eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
   label: {
     fontSize: 12,
     fontWeight: '600',
@@ -183,18 +196,15 @@ const styles = StyleSheet.create({
     color: colors.cream,
     fontWeight: '500',
   },
-  divider: {
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 14,
-    gap: 12,
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontSize: 13,
+  registerLink: {
+    fontSize: 14,
+    color: colors.cream,
     fontWeight: '500',
   },
 });
