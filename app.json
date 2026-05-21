@@ -15,6 +15,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "co.openroadsociety.app",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Used to take photos and record videos for stories, posts, and profile.",
         "NSMicrophoneUsageDescription": "Required to record video stories with audio.",
