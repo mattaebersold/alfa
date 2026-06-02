@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator, Platform, Keyboard,
@@ -11,12 +11,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ImagePlus, X, ChevronDown, ChevronUp, Check, Search, User, Car as CarIcon, Flag } from 'lucide-react-native';
 import {
-  useCreatePostMutation, useGetUserGarageQuery, useGetUserGroupsQuery,
+  useCreatePostMutation, useGetUserGroupsQuery,
   useSearchQuery, useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery,
   useGetPreviouslyTaggedEventsQuery, useSyncPostTagsMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
+import MentionInput from '../../components/ui/MentionInput';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
@@ -131,6 +132,7 @@ export default function CreateScreen() {
   const [category, setCategory]   = useState('');
   const [title, setTitle]         = useState('');
   const [body, setBody]           = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [images, setImages]       = useState<{ uri: string; name: string; type: string }[]>([]);
 
   // Optional fields
@@ -143,9 +145,6 @@ export default function CreateScreen() {
   const [condition, setCondition] = useState('');
   const [vin, setVin]             = useState('');
   const [partNumber, setPartNumber] = useState('');
-
-  // Car association (garage car → car_id on post)
-  const [selectedCarId, setSelectedCarId] = useState('');
 
   // Groups
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
@@ -165,16 +164,14 @@ export default function CreateScreen() {
 
   const [createPost, { isLoading: submitting }] = useCreatePostMutation();
   const [syncTags] = useSyncPostTagsMutation();
-  const { data: garageData } = useGetUserGarageQuery();
-  const { data: userGroups = [] } = useGetUserGroupsQuery(userInfo?.user_id ?? '', {
+  const { data: rawGroups } = useGetUserGroupsQuery(userInfo?.user_id ?? '', {
     skip: !userInfo?.user_id,
   });
+  const userGroups: any[] = Array.isArray(rawGroups) ? rawGroups : (rawGroups as any)?.entries ?? [];
   const { data: searchData } = useSearchQuery(debouncedSearch, { skip: debouncedSearch.length < 2 });
   const { data: prevUsersData }  = useGetPreviouslyTaggedUsersQuery();
   const { data: prevCarsData }   = useGetPreviouslyTaggedCarsQuery();
   const { data: prevEventsData } = useGetPreviouslyTaggedEventsQuery();
-
-  const garageCars = garageData?.entries ?? [];
 
   const currentCategories = CATEGORIES[postType];
   const displayName = userInfo
@@ -271,6 +268,7 @@ export default function CreateScreen() {
     if (category)           fd.append('category', category);
     if (title.trim())       fd.append('title', title.trim());
     if (body.trim())        fd.append('body', body.trim());
+    if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
     if (year.trim())        fd.append('year', year.trim());
     if (make.trim())        fd.append('make', make.trim());
     if (model.trim())       fd.append('model', model.trim());
@@ -280,7 +278,6 @@ export default function CreateScreen() {
     if (condition.trim())   fd.append('condition', condition.trim());
     if (vin.trim())         fd.append('vin', vin.trim());
     if (partNumber.trim())  fd.append('part_number', partNumber.trim());
-    if (selectedCarId)      fd.append('car_id', selectedCarId);
 
     if (selectedGroupIds.length > 0) {
       fd.append('group_ids', JSON.stringify(selectedGroupIds));
@@ -313,8 +310,8 @@ export default function CreateScreen() {
       Alert.alert('Error', 'Could not create post. Please try again.');
     }
   }, [
-    postType, category, title, body, year, make, model, trim, price, mileage,
-    condition, vin, partNumber, selectedCarId, selectedGroupIds, alsoPublic,
+    postType, category, title, body, mentionedUserIds, year, make, model, trim, price, mileage,
+    condition, vin, partNumber, selectedGroupIds, alsoPublic,
     taggedUsers, taggedCars, taggedEvents, images, createPost, syncTags, appNav,
   ]);
 
@@ -388,14 +385,13 @@ export default function CreateScreen() {
         />
 
         {/* Body */}
-        <TextInput
+        <MentionInput
           style={[styles.bodyInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
           value={body}
-          onChangeText={setBody}
+          onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
           placeholder="What's on your mind?"
           placeholderTextColor={colors.grey}
           multiline
-          textAlignVertical="top"
         />
 
         {/* Photos */}
@@ -452,29 +448,6 @@ export default function CreateScreen() {
             <TextInput style={inputStyle} value={partNumber} onChangeText={setPartNumber} placeholder="Part number" placeholderTextColor={colors.grey} />
           </FieldRow>
         </Section>
-
-        {/* ── Tag a car (garage association) ── */}
-        {garageCars.length > 0 && (
-          <Section label="Associate a Car">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-              {garageCars.map((car) => {
-                const active = selectedCarId === car.internal_id;
-                return (
-                  <TouchableOpacity
-                    key={car.internal_id}
-                    style={[styles.assocChip, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
-                    onPress={() => setSelectedCarId(active ? '' : car.internal_id)}
-                  >
-                    {active && <Check size={12} color="#FFFFFF" />}
-                    <Text style={[styles.assocChipText, { color: active ? '#FFFFFF' : colors.fg }]} numberOfLines={1}>
-                      {[car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Section>
-        )}
 
         {/* ── Tag people, cars & events ── */}
         <Section label="Tag People, Cars & Events">
@@ -603,10 +576,10 @@ export default function CreateScreen() {
         </Section>
 
         {/* ── Post to group ── */}
-        {(userGroups as any[]).length > 0 && (
-          <Section label="Post to Group">
+        {userGroups.length > 0 && (
+          <Section label="Post to Group" defaultOpen>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-              {(userGroups as any[]).map((group) => {
+              {userGroups.map((group) => {
                 const gid = group.internal_id;
                 const active = selectedGroupIds.includes(gid);
                 return (
@@ -674,7 +647,7 @@ const styles = StyleSheet.create({
   authorName:   { fontSize: 14, fontWeight: '700' },
 
   titleInput:   { paddingHorizontal: 14, paddingVertical: 13, fontSize: 17, fontWeight: '700', borderBottomWidth: 1 },
-  bodyInput:    { paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, minHeight: 100, lineHeight: 22, borderBottomWidth: 1 },
+  bodyInput:    { paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, minHeight: 100, lineHeight: 22, borderBottomWidth: 1, textAlignVertical: 'top' as const },
 
   photosSection:{ borderBottomWidth: 1, paddingBottom: 10 },
   addPhotoBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },

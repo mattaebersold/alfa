@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  KeyboardAvoidingView, Platform, ScrollView, Alert, Modal,
   ImageBackground, Image, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import * as ImagePicker from 'expo-image-picker';
@@ -37,6 +37,8 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   });
 
   const [showPasswords, setShowPasswords] = useState<Partial<Record<keyof typeof form, boolean>>>({});
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
   const toggleShow = (key: keyof typeof form) =>
     setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -50,6 +52,10 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     }
     if (form.password !== form.confirmPassword) {
       Alert.alert('Error', 'Passwords do not match.');
+      return;
+    }
+    if (!termsAccepted) {
+      Alert.alert('Terms required', 'Please accept the terms and conditions to continue.');
       return;
     }
     dispatch(clearError());
@@ -193,6 +199,25 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                     </View>
                   ))}
 
+                  <TouchableOpacity
+                    style={styles.termsRow}
+                    onPress={() => setTermsAccepted(v => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                      {termsAccepted && <Check size={11} color="#FFF" />}
+                    </View>
+                    <Text style={styles.termsText}>
+                      By creating an account you're accepting the{' '}
+                      <Text
+                        style={styles.termsLink}
+                        onPress={() => setTermsVisible(true)}
+                      >
+                        terms and conditions
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+
                   <View style={styles.gap} />
 
                   <Button
@@ -248,6 +273,100 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <Modal visible={termsVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setTermsVisible(false)}>
+        <SafeAreaView style={styles.termsModal} edges={['top', 'bottom']}>
+          <View style={styles.termsModalHeader}>
+            <Text style={styles.termsModalTitle}>Terms of Service</Text>
+            <TouchableOpacity onPress={() => setTermsVisible(false)} hitSlop={10}>
+              <X size={20} color={colors.fg} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.termsScroll} contentContainerStyle={styles.termsScrollContent}>
+            <Text style={[styles.termsMeta, { color: colors.muted }]}>Last Updated: May 12, 2026</Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Acceptance of Terms</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              By creating an account or using the Open Road Society mobile application or website (the "Service"), you agree to these Terms of Service. If you do not agree, do not use the Service.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Who Can Use the Service</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              You must be at least 13 years old to use the Service. By using it, you represent that you meet this requirement.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Your Account</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              You are responsible for maintaining the security of your account credentials and for all activity that occurs under your account. Notify us at matt@openroadsociety.co if you believe your account has been compromised.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>User-Generated Content</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              You retain full ownership of any content you post to the Service — photos, posts, car listings, modifications, or any other material ("Your Content"). We do not claim any ownership rights over Your Content.{'\n\n'}
+              By posting content, you grant Open Road Society a limited license to display and distribute Your Content within the Service solely for the purpose of operating and providing the Service to other users. This license ends when you delete Your Content or your account.{'\n\n'}
+              You are solely responsible for Your Content and agree not to post content that:{'\n'}
+              {'  '}• Is unlawful, harassing, abusive, or threatening{'\n'}
+              {'  '}• Infringes on the intellectual property rights of others{'\n'}
+              {'  '}• Contains malware, spam, or deceptive material{'\n'}
+              {'  '}• Violates the privacy of others{'\n\n'}
+              We reserve the right to remove content that violates these terms.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>What We Do Not Do With Your Data</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              We do not:{'\n'}
+              {'  '}• Sell, rent, or share your personal information with advertisers or third parties for marketing purposes{'\n'}
+              {'  '}• Use your content or data for advertising targeting{'\n'}
+              {'  '}• Claim ownership of any content you upload{'\n\n'}
+              For full details on how we handle your data, see our Privacy Policy.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Prohibited Conduct</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              You agree not to:{'\n'}
+              {'  '}• Use the Service for any unlawful purpose{'\n'}
+              {'  '}• Attempt to gain unauthorized access to any part of the Service or its infrastructure{'\n'}
+              {'  '}• Scrape, crawl, or systematically extract data from the Service{'\n'}
+              {'  '}• Impersonate another person or entity{'\n'}
+              {'  '}• Interfere with other users' enjoyment of the Service
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Account Deletion</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              You may delete your account at any time from the Settings screen. Upon deletion, your data will be removed from our systems within a reasonable timeframe.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Disclaimers</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              The Service is provided "as is" without warranties of any kind. We do not guarantee uninterrupted or error-free operation of the Service.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Limitation of Liability</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              To the fullest extent permitted by law, Open Road Society shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Changes to These Terms</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              We may update these Terms from time to time. Continued use of the Service after changes are posted constitutes acceptance of the updated Terms. We will update the "Last Updated" date above when changes are made.
+            </Text>
+
+            <Text style={[styles.termsH2, { color: colors.fg }]}>Contact</Text>
+            <Text style={[styles.termsBody, { color: colors.muted }]}>
+              Questions about these Terms? Contact us at matt@openroadsociety.co.
+            </Text>
+          </ScrollView>
+
+          <View style={[styles.termsModalFooter, { borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.termsAcceptBtn, { backgroundColor: colors.primaryAlt }]}
+              onPress={() => { setTermsAccepted(true); setTermsVisible(false); }}
+            >
+              <Text style={styles.termsAcceptBtnText}>Accept & Close</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </ImageBackground>
   );
 }
@@ -325,4 +444,31 @@ const styles = StyleSheet.create({
   photoBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   removePhotoBtn: { alignSelf: 'center', marginBottom: 8 },
   removePhotoText: { fontSize: 13, color: 'rgba(255,255,255,0.55)' },
+
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 16 },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 1, flexShrink: 0,
+  },
+  checkboxChecked: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+  termsText: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 19 },
+  termsLink: { color: '#FFFFFF', textDecorationLine: 'underline', fontWeight: '600' },
+
+  termsModal:       { flex: 1, backgroundColor: '#FFFFFF' },
+  termsModalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E0E0E0',
+  },
+  termsModalTitle:  { fontSize: 17, fontWeight: '700', color: '#000' },
+  termsScroll:      { flex: 1 },
+  termsScrollContent: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32 },
+  termsMeta:        { fontSize: 13, marginBottom: 16 },
+  termsH2:          { fontSize: 15, fontWeight: '700', marginTop: 20, marginBottom: 6 },
+  termsBody:        { fontSize: 14, lineHeight: 22 },
+  termsModalFooter: { paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  termsAcceptBtn:   { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  termsAcceptBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

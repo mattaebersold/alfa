@@ -5,6 +5,7 @@ import { Wrench, Settings } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useGetUserByIdQuery, useDeleteCarMutation } from '../../api/apiService';
+import ReportButton from '../ui/ReportButton';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -69,6 +70,9 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const colors = useColors();
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+
+  if (hiddenIds.includes(car.internal_id)) return null;
 
   const handlePress = () => {
     onBeforeNavigate?.();
@@ -132,24 +136,26 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
           </View>
         )}
 
-        {/* Top-right: task badge + cog side by side */}
-        {(taskCount > 0 || isOwner) && (
-          <View style={styles.imageTopRight}>
-            {taskCount > 0 && (
-              <View style={styles.taskBadge}>
-                <Wrench size={10} color="#000" />
-                <Text style={styles.taskBadgeText}>{taskCount}</Text>
+        {/* Top-right: task badge + owner cog OR report button for non-owners */}
+        <View style={styles.imageTopRight}>
+          {taskCount > 0 && (
+            <View style={styles.taskBadge}>
+              <Wrench size={10} color="#000" />
+              <Text style={styles.taskBadgeText}>{taskCount}</Text>
+            </View>
+          )}
+          {isOwner ? (
+            <TouchableOpacity style={styles.imageCogBtn} onPress={handleCogPress} hitSlop={4}>
+              <View style={styles.imageCogInner}>
+                <Settings size={14} color="#FFFFFF" />
               </View>
-            )}
-            {isOwner && (
-              <TouchableOpacity style={styles.imageCogBtn} onPress={handleCogPress} hitSlop={4}>
-                <View style={styles.imageCogInner}>
-                  <Settings size={14} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.imageCogInner}>
+              <ReportButton contentType="car" contentId={car.internal_id} size={14} color="#FFFFFF" />
+            </View>
+          )}
+        </View>
 
         {/* Type/category badges — bottom-left of image */}
         {(typeLabel || categoryLabel) && (

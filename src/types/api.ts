@@ -29,6 +29,7 @@ export interface EmailSettings {
   userLikes?: boolean;
   followerActivity?: boolean;
   userFollowed?: boolean;
+  mentions?: boolean;
 }
 
 export interface GalleryItem {

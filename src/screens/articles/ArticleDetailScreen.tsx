@@ -135,7 +135,7 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
               <TouchableOpacity
                 style={styles.metaRow}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('CarDetail', { carId: featuredCar.internal_id })}
+                onPress={() => navigation.navigate('CarDetailModal', { carId: featuredCar.internal_id })}
               >
                 <View style={[styles.metaIconWrap, { backgroundColor: colors.primaryAlt + '22' }]}>
                   <Car size={14} color={colors.primaryAlt} />

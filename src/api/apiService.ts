@@ -15,6 +15,7 @@ export const apiService = createApi({
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
+    'Block', 'FlaggedContent',
   ],
   endpoints: (builder) => ({
 
@@ -739,8 +740,41 @@ export const apiService = createApi({
 
     // ── Reports ─────────────────────────────────────────────────────────────
 
-    createReport: builder.mutation<void, { content_type: 'post' | 'car' | 'comment'; content_id: string; reason?: string }>({
+    createReport: builder.mutation<void, { content_type: 'post' | 'car' | 'comment' | 'user'; content_id: string; reason?: string }>({
       query: (body) => ({ url: 'api/reports/create', method: 'POST', body }),
+      invalidatesTags: ['FlaggedContent', 'Post', 'Cars', 'Comment'],
+    }),
+
+    getFlaggedContent: builder.query<{ posts: any[]; cars: any[]; comments: any[]; users: any[] }, void>({
+      query: () => 'api/reports/flagged',
+      providesTags: ['FlaggedContent'],
+    }),
+
+    removeContent: builder.mutation<void, { content_type: 'post' | 'car' | 'comment' | 'user'; content_id: string }>({
+      query: (body) => ({ url: 'api/reports/remove', method: 'POST', body }),
+      invalidatesTags: ['FlaggedContent', 'Post', 'Cars', 'Comment'],
+    }),
+
+    restoreContent: builder.mutation<void, { content_type: 'post' | 'car' | 'comment' | 'user'; content_id: string }>({
+      query: (body) => ({ url: 'api/reports/restore', method: 'POST', body }),
+      invalidatesTags: ['FlaggedContent', 'Post', 'Cars', 'Comment'],
+    }),
+
+    // ── Block ─────────────────────────────────────────────────────────────────
+
+    blockUser: builder.mutation<void, { blocked_id: string }>({
+      query: (body) => ({ url: 'api/block/block', method: 'POST', body }),
+      invalidatesTags: ['Block'],
+    }),
+
+    unblockUser: builder.mutation<void, { blocked_id: string }>({
+      query: (body) => ({ url: 'api/block/unblock', method: 'POST', body }),
+      invalidatesTags: ['Block'],
+    }),
+
+    getBlockedUsers: builder.query<{ entries: User[] }, void>({
+      query: () => 'api/block/blocked-users',
+      providesTags: ['Block'],
     }),
 
   }),
@@ -751,6 +785,7 @@ export const {
   useGetLoggedInUserQuery,
   useGetUserByIdQuery,
   useGetPublicUserQuery,
+  useLazyGetPublicUserQuery,
   useGetPublicUserByIdQuery,
   useGetUserStatsQuery,
   useSearchUsersQuery,
@@ -869,4 +904,10 @@ export const {
   useDeleteListItemMutation,
   useReorderListItemsMutation,
   useCreateReportMutation,
+  useGetFlaggedContentQuery,
+  useRemoveContentMutation,
+  useRestoreContentMutation,
+  useBlockUserMutation,
+  useUnblockUserMutation,
+  useGetBlockedUsersQuery,
 } = apiService;

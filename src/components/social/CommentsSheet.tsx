@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, Modal, Animated, Pressable,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
@@ -8,6 +8,7 @@ import { X } from 'lucide-react-native';
 import { useGetCommentsQuery, useCreateCommentMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
+import MentionInput from '../ui/MentionInput';
 import CommentRow, { type CommentData } from './CommentRow';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
@@ -24,6 +25,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const c = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [commentText, setCommentText] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
 
   const { data: commentsData, isFetching } = useGetCommentsQuery(
@@ -57,6 +59,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
         mountedRef.current = false;
         setRendered(false);
         setCommentText('');
+        setMentionedUserIds([]);
         setReplyingTo(null);
       });
     }
@@ -71,9 +74,11 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
+    if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
     try {
       await createComment(fd).unwrap();
       setCommentText('');
+      setMentionedUserIds([]);
       setReplyingTo(null);
     } catch {
       Alert.alert('Error', 'Could not post comment.');
@@ -137,10 +142,10 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             )}
             <View style={styles.inputRow}>
               <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={32} />
-              <TextInput
+              <MentionInput
                 style={[ss.chatInput, { borderColor: c.border, color: c.fg }]}
                 value={commentText}
-                onChangeText={setCommentText}
+                onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
                 placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
                 placeholderTextColor={c.grey}
                 multiline

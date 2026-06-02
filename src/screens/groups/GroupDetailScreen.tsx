@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronLeft, ThumbsUp, ThumbsDown, FileText, Search } from 'lucide-react-native';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -31,7 +31,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
+import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 
@@ -55,7 +55,8 @@ const SETTINGS_TAB    = { key: 'settings', label: 'Settings' };
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function GroupDetailScreen({ route }: AppScreenProps<'GroupDetailModal'>) {
+export default function GroupDetailScreen() {
+  const route = useRoute<{ key: string; name: string; params: { groupId: string } }>();
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
   const c = useColors();

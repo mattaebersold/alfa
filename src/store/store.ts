@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import authReducer from './authSlice';
+import moderationReducer from './moderationSlice';
 import { apiService } from '../api/apiService';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    moderation: moderationReducer,
     [apiService.reducerPath]: apiService.reducer,
   },
   middleware: (getDefaultMiddleware) =>

@@ -2,16 +2,20 @@ import React from 'react';
 import { TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { MoreHorizontal } from 'lucide-react-native';
 import { useCreateReportMutation } from '../../api/apiService';
+import { useAppDispatch } from '../../store/store';
+import { hideContent } from '../../store/moderationSlice';
 import { useColors } from '../../hooks/useColors';
 
 interface ReportButtonProps {
-  contentType: 'post' | 'car' | 'comment';
+  contentType: 'post' | 'car' | 'comment' | 'user';
   contentId: string;
   size?: number;
+  color?: string;
 }
 
-export default function ReportButton({ contentType, contentId, size = 20 }: ReportButtonProps) {
+export default function ReportButton({ contentType, contentId, size = 20, color }: ReportButtonProps) {
   const colors = useColors();
+  const dispatch = useAppDispatch();
   const [createReport] = useCreateReportMutation();
 
   const handlePress = () => {
@@ -34,7 +38,8 @@ export default function ReportButton({ contentType, contentId, size = 20 }: Repo
                   onPress: async () => {
                     try {
                       await createReport({ content_type: contentType, content_id: contentId }).unwrap();
-                      Alert.alert('Reported', 'Thank you for your report. We\'ll review it shortly.');
+                      dispatch(hideContent(contentId));
+                      Alert.alert('Reported', 'Thank you for your report. This content has been hidden.');
                     } catch (err: any) {
                       if (err?.status === 409) {
                         Alert.alert('Already reported', 'You\'ve already reported this.');
@@ -55,7 +60,7 @@ export default function ReportButton({ contentType, contentId, size = 20 }: Repo
 
   return (
     <TouchableOpacity onPress={handlePress} hitSlop={8} style={styles.btn}>
-      <MoreHorizontal size={size} color={colors.grey} />
+      <MoreHorizontal size={size} color={color ?? colors.grey} />
     </TouchableOpacity>
   );
 }

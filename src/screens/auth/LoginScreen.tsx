@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Check } from 'lucide-react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useAppDispatch, useAppSelector } from '../../store/store';
@@ -25,10 +25,15 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Error', 'Please enter your email and password.');
+      return;
+    }
+    if (!termsAccepted) {
+      Alert.alert('Terms required', 'Please accept the terms and conditions to continue.');
       return;
     }
     dispatch(clearError());
@@ -110,6 +115,19 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
                 style={styles.forgotLink}
               >
                 <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.termsRow}
+                onPress={() => setTermsAccepted(v => !v)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                  {termsAccepted && <Check size={11} color="#FFF" />}
+                </View>
+                <Text style={styles.termsText}>
+                  I accept the terms and conditions
+                </Text>
               </TouchableOpacity>
 
               <View style={styles.actionRow}>
@@ -207,4 +225,13 @@ const styles = StyleSheet.create({
     color: colors.cream,
     fontWeight: '500',
   },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 16 },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 1, flexShrink: 0,
+  },
+  checkboxChecked: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+  termsText: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 19 },
 });

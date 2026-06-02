@@ -6,6 +6,7 @@ import CommentsSheet from '../social/CommentsSheet';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useAppSelector } from '../../store/store';
 import type { Post } from '../../types/api';
 
 interface FeedListProps {
@@ -30,6 +31,7 @@ export default function FeedList({
   ListHeaderComponent,
 }: FeedListProps) {
   const colors = useColors();
+  const contentFilterEnabled = useAppSelector((s) => (s as any).moderation?.contentFilterEnabled ?? false);
   const [page, setPage] = useState(0);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,10 +40,12 @@ export default function FeedList({
   const refreshingRef = useRef(false);
   const [getBatchLikes] = useGetBatchLikesMutation();
 
+  const activeFilter = filter ?? (contentFilterEnabled ? 'safe' : undefined);
+
   const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
     page,
     limit: PAGE_SIZE,
-    filter,
+    filter: activeFilter,
     user_id: userId,
     car_id: carId,
     type,

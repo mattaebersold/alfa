@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import Avatar from '../ui/Avatar';
+import MentionText from '../ui/MentionText';
 import ReportButton from '../ui/ReportButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -50,7 +51,7 @@ export default function CommentRow({ comment, currentUserId, onReply, isReply }:
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.fg }]}>@{displayName}</Text>
         </View>
-        <Text style={[styles.text, { color: colors.muted }]}>{comment.body}</Text>
+        <MentionText text={comment.body ?? ''} style={[styles.text, { color: colors.muted }]} />
         <View style={styles.footer}>
           <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
           {onReply && commentId && !isReply && (

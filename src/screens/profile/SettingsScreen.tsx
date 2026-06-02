@@ -14,7 +14,8 @@ import {
   useCheckEmailMutation,
   useDeleteAccountMutation,
 } from '../../api/apiService';
-import { useAppDispatch } from '../../store/store';
+import { useAppDispatch, useAppSelector } from '../../store/store';
+import { setContentFilter } from '../../store/moderationSlice';
 import { logout } from '../../store/authSlice';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
@@ -66,6 +67,7 @@ function Field({
 export default function SettingsScreen() {
   const colors = useColors();
   const dispatch = useAppDispatch();
+  const contentFilterEnabled = useAppSelector((s) => (s as any).moderation?.contentFilterEnabled ?? false);
 
   const { data: user, isLoading } = useGetLoggedInUserQuery();
   const [updateSetting] = useUpdateUserSettingMutation();
@@ -102,6 +104,7 @@ export default function SettingsScreen() {
   const [emailLikes, setEmailLikes] = useState(false);
   const [emailFollowed, setEmailFollowed] = useState(false);
   const [emailFollowerActivity, setEmailFollowerActivity] = useState(false);
+  const [emailMentions, setEmailMentions] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   useEffect(() => {
@@ -116,6 +119,7 @@ export default function SettingsScreen() {
       setEmailLikes(user.emailSettings?.userLikes ?? false);
       setEmailFollowed(user.emailSettings?.userFollowed ?? false);
       setEmailFollowerActivity(user.emailSettings?.followerActivity ?? false);
+      setEmailMentions(user.emailSettings?.mentions ?? false);
     }
   }, [user]);
 
@@ -195,6 +199,7 @@ export default function SettingsScreen() {
           userLikes: emailLikes,
           userFollowed: emailFollowed,
           followerActivity: emailFollowerActivity,
+          mentions: emailMentions,
         }),
       }).unwrap();
       Alert.alert('Saved', 'Email preferences updated.');
@@ -346,6 +351,7 @@ export default function SettingsScreen() {
             { label: 'Likes on my posts', value: emailLikes, setter: setEmailLikes },
             { label: 'New followers', value: emailFollowed, setter: setEmailFollowed },
             { label: 'Follower activity', value: emailFollowerActivity, setter: setEmailFollowerActivity },
+            { label: 'Mentions in posts & comments', value: emailMentions, setter: setEmailMentions },
           ].map(({ label, value, setter }, i) => (
             <View key={label} style={[styles.switchRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
               <Text style={[styles.switchLabel, { color: colors.fg }]}>{label}</Text>
@@ -358,6 +364,25 @@ export default function SettingsScreen() {
             </View>
           ))}
           <SaveButton label="Save Preferences" onPress={handleSavePrefs} loading={savingPrefs} secondary />
+        </View>
+
+        {/* ── Content & Safety ─────────────────────────────────────── */}
+        <SectionHeader title="Content & Safety" />
+        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+          <View style={[styles.switchRow, { borderTopWidth: 0 }]}>
+            <View style={{ flex: 1, paddingRight: 16 }}>
+              <Text style={[styles.switchLabel, { color: colors.fg }]}>Filter objectionable content</Text>
+              <Text style={[styles.switchHint, { color: colors.grey }]}>
+                Hide potentially offensive or inappropriate content from your feed.
+              </Text>
+            </View>
+            <Switch
+              value={contentFilterEnabled}
+              onValueChange={(v) => { dispatch(setContentFilter(v)); }}
+              trackColor={{ false: colors.greyLight, true: colors.primaryAlt }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
         </View>
 
         {/* ── Account ──────────────────────────────────────────────── */}
@@ -424,7 +449,8 @@ const styles = StyleSheet.create({
   saveBtnText:  { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   switchRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  switchLabel:  { fontSize: 14, flex: 1 },
+  switchLabel:  { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  switchHint:   { fontSize: 12, lineHeight: 16 },
   dangerRow:    { paddingHorizontal: 16, paddingVertical: 14 },
   dangerText:   { fontSize: 15, fontWeight: '600' },
 });

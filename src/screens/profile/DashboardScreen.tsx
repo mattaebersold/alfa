@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut } from 'lucide-react-native';
+import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -10,6 +10,11 @@ import {
   useGetUserGarageQuery,
   useGetPostsQuery,
   useDeleteAccountMutation,
+  useGetBlockedUsersQuery,
+  useUnblockUserMutation,
+  useGetFlaggedContentQuery,
+  useRemoveContentMutation,
+  useRestoreContentMutation,
 } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
@@ -26,7 +31,8 @@ import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | null;
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | null;
+type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
   visible,
@@ -118,6 +124,12 @@ export default function DashboardScreen() {
     { user_id: userInfo?.user_id ?? '', limit: 30 },
     { skip: !userInfo?.user_id },
   );
+  const { data: blockedData } = useGetBlockedUsersQuery();
+  const [unblockUser] = useUnblockUserMutation();
+  const isAdmin = userInfo?.accountType === 'admin';
+  const { data: flaggedData } = useGetFlaggedContentQuery(undefined, { skip: !isAdmin });
+  const [removeContent] = useRemoveContentMutation();
+  const [restoreContent] = useRestoreContentMutation();
 
   if (isLoading) return <Spinner fullScreen />;
   if (!user) return null;
@@ -125,6 +137,73 @@ export default function DashboardScreen() {
   const displayName = user.username;
   const cars = garageData?.entries ?? [];
   const posts = postsData?.entries ?? [];
+  const blockedUsers = blockedData?.entries ?? [];
+  const flaggedPosts = flaggedData?.posts ?? [];
+  const flaggedCars = flaggedData?.cars ?? [];
+  const flaggedComments = flaggedData?.comments ?? [];
+  const flaggedUsers = flaggedData?.users ?? [];
+  const totalFlagged = flaggedPosts.length + flaggedCars.length + flaggedComments.length + flaggedUsers.length;
+
+  const handleUnblock = (blockedId: string, username: string) => {
+    Alert.alert(
+      'Unblock user',
+      `Unblock @${username}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              await unblockUser({ blocked_id: blockedId }).unwrap();
+            } catch {
+              Alert.alert('Error', 'Could not unblock user. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveContent = (contentType: FlaggedContentType, contentId: string) => {
+    Alert.alert(
+      'Remove content',
+      'This will permanently delete this content and clear all reports. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeContent({ content_type: contentType, content_id: contentId }).unwrap();
+            } catch {
+              Alert.alert('Error', 'Could not remove content. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRestoreContent = (contentType: FlaggedContentType, contentId: string) => {
+    Alert.alert(
+      'Restore content',
+      'This will clear all reports and make this content visible again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            try {
+              await restoreContent({ content_type: contentType, content_id: contentId }).unwrap();
+            } catch {
+              Alert.alert('Error', 'Could not restore content. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const statCards = [
     {
@@ -232,11 +311,36 @@ export default function DashboardScreen() {
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('blocked')} activeOpacity={0.7}>
+            <Users size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Blocked Users</Text>
+            {blockedUsers.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{blockedUsers.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => dispatch(logout())} activeOpacity={0.7}>
             <LogOut size={16} color={colors.red} />
             <Text style={[styles.actionLabel, { color: colors.red }]}>Log Out</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Admin: flagged content */}
+        {isAdmin && (
+          <TouchableOpacity
+            style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+            onPress={() => setSheet('flagged')}
+            activeOpacity={0.75}
+          >
+            <ShieldAlert size={15} color="#e07b39" />
+            <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+              View Flagged Content
+              {totalFlagged > 0 ? ` (${totalFlagged})` : ''}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Danger zone */}
         <TouchableOpacity
@@ -293,6 +397,181 @@ export default function DashboardScreen() {
           showsVerticalScrollIndicator={false}
         />
       </SheetModal>
+
+      {/* Blocked users sheet */}
+      <SheetModal visible={sheet === 'blocked'} title="Blocked Users" onClose={() => setSheet(null)} colors={colors}>
+        <FlatList
+          data={blockedUsers}
+          keyExtractor={(u) => u.user_id}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          renderItem={({ item }) => (
+            <View style={[blockedStyles.row, { borderBottomColor: colors.border }]}>
+              <Avatar filename={item.gallery?.[0]?.filename} name={item.username ?? '?'} size={40} />
+              <Text style={[blockedStyles.name, { color: colors.fg, flex: 1 }]}>@{item.username}</Text>
+              <TouchableOpacity
+                style={[blockedStyles.unblockBtn, { borderColor: colors.border }]}
+                onPress={() => handleUnblock(item.user_id, item.username)}
+                activeOpacity={0.7}
+              >
+                <Text style={[blockedStyles.unblockText, { color: colors.primaryAlt }]}>Unblock</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          ListEmptyComponent={<EmptyState title="No blocked users" message="Users you block will appear here." />}
+          showsVerticalScrollIndicator={false}
+        />
+      </SheetModal>
+
+      {/* Admin: flagged content sheet */}
+      {isAdmin && (
+        <SheetModal visible={sheet === 'flagged'} title="Content Moderation" onClose={() => setSheet(null)} colors={colors}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+            {flaggedPosts.length > 0 && (
+              <>
+                <Text style={[flaggedStyles.sectionHeader, { color: colors.grey, backgroundColor: colors.secondary }]}>
+                  Posts ({flaggedPosts.length})
+                </Text>
+                {flaggedPosts.map((p) => (
+                  <View key={p.internal_id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={1}>
+                        {p.title || p.body?.slice(0, 60) || 'Untitled post'}
+                      </Text>
+                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
+                        @{p.username || p.user_id}{p.report_count ? ` · ${p.report_count} report${p.report_count !== 1 ? 's' : ''}` : ''}
+                      </Text>
+                    </View>
+                    <View style={flaggedStyles.actions}>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
+                        onPress={() => handleRestoreContent('post', p.internal_id)}
+                      >
+                        <RotateCcw size={14} color={colors.primaryAlt} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Restore</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
+                        onPress={() => handleRemoveContent('post', p.internal_id)}
+                      >
+                        <Trash2 size={14} color={colors.red} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {flaggedCars.length > 0 && (
+              <>
+                <Text style={[flaggedStyles.sectionHeader, { color: colors.grey, backgroundColor: colors.secondary }]}>
+                  Cars ({flaggedCars.length})
+                </Text>
+                {flaggedCars.map((c) => (
+                  <View key={c.internal_id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={1}>
+                        {[c.year, c.make, c.model].filter(Boolean).join(' ') || 'Untitled car'}
+                      </Text>
+                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
+                        @{c.username || c.user_id}{c.report_count ? ` · ${c.report_count} report${c.report_count !== 1 ? 's' : ''}` : ''}
+                      </Text>
+                    </View>
+                    <View style={flaggedStyles.actions}>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
+                        onPress={() => handleRestoreContent('car', c.internal_id)}
+                      >
+                        <RotateCcw size={14} color={colors.primaryAlt} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Restore</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
+                        onPress={() => handleRemoveContent('car', c.internal_id)}
+                      >
+                        <Trash2 size={14} color={colors.red} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {flaggedComments.length > 0 && (
+              <>
+                <Text style={[flaggedStyles.sectionHeader, { color: colors.grey, backgroundColor: colors.secondary }]}>
+                  Comments ({flaggedComments.length})
+                </Text>
+                {flaggedComments.map((c) => (
+                  <View key={c.internal_id ?? c._id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={2}>
+                        {c.body || 'No text'}
+                      </Text>
+                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
+                        @{c.username || c.user_id}{c.report_count ? ` · ${c.report_count} report${c.report_count !== 1 ? 's' : ''}` : ''}
+                      </Text>
+                    </View>
+                    <View style={flaggedStyles.actions}>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
+                        onPress={() => handleRestoreContent('comment', c.internal_id ?? c._id)}
+                      >
+                        <RotateCcw size={14} color={colors.primaryAlt} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Restore</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
+                        onPress={() => handleRemoveContent('comment', c.internal_id ?? c._id)}
+                      >
+                        <Trash2 size={14} color={colors.red} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {flaggedUsers.length > 0 && (
+              <>
+                <Text style={[flaggedStyles.sectionHeader, { color: colors.grey, backgroundColor: colors.secondary }]}>
+                  Users ({flaggedUsers.length})
+                </Text>
+                {flaggedUsers.map((u) => (
+                  <View key={u.user_id ?? u.internal_id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={1}>
+                        @{u.username || 'Unknown user'}
+                      </Text>
+                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
+                        {u.email || u.user_id}{u.report_count ? ` · ${u.report_count} report${u.report_count !== 1 ? 's' : ''}` : ''}
+                      </Text>
+                    </View>
+                    <View style={flaggedStyles.actions}>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
+                        onPress={() => handleRestoreContent('user', u.user_id ?? u.internal_id)}
+                      >
+                        <RotateCcw size={14} color={colors.primaryAlt} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Clear</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
+                        onPress={() => handleRemoveContent('user', u.user_id ?? u.internal_id)}
+                      >
+                        <Trash2 size={14} color={colors.red} />
+                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Ban</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+            {totalFlagged === 0 && (
+              <EmptyState title="No flagged content" message="Content reported by users will appear here." />
+            )}
+          </ScrollView>
+        </SheetModal>
+      )}
     </SafeAreaView>
   );
 }
@@ -331,4 +610,40 @@ const styles = StyleSheet.create({
     padding: 14, borderRadius: 12, borderWidth: 1,
   },
   deleteLabel:    { fontSize: 14, fontWeight: '600' },
+  flaggedRow:     {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, borderRadius: 12, borderWidth: 1,
+  },
+  flaggedLabel:   { fontSize: 14, fontWeight: '600' },
+  countBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  countBadgeText: { fontSize: 12, fontWeight: '700' },
+});
+
+const blockedStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
+  },
+  name:        { fontSize: 15, fontWeight: '600' },
+  unblockBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  unblockText: { fontSize: 13, fontWeight: '700' },
+});
+
+const flaggedStyles = StyleSheet.create({
+  sectionHeader: {
+    fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase',
+    paddingHorizontal: 16, paddingVertical: 8,
+  },
+  item: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
+  },
+  itemTitle: { fontSize: 14, fontWeight: '600' },
+  itemMeta:  { fontSize: 12, marginTop: 2 },
+  actions:   { flexDirection: 'row', gap: 6 },
+  actionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8,
+  },
+  actionBtnText: { fontSize: 12, fontWeight: '700' },
 });

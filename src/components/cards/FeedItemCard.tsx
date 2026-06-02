@@ -6,11 +6,15 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from '../ui/Avatar';
+import MentionText from '../ui/MentionText';
 import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../ui/Badge';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
+import ReportButton from '../ui/ReportButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
+
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
@@ -33,6 +37,10 @@ function muxThumbnailUrl(videoId: string) {
 export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
+  const { userInfo } = useAppSelector((s) => s.auth);
+  const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+
+  if (hiddenIds.includes(post.internal_id)) return null;
   const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
   const heroImage = firstGalleryUrl(post.gallery);
   const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
@@ -65,6 +73,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
         </View>
         <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
+        {userInfo?.user_id !== post.user_id && (
+          <ReportButton contentType="post" contentId={post.internal_id} size={18} />
+        )}
       </TouchableOpacity>
 
       {/* Listing price — centered pill, shown before title */}
@@ -83,9 +94,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
       {/* Body preview */}
       {post.body ? (
-        <Text style={[styles.body, { color: colors.muted }]} numberOfLines={3}>
-          {stripHtml(post.body)}
-        </Text>
+        <MentionText text={stripHtml(post.body)} style={[styles.body, { color: colors.muted }]} numberOfLines={3} />
       ) : null}
 
       {/* Hero image with overlays */}

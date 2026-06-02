@@ -66,7 +66,6 @@ function ConversationRow({
       style={[
         ss.listRow,
         { backgroundColor: colors.card, borderBottomColor: colors.border },
-        hasUnread && { backgroundColor: colors.primaryAlt + '12' },
       ]}
       onPress={onPress}
       activeOpacity={0.8}

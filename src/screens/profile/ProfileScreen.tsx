@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Settings, Warehouse, Plus, ChevronLeft } from 'lucide-react-native';
+import { Settings, Warehouse, Plus, ChevronLeft, MoreVertical } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -16,8 +16,11 @@ import {
   useGetListsQuery,
   useGetUserFollowersQuery,
   useGetUserFollowingQuery,
+  useBlockUserMutation,
+  useCreateReportMutation,
 } from '../../api/apiService';
-import { useAppSelector } from '../../store/store';
+import { useAppDispatch, useAppSelector } from '../../store/store';
+import { hideContent } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
 import FollowButton from '../../components/social/FollowButton';
@@ -71,6 +74,75 @@ function CarGridItem({ car, onPress }: { car: GarageCar; onPress: () => void }) 
 
 function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => void; currentUserId?: string }) {
   const colors = useColors();
+  const dispatch = useAppDispatch();
+  const [blockUser] = useBlockUserMutation();
+  const [createReport] = useCreateReportMutation();
+
+  const handleMorePress = () => {
+    Alert.alert(
+      `@${user.username}`,
+      undefined,
+      [
+        {
+          text: 'Block user',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Block user',
+              `Block @${user.username}? They won't be able to see your content and you won't see theirs.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Block',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await blockUser({ blocked_id: user.user_id }).unwrap();
+                      Alert.alert('Blocked', `@${user.username} has been blocked.`);
+                    } catch {
+                      Alert.alert('Error', 'Could not block user. Please try again.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: 'Report user',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Report user',
+              `Report @${user.username} as inappropriate?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Report',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await createReport({ content_type: 'user', content_id: user.user_id }).unwrap();
+                      dispatch(hideContent(user.user_id));
+                      Alert.alert('Reported', `@${user.username} has been reported.`);
+                    } catch (err: any) {
+                      if (err?.status === 409) {
+                        Alert.alert('Already reported', 'You\'ve already reported this user.');
+                      } else {
+                        Alert.alert('Error', 'Could not report user. Please try again.');
+                      }
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   return (
     <TouchableOpacity
       style={[ss.listRow, { borderBottomColor: colors.border }]}
@@ -81,6 +153,11 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
       <Text style={[styles.userRowName, { color: colors.fg, flex: 1 }]}>@{user.username}</Text>
       {user.username && user.user_id !== currentUserId && (
         <FollowButton username={user.username} />
+      )}
+      {user.user_id !== currentUserId && (
+        <TouchableOpacity onPress={handleMorePress} hitSlop={10} style={styles.moreBtn}>
+          <MoreVertical size={18} color={colors.grey} />
+        </TouchableOpacity>
       )}
     </TouchableOpacity>
   );
@@ -382,4 +459,5 @@ const styles = StyleSheet.create({
   userRowText:     { flex: 1 },
   userRowName:     { fontSize: 15, fontWeight: '600' },
   userRowUsername: { fontSize: 13, marginTop: 1 },
+  moreBtn:         { padding: 4, marginLeft: 4 },
 });
