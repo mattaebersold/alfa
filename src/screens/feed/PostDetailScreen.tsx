@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Dimensions,
@@ -140,6 +140,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const [likersOpen, setLikersOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+
+  // Navigate back if this post gets reported/hidden
+  useEffect(() => {
+    if (hiddenIds.includes(postId)) navigation.goBack();
+  }, [hiddenIds, postId, navigation]);
 
   if (isLoading || !post) return <Spinner fullScreen />;
 

@@ -39,9 +39,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+  const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
 
   if (hiddenIds.includes(post.internal_id)) return null;
-  const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
   const heroImage = firstGalleryUrl(post.gallery);
   const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
 

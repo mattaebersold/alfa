@@ -5,6 +5,7 @@ import Avatar from '../ui/Avatar';
 import MentionText from '../ui/MentionText';
 import ReportButton from '../ui/ReportButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 
 export interface CommentData {
@@ -25,14 +26,17 @@ interface CommentRowProps {
 
 export default function CommentRow({ comment, currentUserId, onReply, isReply }: CommentRowProps) {
   const colors = useColors();
+  const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const { data: user } = useGetUserByIdQuery(comment.user_id, { skip: !comment.user_id });
+
+  const commentId = comment.internal_id ?? comment._id ?? '';
+  if (hiddenIds.includes(commentId)) return null;
 
   const displayName = user?.username || '…';
   const timeAgo = comment.created_at
     ? formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })
     : '';
 
-  const commentId = comment.internal_id ?? comment._id ?? '';
   const isOwn = currentUserId && currentUserId === comment.user_id;
 
   return (

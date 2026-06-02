@@ -20,40 +20,19 @@ export default function ReportButton({ contentType, contentId, size = 20, color 
 
   const handlePress = () => {
     Alert.alert(
-      'Options',
-      undefined,
+      'Report as inappropriate?',
+      'This content will be hidden and sent to our moderation team.',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Report as inappropriate',
+          text: 'Report',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
-              'Report',
-              'Are you sure you want to report this as inappropriate?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Report',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await createReport({ content_type: contentType, content_id: contentId }).unwrap();
-                      dispatch(hideContent(contentId));
-                      Alert.alert('Reported', 'Thank you for your report. This content has been hidden.');
-                    } catch (err: any) {
-                      if (err?.status === 409) {
-                        Alert.alert('Already reported', 'You\'ve already reported this.');
-                      } else {
-                        Alert.alert('Error', 'Failed to submit report. Please try again.');
-                      }
-                    }
-                  },
-                },
-              ]
-            );
+            // Hide immediately, then fire-and-forget
+            dispatch(hideContent(contentId));
+            createReport({ content_type: contentType, content_id: contentId }).catch(() => {});
           },
         },
-        { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
