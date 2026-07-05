@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Wrench, Settings } from 'lucide-react-native';
@@ -71,6 +71,7 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+  const [aspectRatio, setAspectRatio] = useState(4 / 3);
 
   if (hiddenIds.includes(car.internal_id)) return null;
 
@@ -128,21 +129,24 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
       activeOpacity={0.92}
     >
       <View style={styles.imageContainer}>
-        {hero ? (
-          <Image source={{ uri: hero }} style={styles.image} contentFit="cover" transition={300} />
-        ) : (
-          <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: colors.secondary }]}>
-            <Text style={[styles.placeholderText, { color: colors.grey }]}>No photo</Text>
-          </View>
-        )}
+        <Image
+          source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
+          style={[styles.image, { aspectRatio }]}
+          contentFit="cover"
+          transition={300}
+          onLoad={(e) => {
+            const { width, height } = e.source ?? {};
+            if (width && height) setAspectRatio(width / height);
+          }}
+        />
 
         {/* Top-right: task badge + owner cog OR report button for non-owners */}
         <View style={styles.imageTopRight}>
-          {taskCount > 0 && (
-            <View style={styles.taskBadge}>
+          {onTasksPress && taskCount > 0 && (
+            <TouchableOpacity style={styles.taskBadge} onPress={onTasksPress} hitSlop={4}>
               <Wrench size={10} color="#000" />
-              <Text style={styles.taskBadgeText}>{taskCount}</Text>
-            </View>
+              <Text style={styles.taskBadgeText}>Tasks · {taskCount}</Text>
+            </TouchableOpacity>
           )}
           {isOwner ? (
             <TouchableOpacity style={styles.imageCogBtn} onPress={handleCogPress} hitSlop={4}>
@@ -184,12 +188,6 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
           )}
           <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />
         </View>
-        {onTasksPress && (
-          <TouchableOpacity onPress={onTasksPress} style={styles.tasksBtn}>
-            <Wrench size={13} color="#000000" />
-            <Text style={styles.tasksBtnText}>Tasks</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -202,10 +200,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   imageContainer:  { position: 'relative' },
-  image:           { width: '100%', height: 180 },
-  imagePlaceholder:{ alignItems: 'center', justifyContent: 'center' },
-  placeholderText: { fontSize: 13 },
-
+  image:           { width: '100%' },
   imageTopRight: {
     position: 'absolute', top: 8, right: 8,
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -228,10 +223,9 @@ const styles = StyleSheet.create({
   imageBadgeText: { fontSize: 11, fontWeight: '700' },
 
   taskBadge:       {
-    backgroundColor: colors.primaryAlt, borderRadius: 12,
+    backgroundColor: colors.pro, borderRadius: 12,
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 4, gap: 3,
-    borderWidth: 1.5, borderColor: '#000',
   },
   taskBadgeText:   { fontSize: 12, fontWeight: '800', color: '#000' },
 
@@ -240,13 +234,6 @@ const styles = StyleSheet.create({
   title:           { fontSize: 16, fontWeight: '800' },
   subtitle:        { fontSize: 13, marginTop: 2, fontWeight: '500' },
   trim:            { fontSize: 13, marginTop: 1 },
-  tasksBtn:        {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 8, backgroundColor: colors.primaryAlt,
-  },
-  tasksBtnText:    { fontSize: 12, fontWeight: '700', color: '#000000' },
-
   ownerRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 5 },
   ownerName:       { fontSize: 12 },

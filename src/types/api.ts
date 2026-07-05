@@ -98,6 +98,27 @@ export interface GarageCar {
   coowner?: User;
 }
 
+export interface DiecastAnalysis {
+  isModelCar: boolean;
+  brand?: string;
+  make?: string;
+  model?: string;
+  series?: string;
+  year?: number;
+  condition?: string;
+  rarity?: string;
+  in_packaging?: boolean;
+  is_limited_edition?: boolean;
+  estimatedValueLow?: number;
+  estimatedValueHigh?: number;
+  suggestedTitle?: string;
+  suggestedDescription?: string;
+  aiNotes?: string;
+  ebayAvgPrice?: number;
+  ebayListingCount?: number;
+  ebayQuery?: string;
+}
+
 export interface Post {
   _id?: string;
   internal_id: string;
@@ -117,6 +138,15 @@ export interface Post {
   make?: string;
   model?: string;
   year?: string;
+  condition?: string;
+  // diecast listing fields
+  diecast_brand?: string;
+  diecast_rarity?: string;
+  in_packaging?: boolean;
+  is_limited_edition?: boolean;
+  ai_notes?: string;
+  estimated_value_low?: number;
+  estimated_value_high?: number;
   featured?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -174,6 +204,7 @@ export interface Group {
   category?: string;
   created_at?: string;
   membership?: { member_type: 'basic' | 'admin'; status: string };
+  member_count?: number;
 }
 
 export interface GroupMember {

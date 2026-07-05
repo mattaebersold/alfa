@@ -12,15 +12,13 @@ interface EmptyStateProps {
 
 export default function EmptyState({
   title = 'Nothing here yet',
-  message = 'Check back later.',
   actionLabel,
   onAction,
 }: EmptyStateProps) {
   const colors = useColors();
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
-      <Text style={[styles.message, { color: colors.grey }]}>{message}</Text>
+      <Text style={[styles.title, { color: "#ffffff", opacity: 0.2 }]}>{title}</Text>
       {actionLabel && onAction && (
         <TouchableOpacity style={styles.btn} onPress={onAction} activeOpacity={0.8}>
           <Text style={styles.btnText}>{actionLabel}</Text>
@@ -38,5 +36,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryAlt, paddingHorizontal: 24, paddingVertical: 12,
     borderRadius: 999,
   },
-  btnText:   { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  btnText:   { color: '#FFFFFF', opacity: 0.5, fontSize: 14, fontWeight: '700' },
 });

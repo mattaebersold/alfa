@@ -1,5 +1,4 @@
 import React from 'react';
-import { useColorScheme } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { CarsStackParamList } from './types';
 import CarsScreen from '../screens/cars/CarsScreen';
@@ -13,8 +12,7 @@ import { colors } from '../constants/colors';
 const Stack = createNativeStackNavigator<CarsStackParamList>();
 
 export default function CarsStackNavigator() {
-  const isDark = useColorScheme() === 'dark';
-  const headerBg = isDark ? colors.brgDark : colors.brg;
+  const headerBg = colors.brgDark;
 
   return (
     <Stack.Navigator

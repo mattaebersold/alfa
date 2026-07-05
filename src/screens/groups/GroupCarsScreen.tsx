@@ -24,19 +24,20 @@ function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   return (
     <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.85}>
-      {hero
-        ? <Image source={{ uri: hero }} style={styles.thumb} contentFit="cover" />
-        : <View style={[styles.thumb, { backgroundColor: colors.secondary }]} />
-      }
+      <Image
+        source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
+        style={styles.thumb}
+        contentFit="cover"
+      />
       <View style={styles.info}>
         <Text style={[styles.carName, { color: colors.fg }]} numberOfLines={1}>
           {car.year} {car.make} {car.model}
         </Text>
         {car.user && (
           <View style={styles.ownerRow}>
-            <Avatar filename={car.user.gallery?.[0]?.filename} name={car.user.firstName ?? '?'} size={18} />
+            <Avatar filename={car.user.gallery?.[0]?.filename} name={car.user.username ?? '?'} size={18} />
             <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
-              {car.user.firstName} {car.user.lastName}
+              @{car.user.username}
             </Text>
           </View>
         )}

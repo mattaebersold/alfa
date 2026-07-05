@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator, Platform, Keyboard,
+  ScrollView, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +19,8 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import MentionInput from '../../components/ui/MentionInput';
 import { colors } from '../../constants/colors';
+import { CONFIG } from '../../constants/config';
+import { uploadFile } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -148,7 +150,7 @@ export default function CreateScreen() {
 
   // Groups
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-  const [alsoPublic, setAlsoPublic]             = useState(false);
+  const [isPublic, setIsPublic]                 = useState(true);
 
   // Tags (people, cars, events)
   const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
@@ -174,9 +176,7 @@ export default function CreateScreen() {
   const { data: prevEventsData } = useGetPreviouslyTaggedEventsQuery();
 
   const currentCategories = CATEGORIES[postType];
-  const displayName = userInfo
-    ? `${userInfo.firstName} ${userInfo.lastName}`.trim() || userInfo.username
-    : '';
+  const displayName = userInfo?.username ?? '';
 
   const showPrice    = postType === 'listing' || postType === 'want';
   const showMileage  = postType === 'listing' || postType === 'record';
@@ -246,11 +246,9 @@ export default function CreateScreen() {
   // ── Group toggle ─────────────────────────────────────────────────────────────
 
   const toggleGroup = useCallback((gid: string) => {
-    setSelectedGroupIds((prev) => {
-      const next = prev.includes(gid) ? prev.filter(id => id !== gid) : [...prev, gid];
-      if (next.length === 0) setAlsoPublic(false);
-      return next;
-    });
+    setSelectedGroupIds((prev) =>
+      prev.includes(gid) ? prev.filter(id => id !== gid) : [...prev, gid]
+    );
   }, []);
 
   // ── Submit ────────────────────────────────────────────────────────────────────
@@ -281,15 +279,21 @@ export default function CreateScreen() {
 
     if (selectedGroupIds.length > 0) {
       fd.append('group_ids', JSON.stringify(selectedGroupIds));
-      if (alsoPublic) fd.append('also_public', 'true');
+      if (isPublic) fd.append('also_public', 'true');
     }
 
     images.forEach((img) => {
-      fd.append('gallery', {
-        uri: Platform.OS === 'ios' ? img.uri.replace('file://', '') : img.uri,
-        name: img.name,
-        type: img.type,
-      } as any);
+      fd.append('gallery', uploadFile(img.uri));
+    });
+
+    // ── Diagnostics: log exactly what we're about to send ──
+    console.log('[CreatePost] POST api/post/create', {
+      base: CONFIG.API_BASE_URL,
+      type: postType,
+      hasTitle: !!title.trim(),
+      hasBody: !!body.trim(),
+      imageCount: images.length,
+      images: images.map((i) => ({ uri: i.uri, name: i.name, type: i.type })),
     });
 
     try {
@@ -305,13 +309,27 @@ export default function CreateScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       appNav.goBack();
-    } catch {
+    } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Could not create post. Please try again.');
+      // Surface the real reason instead of a generic message.
+      console.error('[CreatePost] failed:', JSON.stringify(err, null, 2));
+      const status = err?.status;
+      const serverMsg = err?.data?.error ?? err?.data?.message ?? (typeof err?.data === 'string' ? err.data : '');
+      const rawMsg = typeof err?.error === 'string' ? err.error : '';
+      const firstUri = images[0]?.uri ?? '(none)';
+      const detail =
+        status === 'FETCH_ERROR'   ? `Network request failed.\n\nImages attached: ${images.length}\n1st image URI: ${firstUri}\nError: ${rawMsg || 'n/a'}` :
+        status === 'TIMEOUT_ERROR' ? 'The request timed out.' :
+        status === 'PARSING_ERROR' ? `Server returned an unexpected response (HTTP ${err?.originalStatus}).` :
+        status === 401 || status === 403 ? 'You appear to be signed out. Please log in again.' :
+        serverMsg ? serverMsg :
+        typeof status === 'number' ? `Server error (HTTP ${status}).` :
+        `Unknown error: ${rawMsg || JSON.stringify(err)}`;
+      Alert.alert('Post failed', detail);
     }
   }, [
     postType, category, title, body, mentionedUserIds, year, make, model, trim, price, mileage,
-    condition, vin, partNumber, selectedGroupIds, alsoPublic,
+    condition, vin, partNumber, selectedGroupIds, isPublic,
     taggedUsers, taggedCars, taggedEvents, images, createPost, syncTags, appNav,
   ]);
 
@@ -371,7 +389,7 @@ export default function CreateScreen() {
         {/* Author */}
         <View style={[styles.authorRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <Avatar filename={userInfo?.gallery?.[0]?.filename ?? userInfo?.profilePicture} name={displayName} size={38} />
-          <Text style={[styles.authorName, { color: colors.fg }]}>{displayName}</Text>
+          <Text style={[styles.authorName, { color: colors.fg }]}>@{displayName}</Text>
         </View>
 
         {/* Title */}
@@ -493,7 +511,7 @@ export default function CreateScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagResultRow}>
                   {searchUsers.slice(0, 10).map((u: any) => {
                     const uid = u.user_id || u.internal_id;
-                    const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username;
+                    const name = u.username || [u.firstName, u.lastName].filter(Boolean).join(' ');
                     const tagged = isTagged(uid, 'user');
                     return (
                       <TouchableOpacity
@@ -575,42 +593,45 @@ export default function CreateScreen() {
           </View>
         </Section>
 
-        {/* ── Post to group ── */}
-        {userGroups.length > 0 && (
-          <Section label="Post to Group" defaultOpen>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-              {userGroups.map((group) => {
-                const gid = group.internal_id;
-                const active = selectedGroupIds.includes(gid);
-                return (
-                  <TouchableOpacity
-                    key={gid}
-                    style={[styles.assocChip, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
-                    onPress={() => toggleGroup(gid)}
-                  >
-                    {active && <Check size={12} color="#FFFFFF" />}
-                    <Text style={[styles.assocChipText, { color: active ? '#FFFFFF' : colors.fg }]} numberOfLines={1}>
-                      {group.title ?? 'Group'}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+        {/* ── Post to ── */}
+        <Section label="Post To" defaultOpen>
+          {/* Public row — always first, checked by default */}
+          <TouchableOpacity
+            style={[styles.postToRow, { borderBottomColor: colors.border }]}
+            onPress={() => setIsPublic(v => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, isPublic && { backgroundColor: colors.primaryAlt }]}>
+              {isPublic && <Check size={11} color="#FFF" />}
+            </View>
+            <Text style={[styles.postToLabel, { color: colors.fg }]}>Post publicly</Text>
+          </TouchableOpacity>
 
-            {selectedGroupIds.length > 0 && (
+          {/* One row per group */}
+          {userGroups.map((group) => {
+            const gid = group.internal_id;
+            const active = selectedGroupIds.includes(gid);
+            return (
               <TouchableOpacity
-                style={[styles.alsoPublicRow, { borderTopColor: colors.border }]}
-                onPress={() => setAlsoPublic(v => !v)}
+                key={gid}
+                style={[styles.postToRow, { borderBottomColor: colors.border }]}
+                onPress={() => toggleGroup(gid)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, alsoPublic && { backgroundColor: colors.primaryAlt }]}>
-                  {alsoPublic && <Check size={11} color="#FFF" />}
+                <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, active && { backgroundColor: colors.primaryAlt }]}>
+                  {active && <Check size={11} color="#FFF" />}
                 </View>
-                <Text style={[styles.alsoPublicLabel, { color: colors.fg }]}>Also post publicly</Text>
+                <Text style={[styles.postToLabel, { color: colors.fg }]} numberOfLines={1}>
+                  {group.title ?? 'Group'}
+                </Text>
               </TouchableOpacity>
-            )}
-          </Section>
-        )}
+            );
+          })}
+
+          {userGroups.length === 0 && (
+            <Text style={[styles.postToEmpty, { color: colors.grey }]}>You're not a member of any groups yet.</Text>
+          )}
+        </Section>
       </ScrollView>
 
       {/* ── Fixed Post button ── */}
@@ -668,9 +689,9 @@ const styles = StyleSheet.create({
   fieldValue:    { flex: 1 },
   input:         { flex: 1, fontSize: 14, paddingVertical: 11 },
 
-  chipScroll:    { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
-  assocChip:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1, maxWidth: 200 },
-  assocChipText: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  postToRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
+  postToLabel:   { flex: 1, fontSize: 15, fontWeight: '600' },
+  postToEmpty:   { paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 },
 
   // Tags
   selectedTags:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingTop: 10 },
@@ -685,10 +706,8 @@ const styles = StyleSheet.create({
   tagResultText:   { fontSize: 13, fontWeight: '600', maxWidth: 160 },
   tagEmpty:        { paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 },
 
-  // Group options
-  alsoPublicRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  // Checkbox
   checkbox:        { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  alsoPublicLabel: { fontSize: 14, fontWeight: '600' },
 
   footer:          { borderTopWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
   submitBtn:       { backgroundColor: colors.primaryAlt, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },

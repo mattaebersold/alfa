@@ -3,7 +3,7 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum,
+  Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, DiecastAnalysis,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -89,6 +89,10 @@ export const apiService = createApi({
     createPost: builder.mutation<Post, FormData>({
       query: (body) => ({ url: 'api/post/create', method: 'POST', body }),
       invalidatesTags: ['Post', 'UserEntries'],
+    }),
+
+    analyzeDiecast: builder.mutation<{ result: DiecastAnalysis }, FormData>({
+      query: (body) => ({ url: 'api/post/analyze-diecast', method: 'POST', body }),
     }),
 
     updatePost: builder.mutation<Post, FormData>({
@@ -227,6 +231,17 @@ export const apiService = createApi({
     unfollowCar: builder.mutation<void, { car_id: string }>({
       query: (body) => ({ url: 'api/carfollow/unfollow-car', method: 'POST', body }),
       invalidatesTags: ['CarFollow'],
+    }),
+
+    getCarFollowers: builder.query<{ entries: User[]; total: number }, string>({
+      query: (carId) => `api/carfollow/car-followers/${carId}/0/none/50`,
+      transformResponse: (r: any): { entries: User[]; total: number } => {
+        const list = Array.isArray(r) ? r : r?.followers ?? r?.entries ?? [];
+        // Followers may come back as raw follow records with a populated user.
+        const entries = list.map((f: any) => f?.user ?? f).filter(Boolean);
+        return { entries, total: r?.total ?? entries.length };
+      },
+      providesTags: (result, error, id) => [{ type: 'CarFollow', id: `followers-${id}` }],
     }),
 
     getCarFollowStatus: builder.query<{ following: boolean }, string>({
@@ -371,6 +386,8 @@ export const apiService = createApi({
 
     getUserGroups: builder.query<Group[], string>({
       query: (userId) => `api/group/user/${userId}/groups`,
+      transformResponse: (response: any): Group[] =>
+        Array.isArray(response) ? response : response?.groups ?? response?.entries ?? [],
       providesTags: ['Group'],
     }),
 
@@ -567,20 +584,22 @@ export const apiService = createApi({
 
     followUser: builder.mutation<void, string>({
       query: (username) => ({ url: `api/follow/set-following`, method: 'POST', body: { username } }),
-      invalidatesTags: (result, error, username) => [{ type: 'Following', id: username }],
+      invalidatesTags: (result, error, username) => [{ type: 'Following', id: username }, { type: 'Following', id: 'LIST' }],
     }),
 
     unfollowUser: builder.mutation<void, string>({
       query: (username) => ({ url: `api/follow/set-unfollowing`, method: 'POST', body: { username } }),
-      invalidatesTags: (result, error, username) => [{ type: 'Following', id: username }],
+      invalidatesTags: (result, error, username) => [{ type: 'Following', id: username }, { type: 'Following', id: 'LIST' }],
     }),
 
     getUserFollowers: builder.query<{ entries: User[]; total: number }, { userId: string; index?: number; limit?: number }>({
       query: ({ userId, index = 0, limit = 50 }) => `api/follow/user/${userId}/followers/${index}/${limit}`,
+      providesTags: [{ type: 'Following', id: 'LIST' }],
     }),
 
     getUserFollowing: builder.query<{ entries: User[]; total: number }, { userId: string; index?: number; limit?: number }>({
       query: ({ userId, index = 0, limit = 50 }) => `api/follow/user/${userId}/following/${index}/${limit}`,
+      providesTags: [{ type: 'Following', id: 'LIST' }],
     }),
 
     // ── Tags ──────────────────────────────────────────────────────────────────
@@ -810,6 +829,7 @@ export const {
   useGetCarQuery,
   useGetCarWithUserQuery,
   useGetUserGarageQuery,
+  useAnalyzeDiecastMutation,
   useGetFollowingGarageQuery,
   useCreateCarMutation,
   useUpdateCarMutation,
@@ -819,6 +839,7 @@ export const {
   useFollowCarMutation,
   useUnfollowCarMutation,
   useGetCarFollowStatusQuery,
+  useGetCarFollowersQuery,
   useGetCarGalleriesQuery,
   useCreateCarGalleryMutation,
   useGetCarModsQuery,

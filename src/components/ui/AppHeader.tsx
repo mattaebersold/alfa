@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
-import { Bell, MessageSquare, Warehouse, PenLine, Menu } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
+import { Bell, MessageSquare, Warehouse, Menu, Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
@@ -39,16 +39,21 @@ export default function AppHeader() {
     <>
       <StatusBar barStyle={statusBarStyle} backgroundColor={brandBg} />
       <View style={[styles.bar, { backgroundColor: brandBg }]}>
-        <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })} style={styles.profileBtn}>
-          <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={36} />
-          {userInfo?.username && (
-            <Text style={[styles.username, { color: iconColor }]}>@{userInfo.username}</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.leftSection}>
+          <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Feed' } })} hitSlop={8}>
+            <Image source={require('../../../assets/logo.png')} style={styles.logo} tintColor="#000000" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })} style={styles.profileBtn}>
+            <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={36} />
+            {userInfo?.username && (
+              <Text style={[styles.username, { color: iconColor }]}>@{userInfo.username}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.rightActions}>
-          <TouchableOpacity onPress={() => navigation.navigate('Create')} style={styles.action} hitSlop={4}>
-            <PenLine size={24} color={iconColor} />
+          <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Search' } })} style={styles.action} hitSlop={4}>
+            <Search size={24} color={iconColor} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } })} style={styles.action} hitSlop={4}>
             <Warehouse size={24} color={iconColor} />
@@ -80,10 +85,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  leftSection:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  logo:         { width: 32, height: 32 },
   profileBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 6 },
   username:     { fontSize: 14, fontWeight: '700' },
-  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  action:       { padding: 10, position: 'relative' },
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  action:       { padding: 6, position: 'relative' },
   badge:        {
     position: 'absolute', top: 6, right: 6,
     width: 8, height: 8, borderRadius: 4,

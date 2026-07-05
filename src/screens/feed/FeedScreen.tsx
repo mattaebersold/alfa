@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,10 +14,33 @@ import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
+function PostPrompt() {
+  const navigation = useNavigation<NavProp>();
+  const colors = useColors();
+  return (
+    <TouchableOpacity
+      style={[styles.prompt, { backgroundColor: colors.card, borderColor: colors.border }]}
+      onPress={() => navigation.navigate('Create')}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.promptText, { color: colors.muted }]}>What's on your mind...</Text>
+    </TouchableOpacity>
+  );
+}
+
+function FeedHeader() {
+  const isPro = useIsPro();
+  return (
+    <View>
+      <PostPrompt />
+      {isPro && <StoriesRow />}
+    </View>
+  );
+}
+
 export default function FeedScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
-  const isPro = useIsPro();
 
   const handlePostPress = (post: Post) => {
     navigation.navigate('PostDetailModal', { postId: post.internal_id });
@@ -30,7 +53,7 @@ export default function FeedScreen() {
         <FeedList
           onPostPress={handlePostPress}
           excludeTypes={['story']}
-          ListHeaderComponent={isPro ? StoriesRow : undefined}
+          ListHeaderComponent={FeedHeader}
         />
       </View>
     </SafeAreaView>
@@ -39,4 +62,13 @@ export default function FeedScreen() {
 
 const styles = StyleSheet.create({
   content: { flex: 1 },
+  prompt: {
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 0,
+  },
+  promptText: { fontSize: 15 },
 });

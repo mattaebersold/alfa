@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+// useColorScheme intentionally unused — app is dark-only
 import { colors } from '../constants/colors';
 import { useAppSelector } from '../store/store';
 
@@ -12,12 +12,12 @@ export const DarkColors = {
   secondary:'#282828',
   inputBg:  '#0D0D0D',
   // Cards / surfaces
-  card:     '#252525',
+  card:     '#1e1e1e',
   // Text
   fg:       '#E0E0E0',
   muted:    '#A0A0A0',
   // Borders
-  border:   '#3C3C3C',
+  border:   '#202020',
   // Input
   inputBorder: '#555555',
   // Grey — lighter on dark surfaces
@@ -32,10 +32,9 @@ export type ThemeColors = typeof colors;
  * automatically pick up the brand color without individual changes.
  */
 export function useColors(): ThemeColors {
-  const scheme = useColorScheme();
   const { userInfo } = useAppSelector((s) => s.auth);
   const isPro = userInfo?.accountType === 'pro' || userInfo?.accountType === 'admin';
-  const base = scheme === 'dark' ? (DarkColors as unknown as ThemeColors) : colors;
+  const base = DarkColors as unknown as ThemeColors;
   if (!isPro) return base;
-  return { ...base, primaryAlt: colors.primaryPro as unknown as typeof colors.primaryAlt };
+  return { ...base, primaryAlt: colors.pro as unknown as typeof colors.primaryAlt };
 }

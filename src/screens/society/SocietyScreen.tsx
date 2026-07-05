@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Calendar as CalendarIcon, ChevronRight, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -86,6 +87,7 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
 export default function SocietyScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const { data: eventsData, isLoading } = useGetEventsQuery({ limit: 50 });
   const allEvents = eventsData?.entries ?? [];
@@ -167,7 +169,7 @@ export default function SocietyScreen() {
           featured.length === 0 ? <EmptyState title="No events" /> : null
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
       />
       </View>
     </SafeAreaView>

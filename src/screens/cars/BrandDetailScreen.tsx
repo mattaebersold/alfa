@@ -122,11 +122,11 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
               activeOpacity={0.9}
             >
               <View style={styles.cardImageContainer}>
-                {hero ? (
-                  <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
-                ) : (
-                  <View style={[styles.cardImage, { backgroundColor: colors.secondary }]} />
-                )}
+                <Image
+                  source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
+                  style={styles.cardImage}
+                  contentFit="cover"
+                />
               </View>
               <View style={styles.cardInfo}>
                 <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
@@ -136,11 +136,11 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                   <View style={styles.ownerRow}>
                     <Avatar
                       filename={item.user.gallery?.[0]?.filename}
-                      name={item.user.firstName ?? '?'}
+                      name={item.user.username ?? '?'}
                       size={18}
                     />
                     <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
-                      {item.user.firstName} {item.user.lastName}
+                      @{item.user.username}
                     </Text>
                   </View>
                 )}

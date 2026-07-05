@@ -1,5 +1,5 @@
 import React from 'react';
-import { useColorScheme, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { X } from 'lucide-react-native';
 import type { AppStackParamList } from './types';
@@ -26,6 +26,8 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import CreateScreen from '../screens/create/CreateScreen';
+import DiecastCreateScreen from '../screens/create/DiecastCreateScreen';
+import { DIECAST_BLUE } from '../constants/diecast';
 import CreateStoryScreen from '../screens/create/CreateStoryScreen';
 import StoryDetailsScreen from '../screens/create/StoryDetailsScreen';
 import StoryViewerScreen from '../screens/stories/StoryViewerScreen';
@@ -50,15 +52,16 @@ import GroupCarsScreen from '../screens/groups/GroupCarsScreen';
 import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
+import ShopScreen from '../screens/shop/ShopScreen';
 import GroupMarketplaceScreen from '../screens/groups/GroupMarketplaceScreen';
 import GroupResourcesScreen from '../screens/groups/GroupResourcesScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
+import GroupSectionScreen from '../screens/groups/GroupSectionScreen';
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export default function AppNavigator() {
-  const isDark = useColorScheme() === 'dark';
-  const headerBg = isDark ? colors.brgDark : colors.brg;
+  const headerBg = colors.brgDark;
 
   const headerOptions = {
     headerStyle: { backgroundColor: headerBg },
@@ -70,7 +73,7 @@ export default function AppNavigator() {
   return (
     // animation: 'none' = screens just appear, no slide. Modals override this with their own animation.
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'none', headerBackTitle: '' }}>
-      <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+      <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ title: 'Home' }} />
 
       {/* ── Action overlays: slide up from bottom ──────────────────────────── */}
       <Stack.Screen
@@ -87,6 +90,11 @@ export default function AppNavigator() {
         name="Create"
         component={CreateScreen}
         options={({ navigation }) => ({ headerShown: true, title: 'Create', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+      />
+      <Stack.Screen
+        name="DiecastCreate"
+        component={DiecastCreateScreen}
+        options={({ navigation }) => ({ headerShown: true, title: 'Diecast Listing', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: DIECAST_BLUE }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="CarCreate"
@@ -150,6 +158,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Marketplace"
         component={MarketplaceScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Shop"
+        component={ShopScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
@@ -250,6 +263,11 @@ export default function AppNavigator() {
         name="GroupSettings"
         component={GroupSettingsScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Settings' }}
+      />
+      <Stack.Screen
+        name="GroupSection"
+        component={GroupSectionScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

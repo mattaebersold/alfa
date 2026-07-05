@@ -7,7 +7,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, Plus } from 'lucide-react-native';
+import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation } from '@react-navigation/native';
 import AppHeader from '../../components/ui/AppHeader';
@@ -18,16 +18,20 @@ import {
   useDeleteCarMutation, useCreateCarGalleryMutation,
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
   useUpdateCarGalleryMutation, useDeleteCarGalleryMutation,
+  useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
+  useGetCarFollowersQuery, useGetGroupQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import FeedItemCard from '../../components/cards/FeedItemCard';
+import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import LikeButton from '../../components/social/LikeButton';
 import FollowButton from '../../components/social/FollowButton';
 import TasksSheet from '../../components/cars/TasksSheet';
-import { imageUrl } from '../../utils/image';
+import { formatDistanceToNow } from 'date-fns';
+import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { uploadFile } from '../../utils/upload';
 import { stripHtml } from '../../utils/text';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -50,6 +54,16 @@ const ALBUM_COL_WIDTH = 200;
 const GALLERY_HEIGHT = 280;
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
+type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | null;
+
+const CAR_TILES: { key: Exclude<CarPane, null>; label: string }[] = [
+  { key: 'specs',      label: 'Specs' },
+  { key: 'posts',      label: 'Records' },
+  { key: 'mods',       label: 'Mods' },
+  { key: 'galleries',  label: 'Galleries' },
+  { key: 'followers',  label: 'Followers' },
+  { key: 'groups',     label: 'Groups' },
+];
 
 // ── Full-screen lightbox ─────────────────────────────────────────────────────
 
@@ -142,7 +156,10 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum }: {
   const [lightbox, setLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
   const { data: galData } = useGetCarGalleriesQuery(carId);
   const albums = galData?.entries ?? [];
-  const heroUrl = heroFilename ? imageUrl(heroFilename) : null;
+  // Fall back to the first gallery-album photo when the car has no profile/gallery image.
+  const albumHeroFilename = albums.find((a) => a.gallery?.[0]?.filename)?.gallery?.[0]?.filename;
+  const effectiveHero = heroFilename ?? albumHeroFilename;
+  const heroUrl = effectiveHero ? imageUrl(effectiveHero) : null;
 
   const albumCols: CarGalleryAlbum[][] = [];
   for (let i = 0; i < albums.length; i += 2) albumCols.push(albums.slice(i, i + 2));
@@ -160,12 +177,12 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum }: {
           <TouchableOpacity
             style={styles.heroSlide}
             activeOpacity={0.92}
-            onPress={() => heroFilename && setLightbox({ images: [{ filename: heroFilename }], index: 0 })}
+            onPress={() => effectiveHero && setLightbox({ images: [{ filename: effectiveHero }], index: 0 })}
           >
             <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
           </TouchableOpacity>
         ) : (
-          <View style={[styles.heroSlide, { backgroundColor: colors.brgLight }]} />
+          <Image source={require('../../../assets/car-placeholder.jpg')} style={[styles.heroSlide, { width: HERO_WIDTH }]} contentFit="cover" />
         )}
         {albumCols.map((pair, colIdx) => (
           <View key={colIdx} style={styles.albumCol}>
@@ -317,6 +334,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const scrollRef = useRef<ScrollView>(null);
   const [activeSheet, setActiveSheet] = useState<Sheet>(null);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [modsExpanded, setModsExpanded] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [descLines, setDescLines] = useState<number | null>(null);
+  const [pane, setPane] = useState<CarPane>(null);
+  const [paneLightbox, setPaneLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
+  const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
+  const [recordTypeFilter, setRecordTypeFilter] = useState<string | null>(null);
+  const [recordCategoryFilter, setRecordCategoryFilter] = useState<string | null>(null);
   const [galleryTitle, setGalleryTitle] = useState('');
   const [galleryImages, setGalleryImages] = useState<{ uri: string; name: string; type: string }[]>([]);
   const [editingMod, setEditingMod] = useState<Mod | null>(null);
@@ -345,13 +370,35 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const { data: modsData, isFetching: modsFetching } = useGetCarModsQuery(
     carId,
-    { skip: activeSheet !== 'mods' }
+    { skip: !car }
   );
   const mods = modsData?.entries ?? [];
+
+  const { data: paneGalData } = useGetCarGalleriesQuery(carId, { skip: !car });
+  const paneAlbums = paneGalData?.entries ?? [];
+  const { data: carFollowersData } = useGetCarFollowersQuery(carId, { skip: !car });
+  const carFollowers = carFollowersData?.entries ?? [];
+  const { data: carGroup } = useGetGroupQuery(car?.group_id ?? '', { skip: !car?.group_id });
 
   const isOwner = userInfo?.user_id === (car?.user_id ?? '');
   const isCoOwner = userInfo?.user_id === (car?.coowner_id ?? '');
   const isOwnerOrCoOwner = isOwner || isCoOwner;
+
+  const { data: carFollowStatus } = useGetCarFollowStatusQuery(carId, { skip: !carId || isOwnerOrCoOwner });
+  const [followCar, { isLoading: followingCar }] = useFollowCarMutation();
+  const [unfollowCar, { isLoading: unfollowingCar }] = useUnfollowCarMutation();
+  const isFollowingCar = carFollowStatus?.following ?? false;
+  const carFollowBusy = followingCar || unfollowingCar;
+  const toggleCarFollow = useCallback(async () => {
+    if (carFollowBusy) return;
+    try {
+      if (isFollowingCar) await unfollowCar({ car_id: carId }).unwrap();
+      else await followCar({ car_id: carId }).unwrap();
+    } catch (e: any) {
+      const msg = e?.data?.error ?? e?.data?.message ?? (typeof e?.error === 'string' ? e.error : '') ?? '';
+      Alert.alert('Could not update', msg || 'Please try again.');
+    }
+  }, [carFollowBusy, isFollowingCar, followCar, unfollowCar, carId]);
 
   const handleMenuPress = useCallback(() => {
     if (!car) return;
@@ -419,7 +466,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     const fd = new FormData();
     fd.append('car_id', carId);
     fd.append('title', galleryTitle.trim());
-    galleryImages.forEach((img) => fd.append('gallery', { uri: img.uri, name: img.name, type: img.type } as any));
+    galleryImages.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
     try {
       await createCarGallery(fd).unwrap();
       setActiveSheet(null);
@@ -538,7 +585,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     editAlbumRemovedFilenames.forEach((filename, i) => {
       fd.append(`modifyImage:remove:${i}`, filename);
     });
-    editAlbumNewImages.forEach((img) => fd.append('gallery', { uri: img.uri, name: img.name, type: img.type } as any));
+    editAlbumNewImages.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
     try {
       await updateCarGallery(fd).unwrap();
       setActiveSheet(null);
@@ -575,6 +622,105 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const specPairs: (typeof specs)[] = [];
   for (let i = 0; i < specs.length; i += 2) specPairs.push(specs.slice(i, i + 2));
 
+  const paneTitle = CAR_TILES.find((t) => t.key === pane)?.label ?? '';
+
+  const renderPane = () => {
+    switch (pane) {
+      case 'specs':
+        if (specs.length === 0) return <EmptyState title="No specs added yet" />;
+        return (
+          <View style={styles.paneSpecsWrap}>
+            {specs.map((spec) => (
+              <View key={spec.label} style={[styles.paneSpecRow, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.paneSpecLabel, { color: colors.grey }]}>{spec.label}</Text>
+                <Text style={[styles.paneSpecValue, { color: colors.fg }]}>{spec.value}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      case 'posts':
+        if (posts.length === 0) return <EmptyState title="No records yet" />;
+        return posts.map((item) => {
+          const thumb = firstGalleryUrl(item.gallery);
+          const title = item.title ?? (item.body ? stripHtml(item.body) : null);
+          const timeAgo = item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '';
+          return (
+            <TouchableOpacity
+              key={item.internal_id}
+              style={[ss.listRow, { borderBottomColor: colors.border }]}
+              onPress={() => { setPane(null); appNav.navigate('PostDetailModal', { postId: item.internal_id }); }}
+              activeOpacity={0.7}
+            >
+              {thumb ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" /> : null}
+              <View style={{ flex: 1, gap: 3 }}>
+                {title ? <Text style={{ color: colors.fg, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>{title}</Text> : null}
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                  {item.type && <Text style={{ color: colors.grey, fontSize: 11 }}>{TYPE_LABELS[item.type] ?? item.type}</Text>}
+                  {item.category && <Text style={{ color: colors.grey, fontSize: 11 }}>· {CATEGORY_LABELS[item.category] ?? item.category}</Text>}
+                  {timeAgo ? <Text style={{ color: colors.grey, fontSize: 11 }}>· {timeAgo}</Text> : null}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        });
+      case 'mods':
+        if (mods.length === 0) return <EmptyState title="No mods yet" />;
+        return mods.map((mod) => <ModCard key={mod.internal_id} mod={mod} colors={colors} />);
+      case 'galleries':
+        if (paneAlbums.length === 0) return <EmptyState title="No galleries yet" />;
+        return paneAlbums.map((album) => {
+          const thumb = album.gallery?.[0] ? imageUrl(album.gallery[0].filename) : null;
+          return (
+            <TouchableOpacity
+              key={album.internal_id}
+              style={[ss.listRow, { borderBottomColor: colors.border }]}
+              onPress={() => album.gallery?.length && setPaneLightbox({ images: album.gallery, index: 0, title: album.title })}
+              activeOpacity={0.7}
+            >
+              {thumb
+                ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" />
+                : <View style={[styles.recordThumb, { backgroundColor: colors.segment }]} />}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.fg, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
+                <Text style={{ color: colors.grey, fontSize: 12, marginTop: 2 }}>{album.gallery?.length ?? 0} photos</Text>
+              </View>
+              <ChevronRight size={18} color={colors.grey} />
+            </TouchableOpacity>
+          );
+        });
+      case 'followers':
+        if (carFollowers.length === 0) return <EmptyState title="No followers yet" />;
+        return carFollowers.map((u) => (
+          <TouchableOpacity
+            key={u.user_id}
+            style={[ss.listRow, { borderBottomColor: colors.border }]}
+            onPress={() => { setPane(null); (localNav as any).navigate('UserDetail', { userId: u.user_id, username: u.username }); }}
+            activeOpacity={0.7}
+          >
+            <Avatar filename={u.gallery?.[0]?.filename} name={u.username ?? '?'} size={40} />
+            <Text style={{ flex: 1, color: colors.fg, fontSize: 15, fontWeight: '600' }}>@{u.username}</Text>
+          </TouchableOpacity>
+        ));
+      case 'groups':
+        if (!carGroup) return <EmptyState title="Not in any group" />;
+        return (
+          <TouchableOpacity
+            style={[ss.listRow, { borderBottomColor: colors.border }]}
+            onPress={() => { setPane(null); (appNav as any).navigate('GroupDetail', { groupId: carGroup.internal_id }); }}
+            activeOpacity={0.7}
+          >
+            {firstGalleryUrl(carGroup.banners) ?? firstGalleryUrl(carGroup.gallery)
+              ? <Image source={{ uri: (firstGalleryUrl(carGroup.banners) ?? firstGalleryUrl(carGroup.gallery))! }} style={styles.recordThumb} contentFit="cover" />
+              : <View style={[styles.recordThumb, { backgroundColor: colors.segment }]} />}
+            <Text style={{ flex: 1, color: colors.fg, fontSize: 15, fontWeight: '700' }}>{carGroup.title}</Text>
+            <ChevronRight size={18} color={colors.grey} />
+          </TouchableOpacity>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
@@ -589,6 +735,30 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             onManageAlbum={isOwnerOrCoOwner ? handleAlbumOptions : undefined}
           />
         </View>
+
+        {/* ── Follow Car (non-owners) — full width beneath the gallery ── */}
+        {!isOwnerOrCoOwner && (
+          <TouchableOpacity
+            style={[
+              styles.followCarBtn,
+              isFollowingCar
+                ? { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1.5 }
+                : { backgroundColor: colors.primaryAlt },
+              carFollowBusy && { opacity: 0.6 },
+            ]}
+            onPress={toggleCarFollow}
+            disabled={carFollowBusy}
+            activeOpacity={0.85}
+          >
+            {carFollowBusy ? (
+              <ActivityIndicator size="small" color={isFollowingCar ? colors.fg : '#FFFFFF'} />
+            ) : (
+              <Text style={[styles.followCarBtnText, { color: isFollowingCar ? colors.fg : '#FFFFFF' }]}>
+                {isFollowingCar ? '✓ Following' : 'Follow Car'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* ── Title + owners ── */}
         <View style={[styles.titleSection, { backgroundColor: colors.bgDark }]}>
@@ -632,8 +802,44 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             </View>
           )}
 
+          {/* Owners — compact avatar row */}
+          {(owner || coOwnerData) && (
+            <View style={styles.ownersRow}>
+              {owner && (
+                <TouchableOpacity
+                  onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
+                  activeOpacity={0.8}
+                >
+                  <Avatar filename={owner.gallery?.[0]?.filename ?? owner.profilePicture} name={displayName} size={34} />
+                </TouchableOpacity>
+              )}
+              {coOwnerData && (
+                <TouchableOpacity
+                  onPress={() => appNav.navigate('UserDetail', { userId: coOwnerData.user_id })}
+                  activeOpacity={0.8}
+                  style={styles.coOwnerAvatarWrap}
+                >
+                  <Avatar filename={coOwnerData.gallery?.[0]?.filename} name={coOwnerName} size={34} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {car.body ? (
-            <Text style={[styles.carDescription, { color: colors.muted }]}>{stripHtml(car.body)}</Text>
+            <View style={styles.descWrap}>
+              <Text
+                style={[styles.carDescription, { color: colors.muted }]}
+                numberOfLines={descLines == null ? undefined : (descExpanded ? undefined : 3)}
+                onTextLayout={descLines == null ? (e) => setDescLines(e.nativeEvent.lines.length) : undefined}
+              >
+                {stripHtml(car.body)}
+              </Text>
+              {descLines != null && descLines > 3 && (
+                <TouchableOpacity onPress={() => setDescExpanded((v) => !v)} hitSlop={6}>
+                  <Text style={[styles.moreLink, { color: colors.grey }]}>{descExpanded ? 'Less' : 'More'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : null}
 
           <View style={[styles.likeRow, { borderTopColor: colors.border }]}>
@@ -644,209 +850,135 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               initialLiked={(car as any).isLiked ?? false}
             />
           </View>
-
-          {/* Owner */}
-          {owner && (
-            <TouchableOpacity
-              style={[styles.ownerCard, { backgroundColor: colors.cream }]}
-              onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
-            >
-              <Avatar filename={owner.gallery?.[0]?.filename ?? owner.profilePicture} name={displayName} size={44} />
-              <View style={styles.ownerInfo}>
-                <Text style={[styles.ownerName, { color: colors.fg }]}>@{displayName}</Text>
-              </View>
-              {!isOwner && owner.username && <FollowButton username={owner.username} />}
-            </TouchableOpacity>
-          )}
-
-          {/* Co-owner */}
-          {coOwnerData && (
-            <TouchableOpacity
-              style={[styles.ownerCard, styles.coOwnerCard, { backgroundColor: colors.cream, borderTopColor: colors.border }]}
-              onPress={() => appNav.navigate('UserDetail', { userId: coOwnerData.user_id })}
-            >
-              <Avatar filename={coOwnerData.gallery?.[0]?.filename} name={coOwnerName} size={44} />
-              <View style={styles.ownerInfo}>
-                <View style={styles.coOwnerLabelRow}>
-                  <Text style={[styles.ownerName, { color: colors.fg }]}>@{coOwnerName}</Text>
-                  <View style={[styles.coOwnerBadge, { backgroundColor: colors.segment }]}>
-                    <Text style={[styles.coOwnerBadgeText, { color: colors.grey }]}>co-owner</Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* ── Mods button ── */}
-        <View style={[styles.actionRow, { backgroundColor: colors.bgDark, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => setActiveSheet('mods')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.actionBtnText, { color: colors.fg }]}>Mods</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Specs (always visible) ── */}
-        <View style={[styles.specsSection, { backgroundColor: colors.bgDark }]}>
-          <Text style={[styles.sectionTitle, { color: colors.fg }]}>Specs</Text>
-          {specs.length === 0 ? (
-            <Text style={[styles.emptyText, { color: colors.grey }]}>No specs added yet.</Text>
-          ) : (
-            <View style={[styles.specGrid, { borderColor: colors.border, borderWidth: 1 }]}>
-              {specPairs.map((pair, rowIdx) => (
-                <View
-                  key={rowIdx}
-                  style={[styles.specGridRow, rowIdx > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}
+        {/* ── Section tiles — open panes like the profile page ── */}
+        <View style={[styles.tilesWrap, { backgroundColor: colors.bgDark, borderTopColor: colors.border }]}>
+          <View style={styles.carTilesGrid}>
+            {CAR_TILES.map((t) => {
+              const count =
+                t.key === 'specs'      ? specs.length :
+                t.key === 'posts'      ? (postsData?.total ?? posts.length) :
+                t.key === 'mods'       ? (modsData?.total ?? mods.length) :
+                t.key === 'galleries'  ? paneAlbums.length :
+                t.key === 'followers'  ? (carFollowersData?.total ?? carFollowers.length) :
+                /* groups */             (car.group_id ? 1 : 0);
+              return (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[styles.carTile, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => setPane(t.key)}
+                  activeOpacity={0.85}
                 >
-                  {pair.map((spec, colIdx) => (
-                    <View
-                      key={spec.label}
-                      style={[
-                        styles.specCell,
-                        colIdx === 0 && pair.length === 2 && { borderRightWidth: 1, borderRightColor: colors.border },
-                      ]}
-                    >
-                      <Text style={[styles.specCellLabel, { color: colors.grey }]}>{spec.label}</Text>
-                      <Text style={[styles.specCellValue, { color: colors.fg }]}>{spec.value}</Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* ── Inline posts (Records) ── */}
-        <View style={[styles.postsSection, { backgroundColor: colors.bgDark, borderTopColor: colors.border }]}>
-          <View style={styles.postsSectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.fg }]}>Records</Text>
-            {isOwnerOrCoOwner && (
-              <TouchableOpacity
-                style={[styles.inlineCreateBtn, { backgroundColor: colors.primaryAlt }]}
-                onPress={() => appNav.navigate('Create')}
-                activeOpacity={0.85}
-              >
-                <Plus size={14} color="#FFFFFF" />
-                <Text style={styles.inlineCreateBtnText}>Create</Text>
-              </TouchableOpacity>
-            )}
+                  <Text style={[styles.carTileCount, { color: colors.fg }]}>{count}</Text>
+                  <Text style={[styles.carTileLabel, { color: colors.grey }]}>{t.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-          {postsFetching ? (
-            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginVertical: 32 }} />
-          ) : posts.length === 0 ? (
-            <EmptyState title="No records yet" />
-          ) : (
-            posts.map((item) => (
-              <FeedItemCard
-                key={item.internal_id}
-                post={item}
-                onPress={() => appNav.navigate('PostDetailModal', { postId: item.internal_id })}
-              />
-            ))
-          )}
         </View>
 
       </ScrollView>
 
-      {/* ── Mods sheet ── */}
+      {/* ── Mod edit sheet ── */}
       <BottomSheet
         visible={activeSheet === 'mods'}
         onClose={() => { setActiveSheet(null); setEditingMod(null); }}
-        title={editingMod ? 'Edit Mod' : 'Mods'}
+        title="Edit Mod"
       >
-        {editingMod ? (
-          /* ── Edit form ── */
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Title *</Text>
-            <TextInput
-              style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
-              value={editModTitle}
-              onChangeText={setEditModTitle}
-              placeholder="Mod title"
-              placeholderTextColor={colors.grey}
-              autoCapitalize="sentences"
-            />
-            <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Type</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-              {MOD_TYPES.map((t) => (
-                <TouchableOpacity
-                  key={t.key}
-                  style={[styles.modTypeChip, { borderColor: colors.border, backgroundColor: colors.card }, editModType === t.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
-                  onPress={() => setEditModType(t.key)}
-                >
-                  <Text style={[styles.modTypeChipText, { color: colors.fg }, editModType === t.key && { color: '#FFFFFF' }]}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>
-              Description <Text style={[styles.gallerySheetLabel, { color: colors.grey, fontWeight: '400' }]}>(optional)</Text>
-            </Text>
-            <TextInput
-              style={[ss.input, ss.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
-              value={editModBody}
-              onChangeText={setEditModBody}
-              placeholder="Describe this mod..."
-              placeholderTextColor={colors.grey}
-              multiline
-              numberOfLines={4}
-              autoCapitalize="sentences"
-            />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Title *</Text>
+          <TextInput
+            style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
+            value={editModTitle}
+            onChangeText={setEditModTitle}
+            placeholder="Mod title"
+            placeholderTextColor={colors.grey}
+            autoCapitalize="sentences"
+          />
+          <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Type</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+            {MOD_TYPES.map((t) => (
               <TouchableOpacity
-                style={[styles.sheetCreateBtn, { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
-                onPress={() => setEditingMod(null)}
-                activeOpacity={0.85}
+                key={t.key}
+                style={[styles.modTypeChip, { borderColor: colors.border, backgroundColor: colors.card }, editModType === t.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
+                onPress={() => setEditModType(t.key)}
               >
-                <Text style={[styles.sheetCreateBtnText, { color: colors.fg }]}>Cancel</Text>
+                <Text style={[styles.modTypeChipText, { color: colors.fg }, editModType === t.key && { color: '#FFFFFF' }]}>{t.label}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.sheetCreateBtn, { flex: 2, backgroundColor: colors.primaryAlt, opacity: updatingMod ? 0.5 : 1 }]}
-                onPress={handleUpdateMod}
-                disabled={updatingMod}
-                activeOpacity={0.85}
-              >
-                {updatingMod
-                  ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Text style={styles.sheetCreateBtnText}>Save Changes</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        ) : (
-          /* ── Mod list ── */
-          <>
-            {isOwnerOrCoOwner && (
-              <TouchableOpacity
-                style={[styles.sheetCreateBtn, { backgroundColor: colors.primaryAlt }]}
-                onPress={() => { setActiveSheet(null); appNav.navigate('ModCreate', { carId, carTitle: [car.year, car.make, car.model].filter(Boolean).join(' ') }); }}
-                activeOpacity={0.85}
-              >
-                <Plus size={16} color="#FFFFFF" />
-                <Text style={styles.sheetCreateBtnText}>Add Mod</Text>
-              </TouchableOpacity>
-            )}
-            {modsFetching ? (
-              <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginVertical: 40 }} />
-            ) : mods.length === 0 ? (
-              <EmptyState title="No mods yet" />
-            ) : (
-              <FlatList
-                data={mods}
-                keyExtractor={(m) => m.internal_id}
-                contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
-                renderItem={({ item }) => (
-                  <ModCard
-                    mod={item}
-                    colors={colors}
-                    onOptions={isOwnerOrCoOwner ? () => handleModOptions(item) : undefined}
-                  />
-                )}
+            ))}
+          </View>
+          <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>
+            Description <Text style={[styles.gallerySheetLabel, { color: colors.grey, fontWeight: '400' }]}>(optional)</Text>
+          </Text>
+          <TextInput
+            style={[ss.input, ss.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
+            value={editModBody}
+            onChangeText={setEditModBody}
+            placeholder="Describe this mod..."
+            placeholderTextColor={colors.grey}
+            multiline
+            numberOfLines={4}
+            autoCapitalize="sentences"
+          />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={[styles.sheetCreateBtn, { flex: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+              onPress={() => { setActiveSheet(null); setEditingMod(null); }}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.sheetCreateBtnText, { color: colors.fg }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sheetCreateBtn, { flex: 2, backgroundColor: colors.primaryAlt, opacity: updatingMod ? 0.5 : 1 }]}
+              onPress={handleUpdateMod}
+              disabled={updatingMod}
+              activeOpacity={0.85}
+            >
+              {updatingMod
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={styles.sheetCreateBtnText}>Save Changes</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </BottomSheet>
+
+      {/* ── Mod detail sheet ── */}
+      <BottomSheet
+        visible={!!selectedMod}
+        onClose={() => setSelectedMod(null)}
+        title={selectedMod?.title ?? 'Mod'}
+      >
+        {selectedMod && (
+          <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+            {selectedMod.gallery?.[0] && (
+              <Image
+                source={{ uri: imageUrl(selectedMod.gallery[0].filename)! }}
+                style={{ width: '100%', height: 220 }}
+                contentFit="cover"
               />
             )}
-          </>
+            <View style={{ padding: 16 }}>
+              {selectedMod.type && (
+                <View style={[modStyles.typeBadge, { backgroundColor: colors.segment, alignSelf: 'flex-start', marginBottom: 12 }]}>
+                  <Text style={[modStyles.typeText, { color: colors.grey }]}>{selectedMod.type}</Text>
+                </View>
+              )}
+              {selectedMod.body ? (
+                <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20 }}>{stripHtml(selectedMod.body)}</Text>
+              ) : null}
+              {isOwnerOrCoOwner && (
+                <TouchableOpacity
+                  style={[styles.sheetCreateBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, marginTop: 20 }]}
+                  onPress={() => { setSelectedMod(null); handleModOptions(selectedMod); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.sheetCreateBtnText, { color: colors.fg }]}>Edit / Delete</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
         )}
       </BottomSheet>
 
@@ -975,6 +1107,22 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         visible={tasksOpen}
         onClose={() => setTasksOpen(false)}
       />
+
+      {/* ── Section pane ── */}
+      <BottomSheet visible={pane !== null} onClose={() => setPane(null)} title={paneTitle}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+          {renderPane()}
+        </ScrollView>
+      </BottomSheet>
+
+      {paneLightbox && (
+        <Lightbox
+          images={paneLightbox.images}
+          initialIndex={paneLightbox.index}
+          title={paneLightbox.title}
+          onClose={() => setPaneLightbox(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1031,9 +1179,19 @@ const styles = StyleSheet.create({
   badgeRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   carBadge:       { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6 },
   carBadgeText:   { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
-  carDescription: { fontSize: 14, marginTop: 12, lineHeight: 20 },
-  likeRow:        { marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  descWrap:       { marginTop: 12 },
+  carDescription: { fontSize: 14, lineHeight: 20 },
+  moreLink:       { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginTop: 4 },
+  likeRow:        { marginTop: 12, paddingTop: 12, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  followCarBtn:   {
+    marginHorizontal: 12, marginTop: 12,
+    paddingVertical: 14, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  followCarBtnText: { fontSize: 15, fontWeight: '800' },
 
+  ownersRow:       { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  coOwnerAvatarWrap: { marginLeft: -8 },
   ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, borderRadius: 10 },
   coOwnerCard:     { marginTop: 8, borderTopWidth: 1 },
   ownerInfo:       { flex: 1 },
@@ -1043,15 +1201,48 @@ const styles = StyleSheet.create({
   coOwnerBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
   coOwnerBadgeText: { fontSize: 11, fontWeight: '700' },
 
-  actionRow:      {
-    flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 14,
-    borderTopWidth: 1,
+  modsSection:          { borderTopWidth: 1 },
+  modsSectionPadding:   { padding: 16 },
+  modsAccordionBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderRadius: 12, borderWidth: 1,
   },
-  actionBtn:      { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1 },
-  actionBtnText:  { fontSize: 14, fontWeight: '700' },
+  modsAccordionBtnText: { fontSize: 16, fontWeight: '700' },
+  modsSectionRight:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  modsContainer:        { marginTop: 10, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  modRow:               {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 12, paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  modRowThumb:          { width: 54, height: 54, borderRadius: 8 },
+  modRowInfo:           { flex: 1 },
+  modRowTitle:          { fontSize: 14, fontWeight: '600' },
+  modRowType:           { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
+
+  tilesWrap:       { padding: 16, borderTopWidth: 1, paddingBottom: 48 },
+  carTilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  carTile:         {
+    flexBasis: '31%', flexGrow: 1,
+    borderRadius: 12, borderWidth: 1,
+    paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 2,
+  },
+  carTileCount:    { fontSize: 20, fontWeight: '800' },
+  carTileLabel:    { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  paneAlbumGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 12 },
+  paneAlbumCell:   { width: '47%' },
+  paneSpecsWrap:   { paddingHorizontal: 4 },
+  paneSpecRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  paneSpecLabel:   { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  paneSpecValue:   { fontSize: 15, fontWeight: '700' },
 
   specsSection:    { padding: 16 },
   postsSection:    { paddingBottom: 32, borderTopWidth: 1 },
+  filterRow:       { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  filterChipText:  { fontSize: 12, fontWeight: '600' },
+  recordThumb:     { width: 58, height: 58, borderRadius: 6 },
   postsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   inlineCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   inlineCreateBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },

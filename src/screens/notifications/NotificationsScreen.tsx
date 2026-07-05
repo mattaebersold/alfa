@@ -38,16 +38,17 @@ function NotificationRow({
     : '';
 
   const isUnread = !notification.read_status;
-  const senderName = [notification.sender?.firstName, notification.sender?.lastName].filter(Boolean).join(' ')
-    || notification.sender?.username
-    || null;
+  const username = notification.sender?.username ?? null;
+  const senderName = username
+    ? `@${username}`
+    : [notification.sender?.firstName, notification.sender?.lastName].filter(Boolean).join(' ') || null;
 
   return (
     <TouchableOpacity
       style={[
         ss.listRow,
         isUnread ? styles.rowUnread : styles.rowRead,
-        { borderBottomColor: '#333' },
+        { borderBottomColor: 'rgba(255,255,255,0.06)' },
       ]}
       onPress={onRead}
       activeOpacity={0.8}
@@ -55,7 +56,7 @@ function NotificationRow({
       {isUnread && <View style={styles.unreadDot} />}
       <Avatar
         filename={notification.sender?.gallery?.[0]?.filename}
-        name={senderName ?? '?'}
+        name={username ?? '?'}
         size={38}
       />
       <View style={styles.rowContent}>

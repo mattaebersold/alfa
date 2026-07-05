@@ -1,33 +1,29 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  ActivityIndicator, Dimensions, TextInput, Modal,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Pressable, FlatList,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronLeft, ThumbsUp, ThumbsDown, FileText, Search } from 'lucide-react-native';
-import { formatDistanceToNow, format } from 'date-fns';
+import {
+  ChevronLeft, MessageSquare, MessageCircle, Newspaper, Users,
+  Car, Calendar, ShoppingBag, BookOpen, Settings, Plus, Check, X,
+} from 'lucide-react-native';
 import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
   useLeaveGroupMutation,
-  useGetGroupForumQuery,
-  useGetGroupNewsQuery,
-  useGetGroupResourcesQuery,
-  useGetEventsQuery,
   useGetGroupCarsQuery,
   useGetUserGarageQuery,
   useUpdateCarGroupMutation,
-  useGetPostsQuery,
 } from '../../api/apiService';
+import type { GarageCar } from '../../types/api';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
 import Spinner from '../../components/ui/Spinner';
-import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -36,24 +32,21 @@ import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
-type ActiveTab = 'posts' | 'forum' | 'news' | 'members' | 'cars' | 'events' | 'market' | 'resources';
-
-const TABS: { key: ActiveTab; label: string }[] = [
-  { key: 'posts',     label: 'Posts' },
-  { key: 'forum',     label: 'Forum' },
-  { key: 'news',      label: 'News' },
-  { key: 'members',   label: 'Members' },
-  { key: 'cars',      label: 'Cars' },
-  { key: 'events',    label: 'Events' },
-  { key: 'market',    label: 'Market' },
-  { key: 'resources', label: 'Resources' },
-];
-
-const HEADER_SENTINEL = { _t: 'header' } as const;
-const TABBAR_SENTINEL = { _t: 'tabbar' } as const;
-const SETTINGS_TAB    = { key: 'settings', label: 'Settings' };
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const TILE_GAP = 12;
+const TILE_WIDTH = (SCREEN_WIDTH - TILE_GAP * 3) / 2;
+
+const SECTIONS = [
+  { key: 'posts',     label: 'Posts',     Icon: MessageSquare, color: '#4A90D9' },
+  { key: 'forum',     label: 'Forum',     Icon: MessageCircle, color: '#7B68EE' },
+  { key: 'news',      label: 'News',      Icon: Newspaper,     color: '#E67E22' },
+  { key: 'members',   label: 'Members',   Icon: Users,         color: '#2ECC71' },
+  { key: 'cars',      label: 'Cars',      Icon: Car,           color: '#E74C3C' },
+  { key: 'events',    label: 'Events',    Icon: Calendar,      color: '#F39C12' },
+  { key: 'market',    label: 'Market',    Icon: ShoppingBag,   color: '#1ABC9C' },
+  { key: 'resources', label: 'Resources', Icon: BookOpen,      color: '#95A5A6' },
+];
 
 export default function GroupDetailScreen() {
   const route = useRoute<{ key: string; name: string; params: { groupId: string } }>();
@@ -62,516 +55,214 @@ export default function GroupDetailScreen() {
   const c = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
 
-  const [tab, setTab] = useState<ActiveTab>('posts');
-  const [search, setSearch] = useState('');
-  const [showCarModal, setShowCarModal] = useState(false);
-  const listRef = useRef<FlatList>(null);
+  const [carModalOpen, setCarModalOpen] = useState(false);
 
   const { data: group, isLoading } = useGetGroupQuery(groupId);
   const { data: members = [] }     = useGetGroupMembersQuery(groupId);
+  const { data: groupCarsData }    = useGetGroupCarsQuery(groupId);
+  const { data: garageData }       = useGetUserGarageQuery(undefined, { skip: !carModalOpen });
   const [join,  { isLoading: joining }]  = useJoinGroupMutation();
   const [leave, { isLoading: leaving }]  = useLeaveGroupMutation();
+  const [updateCarGroup] = useUpdateCarGroupMutation();
 
-  // Lazy per-tab fetches
-  const { data: postsData,     isFetching: postsFetching }     = useGetPostsQuery({ group_id: groupId, limit: 30 }, { skip: tab !== 'posts' });
-  const { data: forumData,     isFetching: forumFetching }     = useGetGroupForumQuery({ groupId }, { skip: tab !== 'forum' });
-  const { data: newsData,      isFetching: newsFetching }      = useGetGroupNewsQuery({ groupId }, { skip: tab !== 'news' });
-  const { data: resourcesData, isFetching: resourcesFetching } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
-  const { data: eventsData,    isFetching: eventsFetching }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
-  const { data: carsData,      isFetching: carsFetching }      = useGetGroupCarsQuery(groupId, { skip: tab !== 'cars' });
-  const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !showCarModal });
-  const [updateCarGroup, { isLoading: updatingCarGroup }] = useUpdateCarGroupMutation();
-  const { data: marketData,    isFetching: marketFetching }    = useGetPostsQuery({ group_id: groupId, type: 'listing', limit: 30 }, { skip: tab !== 'market' });
+  const groupCars = groupCarsData?.entries ?? [];
+  const myCars = garageData?.entries ?? [];
 
-  // Derived values — safe before early return via optional chaining
-  const banner   = firstGalleryUrl(group?.banners) ?? firstGalleryUrl(group?.gallery);
-  const isMember = members.some((m) => m.user_id === userInfo?.user_id && m.status === 'active');
-  const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin');
-
-  const switchTab = (newTab: ActiveTab) => {
-    setTab(newTab);
-    setSearch('');
-    listRef.current?.scrollToIndex({ index: 1, animated: false });
-  };
-
-  // ── Tab bar ──────────────────────────────────────────────────────────────────
-  const visibleTabs = [...TABS, ...(isAdmin ? [SETTINGS_TAB] : [])];
-
-  const SEARCHABLE_TABS: ActiveTab[] = ['posts', 'forum', 'members', 'cars', 'market', 'resources'];
-  const showSearch = SEARCHABLE_TABS.includes(tab);
-
-  const tabBar = (
-    <View style={{ backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: c.border }}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabBar}
-      >
-        {visibleTabs.map((t) => {
-          if (t.key === 'settings') {
-            return (
-              <TouchableOpacity
-                key="settings"
-                style={styles.tabItem}
-                onPress={() => (navigation as any).navigate('GroupSettings', { groupId })}
-              >
-                <Text style={[styles.tabText, { color: c.grey }]}>{t.label}</Text>
-              </TouchableOpacity>
-            );
-          }
-          const isActive = tab === t.key;
-          return (
-            <TouchableOpacity
-              key={t.key}
-              style={[styles.tabItem, isActive && styles.tabItemActive]}
-              onPress={() => switchTab(t.key as ActiveTab)}
-            >
-              <Text style={[styles.tabText, { color: isActive ? c.primaryAlt : c.grey }]}>{t.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-      {showSearch && (
-        <View style={[styles.searchWrap, { borderTopColor: c.border }]}>
-          <Search size={15} color={c.grey} />
-          <TextInput
-            style={[styles.searchInput, { color: c.fg }]}
-            value={search}
-            onChangeText={setSearch}
-            placeholder={`Search ${tab}…`}
-            placeholderTextColor={c.grey}
-            clearButtonMode="while-editing"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-        </View>
-      )}
-    </View>
-  );
-
-  // ── Group header (scrolls away) ───────────────────────────────────────────
-  const groupHeader = group ? (
-    <View>
-      {/* Banner */}
-      <View style={styles.bannerWrap}>
-        {banner
-          ? <Image source={{ uri: banner }} style={styles.banner} contentFit="cover" />
-          : <View style={[styles.banner, { backgroundColor: c.primaryAlt }]} />
-        }
-        {/* Back button overlay */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
-          <ChevronLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Title card */}
-      <View style={[styles.titleCard, { backgroundColor: c.card, borderBottomColor: c.border }]}>
-        <View style={styles.titleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.groupTitle, { color: c.fg }]}>{group.title}</Text>
-            {group.subtitle && <Text style={[styles.groupSub, { color: c.muted }]}>{group.subtitle}</Text>}
-            {group.region && <Text style={[styles.groupRegion, { color: c.grey }]}>{group.region}</Text>}
-          </View>
-          <TouchableOpacity
-            style={[styles.joinBtn, isMember && { backgroundColor: c.cream, borderWidth: 1.5, borderColor: c.border }]}
-            onPress={() => isMember ? leave(groupId) : join(groupId)}
-            disabled={joining || leaving}
-          >
-            <Text style={[styles.joinBtnText, isMember && { color: c.fg }]}>
-              {isMember ? 'Leave' : 'Join'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Members strip */}
-      {members.length > 0 && (
-        <View style={[styles.membersStrip, { backgroundColor: c.card, borderBottomColor: c.border }]}>
-          <Text style={[styles.memberCount, { color: c.grey }]}>
-            {members.length} member{members.length !== 1 ? 's' : ''}
-          </Text>
-          <View style={styles.avatarRow}>
-            {members.slice(0, 10).map((m) => (
-              <View key={m.user_id} style={styles.avatarWrap}>
-                <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={30} />
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Description */}
-      {group.body && (
-        <View style={[styles.bodyBlock, { backgroundColor: c.card, borderBottomColor: c.border }]}>
-          <Text style={[styles.bodyText, { color: c.fg }]}>{stripHtml(group.body)}</Text>
-        </View>
-      )}
-    </View>
-  ) : null;
-
-  // ── Render items — must be defined before the early return ────────────────
-  const renderItem = useCallback(({ item }: { item: any }) => {
-    if (item._t === 'header') return groupHeader;
-    if (item._t === 'tabbar') return tabBar;
-    if (item._t === 'carsCta') return (
-      <TouchableOpacity
-        style={[styles.carsCta, { backgroundColor: c.card, borderColor: c.primaryAlt }]}
-        onPress={() => setShowCarModal(true)}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.carsCtaText, { color: c.primaryAlt }]}>Add your car(s) to this group</Text>
-      </TouchableOpacity>
-    );
-    if (item._tab === 'loading') return <ActivityIndicator size="large" color={c.primaryAlt} style={styles.loader} />;
-    if (item._tab === 'empty')   return <EmptyState title={`No ${tab} yet`} />;
-
-    const d = item.data;
-
-    if (item._tab === 'posts') {
-      const hero = firstGalleryUrl(d.gallery);
-      const user = d.user ?? d.user_objectid;
-      const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-      return (
-        <TouchableOpacity
-          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
-          onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
-          activeOpacity={0.8}
-        >
-          {hero
-            ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" />
-            : <Avatar filename={user?.gallery?.[0]?.filename ?? user?.profilePicture} name={user?.username ?? '?'} size={44} />
-          }
-          <View style={{ flex: 1 }}>
-            {d.title
-              ? <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{d.title}</Text>
-              : null
-            }
-            {d.body
-              ? <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>
-              : null
-            }
-            <View style={styles.rowMeta}>
-              <Text style={[styles.metaText, { color: c.grey }]}>@{user?.username} · {timeAgo}</Text>
-              <Text style={[styles.metaText, { color: c.grey }]}>
-                {d.like_count ?? d.likeCount ?? 0} likes · {d.comment_count ?? d.commentCount ?? 0} comments
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item._tab === 'forum') {
-      const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-      return (
-        <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} activeOpacity={0.8}>
-          <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={38} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
-            <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body ?? '')}</Text>
-            <View style={styles.rowMeta}>
-              <Text style={[styles.metaText, { color: c.grey }]}>{timeAgo}</Text>
-              <View style={styles.votes}>
-                <ThumbsUp size={12} color={c.grey} />
-                <Text style={[styles.metaText, { color: c.grey }]}>{d.upvotes ?? 0}</Text>
-                <ThumbsDown size={12} color={c.grey} />
-                <Text style={[styles.metaText, { color: c.grey }]}>{d.downvotes ?? 0}</Text>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item._tab === 'news') {
-      const hero = firstGalleryUrl(d.gallery);
-      const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-      return (
-        <View style={[styles.newsCard, { backgroundColor: c.card }]}>
-          {hero && <Image source={{ uri: hero }} style={styles.newsImage} contentFit="cover" />}
-          <View style={styles.newsPad}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
-            {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={3}>{stripHtml(d.body)}</Text>}
-            <Text style={[styles.metaText, { color: c.grey, marginTop: 4 }]}>@{d.user?.username} · {timeAgo}</Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (item._tab === 'resources') {
-      const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-      return (
-        <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} activeOpacity={0.8}>
-          <View style={[styles.resourceIcon, { backgroundColor: c.cream }]}>
-            <FileText size={20} color={c.primaryAlt} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{d.title}</Text>
-            {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
-            <Text style={[styles.metaText, { color: c.grey }]}>{timeAgo}</Text>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item._tab === 'events') {
-      const hero = firstGalleryUrl(d.gallery);
-      const date = d.event_date ? format(new Date(d.event_date), 'MMM d, yyyy') : null;
-      return (
-        <TouchableOpacity
-          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
-          onPress={() => (navigation as any).navigate('EventDetailModal', { eventId: d.internal_id })}
-          activeOpacity={0.8}
-        >
-          {hero
-            ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" />
-            : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />
-          }
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
-            {date && <Text style={[styles.metaText, { color: c.grey }]}>{date}</Text>}
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item._tab === 'cars') {
-      const hero = firstGalleryUrl(d.gallery) ?? (d.profile_image ? imageUrl(d.profile_image) : null);
-      return (
-        <TouchableOpacity
-          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
-          onPress={() => (navigation as any).navigate('CarDetailModal', { carId: d.internal_id })}
-          activeOpacity={0.8}
-        >
-          {hero
-            ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" />
-            : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />
-          }
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>
-              {d.title || [d.year, d.make, d.model].filter(Boolean).join(' ')}
-            </Text>
-            {d.user && <Text style={[styles.metaText, { color: c.grey }]}>@{d.user.username}</Text>}
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item._tab === 'market') {
-      const hero = firstGalleryUrl(d.gallery);
-      const user = d.user ?? d.user_objectid;
-      const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-      return (
-        <TouchableOpacity
-          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
-          onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
-          activeOpacity={0.8}
-        >
-          {hero
-            ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" />
-            : <Avatar filename={user?.gallery?.[0]?.filename ?? user?.profilePicture} name={user?.username ?? '?'} size={44} />
-          }
-          <View style={{ flex: 1 }}>
-            {d.title
-              ? <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{d.title}</Text>
-              : null
-            }
-            {d.price
-              ? <Text style={[styles.rowBody, { color: c.primaryAlt, fontWeight: '700' }]}>${Number(d.price).toLocaleString()}</Text>
-              : null
-            }
-            {d.body
-              ? <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={1}>{stripHtml(d.body)}</Text>
-              : null
-            }
-            <Text style={[styles.metaText, { color: c.grey }]}>@{user?.username} · {timeAgo}</Text>
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item._tab === 'members') {
-      return (
-        <TouchableOpacity
-          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
-          onPress={() => d.user_id && (navigation as any).navigate('UserDetail', { userId: d.user_id })}
-          activeOpacity={0.8}
-        >
-          <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={42} />
-          <Text style={[styles.rowTitle, { color: c.fg, flex: 1 }]}>@{d.user?.username}</Text>
-          {d.member_type === 'admin' && (
-            <View style={[styles.adminBadge, { backgroundColor: c.primaryAlt }]}>
-              <Text style={styles.adminText}>Admin</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    }
-
-    return null;
-  }, [tab, c, navigation, groupId, groupHeader, tabBar, group, members, isMember, isAdmin, joining, leaving, showCarModal]);
-
-  // Early return AFTER all hooks to avoid Rules of Hooks violations
   if (isLoading || !group) return <Spinner fullScreen />;
 
-  // ── Tab content ───────────────────────────────────────────────────────────
-  const isFetchingTab = (
-    (tab === 'posts' && postsFetching) ||
-    (tab === 'forum' && forumFetching) ||
-    (tab === 'news' && newsFetching) ||
-    (tab === 'resources' && resourcesFetching) ||
-    (tab === 'events' && eventsFetching) ||
-    (tab === 'cars' && carsFetching) ||
-    (tab === 'market' && marketFetching)
-  );
+  const banner   = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
+  const isMember = members.some((m) => m.user_id === userInfo?.user_id && m.status === 'active');
+  const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin');
+  const canManageCars = isMember || isAdmin;
 
-  let rawItems: any[] = [];
-  switch (tab) {
-    case 'posts':     rawItems = postsData?.entries ?? [];     break;
-    case 'forum':     rawItems = forumData?.entries ?? [];     break;
-    case 'news':      rawItems = newsData?.entries ?? [];      break;
-    case 'resources': rawItems = resourcesData?.entries ?? []; break;
-    case 'events':    rawItems = eventsData?.entries ?? [];    break;
-    case 'cars':      rawItems = carsData?.entries ?? [];      break;
-    case 'market':    rawItems = marketData?.entries ?? [];    break;
-    case 'members':   rawItems = members.filter((m) => m.status === 'active'); break;
-  }
-
-  // Search filter (client-side)
-  const q = search.trim().toLowerCase();
-  const filteredItems = q ? rawItems.filter((item) => {
-    const user = item.user ?? item.user_objectid;
-    switch (tab) {
-      case 'posts':
-      case 'market':
-        return (
-          item.title?.toLowerCase().includes(q) ||
-          item.body?.toLowerCase().includes(q) ||
-          user?.username?.toLowerCase().includes(q)
-        );
-      case 'forum':
-        return (
-          item.title?.toLowerCase().includes(q) ||
-          item.body?.toLowerCase().includes(q) ||
-          item.user?.username?.toLowerCase().includes(q)
-        );
-      case 'members':
-        return item.user?.username?.toLowerCase().includes(q);
-      case 'cars':
-        return (
-          item.make?.toLowerCase().includes(q) ||
-          item.model?.toLowerCase().includes(q) ||
-          String(item.year ?? '').includes(q) ||
-          item.user?.username?.toLowerCase().includes(q)
-        );
-      case 'resources':
-        return (
-          item.title?.toLowerCase().includes(q) ||
-          item.body?.toLowerCase().includes(q)
-        );
-      default:
-        return true;
-    }
-  }) : rawItems;
-
-  const taggedItems = filteredItems.map((item) => ({ _tab: tab, data: item }));
-  const contentItems: any[] = isFetchingTab
-    ? [{ _tab: 'loading' }]
-    : taggedItems.length === 0
-    ? [{ _tab: 'empty' }]
-    : taggedItems;
-
-  const carsCta = (tab === 'cars' && isMember) ? [{ _t: 'carsCta' }] : [];
-  const flatData: any[] = [HEADER_SENTINEL, TABBAR_SENTINEL, ...carsCta, ...contentItems];
-
-  const keyExtractor = (item: any, i: number) => {
-    if (item._t === 'header') return '__header';
-    if (item._t === 'tabbar') return '__tabbar';
-    if (item._t === 'carsCta') return '__carsCta';
-    if (item._tab === 'loading') return '__loading';
-    if (item._tab === 'empty')   return '__empty';
-    return item.data?.internal_id ?? item.data?.user_id ?? String(i);
+  const goToSection = (initialTab: string) => {
+    (navigation as any).navigate('GroupSection', { groupId, groupTitle: group.title, initialTab });
   };
+
+  const tiles = [
+    ...SECTIONS,
+    ...(isAdmin ? [{ key: 'settings', label: 'Settings', Icon: Settings, color: '#666' }] : []),
+  ];
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: c.primaryAlt }]} edges={['top']}>
       <AppHeader />
-      <View style={[ss.fill, { backgroundColor: c.cream }]}>
-        <FlatList
-          ref={listRef}
-          data={flatData}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          stickyHeaderIndices={[1]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.list}
-          onScrollToIndexFailed={() => {}}
-        />
-      </View>
+      <ScrollView style={{ backgroundColor: c.cream }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-      {/* ── Add cars to group modal ─────────────────────────────────── */}
-      <Modal
-        visible={showCarModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowCarModal(false)}
-      >
-        <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
-          <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
-            <Text style={[styles.modalTitle, { color: c.fg }]}>Your Cars</Text>
-            <TouchableOpacity onPress={() => setShowCarModal(false)} hitSlop={10}>
-              <Text style={[styles.modalDone, { color: c.primaryAlt }]}>Done</Text>
+        {/* Banner */}
+        <View style={styles.bannerWrap}>
+          {banner
+            ? <Image source={{ uri: banner }} style={styles.banner} contentFit="cover" />
+            : <View style={[styles.banner, { backgroundColor: c.primaryAlt }]} />
+          }
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Title card */}
+        <View style={[styles.titleCard, { backgroundColor: c.card, borderBottomColor: c.border }]}>
+          <View style={styles.titleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.groupTitle, { color: c.fg }]}>{group.title}</Text>
+              {group.subtitle && <Text style={[styles.groupSub, { color: c.muted }]}>{group.subtitle}</Text>}
+              {group.region  && <Text style={[styles.groupRegion, { color: c.grey }]}>{group.region}</Text>}
+            </View>
+            <TouchableOpacity
+              style={[styles.joinBtn, isMember && { backgroundColor: c.cream, borderWidth: 1.5, borderColor: c.border }]}
+              onPress={() => isMember ? leave(groupId) : join(groupId)}
+              disabled={joining || leaving}
+            >
+              <Text style={[styles.joinBtnText, isMember && { color: c.fg }]}>
+                {isMember ? 'Leave' : 'Join'}
+              </Text>
             </TouchableOpacity>
           </View>
-          <Text style={[styles.modalSub, { color: c.grey }]}>
-            Toggle a car to add or remove it from this group.
-          </Text>
-          <FlatList
-            data={garageData?.entries ?? []}
-            keyExtractor={(item) => item.internal_id}
-            contentContainerStyle={{ paddingBottom: 40 }}
-            ListEmptyComponent={<EmptyState title="No cars in your garage" message="Add a car first." />}
-            renderItem={({ item: car }) => {
-              const inGroup = car.group_id === groupId;
-              const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
-              return (
-                <TouchableOpacity
-                  style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
-                  onPress={async () => {
-                    await updateCarGroup({ carId: car.internal_id, groupId: inGroup ? null : groupId });
-                  }}
-                  disabled={updatingCarGroup}
-                  activeOpacity={0.8}
-                >
-                  {hero
-                    ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" />
-                    : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />
-                  }
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>
-                      {car.title || [car.year, car.make, car.model].filter(Boolean).join(' ')}
+        </View>
+
+        {/* Members strip */}
+        {members.length > 0 && (
+          <View style={[styles.membersStrip, { backgroundColor: c.card, borderBottomColor: c.border }]}>
+            <Text style={[styles.memberCount, { color: c.grey }]}>
+              {members.length} member{members.length !== 1 ? 's' : ''}
+            </Text>
+            <View style={styles.avatarRow}>
+              {members.slice(0, 10).map((m) => (
+                <View key={m.user_id} style={styles.avatarWrap}>
+                  <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={30} />
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Description */}
+        {group.body && (
+          <View style={[styles.bodyBlock, { backgroundColor: c.card, borderBottomColor: c.border }]}>
+            <Text style={[styles.bodyText, { color: c.fg }]}>{stripHtml(group.body)}</Text>
+          </View>
+        )}
+
+        {/* Cars in this group */}
+        <View style={styles.carsSection}>
+          <View style={styles.carsHeaderRow}>
+            <Text style={[styles.carsHeading, { color: c.grey }]}>CARS IN THIS GROUP</Text>
+            {canManageCars && (
+              <TouchableOpacity
+                style={[styles.associateBtn, { backgroundColor: c.primaryAlt }]}
+                onPress={() => setCarModalOpen(true)}
+                activeOpacity={0.85}
+              >
+                <Plus size={13} color="#FFFFFF" />
+                <Text style={styles.associateBtnText}>Associate cars</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {groupCars.length === 0 ? (
+            <Text style={[styles.carsEmpty, { color: c.grey }]}>No cars associated with this group yet.</Text>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carsScroll}>
+              {groupCars.map((car) => {
+                const img = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+                return (
+                  <TouchableOpacity
+                    key={car.internal_id}
+                    style={[styles.groupCarCard, { backgroundColor: c.card }]}
+                    onPress={() => (navigation as any).navigate('CarDetailModal', { carId: car.internal_id })}
+                    activeOpacity={0.88}
+                  >
+                    {img
+                      ? <Image source={{ uri: img }} style={styles.groupCarImg} contentFit="cover" />
+                      : <View style={[styles.groupCarImg, { backgroundColor: c.segment }]} />}
+                    <Text style={[styles.groupCarTitle, { color: c.fg }]} numberOfLines={1}>
+                      {[car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car'}
                     </Text>
-                  </View>
-                  <View style={[styles.toggleDot, inGroup && { backgroundColor: c.primaryAlt }]}>
-                    {inGroup && <View style={styles.toggleCheck} />}
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </SafeAreaView>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+
+        {/* Section tiles */}
+        <View style={styles.tilesSection}>
+          <Text style={[styles.tilesHeading, { color: c.grey }]}>SECTIONS</Text>
+          <View style={styles.tilesGrid}>
+            {tiles.map(({ key, label, Icon, color }) => (
+              <TouchableOpacity
+                key={key}
+                style={[styles.tile, { backgroundColor: c.card }]}
+                onPress={() => key === 'settings'
+                  ? (navigation as any).navigate('GroupSettings', { groupId })
+                  : goToSection(key)
+                }
+                activeOpacity={0.75}
+              >
+                <View style={[styles.tileIconWrap, { backgroundColor: color + '22' }]}>
+                  <Icon size={28} color={color} strokeWidth={1.8} />
+                </View>
+                <Text style={[styles.tileLabel, { color: c.fg }]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+      </ScrollView>
+
+      {/* Associate cars modal */}
+      <Modal visible={carModalOpen} transparent animationType="slide" onRequestClose={() => setCarModalOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCarModalOpen(false)} />
+          <View style={[styles.sheet, { backgroundColor: c.cream }]}>
+            <View style={[styles.sheetHeader, { borderBottomColor: c.border }]}>
+              <Text style={[styles.sheetTitle, { color: c.fg }]}>Associate cars</Text>
+              <TouchableOpacity onPress={() => setCarModalOpen(false)} hitSlop={8}>
+                <X size={22} color={c.grey} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.sheetHint, { color: c.grey }]}>Tap a car to add or remove it from this group.</Text>
+            <FlatList
+              data={myCars}
+              keyExtractor={(car: GarageCar) => car.internal_id}
+              contentContainerStyle={{ paddingBottom: 32 }}
+              renderItem={({ item }) => {
+                const associated = item.group_id === groupId;
+                const img = firstGalleryUrl(item.gallery) ?? (item.profile_image ? imageUrl(item.profile_image) : null);
+                return (
+                  <TouchableOpacity
+                    style={[styles.carPickRow, { borderBottomColor: c.border }]}
+                    onPress={() => updateCarGroup({ carId: item.internal_id, groupId: associated ? null : groupId })}
+                    activeOpacity={0.7}
+                  >
+                    {img
+                      ? <Image source={{ uri: img }} style={styles.carPickThumb} contentFit="cover" />
+                      : <View style={[styles.carPickThumb, { backgroundColor: c.segment }]} />}
+                    <Text style={[styles.carPickTitle, { color: c.fg }]} numberOfLines={1}>
+                      {[item.year, item.make, item.model].filter(Boolean).join(' ') || item.title || 'Car'}
+                    </Text>
+                    <View style={[styles.carCheck, { borderColor: associated ? c.primaryAlt : c.border }, associated && { backgroundColor: c.primaryAlt }]}>
+                      {associated && <Check size={14} color="#FFFFFF" />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <Text style={[styles.carsEmpty, { color: c.grey }]}>You have no cars in your garage yet.</Text>
+              }
+            />
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  list:         { paddingBottom: 32 },
+  scroll:       { paddingBottom: 40 },
 
   bannerWrap:   { position: 'relative' },
   banner:       { width: '100%', aspectRatio: 3 / 1 },
-  backBtn: {
+  backBtn:      {
     position: 'absolute', top: 12, left: 12,
     width: 34, height: 34, borderRadius: 17,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -597,52 +288,37 @@ const styles = StyleSheet.create({
   bodyBlock:    { padding: 16, borderBottomWidth: 1 },
   bodyText:     { fontSize: 15, lineHeight: 22 },
 
-  // Tab bar
-  tabBar:       { flexDirection: 'row', paddingHorizontal: 4 },
-  tabItem:      {
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
+  carsSection:   { paddingTop: 18 },
+  carsHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: TILE_GAP, marginBottom: 10 },
+  carsHeading:   { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  associateBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
+  associateBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  carsEmpty:     { paddingHorizontal: TILE_GAP, fontSize: 13, paddingVertical: 4 },
+  carsScroll:    { paddingHorizontal: TILE_GAP, gap: 10 },
+  groupCarCard:  { width: 150, borderRadius: 12, overflow: 'hidden' },
+  groupCarImg:   { width: '100%', height: 100 },
+  groupCarTitle: { fontSize: 13, fontWeight: '700', padding: 8 },
+
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet:         { maxHeight: '80%', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
+  sheetHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  sheetTitle:    { fontSize: 17, fontWeight: '800' },
+  sheetHint:     { fontSize: 13, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
+  carPickRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  carPickThumb:  { width: 54, height: 40, borderRadius: 6 },
+  carPickTitle:  { flex: 1, fontSize: 14, fontWeight: '600' },
+  carCheck:      { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+
+  tilesSection: { paddingHorizontal: TILE_GAP, paddingTop: 20 },
+  tilesHeading: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
+  tilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP },
+  tile:         {
+    width: TILE_WIDTH,
+    paddingVertical: 20, paddingHorizontal: 16,
+    borderRadius: 14, alignItems: 'center', gap: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  tabItemActive: { borderBottomColor: colors.primaryAlt },
-  tabText:      { fontSize: 14, fontWeight: '600' },
-
-  // Search
-  searchWrap:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
-  searchInput:  { flex: 1, fontSize: 14, paddingVertical: 0 },
-
-  loader:       { marginVertical: 40 },
-
-  // Row items
-  rowTitle:     { fontSize: 15, fontWeight: '700', marginBottom: 3 },
-  rowBody:      { fontSize: 13, lineHeight: 18, marginBottom: 3 },
-  rowMeta:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  metaText:     { fontSize: 12 },
-  votes:        { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  rowThumb:     { width: 72, height: 52, borderRadius: 8 },
-
-  newsCard:     { marginHorizontal: 12, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
-  newsImage:    { width: '100%', aspectRatio: 16 / 9 },
-  newsPad:      { padding: 12 },
-
-  resourceIcon: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-
-  adminBadge:   { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  adminText:    { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
-
-  // Cars CTA
-  carsCta:      {
-    margin: 12, marginBottom: 0, padding: 14, borderRadius: 10,
-    borderWidth: 1.5, alignItems: 'center',
-  },
-  carsCtaText:  { fontSize: 14, fontWeight: '700' },
-
-  // Add cars modal
-  modalHeader:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  modalTitle:   { fontSize: 17, fontWeight: '700' },
-  modalDone:    { fontSize: 15, fontWeight: '600' },
-  modalSub:     { fontSize: 13, paddingHorizontal: 16, paddingVertical: 10 },
-
-  // Toggle
-  toggleDot:    { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  toggleCheck:  { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFFFFF' },
+  tileIconWrap: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  tileLabel:    { fontSize: 15, fontWeight: '700' },
 });

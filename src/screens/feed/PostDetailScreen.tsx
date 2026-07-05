@@ -6,8 +6,9 @@ import {
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Settings, MessageCircle } from 'lucide-react-native';
+import { X, MessageCircle } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
+import PostOwnerMenu from '../../components/social/PostOwnerMenu';
 import { useNavigation } from '@react-navigation/native';
 import { useGetPostQuery, useGetCommentsQuery, useCreateCommentMutation, useGetPostCountsQuery, useGetLikeInfoQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -142,6 +143,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const [editOpen, setEditOpen] = useState(false);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
 
+  // Auto-open the editor when deep-linked with edit=true (from the "..." menu).
+  useEffect(() => {
+    if ((route.params as any)?.edit) setEditOpen(true);
+  }, [route.params]);
+
   // Navigate back if this post gets reported/hidden
   useEffect(() => {
     if (hiddenIds.includes(postId)) navigation.goBack();
@@ -180,9 +186,15 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         </TouchableOpacity>
         <Text style={[styles.modalHeaderTitle, { color: colors.fg }]}>Post</Text>
         {isOwner ? (
-          <TouchableOpacity onPress={() => setEditOpen(true)} hitSlop={8} style={styles.modalHeaderBtn}>
-            <Settings size={22} color={colors.fg} />
-          </TouchableOpacity>
+          <View style={styles.modalHeaderBtn}>
+            <PostOwnerMenu
+              postId={postId}
+              size={22}
+              color={colors.fg}
+              onEdit={() => setEditOpen(true)}
+              onDeleted={() => navigation.goBack()}
+            />
+          </View>
         ) : (
           <View style={styles.modalHeaderBtn}>
             <ReportButton contentType="post" contentId={postId} size={22} />

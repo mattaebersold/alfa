@@ -1,14 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput, Alert,
+  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, TextInput, Alert, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Plus } from 'lucide-react-native';
+import { Search, Plus, Users } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
-import { useIsPro, useBrandTextColor } from '../../hooks/useBrandColor';
+import { useBrandTextColor } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
@@ -21,6 +22,13 @@ import type { Group } from '../../types/api';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MY_CARD_WIDTH = SCREEN_WIDTH * 0.62;
+const MY_CARD_GAP = 10;
+
+const ADMIN_BADGE = { label: 'ADMIN', bg: '#CDA96F', fg: '#000000' };
+const MEMBER_BADGE = { label: 'MEMBER', bg: '#2F6FED', fg: '#FFFFFF' };
 
 function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
   const colors = useColors();
@@ -40,50 +48,51 @@ function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
   );
 }
 
-function GroupRow({ group, onPress }: { group: Group; onPress: () => void }) {
+function MyGroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
   const colors = useColors();
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
+  const isAdmin = group.membership?.member_type === 'admin';
+  const badge = isAdmin ? ADMIN_BADGE : MEMBER_BADGE;
   return (
-    <TouchableOpacity style={[styles.groupRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.myCard} onPress={onPress} activeOpacity={0.95}>
       {banner
-        ? <Image source={{ uri: banner }} style={styles.rowThumb} contentFit="cover" />
-        : <View style={[styles.rowThumb, { backgroundColor: colors.primaryAlt + '55' }]} />
+        ? <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primaryAlt }]} />
       }
-      <View style={styles.rowBody}>
-        <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
-        {group.subtitle && <Text style={[styles.rowSub, { color: colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>}
-        {group.region && <Text style={[styles.rowRegion, { color: colors.grey }]}>{group.region}</Text>}
+      <View style={styles.myCardOverlay} />
+      <View style={[styles.myCardBadge, { backgroundColor: badge.bg }]}>
+        <Text style={[styles.myCardBadgeText, { color: badge.fg }]}>{badge.label}</Text>
+      </View>
+      <View style={styles.myCardInfo}>
+        <Text style={styles.myCardTitle} numberOfLines={1}>{group.title}</Text>
+        {typeof group.member_count === 'number' && (
+          <View style={styles.myCardMembers}>
+            <Users size={13} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.myCardMembersText}>{group.member_count}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
-  );
-}
-
-function SectionHeader({ title, colors }: { title: string; colors: ReturnType<typeof useColors> }) {
-  return (
-    <View style={[styles.sectionHeader, { backgroundColor: colors.segment, borderBottomColor: colors.border }]}>
-      <Text style={[styles.sectionTitle, { color: colors.grey }]}>{title.toUpperCase()}</Text>
-    </View>
   );
 }
 
 export default function GroupsScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const tabBarHeight = useBottomTabBarHeight();
   const { userInfo } = useAppSelector((s) => s.auth);
-  const isPro = useIsPro();
   const brandTextColor = useBrandTextColor();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
 
+  const isAdmin = userInfo?.accountType === 'admin';
+
   const { data: rawUserGroups, isLoading: userGroupsLoading } = useGetUserGroupsQuery(
     userInfo?.user_id ?? '',
     { skip: !userInfo?.user_id },
   );
-  // API may return Group[] or { entries: Group[] } depending on backend
-  const userGroups: Group[] = Array.isArray(rawUserGroups)
-    ? rawUserGroups
-    : (rawUserGroups as any)?.entries ?? [];
+  const userGroups: Group[] = rawUserGroups ?? [];
 
   const { data, isFetching, isLoading: allGroupsLoading, refetch } = useGetGroupsQuery({ page, limit: 20 });
 
@@ -97,8 +106,6 @@ export default function GroupsScreen() {
     }
   }, [data, page]);
 
-  const adminGroups = userGroups.filter((g) => g.membership?.member_type === 'admin');
-  const memberGroups = userGroups.filter((g) => g.membership?.member_type === 'basic');
   const userGroupIds = new Set(userGroups.map((g) => g.internal_id));
 
   const searchLower = search.trim().toLowerCase();
@@ -130,15 +137,32 @@ export default function GroupsScreen() {
           keyExtractor={(g) => g.internal_id}
           numColumns={2}
           columnWrapperStyle={styles.cardRow}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
           refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              {isPro && (
-                <View style={[styles.createGroupRow, { borderBottomColor: colors.border }]}>
+              {userGroups.length > 0 && (
+                <View style={styles.myGroupsSection}>
+                  <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.myGroupsList}
+                    snapToInterval={MY_CARD_WIDTH + MY_CARD_GAP}
+                    decelerationRate="fast"
+                  >
+                    {userGroups.map((item) => (
+                      <MyGroupCard key={item.internal_id} group={item} onPress={() => goToGroup(item.internal_id)} />
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {isAdmin && (
+                <View style={styles.createGroupRow}>
                   <TouchableOpacity
                     style={[styles.createGroupBtn, { backgroundColor: colors.primaryAlt }]}
                     onPress={() => Alert.alert('Coming soon', 'Group creation will be available in a future update.')}
@@ -150,27 +174,6 @@ export default function GroupsScreen() {
                 </View>
               )}
 
-              {adminGroups.length > 0 && (
-                <View>
-                  <SectionHeader title="Groups You Manage" colors={colors} />
-                  {adminGroups.map((g) => (
-                    <GroupRow key={g.internal_id} group={g} onPress={() => goToGroup(g.internal_id)} />
-                  ))}
-                </View>
-              )}
-
-              {memberGroups.length > 0 && (
-                <View>
-                  <SectionHeader title="Member Of" colors={colors} />
-                  {memberGroups.map((g) => (
-                    <GroupRow key={g.internal_id} group={g} onPress={() => goToGroup(g.internal_id)} />
-                  ))}
-                </View>
-              )}
-
-              <SectionHeader title="All Groups" colors={colors} />
-
-              {/* Search bar */}
               <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Search size={15} color={colors.grey} />
                 <TextInput
@@ -195,7 +198,7 @@ export default function GroupsScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <EmptyState title={search ? 'No groups match your search' : 'No groups yet'} />
+              <EmptyState title={search ? 'No groups match your search' : 'No groups'} />
             </View>
           }
         />
@@ -208,22 +211,44 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   list:    { paddingBottom: 32 },
 
-  sectionHeader: {
-    paddingHorizontal: 16, paddingVertical: 8,
+  screenTitleBar: {
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  sectionTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
+  screenTitle: { fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
 
-  groupRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  myGroupsSection: { paddingTop: 14, paddingBottom: 6 },
+  myGroupsHeading: {
+    fontSize: 16, fontWeight: '800', letterSpacing: 0.4,
+    paddingHorizontal: 14, marginBottom: 10,
   },
-  rowThumb:  { width: 52, height: 36, borderRadius: 6, overflow: 'hidden' },
-  rowBody:   { flex: 1 },
-  rowTitle:  { fontSize: 14, fontWeight: '700' },
-  rowSub:    { fontSize: 12, marginTop: 1 },
-  rowRegion: { fontSize: 11, marginTop: 1 },
+  myGroupsList: { paddingHorizontal: 12, gap: MY_CARD_GAP },
+  myCard: {
+    width: MY_CARD_WIDTH,
+    height: 200,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#111',
+  },
+  myCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  myCardInfo: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  myCardTitle:  { flex: 1, fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  myCardMembers: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  myCardMembersText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
+  myCardBadge:  {
+    position: 'absolute', top: 10, left: 10,
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 6,
+  },
+  myCardBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -247,14 +272,12 @@ const styles = StyleSheet.create({
   emptyWrap: { paddingTop: 20 },
 
   createGroupRow: {
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    alignItems: 'flex-start',
+    paddingHorizontal: 12, paddingVertical: 12,
   },
   createGroupBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 9,
-    borderRadius: 999,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  createGroupText: { fontWeight: '700', fontSize: 14 },
+  createGroupText: { fontWeight: '800', fontSize: 15 },
 });

@@ -14,10 +14,11 @@ function perceivedBrightness(hex: string): number {
   return (r * 299 + g * 587 + b * 114) / 1000;
 }
 
-/** Returns the active brand color (primaryAlt or primaryPro for pro users). */
+/** Returns the active brand color — gold for pro/admin users, primaryAlt otherwise. */
 export function useBrandColor(): string {
   const c = useColors();
-  return c.primaryAlt;
+  const isPro = useIsPro();
+  return isPro ? c.pro : c.primaryAlt;
 }
 
 /** Returns white or black depending on perceived brightness of the brand color. */

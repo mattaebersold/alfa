@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator, Platform, Keyboard,
+  ScrollView, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../utils/upload';
 import { ImagePlus, X } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -103,11 +104,7 @@ export default function EventCreateScreen() {
     if (location.trim()) fd.append('location', location.trim());
 
     images.forEach((img) => {
-      fd.append('gallery', {
-        uri: Platform.OS === 'ios' ? img.uri.replace('file://', '') : img.uri,
-        name: img.name,
-        type: img.type,
-      } as any);
+      fd.append('gallery', uploadFile(img.uri));
     });
 
     try {

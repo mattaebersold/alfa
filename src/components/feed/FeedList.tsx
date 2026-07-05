@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useGetPostsQuery, useGetBatchLikesMutation } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
 import CommentsSheet from '../social/CommentsSheet';
@@ -31,6 +32,7 @@ export default function FeedList({
   ListHeaderComponent,
 }: FeedListProps) {
   const colors = useColors();
+  const tabBarHeight = useBottomTabBarHeight();
   const contentFilterEnabled = useAppSelector((s) => (s as any).moderation?.contentFilterEnabled ?? false);
   const [page, setPage] = useState(0);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
@@ -150,7 +152,7 @@ export default function FeedList({
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
       />
       {commentPost && (
         <CommentsSheet
@@ -166,6 +168,6 @@ export default function FeedList({
 
 const styles = StyleSheet.create({
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  list:          { paddingVertical: 8, flexGrow: 1 },
+  list:          { paddingTop: 0, paddingBottom: 8, flexGrow: 1 },
   footer:        { padding: 20, alignItems: 'center' },
 });

@@ -3,10 +3,10 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
   Pressable, Linking, Animated, Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  House, Car, Users, ShoppingBag, BookOpen, Headphones, Search,
-  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, User,
+  House, Car, Users, ShoppingBag, BookOpen, Headphones,
+  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -51,6 +51,7 @@ interface NavDrawerProps {
 
 export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const navigation = useNavigation<NavProp>();
+  const insets = useSafeAreaInsets();
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const brandColor = useBrandColor();
@@ -107,7 +108,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
         <Animated.View style={[styles.panel, { backgroundColor: brandColor, transform: [{ translateX }] }]}>
-          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+          <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
             {/* Header */}
             <View style={styles.panelHeader}>
               <Text style={[styles.panelLogo, { color: textHi }]}>Open Road Society</Text>
@@ -147,27 +148,28 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               }} />
               <NavRow label="Events" Icon={Flag} textMid={textMid} textHi={textHi} onPress={() => {
                 handleClose();
-                navigation.navigate('MainTabs', { screen: 'SocietyTab' });
+                navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Society' } } as any);
               }} />
               <NavRow label="Marketplace" Icon={ShoppingBag} textMid={textMid} textHi={textHi} onPress={() => {
                 handleClose();
                 navigation.navigate('Marketplace');
               }} />
+              <NavRow label="Shop"      Icon={Store}       textMid={textMid} textHi={textHi} onPress={() => {
+                handleClose();
+                navigation.navigate('Shop');
+              }} />
               <NavRow label="Cars"      Icon={Car}         textMid={textMid} textHi={textHi} onPress={() => { handleClose(); navigation.navigate('MainTabs', { screen: 'CarsTab' }); }} />
               <NavRow label="Groups"    Icon={Users}       textMid={textMid} textHi={textHi} onPress={() => goFeed('Groups')} />
               <NavRow label="Members"   Icon={Users}       textMid={textMid} textHi={textHi} onPress={() => {
                 handleClose();
-                navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Members' } } as any);
+                navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Members' } } as any);
               }} />
               <NavRow label="Articles"  Icon={BookOpen}    textMid={textMid} textHi={textHi} onPress={() => goFeed('Articles')} />
               <NavRow label="Podcasts"  Icon={Headphones}  textMid={textMid} textHi={textHi} onPress={() => goFeed('Podcasts')} />
-              <NavRow label="Search"    Icon={Search}      textMid={textMid} textHi={textHi} onPress={() => goFeed('Search')} />
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>MY ACCOUNT</Text>
               <NavRow label="Dashboard" Icon={LayoutDashboard} textMid={textMid} textHi={textHi} onPress={() => goFeed('Dashboard')} />
-              <NavRow label="Profile"   Icon={User}            textMid={textMid} textHi={textHi} onPress={() => { handleClose(); (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } }); }} />
               <NavRow label="Settings"  Icon={Settings}        textMid={textMid} textHi={textHi} onPress={() => { handleClose(); navigation.navigate('Settings'); }} />
-              <NavRow label="Log Out"   Icon={LogOut}          textMid={textMid} textHi={textHi} onPress={() => { handleClose(); dispatch(logout()); }} />
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>MORE</Text>
               <TouchableOpacity
@@ -189,6 +191,14 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
             </ScrollView>
 
             <View style={[styles.footer, { borderTopColor: divider }]}>
+              <TouchableOpacity
+                style={[styles.logoutBtn, { borderColor: divider }]}
+                onPress={() => { handleClose(); dispatch(logout()); }}
+                activeOpacity={0.8}
+              >
+                <LogOut size={17} color={textHi} />
+                <Text style={[styles.logoutText, { color: textHi }]}>Log Out</Text>
+              </TouchableOpacity>
               <View style={styles.footerLinks}>
                 <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')} hitSlop={8} style={styles.footerLinkBtn}>
                   <Text style={[styles.footerLink, { color: textLo }]}>Privacy</Text>
@@ -200,7 +210,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               </View>
               <Text style={[styles.footerCopy, { color: textLo }]}>© {new Date().getFullYear()} Open Road Society</Text>
             </View>
-          </SafeAreaView>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -242,9 +252,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 20, paddingBottom: 4,
   },
   footer:        { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth },
+  logoutBtn:     {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, marginBottom: 14,
+  },
+  logoutText:    { fontSize: 15, fontWeight: '800' },
   footerLinks:   { flexDirection: 'row', gap: 8, marginBottom: 6 },
   footerLinkBtn: { paddingVertical: 6, paddingHorizontal: 4 },
-  footerLink:    { fontSize: 11 },
-  footerDot:     { fontSize: 11, lineHeight: 23 },
-  footerCopy:    { fontSize: 11 },
+  footerLink:    { fontSize: 12 },
+  footerDot:     { fontSize: 12, lineHeight: 23 },
+  footerCopy:    { fontSize: 12 },
 });

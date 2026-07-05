@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
@@ -63,7 +63,9 @@
       ],
       "expo-video",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      "expo-image",
+      "expo-status-bar"
     ],
     "scheme": "openroadsociety",
     "extra": {

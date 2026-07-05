@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BlurView } from 'expo-blur';
 import { Home, Users, Car, Plus } from 'lucide-react-native';
-import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import CheckeredFlag from '../components/ui/CheckeredFlag';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
@@ -11,6 +13,7 @@ import GroupsStackNavigator from './GroupsStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
 import { colors } from '../constants/colors';
 import { useBrandColor, useBrandTextColor } from '../hooks/useBrandColor';
+import { useAppSelector } from '../store/store';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -24,35 +27,71 @@ function perceivedBrightness(hex: string): number {
 // Empty placeholder — never actually rendered (Create tab intercepted before navigation)
 function EmptyScreen() { return null; }
 
+function TabIcon({
+  Icon, color, size, focused, brandColor,
+}: {
+  Icon: React.ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
+  color: string;
+  size: number;
+  focused: boolean;
+  brandColor: string;
+}) {
+  return (
+    <View style={[styles.iconWrap, focused && { backgroundColor: brandColor + '2E' }]}>
+      <Icon color={color} size={size - 2} strokeWidth={focused ? 2.7 : 2} />
+    </View>
+  );
+}
+
 export default function MainTabNavigator() {
-  const isDark = useColorScheme() === 'dark';
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 56 + insets.bottom;
+  const tabBarHeight = 88 + insets.bottom;
 
   const brandColor = useBrandColor();
   const fabIconColor = useBrandTextColor();
+  const rootNav = useNavigation<any>();
+  const { userInfo } = useAppSelector((s) => s.auth);
+  const isAdmin = userInfo?.accountType === 'admin';
+
+  const openCreateMenu = () => {
+    Alert.alert('Create', undefined, [
+      { text: 'Post', onPress: () => rootNav.navigate('Create') },
+      { text: 'Garage Car', onPress: () => rootNav.navigate('CarCreate') },
+      { text: 'Diecast Listing', onPress: () => rootNav.navigate('DiecastCreate') },
+      ...(isAdmin ? [{ text: 'Event', onPress: () => rootNav.navigate('EventCreate') }] : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: isDark ? colors.brgDark : colors.brg,
+          position: 'absolute',
+          left: 0, right: 0, bottom: 0,
+          backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
           height: tabBarHeight,
           paddingBottom: insets.bottom + 8,
           paddingTop: 8,
         },
+        tabBarBackground: () => (
+          <View style={StyleSheet.absoluteFill}>
+            <BlurView tint="dark" intensity={40} style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, styles.tabBarTint]} />
+          </View>
+        ),
         tabBarActiveTintColor: brandColor,
         tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
-          marginTop: 2,
+          fontSize: 12,
+          fontWeight: '700',
+          marginTop: 12,
         },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 0,
         },
       }}
     >
@@ -61,7 +100,9 @@ export default function MainTabNavigator() {
         component={FeedStackNavigator}
         options={{
           title: 'Feed',
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size - 2} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={Home} color={color} size={size} focused={focused} brandColor={brandColor} />
+          ),
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
@@ -75,8 +116,16 @@ export default function MainTabNavigator() {
         component={SocietyStackNavigator}
         options={{
           title: 'Events',
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size - 2} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={CheckeredFlag} color={color} size={size} focused={focused} brandColor={brandColor} />
+          ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('SocietyTab', { screen: 'Society' });
+          },
+        })}
       />
 
       {/* Center + button */}
@@ -92,12 +141,12 @@ export default function MainTabNavigator() {
           ),
           tabBarLabel: () => null,
         }}
-        listeners={({ navigation }) => ({
+        listeners={{
           tabPress: (e) => {
             e.preventDefault();
-            (navigation as any).navigate('Create');
+            openCreateMenu();
           },
-        })}
+        }}
       />
 
       <Tab.Screen
@@ -105,7 +154,9 @@ export default function MainTabNavigator() {
         component={GroupsStackNavigator}
         options={{
           title: 'Groups',
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size - 2} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={Users} color={color} size={size} focused={focused} brandColor={brandColor} />
+          ),
         }}
       />
       <Tab.Screen
@@ -113,7 +164,9 @@ export default function MainTabNavigator() {
         component={CarsStackNavigator}
         options={{
           title: 'Cars',
-          tabBarIcon: ({ color, size }) => <Car color={color} size={size - 2} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={Car} color={color} size={size} focused={focused} brandColor={brandColor} />
+          ),
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
@@ -127,17 +180,28 @@ export default function MainTabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  tabBarTint: { backgroundColor: 'rgba(0,0,0,0.8)' },
+
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
   fab: {
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: -8,
     marginBottom: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 10,
   },
 });

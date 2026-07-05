@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../utils/upload';
 import { ImagePlus, X } from 'lucide-react-native';
 import { useGetListQuery, useUpdateListMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -70,7 +71,7 @@ export default function EditListScreen() {
     fd.append('category', category);
     fd.append('private', String(isPrivate));
     if (imageFile) {
-      fd.append('gallery', imageFile as any);
+      fd.append('gallery', uploadFile(imageFile.uri));
     }
 
     try {

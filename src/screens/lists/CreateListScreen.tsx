@@ -7,6 +7,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../utils/upload';
 import { ImagePlus, X } from 'lucide-react-native';
 import { useCreateListMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -51,7 +52,7 @@ export default function CreateListScreen() {
     fd.append('category', category);
     fd.append('private', String(isPrivate));
     if (imageFile) {
-      fd.append('gallery', imageFile as any);
+      fd.append('gallery', uploadFile(imageFile.uri));
     }
 
     try {

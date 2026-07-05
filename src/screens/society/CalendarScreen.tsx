@@ -42,10 +42,14 @@ export default function CalendarScreen() {
     return [...padded, ...allDays];
   }, [currentDate]);
 
-  // Events on selected date
+  // Events on selected date, or upcoming events when none selected
   const selectedEvents = useMemo(() => {
-    if (!selectedDate) return events;
-    return events.filter((e) => e.event_date && isSameDay(new Date(e.event_date), selectedDate));
+    if (selectedDate) {
+      return events.filter((e) => e.event_date && isSameDay(new Date(e.event_date), selectedDate));
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return events.filter((e) => e.event_date && new Date(e.event_date) >= today);
   }, [selectedDate, events]);
 
   // Dates that have events
@@ -108,7 +112,7 @@ export default function CalendarScreen() {
       {/* Events for selected date or all events */}
       <View style={[styles.listHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
         <Text style={[styles.listHeaderText, { color: colors.grey }]}>
-          {selectedDate ? format(selectedDate, 'MMMM d') : 'All Events'}
+          {selectedDate ? format(selectedDate, 'MMMM d') : 'Upcoming Events'}
         </Text>
         {selectedDate && (
           <TouchableOpacity onPress={() => setSelectedDate(null)}>
@@ -141,7 +145,7 @@ export default function CalendarScreen() {
               </View>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<EmptyState title="No events" message={selectedDate ? 'No events on this day.' : 'No events this month.'} />}
+          ListEmptyComponent={<EmptyState title="No events" message={selectedDate ? 'No events on this day.' : 'No upcoming events this month.'} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.eventList}
         />

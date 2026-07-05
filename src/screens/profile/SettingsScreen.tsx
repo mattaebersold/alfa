@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../utils/upload';
 import { Image } from 'expo-image';
 import {
   useGetLoggedInUserQuery,
@@ -220,11 +221,7 @@ export default function SettingsScreen() {
     if (result.canceled) return;
     const asset = result.assets[0];
     const formData = new FormData();
-    formData.append('file', {
-      uri: asset.uri,
-      type: asset.mimeType ?? 'image/jpeg',
-      name: asset.fileName ?? 'photo.jpg',
-    } as any);
+    formData.append('file', uploadFile(asset.uri));
     formData.append('userid', userid ?? '');
     try {
       await updateImage({ type, formData }).unwrap();

@@ -6,6 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { uploadFile } from '../../utils/upload';
 import { useNavigation } from '@react-navigation/native';
 import { StackActions } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
@@ -43,18 +44,10 @@ export default function StoryDetailsScreen({ route }: Props) {
       if (body.trim()) fd.append('body', body.trim());
 
       // Thumbnail as gallery[0]
-      fd.append('gallery', {
-        uri: Platform.OS === 'ios' ? thumbnailUri.replace('file://', '') : thumbnailUri,
-        name: 'thumbnail.jpg',
-        type: 'image/jpeg',
-      } as any);
+      fd.append('gallery', uploadFile(thumbnailUri));
 
       // Video
-      fd.append('video', {
-        uri: Platform.OS === 'ios' ? videoUri.replace('file://', '') : videoUri,
-        name: 'story.mp4',
-        type: 'video/mp4',
-      } as any);
+      fd.append('video', uploadFile(videoUri));
 
       await createPost(fd).unwrap();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

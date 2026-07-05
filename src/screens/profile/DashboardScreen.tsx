@@ -577,7 +577,7 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  content:        { padding: 16, gap: 14, paddingBottom: 40 },
+  content:        { padding: 16, gap: 14, paddingBottom: 160 },
 
   profileCard:    {
     flexDirection: 'row', alignItems: 'flex-start', gap: 14,

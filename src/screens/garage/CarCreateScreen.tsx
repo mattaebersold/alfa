@@ -6,6 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../utils/upload';
 import { X, Plus, Camera } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
@@ -375,7 +376,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
     if (!isEditMode)     fd.append('entry_type', 'garagecar');
 
     form.images.forEach((img) => {
-      fd.append('gallery', { uri: img.uri, name: img.name, type: img.type } as any);
+      fd.append('gallery', uploadFile(img.uri));
     });
 
     try {

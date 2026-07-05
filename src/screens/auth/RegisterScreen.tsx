@@ -10,6 +10,7 @@ import { ChevronLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import * as ImagePicker from 'expo-image-picker';
+import { uploadFile } from '../../utils/upload';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
@@ -101,11 +102,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     fd.append('zip', form.zip.trim());
 
     if (photo) {
-      fd.append('profilePhoto', {
-        uri: photo.uri,
-        name: 'profile.jpg',
-        type: 'image/jpeg',
-      } as any);
+      fd.append('profilePhoto', uploadFile(photo.uri));
     }
 
     dispatch(clearError());

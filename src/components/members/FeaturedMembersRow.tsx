@@ -1,78 +1,124 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useGetSiteSettingsQuery } from '../../api/apiService';
+import { Car } from 'lucide-react-native';
+import SteeringWheel from '../ui/SteeringWheel';
+import { useGetSiteSettingsQuery, useGetCarsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
-import { useColors } from '../../hooks/useColors';
 
-const CARD_SIZE = 140;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH * 0.40;
+const CARD_GAP = 10;
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 interface Props {
   onMemberPress: (userId: string, username: string) => void;
 }
 
+function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
+  const { data: carsData } = useGetCarsQuery({ user_id: member.user_id, limit: 1 }, { skip: !member.user_id });
+  const carCount = carsData?.total ?? 0;
+  const photo = member.gallery?.[0]?.filename ? imageUrl(member.gallery[0].filename) : null;
+  const isPro = member.accountType === 'pro' || member.accountType === 'admin';
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
+      {photo ? (
+        <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#222' }]} />
+      )}
+      <View style={styles.overlay} />
+      {isPro && <View style={styles.proBorder} pointerEvents="none" />}
+      <View style={styles.info}>
+        {isPro && (
+          <View style={styles.proWheelBadge}>
+            <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />
+          </View>
+        )}
+        <Text style={styles.username} numberOfLines={1}>@{member.username}</Text>
+        {carCount > 0 && (
+          <View style={styles.carRow}>
+            <Car size={14} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.carCount}>{carCount}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function FeaturedMembersRow({ onMemberPress }: Props) {
-  const colors = useColors();
   const { data } = useGetSiteSettingsQuery();
-  const members = data?.featured_users ?? [];
+  const raw = data?.featured_users ?? [];
+  const members = useMemo(() => shuffle(raw), [raw.length]);
 
   if (!members.length) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-      <Text style={[styles.heading, { color: colors.fg }]}>Featured Members</Text>
+    <View style={styles.container}>
+      <Text style={styles.heading}>Featured Members</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        snapToInterval={CARD_WIDTH + CARD_GAP}
+        decelerationRate="fast"
+        pagingEnabled={false}
       >
-        {members.map((member) => {
-          const photo = member.gallery?.[0]?.filename ? imageUrl(member.gallery[0].filename) : null;
-          return (
-            <TouchableOpacity
-              key={member.user_id}
-              style={styles.card}
-              onPress={() => onMemberPress(member.user_id, member.username)}
-              activeOpacity={0.88}
-            >
-              {photo ? (
-                <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
-              ) : (
-                <View style={[styles.photo, { backgroundColor: colors.border }]} />
-              )}
-              <View style={styles.gradient} />
-              <View style={styles.info}>
-                <Text style={styles.username} numberOfLines={1}>@{member.username}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+        {members.map((member) => (
+          <MemberCard
+            key={member.user_id}
+            member={member}
+            onPress={() => onMemberPress(member.user_id, member.username)}
+          />
+        ))}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:  { paddingTop: 14, paddingBottom: 4, borderBottomWidth: 1 },
-  heading:    { fontSize: 13, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 12, marginBottom: 10 },
-  scroll:     { paddingHorizontal: 12, gap: 10, paddingBottom: 12 },
+  container:  { backgroundColor: '#000', paddingTop: 14, paddingBottom: 14 },
+  heading:    { fontSize: 16, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF' },
+  scroll:     { gap: CARD_GAP, paddingHorizontal: 0 },
   card:       {
-    width: CARD_SIZE, height: CARD_SIZE,
-    borderRadius: 10, overflow: 'hidden',
-    position: 'relative',
+    width: CARD_WIDTH,
+    aspectRatio: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#111',
   },
-  photo:      { ...StyleSheet.absoluteFillObject },
-  gradient:   {
+  overlay:    {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
   info:       {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    padding: 7,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  username:   { fontSize: 11, fontWeight: '700', color: '#fff' },
-  name:       { fontSize: 10, color: 'rgba(255,255,255,0.75)', marginTop: 1 },
+  username:   { flex: 1, fontSize: 12, fontWeight: '700', color: '#fff' },
+  carRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  carCount:   { fontSize: 14, color: 'rgba(255,255,255,0.9)', fontWeight: '700' },
+  proBorder:  {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 5, borderColor: '#CDA96F', borderRadius: 14,
+  },
+  proWheelBadge: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#CDA96F',
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

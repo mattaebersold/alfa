@@ -6,7 +6,7 @@ export const colors = {
   // Brand
   brg:       '#191919',
   brgDark:   '#0A0A0A',
-  brgLight:  '#252525',
+  brgLight:  '#202020',
 
   // Accent
   primaryAlt:'rgb(37, 162, 211)',
@@ -75,4 +75,30 @@ export const BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
   update:   { bg: colors.badgeUpdate,  fg: colors.badgeUpdateFg },
   post:     { bg: colors.badgeDefault, fg: colors.badgeFg },
   default:  { bg: colors.badgeDefault, fg: colors.badgeFg },
+};
+
+// Softer pastel palette for the secondary "category" badge, so it reads as a
+// sub-tag next to the vivid primary type badge.
+export const CATEGORY_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
+  // general
+  show:         { bg: '#B39DFF', fg: '#000000' },
+  misc:         { bg: '#CFD3D6', fg: '#000000' },
+  general:      { bg: '#F0D689', fg: '#000000' },
+  // record
+  mod:          { bg: '#7FD4FF', fg: '#000000' },
+  restoration:  { bg: '#FFB59B', fg: '#000000' },
+  maintenance:  { bg: '#8FD9DC', fg: '#000000' },
+  detailing:    { bg: '#8FE6D8', fg: '#000000' },
+  // listing
+  new:          { bg: '#7CFF9E', fg: '#000000' },
+  used:         { bg: '#F6E4AE', fg: '#000000' },
+  accessories:  { bg: '#FBC8FC', fg: '#000000' },
+  // want / listing shared
+  car:          { bg: '#FFFD9E', fg: '#000000' },
+  part:         { bg: '#9FDCFF', fg: '#000000' },
+  other:        { bg: '#D6D6D6', fg: '#000000' },
+  // spot
+  museum:       { bg: '#E6C860', fg: '#000000' },
+  wild:         { bg: '#B6DFA0', fg: '#000000' },
+  default:      { bg: '#E0E0E0', fg: '#000000' },
 };

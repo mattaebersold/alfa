@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../../constants/colors';
 
 type Variant = 'primary' | 'secondary' | 'dark' | 'outline' | 'destructive' | 'ghost' | 'link';
@@ -24,17 +24,16 @@ const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = 
 export default function Button({
   label, onPress, variant = 'primary', size = 'default', loading = false, disabled = false,
 }: ButtonProps) {
-  const isDark = useColorScheme() === 'dark';
   const s = SIZE_STYLES[size];
 
   const getStyles = (): { bg: string; fg: string; border?: string } => {
     switch (variant) {
       case 'primary':     return { bg: '#08DEE3', fg: '#000000' };
-      case 'secondary':   return { bg: isDark ? '#2A2A2A' : colors.secondary, fg: isDark ? '#FFFFFF' : colors.fg };
+      case 'secondary':   return { bg: '#2A2A2A', fg: '#FFFFFF' };
       case 'dark':        return { bg: colors.primaryAlt, fg: '#FFFFFF' };
-      case 'outline':     return { bg: 'transparent', fg: isDark ? '#FFFFFF' : colors.primaryAlt, border: isDark ? '#FFFFFF' : colors.primaryAlt };
+      case 'outline':     return { bg: 'transparent', fg: '#FFFFFF', border: '#FFFFFF' };
       case 'destructive': return { bg: '#FF0000', fg: '#FFFFFF' };
-      case 'ghost':       return { bg: 'transparent', fg: isDark ? '#BBBBBB' : colors.grey };
+      case 'ghost':       return { bg: 'transparent', fg: '#BBBBBB' };
       case 'link':        return { bg: 'transparent', fg: '#08DEE3' };
     }
   };

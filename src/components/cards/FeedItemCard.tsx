@@ -11,11 +11,13 @@ import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../ui/Badge';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import ReportButton from '../ui/ReportButton';
+import PostOwnerMenu from '../social/PostOwnerMenu';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 
-import { colors } from '../../constants/colors';
+import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
+import { DIECAST_BLUE } from '../../constants/diecast';
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
@@ -55,10 +57,19 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
   const galleryCount = post.gallery?.length ?? 0;
+  const isDiecast = post.category === 'diecast';
+  const cardBg = isDiecast ? DIECAST_BLUE : colors.card;
+  const fgColor = isDiecast ? '#FFFFFF' : colors.fg;
+  const mutedColor = isDiecast ? 'rgba(255,255,255,0.7)' : colors.muted;
+  const timeColor = isDiecast ? 'rgba(255,255,255,0.6)' : colors.grey;
+  const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
+  const categoryBadge = post.category
+    ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
+    : null;
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card }]}
+      style={[styles.card, { backgroundColor: cardBg }]}
       onPress={onPress}
       activeOpacity={0.95}
     >
@@ -70,32 +81,19 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       >
         <Avatar filename={avatarFilename} name={displayName} size={36} />
         <View style={styles.headerText}>
-          <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
+          <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
         </View>
-        <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
-        {userInfo?.user_id !== post.user_id && (
+        <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
+        {userInfo?.user_id === post.user_id ? (
+          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? '#FFFFFF' : colors.grey} />
+        ) : (
           <ReportButton contentType="post" contentId={post.internal_id} size={18} />
         )}
       </TouchableOpacity>
 
-      {/* Listing price — centered pill, shown before title */}
-      {post.price && (
-        <View style={styles.priceRow}>
-          <View style={styles.pricePill}>
-            <Text style={styles.priceText}>${Number(post.price).toLocaleString()}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Title */}
       {post.title && (
-        <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{post.title}</Text>
+        <Text style={[styles.title, { color: fgColor }]} numberOfLines={2}>{post.title}</Text>
       )}
-
-      {/* Body preview */}
-      {post.body ? (
-        <MentionText text={stripHtml(post.body)} style={[styles.body, { color: colors.muted }]} numberOfLines={3} />
-      ) : null}
 
       {/* Hero image with overlays */}
       {heroImage && (
@@ -108,27 +106,34 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
             placeholder={{ blurhash: 'LGFFaXYk^6#M@-5c,1J5@[or[Q6.' }}
             onLoad={(e) => setImgAspectRatio(e.source.width / e.source.height)}
           />
-          {/* Type badge — top left */}
+          {/* Type + category badges — top left, color coded */}
           <View style={styles.imageBadgesLeft}>
-            <View style={styles.imgBadge}>
-              <Text style={styles.imgBadgeText}>{TYPE_LABELS[badgeType] ?? badgeType}</Text>
+            <View style={[styles.imgBadge, { backgroundColor: typeBadge.bg }]}>
+              <Text style={[styles.imgBadgeText, { color: typeBadge.fg }]}>{TYPE_LABELS[badgeType] ?? badgeType}</Text>
             </View>
-            {post.category ? (
-              <View style={styles.imgBadge}>
-                <Text style={styles.imgBadgeText}>{CATEGORY_LABELS[post.category] ?? post.category}</Text>
+            {categoryBadge ? (
+              <View style={[styles.imgBadge, { backgroundColor: categoryBadge.bg }]}>
+                <Text style={[styles.imgBadgeText, { color: categoryBadge.fg }]}>{CATEGORY_LABELS[post.category!] ?? post.category}</Text>
               </View>
             ) : null}
           </View>
-          {/* Multi-image indicator — top right */}
-          {galleryCount > 1 && (
-            <View style={styles.multiImgBadge}>
-              <View style={styles.multiImgIcon}>
-                <View style={[styles.miniImg, styles.miniImgBack]} />
-                <View style={[styles.miniImg, styles.miniImgFront]} />
+          {/* Price + multi-image — top right column */}
+          <View style={styles.imageBadgesRight}>
+            {post.price ? (
+              <View style={styles.priceBadge}>
+                <Text style={styles.priceBadgeText}>${Number(post.price).toLocaleString()}</Text>
               </View>
-              <Text style={styles.multiImgCount}>{galleryCount}</Text>
-            </View>
-          )}
+            ) : null}
+            {galleryCount > 1 && (
+              <View style={styles.multiImgBadge}>
+                <View style={styles.multiImgIcon}>
+                  <View style={[styles.miniImg, styles.miniImgBack]} />
+                  <View style={[styles.miniImg, styles.miniImgFront]} />
+                </View>
+                <Text style={styles.multiImgCount}>{galleryCount}</Text>
+              </View>
+            )}
+          </View>
         </View>
       )}
 
@@ -153,13 +158,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
       {/* Liked-by row */}
       {(post.like_count ?? post.likeCount ?? 0) > 0 && (
-        <Text style={[styles.likedBy, { color: colors.muted }]}>
+        <Text style={[styles.likedBy, { color: mutedColor }]}>
           Liked by {post.like_count ?? post.likeCount} {(post.like_count ?? post.likeCount ?? 0) === 1 ? 'person' : 'people'}
         </Text>
       )}
 
       {/* Actions */}
-      <View style={[styles.actions, { borderTopColor: colors.border }]}>
+      <View style={[styles.actions, { borderTopColor: 'rgba(255,255,255,0.06)' }]}>
         <LikeButton
           documentId={post.internal_id}
           entryType={entryType}
@@ -174,19 +179,18 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    marginHorizontal: 12,
+    // borderRadius: 12,
+    // marginHorizontal: 12,
     marginVertical: 6,
     overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  header:      { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
+  header:      { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 10, gap: 10 },
   headerText:  { flex: 1 },
   author:      { fontSize: 14, fontWeight: '700' },
   username:    { fontSize: 12, marginTop: 1 },
-  time:        { fontSize: 11 },
-  title:       { fontSize: 16, fontWeight: '700', paddingHorizontal: 12, paddingBottom: 6, lineHeight: 22 },
-  body:        { fontSize: 14, paddingHorizontal: 12, paddingBottom: 8, lineHeight: 20 },
+  time:        { fontSize: 11, fontStyle: 'italic' },
+  title:       { fontSize: 14, fontWeight: '600', paddingHorizontal: 12, paddingBottom: 10, lineHeight: 20 },
 
   imageWrap:   { position: 'relative' },
   image:       { width: '100%' },
@@ -200,8 +204,16 @@ const styles = StyleSheet.create({
   },
   imgBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
 
+  imageBadgesRight: {
+    position: 'absolute', top: 10, right: 10, alignItems: 'flex-end', gap: 5,
+  },
+  priceBadge:    {
+    backgroundColor: '#3a8a3a',
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4
+  },
+  priceBadgeText: { fontSize: 13, fontWeight: '800', color: '#000' },
   multiImgBadge: {
-    position: 'absolute', top: 10, right: 10,
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 8, paddingVertical: 4,
@@ -228,9 +240,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingLeft: 4,
   },
-  priceRow:    { alignItems: 'center', paddingTop: 10 },
-  pricePill:   { backgroundColor: '#3a8a3a', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5 },
-  priceText:   { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
   likedBy:     { fontSize: 13, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
   actions:     {
     flexDirection: 'row', alignItems: 'center',

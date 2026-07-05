@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native';
+import { Search } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader from '../../components/ui/AppHeader';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery, useGetUserByIdQuery } from '../../api/apiService';
@@ -24,10 +26,11 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.cardImageContainer}>
-        {hero
-          ? <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
-          : <View style={[styles.cardImage, { backgroundColor: colors.secondary }]} />
-        }
+        <Image
+          source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
+          style={styles.cardImage}
+          contentFit="cover"
+        />
       </View>
       <View style={styles.cardInfo}>
         <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
@@ -46,9 +49,11 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   const colors = useColors();
+  const tabBarHeight = useBottomTabBarHeight();
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
 
   const { data, isFetching, isLoading } = useGetCarsQuery({ page, limit: 12 });
 
@@ -72,23 +77,52 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
     if (!isFetching && data && allCars.length < data.total) setPage((p) => p + 1);
   }, [isFetching, data, allCars.length]);
 
+  const searchLower = search.trim().toLowerCase();
+  const filteredCars = searchLower
+    ? allCars.filter((c) =>
+        [c.year, c.make, c.model, c.trim, c.title]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(searchLower))
+      )
+    : allCars;
+
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
-        data={allCars}
+        data={filteredCars}
         keyExtractor={(item) => item.internal_id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
             <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetailModal', { carId: id })} />
-            <TouchableOpacity style={styles.brandsBtn} onPress={() => navigation.navigate('Brands')}>
-              <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
-            </TouchableOpacity>
+            <View style={styles.searchRow}>
+              <TouchableOpacity style={styles.brandsBtn} onPress={() => navigation.navigate('Brands')}>
+                <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
+              </TouchableOpacity>
+              <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Search size={15} color={colors.grey} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.fg }]}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search cars..."
+                  placeholderTextColor={colors.grey}
+                  autoCapitalize="none"
+                  returnKeyType="search"
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                    <Text style={{ color: colors.grey, fontSize: 14 }}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+            </View>
           </>
         }
         renderItem={({ item }) => (
@@ -122,18 +156,29 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
 
 const styles = StyleSheet.create({
   content: { flex: 1 },
+  searchRow: {
+    paddingHorizontal: 6,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: 10, borderWidth: 1,
+  },
+  searchInput: { flex: 1, fontSize: 14 },
   brandsBtn: {
-    marginHorizontal: 12,
-    marginVertical: 10,
     backgroundColor: colors.primaryAlt,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
     alignSelf: 'flex-start',
+    width: '100%',
   },
   brandsBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  list: { paddingHorizontal: 8, paddingBottom: 20 },
-  row: { gap: 8, marginBottom: 8 },
+  list: { paddingBottom: 20 },
+  row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   card: {
     flex: 1,
     borderRadius: 10,

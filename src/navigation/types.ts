@@ -14,11 +14,12 @@ export type AuthStackParamList = {
 // ── Feed Stack ──────────────────────────────────────────────────────────────
 export type FeedStackParamList = {
   Feed: undefined;
-  PostDetail: { postId: string };
+  PostDetail: { postId: string; edit?: boolean };
   UserDetail: { userId: string; username?: string };
   CarDetail: { carId: string };
   // Drawer-linked top-level screens (keep tab bar + AppHeader visible)
   Groups: undefined;
+  Members: undefined;
   Articles: undefined;
   ArticleDetail: { articleId: string };
   Podcasts: undefined;
@@ -34,7 +35,6 @@ export type SocietyStackParamList = {
   Calendar: undefined;
   Rallys: undefined;
   RallyDetail: { rallyId: string };
-  Members: undefined;
 };
 
 // ── Groups Stack ─────────────────────────────────────────────────────────────
@@ -93,12 +93,14 @@ export type AppStackParamList = {
   Articles: undefined;
   ArticleDetail: { articleId: string };
   Marketplace: undefined;
+  Shop: undefined;
   Search: undefined;
   Create: undefined;
+  DiecastCreate: undefined;
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)
   CarDetailModal: { carId: string };
-  PostDetailModal: { postId: string };
+  PostDetailModal: { postId: string; edit?: boolean };
   EventDetailModal: { eventId: string };
   RallyDetailModal: { rallyId: string };
   // Stories
@@ -118,6 +120,7 @@ export type AppStackParamList = {
   More: undefined;
   // Group detail + sub-screens (tab bar hides here — acceptable for detail views)
   GroupDetailModal: { groupId: string };
+  GroupSection: { groupId: string; groupTitle: string; initialTab: string };
   GroupForum: { groupId: string };
   GroupNews: { groupId: string };
   GroupCars: { groupId: string };
