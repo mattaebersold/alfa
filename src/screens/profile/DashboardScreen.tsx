@@ -65,7 +65,7 @@ function SheetModal({
 
 function FlaggedRow({
   colors, thumb, thumbRound, title, titleLines = 1, user, reportCount,
-  onView, onRestore, onRemove, restoreLabel = 'Restore', removeLabel = 'Remove',
+  onView, onMessage, onRestore, onRemove, restoreLabel = 'Restore', removeLabel = 'Remove',
 }: {
   colors: ReturnType<typeof useColors>;
   thumb: string | null;
