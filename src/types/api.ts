@@ -292,6 +292,10 @@ export interface GroupResource {
   body?: string;
   gallery?: GalleryItem[];
   type?: string;
+  category?: string;
+  url?: string;
+  upvotes?: number;
+  downvotes?: number;
   created_at?: string;
   user?: User;
 }

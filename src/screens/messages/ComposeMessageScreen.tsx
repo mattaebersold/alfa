@@ -44,7 +44,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
       : null,
   );
   const [search, setSearch] = useState('');
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(route.params?.subject ?? '');
   const [body, setBody] = useState(route.params?.initialBody ?? '');
 
   const { data: messagesData } = useGetMessagesQuery({ limit: 100 });

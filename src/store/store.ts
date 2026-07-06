@@ -11,7 +11,14 @@ export const store = configureStore({
     [apiService.reducerPath]: apiService.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(apiService.middleware),
+    getDefaultMiddleware({
+      // These dev-only checks deep-scan the entire (large) RTK Query cache on
+      // every dispatch, blowing past the 32ms warning threshold. RTK Query
+      // already keeps its cache serializable and immutable, so we disable them.
+      // (Both are no-ops in production regardless.)
+      serializableCheck: false,
+      immutableCheck: false,
+    }).concat(apiService.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

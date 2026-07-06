@@ -5,7 +5,6 @@ import { Wrench, Settings } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useGetUserByIdQuery, useDeleteCarMutation } from '../../api/apiService';
-import ReportButton from '../ui/ReportButton';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -71,16 +70,18 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+  const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
   const [aspectRatio, setAspectRatio] = useState(4 / 3);
-
-  if (hiddenIds.includes(car.internal_id)) return null;
+  const [deleteCar] = useDeleteCarMutation();
 
   const handlePress = () => {
     onBeforeNavigate?.();
     (nav as any).navigate('CarDetailModal', { carId: car.internal_id });
   };
   const isOwner = userInfo?.user_id === car.user_id;
-  const [deleteCar] = useDeleteCarMutation();
+
+  // Hidden (reported) or from a blocked user — return after all hooks to keep hook order stable.
+  if (hiddenIds.includes(car.internal_id) || (car.user_id && blockedUserIds.includes(car.user_id))) return null;
 
   const carTitle = [car.year, car.make, car.model].filter(Boolean).join(' ');
   const displayTitle = car.title || carTitle;
@@ -148,16 +149,12 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
               <Text style={styles.taskBadgeText}>Tasks · {taskCount}</Text>
             </TouchableOpacity>
           )}
-          {isOwner ? (
+          {isOwner && (
             <TouchableOpacity style={styles.imageCogBtn} onPress={handleCogPress} hitSlop={4}>
               <View style={styles.imageCogInner}>
                 <Settings size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.imageCogInner}>
-              <ReportButton contentType="car" contentId={car.internal_id} size={14} color="#FFFFFF" />
-            </View>
           )}
         </View>
 

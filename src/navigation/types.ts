@@ -87,7 +87,7 @@ export type AppStackParamList = {
   Notifications: undefined;
   Messages: undefined;
   MessageThread: { threadId: string; recipientId?: string; subject?: string };
-  ComposeMessage: { userId?: string; username?: string; initialBody?: string };
+  ComposeMessage: { userId?: string; username?: string; initialBody?: string; subject?: string };
   UserDetail: { userId: string; username?: string };
   Settings: undefined;
   Articles: undefined;
@@ -120,6 +120,7 @@ export type AppStackParamList = {
   More: undefined;
   // Group detail + sub-screens (tab bar hides here — acceptable for detail views)
   GroupDetailModal: { groupId: string };
+  GroupDetail: { groupId: string };
   GroupSection: { groupId: string; groupTitle: string; initialTab: string };
   GroupForum: { groupId: string };
   GroupNews: { groupId: string };

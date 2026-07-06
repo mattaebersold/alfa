@@ -20,7 +20,7 @@ import {
   useCreateReportMutation,
 } from '../../api/apiService';
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { hideContent } from '../../store/moderationSlice';
+import { addBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
 import FollowButton from '../../components/social/FollowButton';
@@ -122,7 +122,9 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
                   onPress: async () => {
                     try {
                       await blockUser({ blocked_id: user.user_id }).unwrap();
-                      Alert.alert('Blocked', `@${user.username} has been blocked.`);
+                      dispatch(addBlockedUser(user.user_id));                                   // hide their content instantly
+                      createReport({ content_type: 'user', content_id: user.user_id }).catch(() => {}); // notify moderation
+                      Alert.alert('Blocked', `@${user.username} has been blocked. You won't see their content anymore.`);
                     } catch {
                       Alert.alert('Error', 'Could not block user. Please try again.');
                     }
@@ -147,8 +149,7 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
                   onPress: async () => {
                     try {
                       await createReport({ content_type: 'user', content_id: user.user_id }).unwrap();
-                      dispatch(hideContent(user.user_id));
-                      Alert.alert('Reported', `@${user.username} has been reported.`);
+                      Alert.alert('Reported', `@${user.username} has been reported for review.`);
                     } catch (err: any) {
                       if (err?.status === 409) {
                         Alert.alert('Already reported', 'You\'ve already reported this user.');
@@ -203,6 +204,9 @@ export default function ProfileScreen() {
   const [userSearch, setUserSearch] = useState('');
   const [bioExpanded, setBioExpanded] = useState(false);
   const [bioLines, setBioLines] = useState<number | null>(null);
+  const dispatch = useAppDispatch();
+  const [blockProfileUser] = useBlockUserMutation();
+  const [reportProfileUser] = useCreateReportMutation();
   const sheetY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const sheetMounted = useRef(false);
@@ -247,6 +251,62 @@ export default function ProfileScreen() {
   const { data: followingData } = useGetUserFollowingQuery({ userId, limit: 50 }, { skip: !userId });
 
   if (isLoading || !user) return <Spinner fullScreen />;
+
+  const handleProfileMenu = () => {
+    Alert.alert(`@${user.username}`, undefined, [
+      {
+        text: 'Block user',
+        style: 'destructive',
+        onPress: () => Alert.alert(
+          'Block user',
+          `Block @${user.username}? You won't see each other's content, messages, or notifications.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Block',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await blockProfileUser({ blocked_id: user.user_id }).unwrap();
+                  dispatch(addBlockedUser(user.user_id));                                        // hide their content instantly
+                  reportProfileUser({ content_type: 'user', content_id: user.user_id }).catch(() => {}); // notify moderation
+                  Alert.alert('Blocked', `@${user.username} has been blocked. You won't see their content anymore.`);
+                  navigation.goBack();
+                } catch {
+                  Alert.alert('Error', 'Could not block user. Please try again.');
+                }
+              },
+            },
+          ]
+        ),
+      },
+      {
+        text: 'Report user',
+        style: 'destructive',
+        onPress: () => Alert.alert(
+          'Report user',
+          `Report @${user.username} as inappropriate?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Report',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await reportProfileUser({ content_type: 'user', content_id: user.user_id }).unwrap();
+                  Alert.alert('Reported', 'Thanks — our team will review this user.');
+                } catch (err: any) {
+                  if (err?.status === 409) Alert.alert('Already reported', "You've already reported this user.");
+                  else Alert.alert('Error', 'Could not report user. Please try again.');
+                }
+              },
+            },
+          ]
+        ),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   const bannerUri = user.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
   const posts     = postsData?.entries ?? [];
@@ -332,6 +392,13 @@ export default function ProfileScreen() {
               onPress={() => navigation.navigate('ComposeMessage', { userId: user.user_id, username: user.username })}
             >
               <Text style={[styles.msgBtnText, { color: colors.fg }]}>Message</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.profileMenuBtn, { borderColor: colors.border }]}
+              onPress={handleProfileMenu}
+              hitSlop={8}
+            >
+              <MoreVertical size={18} color={colors.fg} />
             </TouchableOpacity>
           </View>
         )}
@@ -542,6 +609,7 @@ const styles = StyleSheet.create({
   followRow:  { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   msgBtn:     { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
   msgBtnText: { fontSize: 14, fontWeight: '600' },
+  profileMenuBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   backBar:    { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingVertical: 4 },
   backBtn:    { padding: 8 },
   info:       { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },

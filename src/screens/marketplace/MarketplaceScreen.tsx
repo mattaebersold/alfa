@@ -143,6 +143,7 @@ export default function MarketplaceScreen() {
               onMessage={() => item.user && appNav.navigate('ComposeMessage', {
                 userId: item.user.user_id,
                 username: item.user.username,
+                subject: `Re: ${item.title || 'your listing'}`,
                 initialBody: `I'm interested in your listing "${item.title}"…`,
               })}
             />

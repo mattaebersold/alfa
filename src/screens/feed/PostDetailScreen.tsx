@@ -13,14 +13,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useGetPostQuery, useGetCommentsQuery, useCreateCommentMutation, useGetPostCountsQuery, useGetLikeInfoQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
-import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
+import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
 import CommentRow, { type CommentData } from '../../components/social/CommentRow';
 import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
 import { imageUrl } from '../../utils/image';
-import { colors } from '../../constants/colors';
+import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { FeedScreenProps, AppStackParamList } from '../../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -160,6 +160,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const gallery = post.gallery ?? [];
   const displayName = post.user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';
+  const badgeType = post.type ?? post.entry_type ?? 'post';
+  const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
+  const categoryBadge = post.category
+    ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
+    : null;
 
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return;
@@ -229,12 +234,13 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   </View>
                 </TouchableOpacity>
                 <View style={styles.badgeRow}>
-                  <Badge variant={entryType} label={TYPE_LABELS[entryType] ?? entryType} />
-                  {post.category && (
-                    <Badge
-                      variant={post.category}
-                      label={CATEGORY_LABELS[post.category] ?? post.category}
-                    />
+                  <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
+                    <Text style={[styles.badgeText, { color: typeBadge.fg }]}>{TYPE_LABELS[badgeType] ?? badgeType}</Text>
+                  </View>
+                  {categoryBadge && (
+                    <View style={[styles.badge, { backgroundColor: categoryBadge.bg }]}>
+                      <Text style={[styles.badgeText, { color: categoryBadge.fg }]}>{CATEGORY_LABELS[post.category!] ?? post.category}</Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -257,7 +263,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               {(post.type === 'listing' || post.type === 'want') && post.user && !isOwner && (
                 <TouchableOpacity
                   style={[styles.messageBtn, { backgroundColor: colors.card, borderTopColor: colors.border, borderBottomColor: colors.border }]}
-                  onPress={() => navigation.navigate('ComposeMessage', { userId: post.user!.user_id, username: post.user!.username })}
+                  onPress={() => navigation.navigate('ComposeMessage', {
+                    userId: post.user!.user_id,
+                    username: post.user!.username,
+                    subject: `Re: ${post.title || 'your listing'}`,
+                    initialBody: `Hi${post.user!.username ? ` @${post.user!.username}` : ''}, I'm interested in your listing "${post.title || 'your listing'}".`,
+                  })}
                   activeOpacity={0.8}
                 >
                   <MessageCircle size={18} color={colors.primaryAlt} />
@@ -375,6 +386,8 @@ const styles = StyleSheet.create({
   postHeaderUser:  { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   postHeaderText:  { flex: 1 },
   badgeRow:        { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  badge:           { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5 },
+  badgeText:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   author:          { fontSize: 15, fontWeight: '700' },
   username:        { fontSize: 12 },
   postTitle:       { fontSize: 18, fontWeight: '800', paddingHorizontal: 16, paddingTop: 12 },

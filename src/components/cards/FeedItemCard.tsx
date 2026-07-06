@@ -12,6 +12,7 @@ import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import ReportButton from '../ui/ReportButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
+import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
@@ -41,9 +42,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
+  const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
   const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
 
-  if (hiddenIds.includes(post.internal_id)) return null;
   const heroImage = firstGalleryUrl(post.gallery);
   const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
 
@@ -57,6 +58,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
   const galleryCount = post.gallery?.length ?? 0;
+  const isListing = post.type === 'listing' || post.type === 'want';
   const isDiecast = post.category === 'diecast';
   const cardBg = isDiecast ? DIECAST_BLUE : colors.card;
   const fgColor = isDiecast ? '#FFFFFF' : colors.fg;
@@ -66,6 +68,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const categoryBadge = post.category
     ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
     : null;
+
+  // Hidden (reported) or from a blocked user — return after all hooks to keep hook order stable.
+  if (hiddenIds.includes(post.internal_id) || (post.user_id && blockedUserIds.includes(post.user_id))) return null;
 
   return (
     <TouchableOpacity
@@ -156,6 +161,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         </View>
       )}
 
+      {/* Message the seller about a marketplace listing */}
+      {isListing && user?.user_id && userInfo?.user_id !== post.user_id && (
+        <View style={styles.messageWrap}>
+          <MessageAboutListingButton sellerId={user.user_id} sellerUsername={user.username} listingTitle={post.title} />
+        </View>
+      )}
+
       {/* Liked-by row */}
       {(post.like_count ?? post.likeCount ?? 0) > 0 && (
         <Text style={[styles.likedBy, { color: mutedColor }]}>
@@ -240,6 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingLeft: 4,
   },
+  messageWrap: { paddingHorizontal: 12, paddingTop: 10 },
   likedBy:     { fontSize: 13, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
   actions:     {
     flexDirection: 'row', alignItems: 'center',

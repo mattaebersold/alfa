@@ -225,6 +225,11 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="GroupDetail"
+        component={GroupDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="GroupForum"
         component={GroupForumScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Forum' }}

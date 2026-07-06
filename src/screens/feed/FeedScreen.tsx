@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -6,6 +6,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import StoriesRow from '../../components/stories/StoriesRow';
 import AppHeader from '../../components/ui/AppHeader';
+import { useGetBlockedUsersQuery } from '../../api/apiService';
+import { useAppDispatch } from '../../store/store';
+import { setBlockedUsers } from '../../store/moderationSlice';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
@@ -41,6 +44,16 @@ function FeedHeader() {
 export default function FeedScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const dispatch = useAppDispatch();
+
+  // Keep the client-side blocked-users list in sync so blocked authors'
+  // content stays hidden across sessions (Apple UGC requirement).
+  const { data: blockedData } = useGetBlockedUsersQuery();
+  useEffect(() => {
+    if (blockedData?.entries) {
+      dispatch(setBlockedUsers(blockedData.entries.map((u) => u.user_id).filter(Boolean)));
+    }
+  }, [blockedData, dispatch]);
 
   const handlePostPress = (post: Post) => {
     navigation.navigate('PostDetailModal', { postId: post.internal_id });

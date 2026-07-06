@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw } from 'lucide-react-native';
+import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -18,6 +19,7 @@ import {
 } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
+import { removeBlockedUser } from '../../store/moderationSlice';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
@@ -27,6 +29,7 @@ import FeedItemCard from '../../components/cards/FeedItemCard';
 import CarCard from '../../components/cards/CarCard';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
@@ -57,6 +60,72 @@ function SheetModal({
         {children}
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function FlaggedRow({
+  colors, thumb, thumbRound, title, titleLines = 1, user, reportCount,
+  onView, onRestore, onRemove, restoreLabel = 'Restore', removeLabel = 'Remove',
+}: {
+  colors: ReturnType<typeof useColors>;
+  thumb: string | null;
+  thumbRound?: boolean;
+  title: string;
+  titleLines?: number;
+  user?: { username?: string; gallery?: any[] } | null;
+  reportCount?: number;
+  onView?: () => void;
+  onRestore: () => void;
+  onRemove?: () => void;
+  onMessage?: () => void;
+  restoreLabel?: string;
+  removeLabel?: string;
+}) {
+  return (
+    <View style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
+      <View style={flaggedStyles.topRow}>
+        {thumb ? (
+          <Image source={{ uri: thumb }} style={[flaggedStyles.thumb, thumbRound && flaggedStyles.thumbRound]} contentFit="cover" />
+        ) : (
+          <View style={[flaggedStyles.thumb, thumbRound && flaggedStyles.thumbRound, { backgroundColor: colors.segment, alignItems: 'center', justifyContent: 'center' }]}>
+            <FileText size={18} color={colors.grey} />
+          </View>
+        )}
+        <View style={flaggedStyles.body}>
+          <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={titleLines}>{title}</Text>
+          <View style={flaggedStyles.userRow}>
+            {user && <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={16} />}
+            <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]} numberOfLines={1}>
+              @{user?.username ?? 'unknown'}{reportCount ? ` · ${reportCount} report${reportCount !== 1 ? 's' : ''}` : ''}
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={flaggedStyles.actions}>
+        {onView && (
+          <TouchableOpacity style={[flaggedStyles.actionBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]} onPress={onView}>
+            <ExternalLink size={14} color={colors.fg} />
+            <Text style={[flaggedStyles.actionBtnText, { color: colors.fg }]}>View</Text>
+          </TouchableOpacity>
+        )}
+        {onMessage && (
+          <TouchableOpacity style={[flaggedStyles.actionBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]} onPress={onMessage}>
+            <MessageSquare size={14} color={colors.fg} />
+            <Text style={[flaggedStyles.actionBtnText, { color: colors.fg }]}>Message</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]} onPress={onRestore}>
+          <RotateCcw size={14} color={colors.primaryAlt} />
+          <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>{restoreLabel}</Text>
+        </TouchableOpacity>
+        {onRemove && (
+          <TouchableOpacity style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]} onPress={onRemove}>
+            <Trash2 size={14} color={colors.red} />
+            <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>{removeLabel}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -155,6 +224,7 @@ export default function DashboardScreen() {
           onPress: async () => {
             try {
               await unblockUser({ blocked_id: blockedId }).unwrap();
+              dispatch(removeBlockedUser(blockedId));
             } catch {
               Alert.alert('Error', 'Could not unblock user. Please try again.');
             }
@@ -336,7 +406,7 @@ export default function DashboardScreen() {
           >
             <ShieldAlert size={15} color="#e07b39" />
             <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
-              View Flagged Content
+              ADMIN: View Flagged Content
               {totalFlagged > 0 ? ` (${totalFlagged})` : ''}
             </Text>
           </TouchableOpacity>
@@ -432,32 +502,17 @@ export default function DashboardScreen() {
                   Posts ({flaggedPosts.length})
                 </Text>
                 {flaggedPosts.map((p) => (
-                  <View key={p.internal_id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={1}>
-                        {p.title || p.body?.slice(0, 60) || 'Untitled post'}
-                      </Text>
-                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
-                        @{p.username || p.user_id}{p.report_count ? ` · ${p.report_count} report${p.report_count !== 1 ? 's' : ''}` : ''}
-                      </Text>
-                    </View>
-                    <View style={flaggedStyles.actions}>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
-                        onPress={() => handleRestoreContent('post', p.internal_id)}
-                      >
-                        <RotateCcw size={14} color={colors.primaryAlt} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Restore</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
-                        onPress={() => handleRemoveContent('post', p.internal_id)}
-                      >
-                        <Trash2 size={14} color={colors.red} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Remove</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <FlaggedRow
+                    key={p.internal_id}
+                    colors={colors}
+                    thumb={firstGalleryUrl(p.gallery)}
+                    title={p.title || (p.body ? p.body.slice(0, 60) : 'Untitled post')}
+                    user={p.user}
+                    reportCount={p.report_count}
+                    onView={() => { setSheet(null); (navigation as any).navigate('PostDetailModal', { postId: p.internal_id }); }}
+                    onRestore={() => handleRestoreContent('post', p.internal_id)}
+                    onRemove={() => handleRemoveContent('post', p.internal_id)}
+                  />
                 ))}
               </>
             )}
@@ -467,32 +522,17 @@ export default function DashboardScreen() {
                   Cars ({flaggedCars.length})
                 </Text>
                 {flaggedCars.map((c) => (
-                  <View key={c.internal_id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={1}>
-                        {[c.year, c.make, c.model].filter(Boolean).join(' ') || 'Untitled car'}
-                      </Text>
-                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
-                        @{c.username || c.user_id}{c.report_count ? ` · ${c.report_count} report${c.report_count !== 1 ? 's' : ''}` : ''}
-                      </Text>
-                    </View>
-                    <View style={flaggedStyles.actions}>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
-                        onPress={() => handleRestoreContent('car', c.internal_id)}
-                      >
-                        <RotateCcw size={14} color={colors.primaryAlt} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Restore</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
-                        onPress={() => handleRemoveContent('car', c.internal_id)}
-                      >
-                        <Trash2 size={14} color={colors.red} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Remove</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <FlaggedRow
+                    key={c.internal_id}
+                    colors={colors}
+                    thumb={firstGalleryUrl(c.gallery) ?? (c.profile_image ? imageUrl(c.profile_image) : null)}
+                    title={[c.year, c.make, c.model].filter(Boolean).join(' ') || 'Untitled car'}
+                    user={c.user}
+                    reportCount={c.report_count}
+                    onView={() => { setSheet(null); (navigation as any).navigate('CarDetailModal', { carId: c.internal_id }); }}
+                    onRestore={() => handleRestoreContent('car', c.internal_id)}
+                    onRemove={() => handleRemoveContent('car', c.internal_id)}
+                  />
                 ))}
               </>
             )}
@@ -501,34 +541,23 @@ export default function DashboardScreen() {
                 <Text style={[flaggedStyles.sectionHeader, { color: colors.grey, backgroundColor: colors.secondary }]}>
                   Comments ({flaggedComments.length})
                 </Text>
-                {flaggedComments.map((c) => (
-                  <View key={c.internal_id ?? c._id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={2}>
-                        {c.body || 'No text'}
-                      </Text>
-                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
-                        @{c.username || c.user_id}{c.report_count ? ` · ${c.report_count} report${c.report_count !== 1 ? 's' : ''}` : ''}
-                      </Text>
-                    </View>
-                    <View style={flaggedStyles.actions}>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
-                        onPress={() => handleRestoreContent('comment', c.internal_id ?? c._id)}
-                      >
-                        <RotateCcw size={14} color={colors.primaryAlt} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Restore</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
-                        onPress={() => handleRemoveContent('comment', c.internal_id ?? c._id)}
-                      >
-                        <Trash2 size={14} color={colors.red} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Remove</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
+                {flaggedComments.map((c) => {
+                  const parentPostId = c.post_id ?? c.entity_id;
+                  return (
+                    <FlaggedRow
+                      key={c.internal_id ?? c._id}
+                      colors={colors}
+                      thumb={null}
+                      title={c.body || 'No text'}
+                      titleLines={2}
+                      user={c.user}
+                      reportCount={c.report_count}
+                      onView={parentPostId ? () => { setSheet(null); (navigation as any).navigate('PostDetailModal', { postId: parentPostId }); } : undefined}
+                      onRestore={() => handleRestoreContent('comment', c.internal_id ?? c._id)}
+                      onRemove={() => handleRemoveContent('comment', c.internal_id ?? c._id)}
+                    />
+                  );
+                })}
               </>
             )}
             {flaggedUsers.length > 0 && (
@@ -536,34 +565,27 @@ export default function DashboardScreen() {
                 <Text style={[flaggedStyles.sectionHeader, { color: colors.grey, backgroundColor: colors.secondary }]}>
                   Users ({flaggedUsers.length})
                 </Text>
-                {flaggedUsers.map((u) => (
-                  <View key={u.user_id ?? u.internal_id} style={[flaggedStyles.item, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={1}>
-                        @{u.username || 'Unknown user'}
-                      </Text>
-                      <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]}>
-                        {u.email || u.user_id}{u.report_count ? ` · ${u.report_count} report${u.report_count !== 1 ? 's' : ''}` : ''}
-                      </Text>
-                    </View>
-                    <View style={flaggedStyles.actions}>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.primaryAlt + '20' }]}
-                        onPress={() => handleRestoreContent('user', u.user_id ?? u.internal_id)}
-                      >
-                        <RotateCcw size={14} color={colors.primaryAlt} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.primaryAlt }]}>Clear</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[flaggedStyles.actionBtn, { backgroundColor: colors.red + '20' }]}
-                        onPress={() => handleRemoveContent('user', u.user_id ?? u.internal_id)}
-                      >
-                        <Trash2 size={14} color={colors.red} />
-                        <Text style={[flaggedStyles.actionBtnText, { color: colors.red }]}>Ban</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
+                {flaggedUsers.map((u) => {
+                  const uid = u.user_id ?? u.internal_id;
+                  const banned = u._banned;
+                  return (
+                    <FlaggedRow
+                      key={uid}
+                      colors={colors}
+                      thumb={u.gallery?.[0]?.filename ? imageUrl(u.gallery[0].filename) : null}
+                      thumbRound
+                      title={`@${u.username || 'Unknown user'}${banned ? '  ·  BANNED' : ''}`}
+                      user={u}
+                      reportCount={u.report_count}
+                      onView={() => { setSheet(null); (navigation as any).navigate('UserDetail', { userId: uid }); }}
+                      onMessage={() => { setSheet(null); (navigation as any).navigate('ComposeMessage', { userId: uid, username: u.username }); }}
+                      onRestore={() => handleRestoreContent('user', uid)}
+                      onRemove={banned ? undefined : () => handleRemoveContent('user', uid)}
+                      restoreLabel={banned ? 'Unban' : 'Dismiss'}
+                      removeLabel="Ban"
+                    />
+                  );
+                })}
               </>
             )}
             {totalFlagged === 0 && (
@@ -635,15 +657,20 @@ const flaggedStyles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 8,
   },
   item: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, gap: 10,
   },
+  topRow:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  thumb:     { width: 52, height: 52, borderRadius: 8 },
+  thumbRound: { borderRadius: 26 },
+  body:      { flex: 1, gap: 4 },
   itemTitle: { fontSize: 14, fontWeight: '600' },
-  itemMeta:  { fontSize: 12, marginTop: 2 },
-  actions:   { flexDirection: 'row', gap: 6 },
+  userRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  itemMeta:  { fontSize: 12, flex: 1 },
+  actions:   { flexDirection: 'row', gap: 8 },
   actionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8,
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 10, borderRadius: 8,
   },
   actionBtnText: { fontSize: 12, fontWeight: '700' },
 });

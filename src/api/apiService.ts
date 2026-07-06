@@ -623,6 +623,13 @@ export const apiService = createApi({
 
     syncPostTags: builder.mutation<void, { post_id: string; tagged_users: string[]; tagged_cars: string[]; tagged_events: string[] }>({
       query: (body) => ({ url: 'api/tags/sync', method: 'POST', body }),
+      invalidatesTags: (result, error, { post_id }) => [{ type: 'Post', id: `tags-${post_id}` }],
+    }),
+
+    getPostTags: builder.query<{ tag_internal_id: string; tag_entry_type: string }[], string>({
+      query: (postId) => `api/tags/post/${postId}`,
+      transformResponse: (r: any) => (Array.isArray(r) ? r : r?.tags ?? []),
+      providesTags: (result, error, postId) => [{ type: 'Post', id: `tags-${postId}` }],
     }),
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -766,6 +773,18 @@ export const apiService = createApi({
 
     getFlaggedContent: builder.query<{ posts: any[]; cars: any[]; comments: any[]; users: any[] }, void>({
       query: () => 'api/reports/flagged',
+      // Backend returns a flat { entries } list where each item is tagged with
+      // _content_type; group it into the shape the dashboard expects.
+      transformResponse: (r: any): { posts: any[]; cars: any[]; comments: any[]; users: any[] } => {
+        const entries: any[] = Array.isArray(r?.entries) ? r.entries : (Array.isArray(r) ? r : []);
+        const byType = (t: string) => entries.filter((e) => e?._content_type === t);
+        return {
+          posts: byType('post'),
+          cars: byType('garagecar'),
+          comments: byType('comment'),
+          users: byType('user'),
+        };
+      },
       providesTags: ['FlaggedContent'],
     }),
 
@@ -902,6 +921,7 @@ export const {
   useGetPreviouslyTaggedCarsQuery,
   useGetPreviouslyTaggedEventsQuery,
   useSyncPostTagsMutation,
+  useGetPostTagsQuery,
   useSearchQuery,
   useUpdateUserSettingMutation,
   useUpdateUserSettingImageMutation,

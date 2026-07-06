@@ -1,13 +1,14 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Modal,
+  ActivityIndicator, TextInput, Modal, Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronLeft, ThumbsUp, ThumbsDown, FileText, Search, X } from 'lucide-react-native';
+import { ChevronLeft, ThumbsUp, ThumbsDown, FileText, Search, X, ExternalLink } from 'lucide-react-native';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   useGetGroupMembersQuery,
@@ -45,6 +46,32 @@ const TABS: { key: ActiveTab; label: string }[] = [
 
 const TABBAR_SENTINEL = { _t: 'tabbar' } as const;
 
+const RESOURCE_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'general',     label: 'General' },
+  { key: 'exterior',    label: 'Exterior' },
+  { key: 'interior',    label: 'Interior' },
+  { key: 'engine',      label: 'Engine' },
+  { key: 'electrical',  label: 'Electrical' },
+  { key: 'performance', label: 'Performance' },
+  { key: 'suspension',  label: 'Suspension' },
+  { key: 'brakes',      label: 'Brakes' },
+  { key: 'visual',      label: 'Visual Mods' },
+  { key: 'mechanics',   label: 'Shop/Mechanic' },
+];
+const RESOURCE_CAT_ORDER: Record<string, number> = RESOURCE_CATEGORIES.reduce(
+  (acc, cat, i) => { acc[cat.key] = i; return acc; }, {} as Record<string, number>
+);
+const RESOURCE_CAT_LABEL: Record<string, string> = RESOURCE_CATEGORIES.reduce(
+  (acc, cat) => { acc[cat.key] = cat.label; return acc; }, {} as Record<string, string>
+);
+
+// Extract a YouTube video id from common URL forms (watch, youtu.be, embed, shorts).
+function youtubeId(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
 export default function GroupSectionScreen() {
   const route = useRoute<{ key: string; name: string; params: { groupId: string; groupTitle: string; initialTab: string } }>();
   const { groupId, groupTitle, initialTab } = route.params;
@@ -56,6 +83,7 @@ export default function GroupSectionScreen() {
   const [search, setSearch] = useState('');
   const [showCarModal, setShowCarModal] = useState(false);
   const [detailItem, setDetailItem] = useState<any>(null);
+  const [resourceCatFilter, setResourceCatFilter] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
 
   const { data: members = [] } = useGetGroupMembersQuery(groupId);
@@ -200,17 +228,33 @@ export default function GroupSectionScreen() {
 
     if (item._tab === 'resources') {
       const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
+      const catLabel = RESOURCE_CAT_LABEL[d.category ?? 'general'] ?? d.category;
+      const isVideo = !!youtubeId(d.url);
       return (
-        <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} activeOpacity={0.8}>
-          <View style={[styles.resourceIcon, { backgroundColor: c.cream }]}><FileText size={20} color={c.primaryAlt} /></View>
+        <TouchableOpacity
+          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
+          onPress={() => setDetailItem({ _kind: 'resource', data: d })}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.resourceIcon, { backgroundColor: c.cream }]}>
+            {isVideo ? <ExternalLink size={20} color={c.primaryAlt} /> : <FileText size={20} color={c.primaryAlt} />}
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{d.title}</Text>
             {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
-            <Text style={[styles.metaText, { color: c.grey }]}>{timeAgo}</Text>
+            <View style={styles.resourceMetaRow}>
+              {catLabel ? (
+                <View style={[styles.resourceCatChip, { backgroundColor: c.segment }]}>
+                  <Text style={[styles.resourceCatChipText, { color: c.grey }]}>{catLabel}</Text>
+                </View>
+              ) : null}
+              <Text style={[styles.metaText, { color: c.grey }]}>{timeAgo}</Text>
+            </View>
           </View>
         </TouchableOpacity>
       );
     }
+
 
     if (item._tab === 'events') {
       const hero = firstGalleryUrl(d.gallery);
@@ -309,13 +353,30 @@ export default function GroupSectionScreen() {
     }
   }) : rawItems;
 
-  const taggedItems = filteredItems.map((item) => ({ _tab: tab, data: item }));
+  // Resources: filter by category and sort by category order (then newest first).
+  let processedItems = filteredItems;
+  if (tab === 'resources') {
+    if (resourceCatFilter) {
+      processedItems = processedItems.filter((r) => (r.category ?? 'general') === resourceCatFilter);
+    }
+    processedItems = [...processedItems].sort((a, b) => {
+      const ao = RESOURCE_CAT_ORDER[a.category ?? 'general'] ?? 999;
+      const bo = RESOURCE_CAT_ORDER[b.category ?? 'general'] ?? 999;
+      if (ao !== bo) return ao - bo;
+      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+    });
+  }
+
+  const taggedItems = processedItems.map((item) => ({ _tab: tab, data: item }));
   const contentItems: any[] = isFetchingTab ? [{ _tab: 'loading' }] : taggedItems.length === 0 ? [{ _tab: 'empty' }] : taggedItems;
   const carsCta = (tab === 'cars' && isMember) ? [{ _t: 'carsCta' }] : [];
   const flatData: any[] = [TABBAR_SENTINEL, ...carsCta, ...contentItems];
+  const showResourceFilters = tab === 'resources' && (rawItems.length > 0 || !!resourceCatFilter);
+  const presentResourceCats = new Set(rawItems.map((r: any) => r.category ?? 'general'));
 
   const keyExtractor = (item: any, i: number) => {
     if (item._t === 'tabbar') return '__tabbar';
+    if (item._t === 'resourceFilters') return '__resourceFilters';
     if (item._t === 'carsCta') return '__carsCta';
     if (item._tab === 'loading') return '__loading';
     if (item._tab === 'empty') return '__empty';
@@ -325,6 +386,33 @@ export default function GroupSectionScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
       {compactHeader}
+      {showResourceFilters && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.filterBar, { backgroundColor: c.cream, borderBottomColor: c.border }]}
+          contentContainerStyle={styles.filterRow}
+        >
+          <TouchableOpacity
+            style={[styles.filterChip, { borderColor: !resourceCatFilter ? c.primaryAlt : c.border, backgroundColor: !resourceCatFilter ? c.primaryAlt : c.card }]}
+            onPress={() => setResourceCatFilter(null)}
+          >
+            <Text style={[styles.filterChipText, { color: !resourceCatFilter ? '#FFFFFF' : c.fg }]}>All</Text>
+          </TouchableOpacity>
+          {RESOURCE_CATEGORIES.filter((cat) => presentResourceCats.has(cat.key) || resourceCatFilter === cat.key).map((cat) => {
+            const active = resourceCatFilter === cat.key;
+            return (
+              <TouchableOpacity
+                key={cat.key}
+                style={[styles.filterChip, { borderColor: active ? c.primaryAlt : c.border, backgroundColor: active ? c.primaryAlt : c.card }]}
+                onPress={() => setResourceCatFilter(cat.key)}
+              >
+                <Text style={[styles.filterChipText, { color: active ? '#FFFFFF' : c.fg }]}>{cat.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
       <FlatList
         ref={listRef}
         data={flatData}
@@ -374,20 +462,40 @@ export default function GroupSectionScreen() {
       <Modal visible={!!detailItem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDetailItem(null)}>
         {detailItem && (() => {
           const d = detailItem.data;
-          const isNews = detailItem._kind === 'news';
+          const kind = detailItem._kind as 'news' | 'forum' | 'resource';
+          const isNews = kind === 'news';
+          const isResource = kind === 'resource';
           const hero = firstGalleryUrl(d.gallery);
           const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
+          const kindLabel = isNews ? 'News' : isResource ? 'Resource' : 'Forum';
+          const ytId = isResource ? youtubeId(d.url) : null;
           return (
             <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
               <View style={[styles.detailHeader, { borderBottomColor: c.border, backgroundColor: c.card }]}>
-                <Text style={[styles.detailKind, { color: c.grey }]}>{isNews ? 'News' : 'Forum'}</Text>
+                <Text style={[styles.detailKind, { color: c.grey }]}>{kindLabel}</Text>
                 <TouchableOpacity onPress={() => setDetailItem(null)} hitSlop={10}>
                   <X size={20} color={c.fg} />
                 </TouchableOpacity>
               </View>
               <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
-                {hero && <Image source={{ uri: hero }} style={styles.detailHero} contentFit="cover" />}
+                {ytId ? (
+                  <View style={styles.ytWrap}>
+                    <WebView
+                      source={{ uri: `https://www.youtube.com/embed/${ytId}` }}
+                      style={styles.ytPlayer}
+                      allowsFullscreenVideo
+                      javaScriptEnabled
+                    />
+                  </View>
+                ) : hero ? (
+                  <Image source={{ uri: hero }} style={styles.detailHero} contentFit="cover" />
+                ) : null}
                 <View style={styles.detailBody}>
+                  {isResource && d.category ? (
+                    <View style={[styles.resourceCatChip, { backgroundColor: c.segment, alignSelf: 'flex-start', marginBottom: 8 }]}>
+                      <Text style={[styles.resourceCatChipText, { color: c.grey }]}>{RESOURCE_CAT_LABEL[d.category] ?? d.category}</Text>
+                    </View>
+                  ) : null}
                   <Text style={[styles.detailTitle, { color: c.fg }]}>{d.title}</Text>
                   <View style={styles.detailMeta}>
                     <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={28} />
@@ -400,6 +508,16 @@ export default function GroupSectionScreen() {
                     )}
                   </View>
                   {d.body && <Text style={[styles.detailText, { color: c.fg }]}>{stripHtml(d.body)}</Text>}
+                  {isResource && d.url && !ytId ? (
+                    <TouchableOpacity
+                      style={[styles.linkBtn, { backgroundColor: c.primaryAlt }]}
+                      onPress={() => Linking.openURL(d.url)}
+                      activeOpacity={0.85}
+                    >
+                      <ExternalLink size={16} color="#FFFFFF" />
+                      <Text style={styles.linkBtnText}>Open Link</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </ScrollView>
             </SafeAreaView>
@@ -443,6 +561,19 @@ const styles = StyleSheet.create({
   newsPad:        { padding: 12 },
 
   resourceIcon:   { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  resourceMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  resourceCatChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5 },
+  resourceCatChipText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+
+  filterBar:      { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth },
+  filterRow:      { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  filterChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  filterChipText: { fontSize: 12, fontWeight: '600' },
+
+  ytWrap:         { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  ytPlayer:       { flex: 1, backgroundColor: '#000' },
+  linkBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 13, borderRadius: 12 },
+  linkBtnText:    { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   adminBadge:     { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   adminText:      { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
 

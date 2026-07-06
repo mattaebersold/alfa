@@ -27,10 +27,15 @@ export default function ReportButton({ contentType, contentId, size = 20, color 
         {
           text: 'Report',
           style: 'destructive',
-          onPress: () => {
-            // Hide immediately, then fire-and-forget
+          onPress: async () => {
+            // Hide immediately for the reporter, then send the report.
             dispatch(hideContent(contentId));
-            createReport({ content_type: contentType, content_id: contentId }).catch(() => {});
+            try {
+              await createReport({ content_type: contentType, content_id: contentId }).unwrap();
+              Alert.alert('Reported', 'Content reported successfully.');
+            } catch {
+              Alert.alert('Report failed', 'Could not send the report. Please try again.');
+            }
           },
         },
       ]

@@ -7,7 +7,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react-native';
+import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight, Wrench } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation } from '@react-navigation/native';
 import AppHeader from '../../components/ui/AppHeader';
@@ -35,6 +35,7 @@ import { uploadFile } from '../../utils/upload';
 import { stripHtml } from '../../utils/text';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useBrandTextColor } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES } from '../../constants/carTypes';
 import type { AppStackParamList } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod } from '../../types/api';
@@ -331,6 +332,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const localNav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
+  const brandTextColor = useBrandTextColor();
   const scrollRef = useRef<ScrollView>(null);
   const [activeSheet, setActiveSheet] = useState<Sheet>(null);
   const [tasksOpen, setTasksOpen] = useState(false);
@@ -361,7 +363,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const { data: car, isLoading } = useGetCarWithUserQuery(carId);
   const { data: coOwnerData } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
-  useGetCarTasksQuery(carId, { skip: !car });
+  const { data: tasksData } = useGetCarTasksQuery(carId, { skip: !car });
+  const taskCount = tasksData?.entries?.length ?? 0;
 
   const { data: postsData, isFetching: postsFetching } = useGetPostsQuery(
     { car_id: carId, limit: 30 },
@@ -400,13 +403,20 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     }
   }, [carFollowBusy, isFollowingCar, followCar, unfollowCar, carId]);
 
+  const handleAddPress = useCallback(() => {
+    if (!car) return;
+    const title = [car.year, car.make, car.model].filter(Boolean).join(' ');
+    Alert.alert('Add to this car', undefined, [
+      { text: 'Add Mod',     onPress: () => appNav.navigate('ModCreate', { carId, carTitle: title }) },
+      { text: 'Add Gallery', onPress: () => setActiveSheet('gallery') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [car, appNav, carId]);
+
   const handleMenuPress = useCallback(() => {
     if (!car) return;
     const title = [car.year, car.make, car.model].filter(Boolean).join(' ');
-    Alert.alert(title, '', [
-      { text: 'Add Mod',     onPress: () => appNav.navigate('ModCreate', { carId, carTitle: title }) },
-      { text: 'Add Gallery', onPress: () => setActiveSheet('gallery') },
-      { text: 'View Tasks',  onPress: () => setTasksOpen(true) },
+    Alert.alert(title, undefined, [
       { text: 'Edit Car',    onPress: () => appNav.navigate('CarCreate', { carId }) },
       {
         text: 'Delete Car', style: 'destructive', onPress: () => {
@@ -778,9 +788,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               )}
             </View>
             {isOwnerOrCoOwner ? (
-              <TouchableOpacity onPress={handleMenuPress} hitSlop={8} style={styles.menuBtn}>
-                <MoreHorizontal size={22} color={colors.fg} />
-              </TouchableOpacity>
+              <View style={styles.titleActions}>
+                <TouchableOpacity onPress={handleAddPress} hitSlop={8} style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}>
+                  <Plus size={20} color={brandTextColor} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleMenuPress} hitSlop={8} style={styles.menuBtn}>
+                  <MoreHorizontal size={22} color={colors.fg} />
+                </TouchableOpacity>
+              </View>
             ) : (
               <ReportButton contentType="car" contentId={carId} size={22} />
             )}
@@ -850,6 +865,19 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               initialLiked={(car as any).isLiked ?? false}
             />
           </View>
+
+          {isOwnerOrCoOwner && (
+            <TouchableOpacity
+              style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
+              onPress={() => setTasksOpen(true)}
+              activeOpacity={0.85}
+            >
+              <Wrench size={16} color={brandTextColor} />
+              <Text style={[styles.tasksBtnText, { color: brandTextColor }]}>
+                Manage Tasks{taskCount > 0 ? ` (${taskCount})` : ''}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Section tiles — open panes like the profile page ── */}
@@ -1174,6 +1202,13 @@ const styles = StyleSheet.create({
   titleRow:       { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   titleLeft:      { flex: 1, marginRight: 12 },
   menuBtn:        { padding: 4 },
+  titleActions:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addBtn:         { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  tasksBtn:       {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: 12, paddingVertical: 13, borderRadius: 12,
+  },
+  tasksBtnText:   { fontSize: 15, fontWeight: '800' },
   carTitle:       { fontSize: 22, fontWeight: '800', lineHeight: 28 },
   carSubtitle:    { fontSize: 14, marginTop: 3, fontWeight: '500' },
   badgeRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },

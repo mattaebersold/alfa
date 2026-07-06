@@ -125,6 +125,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
                   onPress={() => appNav.navigate('ComposeMessage', {
                     userId: post.user!.user_id,
                     username: post.user!.username,
+                    subject: `Re: ${post.title || 'your listing'}`,
                     initialBody: `I'm interested in your listing "${post.title}"…`,
                   })}
                 >
