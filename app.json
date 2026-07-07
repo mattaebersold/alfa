@@ -62,7 +62,12 @@
         }
       ],
       "expo-video",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": false
+        }
+      ],
       "expo-asset",
       "expo-image",
       "expo-status-bar"

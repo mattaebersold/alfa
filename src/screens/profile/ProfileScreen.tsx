@@ -17,10 +17,11 @@ import {
   useGetUserFollowersQuery,
   useGetUserFollowingQuery,
   useBlockUserMutation,
+  useUnblockUserMutation,
   useCreateReportMutation,
 } from '../../api/apiService';
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { addBlockedUser } from '../../store/moderationSlice';
+import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
 import FollowButton from '../../components/social/FollowButton';
@@ -100,7 +101,30 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
   const colors = useColors();
   const dispatch = useAppDispatch();
   const [blockUser] = useBlockUserMutation();
+  const [unblockUser] = useUnblockUserMutation();
   const [createReport] = useCreateReportMutation();
+  const isBlocked = useAppSelector((s) => s.moderation.blockedUserIds.includes(user.user_id));
+
+  const handleUnblock = () => {
+    Alert.alert(
+      'Unblock user',
+      `Unblock @${user.username}? You'll be able to see each other's content again.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              await unblockUser({ blocked_id: user.user_id }).unwrap();
+              dispatch(removeBlockedUser(user.user_id));
+            } catch {
+              Alert.alert('Error', 'Could not unblock user. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleMorePress = () => {
     Alert.alert(
@@ -176,13 +200,30 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
     >
       <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={44} />
       <Text style={[styles.userRowName, { color: colors.fg, flex: 1 }]}>@{user.username}</Text>
-      {user.username && user.user_id !== currentUserId && (
-        <FollowButton username={user.username} />
-      )}
-      {user.user_id !== currentUserId && (
-        <TouchableOpacity onPress={handleMorePress} hitSlop={10} style={styles.moreBtn}>
-          <MoreVertical size={18} color={colors.grey} />
-        </TouchableOpacity>
+      {isBlocked ? (
+        <>
+          <View style={[styles.blockedPill, { backgroundColor: colors.red + '18' }]}>
+            <Text style={[styles.blockedPillText, { color: colors.red }]}>Blocked</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.unblockBtn, { borderColor: colors.border }]}
+            onPress={handleUnblock}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.unblockBtnText, { color: colors.primaryAlt }]}>Unblock</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          {user.username && user.user_id !== currentUserId && (
+            <FollowButton username={user.username} />
+          )}
+          {user.user_id !== currentUserId && (
+            <TouchableOpacity onPress={handleMorePress} hitSlop={10} style={styles.moreBtn}>
+              <MoreVertical size={18} color={colors.grey} />
+            </TouchableOpacity>
+          )}
+        </>
       )}
     </TouchableOpacity>
   );
@@ -674,4 +715,8 @@ const styles = StyleSheet.create({
   userRowName:     { fontSize: 15, fontWeight: '600' },
   userRowUsername: { fontSize: 13, marginTop: 1 },
   moreBtn:         { padding: 4, marginLeft: 4 },
+  blockedPill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  blockedPillText: { fontSize: 12, fontWeight: '700' },
+  unblockBtn:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, marginLeft: 8 },
+  unblockBtnText:  { fontSize: 13, fontWeight: '700' },
 });

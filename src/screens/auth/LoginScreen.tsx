@@ -12,6 +12,7 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
+import TermsModal from '../../components/auth/TermsModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
@@ -26,6 +27,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -117,18 +119,23 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.termsRow}
-                onPress={() => setTermsAccepted(v => !v)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                  {termsAccepted && <Check size={11} color="#FFF" />}
-                </View>
-                <Text style={styles.termsText}>
-                  I accept the terms and conditions
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.termsRow}>
+                <TouchableOpacity
+                  style={styles.termsCheck}
+                  onPress={() => setTermsAccepted(v => !v)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                    {termsAccepted && <Check size={11} color="#FFF" />}
+                  </View>
+                  <Text style={styles.termsText}>
+                    I accept the terms and conditions
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setTermsVisible(true)} hitSlop={8} activeOpacity={0.7}>
+                  <Text style={styles.termsView}>View</Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.actionRow}>
                 <TouchableOpacity onPress={() => navigation.navigate('Register')} activeOpacity={0.7}>
@@ -146,6 +153,12 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <TermsModal
+        visible={termsVisible}
+        onClose={() => setTermsVisible(false)}
+        onAccept={() => setTermsAccepted(true)}
+      />
     </ImageBackground>
   );
 }
@@ -225,7 +238,8 @@ const styles = StyleSheet.create({
     color: colors.cream,
     fontWeight: '500',
   },
-  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 16 },
+  termsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  termsCheck: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   checkbox: {
     width: 20, height: 20, borderRadius: 5, borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.5)',
@@ -234,4 +248,8 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
   termsText: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 19 },
+  termsView: {
+    fontSize: 13, color: '#FFFFFF', fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });
