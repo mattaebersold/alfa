@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search } from 'lucide-react-native';
+import { Search, X, Car } from 'lucide-react-native';
 import { useGetCarBrandsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -19,62 +19,53 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
   const filtered = useMemo(
     () =>
       brands
-        .filter((b) => b.toLowerCase().includes(query.toLowerCase()))
+        .filter((b) => b.toLowerCase().includes(query.trim().toLowerCase()))
         .sort((a, b) => a.localeCompare(b)),
     [brands, query]
   );
-
-  // Group by first letter
-  const grouped = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    filtered.forEach((b) => {
-      const letter = b[0]?.toUpperCase() ?? '#';
-      if (!map[letter]) map[letter] = [];
-      map[letter].push(b);
-    });
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
-  }, [filtered]);
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      {/* Search */}
+      {/* Filter by make */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
         <TextInput
           style={[styles.searchInput, { color: colors.fg }]}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search makes..."
+          placeholder="Filter by make..."
           placeholderTextColor={colors.grey}
           autoCapitalize="words"
+          autoCorrect={false}
         />
+        {query.length > 0 && (
+          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
+            <X size={16} color={colors.grey} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
-        data={grouped}
-        keyExtractor={([letter]) => letter}
+        data={filtered}
+        keyExtractor={(make) => make}
+        numColumns={2}
+        columnWrapperStyle={styles.rowWrap}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.grid}
         ListEmptyComponent={<EmptyState title="No brands found" />}
-        renderItem={({ item: [letter, makes] }) => (
-          <View>
-            <View style={[styles.letterHeader, { backgroundColor: colors.segment }]}>
-              <Text style={[styles.letter, { color: colors.grey }]}>{letter}</Text>
+        renderItem={({ item: make }) => (
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('BrandDetail', { brand: make })}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.iconWrap, { backgroundColor: colors.primaryAlt + '22' }]}>
+              <Car size={20} color={colors.primaryAlt} />
             </View>
-            {makes.map((make) => (
-              <TouchableOpacity
-                key={make}
-                style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-                onPress={() => navigation.navigate('BrandDetail', { brand: make })}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.makeName, { color: colors.fg }]}>{make}</Text>
-                <Text style={[styles.arrow, { color: colors.grey }]}>›</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+            <Text style={[styles.makeName, { color: colors.fg }]} numberOfLines={2}>{make}</Text>
+          </TouchableOpacity>
         )}
       />
     </SafeAreaView>
@@ -88,14 +79,16 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 15 },
-  list:        { paddingBottom: 24 },
-  letterHeader:{ paddingHorizontal: 16, paddingVertical: 6 },
-  letter:      { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
-  row:         {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1,
+  grid:        { paddingHorizontal: 8, paddingBottom: 120 },
+  rowWrap:     { gap: 10, paddingHorizontal: 4 },
+  card:        {
+    flex: 1, borderRadius: 14, borderWidth: 1,
+    paddingVertical: 20, paddingHorizontal: 14,
+    alignItems: 'center', gap: 10, marginBottom: 10,
   },
-  makeName:    { fontSize: 15, fontWeight: '600' },
-  arrow:       { fontSize: 20 },
+  iconWrap:    {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  makeName:    { fontSize: 15, fontWeight: '700', textAlign: 'center' },
 });

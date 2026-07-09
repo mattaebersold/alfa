@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   TextInput, Modal, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Check, Trash2, ChevronDown, Archive } from 'lucide-react-native';
+import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
+import { Plus, Check, Trash2, ChevronDown, Archive, GripVertical } from 'lucide-react-native';
 import {
   useGetCarTasksQuery,
   useGetArchivedCarTasksQuery,
@@ -12,6 +13,7 @@ import {
   useUpdateCarTaskMutation,
   useToggleCarTaskMutation,
   useDeleteCarTaskMutation,
+  useUpdateCarTaskPositionsMutation,
 } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -23,6 +25,43 @@ import { ss } from '../../styles/shared';
 
 const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 type Priority = typeof PRIORITIES[number];
+
+const TASK_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'general',    label: 'General' },
+  { key: 'engine',     label: 'Engine' },
+  { key: 'interior',   label: 'Interior' },
+  { key: 'exterior',   label: 'Exterior' },
+  { key: 'electrical', label: 'Electrical' },
+  { key: 'suspension', label: 'Suspension' },
+  { key: 'brakes',     label: 'Brakes' },
+  { key: 'wheels',     label: 'Wheels & Tires' },
+  { key: 'other',      label: 'Other' },
+];
+const CAT_LABEL = (key?: string) => TASK_CATEGORIES.find((c) => c.key === (key ?? 'general'))?.label ?? 'General';
+const CAT_ORDER = (key?: string) => {
+  const i = TASK_CATEGORIES.findIndex((c) => c.key === (key ?? 'general'));
+  return i === -1 ? 999 : i;
+};
+
+type Row =
+  | { _type: 'header'; category: string; key: string }
+  | { _type: 'task'; task: CarTask; key: string };
+
+// A header for each non-empty category (in category order), followed by that
+// category's open tasks in position order. Drag a task under a different header
+// to move it to that category.
+function buildRows(open: CarTask[]): Row[] {
+  const rows: Row[] = [];
+  TASK_CATEGORIES.forEach((cat) => {
+    const catTasks = open
+      .filter((t) => (t.category ?? 'general') === cat.key)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    if (catTasks.length === 0) return;
+    rows.push({ _type: 'header', category: cat.key, key: `h-${cat.key}` });
+    catTasks.forEach((t) => rows.push({ _type: 'task', task: t, key: t.internal_id }));
+  });
+  return rows;
+}
 
 const PRIORITY_COLORS: Record<Priority, string> = {
   critical: '#FF0000',
@@ -46,7 +85,7 @@ function TaskModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSave: (data: { title: string; body: string; priority: Priority }) => void;
+  onSave: (data: { title: string; body: string; priority: Priority; category: string }) => void;
   initial?: Partial<CarTask>;
   loading: boolean;
 }) {
@@ -54,12 +93,14 @@ function TaskModal({
   const [title, setTitle] = useState(initial?.title ?? '');
   const [body, setBody] = useState(initial?.body ?? '');
   const [priority, setPriority] = useState<Priority>((initial?.priority as Priority) ?? 'medium');
+  const [category, setCategory] = useState<string>(initial?.category ?? 'general');
 
   React.useEffect(() => {
     if (visible) {
       setTitle(initial?.title ?? '');
       setBody(initial?.body ?? '');
       setPriority((initial?.priority as Priority) ?? 'medium');
+      setCategory(initial?.category ?? 'general');
     }
   }, [visible, initial]);
 
@@ -79,7 +120,7 @@ function TaskModal({
             <TouchableOpacity
               onPress={() => {
                 if (!title.trim()) { Alert.alert('Error', 'Title is required'); return; }
-                onSave({ title: title.trim(), body: body.trim(), priority });
+                onSave({ title: title.trim(), body: body.trim(), priority, category });
               }}
               disabled={loading}
             >
@@ -133,6 +174,27 @@ function TaskModal({
                 ))}
               </View>
             </View>
+
+            <View style={modal.field}>
+              <Text style={[modal.label, { color: colors.fg }]}>Category</Text>
+              <View style={modal.chips}>
+                {TASK_CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      modal.chip,
+                      { borderColor: colors.border, backgroundColor: colors.card },
+                      category === cat.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+                    ]}
+                    onPress={() => setCategory(cat.key)}
+                  >
+                    <Text style={[modal.chipText, { color: colors.fg }, category === cat.key && { color: '#FFFFFF' }]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -161,15 +223,35 @@ function TaskRow({
   onToggle,
   onPress,
   onDelete,
+  onLongPress,
+  isActive,
 }: {
   task: CarTask;
   onToggle: () => void;
   onPress: () => void;
   onDelete: () => void;
+  onLongPress?: () => void;
+  isActive?: boolean;
 }) {
   const colors = useColors();
   return (
-    <TouchableOpacity style={[taskRow.row, { backgroundColor: colors.card, borderBottomColor: colors.border }, task.completed && taskRow.rowDone]} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={[
+        taskRow.row,
+        { backgroundColor: colors.card, borderBottomColor: colors.border },
+        task.completed && taskRow.rowDone,
+        isActive && taskRow.rowActive,
+      ]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={180}
+      activeOpacity={0.85}
+    >
+      {onLongPress && (
+        <View style={taskRow.grip}>
+          <GripVertical size={16} color={colors.grey} />
+        </View>
+      )}
       {/* Checkbox */}
       <TouchableOpacity
         style={[taskRow.check, task.completed && taskRow.checkDone]}
@@ -219,6 +301,8 @@ const taskRow = StyleSheet.create({
     borderBottomWidth: 1,
   },
   rowDone: { opacity: 0.55 },
+  rowActive: { opacity: 0.95, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  grip:    { paddingRight: 2, paddingTop: 2 },
   check: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0,
@@ -254,7 +338,32 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   const open = tasks.filter((t) => !t.completed);
   const done = tasks.filter((t) => t.completed);
 
-  const handleSave = async (data: { title: string; body: string; priority: Priority }) => {
+  const [updatePositions] = useUpdateCarTaskPositionsMutation();
+
+  // Draggable rows for open tasks (rebuilt whenever the task data changes).
+  const [dragData, setDragData] = useState<Row[]>([]);
+  useEffect(() => {
+    setDragData(buildRows(tasks.filter((t) => !t.completed)));
+  }, [tasks]);
+
+  const handleDragEnd = ({ data }: { data: Row[] }) => {
+    setDragData(data); // optimistic
+    const persist: { internal_id: string; position: number; category: string }[] = [];
+    let currentCat = 'general';
+    const counters: Record<string, number> = {};
+    data.forEach((row) => {
+      if (row._type === 'header') { currentCat = row.category; return; }
+      const pos = counters[currentCat] ?? 0;
+      counters[currentCat] = pos + 1;
+      const t = row.task;
+      if ((t.category ?? 'general') !== currentCat || (t.position ?? -1) !== pos) {
+        persist.push({ internal_id: t.internal_id, position: pos, category: currentCat });
+      }
+    });
+    if (persist.length) updatePositions({ tasks: persist, car_id: carId });
+  };
+
+  const handleSave = async (data: { title: string; body: string; priority: Priority; category: string }) => {
     if (editingTask?.internal_id) {
       await updateTask({ ...editingTask, ...data }).unwrap();
     } else {
@@ -281,17 +390,32 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <FlatList
-        data={[...open, ...done]}
-        keyExtractor={(item) => item.internal_id}
-        renderItem={({ item }) => (
-          <TaskRow
-            task={item}
-            onToggle={() => handleToggle(item)}
-            onPress={() => handleEdit(item)}
-            onDelete={() => handleDelete(item)}
-          />
-        )}
+      <DraggableFlatList
+        data={dragData}
+        keyExtractor={(item) => item.key}
+        onDragEnd={handleDragEnd}
+        activationDistance={12}
+        renderItem={({ item, drag, isActive }: RenderItemParams<Row>) => {
+          if (item._type === 'header') {
+            return (
+              <View style={[styles.catHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                <Text style={[styles.catHeaderText, { color: colors.grey }]}>{CAT_LABEL(item.category)}</Text>
+              </View>
+            );
+          }
+          return (
+            <ScaleDecorator>
+              <TaskRow
+                task={item.task}
+                onToggle={() => handleToggle(item.task)}
+                onPress={() => handleEdit(item.task)}
+                onDelete={() => handleDelete(item.task)}
+                onLongPress={drag}
+                isActive={isActive}
+              />
+            </ScaleDecorator>
+          );
+        }}
         ListHeaderComponent={
           <View style={styles.header}>
             <View>
@@ -311,25 +435,45 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
           </View>
         }
         ListFooterComponent={
-          showArchived && archived.length > 0 ? (
-            <View>
-              <View style={[styles.divider, { backgroundColor: colors.segment, borderColor: colors.border }]}>
-                <Text style={[styles.dividerText, { color: colors.grey }]}>Archived</Text>
+          <View>
+            {done.length > 0 && (
+              <View>
+                <View style={[styles.divider, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                  <Text style={[styles.dividerText, { color: colors.grey }]}>Completed</Text>
+                </View>
+                {done.map((item) => (
+                  <TaskRow
+                    key={item.internal_id}
+                    task={item}
+                    onToggle={() => handleToggle(item)}
+                    onPress={() => handleEdit(item)}
+                    onDelete={() => handleDelete(item)}
+                  />
+                ))}
               </View>
-              {archived.map((item) => (
-                <TaskRow
-                  key={item.internal_id}
-                  task={item}
-                  onToggle={() => handleToggle(item)}
-                  onPress={() => handleEdit(item)}
-                  onDelete={() => handleDelete(item)}
-                />
-              ))}
-            </View>
-          ) : null
+            )}
+            {showArchived && archived.length > 0 && (
+              <View>
+                <View style={[styles.divider, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+                  <Text style={[styles.dividerText, { color: colors.grey }]}>Archived</Text>
+                </View>
+                {archived.map((item) => (
+                  <TaskRow
+                    key={item.internal_id}
+                    task={item}
+                    onToggle={() => handleToggle(item)}
+                    onPress={() => handleEdit(item)}
+                    onDelete={() => handleDelete(item)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
         }
         ListEmptyComponent={
-          <EmptyState title="No tasks" message="Add your first task to get started." />
+          done.length === 0
+            ? <EmptyState title="No tasks" message="Add your first task to get started." />
+            : null
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
@@ -369,6 +513,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderBottomWidth: 1,
   },
   dividerText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  catHeader: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  catHeaderText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: 28,

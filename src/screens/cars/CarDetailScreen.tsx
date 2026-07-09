@@ -16,13 +16,16 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
   useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery, useGetCarModsQuery,
-  useDeleteCarMutation, useCreateCarGalleryMutation,
+  useDeleteCarMutation,
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
-  useUpdateCarGalleryMutation, useDeleteCarGalleryMutation,
+  useDeleteCarGalleryMutation,
+  useCreateCarGalleryShellMutation, useAddCarGalleryImageMutation,
+  useRemoveCarGalleryImagesMutation, useUpdateCarGalleryMetaMutation,
   useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
   useGetCarFollowersQuery, useGetGroupQuery, useGetCarsQuery,
+  apiService,
 } from '../../api/apiService';
-import { useAppSelector } from '../../store/store';
+import { useAppSelector, useAppDispatch } from '../../store/store';
 import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
@@ -32,6 +35,7 @@ import FollowButton from '../../components/social/FollowButton';
 import CommentsSheet from '../../components/social/CommentsSheet';
 import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
+import BottomSheet from '../../components/ui/SharedModal';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { uploadFile } from '../../utils/upload';
@@ -114,12 +118,12 @@ function LightboxPage({ item, height }: { item: GalleryItem; height: number }) {
 }
 
 function Lightbox({
-  images, initialIndex, title, onClose,
-}: { images: GalleryItem[]; initialIndex: number; title?: string; onClose: () => void }) {
+  images, initialIndex, title, onClose, onManage,
+}: { images: GalleryItem[]; initialIndex: number; title?: string; onClose: () => void; onManage?: () => void }) {
   const [index, setIndex] = useState(initialIndex);
   const [listHeight, setListHeight] = useState(SCREEN_HEIGHT - 80);
   return (
-    <Modal visible animationType="fade" statusBarTranslucent>
+    <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <RNSafeAreaView style={styles.lightboxSafe}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         <View style={styles.lightboxHeader}>
@@ -127,6 +131,11 @@ function Lightbox({
             {title ? <Text style={styles.lightboxTitle}>{title}</Text> : null}
             <Text style={styles.lightboxCount}>{index + 1} / {images.length}</Text>
           </View>
+          {onManage && (
+            <TouchableOpacity onPress={onManage} style={styles.lightboxClose} hitSlop={6}>
+              <MoreHorizontal size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onClose} style={styles.lightboxClose}>
             <X size={22} color="#FFFFFF" />
           </TouchableOpacity>
@@ -177,7 +186,7 @@ function AlbumCard({ album, onPress, onManage }: { album: CarGalleryAlbum; onPre
 
 // ── Gallery strip ────────────────────────────────────────────────────────────
 
-function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void }) {
+function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onOpenAlbum }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void; onOpenAlbum: (album: CarGalleryAlbum) => void }) {
   const [lightbox, setLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
   const { data: galData } = useGetCarGalleriesQuery(carId);
   const albums = galData?.entries ?? [];
@@ -239,7 +248,7 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum }: {
               <AlbumCard
                 key={album.internal_id}
                 album={album}
-                onPress={() => album.gallery?.length && setLightbox({ images: album.gallery, index: 0, title: album.title })}
+                onPress={() => onOpenAlbum(album)}
                 onManage={onManageAlbum ? () => onManageAlbum(album) : undefined}
               />
             ))}
@@ -308,73 +317,6 @@ const modStyles = StyleSheet.create({
 
 // ── Animated bottom sheet ────────────────────────────────────────────────────
 
-function BottomSheet({
-  visible, onClose, title, children,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const c = useColors();
-  const slideY = useRef(new Animated.Value(600)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const mountedRef = useRef(false);
-  const [rendered, setRendered] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      mountedRef.current = true;
-      setRendered(true);
-      slideY.setValue(600);
-      overlayOpacity.setValue(0);
-      Animated.parallel([
-        Animated.spring(slideY, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
-        Animated.timing(overlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-      ]).start();
-    } else if (mountedRef.current) {
-      Animated.parallel([
-        Animated.timing(slideY, { toValue: 600, duration: 240, useNativeDriver: true }),
-        Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start(() => {
-        mountedRef.current = false;
-        setRendered(false);
-      });
-    }
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!rendered) return null;
-
-  return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={{ flex: 1, justifyContent: 'flex-end' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <Animated.View
-          style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
-          pointerEvents="none"
-        >
-          <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
-        </Animated.View>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View
-          style={[styles.sheet, { backgroundColor: SHEET_BG, transform: [{ translateY: slideY }] }]}
-        >
-          <View style={[styles.sheetHeader, { backgroundColor: '#000000', borderBottomColor: '#000000' }]}>
-            <Text style={[styles.sheetTitle, { color: '#FFFFFF' }]}>{title}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={22} color="rgba(255,255,255,0.7)" />
-            </TouchableOpacity>
-          </View>
-          {children}
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
 // ── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CarDetailScreen({ route }: { route: { params: { carId: string } } }) {
@@ -386,13 +328,16 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const brandTextColor = useBrandTextColor();
   const scrollRef = useRef<ScrollView>(null);
   const [activeSheet, setActiveSheet] = useState<Sheet>(null);
-  const [tasksOpen, setTasksOpen] = useState(false);
   const [modsExpanded, setModsExpanded] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descLines, setDescLines] = useState<number | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [paneLightbox, setPaneLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
+  // Single top-level gallery viewer (lightbox). Opening it from inside the
+  // galleries pane is deferred until the pane's modal has fully dismissed —
+  // iOS can't present a modal on top of one that's still on screen.
+  const [viewer, setViewer] = useState<{ album: CarGalleryAlbum; index: number } | null>(null);
+  const pendingViewerRef = useRef<{ album: CarGalleryAlbum; index: number } | null>(null);
   const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string | null>(null);
   const [recordCategoryFilter, setRecordCategoryFilter] = useState<string | null>(null);
@@ -406,11 +351,19 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [editAlbumTitle, setEditAlbumTitle] = useState('');
   const [editAlbumRemovedFilenames, setEditAlbumRemovedFilenames] = useState<string[]>([]);
   const [editAlbumNewImages, setEditAlbumNewImages] = useState<{ uri: string; name: string; type: string }[]>([]);
+  // Sequential upload progress: { current, total } while uploading, else null
+  const [galleryProgress, setGalleryProgress] = useState<{ current: number; total: number } | null>(null);
+  const [editProgress, setEditProgress] = useState<{ current: number; total: number } | null>(null);
+  const creatingGallery = galleryProgress !== null;
+  const updatingGallery = editProgress !== null;
+  const dispatch = useAppDispatch();
   const [deleteCar] = useDeleteCarMutation();
-  const [createCarGallery, { isLoading: creatingGallery }] = useCreateCarGalleryMutation();
+  const [createCarGalleryShell] = useCreateCarGalleryShellMutation();
+  const [addCarGalleryImage] = useAddCarGalleryImageMutation();
+  const [removeCarGalleryImages] = useRemoveCarGalleryImagesMutation();
+  const [updateCarGalleryMeta] = useUpdateCarGalleryMetaMutation();
   const [updateMod, { isLoading: updatingMod }] = useUpdateModMutation();
   const [deleteMod] = useDeleteModMutation();
-  const [updateCarGallery, { isLoading: updatingGallery }] = useUpdateCarGalleryMutation();
   const [deleteCarGallery] = useDeleteCarGalleryMutation();
 
   const { data: car, isLoading } = useGetCarWithUserQuery(carId);
@@ -553,17 +506,37 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const handleCreateGallery = async () => {
     if (!galleryTitle.trim()) { Alert.alert('Required', 'Please enter a title for this gallery.'); return; }
-    const fd = new FormData();
-    fd.append('car_id', carId);
-    fd.append('title', galleryTitle.trim());
-    galleryImages.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
+    const images = galleryImages;
+    setGalleryProgress({ current: 0, total: images.length });
     try {
-      await createCarGallery(fd).unwrap();
+      // 1. Create the empty gallery shell
+      const { _id } = await createCarGalleryShell({ car_id: carId, title: galleryTitle.trim() }).unwrap();
+
+      // 2. Upload each image one at a time, tracking progress
+      let uploaded = 0;
+      for (const img of images) {
+        const fd = new FormData();
+        fd.append('internal_id', _id);
+        fd.append('gallery', uploadFile(img.uri));
+        await addCarGalleryImage(fd).unwrap();
+        uploaded += 1;
+        setGalleryProgress({ current: uploaded, total: images.length });
+      }
+
+      // 3. Refresh the gallery list for this car
+      dispatch(apiService.util.invalidateTags([{ type: 'CarGallery', id: carId }]));
       setActiveSheet(null);
       setGalleryTitle('');
       setGalleryImages([]);
     } catch {
-      Alert.alert('Error', 'Failed to create gallery. Please try again.');
+      // The shell/some images may already have saved — refresh so the user sees what landed
+      dispatch(apiService.util.invalidateTags([{ type: 'CarGallery', id: carId }]));
+      Alert.alert('Upload incomplete', 'Some photos could not be uploaded. The gallery was saved — you can add the rest by editing it.');
+      setActiveSheet(null);
+      setGalleryTitle('');
+      setGalleryImages([]);
+    } finally {
+      setGalleryProgress(null);
     }
   };
 
@@ -610,16 +583,47 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     }
   };
 
+  // Open a gallery in the top-level viewer. If a pane (modal) is open, close it
+  // first and open the viewer once it has dismissed — see pendingViewerRef.
+  const openAlbum = (album: CarGalleryAlbum, index = 0) => {
+    if (!album.gallery?.length) return;
+    if (pane !== null) {
+      pendingViewerRef.current = { album, index };
+      setPane(null);
+    } else {
+      setViewer({ album, index });
+    }
+  };
+
+  const handlePaneDismissed = () => {
+    if (pendingViewerRef.current) {
+      setViewer(pendingViewerRef.current);
+      pendingViewerRef.current = null;
+    }
+  };
+
+  // iOS can't present a new modal until the current one has finished
+  // dismissing; give it a beat. Android stacks modals fine, so run immediately.
+  const presentAfterDismiss = (fn: () => void, hadModalOpen: boolean) => {
+    if (hadModalOpen && Platform.OS === 'ios') setTimeout(fn, 350);
+    else fn();
+  };
+
+  const openEditAlbum = (album: CarGalleryAlbum) => {
+    const hadModalOpen = viewer !== null || pane !== null;
+    setViewer(null);
+    setPane(null);
+    setEditingAlbum(album);
+    setEditAlbumTitle(album.title ?? '');
+    setEditAlbumRemovedFilenames([]);
+    setEditAlbumNewImages([]);
+    presentAfterDismiss(() => setActiveSheet('gallery-edit'), hadModalOpen);
+  };
+
   const handleAlbumOptions = (album: CarGalleryAlbum) => {
     Alert.alert(album.title ?? 'Gallery', '', [
       {
-        text: 'Edit', onPress: () => {
-          setEditingAlbum(album);
-          setEditAlbumTitle(album.title ?? '');
-          setEditAlbumRemovedFilenames([]);
-          setEditAlbumNewImages([]);
-          setActiveSheet('gallery-edit');
-        },
+        text: 'Edit', onPress: () => openEditAlbum(album),
       },
       {
         text: 'Delete', style: 'destructive', onPress: () => {
@@ -627,8 +631,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             { text: 'Cancel', style: 'cancel' },
             {
               text: 'Delete', style: 'destructive', onPress: async () => {
-                try { await deleteCarGallery({ internal_id: album.internal_id }).unwrap(); }
-                catch { Alert.alert('Error', 'Could not delete gallery.'); }
+                try {
+                  await deleteCarGallery({ internal_id: album.internal_id }).unwrap();
+                  // Close whichever surface the delete was triggered from
+                  setViewer(null);
+                  setPane(null);
+                } catch { Alert.alert('Error', 'Could not delete gallery.'); }
               },
             },
           ]);
@@ -668,23 +676,51 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const handleUpdateAlbum = async () => {
     if (!editingAlbum || !editAlbumTitle.trim()) { Alert.alert('Required', 'Title is required.'); return; }
-    const fd = new FormData();
-    fd.append('internal_id', editingAlbum.internal_id);
-    fd.append('car_id', carId);
-    fd.append('title', editAlbumTitle.trim());
-    editAlbumRemovedFilenames.forEach((filename, i) => {
-      fd.append(`modifyImage:remove:${i}`, filename);
-    });
-    editAlbumNewImages.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
+    const galleryId = editingAlbum.internal_id;
+    const removed = editAlbumRemovedFilenames;
+    const newImages = editAlbumNewImages;
+    // Progress counts each unit of work: the removal batch (if any) + each new image
+    const total = newImages.length + (removed.length ? 1 : 0);
+    setEditProgress({ current: 0, total });
     try {
-      await updateCarGallery(fd).unwrap();
+      let done = 0;
+
+      // 1. Metadata (title) — cheap, do it first
+      await updateCarGalleryMeta({ internal_id: galleryId, title: editAlbumTitle.trim() }).unwrap();
+
+      // 2. Removals in a single request (no uploads, deletes from S3 server-side)
+      if (removed.length) {
+        await removeCarGalleryImages({ internal_id: galleryId, filenames: removed }).unwrap();
+        done += 1;
+        setEditProgress({ current: done, total });
+      }
+
+      // 3. Add each new image one at a time
+      for (const img of newImages) {
+        const fd = new FormData();
+        fd.append('internal_id', galleryId);
+        fd.append('gallery', uploadFile(img.uri));
+        await addCarGalleryImage(fd).unwrap();
+        done += 1;
+        setEditProgress({ current: done, total });
+      }
+
+      dispatch(apiService.util.invalidateTags([{ type: 'CarGallery', id: carId }]));
       setActiveSheet(null);
       setEditingAlbum(null);
       setEditAlbumTitle('');
       setEditAlbumRemovedFilenames([]);
       setEditAlbumNewImages([]);
     } catch {
-      Alert.alert('Error', 'Could not update gallery.');
+      dispatch(apiService.util.invalidateTags([{ type: 'CarGallery', id: carId }]));
+      Alert.alert('Update incomplete', 'Some changes could not be saved. Please reopen the gallery to review and retry.');
+      setActiveSheet(null);
+      setEditingAlbum(null);
+      setEditAlbumTitle('');
+      setEditAlbumRemovedFilenames([]);
+      setEditAlbumNewImages([]);
+    } finally {
+      setEditProgress(null);
     }
   };
 
@@ -769,7 +805,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             <TouchableOpacity
               key={album.internal_id}
               style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
-              onPress={() => album.gallery?.length && setPaneLightbox({ images: album.gallery, index: 0, title: album.title })}
+              onPress={() => openAlbum(album)}
               activeOpacity={0.7}
             >
               {thumb
@@ -779,7 +815,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 <Text style={{ color: SHEET_FG, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
                 <Text style={{ color: colors.grey, fontSize: 12, marginTop: 2 }}>{album.gallery?.length ?? 0} photos</Text>
               </View>
-              <ChevronRight size={18} color={colors.grey} />
+              {isOwnerOrCoOwner ? (
+                <TouchableOpacity onPress={() => handleAlbumOptions(album)} hitSlop={8} style={{ padding: 4 }}>
+                  <MoreHorizontal size={20} color={colors.grey} />
+                </TouchableOpacity>
+              ) : (
+                <ChevronRight size={18} color={colors.grey} />
+              )}
             </TouchableOpacity>
           );
         });
@@ -838,6 +880,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             heroFilename={heroFilename}
             onAddGallery={isOwnerOrCoOwner ? () => setActiveSheet('gallery') : undefined}
             onManageAlbum={isOwnerOrCoOwner ? handleAlbumOptions : undefined}
+            onOpenAlbum={openAlbum}
           />
         </View>
 
@@ -993,7 +1036,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             <>
               <TouchableOpacity
                 style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
-                onPress={() => setTasksOpen(true)}
+                onPress={() => appNav.navigate('CarTasks', { carId, carTitle: car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') })}
                 activeOpacity={0.85}
               >
                 <Wrench size={16} color={brandTextColor} />
@@ -1211,7 +1254,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             activeOpacity={0.85}
           >
             {creatingGallery
-              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              ? <>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.sheetCreateBtnText}>
+                    {galleryProgress && galleryProgress.total > 0
+                      ? `Uploading ${galleryProgress.current} of ${galleryProgress.total}…`
+                      : 'Creating…'}
+                  </Text>
+                </>
               : <><Plus size={16} color="#FFFFFF" /><Text style={styles.sheetCreateBtnText}>Create Gallery</Text></>
             }
           </TouchableOpacity>
@@ -1287,7 +1337,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               activeOpacity={0.85}
             >
               {updatingGallery
-                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                ? <>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.sheetCreateBtnText}>
+                      {editProgress && editProgress.total > 0
+                        ? `Saving ${editProgress.current} of ${editProgress.total}…`
+                        : 'Saving…'}
+                    </Text>
+                  </>
                 : <Text style={styles.sheetCreateBtnText}>Save Changes</Text>
               }
             </TouchableOpacity>
@@ -1295,15 +1352,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         </ScrollView>
       </BottomSheet>
 
-      <TasksSheet
-        carId={carId}
-        carTitle={[car.year, car.make, car.model].filter(Boolean).join(' ')}
-        visible={tasksOpen}
-        onClose={() => setTasksOpen(false)}
-      />
-
       {/* ── Section pane ── */}
-      <BottomSheet visible={pane !== null} onClose={() => setPane(null)} title={paneTitle}>
+      <BottomSheet visible={pane !== null} onClose={() => setPane(null)} onDismissed={handlePaneDismissed} title={paneTitle}>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {renderPane()}
         </ScrollView>
@@ -1317,12 +1367,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onClose={() => setCommentsOpen(false)}
       />
 
-      {paneLightbox && (
+      {viewer && (
         <Lightbox
-          images={paneLightbox.images}
-          initialIndex={paneLightbox.index}
-          title={paneLightbox.title}
-          onClose={() => setPaneLightbox(null)}
+          images={viewer.album.gallery ?? []}
+          initialIndex={viewer.index}
+          title={viewer.album.title}
+          onClose={() => setViewer(null)}
+          onManage={isOwnerOrCoOwner ? () => handleAlbumOptions(viewer.album) : undefined}
         />
       )}
     </SafeAreaView>

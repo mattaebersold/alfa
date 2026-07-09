@@ -1,0 +1,189 @@
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, FlatList, Dimensions, ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { WebView } from 'react-native-webview';
+import { ExternalLink } from 'lucide-react-native';
+import { Linking } from 'react-native';
+import { formatDistanceToNow } from 'date-fns';
+import { useGetCommentsQuery, useCreateCommentMutation } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
+import Avatar from '../ui/Avatar';
+import MentionInput from '../ui/MentionInput';
+import CommentRow, { type CommentData } from '../social/CommentRow';
+import SharedModal from '../ui/SharedModal';
+import SharedButton from '../ui/SharedButton';
+import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { stripHtml } from '../../utils/text';
+import { ss } from '../../styles/shared';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+type Kind = 'news' | 'forum' | 'resource';
+const ENTRY_TYPE: Record<Kind, string> = {
+  news: 'groupnews',
+  forum: 'groupforum',
+  resource: 'groupresource',
+};
+
+function youtubeId(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+interface Props {
+  item: any | null;
+  kind: Kind | null;
+  categoryLabel?: string | null;
+  visible: boolean;
+  onClose: () => void;
+}
+
+export default function GroupItemDetailModal({ item, kind, categoryLabel, visible, onClose }: Props) {
+  const { userInfo } = useAppSelector((s) => s.auth);
+  const [commentText, setCommentText] = useState('');
+  const [mentionedIds, setMentionedIds] = useState<string[]>([]);
+
+  const entryType = kind ? ENTRY_TYPE[kind] : '';
+  const id = item?.internal_id ?? '';
+
+  const { data: commentsData, isFetching } = useGetCommentsQuery(
+    { type: entryType, id, limit: 50 },
+    { skip: !visible || !id || !entryType },
+  );
+  const comments = commentsData?.entries ?? [];
+  const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
+
+  const handleSubmit = async () => {
+    const body = commentText.trim();
+    if (!body || !id) return;
+    const fd = new FormData();
+    fd.append('document_id', id);
+    fd.append('document_type', entryType);
+    fd.append('body', body);
+    if (mentionedIds.length) fd.append('mentioned_users', mentionedIds.join(','));
+    try {
+      await createComment(fd as any).unwrap();
+      setCommentText('');
+      setMentionedIds([]);
+    } catch {
+      // no-op
+    }
+  };
+
+  if (!item || !kind) {
+    return <SharedModal visible={visible} onClose={onClose} title="" >{null as any}</SharedModal>;
+  }
+
+  const d = item;
+  const gallery = d.gallery ?? [];
+  const hero = firstGalleryUrl(gallery) ?? (d.image ? imageUrl(d.image) : null);
+  const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
+  const kindLabel = kind === 'news' ? 'News' : kind === 'resource' ? 'Resource' : 'Forum';
+  const ytId = kind === 'resource' ? youtubeId(d.url) : null;
+
+  return (
+    <SharedModal visible={visible} onClose={onClose} title={kindLabel}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Media */}
+        {ytId ? (
+          <View style={styles.ytWrap}>
+            <WebView source={{ uri: `https://www.youtube.com/embed/${ytId}` }} style={styles.ytPlayer} allowsFullscreenVideo javaScriptEnabled />
+          </View>
+        ) : gallery.length > 1 ? (
+          <FlatList
+            data={gallery}
+            keyExtractor={(g: any, i) => g.filename ?? String(i)}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item: g }: any) => (
+              <Image source={{ uri: imageUrl(g.filename) ?? undefined }} style={styles.galleryImage} contentFit="cover" />
+            )}
+          />
+        ) : hero ? (
+          <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
+        ) : null}
+
+        <View style={styles.body}>
+          {categoryLabel ? (
+            <View style={styles.catChip}>
+              <Text style={styles.catChipText}>{categoryLabel}</Text>
+            </View>
+          ) : null}
+          <Text style={styles.title}>{d.title}</Text>
+          <View style={styles.meta}>
+            <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={26} />
+            <Text style={styles.metaText}>@{d.user?.username} · {timeAgo}</Text>
+          </View>
+          {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}
+
+          {/* Resource link */}
+          {kind === 'resource' && d.url && !ytId ? (
+            <SharedButton label="Open Link" Icon={ExternalLink} onPress={() => Linking.openURL(d.url)} full style={{ marginTop: 16 }} />
+          ) : null}
+
+          {/* Comments */}
+          <Text style={styles.commentsHeading}>Comments{comments.length ? ` (${comments.length})` : ''}</Text>
+
+          <View style={styles.inputRow}>
+            <MentionInput
+              containerStyle={{ flex: 1 }}
+              style={[ss.chatInput, { borderColor: '#2A2A2A', color: '#ECECEC', maxHeight: 120 }]}
+              value={commentText}
+              onChangeText={(t, ids) => { setCommentText(t); setMentionedIds(ids); }}
+              placeholder="Write a comment..."
+              placeholderTextColor="#8D8D8D"
+              multiline
+            />
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={submitting || !commentText.trim()}
+              style={[styles.postBtn, (!commentText.trim() || submitting) && { opacity: 0.4 }]}
+            >
+              <Text style={styles.postBtnText}>Post</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isFetching && comments.length === 0 ? (
+            <ActivityIndicator size="small" color="#8D8D8D" style={{ marginTop: 16 }} />
+          ) : comments.length === 0 ? (
+            <Text style={styles.empty}>No comments yet. Be the first!</Text>
+          ) : (
+            comments.map((cm: CommentData) => (
+              <CommentRow
+                key={(cm as any).internal_id ?? (cm as any)._id}
+                comment={cm}
+                currentUserId={userInfo?.user_id}
+                isReply={!!(cm as any).parent_id}
+              />
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </SharedModal>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll:  { paddingBottom: 40 },
+  ytWrap:  { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  ytPlayer:{ flex: 1, backgroundColor: '#000' },
+  hero:    { width: '100%', aspectRatio: 16 / 9 },
+  galleryImage: { width: SCREEN_WIDTH, aspectRatio: 16 / 9 },
+  body:    { padding: 16 },
+  catChip: { alignSelf: 'flex-start', backgroundColor: '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, marginBottom: 8 },
+  catChipText: { color: '#B4B4B4', fontSize: 10, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+  title:   { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26, marginBottom: 12 },
+  meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  metaText:{ fontSize: 12, color: '#B4B4B4' },
+  text:    { fontSize: 15, lineHeight: 24, color: '#ECECEC' },
+  commentsHeading: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 24, marginBottom: 12 },
+  inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
+  postBtn: { backgroundColor: 'rgb(37, 162, 211)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 9 },
+  postBtnText: { color: '#000000', fontWeight: '700', fontSize: 14 },
+  empty:   { color: '#8D8D8D', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
+});

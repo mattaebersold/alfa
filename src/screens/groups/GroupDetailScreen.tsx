@@ -23,6 +23,7 @@ import type { GarageCar } from '../../types/api';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
+import SharedButton from '../../components/ui/SharedButton';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -72,6 +73,7 @@ export default function GroupDetailScreen() {
 
   const banner   = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   const isMember = members.some((m) => m.user_id === userInfo?.user_id && m.status === 'active');
+  const isPending = members.some((m) => m.user_id === userInfo?.user_id && m.status === 'pending');
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin');
   const canManageCars = isMember || isAdmin;
 
@@ -108,15 +110,16 @@ export default function GroupDetailScreen() {
               {group.subtitle && <Text style={[styles.groupSub, { color: c.muted }]}>{group.subtitle}</Text>}
               {group.region  && <Text style={[styles.groupRegion, { color: c.grey }]}>{group.region}</Text>}
             </View>
-            <TouchableOpacity
-              style={[styles.joinBtn, isMember && { backgroundColor: c.cream, borderWidth: 1.5, borderColor: c.border }]}
-              onPress={() => isMember ? leave(groupId) : join(groupId)}
-              disabled={joining || leaving}
-            >
-              <Text style={[styles.joinBtnText, isMember && { color: c.fg }]}>
-                {isMember ? 'Leave' : 'Join'}
-              </Text>
-            </TouchableOpacity>
+            {isMember ? (
+              <SharedButton label="Leave" variant="outline" onPress={() => leave(groupId)} loading={leaving} />
+            ) : isPending ? (
+              <View style={styles.pendingWrap}>
+                <Text style={[styles.pendingLabel, { color: c.grey }]}>Waiting for approval</Text>
+                <SharedButton label="Cancel" variant="outline" onPress={() => leave(groupId)} loading={leaving} />
+              </View>
+            ) : (
+              <SharedButton label="Join" onPress={() => join(groupId)} loading={joining} />
+            )}
           </View>
         </View>
 
@@ -143,6 +146,8 @@ export default function GroupDetailScreen() {
           </View>
         )}
 
+        {/* Members/admins only: everything below the description */}
+        {(isMember || isAdmin) && (<>
         {/* Cars in this group */}
         <View style={styles.carsSection}>
           <View style={styles.carsHeaderRow}>
@@ -206,6 +211,7 @@ export default function GroupDetailScreen() {
             ))}
           </View>
         </View>
+        </>)}
 
       </ScrollView>
 
@@ -258,7 +264,7 @@ export default function GroupDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll:       { paddingBottom: 40 },
+  scroll:       { paddingBottom: 120 },
 
   bannerWrap:   { position: 'relative' },
   banner:       { width: '100%', aspectRatio: 3 / 1 },
@@ -279,6 +285,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryAlt, alignSelf: 'flex-start', flexShrink: 0,
   },
   joinBtnText:  { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  pendingWrap:  { alignItems: 'flex-end', gap: 6 },
+  pendingLabel: { fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
 
   membersStrip: { padding: 14, borderBottomWidth: 1 },
   memberCount:  { fontSize: 12, fontWeight: '700', marginBottom: 8 },

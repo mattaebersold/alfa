@@ -3,7 +3,7 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, DiecastAnalysis,
+  Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -327,6 +327,36 @@ export const apiService = createApi({
       invalidatesTags: ['CarGallery'],
     }),
 
+    // ── Car Galleries — mobile sequential upload flow ─────────────────────────
+    // One image per request so we can show real progress and never hit multer's
+    // per-field maxCount. The screen orchestrates these and invalidates the
+    // CarGallery tag once the whole sequence finishes.
+
+    createCarGalleryShell: builder.mutation<
+      { _id: string; entry: CarGalleryAlbum },
+      { car_id: string; title: string; type?: string; body?: string; private?: boolean }
+    >({
+      query: (body) => ({ url: 'api/cargallery/mobile/create', method: 'POST', body }),
+    }),
+
+    addCarGalleryImage: builder.mutation<{ entry: CarGalleryAlbum; image: GalleryItem }, FormData>({
+      query: (body) => ({ url: 'api/cargallery/mobile/add-image', method: 'POST', body }),
+    }),
+
+    removeCarGalleryImages: builder.mutation<
+      { entry: CarGalleryAlbum },
+      { internal_id: string; filenames: string[] }
+    >({
+      query: (body) => ({ url: 'api/cargallery/mobile/remove-image', method: 'POST', body }),
+    }),
+
+    updateCarGalleryMeta: builder.mutation<
+      { entry: CarGalleryAlbum },
+      { internal_id: string; title?: string; type?: string; body?: string; private?: boolean }
+    >({
+      query: (body) => ({ url: 'api/cargallery/mobile/update-meta', method: 'POST', body }),
+    }),
+
     // ── Car Tasks ────────────────────────────────────────────────────────────
 
     getCarTasks: builder.query<{ entries: CarTask[] }, string>({
@@ -354,7 +384,7 @@ export const apiService = createApi({
       invalidatesTags: (result, error, { car_id }) => [{ type: 'CarTask', id: car_id }],
     }),
 
-    updateCarTaskPositions: builder.mutation<void, { tasks: { internal_id: string; position: number }[]; car_id: string }>({
+    updateCarTaskPositions: builder.mutation<void, { tasks: { internal_id: string; position: number; category?: string }[]; car_id: string }>({
       query: (body) => ({ url: 'api/cartask/update-positions', method: 'POST', body }),
       invalidatesTags: (result, error, { car_id }) => [{ type: 'CarTask', id: car_id }],
     }),
@@ -428,6 +458,16 @@ export const apiService = createApi({
     leaveGroup: builder.mutation<void, string>({
       query: (groupId) => ({ url: `api/group/${groupId}/leave`, method: 'DELETE' }),
       invalidatesTags: ['GroupMembers'],
+    }),
+
+    approveGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
+      query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/approve/${userId}`, method: 'POST' }),
+      invalidatesTags: ['GroupMembers', 'Notifications'],
+    }),
+
+    rejectGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
+      query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/reject/${userId}`, method: 'POST' }),
+      invalidatesTags: ['GroupMembers', 'Notifications'],
     }),
 
     // ── Rallys ───────────────────────────────────────────────────────────────
@@ -891,6 +931,10 @@ export const {
   useDeleteModMutation,
   useUpdateCarGalleryMutation,
   useDeleteCarGalleryMutation,
+  useCreateCarGalleryShellMutation,
+  useAddCarGalleryImageMutation,
+  useRemoveCarGalleryImagesMutation,
+  useUpdateCarGalleryMetaMutation,
   useGetCarTasksQuery,
   useGetArchivedCarTasksQuery,
   useCreateCarTaskMutation,
@@ -909,6 +953,8 @@ export const {
   useGetGroupMembersQuery,
   useJoinGroupMutation,
   useLeaveGroupMutation,
+  useApproveGroupMemberMutation,
+  useRejectGroupMemberMutation,
   useGetArticlesQuery,
   useGetArticleQuery,
   useGetArticleBlocksQuery,

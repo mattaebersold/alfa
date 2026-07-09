@@ -26,6 +26,7 @@ import type { FeedScreenProps, AppStackParamList } from '../../navigation/types'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GalleryItem } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import MentionText from '../../components/ui/MentionText';
 import { ss } from '../../styles/shared';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -247,7 +248,10 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
               {post.title && <Text style={[styles.postTitle, { color: colors.fg, backgroundColor: colors.card }]}>{post.title}</Text>}
               {post.body && (
-                <Text style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}>{stripHtml(post.body)}</Text>
+                <MentionText
+                  text={stripHtml(post.body)}
+                  style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}
+                />
               )}
 
               {isStory && post.video_id ? (

@@ -14,6 +14,8 @@ import {
   useGetBlockedUsersQuery,
   useUnblockUserMutation,
   useGetFollowedCarsQuery,
+  useGetUserFollowersQuery,
+  useGetUserFollowingQuery,
   useGetFlaggedContentQuery,
   useRemoveContentMutation,
   useRestoreContentMutation,
@@ -28,6 +30,8 @@ import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import CarCard from '../../components/cards/CarCard';
+import SharedButton from '../../components/ui/SharedButton';
+import SharedModal from '../../components/ui/SharedModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -133,7 +137,7 @@ function FlaggedRow({
 const sheetStyles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
+    paddingHorizontal: 24, paddingBottom: 16, paddingTop: 20,
   },
   title: { fontSize: 17, fontWeight: '700' },
   addCarBtn: {
@@ -150,7 +154,17 @@ export default function DashboardScreen() {
   const dispatch = useAppDispatch();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [sheet, setSheet] = useState<SheetType>(null);
+  const [listModal, setListModal] = useState<'followers' | 'following' | null>(null);
   const [deleteAccount] = useDeleteAccountMutation();
+  const { data: followersData } = useGetUserFollowersQuery(
+    { userId: userInfo?.user_id ?? '', limit: 100 },
+    { skip: !userInfo?.user_id },
+  );
+  const { data: followingData } = useGetUserFollowingQuery(
+    { userId: userInfo?.user_id ?? '', limit: 100 },
+    { skip: !userInfo?.user_id },
+  );
+  const listUsers = (listModal === 'followers' ? followersData?.entries : followingData?.entries) ?? [];
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -301,7 +315,7 @@ export default function DashboardScreen() {
       Icon: Users,
       bg: '#5b7fa622',
       color: '#5b7fa6',
-      onPress: () => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'followers' } } }),
+      onPress: () => setListModal('followers'),
     },
     {
       label: 'Following',
@@ -309,7 +323,7 @@ export default function DashboardScreen() {
       Icon: UserPlus,
       bg: '#7a6abf22',
       color: '#7a6abf',
-      onPress: () => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'following' } } }),
+      onPress: () => setListModal('following'),
     },
     {
       label: 'Events',
@@ -443,14 +457,12 @@ export default function DashboardScreen() {
           keyExtractor={(c) => c.internal_id}
           contentContainerStyle={{ paddingBottom: 40 }}
           ListHeaderComponent={
-            <TouchableOpacity
-              style={[sheetStyles.addCarBtn, { backgroundColor: colors.primaryAlt }]}
+            <SharedButton
+              label="Add New Car"
+              Icon={Car}
               onPress={() => { setSheet(null); navigation.navigate('CarCreate', {}); }}
-              activeOpacity={0.85}
-            >
-              <Car size={16} color="#FFFFFF" />
-              <Text style={sheetStyles.addCarBtnText}>Add New Car</Text>
-            </TouchableOpacity>
+              style={{ marginHorizontal: 16, marginVertical: 14 }}
+            />
           }
           renderItem={({ item }) => (
             <CarCard
@@ -621,6 +633,36 @@ export default function DashboardScreen() {
           </ScrollView>
         </SheetModal>
       )}
+
+      {/* Followers / Following — shared modal */}
+      <SharedModal
+        visible={listModal !== null}
+        onClose={() => setListModal(null)}
+        title={listModal === 'followers' ? 'Followers' : 'Following'}
+      >
+        <FlatList
+          data={listUsers}
+          keyExtractor={(u) => u.user_id}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[listStyles.row, { borderBottomColor: '#2A2A2A' }]}
+              onPress={() => {
+                setListModal(null);
+                (navigation as any).navigate('UserDetail', { userId: item.user_id, username: item.username });
+              }}
+              activeOpacity={0.7}
+            >
+              <Avatar filename={item.gallery?.[0]?.filename} name={item.username ?? '?'} size={40} />
+              <Text style={[listStyles.name, { color: '#ECECEC' }]}>@{item.username}</Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <EmptyState title={listModal === 'followers' ? 'No followers yet' : 'Not following anyone yet'} />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </SharedModal>
     </SafeAreaView>
   );
 }
@@ -676,6 +718,15 @@ const blockedStyles = StyleSheet.create({
   name:        { fontSize: 15, fontWeight: '600' },
   unblockBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
   unblockText: { fontSize: 13, fontWeight: '700' },
+});
+
+const listStyles = StyleSheet.create({
+  row:  {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  name: { flex: 1, fontSize: 15, fontWeight: '600' },
 });
 
 const flaggedStyles = StyleSheet.create({

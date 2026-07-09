@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   House, Car, Users, ShoppingBag, BookOpen, Headphones,
-  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store, Route,
+  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store, Route, MessageCircle,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -162,7 +162,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 handleClose();
                 navigation.navigate('Shop');
               }} />
-              <NavRow label="Cars"      Icon={Car}         textMid={textMid} textHi={textHi} onPress={() => { handleClose(); navigation.navigate('MainTabs', { screen: 'CarsTab' }); }} />
+              <NavRow label="Cars"      Icon={Car}         textMid={textMid} textHi={textHi} onPress={() => { handleClose(); navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } } as any); }} />
               <NavRow label="Groups"    Icon={Users}       textMid={textMid} textHi={textHi} onPress={() => goFeed('Groups')} />
               <NavRow label="Members"   Icon={Users}       textMid={textMid} textHi={textHi} onPress={() => {
                 handleClose();
@@ -186,11 +186,11 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.navRow}
-                onPress={() => Linking.openURL('http://shop.openroadsociety.co')}
+                onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')}
                 activeOpacity={0.7}
               >
-                <ShoppingBag size={16} color={textMid} />
-                <Text style={[styles.navLabel, { color: textHi }]}>Shop</Text>
+                <MessageCircle size={16} color={textMid} />
+                <Text style={[styles.navLabel, { color: textHi }]}>Discord</Text>
               </TouchableOpacity>
             </ScrollView>
 

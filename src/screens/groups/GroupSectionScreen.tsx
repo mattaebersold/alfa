@@ -24,6 +24,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
+import GroupItemDetailModal from '../../components/groups/GroupItemDetailModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -58,12 +59,38 @@ const RESOURCE_CATEGORIES: { key: string; label: string }[] = [
   { key: 'visual',      label: 'Visual Mods' },
   { key: 'mechanics',   label: 'Shop/Mechanic' },
 ];
-const RESOURCE_CAT_ORDER: Record<string, number> = RESOURCE_CATEGORIES.reduce(
-  (acc, cat, i) => { acc[cat.key] = i; return acc; }, {} as Record<string, number>
-);
 const RESOURCE_CAT_LABEL: Record<string, string> = RESOURCE_CATEGORIES.reduce(
   (acc, cat) => { acc[cat.key] = cat.label; return acc; }, {} as Record<string, string>
 );
+
+const FORUM_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'general',    label: 'General' },
+  { key: 'engine',     label: 'Engine' },
+  { key: 'chassis',    label: 'Chassis' },
+  { key: 'electrical', label: 'Electrical' },
+  { key: 'body',       label: 'Body' },
+  { key: 'mods',       label: 'Mods' },
+];
+const NEWS_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'general',       label: 'General' },
+  { key: 'meets',         label: 'Meets' },
+  { key: 'announcements', label: 'Announcements' },
+];
+
+// Categorised tabs share one filter bar + sort-by-category behaviour.
+const CATEGORY_LISTS: Record<string, { key: string; label: string }[]> = {
+  forum: FORUM_CATEGORIES,
+  news: NEWS_CATEGORIES,
+  resources: RESOURCE_CATEGORIES,
+};
+const CATEGORIZED_TABS = ['forum', 'news', 'resources'];
+const catList = (tab: string) => CATEGORY_LISTS[tab] ?? [];
+const catLabel = (tab: string, key?: string) =>
+  catList(tab).find((cat) => cat.key === (key ?? 'general'))?.label ?? key;
+const catOrder = (tab: string, key?: string) => {
+  const i = catList(tab).findIndex((cat) => cat.key === (key ?? 'general'));
+  return i === -1 ? 999 : i;
+};
 
 // Extract a YouTube video id from common URL forms (watch, youtu.be, embed, shorts).
 function youtubeId(url?: string): string | null {
@@ -83,7 +110,7 @@ export default function GroupSectionScreen() {
   const [search, setSearch] = useState('');
   const [showCarModal, setShowCarModal] = useState(false);
   const [detailItem, setDetailItem] = useState<any>(null);
-  const [resourceCatFilter, setResourceCatFilter] = useState<string | null>(null);
+  const [catFilter, setCatFilter] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
 
   const { data: members = [] } = useGetGroupMembersQuery(groupId);
@@ -105,6 +132,7 @@ export default function GroupSectionScreen() {
   const switchTab = (newTab: ActiveTab) => {
     setTab(newTab);
     setSearch('');
+    setCatFilter(null);
     listRef.current?.scrollToIndex({ index: 0, animated: false });
   };
 
@@ -353,15 +381,15 @@ export default function GroupSectionScreen() {
     }
   }) : rawItems;
 
-  // Resources: filter by category and sort by category order (then newest first).
+  // Forum / News / Resources: filter by category, then sort by category order (newest first within).
   let processedItems = filteredItems;
-  if (tab === 'resources') {
-    if (resourceCatFilter) {
-      processedItems = processedItems.filter((r) => (r.category ?? 'general') === resourceCatFilter);
+  if (CATEGORIZED_TABS.includes(tab)) {
+    if (catFilter) {
+      processedItems = processedItems.filter((r) => (r.category ?? 'general') === catFilter);
     }
     processedItems = [...processedItems].sort((a, b) => {
-      const ao = RESOURCE_CAT_ORDER[a.category ?? 'general'] ?? 999;
-      const bo = RESOURCE_CAT_ORDER[b.category ?? 'general'] ?? 999;
+      const ao = catOrder(tab, a.category);
+      const bo = catOrder(tab, b.category);
       if (ao !== bo) return ao - bo;
       return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
     });
@@ -371,8 +399,8 @@ export default function GroupSectionScreen() {
   const contentItems: any[] = isFetchingTab ? [{ _tab: 'loading' }] : taggedItems.length === 0 ? [{ _tab: 'empty' }] : taggedItems;
   const carsCta = (tab === 'cars' && isMember) ? [{ _t: 'carsCta' }] : [];
   const flatData: any[] = [TABBAR_SENTINEL, ...carsCta, ...contentItems];
-  const showResourceFilters = tab === 'resources' && (rawItems.length > 0 || !!resourceCatFilter);
-  const presentResourceCats = new Set(rawItems.map((r: any) => r.category ?? 'general'));
+  const showCatFilters = CATEGORIZED_TABS.includes(tab) && (rawItems.length > 0 || !!catFilter);
+  const presentCats = new Set(rawItems.map((r: any) => r.category ?? 'general'));
 
   const keyExtractor = (item: any, i: number) => {
     if (item._t === 'tabbar') return '__tabbar';
@@ -383,10 +411,25 @@ export default function GroupSectionScreen() {
     return item.data?.internal_id ?? item.data?.user_id ?? String(i);
   };
 
+  // Content is gated to active members — pending/non-members see a prompt.
+  if (!isMember) {
+    return (
+      <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
+        {compactHeader}
+        <View style={styles.gate}>
+          <EmptyState
+            title="Members only"
+            message={isAdmin ? undefined : 'Join this group and get approved to see its content.'}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
       {compactHeader}
-      {showResourceFilters && (
+      {showCatFilters && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -394,18 +437,18 @@ export default function GroupSectionScreen() {
           contentContainerStyle={styles.filterRow}
         >
           <TouchableOpacity
-            style={[styles.filterChip, { borderColor: !resourceCatFilter ? c.primaryAlt : c.border, backgroundColor: !resourceCatFilter ? c.primaryAlt : c.card }]}
-            onPress={() => setResourceCatFilter(null)}
+            style={[styles.filterChip, { borderColor: !catFilter ? c.primaryAlt : c.border, backgroundColor: !catFilter ? c.primaryAlt : c.card }]}
+            onPress={() => setCatFilter(null)}
           >
-            <Text style={[styles.filterChipText, { color: !resourceCatFilter ? '#FFFFFF' : c.fg }]}>All</Text>
+            <Text style={[styles.filterChipText, { color: !catFilter ? '#FFFFFF' : c.fg }]}>All</Text>
           </TouchableOpacity>
-          {RESOURCE_CATEGORIES.filter((cat) => presentResourceCats.has(cat.key) || resourceCatFilter === cat.key).map((cat) => {
-            const active = resourceCatFilter === cat.key;
+          {catList(tab).filter((cat) => presentCats.has(cat.key) || catFilter === cat.key).map((cat) => {
+            const active = catFilter === cat.key;
             return (
               <TouchableOpacity
                 key={cat.key}
                 style={[styles.filterChip, { borderColor: active ? c.primaryAlt : c.border, backgroundColor: active ? c.primaryAlt : c.card }]}
-                onPress={() => setResourceCatFilter(cat.key)}
+                onPress={() => setCatFilter(cat.key)}
               >
                 <Text style={[styles.filterChipText, { color: active ? '#FFFFFF' : c.fg }]}>{cat.label}</Text>
               </TouchableOpacity>
@@ -458,78 +501,21 @@ export default function GroupSectionScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ── Forum / News detail modal ───────────────────────────────── */}
-      <Modal visible={!!detailItem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDetailItem(null)}>
-        {detailItem && (() => {
-          const d = detailItem.data;
-          const kind = detailItem._kind as 'news' | 'forum' | 'resource';
-          const isNews = kind === 'news';
-          const isResource = kind === 'resource';
-          const hero = firstGalleryUrl(d.gallery);
-          const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-          const kindLabel = isNews ? 'News' : isResource ? 'Resource' : 'Forum';
-          const ytId = isResource ? youtubeId(d.url) : null;
-          return (
-            <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
-              <View style={[styles.detailHeader, { borderBottomColor: c.border, backgroundColor: c.card }]}>
-                <Text style={[styles.detailKind, { color: c.grey }]}>{kindLabel}</Text>
-                <TouchableOpacity onPress={() => setDetailItem(null)} hitSlop={10}>
-                  <X size={20} color={c.fg} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
-                {ytId ? (
-                  <View style={styles.ytWrap}>
-                    <WebView
-                      source={{ uri: `https://www.youtube.com/embed/${ytId}` }}
-                      style={styles.ytPlayer}
-                      allowsFullscreenVideo
-                      javaScriptEnabled
-                    />
-                  </View>
-                ) : hero ? (
-                  <Image source={{ uri: hero }} style={styles.detailHero} contentFit="cover" />
-                ) : null}
-                <View style={styles.detailBody}>
-                  {isResource && d.category ? (
-                    <View style={[styles.resourceCatChip, { backgroundColor: c.segment, alignSelf: 'flex-start', marginBottom: 8 }]}>
-                      <Text style={[styles.resourceCatChipText, { color: c.grey }]}>{RESOURCE_CAT_LABEL[d.category] ?? d.category}</Text>
-                    </View>
-                  ) : null}
-                  <Text style={[styles.detailTitle, { color: c.fg }]}>{d.title}</Text>
-                  <View style={styles.detailMeta}>
-                    <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={28} />
-                    <Text style={[styles.metaText, { color: c.grey }]}>@{d.user?.username} · {timeAgo}</Text>
-                    {!isNews && (
-                      <View style={styles.votes}>
-                        <ThumbsUp size={14} color={c.grey} /><Text style={[styles.metaText, { color: c.grey }]}>{d.upvotes ?? 0}</Text>
-                        <ThumbsDown size={14} color={c.grey} /><Text style={[styles.metaText, { color: c.grey }]}>{d.downvotes ?? 0}</Text>
-                      </View>
-                    )}
-                  </View>
-                  {d.body && <Text style={[styles.detailText, { color: c.fg }]}>{stripHtml(d.body)}</Text>}
-                  {isResource && d.url && !ytId ? (
-                    <TouchableOpacity
-                      style={[styles.linkBtn, { backgroundColor: c.primaryAlt }]}
-                      onPress={() => Linking.openURL(d.url)}
-                      activeOpacity={0.85}
-                    >
-                      <ExternalLink size={16} color="#FFFFFF" />
-                      <Text style={styles.linkBtnText}>Open Link</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              </ScrollView>
-            </SafeAreaView>
-          );
-        })()}
-      </Modal>
+      {/* ── Forum / News / Resource detail ── */}
+      <GroupItemDetailModal
+        visible={!!detailItem}
+        item={detailItem?.data ?? null}
+        kind={detailItem?._kind ?? null}
+        categoryLabel={detailItem ? catLabel(detailItem._kind === 'resource' ? 'resources' : detailItem._kind, detailItem.data?.category) : null}
+        onClose={() => setDetailItem(null)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   list:           { paddingBottom: 40 },
+  gate:           { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   compactHeader:  {
     flexDirection: 'row', alignItems: 'center', gap: 8,

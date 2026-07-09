@@ -279,6 +279,9 @@ export interface GroupNewsPost {
   title?: string;
   body?: string;
   gallery?: GalleryItem[];
+  category?: string;
+  url?: string;
+  image?: string;
   created_at?: string;
   user?: User;
 }
@@ -322,6 +325,7 @@ export interface CarTask {
   status?: string;
   completed?: boolean;
   position?: number;
+  category?: string;
   priority?: 'critical' | 'high' | 'medium' | 'low';
   created_at?: string;
 }

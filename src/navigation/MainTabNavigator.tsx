@@ -38,14 +38,14 @@ function TabIcon({
 }) {
   return (
     <View style={[styles.iconWrap, focused && { backgroundColor: brandColor }]}>
-      <Icon color={focused ? '#000000' : color} size={size - 2} strokeWidth={focused ? 2.7 : 2} />
+      <Icon color={focused ? '#000000' : color} size={size - 5} strokeWidth={focused ? 2.7 : 2} />
     </View>
   );
 }
 
 export default function MainTabNavigator() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 88 + insets.bottom;
+  const tabBarHeight = 46 + insets.bottom;
 
   const brandColor = useBrandColor();
   const fabIconColor = useBrandTextColor();
@@ -74,8 +74,9 @@ export default function MainTabNavigator() {
           borderTopWidth: 0,
           elevation: 0,
           height: tabBarHeight,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 8,
+          paddingBottom: insets.bottom + 4,
+          paddingTop: 12,
+          paddingHorizontal: 32,
         },
         tabBarBackground: () => (
           <View style={StyleSheet.absoluteFill}>
@@ -84,11 +85,11 @@ export default function MainTabNavigator() {
           </View>
         ),
         tabBarActiveTintColor: brandColor,
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.9)',
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '700',
-          marginTop: 12,
+          marginTop: 8,
         },
         tabBarItemStyle: {
           paddingVertical: 0,
@@ -180,12 +181,12 @@ export default function MainTabNavigator() {
 }
 
 const styles = StyleSheet.create({
-  tabBarTint: { backgroundColor: 'rgba(0,0,0,0.8)' },
+  tabBarTint: { backgroundColor: 'rgba(0,0,0,0.6)' },
 
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -193,10 +194,10 @@ const styles = StyleSheet.create({
   fab: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -8,
+    marginTop: 15,
     marginBottom: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

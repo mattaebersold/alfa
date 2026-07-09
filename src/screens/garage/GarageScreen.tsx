@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl,
 } from 'react-native';
@@ -10,6 +10,7 @@ import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService
 import { useAppSelector } from '../../store/store';
 import AppHeader from '../../components/ui/AppHeader';
 import CarCard from '../../components/cards/CarCard';
+import TasksSheet from '../../components/cars/TasksSheet';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
@@ -55,8 +56,7 @@ export default function GarageScreen() {
   const carLimitReached = !isPro && cars.length >= CAR_LIMIT_BASIC;
 
   const goToTasks = useCallback(
-    (carId: string, carTitle: string) =>
-      (navigation as any).navigate('CarTasks', { carId, carTitle }),
+    (carId: string, carTitle: string) => (navigation as any).navigate('CarTasks', { carId, carTitle }),
     [navigation]
   );
 
@@ -125,6 +125,7 @@ export default function GarageScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
       />
+
     </SafeAreaView>
   );
 }

@@ -1,13 +1,13 @@
 import React from 'react';
 import {
-  Modal, View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Pressable,
+  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
-import { X, Wrench, ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Check } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useGetCarTasksQuery } from '../../api/apiService';
+import { useGetCarTasksQuery, useToggleCarTaskMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { colors } from '../../constants/colors';
+import SharedModal from '../ui/SharedModal';
 import type { AppStackParamList } from '../../navigation/types';
 
 interface TasksSheetProps {
@@ -21,6 +21,7 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
   const colors = useColors();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data, isLoading } = useGetCarTasksQuery(carId, { skip: !visible });
+  const [toggleTask] = useToggleCarTaskMutation();
   const tasks = data?.entries ?? [];
   const open = tasks.filter((t) => !t.completed);
   const done = tasks.filter((t) => t.completed);
@@ -31,100 +32,83 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.cream }]}>
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <View style={styles.headerLeft}>
-              <Wrench size={18} color={colors.primaryAlt} />
-              <Text style={[styles.title, { color: colors.fg }]}>Tasks</Text>
-              {open.length > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{open.length}</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.headerRight}>
-              <TouchableOpacity onPress={goToFull} style={styles.manageBtn} activeOpacity={0.7}>
-                <Text style={[styles.manageBtnText, { color: colors.primaryAlt }]}>Manage</Text>
-                <ChevronRight size={14} color={colors.primaryAlt} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} hitSlop={8}>
-                <X size={22} color={colors.grey} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {isLoading ? (
-            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
-          ) : tasks.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: colors.grey }]}>No tasks yet.</Text>
-              <TouchableOpacity onPress={goToFull} style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}>
-                <Text style={styles.addBtnText}>Add Task</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <FlatList
-              data={[...open, ...done]}
-              keyExtractor={(t) => t.internal_id}
-              contentContainerStyle={styles.list}
-              renderItem={({ item }) => (
-                <View style={[styles.row, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                  <View style={[styles.dot, item.completed ? styles.dotDone : { backgroundColor: colors.primaryAlt }]} />
-                  <View style={styles.rowText}>
-                    <Text style={[
-                      styles.taskTitle, { color: colors.fg },
-                      item.completed && { color: colors.grey, textDecorationLine: 'line-through' },
-                    ]}>
-                      {item.title}
-                    </Text>
-                    {item.priority && (
-                      <Text style={[styles.priority, { color: colors.grey }]}>{item.priority}</Text>
-                    )}
-                  </View>
-                </View>
-              )}
-            />
-          )}
+    <SharedModal
+      visible={visible}
+      onClose={onClose}
+      title={`Tasks${open.length ? ` (${open.length})` : ''}`}
+      headerRight={
+        <TouchableOpacity onPress={goToFull} style={styles.manageBtn} activeOpacity={0.7}>
+          <Text style={styles.manageBtnText}>Manage</Text>
+          <ChevronRight size={14} color="#FFFFFF" />
+        </TouchableOpacity>
+      }
+    >
+      {isLoading ? (
+        <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
+      ) : tasks.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={[styles.emptyText, { color: colors.grey }]}>No tasks yet.</Text>
+          <TouchableOpacity onPress={goToFull} style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}>
+            <Text style={styles.addBtnText}>Add Task</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    </Modal>
+      ) : (
+        <FlatList
+          data={[...open, ...done]}
+          keyExtractor={(t) => t.internal_id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => toggleTask({ internal_id: item.internal_id, car_id: carId })}
+              activeOpacity={0.7}
+            >
+              <View style={[
+                styles.check,
+                item.completed
+                  ? { backgroundColor: '#3a8a5c', borderColor: '#3a8a5c' }
+                  : { borderColor: colors.primaryAlt },
+              ]}>
+                {item.completed && <Check size={13} color="#FFFFFF" />}
+              </View>
+              <View style={styles.rowText}>
+                <Text style={[
+                  styles.taskTitle,
+                  { color: '#ECECEC' },
+                  item.completed && { color: colors.grey, textDecorationLine: 'line-through' },
+                ]}>
+                  {item.title}
+                </Text>
+                {item.priority && (
+                  <Text style={[styles.priority, { color: colors.grey }]}>{item.priority}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
-  backdrop:    { ...StyleSheet.absoluteFillObject },
-  sheet:       { maxHeight: '85%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
-  header:      {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
-  },
-  headerLeft:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title:       { fontSize: 17, fontWeight: '700' },
-  badge:       {
-    backgroundColor: colors.primaryAlt, borderRadius: 10,
-    paddingHorizontal: 7, paddingVertical: 2,
-  },
-  badgeText:   { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-  manageBtn:   { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  manageBtnText: { fontSize: 14, fontWeight: '600' },
+  manageBtn:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  manageBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   list:        { paddingBottom: 40 },
   row:         {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2A2A2A',
   },
-  dot:         { width: 10, height: 10, borderRadius: 5 },
-  dotDone:     { backgroundColor: colors.green },
+  check:       {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center',
+  },
   rowText:     { flex: 1 },
   taskTitle:   { fontSize: 15, fontWeight: '500' },
   priority:    { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   empty:       { alignItems: 'center', paddingTop: 60, gap: 16 },
   emptyText:   { fontSize: 15 },
   addBtn:      { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  addBtnText:  { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  addBtnText:  { color: '#000000', fontWeight: '700', fontSize: 14 },
 });

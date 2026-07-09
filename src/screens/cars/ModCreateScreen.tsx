@@ -10,6 +10,7 @@ import { uploadFile } from '../../utils/upload';
 import { X, Plus } from 'lucide-react-native';
 import { useCreateModMutation } from '../../api/apiService';
 import Button from '../../components/ui/Button';
+import SharedButton from '../../components/ui/SharedButton';
 import { useColors } from '../../hooks/useColors';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { MOD_TYPES } from '../../constants/carTypes';
@@ -201,12 +202,11 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
           </View>
         </View>
 
-        <Button
+        <SharedButton
           label="Add Mod"
           onPress={handleSubmit}
           loading={isLoading}
-          variant="primary"
-          size="default"
+          full
         />
       </ScrollView>
     </SafeAreaView>

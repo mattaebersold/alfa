@@ -58,6 +58,16 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      {/* Brand title */}
+      <View style={styles.brandHeader}>
+        <Text style={[styles.brandTitle, { color: colors.fg }]}>{brand}</Text>
+        {data?.total != null && (
+          <Text style={[styles.brandCount, { color: colors.grey }]}>
+            {data.total} {data.total === 1 ? 'car' : 'cars'}
+          </Text>
+        )}
+      </View>
+
       {/* Model filter chips */}
       {models.length > 0 && (
         <View>
@@ -166,6 +176,9 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
 }
 
 const styles = StyleSheet.create({
+  brandHeader: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 },
+  brandTitle:  { fontSize: 26, fontWeight: '800' },
+  brandCount:  { fontSize: 13, fontWeight: '600', marginTop: 2 },
   modelChips: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
