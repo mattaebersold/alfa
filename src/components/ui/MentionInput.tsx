@@ -11,9 +11,12 @@ interface MentionInputProps {
   onChangeText: (text: string, mentionedUserIds: string[]) => void;
   placeholder?: string;
   style?: any;
+  containerStyle?: any;
   placeholderTextColor?: string;
   multiline?: boolean;
   autoFocus?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export default function MentionInput({
@@ -21,12 +24,16 @@ export default function MentionInput({
   onChangeText,
   placeholder,
   style,
+  containerStyle,
   placeholderTextColor,
   multiline,
   autoFocus,
+  onFocus,
+  onBlur,
 }: MentionInputProps) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
   const mentionedIds = useRef<Set<string>>(new Set());
 
   const { data: searchData } = useSearchUsersQuery(mentionQuery ?? '', {
@@ -57,7 +64,7 @@ export default function MentionInput({
   }, [value, onChangeText]);
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, containerStyle]}>
       {mentionQuery !== null && results.length > 0 && (
         <View style={[styles.dropdown, { backgroundColor: c.card, borderColor: c.border }]}>
           <FlatList
@@ -86,8 +93,13 @@ export default function MentionInput({
         onChangeText={handleChangeText}
         placeholder={placeholder}
         placeholderTextColor={placeholderTextColor}
-        style={style}
+        style={[style, multiline && contentHeight ? { height: contentHeight } : null]}
         multiline={multiline}
+        onContentSizeChange={
+          multiline ? (e) => setContentHeight(e.nativeEvent.contentSize.height) : undefined
+        }
+        onFocus={onFocus}
+        onBlur={onBlur}
         autoFocus={autoFocus}
       />
     </View>

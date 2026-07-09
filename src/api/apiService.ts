@@ -246,7 +246,29 @@ export const apiService = createApi({
 
     getCarFollowStatus: builder.query<{ following: boolean }, string>({
       query: (carId) => `api/protected/carfollow/car-follow-status/${carId}`,
+      // Backend returns { isFollowing }, older/other endpoints use { following } — normalize.
+      transformResponse: (r: any): { following: boolean } => ({
+        following: !!(r?.following ?? r?.isFollowing),
+      }),
       providesTags: (result, error, id) => [{ type: 'CarFollow', id }],
+    }),
+
+    // Lightweight follower-count for cards/rows — reuses the followers route with limit 1.
+    getCarFollowerCount: builder.query<number, string>({
+      query: (carId) => `api/carfollow/car-followers/${carId}/0/none/1`,
+      transformResponse: (r: any): number =>
+        r?.total ?? (Array.isArray(r?.followers) ? r.followers.length : 0),
+      providesTags: (result, error, id) => [{ type: 'CarFollow', id: `count-${id}` }],
+    }),
+
+    // Cars the logged-in user follows (Dashboard "Followed Cars").
+    getFollowedCars: builder.query<{ entries: GarageCar[]; total: number }, void>({
+      query: () => 'api/carfollow/followed-cars/0/none/50',
+      transformResponse: (r: any): { entries: GarageCar[]; total: number } => {
+        const entries = r?.entries ?? r?.cars ?? [];
+        return { entries, total: r?.total ?? entries.length };
+      },
+      providesTags: ['CarFollow'],
     }),
 
     // ── Car Galleries ────────────────────────────────────────────────────────
@@ -859,6 +881,8 @@ export const {
   useUnfollowCarMutation,
   useGetCarFollowStatusQuery,
   useGetCarFollowersQuery,
+  useGetCarFollowerCountQuery,
+  useGetFollowedCarsQuery,
   useGetCarGalleriesQuery,
   useCreateCarGalleryMutation,
   useGetCarModsQuery,

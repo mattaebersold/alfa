@@ -168,7 +168,7 @@ export default function GroupDetailScreen() {
                   <TouchableOpacity
                     key={car.internal_id}
                     style={[styles.groupCarCard, { backgroundColor: c.card }]}
-                    onPress={() => (navigation as any).navigate('CarDetailModal', { carId: car.internal_id })}
+                    onPress={() => (navigation as any).navigate('CarDetail', { carId: car.internal_id })}
                     activeOpacity={0.88}
                   >
                     {img

@@ -81,7 +81,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
         renderItem={({ item }) => (
           <CarRow
             car={item}
-            onPress={() => navigation.navigate('CarDetailModal', { carId: item.internal_id })}
+            onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
           />
         )}
         ListEmptyComponent={<EmptyState title="No cars in this group yet" />}

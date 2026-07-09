@@ -11,6 +11,7 @@ interface LikeButtonProps {
   initialLiked?: boolean;
   initialCount?: number;
   showCount?: boolean;
+  size?: number;
 }
 
 export default function LikeButton({
@@ -19,6 +20,7 @@ export default function LikeButton({
   initialLiked = false,
   initialCount = 0,
   showCount = true,
+  size = 18,
 }: LikeButtonProps) {
   const colors = useColors();
   const [liked, setLiked] = useState(initialLiked);
@@ -48,7 +50,7 @@ export default function LikeButton({
   return (
     <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.7}>
       <Heart
-        size={18}
+        size={size}
         color={liked ? '#FF4060' : colors.grey}
         fill={liked ? '#FF4060' : 'transparent'}
       />

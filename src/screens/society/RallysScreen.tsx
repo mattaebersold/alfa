@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
 } from 'react-native';
@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetRallysQuery } from '../../api/apiService';
+import RallyDetailSheet from '../../components/society/RallyDetailSheet';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -46,6 +47,7 @@ export default function RallysScreen() {
   const colors = useColors();
   const [page, setPage] = useState(0);
   const [allRallys, setAllRallys] = useState<Rally[]>([]);
+  const [selectedRallyId, setSelectedRallyId] = useState<string | null>(null);
 
   const { data, isFetching, isLoading, refetch } = useGetRallysQuery({ page, limit: 12 });
 
@@ -59,6 +61,15 @@ export default function RallysScreen() {
     }
   }, [data, page]);
 
+  // Newest/latest dates on top, past rallys sink to the bottom.
+  const sortedRallys = useMemo(() => {
+    return [...allRallys].sort((a, b) => {
+      const da = a.event_date ? new Date(a.event_date).getTime() : 0;
+      const db = b.event_date ? new Date(b.event_date).getTime() : 0;
+      return db - da;
+    });
+  }, [allRallys]);
+
   const handleRefresh = useCallback(() => { setPage(0); setAllRallys([]); }, []);
   const handleLoadMore = useCallback(() => {
     if (!isFetching && data && allRallys.length < data.total) setPage((p) => p + 1);
@@ -69,12 +80,12 @@ export default function RallysScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
-        data={allRallys}
+        data={sortedRallys}
         keyExtractor={(item) => item.internal_id}
         renderItem={({ item }) => (
           <RallyRow
             rally={item}
-            onPress={() => navigation.navigate('RallyDetail', { rallyId: item.internal_id })}
+            onPress={() => setSelectedRallyId(item.internal_id)}
           />
         )}
         ListEmptyComponent={<EmptyState title="No rallys yet" />}
@@ -84,6 +95,7 @@ export default function RallysScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
       />
+      <RallyDetailSheet rallyId={selectedRallyId} onClose={() => setSelectedRallyId(null)} />
     </SafeAreaView>
   );
 }

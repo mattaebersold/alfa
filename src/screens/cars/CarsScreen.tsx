@@ -99,7 +99,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetailModal', { carId: id })} />
+            <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
             <View style={styles.searchRow}>
               <TouchableOpacity style={styles.brandsBtn} onPress={() => navigation.navigate('Brands')}>
                 <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
@@ -128,7 +128,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         renderItem={({ item }) => (
           <CarGridItem
             item={item}
-            onPress={() => (navigation as any).navigate('CarDetailModal', { carId: item.internal_id })}
+            onPress={() => (navigation as any).navigate('CarDetail', { carId: item.internal_id })}
           />
         )}
         ListEmptyComponent={
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     width: '100%',
   },
-  brandsBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  brandsBtnText: { color: '#000000', fontWeight: '700', fontSize: 13 },
   list: { paddingBottom: 20 },
   row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   card: {

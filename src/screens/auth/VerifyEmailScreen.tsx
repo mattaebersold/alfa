@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { verifyEmail, resendVerification, clearError } from '../../store/authSlice';
+import { verifyEmail, resendVerification, clearError, userLogin } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import type { AuthScreenProps } from '../../navigation/types';
@@ -15,7 +15,7 @@ import { ss } from '../../styles/shared';
 const RESEND_COOLDOWN = 60;
 
 export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps<'VerifyEmail'>) {
-  const { email } = route.params;
+  const { email, password } = route.params;
   const dispatch = useAppDispatch();
   const { loading, error } = useAppSelector((s) => s.auth);
 
@@ -68,6 +68,12 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
     dispatch(clearError());
     const result = await dispatch(verifyEmail({ email, code }));
     if (verifyEmail.fulfilled.match(result)) {
+      // Already registered + verified — log straight in so we land on the home feed
+      // instead of bouncing back to the login form.
+      if (password) {
+        const login = await dispatch(userLogin({ email, password }));
+        if (userLogin.fulfilled.match(login)) return; // RootNavigator swaps to the app
+      }
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     }
   };

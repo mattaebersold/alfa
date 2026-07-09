@@ -37,8 +37,8 @@ function TabIcon({
   brandColor: string;
 }) {
   return (
-    <View style={[styles.iconWrap, focused && { backgroundColor: brandColor + '2E' }]}>
-      <Icon color={color} size={size - 2} strokeWidth={focused ? 2.7 : 2} />
+    <View style={[styles.iconWrap, focused && { backgroundColor: brandColor }]}>
+      <Icon color={focused ? '#000000' : color} size={size - 2} strokeWidth={focused ? 2.7 : 2} />
     </View>
   );
 }

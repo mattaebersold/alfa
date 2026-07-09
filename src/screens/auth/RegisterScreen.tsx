@@ -109,7 +109,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     dispatch(clearError());
     const result = await dispatch(registerUser(fd));
     if (registerUser.fulfilled.match(result)) {
-      navigation.navigate('VerifyEmail', { email: form.email.trim().toLowerCase() });
+      navigation.navigate('VerifyEmail', { email: form.email.trim().toLowerCase(), password: form.password });
     }
   };
 

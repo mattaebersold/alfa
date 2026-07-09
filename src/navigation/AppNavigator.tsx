@@ -174,6 +174,13 @@ export default function AppNavigator() {
           title: route.params.carTitle ?? 'Tasks',
         })}
       />
+      {/* In-stack car detail resolves to the tab stacks (Feed/Cars) so the bottom nav
+          stays visible; this root entry is the fallback for root-modal contexts + deep links. */}
+      <Stack.Screen
+        name="CarDetail"
+        component={CarDetailScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="CarDetailModal"
         component={CarDetailScreen}

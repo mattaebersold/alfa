@@ -118,7 +118,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
           return (
             <TouchableOpacity
               style={[styles.card, { backgroundColor: colors.card }]}
-              onPress={() => (navigation as any).navigate('CarDetailModal', { carId: item.internal_id })}
+              onPress={() => (navigation as any).navigate('CarDetail', { carId: item.internal_id })}
               activeOpacity={0.9}
             >
               <View style={styles.cardImageContainer}>
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   chipText:      { fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: '#FFFFFF' },
   chipCount:     { fontSize: 12, fontWeight: '400', opacity: 0.75 },
-  list:  { paddingHorizontal: 8, paddingBottom: 24 },
+  list:  { paddingHorizontal: 8, paddingBottom: 120 },
   row:   { gap: 8, marginBottom: 8 },
   card:  {
     flex: 1, borderRadius: 10, overflow: 'hidden',

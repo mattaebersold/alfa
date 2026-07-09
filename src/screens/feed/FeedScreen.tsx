@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import StoriesRow from '../../components/stories/StoriesRow';
+import FeedQuickLinks from '../../components/feed/FeedQuickLinks';
 import AppHeader from '../../components/ui/AppHeader';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
@@ -35,8 +36,9 @@ function FeedHeader() {
   const isPro = useIsPro();
   return (
     <View>
-      <PostPrompt />
       {isPro && <StoriesRow />}
+      <FeedQuickLinks />
+      <PostPrompt />
     </View>
   );
 }

@@ -31,12 +31,12 @@ export default function MessageAboutListingButton({ sellerId, sellerUsername, li
 
   return (
     <TouchableOpacity
-      style={[styles.btn, { borderColor: colors.primaryAlt, backgroundColor: colors.primaryAlt + '14' }, style]}
+      style={[styles.btn, { borderColor: colors.primaryAlt, backgroundColor: colors.primaryAlt }, style]}
       onPress={handlePress}
       activeOpacity={0.8}
     >
-      <MessageCircle size={size} color={colors.primaryAlt} />
-      <Text style={[styles.text, { color: colors.primaryAlt }]}>
+      <MessageCircle size={size} color="#000000" />
+      <Text style={[styles.text, { color: '#000000' }]}>
         Message {sellerUsername ? `@${sellerUsername}` : 'seller'} about this
       </Text>
     </TouchableOpacity>

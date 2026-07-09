@@ -14,6 +14,7 @@ import SearchScreen from '../screens/search/SearchScreen';
 import DashboardScreen from '../screens/profile/DashboardScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import CarDetailScreen from '../screens/cars/CarDetailScreen';
+import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import { colors } from '../constants/colors';
 
 const Stack = createNativeStackNavigator<FeedStackParamList>();
@@ -42,6 +43,7 @@ export default function FeedStackNavigator() {
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="UserDetail" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

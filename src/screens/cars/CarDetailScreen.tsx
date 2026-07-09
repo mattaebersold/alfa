@@ -5,9 +5,10 @@ import {
   ActivityIndicator, Alert, Animated, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight, Wrench } from 'lucide-react-native';
+import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight, Wrench, Users, Warehouse, Car, MessageCircle } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation } from '@react-navigation/native';
 import AppHeader from '../../components/ui/AppHeader';
@@ -19,7 +20,7 @@ import {
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
   useUpdateCarGalleryMutation, useDeleteCarGalleryMutation,
   useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
-  useGetCarFollowersQuery, useGetGroupQuery,
+  useGetCarFollowersQuery, useGetGroupQuery, useGetCarsQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
@@ -28,6 +29,8 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import LikeButton from '../../components/social/LikeButton';
 import FollowButton from '../../components/social/FollowButton';
+import CommentsSheet from '../../components/social/CommentsSheet';
+import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -55,7 +58,28 @@ const ALBUM_COL_WIDTH = 200;
 const GALLERY_HEIGHT = 280;
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
-type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | null;
+type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | null;
+
+// The app's true accent blue (useColors() remaps primaryAlt→gold for pro/admin,
+// so reference the raw token for a consistently-blue Follow button).
+const ACCENT_BLUE = 'rgb(37, 162, 211)';
+
+// Near-black surfaces for the shared bottom-sheet / pane modal.
+const SHEET_BG = '#161616';
+const SHEET_HEADER_BG = '#0B0B0B';
+const SHEET_FG = '#ECECEC';
+const SHEET_BORDER = '#2A2A2A';
+const SHEET_PLACEHOLDER = '#2A2A2A';
+
+// Car-type badge colors — mirrors CarCard so type badges read the same everywhere.
+const CAR_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  'daily':        { bg: '#F0D689', text: '#000' },
+  'weekend':      { bg: '#35B5FF', text: '#000' },
+  'project':      { bg: '#F36943', text: '#000' },
+  'garage-queen': { bg: '#FF479C', text: '#000' },
+  'part-out':     { bg: '#00FF3F', text: '#000' },
+  'other':        { bg: '#F0D689', text: '#000' },
+};
 
 const CAR_TILES: { key: Exclude<CarPane, null>; label: string }[] = [
   { key: 'specs',      label: 'Specs' },
@@ -164,6 +188,30 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum }: {
 
   const albumCols: CarGalleryAlbum[][] = [];
   for (let i = 0; i < albums.length; i += 2) albumCols.push(albums.slice(i, i + 2));
+
+  // Single image with no additional galleries → show it full-bleed instead of a card.
+  if (albums.length === 0 && heroUrl) {
+    return (
+      <>
+        <TouchableOpacity
+          style={styles.fullHero}
+          activeOpacity={0.95}
+          onPress={() => effectiveHero && setLightbox({ images: [{ filename: effectiveHero }], index: 0 })}
+        >
+          <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        </TouchableOpacity>
+        {onAddGallery && (
+          <TouchableOpacity style={styles.addGalleryOverlay} onPress={onAddGallery} activeOpacity={0.8}>
+            <Plus size={15} color="rgba(255,255,255,0.85)" />
+            <Text style={styles.addGalleryOverlayText}>Add Gallery</Text>
+          </TouchableOpacity>
+        )}
+        {lightbox && (
+          <Lightbox images={lightbox.images} initialIndex={lightbox.index} title={lightbox.title} onClose={() => setLightbox(null)} />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -304,17 +352,20 @@ function BottomSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Animated.View
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.48)', opacity: overlayOpacity }]}
+          style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
           pointerEvents="none"
-        />
+        >
+          <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+        </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <Animated.View
-          style={[styles.sheet, { backgroundColor: c.cream, transform: [{ translateY: slideY }] }]}
+          style={[styles.sheet, { backgroundColor: SHEET_BG, transform: [{ translateY: slideY }] }]}
         >
-          <View style={[styles.sheetHeader, { borderBottomColor: c.border }]}>
-            <Text style={[styles.sheetTitle, { color: c.fg }]}>{title}</Text>
+          <View style={[styles.sheetHeader, { backgroundColor: '#000000', borderBottomColor: '#000000' }]}>
+            <Text style={[styles.sheetTitle, { color: '#FFFFFF' }]}>{title}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={22} color={c.grey} />
+              <X size={22} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
           </View>
           {children}
@@ -340,6 +391,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [descExpanded, setDescExpanded] = useState(false);
   const [descLines, setDescLines] = useState<number | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const [paneLightbox, setPaneLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
   const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
   const [recordTypeFilter, setRecordTypeFilter] = useState<string | null>(null);
@@ -382,6 +434,19 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const { data: carFollowersData } = useGetCarFollowersQuery(carId, { skip: !car });
   const carFollowers = carFollowersData?.entries ?? [];
   const { data: carGroup } = useGetGroupQuery(car?.group_id ?? '', { skip: !car?.group_id });
+  // The backend filters on make_handle/model_handle (slugs), not display values.
+  const makeHandle = car?.make_handle ?? car?.make?.toLowerCase();
+  const modelHandle = car?.model_handle ?? car?.model?.toLowerCase().replace(/ /g, '-');
+  const { data: otherModelData } = useGetCarsQuery(
+    { make: makeHandle, model: modelHandle, limit: 24 },
+    { skip: !makeHandle || !modelHandle },
+  );
+  const otherModelCars = (otherModelData?.entries ?? []).filter((c) => c.internal_id !== carId);
+  const { data: otherMakeData } = useGetCarsQuery(
+    { make: makeHandle, limit: 24 },
+    { skip: !makeHandle },
+  );
+  const otherMakeCars = (otherMakeData?.entries ?? []).filter((c) => c.internal_id !== carId);
 
   const isOwner = userInfo?.user_id === (car?.user_id ?? '');
   const isCoOwner = userInfo?.user_id === (car?.coowner_id ?? '');
@@ -392,16 +457,31 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [unfollowCar, { isLoading: unfollowingCar }] = useUnfollowCarMutation();
   const isFollowingCar = carFollowStatus?.following ?? false;
   const carFollowBusy = followingCar || unfollowingCar;
-  const toggleCarFollow = useCallback(async () => {
-    if (carFollowBusy) return;
+  const followCarNow = useCallback(async () => {
+    if (carFollowBusy || isFollowingCar) return;
     try {
-      if (isFollowingCar) await unfollowCar({ car_id: carId }).unwrap();
-      else await followCar({ car_id: carId }).unwrap();
+      await followCar({ car_id: carId }).unwrap();
     } catch (e: any) {
       const msg = e?.data?.error ?? e?.data?.message ?? (typeof e?.error === 'string' ? e.error : '') ?? '';
-      Alert.alert('Could not update', msg || 'Please try again.');
+      Alert.alert('Could not follow', msg || 'Please try again.');
     }
-  }, [carFollowBusy, isFollowingCar, followCar, unfollowCar, carId]);
+  }, [carFollowBusy, isFollowingCar, followCar, carId]);
+  const handleCarFollowMenu = useCallback(() => {
+    Alert.alert('Following this car', undefined, [
+      {
+        text: 'Unfollow',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await unfollowCar({ car_id: carId }).unwrap();
+          } catch {
+            Alert.alert('Could not unfollow', 'Please try again.');
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [unfollowCar, carId]);
 
   const handleAddPress = useCallback(() => {
     if (!car) return;
@@ -632,7 +712,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const specPairs: (typeof specs)[] = [];
   for (let i = 0; i < specs.length; i += 2) specPairs.push(specs.slice(i, i + 2));
 
-  const paneTitle = CAR_TILES.find((t) => t.key === pane)?.label ?? '';
+  const paneTitle =
+    pane === 'otherModel'
+      ? `Other ${[car.make, car.model].filter(Boolean).join(' ')}`
+      : pane === 'otherMake'
+      ? `Other ${car.make} cars`
+      : CAR_TILES.find((t) => t.key === pane)?.label ?? '';
 
   const renderPane = () => {
     switch (pane) {
@@ -641,9 +726,9 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         return (
           <View style={styles.paneSpecsWrap}>
             {specs.map((spec) => (
-              <View key={spec.label} style={[styles.paneSpecRow, { borderBottomColor: colors.border }]}>
+              <View key={spec.label} style={[styles.paneSpecRow, { borderBottomColor: SHEET_BORDER }]}>
                 <Text style={[styles.paneSpecLabel, { color: colors.grey }]}>{spec.label}</Text>
-                <Text style={[styles.paneSpecValue, { color: colors.fg }]}>{spec.value}</Text>
+                <Text style={[styles.paneSpecValue, { color: SHEET_FG }]}>{spec.value}</Text>
               </View>
             ))}
           </View>
@@ -657,13 +742,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           return (
             <TouchableOpacity
               key={item.internal_id}
-              style={[ss.listRow, { borderBottomColor: colors.border }]}
+              style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
               onPress={() => { setPane(null); appNav.navigate('PostDetailModal', { postId: item.internal_id }); }}
               activeOpacity={0.7}
             >
               {thumb ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" /> : null}
               <View style={{ flex: 1, gap: 3 }}>
-                {title ? <Text style={{ color: colors.fg, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>{title}</Text> : null}
+                {title ? <Text style={{ color: SHEET_FG, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>{title}</Text> : null}
                 <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                   {item.type && <Text style={{ color: colors.grey, fontSize: 11 }}>{TYPE_LABELS[item.type] ?? item.type}</Text>}
                   {item.category && <Text style={{ color: colors.grey, fontSize: 11 }}>· {CATEGORY_LABELS[item.category] ?? item.category}</Text>}
@@ -683,15 +768,15 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           return (
             <TouchableOpacity
               key={album.internal_id}
-              style={[ss.listRow, { borderBottomColor: colors.border }]}
+              style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
               onPress={() => album.gallery?.length && setPaneLightbox({ images: album.gallery, index: 0, title: album.title })}
               activeOpacity={0.7}
             >
               {thumb
                 ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" />
-                : <View style={[styles.recordThumb, { backgroundColor: colors.segment }]} />}
+                : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.fg, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
+                <Text style={{ color: SHEET_FG, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
                 <Text style={{ color: colors.grey, fontSize: 12, marginTop: 2 }}>{album.gallery?.length ?? 0} photos</Text>
               </View>
               <ChevronRight size={18} color={colors.grey} />
@@ -703,26 +788,36 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         return carFollowers.map((u) => (
           <TouchableOpacity
             key={u.user_id}
-            style={[ss.listRow, { borderBottomColor: colors.border }]}
+            style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
             onPress={() => { setPane(null); (localNav as any).navigate('UserDetail', { userId: u.user_id, username: u.username }); }}
             activeOpacity={0.7}
           >
             <Avatar filename={u.gallery?.[0]?.filename} name={u.username ?? '?'} size={40} />
-            <Text style={{ flex: 1, color: colors.fg, fontSize: 15, fontWeight: '600' }}>@{u.username}</Text>
+            <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '600' }}>@{u.username}</Text>
           </TouchableOpacity>
+        ));
+      case 'otherModel':
+        if (otherModelCars.length === 0) return <EmptyState title={`No other ${[car.make, car.model].filter(Boolean).join(' ')} on the site yet`} />;
+        return otherModelCars.map((c) => (
+          <CarCard key={c.internal_id} car={c} onBeforeNavigate={() => setPane(null)} />
+        ));
+      case 'otherMake':
+        if (otherMakeCars.length === 0) return <EmptyState title={`No other ${car.make} cars on the site yet`} />;
+        return otherMakeCars.map((c) => (
+          <CarCard key={c.internal_id} car={c} onBeforeNavigate={() => setPane(null)} />
         ));
       case 'groups':
         if (!carGroup) return <EmptyState title="Not in any group" />;
         return (
           <TouchableOpacity
-            style={[ss.listRow, { borderBottomColor: colors.border }]}
+            style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
             onPress={() => { setPane(null); (appNav as any).navigate('GroupDetail', { groupId: carGroup.internal_id }); }}
             activeOpacity={0.7}
           >
             {firstGalleryUrl(carGroup.banners) ?? firstGalleryUrl(carGroup.gallery)
               ? <Image source={{ uri: (firstGalleryUrl(carGroup.banners) ?? firstGalleryUrl(carGroup.gallery))! }} style={styles.recordThumb} contentFit="cover" />
-              : <View style={[styles.recordThumb, { backgroundColor: colors.segment }]} />}
-            <Text style={{ flex: 1, color: colors.fg, fontSize: 15, fontWeight: '700' }}>{carGroup.title}</Text>
+              : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
+            <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '700' }}>{carGroup.title}</Text>
             <ChevronRight size={18} color={colors.grey} />
           </TouchableOpacity>
         );
@@ -745,30 +840,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             onManageAlbum={isOwnerOrCoOwner ? handleAlbumOptions : undefined}
           />
         </View>
-
-        {/* ── Follow Car (non-owners) — full width beneath the gallery ── */}
-        {!isOwnerOrCoOwner && (
-          <TouchableOpacity
-            style={[
-              styles.followCarBtn,
-              isFollowingCar
-                ? { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1.5 }
-                : { backgroundColor: colors.primaryAlt },
-              carFollowBusy && { opacity: 0.6 },
-            ]}
-            onPress={toggleCarFollow}
-            disabled={carFollowBusy}
-            activeOpacity={0.85}
-          >
-            {carFollowBusy ? (
-              <ActivityIndicator size="small" color={isFollowingCar ? colors.fg : '#FFFFFF'} />
-            ) : (
-              <Text style={[styles.followCarBtnText, { color: isFollowingCar ? colors.fg : '#FFFFFF' }]}>
-                {isFollowingCar ? '✓ Following' : 'Follow Car'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
 
         {/* ── Title + owners ── */}
         <View style={[styles.titleSection, { backgroundColor: colors.bgDark }]}>
@@ -805,36 +876,42 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           {(car.type || car.category) && (
             <View style={styles.badgeRow}>
               {car.type && (
-                <View style={[styles.carBadge, { backgroundColor: colors.segment }]}>
-                  <Text style={[styles.carBadgeText, { color: colors.grey }]}>{carTypeLabel(car.type)}</Text>
+                <View style={[styles.carBadge, { backgroundColor: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).bg }]}>
+                  <Text style={[styles.carBadgeText, { color: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).text }]}>{carTypeLabel(car.type)}</Text>
                 </View>
               )}
               {car.category && (
-                <View style={[styles.carBadge, { backgroundColor: colors.segment }]}>
-                  <Text style={[styles.carBadgeText, { color: colors.grey }]}>{carCategoryLabel(car.category)}</Text>
+                <View style={[styles.carBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
+                  <Text style={[styles.carBadgeText, { color: '#FFFFFF' }]}>{carCategoryLabel(car.category)}</Text>
                 </View>
               )}
             </View>
           )}
 
-          {/* Owners — compact avatar row */}
+          {/* Owners — avatar + username chips */}
           {(owner || coOwnerData) && (
             <View style={styles.ownersRow}>
               {owner && (
                 <TouchableOpacity
+                  style={styles.ownerChip}
                   onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
                   activeOpacity={0.8}
                 >
                   <Avatar filename={owner.gallery?.[0]?.filename ?? owner.profilePicture} name={displayName} size={34} />
+                  <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{displayName}</Text>
                 </TouchableOpacity>
               )}
               {coOwnerData && (
                 <TouchableOpacity
+                  style={styles.ownerChip}
                   onPress={() => appNav.navigate('UserDetail', { userId: coOwnerData.user_id })}
                   activeOpacity={0.8}
-                  style={styles.coOwnerAvatarWrap}
                 >
                   <Avatar filename={coOwnerData.gallery?.[0]?.filename} name={coOwnerName} size={34} />
+                  <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{coOwnerName}</Text>
+                  <View style={[styles.coOwnerBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
+                    <Text style={[styles.coOwnerBadgeText, { color: '#FFFFFF' }]}>co</Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
@@ -843,7 +920,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           {car.body ? (
             <View style={styles.descWrap}>
               <Text
-                style={[styles.carDescription, { color: colors.muted }]}
+                style={[styles.carDescription, { color: colors.fgDark }]}
                 numberOfLines={descLines == null ? undefined : (descExpanded ? undefined : 3)}
                 onTextLayout={descLines == null ? (e) => setDescLines(e.nativeEvent.lines.length) : undefined}
               >
@@ -851,39 +928,97 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               </Text>
               {descLines != null && descLines > 3 && (
                 <TouchableOpacity onPress={() => setDescExpanded((v) => !v)} hitSlop={6}>
-                  <Text style={[styles.moreLink, { color: colors.grey }]}>{descExpanded ? 'Less' : 'More'}</Text>
+                  <Text style={[styles.moreLink, { color: colors.fgDark }]}>{descExpanded ? 'Less' : 'More'}</Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : null}
 
           <View style={[styles.likeRow, { borderTopColor: colors.border }]}>
-            <LikeButton
-              documentId={car.internal_id}
-              entryType={(car as any).entry_type ?? 'garagecar'}
-              initialCount={(car as any).like_count ?? 0}
-              initialLiked={(car as any).isLiked ?? false}
-            />
+            <View style={styles.likeRowLeft}>
+              <LikeButton
+                documentId={car.internal_id}
+                entryType={(car as any).entry_type ?? 'garagecar'}
+                initialCount={(car as any).like_count ?? 0}
+                initialLiked={(car as any).isLiked ?? false}
+                size={22}
+              />
+              <TouchableOpacity
+                style={styles.commentBtn}
+                onPress={() => setCommentsOpen(true)}
+                hitSlop={8}
+                activeOpacity={0.7}
+              >
+                <MessageCircle size={22} color={colors.fg} />
+              </TouchableOpacity>
+            </View>
+
+            {!isOwnerOrCoOwner && (
+              <View style={styles.likeRowRight}>
+                <TouchableOpacity
+                  style={[
+                    styles.followInlineBtn,
+                    isFollowingCar
+                      ? { backgroundColor: ACCENT_BLUE, borderColor: colors.border, borderWidth: 1.5 }
+                      : { backgroundColor: ACCENT_BLUE },
+                    carFollowBusy && { opacity: 0.6 },
+                  ]}
+                  onPress={isFollowingCar ? handleCarFollowMenu : followCarNow}
+                  disabled={carFollowBusy}
+                  activeOpacity={0.85}
+                >
+                  {carFollowBusy ? (
+                    <ActivityIndicator size="small" color="#000000" />
+                  ) : (
+                    <Text style={[styles.followInlineText, { color: '#000000' }]}>
+                      {isFollowingCar ? '✓ Following' : 'Follow Car'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                {isFollowingCar && !carFollowBusy && (
+                  <TouchableOpacity
+                    style={styles.followMenuBlack}
+                    onPress={handleCarFollowMenu}
+                    hitSlop={8}
+                    activeOpacity={0.8}
+                  >
+                    <MoreHorizontal size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
           {isOwnerOrCoOwner && (
-            <TouchableOpacity
-              style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
-              onPress={() => setTasksOpen(true)}
-              activeOpacity={0.85}
-            >
-              <Wrench size={16} color={brandTextColor} />
-              <Text style={[styles.tasksBtnText, { color: brandTextColor }]}>
-                Manage Tasks{taskCount > 0 ? ` (${taskCount})` : ''}
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
+                onPress={() => setTasksOpen(true)}
+                activeOpacity={0.85}
+              >
+                <Wrench size={16} color={brandTextColor} />
+                <Text style={[styles.tasksBtnText, { color: brandTextColor }]}>
+                  Manage Tasks{taskCount > 0 ? ` (${taskCount})` : ''}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.followersBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+                onPress={() => setPane('followers')}
+                activeOpacity={0.85}
+              >
+                <Users size={16} color={colors.fg} />
+                <Text style={[styles.followersBtnText, { color: colors.fg }]}>
+                  Followers ({carFollowersData?.total ?? carFollowers.length})
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 
         {/* ── Section tiles — open panes like the profile page ── */}
         <View style={[styles.tilesWrap, { backgroundColor: colors.bgDark, borderTopColor: colors.border }]}>
           <View style={styles.carTilesGrid}>
-            {CAR_TILES.map((t) => {
+            {(isOwnerOrCoOwner ? CAR_TILES.filter((t) => t.key !== 'followers') : CAR_TILES).map((t) => {
               const count =
                 t.key === 'specs'      ? specs.length :
                 t.key === 'posts'      ? (postsData?.total ?? posts.length) :
@@ -894,15 +1029,46 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               return (
                 <TouchableOpacity
                   key={t.key}
-                  style={[styles.carTile, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  style={[styles.carTile, { backgroundColor: '#2C2C2C', borderColor: colors.borderDark }]}
                   onPress={() => setPane(t.key)}
-                  activeOpacity={0.85}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[styles.carTileCount, { color: colors.fg }]}>{count}</Text>
-                  <Text style={[styles.carTileLabel, { color: colors.grey }]}>{t.label}</Text>
+                  <View style={styles.carTileText}>
+                    <Text style={[styles.carTileLabel, { color: colors.fgDark }]}>{t.label}</Text>
+                    <Text style={[styles.carTileCount, { color: colors.primaryAlt }]}>{count}</Text>
+                  </View>
+                  <ChevronRight size={16} color={colors.grey} />
                 </TouchableOpacity>
               );
             })}
+          </View>
+
+          {/* ── Discovery tiles — related cars ── */}
+          <View style={styles.discoverTilesRow}>
+            {car.make ? (
+              <TouchableOpacity
+                style={[styles.discoverTile, { backgroundColor: '#2C2C2C', borderColor: colors.borderDark }]}
+                onPress={() => setPane('otherMake')}
+                activeOpacity={0.75}
+              >
+                <Car size={32} color={ACCENT_BLUE} />
+                <Text style={[styles.discoverTileLabel, { color: colors.fgDark }]} numberOfLines={2}>
+                  Other {car.make}s
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {car.model ? (
+              <TouchableOpacity
+                style={[styles.discoverTile, { backgroundColor: '#2C2C2C', borderColor: colors.borderDark }]}
+                onPress={() => setPane('otherModel')}
+                activeOpacity={0.75}
+              >
+                <Car size={32} color={ACCENT_BLUE} />
+                <Text style={[styles.discoverTileLabel, { color: colors.fgDark }]} numberOfLines={2}>
+                  Other {car.make} {car.model}s
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -1138,10 +1304,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
       {/* ── Section pane ── */}
       <BottomSheet visible={pane !== null} onClose={() => setPane(null)} title={paneTitle}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {renderPane()}
         </ScrollView>
       </BottomSheet>
+
+      {/* ── Comments ── */}
+      <CommentsSheet
+        postId={car.internal_id}
+        entryType={(car as any).entry_type ?? 'garagecar'}
+        visible={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+      />
 
       {paneLightbox && (
         <Lightbox
@@ -1158,8 +1332,16 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 const styles = StyleSheet.create({
 
   galleryWrap:    { height: GALLERY_HEIGHT + 24, backgroundColor: '#000' },
-  galleryStrip:   { paddingHorizontal: 12, paddingVertical: 12, gap: 10, alignItems: 'flex-start' },
+  galleryStrip:   { paddingVertical: 12, gap: 10, alignItems: 'flex-start' },
   heroSlide:      { width: HERO_WIDTH, height: GALLERY_HEIGHT, borderRadius: 12, overflow: 'hidden' },
+  fullHero:       { width: SCREEN_WIDTH, height: GALLERY_HEIGHT + 24 },
+  addGalleryOverlay: {
+    position: 'absolute', top: 12, right: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
+  },
+  addGalleryOverlayText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700' },
   albumCol:       { gap: 10 },
   albumCard:      { width: ALBUM_COL_WIDTH, height: (GALLERY_HEIGHT - 10) / 2, borderRadius: 10, overflow: 'hidden' },
   albumOverlay:   {
@@ -1209,6 +1391,11 @@ const styles = StyleSheet.create({
     marginTop: 12, paddingVertical: 13, borderRadius: 12,
   },
   tasksBtnText:   { fontSize: 15, fontWeight: '800' },
+  followersBtn:   {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: 10, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5,
+  },
+  followersBtnText: { fontSize: 15, fontWeight: '800' },
   carTitle:       { fontSize: 22, fontWeight: '800', lineHeight: 28 },
   carSubtitle:    { fontSize: 14, marginTop: 3, fontWeight: '500' },
   badgeRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
@@ -1216,16 +1403,25 @@ const styles = StyleSheet.create({
   carBadgeText:   { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
   descWrap:       { marginTop: 12 },
   carDescription: { fontSize: 14, lineHeight: 20 },
-  moreLink:       { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginTop: 4 },
+  moreLink:       { fontSize: 13, fontWeight: '900', textDecorationLine: 'underline', marginTop: 4 },
   likeRow:        { marginTop: 12, paddingTop: 12, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  followCarBtn:   {
-    marginHorizontal: 12, marginTop: 12,
-    paddingVertical: 14, borderRadius: 12,
+  likeRowLeft:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  likeRowRight:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  commentBtn:     { padding: 4 },
+  followInlineBtn: {
+    paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center'
+  },
+  followInlineText: { fontSize: 14, fontWeight: '800' },
+  followMenuBlack: {
+    backgroundColor: '#000000', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 9,
     alignItems: 'center', justifyContent: 'center',
   },
-  followCarBtnText: { fontSize: 15, fontWeight: '800' },
 
-  ownersRow:       { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  ownersRow:       { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 12 },
+  ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ownerChipName:   { fontSize: 14, fontWeight: '700', maxWidth: 160 },
   coOwnerAvatarWrap: { marginLeft: -8 },
   ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, borderRadius: 10 },
   coOwnerCard:     { marginTop: 8, borderTopWidth: 1 },
@@ -1256,15 +1452,24 @@ const styles = StyleSheet.create({
   modRowTitle:          { fontSize: 14, fontWeight: '600' },
   modRowType:           { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
 
-  tilesWrap:       { padding: 16, borderTopWidth: 1, paddingBottom: 48 },
+  tilesWrap:       { padding: 16, borderTopWidth: 1, paddingBottom: 180 },
   carTilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   carTile:         {
-    flexBasis: '31%', flexGrow: 1,
+    flexBasis: '47%', flexGrow: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderRadius: 12, borderWidth: 1,
-    paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 2,
+    paddingVertical: 14, paddingHorizontal: 14,
   },
-  carTileCount:    { fontSize: 20, fontWeight: '800' },
-  carTileLabel:    { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  carTileText:     { gap: 1 },
+  carTileLabel:    { fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
+  carTileCount:    { fontSize: 18, fontWeight: '800' },
+  discoverTilesRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  discoverTile:    {
+    flex: 1, borderRadius: 12, borderWidth: 1,
+    paddingVertical: 16, paddingHorizontal: 12,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  discoverTileLabel: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   paneAlbumGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 12 },
   paneAlbumCell:   { width: '47%' },
   paneSpecsWrap:   { paddingHorizontal: 4 },
@@ -1289,7 +1494,7 @@ const styles = StyleSheet.create({
   specCellValue:   { fontSize: 15, fontWeight: '700' },
   emptyText:       { fontSize: 14, textAlign: 'center', paddingVertical: 24 },
 
-  sheet:          { maxHeight: '85%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  sheet:          { minHeight: SCREEN_HEIGHT * 0.5, maxHeight: '90%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
   sheetHeader:    {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,

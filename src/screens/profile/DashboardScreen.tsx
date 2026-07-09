@@ -13,6 +13,7 @@ import {
   useDeleteAccountMutation,
   useGetBlockedUsersQuery,
   useUnblockUserMutation,
+  useGetFollowedCarsQuery,
   useGetFlaggedContentQuery,
   useRemoveContentMutation,
   useRestoreContentMutation,
@@ -34,7 +35,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | null;
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -194,6 +195,7 @@ export default function DashboardScreen() {
     { skip: !userInfo?.user_id },
   );
   const { data: blockedData } = useGetBlockedUsersQuery();
+  const { data: followedCarsData } = useGetFollowedCarsQuery();
   const [unblockUser] = useUnblockUserMutation();
   const isAdmin = userInfo?.accountType === 'admin';
   const { data: flaggedData } = useGetFlaggedContentQuery(undefined, { skip: !isAdmin });
@@ -207,6 +209,7 @@ export default function DashboardScreen() {
   const cars = garageData?.entries ?? [];
   const posts = postsData?.entries ?? [];
   const blockedUsers = blockedData?.entries ?? [];
+  const followedCars = followedCarsData?.entries ?? [];
   const flaggedPosts = flaggedData?.posts ?? [];
   const flaggedCars = flaggedData?.cars ?? [];
   const flaggedComments = flaggedData?.comments ?? [];
@@ -381,6 +384,16 @@ export default function DashboardScreen() {
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('followedCars')} activeOpacity={0.7}>
+            <Car size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Followed Cars</Text>
+            {followedCars.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{followedCars.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('blocked')} activeOpacity={0.7}>
             <Users size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Blocked Users</Text>
@@ -468,6 +481,20 @@ export default function DashboardScreen() {
         />
       </SheetModal>
 
+      {/* Followed cars sheet */}
+      <SheetModal visible={sheet === 'followedCars'} title="Followed Cars" onClose={() => setSheet(null)} colors={colors}>
+        <FlatList
+          data={followedCars}
+          keyExtractor={(c) => c.internal_id}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          renderItem={({ item }) => (
+            <CarCard car={item} onBeforeNavigate={() => setSheet(null)} />
+          )}
+          ListEmptyComponent={<EmptyState title="No followed cars" message="Cars you follow will appear here." />}
+          showsVerticalScrollIndicator={false}
+        />
+      </SheetModal>
+
       {/* Blocked users sheet */}
       <SheetModal visible={sheet === 'blocked'} title="Blocked Users" onClose={() => setSheet(null)} colors={colors}>
         <FlatList
@@ -529,7 +556,7 @@ export default function DashboardScreen() {
                     title={[c.year, c.make, c.model].filter(Boolean).join(' ') || 'Untitled car'}
                     user={c.user}
                     reportCount={c.report_count}
-                    onView={() => { setSheet(null); (navigation as any).navigate('CarDetailModal', { carId: c.internal_id }); }}
+                    onView={() => { setSheet(null); (navigation as any).navigate('CarDetail', { carId: c.internal_id }); }}
                     onRestore={() => handleRestoreContent('car', c.internal_id)}
                     onRemove={() => handleRemoveContent('car', c.internal_id)}
                   />

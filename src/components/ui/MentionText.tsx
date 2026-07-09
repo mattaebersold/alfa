@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React from 'react';
+import { Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../../navigation/types';
@@ -30,10 +30,10 @@ function MentionSegment({ username, textStyle }: { username: string; textStyle?:
     }
   };
 
+  // Plain Text with onPress keeps the mention inline and baseline-aligned with the
+  // surrounding text — nesting a TouchableOpacity (a View) inside Text breaks alignment.
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-      <Text style={[textStyle, styles.mention, { color: c.primaryAlt }]}>@{username}</Text>
-    </TouchableOpacity>
+    <Text onPress={handlePress} style={[textStyle, styles.mention, { color: c.primaryAlt }]}>@{username}</Text>
   );
 }
 

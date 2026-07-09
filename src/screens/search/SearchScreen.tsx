@@ -136,7 +136,7 @@ export default function SearchScreen() {
                 <CarRow
                   key={c.internal_id}
                   car={c}
-                  onPress={() => (navigation as any).navigate('CarDetailModal', { carId: c.internal_id })}
+                  onPress={() => (navigation as any).navigate('CarDetail', { carId: c.internal_id })}
                 />
               ))}
             </View>

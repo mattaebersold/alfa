@@ -5,14 +5,17 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
+import { Dimensions } from 'react-native';
 import { useGetCommentsQuery, useCreateCommentMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../ui/Avatar';
 import MentionInput from '../ui/MentionInput';
 import CommentRow, { type CommentData } from './CommentRow';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { ss } from '../../styles/shared';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 interface CommentsSheetProps {
   postId: string;
@@ -27,6 +30,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const [commentText, setCommentText] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const { data: commentsData, isFetching } = useGetCommentsQuery(
     { type: entryType, id: postId, limit: 50 },
@@ -89,16 +93,19 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Animated.View
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.48)', opacity: overlayOpacity }]}
+          style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
           pointerEvents="none"
-        />
+        >
+          <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+        </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { backgroundColor: c.cream, transform: [{ translateY: slideY }] }]}>
+        <Animated.View style={[styles.sheet, { backgroundColor: '#161616', transform: [{ translateY: slideY }] }]}>
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: c.border }]}>
-            <Text style={[styles.headerTitle, { color: c.fg }]}>Comments</Text>
+          <View style={[styles.header, { backgroundColor: '#000000', borderBottomColor: '#000000' }]}>
+            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Comments</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={22} color={c.grey} />
+              <X size={22} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
           </View>
 
@@ -109,6 +116,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             <FlatList
               data={comments}
               keyExtractor={(item: any) => item.internal_id ?? item._id}
+              style={{ flex: 1 }}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }: { item: CommentData }) => (
@@ -129,25 +137,27 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
           )}
 
           {/* Input area */}
-          <View style={[styles.inputWrap, { backgroundColor: c.card, borderTopColor: c.border }]}>
+          <View style={[styles.inputWrap, { backgroundColor: '#0B0B0B', borderTopColor: '#000000' }]}>
             {replyingTo && (
-              <View style={[styles.replyBanner, { backgroundColor: c.segment, borderBottomColor: c.border }]}>
-                <Text style={[styles.replyText, { color: c.grey }]}>
-                  Replying to <Text style={{ fontWeight: '700', color: c.fg }}>@{replyingTo.username}</Text>
+              <View style={[styles.replyBanner, { backgroundColor: '#1E1E1E', borderBottomColor: '#000000' }]}>
+                <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
+                  Replying to <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>@{replyingTo.username}</Text>
                 </Text>
                 <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
-                  <X size={14} color={c.grey} />
+                  <X size={14} color="rgba(255,255,255,0.7)" />
                 </TouchableOpacity>
               </View>
             )}
             <View style={styles.inputRow}>
-              <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={32} />
               <MentionInput
-                style={[ss.chatInput, { borderColor: c.border, color: c.fg }]}
+                containerStyle={styles.inputContainer}
+                style={[ss.chatInput, styles.input, inputFocused && styles.inputFocused, { borderColor: '#2A2A2A', color: '#ECECEC' }]}
                 value={commentText}
                 onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
                 placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
                 placeholderTextColor={c.grey}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 multiline
               />
               <TouchableOpacity
@@ -166,7 +176,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
 }
 
 const styles = StyleSheet.create({
-  sheet:       { maxHeight: '80%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  sheet:       { minHeight: SCREEN_HEIGHT * 0.5, maxHeight: '85%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
   headerTitle: { fontSize: 17, fontWeight: '700' },
   list:        { paddingTop: 4, paddingBottom: 16 },
@@ -174,7 +184,11 @@ const styles = StyleSheet.create({
   inputWrap:   { borderTopWidth: 1 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1 },
   replyText:   { fontSize: 13 },
-  inputRow:    { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
+  inputRow:      { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
+  inputContainer:{ flex: 1 },
+  input:         { width: '100%', maxHeight: 120 },
+  // On focus, open up to ~3 lines so there's room to write.
+  inputFocused:  { minHeight: 76 },
   sendBtn:     { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   sendDisabled:{ opacity: 0.4 },
   sendText:    { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },

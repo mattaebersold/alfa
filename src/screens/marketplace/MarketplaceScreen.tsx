@@ -4,7 +4,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X, MessageCircle } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
@@ -57,13 +57,12 @@ function ListingRow({ post, onPress, onMessage }: { post: Post; onPress: () => v
         </View>
       </View>
       <TouchableOpacity
-        style={[styles.msgBtn, { backgroundColor: colors.primaryAlt + '18', borderColor: colors.primaryAlt + '44' }]}
+        style={[styles.msgBtn, { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
         onPress={(e) => { e.stopPropagation(); onMessage(); }}
         hitSlop={4}
         activeOpacity={0.7}
       >
-        <MessageCircle size={15} color={colors.primaryAlt} />
-        <Text style={[styles.msgBtnText, { color: colors.primaryAlt }]}>Message</Text>
+        <MessageCircle size={15} color="#000000" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -72,6 +71,10 @@ function ListingRow({ post, onPress, onMessage }: { post: Post; onPress: () => v
 export default function MarketplaceScreen() {
   const appNav = useNavigation<AppNav>();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+  // Clear the floating tab bar (matches MainTabNavigator's height) without the
+  // useBottomTabBarHeight hook, which throws if the screen renders outside the tabs.
+  const tabBarHeight = 88 + insets.bottom;
   const [tab, setTab] = useState<Tab>('listing');
   const [search, setSearch] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
@@ -155,7 +158,7 @@ export default function MarketplaceScreen() {
             />
           }
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight + 24 }]}
         />
       )}
       </View>

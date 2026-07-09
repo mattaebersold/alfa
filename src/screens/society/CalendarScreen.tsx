@@ -8,6 +8,7 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterv
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetCalendarEventsQuery } from '../../api/apiService';
+import EventDetailSheet from '../../components/society/EventDetailSheet';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -25,12 +26,26 @@ export default function CalendarScreen() {
   const colors = useColors();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1-indexed for API
 
   const { data: calData, isLoading } = useGetCalendarEventsQuery({ year, month });
-  const events = calData?.entries ?? [];
+  // Future events only, de-duplicated — past events are hidden from the calendar.
+  const events = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const seen = new Set<string>();
+    return (calData?.entries ?? []).filter(
+      (e) =>
+        e.event_date &&
+        new Date(e.event_date) >= today &&
+        e.internal_id &&
+        !seen.has(e.internal_id) &&
+        seen.add(e.internal_id),
+    );
+  }, [calData]);
 
   // Build calendar grid
   const days = useMemo(() => {
@@ -128,7 +143,7 @@ export default function CalendarScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.eventRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-              onPress={() => navigation.navigate('EventDetail', { eventId: item.internal_id })}
+              onPress={() => setSelectedEventId(item.internal_id)}
               activeOpacity={0.7}
             >
               <View style={styles.eventDateBadge}>
@@ -150,6 +165,8 @@ export default function CalendarScreen() {
           contentContainerStyle={styles.eventList}
         />
       )}
+
+      <EventDetailSheet eventId={selectedEventId} onClose={() => setSelectedEventId(null)} />
     </SafeAreaView>
   );
 }

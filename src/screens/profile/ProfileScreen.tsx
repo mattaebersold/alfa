@@ -460,7 +460,7 @@ export default function ProfileScreen() {
               numberOfLines={bioLines == null ? undefined : (bioExpanded ? undefined : 3)}
               onTextLayout={bioLines == null ? (e) => setBioLines(e.nativeEvent.lines.length) : undefined}
             >
-              {user.bio}
+              {stripHtml(user.bio)}
             </Text>
             {bioLines != null && bioLines > 3 && (
               <TouchableOpacity onPress={() => setBioExpanded((v) => !v)} hitSlop={6}>
@@ -508,7 +508,7 @@ export default function ProfileScreen() {
                   <CarGridItem
                     key={car.internal_id}
                     car={car}
-                    onPress={() => openAndClose(() => (navigation as any).navigate('CarDetailModal', { carId: car.internal_id }))}
+                    onPress={() => openAndClose(() => (navigation as any).navigate('CarDetail', { carId: car.internal_id }))}
                   />
                 ))}
                 {(item as GarageCar[]).length === 1 && <View style={styles.carCardSpacer} />}

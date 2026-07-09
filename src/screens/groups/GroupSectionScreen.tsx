@@ -273,7 +273,7 @@ export default function GroupSectionScreen() {
     if (item._tab === 'cars') {
       const hero = firstGalleryUrl(d.gallery) ?? (d.profile_image ? imageUrl(d.profile_image) : null);
       return (
-        <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} onPress={() => (navigation as any).navigate('CarDetailModal', { carId: d.internal_id })} activeOpacity={0.8}>
+        <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} onPress={() => (navigation as any).navigate('CarDetail', { carId: d.internal_id })} activeOpacity={0.8}>
           {hero ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" /> : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />}
           <View style={{ flex: 1 }}>
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{d.title || [d.year, d.make, d.model].filter(Boolean).join(' ')}</Text>

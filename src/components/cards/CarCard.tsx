@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { Wrench, Settings } from 'lucide-react-native';
+import { Wrench, Settings, Users } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { useGetUserByIdQuery, useDeleteCarMutation } from '../../api/apiService';
+import { useGetUserByIdQuery, useDeleteCarMutation, useGetCarFollowerCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -74,9 +74,16 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const [aspectRatio, setAspectRatio] = useState(4 / 3);
   const [deleteCar] = useDeleteCarMutation();
 
+  // Follower count — prefer a value already on the payload, else fetch a lightweight count.
+  const inlineFollowerCount = (car as any).followersCount as number | undefined;
+  const { data: fetchedFollowerCount } = useGetCarFollowerCountQuery(car.internal_id, {
+    skip: inlineFollowerCount != null || !car.internal_id,
+  });
+  const followerCount = inlineFollowerCount ?? fetchedFollowerCount ?? 0;
+
   const handlePress = () => {
     onBeforeNavigate?.();
-    (nav as any).navigate('CarDetailModal', { carId: car.internal_id });
+    (nav as any).navigate('CarDetail', { carId: car.internal_id });
   };
   const isOwner = userInfo?.user_id === car.user_id;
 
@@ -158,6 +165,14 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
           )}
         </View>
 
+        {/* Follower count — bottom-right of image */}
+        {followerCount > 0 && (
+          <View style={styles.followerBadge}>
+            <Users size={11} color="#FFFFFF" />
+            <Text style={styles.followerBadgeText}>{followerCount}</Text>
+          </View>
+        )}
+
         {/* Type/category badges — bottom-left of image */}
         {(typeLabel || categoryLabel) && (
           <View style={styles.imageBadges}>
@@ -213,6 +228,13 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 8, left: 8,
     flexDirection: 'row', flexWrap: 'wrap', gap: 4,
   },
+  followerBadge: {
+    position: 'absolute', bottom: 8, right: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
+  },
+  followerBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
   imageBadge: {
     paddingHorizontal: 7, paddingVertical: 3,
     borderRadius: 999,

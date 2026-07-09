@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   House, Car, Users, ShoppingBag, BookOpen, Headphones,
-  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store,
+  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store, Route,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -150,9 +150,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 handleClose();
                 navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Society' } } as any);
               }} />
+              <NavRow label="ORS Rallys" Icon={Route} textMid={textMid} textHi={textHi} onPress={() => {
+                handleClose();
+                navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any);
+              }} />
               <NavRow label="Marketplace" Icon={ShoppingBag} textMid={textMid} textHi={textHi} onPress={() => {
                 handleClose();
-                navigation.navigate('Marketplace');
+                navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Marketplace' } } as any);
               }} />
               <NavRow label="Shop"      Icon={Store}       textMid={textMid} textHi={textHi} onPress={() => {
                 handleClose();

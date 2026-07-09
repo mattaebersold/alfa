@@ -6,7 +6,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
-  VerifyEmail: { email: string };
+  VerifyEmail: { email: string; password?: string };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
 };
@@ -99,6 +99,7 @@ export type AppStackParamList = {
   DiecastCreate: undefined;
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)
+  CarDetail: { carId: string };
   CarDetailModal: { carId: string };
   PostDetailModal: { postId: string; edit?: boolean };
   EventDetailModal: { eventId: string };
