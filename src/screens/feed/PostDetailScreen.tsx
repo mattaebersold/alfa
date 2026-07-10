@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Dimensions,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Dimensions, Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, MessageCircle } from 'lucide-react-native';
+import { X, MessageCircle, Link as LinkIcon, ExternalLink } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import PostOwnerMenu from '../../components/social/PostOwnerMenu';
 import { useNavigation } from '@react-navigation/native';
@@ -26,7 +26,7 @@ import { useColors } from '../../hooks/useColors';
 import type { FeedScreenProps, AppStackParamList } from '../../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GalleryItem } from '../../types/api';
-import { stripHtml } from '../../utils/text';
+import { stripHtml, extractLinks, linkLabel } from '../../utils/text';
 import MentionText from '../../components/ui/MentionText';
 import { ss } from '../../styles/shared';
 
@@ -257,6 +257,26 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 <GallerySwiper gallery={gallery} />
               ) : null}
 
+              {/* Links found in the post body → open in the external browser */}
+              {extractLinks(post.body).length > 0 && (
+                <View style={[styles.linkWrap, { backgroundColor: colors.card }]}>
+                  {extractLinks(post.body).map((url) => (
+                    <TouchableOpacity
+                      key={url}
+                      style={[styles.linkBtn, { borderColor: colors.border }]}
+                      onPress={() => Linking.openURL(url).catch(() => Alert.alert('Could not open link', url))}
+                      activeOpacity={0.8}
+                    >
+                      <LinkIcon size={16} color={colors.primaryAlt} />
+                      <Text style={[styles.linkBtnText, { color: colors.primaryAlt }]} numberOfLines={1}>
+                        {linkLabel(url)}
+                      </Text>
+                      <ExternalLink size={14} color={colors.grey} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
               {post.price && (
                 <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>
               )}
@@ -324,7 +344,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           contentContainerStyle={styles.list}
         />
 
-        <View style={{ backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border }}>
+        <View style={{ backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border, paddingBottom: Platform.OS === 'android' ? 48 : 0 }}>
           {replyingTo && (
             <View style={[styles.replyBanner, { backgroundColor: colors.segment, borderBottomColor: colors.border }]}>
               <Text style={[styles.replyBannerText, { color: colors.grey }]}>
@@ -379,7 +399,14 @@ const styles = StyleSheet.create({
   },
   modalHeaderBtn:   { width: 44, alignItems: 'center' },
   modalHeaderTitle: { fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
-  list: { paddingBottom: 16 },
+  list: { paddingBottom: 100 },
+  linkWrap:        { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  linkBtn:         {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 11,
+    borderWidth: 1, borderRadius: 10,
+  },
+  linkBtnText:     { flex: 1, fontSize: 14, fontWeight: '700' },
   postHeader: {
     flexDirection: 'row', alignItems: 'center',
     padding: 16, gap: 12,

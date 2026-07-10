@@ -12,6 +12,11 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SHEET_BG = '#161616';
 const SHEET_HEADER_BG = '#000000';
 
+// Android's bottom system UI (gesture bar / nav buttons) overlaps the sheet, so
+// pad the bottom to keep content clear of it. iOS clearance is handled by the
+// safe-area layout, so this is Android-only.
+const ANDROID_BOTTOM_PAD = Platform.OS === 'android' ? 60 : 0;
+
 interface SharedModalProps {
   visible: boolean;
   onClose: () => void;
@@ -73,7 +78,7 @@ export default function SharedModal({ visible, onClose, title, headerRight, onDi
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
+        <Animated.View style={[styles.sheet, { paddingBottom: ANDROID_BOTTOM_PAD, transform: [{ translateY: slideY }] }]}>
           <View style={styles.header}>
             <Text style={styles.title} numberOfLines={1}>{title}</Text>
             <View style={styles.headerRight}>

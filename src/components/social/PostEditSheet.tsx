@@ -3,10 +3,11 @@ import {
   Modal, View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
-import { X, Search, Check, User as UserIcon, Car as CarIcon, Flag } from 'lucide-react-native';
+import { X, Check } from 'lucide-react-native';
+import PostTagPicker from './PostTagPicker';
 import {
   useUpdatePostMutation, useSyncPostTagsMutation, useGetPostTagsQuery,
-  useGetUserGroupsQuery, useSearchQuery,
+  useGetUserGroupsQuery,
   useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery, useGetPreviouslyTaggedEventsQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -69,25 +70,17 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const [taggedUsers, setTaggedUsers] = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars] = useState<TagItem[]>([]);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
-  const [tagSearch, setTagSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Groups
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isPublic, setIsPublic] = useState(true);
 
   const { data: existingTags } = useGetPostTagsQuery(post.internal_id, { skip: !visible });
-  const { data: searchData } = useSearchQuery(debouncedSearch, { skip: debouncedSearch.length < 2 });
   const { data: prevUsersData } = useGetPreviouslyTaggedUsersQuery();
   const { data: prevCarsData } = useGetPreviouslyTaggedCarsQuery();
   const { data: prevEventsData } = useGetPreviouslyTaggedEventsQuery();
   const { data: rawGroups } = useGetUserGroupsQuery(userInfo?.user_id ?? '', { skip: !userInfo?.user_id });
   const userGroups: any[] = Array.isArray(rawGroups) ? rawGroups : (rawGroups as any)?.entries ?? [];
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(tagSearch.trim()), 300);
-    return () => clearTimeout(t);
-  }, [tagSearch]);
 
   // Prefill text/type/category/groups when opened.
   useEffect(() => {
@@ -99,11 +92,11 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       const groups = (post as any).group_ids as string[] | undefined;
       setSelectedGroupIds(Array.isArray(groups) ? groups : []);
       setIsPublic(!(Array.isArray(groups) && groups.length > 0));
-      setTagSearch('');
     }
   }, [visible, post]);
 
-  // Build id → label lookups from the previously-tagged / search pools.
+  // Build id → label lookups from the previously-tagged pool so existing tags
+  // on this post resolve to readable labels when the editor opens.
   const labelLookup = useMemo(() => {
     const users: Record<string, string> = {};
     const cars: Record<string, string> = {};
@@ -117,13 +110,10 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     };
     const addEvent = (e: any) => { if (e.internal_id) events[e.internal_id] = e.title || 'Event'; };
     (prevUsersData?.users ?? []).forEach(addUser);
-    (searchData?.users ?? []).forEach(addUser);
     (prevCarsData?.cars ?? []).forEach(addCar);
-    (searchData?.cars ?? []).forEach(addCar);
     (prevEventsData?.events ?? []).forEach(addEvent);
-    (searchData?.events ?? []).forEach(addEvent);
     return { users, cars, events };
-  }, [prevUsersData, prevCarsData, prevEventsData, searchData]);
+  }, [prevUsersData, prevCarsData, prevEventsData]);
 
   // Prefill selected tags from the post's existing tags (labels resolved best-effort).
   useEffect(() => {
@@ -149,18 +139,8 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     const exists = (list as TagItem[]).some((t) => t.id === tag.id);
     (setter as any)(exists ? (list as TagItem[]).filter((t) => t.id !== tag.id) : [...(list as TagItem[]), tag]);
   };
-  const isTagged = (id: string, kind: TagKind) => {
-    const list = kind === 'user' ? taggedUsers : kind === 'car' ? taggedCars : taggedEvents;
-    return list.some((t) => t.id === id);
-  };
-
   const toggleGroup = (gid: string) =>
     setSelectedGroupIds((prev) => (prev.includes(gid) ? prev.filter((g) => g !== gid) : [...prev, gid]));
-
-  const searchUsers = (debouncedSearch.length >= 2 ? (searchData?.users ?? []) : (prevUsersData?.users ?? [])) as any[];
-  const searchCars = (debouncedSearch.length >= 2 ? (searchData?.cars ?? []) : (prevCarsData?.cars ?? [])) as any[];
-  const searchEvents = (debouncedSearch.length >= 2 ? (searchData?.events ?? []) : (prevEventsData?.events ?? [])) as any[];
-  const allTags = [...taggedUsers, ...taggedCars, ...taggedEvents];
 
   const handleSave = async () => {
     const fd = new FormData();
@@ -243,55 +223,14 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 </>
               )}
 
-              {/* ── Tags ── */}
+              {/* ── Tags — one defined row each ── */}
               <Text style={[styles.label, { color: colors.grey }]}>Tag People, Cars & Events</Text>
-              {allTags.length > 0 && (
-                <View style={styles.selectedTags}>
-                  {allTags.map((tag) => {
-                    const kc = tag.kind === 'user' ? colors.primaryAlt : tag.kind === 'car' ? colors.teal : colors.tangerine;
-                    return (
-                      <View key={`${tag.kind}-${tag.id}`} style={[styles.tagChip, { backgroundColor: kc + '22', borderColor: kc + '55' }]}>
-                        <Text style={[styles.tagChipText, { color: kc }]} numberOfLines={1}>{tag.label}</Text>
-                        <TouchableOpacity onPress={() => toggleTag(tag)} hitSlop={6}><X size={12} color={kc} /></TouchableOpacity>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-              <View style={[styles.tagSearchRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <Search size={15} color={colors.grey} />
-                <TextInput
-                  style={[styles.tagSearchInput, { color: colors.fg }]}
-                  value={tagSearch} onChangeText={setTagSearch}
-                  placeholder="Search people, cars, events…" placeholderTextColor={colors.grey}
-                  autoCorrect={false}
-                />
-                {tagSearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setTagSearch('')} hitSlop={6}><X size={14} color={colors.grey} /></TouchableOpacity>
-                )}
-              </View>
-
-              {searchUsers.length > 0 && (
-                <TagResults
-                  Icon={UserIcon} label={debouncedSearch.length >= 2 ? 'People' : 'Recently Tagged People'}
-                  items={searchUsers.slice(0, 10).map((u) => ({ id: u.user_id || u.internal_id, label: u.username ? `@${u.username}` : [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username, kind: 'user' as TagKind }))}
-                  activeColor={colors.primaryAlt} colors={colors} isTagged={isTagged} onToggle={toggleTag}
-                />
-              )}
-              {searchCars.length > 0 && (
-                <TagResults
-                  Icon={CarIcon} label={debouncedSearch.length >= 2 ? 'Cars' : 'Recently Tagged Cars'}
-                  items={searchCars.slice(0, 10).map((c) => ({ id: c.internal_id, label: [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car', kind: 'car' as TagKind }))}
-                  activeColor={colors.teal} colors={colors} isTagged={isTagged} onToggle={toggleTag}
-                />
-              )}
-              {searchEvents.length > 0 && (
-                <TagResults
-                  Icon={Flag} label={debouncedSearch.length >= 2 ? 'Events' : 'Recently Tagged Events'}
-                  items={searchEvents.slice(0, 10).map((e) => ({ id: e.internal_id, label: e.title || 'Event', kind: 'event' as TagKind }))}
-                  activeColor={colors.tangerine} colors={colors} isTagged={isTagged} onToggle={toggleTag}
-                />
-              )}
+              <PostTagPicker
+                users={taggedUsers}
+                cars={taggedCars}
+                events={taggedEvents}
+                onToggle={toggleTag}
+              />
 
               {/* ── Post To ── */}
               <Text style={[styles.label, { color: colors.grey }]}>Post To</Text>
@@ -328,47 +267,12 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   );
 }
 
-function TagResults({
-  Icon, label, items, activeColor, colors, isTagged, onToggle,
-}: {
-  Icon: React.ComponentType<{ size: number; color: string }>;
-  label: string;
-  items: TagItem[];
-  activeColor: string;
-  colors: ReturnType<typeof useColors>;
-  isTagged: (id: string, kind: TagKind) => boolean;
-  onToggle: (tag: TagItem) => void;
-}) {
-  return (
-    <View>
-      <View style={styles.tagGroupHeader}>
-        <Icon size={12} color={colors.grey} />
-        <Text style={[styles.tagGroupLabel, { color: colors.grey }]}>{label}</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagResultRow}>
-        {items.map((item) => {
-          const tagged = isTagged(item.id, item.kind);
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.tagResultChip, { borderColor: tagged ? activeColor : colors.border }, tagged && { backgroundColor: activeColor }]}
-              onPress={() => onToggle(item)}
-            >
-              {tagged && <Check size={11} color="#FFF" />}
-              <Text style={[styles.tagResultText, { color: tagged ? '#FFF' : colors.fg }]} numberOfLines={1}>{item.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
   backdrop:    { ...StyleSheet.absoluteFillObject },
   sheetWrap:   { maxHeight: '90%' },
-  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden', paddingBottom: Platform.OS === 'android' ? 60 : 0 },
   header:      {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,

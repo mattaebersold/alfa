@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Polygon } from 'react-native-svg';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,7 +15,7 @@ import PostOwnerMenu from '../social/PostOwnerMenu';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { firstGalleryUrl } from '../../utils/image';
+import { firstGalleryUrl, imageUrl } from '../../utils/image';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
@@ -25,6 +25,8 @@ import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 
 type NavProp = NativeStackNavigationProp<FeedStackParamList>;
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface FeedItemCardProps {
   post: Post;
@@ -66,7 +68,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
   const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
+  const [activeIndex, setActiveIndex] = useState(0);
 
+  const gallery = post.gallery ?? [];
   const heroImage = firstGalleryUrl(post.gallery);
   const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
 
@@ -131,17 +135,39 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         <Text style={[styles.title, { color: fgColor }]} numberOfLines={2}>{post.title}</Text>
       )}
 
-      {/* Hero image with overlays */}
-      {heroImage && (
-        <View style={styles.imageWrap}>
-          <Image
-            source={{ uri: heroImage }}
-            style={[styles.image, { aspectRatio: imgAspectRatio }]}
-            contentFit="cover"
-            transition={300}
-            placeholder={{ blurhash: 'LGFFaXYk^6#M@-5c,1J5@[or[Q6.' }}
-            onLoad={(e) => setImgAspectRatio(e.source.width / e.source.height)}
-          />
+      {/* Hero image(s) with overlays — swipes through the gallery like the post modal */}
+      {gallery.length > 0 && (
+        <View style={[styles.imageWrap, { aspectRatio: imgAspectRatio }]}>
+          {gallery.length > 1 ? (
+            <FlatList
+              data={gallery}
+              keyExtractor={(g, i) => g.filename ?? String(i)}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={StyleSheet.absoluteFill}
+              onMomentumScrollEnd={(e) => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
+              getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
+              renderItem={({ item, index }) => (
+                <Image
+                  source={{ uri: imageUrl(item.filename)! }}
+                  style={{ width: SCREEN_WIDTH, height: '100%' }}
+                  contentFit="cover"
+                  transition={200}
+                  onLoad={index === 0 ? (e) => setImgAspectRatio(e.source.width / e.source.height) : undefined}
+                />
+              )}
+            />
+          ) : (
+            <Image
+              source={{ uri: heroImage! }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              transition={300}
+              placeholder={{ blurhash: 'LGFFaXYk^6#M@-5c,1J5@[or[Q6.' }}
+              onLoad={(e) => setImgAspectRatio(e.source.width / e.source.height)}
+            />
+          )}
           {/* Type + category badges — top left, color coded */}
           <View style={styles.imageBadgesLeft}>
             <View style={[styles.imgBadge, { backgroundColor: typeBadge.bg }]}>
@@ -170,6 +196,14 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
               </View>
             )}
           </View>
+          {/* Swipe position dots */}
+          {gallery.length > 1 && (
+            <View style={styles.dots} pointerEvents="none">
+              {gallery.map((_, i) => (
+                <View key={i} style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]} />
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -239,7 +273,7 @@ const styles = StyleSheet.create({
   time:        { fontSize: 11, fontStyle: 'italic' },
   title:       { fontSize: 14, fontWeight: '600', paddingHorizontal: 12, paddingBottom: 10, lineHeight: 20 },
 
-  imageWrap:   { position: 'relative' },
+  imageWrap:   { position: 'relative', width: '100%', overflow: 'hidden' },
   image:       { width: '100%' },
 
   imageBadgesLeft: {
@@ -261,19 +295,27 @@ const styles = StyleSheet.create({
   },
   priceBadgeText: { fontSize: 13, fontWeight: '800', color: '#000' },
   multiImgBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 5,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 11, paddingVertical: 7,
+    borderRadius: 8,
   },
-  multiImgIcon:  { width: 16, height: 13, position: 'relative' },
+  multiImgIcon:  { width: 22, height: 18, position: 'relative' },
   miniImg:       {
-    position: 'absolute', width: 11, height: 10,
-    borderRadius: 2, borderWidth: 1.5, borderColor: '#FFFFFF',
+    position: 'absolute', width: 15, height: 13,
+    borderRadius: 3, borderWidth: 2, borderColor: '#FFFFFF',
   },
-  miniImgBack:   { top: 0, left: 4, backgroundColor: 'rgba(255,255,255,0.25)' },
+  miniImgBack:   { top: 0, left: 6, backgroundColor: 'rgba(255,255,255,0.25)' },
   miniImgFront:  { bottom: 0, left: 0, backgroundColor: 'rgba(255,255,255,0.55)' },
-  multiImgCount: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+
+  dots:          {
+    position: 'absolute', bottom: 8, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'center', gap: 5,
+  },
+  dot:           { width: 6, height: 6, borderRadius: 3 },
+  dotActive:     { backgroundColor: '#FFFFFF' },
+  dotInactive:   { backgroundColor: 'rgba(255,255,255,0.45)' },
 
   videoThumb:  { width: '100%', height: 220, overflow: 'hidden', position: 'relative' },
   playOverlay: {

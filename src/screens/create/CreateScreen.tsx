@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator, Keyboard,
+  ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,15 +9,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ImagePlus, X, ChevronDown, ChevronUp, Check, Search, User, Car as CarIcon, Flag } from 'lucide-react-native';
+import { ImagePlus, X, ChevronDown, ChevronUp, Check } from 'lucide-react-native';
 import {
-  useCreatePostMutation, useGetUserGroupsQuery,
-  useSearchQuery, useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery,
-  useGetPreviouslyTaggedEventsQuery, useSyncPostTagsMutation,
+  useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
 import MentionInput from '../../components/ui/MentionInput';
+import PostTagPicker from '../../components/social/PostTagPicker';
 import { colors } from '../../constants/colors';
 import { CONFIG } from '../../constants/config';
 import { uploadFile } from '../../utils/upload';
@@ -107,21 +105,6 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-// ── TagChip ───────────────────────────────────────────────────────────────────
-
-function TagChip({ tag, onRemove }: { tag: TagItem; onRemove: () => void }) {
-  const colors = useColors();
-  const kindColor = tag.kind === 'user' ? colors.primaryAlt : tag.kind === 'car' ? colors.teal : colors.tangerine;
-  return (
-    <View style={[styles.tagChip, { backgroundColor: kindColor + '22', borderColor: kindColor + '55' }]}>
-      <Text style={[styles.tagChipText, { color: kindColor }]} numberOfLines={1}>{tag.label}</Text>
-      <TouchableOpacity onPress={onRemove} hitSlop={6}>
-        <X size={12} color={kindColor} />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function CreateScreen() {
@@ -152,17 +135,10 @@ export default function CreateScreen() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isPublic, setIsPublic]                 = useState(true);
 
-  // Tags (people, cars, events)
+  // Tags (people, cars, events) — the search/autocomplete lives in PostTagPicker
   const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars]     = useState<TagItem[]>([]);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
-  const [tagSearch, setTagSearch]       = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(tagSearch.trim()), 300);
-    return () => clearTimeout(t);
-  }, [tagSearch]);
 
   const [createPost, { isLoading: submitting }] = useCreatePostMutation();
   const [syncTags] = useSyncPostTagsMutation();
@@ -170,13 +146,8 @@ export default function CreateScreen() {
     skip: !userInfo?.user_id,
   });
   const userGroups: any[] = Array.isArray(rawGroups) ? rawGroups : (rawGroups as any)?.entries ?? [];
-  const { data: searchData } = useSearchQuery(debouncedSearch, { skip: debouncedSearch.length < 2 });
-  const { data: prevUsersData }  = useGetPreviouslyTaggedUsersQuery();
-  const { data: prevCarsData }   = useGetPreviouslyTaggedCarsQuery();
-  const { data: prevEventsData } = useGetPreviouslyTaggedEventsQuery();
 
   const currentCategories = CATEGORIES[postType];
-  const displayName = userInfo?.username ?? '';
 
   const showPrice    = postType === 'listing' || postType === 'want';
   const showMileage  = postType === 'listing' || postType === 'record';
@@ -237,11 +208,6 @@ export default function CreateScreen() {
       return exists ? prev.filter(t => t.id !== tag.id) : [...prev, tag];
     });
   }, []);
-
-  const isTagged = useCallback((id: string, kind: TagKind) => {
-    const list = kind === 'user' ? taggedUsers : kind === 'car' ? taggedCars : taggedEvents;
-    return list.some(t => t.id === id);
-  }, [taggedUsers, taggedCars, taggedEvents]);
 
   // ── Group toggle ─────────────────────────────────────────────────────────────
 
@@ -333,15 +299,7 @@ export default function CreateScreen() {
     taggedUsers, taggedCars, taggedEvents, images, createPost, syncTags, appNav,
   ]);
 
-  // ── Derived search / recently-tagged data ────────────────────────────────────
-
-  const searchUsers  = (debouncedSearch.length >= 2 ? (searchData?.users  ?? []) : (prevUsersData?.users   ?? [])) as any[];
-  const searchCars   = (debouncedSearch.length >= 2 ? (searchData?.cars   ?? []) : (prevCarsData?.cars     ?? [])) as any[];
-  const searchEvents = (debouncedSearch.length >= 2 ? (searchData?.events ?? []) : (prevEventsData?.events ?? [])) as any[];
-
-  const allTags = [...taggedUsers, ...taggedCars, ...taggedEvents];
-
-  const inputStyle = [styles.input, { color: colors.fg, borderBottomColor: colors.border }];
+  const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }];
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
@@ -359,10 +317,14 @@ export default function CreateScreen() {
             return (
               <TouchableOpacity
                 key={type}
-                style={[styles.typeBtn, { borderColor: active ? color : colors.border }, active && { backgroundColor: color }]}
+                style={[styles.typeBtn, {
+                  borderColor: active ? color : colors.inputBorder,
+                  backgroundColor: active ? color : colors.inputBg,
+                }]}
                 onPress={() => handleTypeChange(type)}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.typeLabel, { color: active ? '#FFFFFF' : colors.grey }]}>{label}</Text>
+                <Text style={[styles.typeLabel, { color: active ? '#FFFFFF' : colors.fg }]}>{label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -376,41 +338,43 @@ export default function CreateScreen() {
               return (
                 <TouchableOpacity
                   key={key}
-                  style={[styles.catChip, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
+                  style={[styles.catChip, {
+                    borderColor: active ? colors.primaryAlt : colors.inputBorder,
+                    backgroundColor: active ? colors.primaryAlt : colors.inputBg,
+                  }]}
                   onPress={() => setCategory(active ? '' : key)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[styles.catLabel, { color: active ? '#FFFFFF' : colors.grey }]}>{label}</Text>
+                  <Text style={[styles.catLabel, { color: active ? '#FFFFFF' : colors.fg }]}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         )}
 
-        {/* Author */}
-        <View style={[styles.authorRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <Avatar filename={userInfo?.gallery?.[0]?.filename ?? userInfo?.profilePicture} name={displayName} size={38} />
-          <Text style={[styles.authorName, { color: colors.fg }]}>@{displayName}</Text>
+        {/* Title */}
+        <View style={[styles.inputBlock, { backgroundColor: colors.card }]}>
+          <TextInput
+            style={[styles.titleInput, { backgroundColor: colors.inputBg, color: colors.fg, borderColor: colors.inputBorder }]}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Title..."
+            placeholderTextColor={colors.grey}
+            returnKeyType="next"
+          />
         </View>
 
-        {/* Title */}
-        <TextInput
-          style={[styles.titleInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Title..."
-          placeholderTextColor={colors.grey}
-          returnKeyType="next"
-        />
-
         {/* Body */}
-        <MentionInput
-          style={[styles.bodyInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
-          value={body}
-          onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
-          placeholder="What's on your mind?"
-          placeholderTextColor={colors.grey}
-          multiline
-        />
+        <View style={[styles.inputBlock, { backgroundColor: colors.card, paddingBottom: 12 }]}>
+          <MentionInput
+            style={[styles.bodyInput, { backgroundColor: colors.inputBg, color: colors.fg, borderColor: colors.inputBorder }]}
+            value={body}
+            onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
+            placeholder="What's on your mind?"
+            placeholderTextColor={colors.grey}
+            multiline
+          />
+        </View>
 
         {/* Photos */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -467,131 +431,18 @@ export default function CreateScreen() {
           </FieldRow>
         </Section>
 
-        {/* ── Tag people, cars & events ── */}
-        <Section label="Tag People, Cars & Events">
-          {/* Selected tags */}
-          {allTags.length > 0 && (
-            <View style={styles.selectedTags}>
-              {allTags.map((tag) => (
-                <TagChip key={`${tag.kind}-${tag.id}`} tag={tag} onRemove={() => toggleTag(tag)} />
-              ))}
-            </View>
-          )}
-
-          {/* Search input */}
-          <View style={[styles.tagSearchRow, { borderBottomColor: colors.border }]}>
-            <Search size={15} color={colors.grey} />
-            <TextInput
-              style={[styles.tagSearchInput, { color: colors.fg }]}
-              value={tagSearch}
-              onChangeText={setTagSearch}
-              placeholder="Search people, cars, events…"
-              placeholderTextColor={colors.grey}
-              returnKeyType="search"
-              autoCorrect={false}
-            />
-            {tagSearch.length > 0 && (
-              <TouchableOpacity onPress={() => setTagSearch('')} hitSlop={6}>
-                <X size={14} color={colors.grey} />
-              </TouchableOpacity>
-            )}
+        {/* ── Tag people, cars & events — always visible (no accordion) ── */}
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionLabel, { color: colors.fg }]}>Tag People, Cars & Events</Text>
           </View>
-
-          {/* Results / recently tagged */}
-          <View style={{ paddingBottom: 8 }}>
-            {/* Users */}
-            {searchUsers.length > 0 && (
-              <View>
-                <View style={[styles.tagGroupHeader, { borderBottomColor: colors.border }]}>
-                  <User size={12} color={colors.grey} />
-                  <Text style={[styles.tagGroupLabel, { color: colors.grey }]}>
-                    {debouncedSearch.length >= 2 ? 'People' : 'Recently Tagged People'}
-                  </Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagResultRow}>
-                  {searchUsers.slice(0, 10).map((u: any) => {
-                    const uid = u.user_id || u.internal_id;
-                    const name = u.username || [u.firstName, u.lastName].filter(Boolean).join(' ');
-                    const tagged = isTagged(uid, 'user');
-                    return (
-                      <TouchableOpacity
-                        key={uid}
-                        style={[styles.tagResultChip, { borderColor: tagged ? colors.primaryAlt : colors.border }, tagged && { backgroundColor: colors.primaryAlt }]}
-                        onPress={() => toggleTag({ id: uid, label: name, kind: 'user' })}
-                      >
-                        {tagged && <Check size={11} color="#FFF" />}
-                        <Text style={[styles.tagResultText, { color: tagged ? '#FFF' : colors.fg }]} numberOfLines={1}>{name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Cars */}
-            {searchCars.length > 0 && (
-              <View>
-                <View style={[styles.tagGroupHeader, { borderBottomColor: colors.border }]}>
-                  <CarIcon size={12} color={colors.grey} />
-                  <Text style={[styles.tagGroupLabel, { color: colors.grey }]}>
-                    {debouncedSearch.length >= 2 ? 'Cars' : 'Recently Tagged Cars'}
-                  </Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagResultRow}>
-                  {searchCars.slice(0, 10).map((c: any) => {
-                    const cid = c.internal_id;
-                    const label = [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car';
-                    const tagged = isTagged(cid, 'car');
-                    return (
-                      <TouchableOpacity
-                        key={cid}
-                        style={[styles.tagResultChip, { borderColor: tagged ? colors.teal : colors.border }, tagged && { backgroundColor: colors.teal }]}
-                        onPress={() => toggleTag({ id: cid, label, kind: 'car' })}
-                      >
-                        {tagged && <Check size={11} color="#FFF" />}
-                        <Text style={[styles.tagResultText, { color: tagged ? '#FFF' : colors.fg }]} numberOfLines={1}>{label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Events */}
-            {searchEvents.length > 0 && (
-              <View>
-                <View style={[styles.tagGroupHeader, { borderBottomColor: colors.border }]}>
-                  <Flag size={12} color={colors.grey} />
-                  <Text style={[styles.tagGroupLabel, { color: colors.grey }]}>
-                    {debouncedSearch.length >= 2 ? 'Events' : 'Recently Tagged Events'}
-                  </Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagResultRow}>
-                  {searchEvents.slice(0, 10).map((e: any) => {
-                    const eid = e.internal_id;
-                    const tagged = isTagged(eid, 'event');
-                    return (
-                      <TouchableOpacity
-                        key={eid}
-                        style={[styles.tagResultChip, { borderColor: tagged ? colors.tangerine : colors.border }, tagged && { backgroundColor: colors.tangerine }]}
-                        onPress={() => toggleTag({ id: eid, label: e.title || 'Event', kind: 'event' })}
-                      >
-                        {tagged && <Check size={11} color="#FFF" />}
-                        <Text style={[styles.tagResultText, { color: tagged ? '#FFF' : colors.fg }]} numberOfLines={1}>{e.title || 'Event'}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {searchUsers.length === 0 && searchCars.length === 0 && searchEvents.length === 0 && (
-              <Text style={[styles.tagEmpty, { color: colors.grey }]}>
-                {debouncedSearch.length >= 2 ? 'No results found' : 'Type to search people, cars, and events'}
-              </Text>
-            )}
-          </View>
-        </Section>
+          <PostTagPicker
+            users={taggedUsers}
+            cars={taggedCars}
+            events={taggedEvents}
+            onToggle={toggleTag}
+          />
+        </View>
 
         {/* ── Post to ── */}
         <Section label="Post To" defaultOpen>
@@ -635,7 +486,7 @@ export default function CreateScreen() {
       </ScrollView>
 
       {/* ── Fixed Post button ── */}
-      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Platform.OS === 'android' ? 40 : 12 }]}>
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           onPress={handleSubmit}
@@ -657,18 +508,16 @@ const styles = StyleSheet.create({
   scroll:       { flex: 1 },
 
   typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12, borderBottomWidth: 1 },
-  typeBtn:      { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5 },
+  typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
   typeLabel:    { fontSize: 12, fontWeight: '700' },
 
   catRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1 },
-  catChip:      { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  catChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5 },
   catLabel:     { fontSize: 12, fontWeight: '600' },
 
-  authorRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
-  authorName:   { fontSize: 14, fontWeight: '700' },
-
-  titleInput:   { paddingHorizontal: 14, paddingVertical: 13, fontSize: 17, fontWeight: '700', borderBottomWidth: 1 },
-  bodyInput:    { paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, minHeight: 100, lineHeight: 22, borderBottomWidth: 1, textAlignVertical: 'top' as const },
+  inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
+  titleInput:   { paddingHorizontal: 14, paddingVertical: 12, fontSize: 17, fontWeight: '700', borderWidth: 1, borderRadius: 10 },
+  bodyInput:    { paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, minHeight: 110, lineHeight: 22, borderWidth: 1, borderRadius: 10, textAlignVertical: 'top' as const },
 
   photosSection:{ borderBottomWidth: 1, paddingBottom: 10 },
   addPhotoBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
@@ -684,10 +533,10 @@ const styles = StyleSheet.create({
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14 },
   sectionLabel:  { fontSize: 14, fontWeight: '700' },
-  fieldRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 2, borderBottomWidth: StyleSheet.hairlineWidth },
+  fieldRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7 },
   fieldLabel:    { fontSize: 13, fontWeight: '600', width: 90 },
   fieldValue:    { flex: 1 },
-  input:         { flex: 1, fontSize: 14, paddingVertical: 11 },
+  input:         { flex: 1, fontSize: 14, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 8 },
 
   postToRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
   postToLabel:   { flex: 1, fontSize: 15, fontWeight: '600' },

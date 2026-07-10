@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Home, Users, Car, Plus } from 'lucide-react-native';
@@ -45,7 +45,10 @@ function TabIcon({
 
 export default function MainTabNavigator() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 46 + insets.bottom;
+  // Android's gesture/nav bar sits closer to the tab bar — add extra bottom
+  // clearance so the icons/labels aren't crowded by the system buttons.
+  const androidTabPad = Platform.OS === 'android' ? 40 : 0;
+  const tabBarHeight = 46 + insets.bottom + androidTabPad;
 
   const brandColor = useBrandColor();
   const fabIconColor = useBrandTextColor();
@@ -74,7 +77,7 @@ export default function MainTabNavigator() {
           borderTopWidth: 0,
           elevation: 0,
           height: tabBarHeight,
-          paddingBottom: insets.bottom + 4,
+          paddingBottom: insets.bottom + 4 + androidTabPad,
           paddingTop: 12,
           paddingHorizontal: 32,
         },
@@ -89,7 +92,7 @@ export default function MainTabNavigator() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '700',
-          marginTop: 8,
+          marginTop: 5,
         },
         tabBarItemStyle: {
           paddingVertical: 0,

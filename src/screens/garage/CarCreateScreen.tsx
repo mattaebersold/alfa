@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, FlatList,
+  TextInput, Alert, FlatList, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -435,7 +435,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
 
       <View style={styles.flex}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight }]}
+          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight + (Platform.OS === 'android' ? 40 : 0) }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

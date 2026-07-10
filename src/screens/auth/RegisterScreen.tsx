@@ -10,7 +10,6 @@ import { ChevronLeft, Eye, EyeOff, Check } from 'lucide-react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import * as ImagePicker from 'expo-image-picker';
-import { uploadFile } from '../../utils/upload';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
@@ -108,13 +107,15 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     fd.append('zip', form.zip.trim());
 
     if (photo?.uri) {
-      // On Android some picker URIs can't be read as a File — never let the photo
-      // block registration; just sign up without it.
-      try {
-        fd.append('profilePhoto', uploadFile(photo.uri));
-      } catch (e) {
-        console.warn('Could not attach profile photo, registering without it:', e);
-      }
+      // Registration posts via axios → React Native XHR, which needs the classic
+      // { uri, name, type } file shape (NOT the expo-file-system File used for the
+      // spec-compliant fetch in RTK Query). This is what makes the upload work on
+      // Android, where XHR can't serialize the expo File object.
+      fd.append('profilePhoto', {
+        uri: photo.uri,
+        name: photo.fileName ?? `profile_${Date.now()}.jpg`,
+        type: photo.mimeType ?? 'image/jpeg',
+      } as any);
     }
 
     dispatch(clearError());
@@ -189,7 +190,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                       <Text style={styles.label}>{label}</Text>
                       <View style={secure ? styles.inputWrap : undefined}>
                         <TextInput
-                          style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                          style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg, backgroundColor: colors.inputBg }]}
                           value={form[key]}
                           onChangeText={handleChange(key)}
                           placeholder=""

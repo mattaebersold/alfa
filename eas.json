@@ -18,6 +18,9 @@
       "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
       "ios": {
         "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
