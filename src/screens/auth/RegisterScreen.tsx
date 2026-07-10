@@ -52,6 +52,11 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
       Alert.alert('Error', 'Please fill in all required fields.');
       return;
     }
+    // Basic email format check (must be something@something.tld)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       Alert.alert('Error', 'Passwords do not match.');
       return;
@@ -102,14 +107,24 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     fd.append('password', form.password);
     fd.append('zip', form.zip.trim());
 
-    if (photo) {
-      fd.append('profilePhoto', uploadFile(photo.uri));
+    if (photo?.uri) {
+      // On Android some picker URIs can't be read as a File — never let the photo
+      // block registration; just sign up without it.
+      try {
+        fd.append('profilePhoto', uploadFile(photo.uri));
+      } catch (e) {
+        console.warn('Could not attach profile photo, registering without it:', e);
+      }
     }
 
     dispatch(clearError());
     const result = await dispatch(registerUser(fd));
     if (registerUser.fulfilled.match(result)) {
       navigation.navigate('VerifyEmail', { email: form.email.trim().toLowerCase(), password: form.password });
+    } else {
+      // Registration failed (e.g. username/email already taken) — return to the
+      // form fields so the error is visible and they can change them.
+      setStep(1);
     }
   };
 

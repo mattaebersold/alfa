@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -25,6 +25,11 @@ export default function LikeButton({
   const colors = useColors();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
+
+  // Sync with server-derived state once the live like query resolves (or refetches
+  // after a like/unlike elsewhere), so the heart reflects the true "did I like this".
+  useEffect(() => { setLiked(initialLiked); }, [initialLiked]);
+  useEffect(() => { setCount(initialCount); }, [initialCount]);
 
   const [likeEntry] = useLikeEntryMutation();
   const [unlikeEntry] = useUnlikeEntryMutation();

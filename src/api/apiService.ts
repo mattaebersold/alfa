@@ -133,6 +133,7 @@ export const apiService = createApi({
 
     getLikeUsers: builder.query<{ users: string[]; total: number }, string>({
       query: (entryId) => `api/likes/users/${entryId}`,
+      providesTags: (result, error, id) => [{ type: 'Like', id }],
     }),
 
     // ── Comments ─────────────────────────────────────────────────────────────
@@ -140,6 +141,14 @@ export const apiService = createApi({
     getComments: builder.query<{ entries: any[] }, { type: string; id: string; page?: number; limit?: number }>({
       query: ({ type, id, page = 0, limit = 20 }) =>
         `api/comment/${type}/${id}/${page}/none/${limit}`,
+      providesTags: (result, error, { id }) => [{ type: 'Comment', id }],
+    }),
+
+    getCommentReplies: builder.query<{ entries: any[] }, { type: string; id: string }>({
+      query: ({ type, id }) => ({
+        url: 'api/comment/replies',
+        params: { document_id: id, document_entry_type: type },
+      }),
       providesTags: (result, error, { id }) => [{ type: 'Comment', id }],
     }),
 
@@ -903,6 +912,7 @@ export const {
   useUnlikeEntryMutation,
   useGetLikeUsersQuery,
   useGetCommentsQuery,
+  useGetCommentRepliesQuery,
   useGetCommentCountQuery,
   useCreateCommentMutation,
   useDeleteCommentMutation,

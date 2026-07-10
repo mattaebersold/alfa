@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { CONFIG } from '../constants/config';
 import { storeToken, removeToken, getToken } from '../utils/token';
+import { apiService } from '../api/apiService';
 import type { User, LoginResponse } from '../types/api';
 
 interface AuthState {
@@ -96,8 +97,10 @@ export const resendVerification = createAsyncThunk(
   }
 );
 
-export const logout = createAsyncThunk('auth/logout', async () => {
+export const logout = createAsyncThunk('auth/logout', async (_, { dispatch }) => {
   await removeToken();
+  // Clear all cached queries so the next account doesn't see the previous user's data.
+  dispatch(apiService.util.resetApiState());
 });
 
 export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {

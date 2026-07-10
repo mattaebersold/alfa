@@ -8,7 +8,8 @@ import { WebView } from 'react-native-webview';
 import { ExternalLink } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
-import { useGetCommentsQuery, useCreateCommentMutation } from '../../api/apiService';
+import { useCreateCommentMutation } from '../../api/apiService';
+import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import MentionInput from '../ui/MentionInput';
@@ -46,15 +47,14 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
   const { userInfo } = useAppSelector((s) => s.auth);
   const [commentText, setCommentText] = useState('');
   const [mentionedIds, setMentionedIds] = useState<string[]>([]);
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
 
   const entryType = kind ? ENTRY_TYPE[kind] : '';
   const id = item?.internal_id ?? '';
 
-  const { data: commentsData, isFetching } = useGetCommentsQuery(
-    { type: entryType, id, limit: 50 },
-    { skip: !visible || !id || !entryType },
-  );
-  const comments = commentsData?.entries ?? [];
+  const { rows, comments, isFetching } = useCommentThread(entryType, id, {
+    skip: !visible || !id || !entryType,
+  });
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
 
   const handleSubmit = async () => {
@@ -64,11 +64,13 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
     fd.append('document_id', id);
     fd.append('document_type', entryType);
     fd.append('body', body);
+    if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     if (mentionedIds.length) fd.append('mentioned_users', mentionedIds.join(','));
     try {
       await createComment(fd as any).unwrap();
       setCommentText('');
       setMentionedIds([]);
+      setReplyingTo(null);
     } catch {
       // no-op
     }
@@ -129,13 +131,24 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
           {/* Comments */}
           <Text style={styles.commentsHeading}>Comments{comments.length ? ` (${comments.length})` : ''}</Text>
 
+          {replyingTo && (
+            <View style={styles.replyBanner}>
+              <Text style={styles.replyBannerText}>
+                Replying to <Text style={{ fontWeight: '700', color: '#ECECEC' }}>@{replyingTo.username}</Text>
+              </Text>
+              <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
+                <Text style={styles.replyCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.inputRow}>
             <MentionInput
               containerStyle={{ flex: 1 }}
               style={[ss.chatInput, { borderColor: '#2A2A2A', color: '#ECECEC', maxHeight: 120 }]}
               value={commentText}
               onChangeText={(t, ids) => { setCommentText(t); setMentionedIds(ids); }}
-              placeholder="Write a comment..."
+              placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
               placeholderTextColor="#8D8D8D"
               multiline
             />
@@ -150,15 +163,19 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
 
           {isFetching && comments.length === 0 ? (
             <ActivityIndicator size="small" color="#8D8D8D" style={{ marginTop: 16 }} />
-          ) : comments.length === 0 ? (
+          ) : rows.length === 0 ? (
             <Text style={styles.empty}>No comments yet. Be the first!</Text>
           ) : (
-            comments.map((cm: CommentData) => (
+            rows.map(({ comment: cm, isReply }) => (
               <CommentRow
                 key={(cm as any).internal_id ?? (cm as any)._id}
                 comment={cm}
                 currentUserId={userInfo?.user_id}
-                isReply={!!(cm as any).parent_id}
+                isReply={isReply}
+                onReply={(commentId, username) => {
+                  setReplyingTo({ commentId, username });
+                  setCommentText(`@${username} `);
+                }}
               />
             ))
           )}
@@ -182,6 +199,9 @@ const styles = StyleSheet.create({
   metaText:{ fontSize: 12, color: '#B4B4B4' },
   text:    { fontSize: 15, lineHeight: 24, color: '#ECECEC' },
   commentsHeading: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 24, marginBottom: 12 },
+  replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },
+  replyBannerText: { color: '#8D8D8D', fontSize: 13 },
+  replyCancel: { color: 'rgb(37, 162, 211)', fontSize: 13, fontWeight: '700' },
   inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
   postBtn: { backgroundColor: 'rgb(37, 162, 211)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 9 },
   postBtnText: { color: '#000000', fontWeight: '700', fontSize: 14 },

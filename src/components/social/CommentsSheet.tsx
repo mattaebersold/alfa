@@ -7,7 +7,8 @@ import {
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { Dimensions } from 'react-native';
-import { useGetCommentsQuery, useCreateCommentMutation } from '../../api/apiService';
+import { useCreateCommentMutation } from '../../api/apiService';
+import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import MentionInput from '../ui/MentionInput';
 import CommentRow, { type CommentData } from './CommentRow';
@@ -32,11 +33,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
 
-  const { data: commentsData, isFetching } = useGetCommentsQuery(
-    { type: entryType, id: postId, limit: 50 },
-    { skip: !visible }
-  );
-  const comments = commentsData?.entries ?? [];
+  const { rows, comments, isFetching } = useCommentThread(entryType, postId, { skip: !visible });
 
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
 
@@ -77,6 +74,8 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     fd.append('document_id', postId);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
+    // A reply is a comment whose reply_to is the parent's internal_id. The backend
+    // returns these separately (getReplies) and we nest them under the parent.
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
     try {
@@ -114,16 +113,16 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             <ActivityIndicator size="large" color={c.primaryAlt} style={{ marginVertical: 40 }} />
           ) : (
             <FlatList
-              data={comments}
-              keyExtractor={(item: any) => item.internal_id ?? item._id}
+              data={rows}
+              keyExtractor={(item: any) => item.comment.internal_id ?? item.comment._id}
               style={{ flex: 1 }}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }: { item: CommentData }) => (
+              renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
                 <CommentRow
-                  comment={item}
+                  comment={item.comment}
                   currentUserId={userInfo?.user_id}
-                  isReply={!!item.parent_id}
+                  isReply={item.isReply}
                   onReply={(commentId, username) => {
                     setReplyingTo({ commentId, username });
                     setCommentText(`@${username} `);

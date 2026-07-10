@@ -10,7 +10,8 @@ import { X, MessageCircle } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import PostOwnerMenu from '../../components/social/PostOwnerMenu';
 import { useNavigation } from '@react-navigation/native';
-import { useGetPostQuery, useGetCommentsQuery, useCreateCommentMutation, useGetPostCountsQuery, useGetLikeInfoQuery } from '../../api/apiService';
+import { useGetPostQuery, useCreateCommentMutation, useGetPostCountsQuery, useGetLikeInfoQuery } from '../../api/apiService';
+import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
@@ -129,11 +130,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
   const { data: postData, isLoading } = useGetPostQuery(postId);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
-  const { data: commentsData } = useGetCommentsQuery(
-    { type: post?.entry_type ?? 'post', id: postId, limit: 50 },
-    { skip: !post }
-  );
-  const comments = commentsData?.entries ?? [];
+  const { rows: commentRows, comments } = useCommentThread(post?.entry_type ?? 'post', postId, { skip: !post });
   const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
   const { data: likeInfo } = useGetLikeInfoQuery(postId, { skip: !post });
 
@@ -214,8 +211,8 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         keyboardVerticalOffset={90}
       >
         <FlatList
-          data={comments}
-          keyExtractor={(item: any) => item.internal_id ?? item._id}
+          data={commentRows}
+          keyExtractor={(item: any) => item.comment.internal_id ?? item.comment._id}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
@@ -310,11 +307,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               </View>
             </View>
           }
-          renderItem={({ item }: { item: CommentData }) => (
+          renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
             <CommentRow
-              comment={item}
+              comment={item.comment}
               currentUserId={userInfo?.user_id}
-              isReply={!!item.parent_id}
+              isReply={item.isReply}
               onReply={(commentId, username) => {
                 setReplyingTo({ commentId, username });
                 setCommentText(`@${username} `);

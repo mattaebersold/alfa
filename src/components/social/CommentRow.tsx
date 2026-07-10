@@ -14,7 +14,6 @@ export interface CommentData {
   user_id: string;
   body?: string;
   created_at?: string;
-  parent_id?: string;
 }
 
 interface CommentRowProps {
@@ -45,7 +44,7 @@ export default function CommentRow({ comment, currentUserId, onReply, isReply }:
       { backgroundColor: colors.card },
       isReply && styles.replyContainer,
     ]}>
-      {isReply && <View style={[styles.replyLine, { backgroundColor: colors.border }]} />}
+      {isReply && <View style={[styles.replyLine, { backgroundColor: colors.primaryAlt }]} />}
       <Avatar
         filename={user?.gallery?.[0]?.filename}
         name={user?.firstName ?? '?'}
@@ -85,20 +84,20 @@ const styles = StyleSheet.create({
   },
   replyContainer: {
     paddingLeft: 44,
+    marginLeft: 16,
     position: 'relative',
   },
   replyLine: {
     position: 'absolute',
-    left: 32,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    borderRadius: 1,
+    left: 16,
+    top: 8,
+    bottom: 8,
+    width: 3,
+    borderRadius: 2,
   },
   body:     { flex: 1 },
   nameRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   name:     { fontSize: 13, fontWeight: '700' },
-  username: { fontSize: 12 },
   text:     { fontSize: 14, lineHeight: 20 },
   footer:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   time:     { fontSize: 11 },

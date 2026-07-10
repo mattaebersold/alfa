@@ -46,7 +46,7 @@ export default function AppHeader() {
           <TouchableOpacity onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })} style={styles.profileBtn}>
             <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={36} />
             {userInfo?.username && (
-              <Text style={[styles.username, { color: iconColor }]}>@{userInfo.username}</Text>
+              <Text style={[styles.username, { color: iconColor }]} numberOfLines={1}>@{userInfo.username}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  leftSection:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leftSection:  { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0 },
   logo:         { width: 32, height: 32 },
-  profileBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 6 },
-  username:     { fontSize: 14, fontWeight: '700' },
-  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  profileBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 6, flexShrink: 1, minWidth: 0 },
+  username:     { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 0, flexShrink: 0 },
   action:       { padding: 6, position: 'relative' },
   badge:        {
     position: 'absolute', top: 6, right: 6,

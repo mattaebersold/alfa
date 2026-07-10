@@ -13,7 +13,7 @@ import CommentButton from '../social/CommentButton';
 import ReportButton from '../ui/ReportButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
-import { useGetUserByIdQuery } from '../../api/apiService';
+import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 
@@ -37,6 +37,28 @@ function muxThumbnailUrl(videoId: string) {
   return `https://image.mux.com/${videoId}/thumbnail.jpg?width=720&fit_mode=smartcrop`;
 }
 
+// "Liked by matt and 3 others" — resolves the username of a representative liker
+// (preferring someone other than the viewer) and appends the remaining count.
+function LikedByLine({ likers, total, myId, color, style }: {
+  likers: string[]; total: number; myId?: string; color: string; style: any;
+}) {
+  const featuredId = likers.find((id) => id !== myId) ?? likers[0];
+  const { data: user } = useGetUserByIdQuery(featuredId, { skip: !featuredId });
+  if (total <= 0) return null;
+
+  const name = user?.username;
+  let text: string;
+  if (!name) {
+    text = total === 1 ? 'Liked by someone' : `Liked by ${total} people`;
+  } else if (total === 1) {
+    text = `Liked by ${name}`;
+  } else {
+    const others = total - 1;
+    text = `Liked by ${name} and ${others} ${others === 1 ? 'other' : 'others'}`;
+  }
+  return <Text style={[style, { color }]}>{text}</Text>;
+}
+
 export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
@@ -47,6 +69,15 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
   const heroImage = firstGalleryUrl(post.gallery);
   const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
+
+  // Live like state — tells us whether *I* liked this (so the heart shows filled and
+  // tapping un-likes) and the true like count, rather than trusting a stale flag.
+  const { data: likeData } = useGetLikeUsersQuery(post.internal_id, { skip: !post.internal_id });
+  const likers = likeData?.users ?? [];
+  const likeCount = likeData?.total ?? post.like_count ?? post.likeCount ?? 0;
+  const iLiked = userInfo?.user_id
+    ? likers.includes(userInfo.user_id)
+    : (isLiked ?? post.isLiked ?? false);
 
   const { data: fetchedUser } = useGetUserByIdQuery(post.user_id, { skip: !post.user_id });
   const user = fetchedUser ?? post.user ?? post.user_objectid;
@@ -169,10 +200,14 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       )}
 
       {/* Liked-by row */}
-      {(post.like_count ?? post.likeCount ?? 0) > 0 && (
-        <Text style={[styles.likedBy, { color: mutedColor }]}>
-          Liked by {post.like_count ?? post.likeCount} {(post.like_count ?? post.likeCount ?? 0) === 1 ? 'person' : 'people'}
-        </Text>
+      {likeCount > 0 && (
+        <LikedByLine
+          likers={likers}
+          total={likeCount}
+          myId={userInfo?.user_id}
+          color={mutedColor}
+          style={styles.likedBy}
+        />
       )}
 
       {/* Actions */}
@@ -180,8 +215,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         <LikeButton
           documentId={post.internal_id}
           entryType={entryType}
-          initialCount={post.like_count ?? post.likeCount ?? 0}
-          initialLiked={isLiked ?? post.isLiked ?? false}
+          initialCount={likeCount}
+          initialLiked={iLiked}
         />
         <CommentButton count={post.comment_count ?? post.commentCount ?? 0} onPress={onCommentPress} />
       </View>

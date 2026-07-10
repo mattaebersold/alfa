@@ -10,10 +10,10 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetPostQuery,
-  useGetCommentsQuery,
   useCreateCommentMutation,
   useGetPostCountsQuery,
 } from '../../api/apiService';
+import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
@@ -36,11 +36,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
 
   const { data: postData, isLoading } = useGetPostQuery(postId);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
-  const { data: commentsData } = useGetCommentsQuery(
-    { type: post?.entry_type ?? 'post', id: postId, limit: 50 },
-    { skip: !post }
-  );
-  const comments = commentsData?.entries ?? [];
+  const { rows: commentRows, comments } = useCommentThread(post?.entry_type ?? 'post', postId, { skip: !post });
   const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
@@ -57,9 +53,9 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
     if (!commentText.trim()) return;
     const fd = new FormData();
     fd.append('document_id', post.internal_id);
-    fd.append('document_entry_type', entryType);
+    fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
-    if (replyingTo) fd.append('parent_id', replyingTo.commentId);
+    if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     try {
       await createComment(fd).unwrap();
       setCommentText('');
@@ -77,8 +73,8 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
         keyboardVerticalOffset={90}
       >
         <FlatList
-          data={comments as any[]}
-          keyExtractor={(item: any) => item.internal_id ?? item._id}
+          data={commentRows as any[]}
+          keyExtractor={(item: any) => item.comment.internal_id ?? item.comment._id}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
@@ -172,11 +168,11 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
               </View>
             </View>
           }
-          renderItem={({ item }: { item: CommentData }) => (
+          renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
             <CommentRow
-              comment={item}
+              comment={item.comment}
               currentUserId={userInfo?.user_id}
-              isReply={!!item.parent_id}
+              isReply={item.isReply}
               onReply={(commentId, username) => {
                 setReplyingTo({ commentId, username });
                 setCommentText(`@${username} `);
