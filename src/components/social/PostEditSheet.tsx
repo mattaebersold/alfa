@@ -3,8 +3,11 @@ import {
   Modal, View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
 import PostTagPicker from './PostTagPicker';
+import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalleryEditor';
+import { uploadFile } from '../../utils/upload';
 import {
   useUpdatePostMutation, useSyncPostTagsMutation, useGetPostTagsQuery,
   useGetUserGroupsQuery,
@@ -12,6 +15,7 @@ import {
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
+import { contrastText } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import type { Post } from '../../types/api';
 
@@ -66,6 +70,14 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const [type, setType] = useState(post.type ?? 'general');
   const [category, setCategory] = useState(post.category ?? '');
 
+  // Readable foreground for anything filled with the brand color — black on the
+  // pro gold, white on the default blue.
+  const onAccent = contrastText(colors.primaryAlt);
+
+  // Gallery — existing images plus any newly picked, in display order
+  const [images, setImages] = useState<EditorImage[]>(() => toEditorImages(post.gallery));
+  const [savingImages, setSavingImages] = useState(false);
+
   // Tags
   const [taggedUsers, setTaggedUsers] = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars] = useState<TagItem[]>([]);
@@ -91,7 +103,9 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       setCategory(post.category ?? '');
       const groups = (post as any).group_ids as string[] | undefined;
       setSelectedGroupIds(Array.isArray(groups) ? groups : []);
-      setIsPublic(!(Array.isArray(groups) && groups.length > 0));
+      // "Post publicly" defaults to checked on edit (previously it unchecked
+      // whenever the post had any group, dropping the public flag on save).
+      setIsPublic(true);
     }
   }, [visible, post]);
 
@@ -142,8 +156,8 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const toggleGroup = (gid: string) =>
     setSelectedGroupIds((prev) => (prev.includes(gid) ? prev.filter((g) => g !== gid) : [...prev, gid]));
 
-  const handleSave = async () => {
-    const fd = new FormData();
+  /** Fields the backend expects on every update, gallery aside. */
+  const baseFields = (fd: FormData) => {
     fd.append('internal_id', post.internal_id);
     fd.append('title', title.trim());
     fd.append('body', body.trim());
@@ -151,8 +165,72 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     if (category) fd.append('category', category);
     fd.append('group_ids', JSON.stringify(selectedGroupIds));
     if (isPublic) fd.append('also_public', 'true');
+  };
+
+  /**
+   * Saving the gallery is two passes, because the server assigns filenames to
+   * newly uploaded images and always appends them to the end:
+   *
+   *   1. Upload new files and remove deleted ones. The response comes back as
+   *      [surviving originals…, newly uploaded…] in upload order.
+   *   2. If that isn't the order the user arranged, send `setIndex` commands —
+   *      now that every image has a server filename to address it by.
+   *
+   * Pass 2 is skipped when the resulting order already matches.
+   */
+  const saveGallery = async (): Promise<void> => {
+    const originals = post.gallery ?? [];
+    const survivors = new Set(
+      images.filter((i) => i.kind === 'existing').map((i) => (i as any).filename as string)
+    );
+    const removed = originals.filter((o) => o.filename && !survivors.has(o.filename));
+    const added = images.filter((i) => i.kind === 'new') as Extract<EditorImage, { kind: 'new' }>[];
+
+    const orderChanged = images.some((img, idx) =>
+      img.kind === 'existing' && originals[idx]?.filename !== (img as any).filename
+    );
+
+    if (removed.length === 0 && added.length === 0 && !orderChanged) return;
+
+    const fd = new FormData();
+    baseFields(fd);
+    removed.forEach((img, i) => fd.append(`modifyImage:remove:${i}`, img.filename));
+    added.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
+
+    const updated: any = await updatePost(fd).unwrap();
+
+    // Map the editor's arrangement onto real server filenames.
+    const resulting: { filename: string }[] = updated?.gallery ?? [];
+    const appended = added.length > 0 ? resulting.slice(resulting.length - added.length) : [];
+    let appendedCursor = 0;
+
+    const desired = images.map((img) =>
+      img.kind === 'existing'
+        ? (img as any).filename as string
+        : appended[appendedCursor++]?.filename
+    ).filter(Boolean) as string[];
+
+    const alreadyOrdered =
+      desired.length === resulting.length &&
+      desired.every((fn, i) => resulting[i]?.filename === fn);
+
+    if (alreadyOrdered) return;
+
+    const orderFd = new FormData();
+    baseFields(orderFd);
+    desired.forEach((filename, index) => {
+      orderFd.append(`modifyImage:setIndex:${index}:${filename}`, String(index));
+    });
+    await updatePost(orderFd).unwrap();
+  };
+
+  const handleSave = async () => {
+    const fd = new FormData();
+    baseFields(fd);
     try {
+      setSavingImages(true);
       await updatePost(fd).unwrap();
+      await saveGallery();
       await syncTags({
         post_id: post.internal_id,
         tagged_users: taggedUsers.map((t) => t.id),
@@ -162,12 +240,16 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       onClose();
     } catch {
       Alert.alert('Error', 'Could not save changes.');
+    } finally {
+      setSavingImages(false);
     }
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      {/* Gesture Handler needs its own root inside an RN Modal, or the gallery's
+          drag-to-reorder never receives touches. */}
+      <GestureHandlerRootView style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrap}>
           <View style={[styles.sheet, { backgroundColor: colors.cream }]}>
@@ -179,6 +261,8 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
             </View>
 
             <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+              <PostGalleryEditor images={images} onChange={setImages} />
+
               <Text style={[styles.label, { color: colors.grey }]}>Title</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.fg, backgroundColor: colors.card }]}
@@ -200,7 +284,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                       type === t.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
                     onPress={() => { setType(t.key); setCategory(''); }}
                   >
-                    <Text style={[styles.pillText, { color: colors.grey }, type === t.key && { color: '#FFF' }]}>{t.label}</Text>
+                    <Text style={[styles.pillText, { color: colors.grey }, type === t.key && { color: onAccent }]}>{t.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -216,7 +300,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                           category === c.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
                         onPress={() => setCategory(c.key)}
                       >
-                        <Text style={[styles.pillText, { color: colors.grey }, category === c.key && { color: '#FFF' }]}>{c.label}</Text>
+                        <Text style={[styles.pillText, { color: colors.grey }, category === c.key && { color: onAccent }]}>{c.label}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -236,7 +320,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               <Text style={[styles.label, { color: colors.grey }]}>Post To</Text>
               <TouchableOpacity style={styles.postToRow} onPress={() => setIsPublic((v) => !v)} activeOpacity={0.7}>
                 <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, isPublic && { backgroundColor: colors.primaryAlt }]}>
-                  {isPublic && <Check size={11} color="#FFF" />}
+                  {isPublic && <Check size={11} color={onAccent} />}
                 </View>
                 <Text style={[styles.postToLabel, { color: colors.fg }]}>Post publicly</Text>
               </TouchableOpacity>
@@ -246,7 +330,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 return (
                   <TouchableOpacity key={gid} style={styles.postToRow} onPress={() => toggleGroup(gid)} activeOpacity={0.7}>
                     <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, active && { backgroundColor: colors.primaryAlt }]}>
-                      {active && <Check size={11} color="#FFF" />}
+                      {active && <Check size={11} color={onAccent} />}
                     </View>
                     <Text style={[styles.postToLabel, { color: colors.fg }]} numberOfLines={1}>{group.title ?? 'Group'}</Text>
                   </TouchableOpacity>
@@ -257,12 +341,12 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               )}
 
               <TouchableOpacity style={[styles.saveBtn, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
-                {isLoading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+                {isLoading ? <ActivityIndicator color={onAccent} size="small" /> : <Text style={[styles.saveBtnText, { color: onAccent }]}>Save Changes</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -272,7 +356,7 @@ const styles = StyleSheet.create({
   overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
   backdrop:    { ...StyleSheet.absoluteFillObject },
   sheetWrap:   { maxHeight: '90%' },
-  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden', paddingBottom: Platform.OS === 'android' ? 60 : 0 },
+  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden', paddingBottom: Platform.OS === 'android' ? 60 : 30 },
   header:      {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,

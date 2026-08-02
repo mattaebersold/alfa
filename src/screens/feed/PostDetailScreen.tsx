@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, MessageCircle, Link as LinkIcon, ExternalLink } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import PostOwnerMenu from '../../components/social/PostOwnerMenu';
@@ -28,6 +28,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GalleryItem } from '../../types/api';
 import { stripHtml, extractLinks, linkLabel } from '../../utils/text';
 import MentionText from '../../components/ui/MentionText';
+import PostTagBadges from '../../components/social/PostTagBadges';
+import { tabNavProxy } from '../../navigation/navigateInTabs';
 import { ss } from '../../styles/shared';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -42,7 +44,7 @@ function StoryVideoPlayer({ videoId }: { videoId: string }) {
   return (
     <VideoView
       player={player}
-      style={styles.singleImage}
+      style={styles.videoPlayer}
       contentFit="contain"
       nativeControls
     />
@@ -106,15 +108,17 @@ function GallerySwiper({ gallery }: { gallery: GalleryItem[] }) {
             index,
           })}
         />
-      </View>
-      {/* Dot indicators */}
-      <View style={styles.dots}>
-        {gallery.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]}
-          />
-        ))}
+        {/* Dot indicators — float over the bottom of the image */}
+        {gallery.length > 1 && (
+          <View style={styles.dots} pointerEvents="none">
+            {gallery.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]}
+              />
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -126,7 +130,25 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const { postId } = route.params;
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+
+  /**
+   * Dismiss this modal, then open the target. Deferred a frame so the pop has
+   * been committed before the push — otherwise the new screen can end up
+   * beneath the modal that's still animating out.
+   */
+  const dismissThenNavigate = (go: (nav: any) => void) => {
+    navigation.goBack();
+    // Route into the tab stacks so the target keeps the header and bottom nav.
+    requestAnimationFrame(() => go(tabNavProxy(navigation)));
+  };
+
+  // Two related greys: the post body sits a step above the comments, so the
+  // sections read as distinct without needing a hard divider.
+  const bodyBg = '#181818';
+  const commentsBg = '#101010';
 
   const { data: postData, isLoading } = useGetPostQuery(postId);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
@@ -154,7 +176,6 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   if (isLoading || !post) return <Spinner fullScreen />;
 
   const isOwner = userInfo?.user_id === post.user_id;
-  const isStory = post.type === 'story';
   const gallery = post.gallery ?? [];
   const displayName = post.user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';
@@ -163,6 +184,26 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const categoryBadge = post.category
     ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
     : null;
+
+  const hasMedia = !!post.video_id || gallery.length > 0;
+
+  // Rendered over the media when there is any, otherwise in the author row.
+  const badges = (
+    <View style={styles.badgeRow}>
+      <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
+        <Text style={[styles.badgeText, { color: typeBadge.fg }]}>
+          {TYPE_LABELS[badgeType] ?? badgeType}
+        </Text>
+      </View>
+      {categoryBadge && (
+        <View style={[styles.badge, { backgroundColor: categoryBadge.bg }]}>
+          <Text style={[styles.badgeText, { color: categoryBadge.fg }]}>
+            {CATEGORY_LABELS[post.category!] ?? post.category}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return;
@@ -181,13 +222,17 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+    // No 'bottom' edge — the comment bar owns the bottom inset so its own
+    // background reaches the viewport edge instead of leaving a dead strip.
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top']}>
       {/* Custom modal header */}
       <View style={[styles.modalHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8} style={styles.modalHeaderBtn}>
           <X size={22} color={colors.fg} />
         </TouchableOpacity>
-        <Text style={[styles.modalHeaderTitle, { color: colors.fg }]}>Post</Text>
+        <Text style={[styles.modalHeaderTitle, { color: colors.fg }]} numberOfLines={1}>
+          {post.title || 'Post'}
+        </Text>
         {isOwner ? (
           <View style={styles.modalHeaderBtn}>
             <PostOwnerMenu
@@ -216,10 +261,34 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              <View style={[styles.postHeader, { backgroundColor: colors.card }]}>
+              {/* Title lives in the modal header, not here. */}
+              {post.body && (
+                <MentionText
+                  text={stripHtml(post.body)}
+                  style={[styles.postBody, { color: colors.muted, backgroundColor: bodyBg }]}
+                />
+              )}
+
+              {hasMedia && (
+                <View>
+                  {post.video_id ? (
+                    <StoryVideoPlayer videoId={post.video_id} />
+                  ) : (
+                    <GallerySwiper gallery={gallery} />
+                  )}
+                  {/* Type/category badges float over the media, top right. */}
+                  <View style={styles.badgeOverlay} pointerEvents="none">
+                    {badges}
+                  </View>
+                </View>
+              )}
+
+              <View style={[styles.postHeader, { backgroundColor: bodyBg }]}>
                 <TouchableOpacity
                   style={styles.postHeaderUser}
-                  onPress={() => post.user?.user_id && (navigation as any).navigate('UserDetail', { userId: post.user.user_id, username: post.user.username })}
+                  onPress={() => post.user?.user_id && dismissThenNavigate((n) =>
+                    n.navigate('UserDetail', { userId: post.user!.user_id, username: post.user!.username })
+                  )}
                   activeOpacity={0.7}
                 >
                   <Avatar
@@ -231,35 +300,19 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                     <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
                   </View>
                 </TouchableOpacity>
-                <View style={styles.badgeRow}>
-                  <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
-                    <Text style={[styles.badgeText, { color: typeBadge.fg }]}>{TYPE_LABELS[badgeType] ?? badgeType}</Text>
-                  </View>
-                  {categoryBadge && (
-                    <View style={[styles.badge, { backgroundColor: categoryBadge.bg }]}>
-                      <Text style={[styles.badgeText, { color: categoryBadge.fg }]}>{CATEGORY_LABELS[post.category!] ?? post.category}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {post.title && <Text style={[styles.postTitle, { color: colors.fg, backgroundColor: colors.card }]}>{post.title}</Text>}
-              {post.body && (
-                <MentionText
-                  text={stripHtml(post.body)}
-                  style={[styles.postBody, { color: colors.muted, backgroundColor: colors.card }]}
+                {/* With media present the badges sit over it instead. */}
+                {!hasMedia && badges}
+                <LikeButton
+                  documentId={post.internal_id}
+                  entryType={entryType}
+                  initialCount={counts?.likes ?? post.like_count ?? 0}
+                  initialLiked={likeInfo?.hasLiked ?? post.isLiked ?? false}
                 />
-              )}
-
-              {isStory && post.video_id ? (
-                <StoryVideoPlayer videoId={post.video_id} />
-              ) : gallery.length > 0 ? (
-                <GallerySwiper gallery={gallery} />
-              ) : null}
+              </View>
 
               {/* Links found in the post body → open in the external browser */}
               {extractLinks(post.body).length > 0 && (
-                <View style={[styles.linkWrap, { backgroundColor: colors.card }]}>
+                <View style={[styles.linkWrap, { backgroundColor: bodyBg }]}>
                   {extractLinks(post.body).map((url) => (
                     <TouchableOpacity
                       key={url}
@@ -277,13 +330,17 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 </View>
               )}
 
+              {/* Tagged people, cars & events. Opening one closes this modal
+                  first so the target replaces it instead of stacking on top. */}
+              <PostTagBadges postId={post.internal_id} onNavigate={dismissThenNavigate} />
+
               {post.price && (
-                <Text style={[styles.price, { backgroundColor: colors.card }]}>${Number(post.price).toLocaleString()}</Text>
+                <Text style={[styles.price, { backgroundColor: bodyBg }]}>${Number(post.price).toLocaleString()}</Text>
               )}
 
               {(post.type === 'listing' || post.type === 'want') && post.user && !isOwner && (
                 <TouchableOpacity
-                  style={[styles.messageBtn, { backgroundColor: colors.card, borderTopColor: colors.border, borderBottomColor: colors.border }]}
+                  style={[styles.messageBtn, { backgroundColor: bodyBg, borderTopColor: colors.border, borderBottomColor: colors.border }]}
                   onPress={() => navigation.navigate('ComposeMessage', {
                     userId: post.user!.user_id,
                     username: post.user!.username,
@@ -301,7 +358,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
               {(counts?.likes ?? 0) > 0 && (
                 <TouchableOpacity
-                  style={[styles.likedByRow, { backgroundColor: colors.card }]}
+                  style={[styles.likedByRow, { backgroundColor: bodyBg }]}
                   onPress={() => setLikersOpen(true)}
                   activeOpacity={0.7}
                 >
@@ -311,20 +368,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 </TouchableOpacity>
               )}
 
-              <View style={[styles.likeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                <LikeButton
-                  documentId={post.internal_id}
-                  entryType={entryType}
-                  initialCount={counts?.likes ?? post.like_count ?? 0}
-                  initialLiked={likeInfo?.hasLiked ?? post.isLiked ?? false}
-                />
-              </View>
-
-              <View style={styles.commentsDivider}>
-                <Text style={[styles.commentsLabel, { color: colors.grey }]}>
-                  Comments {comments.length > 0 ? `(${comments.length})` : ''}
-                </Text>
-              </View>
+              {/* No label — the darker background is enough to mark the section. */}
+              <View style={[
+                styles.commentsDivider,
+                { backgroundColor: commentsBg, borderTopColor: colors.border },
+              ]} />
             </View>
           }
           renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
@@ -332,6 +380,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               comment={item.comment}
               currentUserId={userInfo?.user_id}
               isReply={item.isReply}
+              backgroundColor={commentsBg}
               onReply={(commentId, username) => {
                 setReplyingTo({ commentId, username });
                 setCommentText(`@${username} `);
@@ -339,12 +388,22 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             />
           )}
           ListEmptyComponent={
-            <Text style={[styles.noComments, { color: colors.grey }]}>No comments yet. Be first!</Text>
+            <Text style={[styles.noComments, { color: colors.greyDark, backgroundColor: commentsBg }]}>
+              No comments yet. Be first!
+            </Text>
           }
+          style={{ backgroundColor: commentsBg }}
           contentContainerStyle={styles.list}
         />
 
-        <View style={{ backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border, paddingBottom: Platform.OS === 'android' ? 48 : 0 }}>
+        <View style={{
+          backgroundColor: colors.card,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          // Clear the home indicator / nav bar without double-counting the
+          // safe area, which the SafeAreaView no longer applies.
+          paddingBottom: Platform.OS === 'android' ? 48 : Math.max(insets.bottom, 12),
+        }}>
           {replyingTo && (
             <View style={[styles.replyBanner, { backgroundColor: colors.segment, borderBottomColor: colors.border }]}>
               <Text style={[styles.replyBannerText, { color: colors.grey }]}>
@@ -413,18 +472,35 @@ const styles = StyleSheet.create({
   },
   postHeaderUser:  { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   postHeaderText:  { flex: 1 },
+  badgeOverlay: {
+    position: 'absolute', top: 10, right: 10,
+    alignItems: 'flex-end',
+  },
   badgeRow:        { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   badge:           { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5 },
   badgeText:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   author:          { fontSize: 15, fontWeight: '700' },
   username:        { fontSize: 12 },
-  postTitle:       { fontSize: 18, fontWeight: '800', paddingHorizontal: 16, paddingTop: 12 },
   postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 12 },
   singleImage:     { width: '100%', height: 300 },
-  dots:            { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 8 },
-  dot:             { width: 6, height: 6, borderRadius: 3 },
-  dotActive:       { backgroundColor: colors.primaryAlt },
-  dotInactive:     { backgroundColor: 'rgba(0,0,0,0.2)' },
+  videoPlayer:     { width: '100%', aspectRatio: 4 / 5, backgroundColor: '#000' },
+  dots: {
+    position: 'absolute', left: 0, right: 0, bottom: 12,
+    flexDirection: 'row', justifyContent: 'center', gap: 7,
+  },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  dotActive: {
+    backgroundColor: '#FFFFFF',
+    // Keeps the dots legible over a light photo.
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4, shadowRadius: 2,
+  },
+  dotInactive: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5, borderColor: '#FFFFFF',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4, shadowRadius: 2,
+  },
   price:           { fontSize: 24, fontWeight: '800', color: colors.primaryAlt, paddingHorizontal: 16, paddingTop: 12 },
   messageBtn:      {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -434,10 +510,13 @@ const styles = StyleSheet.create({
   messageBtnText:  { fontSize: 15, fontWeight: '700' },
   likedByRow:      { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
   likedByText:     { fontSize: 13 },
-  likeRow:         { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
-  commentsDivider: { paddingHorizontal: 16, paddingVertical: 12 },
-  commentsLabel:   { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  noComments:      { textAlign: 'center', padding: 24, fontSize: 14 },
+  // Empty spacer that starts the comments section — its background and top
+  // border are what set it apart now that the label is gone.
+  commentsDivider: {
+    height: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  noComments:      { textAlign: 'center', padding: 24, fontSize: 14, fontStyle: 'italic' },
   replyBanner:     {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1,

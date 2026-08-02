@@ -86,16 +86,16 @@ export default function ShopScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
-        <AppHeader />
+      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+        <AppHeader spacer />
         <View style={[styles.content, { backgroundColor: colors.cream }]}><Spinner fullScreen /></View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
-      <AppHeader />
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <AppHeader spacer />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
           data={products}

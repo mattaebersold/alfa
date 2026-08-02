@@ -8,6 +8,7 @@ import {
   useGetPreviouslyTaggedEventsQuery,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import { contrastText } from '../../hooks/useBrandColor';
 
 export type TagKind = 'user' | 'car' | 'event';
 export interface TagItem { id: string; label: string; kind: TagKind }
@@ -39,7 +40,12 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
   const colors = useColors();
   const selectedIds = new Set(selected.map((t) => t.id));
   const typing = query.trim().length >= 2;
-  const list = (typing ? suggestions : recent).filter((i) => !selectedIds.has(i.id)).slice(0, 8);
+  // Recently-tagged pills stay short (most recent 5); live search can show more.
+  const list = (typing ? suggestions : recent).filter((i) => !selectedIds.has(i.id)).slice(0, typing ? 8 : 5);
+
+  // Chips and count pills are filled with `accent`, so their text has to
+  // follow the fill's brightness — black on gold, white on teal.
+  const onAccent = contrastText(accent);
 
   return (
     <View style={[styles.row, { borderTopColor: colors.border }]}>
@@ -48,7 +54,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
         <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
         {selected.length > 0 && (
           <View style={[styles.countPill, { backgroundColor: accent }]}>
-            <Text style={styles.countText}>{selected.length}</Text>
+            <Text style={[styles.countText, { color: onAccent }]}>{selected.length}</Text>
           </View>
         )}
       </View>
@@ -58,8 +64,8 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
         <View style={styles.chips}>
           {selected.map((t) => (
             <TouchableOpacity key={t.id} style={[styles.chip, { backgroundColor: accent }]} onPress={() => onToggle(t)} activeOpacity={0.8}>
-              <Text style={styles.chipText} numberOfLines={1}>{t.label}</Text>
-              <X size={12} color="#FFFFFF" />
+              <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
+              <X size={12} color={onAccent} />
             </TouchableOpacity>
           ))}
         </View>
@@ -85,26 +91,44 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
         )}
       </View>
 
-      {/* Autocomplete results / recent suggestions */}
+      {/* Autocomplete results (dropdown while typing) / recent suggestions (inline pills) */}
       {query.trim().length === 1 ? (
         <Text style={[styles.hint, { color: colors.grey }]}>Keep typing…</Text>
-      ) : list.length > 0 ? (
-        <View style={[styles.suggestBox, { borderColor: colors.inputBorder, backgroundColor: colors.card }]}>
-          {!typing && <Text style={[styles.suggestHeader, { color: colors.grey }]}>Recently tagged</Text>}
-          {list.map((s, i) => (
-            <TouchableOpacity
-              key={s.id}
-              style={[styles.suggestRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
-              onPress={() => onToggle(s)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.suggestText, { color: colors.fg }]} numberOfLines={1}>{s.label}</Text>
-              <Plus size={16} color={accent} />
-            </TouchableOpacity>
-          ))}
-        </View>
       ) : typing ? (
-        <Text style={[styles.hint, { color: colors.grey }]}>No matches</Text>
+        list.length > 0 ? (
+          <View style={[styles.suggestBox, { borderColor: colors.inputBorder, backgroundColor: colors.card }]}>
+            {list.map((s, i) => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.suggestRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                onPress={() => onToggle(s)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.suggestText, { color: colors.fg }]} numberOfLines={1}>{s.label}</Text>
+                <Plus size={16} color={accent} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <Text style={[styles.hint, { color: colors.grey }]}>No matches</Text>
+        )
+      ) : list.length > 0 ? (
+        <>
+          <Text style={[styles.recentHeader, { color: colors.grey }]}>Recently tagged</Text>
+          <View style={styles.recentPills}>
+            {list.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                style={[styles.recentPill, { borderColor: accent }]}
+                onPress={() => onToggle(s)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.recentPillText, { color: accent }]} numberOfLines={1}>{s.label}</Text>
+                <Plus size={13} color={accent} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
       ) : null}
     </View>
   );
@@ -191,6 +215,11 @@ const styles = StyleSheet.create({
   suggestHeader:{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
   suggestRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
   suggestText:  { flex: 1, fontSize: 14, fontWeight: '600', marginRight: 10 },
+
+  recentHeader: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 10, marginBottom: 6 },
+  recentPills:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  recentPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  recentPillText: { fontSize: 13, fontWeight: '600', maxWidth: 150 },
 
   hint:         { fontSize: 13, paddingVertical: 10 },
 });

@@ -87,8 +87,8 @@ export default function GroupDetailScreen() {
   ];
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: c.primaryAlt }]} edges={['top']}>
-      <AppHeader />
+    <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={[]}>
+      <AppHeader spacer />
       <ScrollView style={{ backgroundColor: c.cream }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Banner */}

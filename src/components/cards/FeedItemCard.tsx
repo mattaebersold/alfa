@@ -68,7 +68,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
   const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
-  const [activeIndex, setActiveIndex] = useState(0);
 
   const gallery = post.gallery ?? [];
   const heroImage = firstGalleryUrl(post.gallery);
@@ -146,7 +145,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               style={StyleSheet.absoluteFill}
-              onMomentumScrollEnd={(e) => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
               getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
               renderItem={({ item, index }) => (
                 <Image
@@ -196,14 +194,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
               </View>
             )}
           </View>
-          {/* Swipe position dots */}
-          {gallery.length > 1 && (
-            <View style={styles.dots} pointerEvents="none">
-              {gallery.map((_, i) => (
-                <View key={i} style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]} />
-              ))}
-            </View>
-          )}
         </View>
       )}
 
@@ -309,15 +299,7 @@ const styles = StyleSheet.create({
   miniImgFront:  { bottom: 0, left: 0, backgroundColor: 'rgba(255,255,255,0.55)' },
   multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 
-  dots:          {
-    position: 'absolute', bottom: 8, left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'center', gap: 5,
-  },
-  dot:           { width: 6, height: 6, borderRadius: 3 },
-  dotActive:     { backgroundColor: '#FFFFFF' },
-  dotInactive:   { backgroundColor: 'rgba(255,255,255,0.45)' },
-
-  videoThumb:  { width: '100%', height: 220, overflow: 'hidden', position: 'relative' },
+  videoThumb:  { width: '100%', aspectRatio: 4 / 5, overflow: 'hidden', position: 'relative' },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center',

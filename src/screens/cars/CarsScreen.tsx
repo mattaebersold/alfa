@@ -7,7 +7,9 @@ import { Search } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
@@ -50,6 +52,8 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,7 +91,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
     : allCars;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
@@ -95,10 +99,14 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         keyExtractor={(item) => item.internal_id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
+            {/* Heading rides in the list so it scrolls away with the content. */}
+            <ScreenHeading title="Cars" />
             <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
             <View style={styles.searchRow}>
               <TouchableOpacity style={styles.brandsBtn} onPress={() => navigation.navigate('Brands')}>

@@ -11,7 +11,9 @@ import { useGetUsersQuery, useGetCarsQuery, useGetPostsQuery } from '../../api/a
 import FollowButton from '../../components/social/FollowButton';
 import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
@@ -68,6 +70,8 @@ function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
 export default function MembersScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -101,6 +105,8 @@ export default function MembersScreen() {
 
   const ListHeader = (
     <>
+      {/* Heading rides in the list so it scrolls away with the content. */}
+      <ScreenHeading title="Members" />
       <FeaturedMembersRow
         onMemberPress={(userId, username) => navigation.navigate('UserDetail', { userId, username })}
       />
@@ -119,7 +125,7 @@ export default function MembersScreen() {
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
@@ -138,7 +144,9 @@ export default function MembersScreen() {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         onRefresh={handleRefresh}
         refreshing={false}
       />

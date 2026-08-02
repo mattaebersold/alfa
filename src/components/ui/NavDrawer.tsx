@@ -4,9 +4,11 @@ import {
   Pressable, Linking, Animated, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import {
   House, Car, Users, ShoppingBag, BookOpen, Headphones,
   Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store, Route, MessageCircle,
+  Search, MessageSquare, UserRound,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,17 +31,23 @@ function perceivedBrightness(hex: string): number {
   return (r * 299 + g * 587 + b * 114) / 1000;
 }
 
-function NavRow({ label, Icon, onPress, textMid, textHi }: {
+/** Half-width tile — two per row, so the menu fits without scrolling. */
+function NavTile({ label, Icon, onPress, textMid, textHi, tileBg }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
   textMid: string;
   textHi: string;
+  tileBg: string;
 }) {
   return (
-    <TouchableOpacity style={styles.navRow} onPress={onPress} activeOpacity={0.7}>
-      <Icon size={16} color={textMid} />
-      <Text style={[styles.navLabel, { color: textHi }]}>{label}</Text>
+    <TouchableOpacity
+      style={[styles.navTile, { backgroundColor: tileBg }]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <Icon size={17} color={textMid} />
+      <Text style={[styles.navTileLabel, { color: textHi }]} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -70,41 +78,79 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   }, [brandColor]);
 
   const translateX = useRef(new Animated.Value(PANEL_WIDTH)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  // Any navigation is deferred until the drawer has fully closed. Firing it
+  // mid-animation is what made the next screen's transition collide with the
+  // drawer's, showing hard-edged overlays sliding past each other.
+  const pendingNav = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (visible) {
-      Animated.timing(translateX, {
-        toValue: 0,
-        duration: SLIDE_DURATION,
-        useNativeDriver: true,
-      }).start();
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue: 0,
+          duration: SLIDE_DURATION,
+          useNativeDriver: true,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: SLIDE_DURATION,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClose = useCallback(() => {
-    Animated.timing(translateX, {
-      toValue: PANEL_WIDTH,
-      duration: SLIDE_DURATION,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(translateX, {
+        toValue: PANEL_WIDTH,
+        duration: SLIDE_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: SLIDE_DURATION,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       translateX.setValue(PANEL_WIDTH);
+      overlayOpacity.setValue(0);
       onClose();
-    });
-  }, [onClose, translateX]);
 
-  const goFeed = useCallback((screen: 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard') => {
+      const go = pendingNav.current;
+      pendingNav.current = null;
+      go?.();
+    });
+  }, [onClose, translateX, overlayOpacity]);
+
+  /** Close first, then navigate once the drawer is off-screen. */
+  const closeThen = useCallback((go: () => void) => {
+    pendingNav.current = go;
     handleClose();
-    navigation.navigate('MainTabs', {
+  }, [handleClose]);
+
+  const goFeed = useCallback((screen: 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace') => {
+    closeThen(() => navigation.navigate('MainTabs', {
       screen: 'FeedTab',
       params: { screen },
-    } as any);
-  }, [handleClose, navigation]);
+    } as any));
+  }, [closeThen, navigation]);
 
   const displayName = userInfo?.username ?? '';
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
       <View style={styles.overlay}>
+        {/* Blurred, dimmed backdrop that fades with the panel. */}
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
+          pointerEvents="none"
+        >
+          <BlurView tint="dark" intensity={24} style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+        </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
         <Animated.View style={[styles.panel, { backgroundColor: brandColor, transform: [{ translateX }] }]}>
@@ -142,74 +188,82 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <NavRow label="Home" Icon={House} textMid={textMid} textHi={textHi} onPress={() => {
-                handleClose();
-                navigation.navigate('MainTabs', { screen: 'FeedTab' });
-              }} />
-              <NavRow label="Events" Icon={Flag} textMid={textMid} textHi={textHi} onPress={() => {
-                handleClose();
-                navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Society' } } as any);
-              }} />
-              <NavRow label="ORS Rallys" Icon={Route} textMid={textMid} textHi={textHi} onPress={() => {
-                handleClose();
-                navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any);
-              }} />
-              <NavRow label="Marketplace" Icon={ShoppingBag} textMid={textMid} textHi={textHi} onPress={() => {
-                handleClose();
-                navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Marketplace' } } as any);
-              }} />
-              <NavRow label="Shop"      Icon={Store}       textMid={textMid} textHi={textHi} onPress={() => {
-                handleClose();
-                navigation.navigate('Shop');
-              }} />
-              <NavRow label="Cars"      Icon={Car}         textMid={textMid} textHi={textHi} onPress={() => { handleClose(); navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } } as any); }} />
-              <NavRow label="Groups"    Icon={Users}       textMid={textMid} textHi={textHi} onPress={() => goFeed('Groups')} />
-              <NavRow label="Members"   Icon={Users}       textMid={textMid} textHi={textHi} onPress={() => {
-                handleClose();
-                navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Members' } } as any);
-              }} />
-              <NavRow label="Articles"  Icon={BookOpen}    textMid={textMid} textHi={textHi} onPress={() => goFeed('Articles')} />
-              <NavRow label="Podcasts"  Icon={Headphones}  textMid={textMid} textHi={textHi} onPress={() => goFeed('Podcasts')} />
+              {/* Search + Messages — full-width, they're the most-used actions. */}
+              <View style={styles.pairRow}>
+                <NavTile label="Search" Icon={Search} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Search')} />
+                <NavTile label="Messages" Icon={MessageSquare} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('Messages'))} />
+              </View>
+
+              <Text style={[styles.sectionLabel, { color: textLo }]}>BROWSE</Text>
+              {/* Two-column grid — half the height of a stacked list, which is
+                  what kept the log-out button pushed below the fold. */}
+              <View style={styles.grid}>
+                <NavTile label="Home" Icon={House} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'FeedTab' }))} />
+                <NavTile label="Events" Icon={Flag} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Society' } } as any))} />
+                <NavTile label="ORS Rallys" Icon={Route} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
+                <NavTile label="Cars" Icon={Car} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } } as any))} />
+                <NavTile label="Groups" Icon={Users} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Groups')} />
+                <NavTile label="Members" Icon={UserRound} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Members')} />
+                <NavTile label="Articles" Icon={BookOpen} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Articles')} />
+                <NavTile label="Podcasts" Icon={Headphones} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Podcasts')} />
+              </View>
+
+              <Text style={[styles.sectionLabel, { color: textLo }]}>SHOP</Text>
+              <View style={styles.grid}>
+                <NavTile label="Marketplace" Icon={ShoppingBag} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Marketplace')} />
+                <NavTile label="Shop" Icon={Store} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('Shop'))} />
+              </View>
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>MY ACCOUNT</Text>
-              <NavRow label="Dashboard" Icon={LayoutDashboard} textMid={textMid} textHi={textHi} onPress={() => goFeed('Dashboard')} />
-              <NavRow label="Settings"  Icon={Settings}        textMid={textMid} textHi={textHi} onPress={() => { handleClose(); navigation.navigate('Settings'); }} />
+              <View style={styles.grid}>
+                <NavTile label="Dashboard" Icon={LayoutDashboard} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => goFeed('Dashboard')} />
+                <NavTile label="Settings" Icon={Settings} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => closeThen(() => navigation.navigate('Settings'))} />
+              </View>
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>MORE</Text>
-              <TouchableOpacity
-                style={styles.navRow}
-                onPress={() => Linking.openURL('https://instagram.com/open.road.society/')}
-                activeOpacity={0.7}
-              >
-                <Link size={16} color={textMid} />
-                <Text style={[styles.navLabel, { color: textHi }]}>Instagram</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.navRow}
-                onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')}
-                activeOpacity={0.7}
-              >
-                <MessageCircle size={16} color={textMid} />
-                <Text style={[styles.navLabel, { color: textHi }]}>Discord</Text>
-              </TouchableOpacity>
+              <View style={styles.grid}>
+                <NavTile label="Instagram" Icon={Link} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => Linking.openURL('https://instagram.com/open.road.society/')} />
+                <NavTile label="Discord" Icon={MessageCircle} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')} />
+              </View>
             </ScrollView>
 
             <View style={[styles.footer, { borderTopColor: divider }]}>
-              <TouchableOpacity
-                style={[styles.logoutBtn, { borderColor: divider }]}
-                onPress={() => { handleClose(); dispatch(logout()); }}
-                activeOpacity={0.8}
-              >
-                <LogOut size={17} color={textHi} />
-                <Text style={[styles.logoutText, { color: textHi }]}>Log Out</Text>
-              </TouchableOpacity>
-              <View style={styles.footerLinks}>
-                <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')} hitSlop={8} style={styles.footerLinkBtn}>
-                  <Text style={[styles.footerLink, { color: textLo }]}>Privacy</Text>
-                </TouchableOpacity>
-                <Text style={[styles.footerDot, { color: textLo }]}>·</Text>
-                <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')} hitSlop={8} style={styles.footerLinkBtn}>
-                  <Text style={[styles.footerLink, { color: textLo }]}>Terms</Text>
+              {/* Compact, low-emphasis — it shouldn't compete with navigation. */}
+              <View style={styles.footerTop}>
+                <View style={styles.footerLinks}>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')} hitSlop={8} style={styles.footerLinkBtn}>
+                    <Text style={[styles.footerLink, { color: textLo }]}>Privacy</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.footerDot, { color: textLo }]}>·</Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')} hitSlop={8} style={styles.footerLinkBtn}>
+                    <Text style={[styles.footerLink, { color: textLo }]}>Terms</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.logoutBtn, { borderColor: divider }]}
+                  onPress={() => closeThen(() => dispatch(logout()))}
+                  activeOpacity={0.8}
+                  hitSlop={8}
+                >
+                  <LogOut size={13} color={textMid} />
+                  <Text style={[styles.logoutText, { color: textMid }]}>Log Out</Text>
                 </TouchableOpacity>
               </View>
               <Text style={[styles.footerCopy, { color: textLo }]}>© {new Date().getFullYear()} Open Road Society</Text>
@@ -222,7 +276,8 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
 }
 
 const styles = StyleSheet.create({
-  overlay:    { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.5)' },
+  // Backdrop colour now lives on the animated layer above, so this is bare.
+  overlay:    { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
   panel:      {
     width: PANEL_WIDTH, height: '100%',
     shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20,
@@ -246,22 +301,28 @@ const styles = StyleSheet.create({
   userCardSub:  { fontSize: 13, marginTop: 1 },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 12, paddingBottom: 8 },
-  navRow:        {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 12, paddingVertical: 14, borderRadius: 12,
+  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4 },
+  pairRow:  { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
+  navTile:  {
+    // Two per row: half the space minus the gap between them.
+    width: (PANEL_WIDTH - 32 - 8) / 2,
+    flexDirection: 'row', alignItems: 'center', gap: 9,
+    paddingHorizontal: 10, paddingVertical: 12, borderRadius: 10,
   },
-  navLabel:      { fontSize: 16, fontWeight: '600', flex: 1 },
+  navTileLabel: { fontSize: 13.5, fontWeight: '700', flexShrink: 1 },
+
   sectionLabel:  {
     fontSize: 11, fontWeight: '800',
-    letterSpacing: 0.8, paddingHorizontal: 12, paddingTop: 20, paddingBottom: 4,
+    letterSpacing: 0.8, paddingHorizontal: 8, paddingTop: 16, paddingBottom: 6,
   },
-  footer:        { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth },
+  footer:        { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  footerTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   logoutBtn:     {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, marginBottom: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
   },
-  logoutText:    { fontSize: 15, fontWeight: '800' },
-  footerLinks:   { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  logoutText:    { fontSize: 12, fontWeight: '700' },
+  footerLinks:   { flexDirection: 'row', gap: 8 },
   footerLinkBtn: { paddingVertical: 6, paddingHorizontal: 4 },
   footerLink:    { fontSize: 12 },
   footerDot:     { fontSize: 12, lineHeight: 23 },

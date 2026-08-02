@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
-import { Plus, Check, Trash2, ChevronDown, Archive, GripVertical } from 'lucide-react-native';
+import { Plus, Check, Trash2, ChevronDown, Archive, GripVertical, ArrowLeft } from 'lucide-react-native';
 import {
   useGetCarTasksQuery,
   useGetArchivedCarTasksQuery,
@@ -318,8 +318,8 @@ const taskRow = StyleSheet.create({
 });
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
-export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
-  const { carId } = route.params;
+export default function CarTasksScreen({ route, navigation }: AppScreenProps<'CarTasks'>) {
+  const { carId, carTitle } = route.params;
   const colors = useColors();
   const [showArchived, setShowArchived] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -379,7 +379,9 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   };
 
   const handleToggle = (task: CarTask) => {
-    toggleTask({ internal_id: task.internal_id, car_id: carId });
+    // Send the intended state explicitly rather than relying on the server's
+    // flip, so rapid taps can't race into the wrong value.
+    toggleTask({ internal_id: task.internal_id, car_id: carId, completed: !task.completed });
   };
 
   const handleDelete = (task: CarTask) => {
@@ -389,7 +391,27 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+      {/* Dedicated back control — returns to the car this list belongs to. */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={[styles.backCircle, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => navigation.goBack()}
+          hitSlop={8}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to car"
+        >
+          <ArrowLeft size={20} color={colors.fg} />
+        </TouchableOpacity>
+        <View style={ss.fill}>
+          <Text style={[styles.topBarTitle, { color: colors.fg }]} numberOfLines={1}>To-dos</Text>
+          {carTitle ? (
+            <Text style={[styles.topBarSub, { color: colors.grey }]} numberOfLines={1}>{carTitle}</Text>
+          ) : null}
+        </View>
+      </View>
+
       <DraggableFlatList
         data={dragData}
         keyExtractor={(item) => item.key}
@@ -499,6 +521,17 @@ export default function CarTasksScreen({ route }: AppScreenProps<'CarTasks'>) {
 }
 
 const styles = StyleSheet.create({
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
+  },
+  backCircle: {
+    width: 40, height: 40, borderRadius: 20, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  topBarTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  topBarSub:   { fontSize: 12, marginTop: 1 },
+
   list: { flexGrow: 1, paddingBottom: 80 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

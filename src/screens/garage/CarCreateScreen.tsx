@@ -6,7 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadFile } from '../../utils/upload';
+import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { X, Plus, Camera } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
@@ -298,11 +298,8 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
           if (!result.canceled) {
-            const a = result.assets[0];
-            setForm((prev) => ({
-              ...prev,
-              images: [...prev.images, { uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }].slice(0, 10),
-            }));
+            const picked = await normalizePickedAssets(result.assets);
+            setForm((prev) => ({ ...prev, images: [...prev.images, ...picked].slice(0, 10) }));
           }
         },
       },
@@ -315,12 +312,8 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
             quality: 0.85,
           });
           if (!result.canceled) {
-            const newImages = result.assets.map((a) => ({
-              uri: a.uri,
-              name: a.fileName ?? `photo_${Date.now()}.jpg`,
-              type: a.mimeType ?? 'image/jpeg',
-            }));
-            setForm((prev) => ({ ...prev, images: [...prev.images, ...newImages].slice(0, 10) }));
+            const picked = await normalizePickedAssets(result.assets);
+            setForm((prev) => ({ ...prev, images: [...prev.images, ...picked].slice(0, 10) }));
           }
         },
       },
@@ -435,7 +428,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
 
       <View style={styles.flex}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight + (Platform.OS === 'android' ? 40 : 0) }]}
+          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight + (Platform.OS === 'android' ? 40 : 20) }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

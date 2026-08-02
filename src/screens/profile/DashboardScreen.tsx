@@ -344,8 +344,8 @@ export default function DashboardScreen() {
   ];
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
-      <AppHeader />
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <AppHeader spacer />
       <ScrollView style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <TouchableOpacity

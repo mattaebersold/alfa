@@ -6,7 +6,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import StoriesRow from '../../components/stories/StoriesRow';
 import FeedQuickLinks from '../../components/feed/FeedQuickLinks';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { setBlockedUsers } from '../../store/moderationSlice';
@@ -23,11 +24,11 @@ function PostPrompt() {
   const colors = useColors();
   return (
     <TouchableOpacity
-      style={[styles.prompt, { backgroundColor: colors.card, borderColor: colors.border }]}
+      style={[styles.prompt, { backgroundColor: colors.card }]}
       onPress={() => navigation.navigate('Create')}
-      activeOpacity={0.7}
+      activeOpacity={0.9}
     >
-      <Text style={[styles.promptText, { color: colors.muted }]}>What's on your mind...</Text>
+      <Text style={[styles.promptText, { color: '#ffffff' }]}>What's on your mind...</Text>
     </TouchableOpacity>
   );
 }
@@ -36,9 +37,9 @@ function FeedHeader() {
   const isPro = useIsPro();
   return (
     <View>
-      {isPro && <StoriesRow />}
-      <FeedQuickLinks />
+      {/* {isPro && <StoriesRow />} */}
       <PostPrompt />
+      <FeedQuickLinks />
     </View>
   );
 }
@@ -46,6 +47,8 @@ function FeedHeader() {
 export default function FeedScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
   const dispatch = useAppDispatch();
 
   // Keep the client-side blocked-users list in sync so blocked authors'
@@ -62,13 +65,15 @@ export default function FeedScreen() {
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FeedList
           onPostPress={handlePostPress}
           excludeTypes={['story']}
           ListHeaderComponent={FeedHeader}
+          paddingTop={headerPad}
+          onScroll={onScroll}
         />
       </View>
     </SafeAreaView>
@@ -78,12 +83,12 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   content: { flex: 1 },
   prompt: {
-    marginHorizontal: 0,
-    marginTop: 0,
+    marginHorizontal: 8,
+    marginTop: 12,
     marginBottom: 4,
     paddingHorizontal: 16,
     paddingVertical: 13,
-    borderRadius: 0,
+    borderRadius: 12,
   },
   promptText: { fontSize: 15 },
 });

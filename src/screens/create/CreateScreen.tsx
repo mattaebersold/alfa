@@ -7,18 +7,20 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system/legacy';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ImagePlus, X, ChevronDown, ChevronUp, Check } from 'lucide-react-native';
+import { ImagePlus, X, ChevronDown, ChevronUp, Check, Play } from 'lucide-react-native';
 import {
   useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
+  useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
 } from '../../api/apiService';
-import { useAppSelector } from '../../store/store';
+import { useAppSelector, useAppDispatch } from '../../store/store';
 import MentionInput from '../../components/ui/MentionInput';
 import PostTagPicker from '../../components/social/PostTagPicker';
 import { colors } from '../../constants/colors';
-import { CONFIG } from '../../constants/config';
-import { uploadFile } from '../../utils/upload';
+import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -105,6 +107,21 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
+// ── Video preview (first frame + remove) ──────────────────────────────────────
+
+function VideoPreview({ uri, onRemove }: { uri: string; onRemove: () => void }) {
+  const player = useVideoPlayer(uri, (p) => { p.muted = true; });
+  return (
+    <View style={styles.videoPreviewWrap}>
+      <VideoView player={player} style={styles.videoPreview} contentFit="cover" nativeControls={false} />
+      <View style={styles.videoPlayBadge}><Play size={18} color="#FFFFFF" fill="#FFFFFF" /></View>
+      <TouchableOpacity style={styles.thumbRemove} onPress={onRemove}>
+        <X size={11} color="#FFF" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function CreateScreen() {
@@ -119,6 +136,11 @@ export default function CreateScreen() {
   const [body, setBody]           = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [images, setImages]       = useState<{ uri: string; name: string; type: string }[]>([]);
+  // A post is either photos or a single video, never both.
+  const [video, setVideo]         = useState<{ uri: string } | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  // Photos upload one-at-a-time after the post is created — this is the progress.
+  const [imageProgress, setImageProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Optional fields
   const [year, setYear]           = useState('');
@@ -141,6 +163,9 @@ export default function CreateScreen() {
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
 
   const [createPost, { isLoading: submitting }] = useCreatePostMutation();
+  const [createMuxUploadUrl] = useCreateMuxUploadUrlMutation();
+  const [addPostImage] = useAddPostImageMutation();
+  const dispatch = useAppDispatch();
   const [syncTags] = useSyncPostTagsMutation();
   const { data: rawGroups } = useGetUserGroupsQuery(userInfo?.user_id ?? '', {
     skip: !userInfo?.user_id,
@@ -161,11 +186,8 @@ export default function CreateScreen() {
       quality: 0.85,
     });
     if (!result.canceled) {
-      const picked = result.assets.map((a) => ({
-        uri: a.uri,
-        name: a.fileName ?? `photo_${Date.now()}.jpg`,
-        type: a.mimeType ?? 'image/jpeg',
-      }));
+      const picked = await normalizePickedAssets(result.assets);
+      setVideo(null); // photos and video are mutually exclusive
       setImages((prev) => [...prev, ...picked].slice(0, 8));
     }
   }, []);
@@ -181,19 +203,50 @@ export default function CreateScreen() {
       quality: 0.85,
     });
     if (!result.canceled && result.assets[0]) {
-      const a = result.assets[0];
-      setImages((prev) => [...prev, { uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }].slice(0, 8));
+      const picked = await normalizePickedAssets(result.assets);
+      setVideo(null);
+      setImages((prev) => [...prev, ...picked].slice(0, 8));
+    }
+  }, []);
+
+  const addVideoFromLibrary = useCallback(async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      quality: 1,
+      videoMaxDuration: 120,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImages([]); // video replaces photos
+      setVideo({ uri: result.assets[0].uri });
+    }
+  }, []);
+
+  const addVideoFromCamera = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera access needed', 'Please allow camera access in Settings to record video.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      videoMaxDuration: 120,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImages([]);
+      setVideo({ uri: result.assets[0].uri });
     }
   }, []);
 
   const pickImage = useCallback(() => {
     Keyboard.dismiss();
-    Alert.alert('Add Photo', undefined, [
+    Alert.alert('Add Media', undefined, [
       { text: 'Take Photo', onPress: addFromCamera },
-      { text: 'Choose from Library', onPress: addFromLibrary },
+      { text: 'Choose Photos', onPress: addFromLibrary },
+      { text: 'Take Video', onPress: addVideoFromCamera },
+      { text: 'Choose Video', onPress: addVideoFromLibrary },
       { text: 'Cancel', style: 'cancel' },
     ]);
-  }, [addFromCamera, addFromLibrary]);
+  }, [addFromCamera, addFromLibrary, addVideoFromCamera, addVideoFromLibrary]);
 
   const removeImage = useCallback((idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));
@@ -221,8 +274,8 @@ export default function CreateScreen() {
 
   const handleSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    if (!title.trim() && !body.trim() && images.length === 0) {
-      Alert.alert('Content required', 'Please add a title, body, or photo.');
+    if (!title.trim() && !body.trim() && images.length === 0 && !video) {
+      Alert.alert('Content required', 'Please add a title, body, photo, or video.');
       return;
     }
 
@@ -248,43 +301,80 @@ export default function CreateScreen() {
       if (isPublic) fd.append('also_public', 'true');
     }
 
-    images.forEach((img) => {
-      fd.append('gallery', uploadFile(img.uri));
-    });
-
-    // ── Diagnostics: log exactly what we're about to send ──
-    console.log('[CreatePost] POST api/post/create', {
-      base: CONFIG.API_BASE_URL,
-      type: postType,
-      hasTitle: !!title.trim(),
-      hasBody: !!body.trim(),
-      imageCount: images.length,
-      images: images.map((i) => ({ uri: i.uri, name: i.name, type: i.type })),
-    });
+    // Video goes straight to Mux (never through our API); attach its upload id.
+    if (video) {
+      setVideoUploading(true);
+      try {
+        const { id, url } = await createMuxUploadUrl().unwrap();
+        const res = await FileSystem.uploadAsync(url, video.uri, {
+          httpMethod: 'PUT',
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: { 'Content-Type': 'video/mp4' },
+        });
+        if (res.status < 200 || res.status >= 300) throw new Error(`Mux upload failed (${res.status})`);
+        fd.append('mux_upload_id', id);
+      } catch (e) {
+        setVideoUploading(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Video upload failed', 'Could not upload the video. Please try again.');
+        return;
+      }
+      setVideoUploading(false);
+    }
+    // NOTE: photos are NOT attached here — they're added one-at-a-time after the
+    // post exists (below), so we never send one giant multipart request.
 
     try {
       const result = await createPost(fd).unwrap();
+      const postId =
+        (result as any)?._id ??
+        (result as any)?.entry?.internal_id ??
+        (result as any)?.internal_id;
+
+      // Upload photos sequentially, then refresh the feed so they appear.
+      if (!video && images.length > 0 && postId) {
+        setImageProgress({ current: 0, total: images.length });
+        let done = 0;
+        for (const img of images) {
+          const ifd = new FormData();
+          ifd.append('internal_id', postId);
+          ifd.append('gallery', uploadFile(img.uri));
+          try { await addPostImage(ifd).unwrap(); } catch { /* keep going; partial upload */ }
+          done += 1;
+          setImageProgress({ current: done, total: images.length });
+        }
+        setImageProgress(null);
+        dispatch(apiService.util.invalidateTags(['Post', 'UserEntries']));
+      }
+
       const hasAnyTags = taggedUsers.length > 0 || taggedCars.length > 0 || taggedEvents.length > 0;
-      if (hasAnyTags && (result as any)?.internal_id) {
-        syncTags({
-          post_id: (result as any).internal_id,
-          tagged_users: taggedUsers.map(t => t.id),
-          tagged_cars: taggedCars.map(t => t.id),
-          tagged_events: taggedEvents.map(t => t.id),
-        }).catch(() => {});
+      if (hasAnyTags && postId) {
+        // Await so the request finishes before we navigate away (unmounting was
+        // racing the fire-and-forget call), and surface failures instead of
+        // swallowing them.
+        try {
+          await syncTags({
+            post_id: postId,
+            tagged_users: taggedUsers.map(t => t.id),
+            tagged_cars: taggedCars.map(t => t.id),
+            tagged_events: taggedEvents.map(t => t.id),
+          }).unwrap();
+        } catch (e) {
+          console.warn('[CreatePost] tag sync failed:', JSON.stringify(e));
+        }
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       appNav.goBack();
     } catch (err: any) {
+      setImageProgress(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       // Surface the real reason instead of a generic message.
       console.error('[CreatePost] failed:', JSON.stringify(err, null, 2));
       const status = err?.status;
       const serverMsg = err?.data?.error ?? err?.data?.message ?? (typeof err?.data === 'string' ? err.data : '');
       const rawMsg = typeof err?.error === 'string' ? err.error : '';
-      const firstUri = images[0]?.uri ?? '(none)';
       const detail =
-        status === 'FETCH_ERROR'   ? `Network request failed.\n\nImages attached: ${images.length}\n1st image URI: ${firstUri}\nError: ${rawMsg || 'n/a'}` :
+        status === 'FETCH_ERROR'   ? `Network request failed.\nError: ${rawMsg || 'n/a'}` :
         status === 'TIMEOUT_ERROR' ? 'The request timed out.' :
         status === 'PARSING_ERROR' ? `Server returned an unexpected response (HTTP ${err?.originalStatus}).` :
         status === 401 || status === 403 ? 'You appear to be signed out. Please log in again.' :
@@ -296,7 +386,8 @@ export default function CreateScreen() {
   }, [
     postType, category, title, body, mentionedUserIds, year, make, model, trim, price, mileage,
     condition, vin, partNumber, selectedGroupIds, isPublic,
-    taggedUsers, taggedCars, taggedEvents, images, createPost, syncTags, appNav,
+    taggedUsers, taggedCars, taggedEvents, images, video,
+    createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav,
   ]);
 
   const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }];
@@ -376,13 +467,19 @@ export default function CreateScreen() {
           />
         </View>
 
-        {/* Photos */}
+        {/* Photos / video */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImage}>
             <ImagePlus size={18} color={colors.primaryAlt} />
-            <Text style={[styles.addPhotoText, { color: colors.primaryAlt }]}>Add Photos</Text>
+            <Text style={[styles.addPhotoText, { color: colors.primaryAlt }]}>
+              {video ? 'Change Media' : 'Add Photos or Video'}
+            </Text>
           </TouchableOpacity>
-          {images.length > 0 && (
+          {video ? (
+            <View style={styles.thumbRow}>
+              <VideoPreview uri={video.uri} onRemove={() => setVideo(null)} />
+            </View>
+          ) : images.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
               {images.map((img, idx) => (
                 <View key={idx} style={styles.thumbWrap}>
@@ -393,7 +490,7 @@ export default function CreateScreen() {
                 </View>
               ))}
             </ScrollView>
-          )}
+          ) : null}
         </View>
 
         {/* ── Optional fields ── */}
@@ -486,14 +583,21 @@ export default function CreateScreen() {
       </ScrollView>
 
       {/* ── Fixed Post button ── */}
-      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Platform.OS === 'android' ? 40 : 12 }]}>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Platform.OS === 'android' ? 40 : 20 }]}>
         <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, (submitting || videoUploading || imageProgress !== null) && styles.submitBtnDisabled]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || videoUploading || imageProgress !== null}
         >
-          {submitting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+          {submitting || videoUploading || imageProgress !== null ? (
+            <>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              {videoUploading ? (
+                <Text style={[styles.submitText, { marginLeft: 8 }]}>Uploading video…</Text>
+              ) : imageProgress ? (
+                <Text style={[styles.submitText, { marginLeft: 8 }]}>Uploading {imageProgress.current} of {imageProgress.total}…</Text>
+              ) : null}
+            </>
           ) : (
             <Text style={styles.submitText}>Post</Text>
           )}
@@ -525,6 +629,13 @@ const styles = StyleSheet.create({
   thumbRow:     { paddingHorizontal: 14 },
   thumbWrap:    { marginRight: 8, position: 'relative' },
   thumb:        { width: 72, height: 72, borderRadius: 8 },
+  videoPreviewWrap: { width: 140, height: 90, borderRadius: 8, overflow: 'hidden', position: 'relative', backgroundColor: '#000' },
+  videoPreview: { width: '100%', height: '100%' },
+  videoPlayBadge: {
+    position: 'absolute', top: '50%', left: '50%', marginTop: -16, marginLeft: -16,
+    width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   thumbRemove:  {
     position: 'absolute', top: 3, right: 3,
     backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 9,
@@ -559,7 +670,7 @@ const styles = StyleSheet.create({
   checkbox:        { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
   footer:          { borderTopWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  submitBtn:       { backgroundColor: colors.primaryAlt, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  submitBtn:       { backgroundColor: colors.primaryAlt, borderRadius: 12, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   submitBtnDisabled: { opacity: 0.6 },
   submitText:      { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });

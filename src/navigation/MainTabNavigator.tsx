@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Alert, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
+import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { Home, Users, Car, Plus } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -27,6 +27,37 @@ function perceivedBrightness(hex: string): number {
 // Empty placeholder — never actually rendered (Create tab intercepted before navigation)
 function EmptyScreen() { return null; }
 
+// Tab-bar background: a vertical gradient that's dark at the bottom and fades
+// fully to transparent at the top. Measured in pixels (onLayout) so it reliably
+// fills the bar. It extends ABOVE the bar (negative top) so the fade rises over
+// the content behind the icons. pointerEvents none so it never blocks touches.
+// No blur — a blur can't fade without the native MaskedView.
+const TAB_FADE_RISE = 56; // px the gradient extends above the tab bar top
+
+function TabBarFade() {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  return (
+    <View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { top: -TAB_FADE_RISE }]}
+      onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
+      {size.w > 0 && (
+        <Svg width={size.w} height={size.h}>
+          <Defs>
+            <SvgLinearGradient id="tabFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#000000" stopOpacity={0} />
+              <Stop offset="0.5" stopColor="#000000" stopOpacity={0.55} />
+              <Stop offset="1" stopColor="#000000" stopOpacity={0.97} />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#tabFade)" />
+        </Svg>
+      )}
+    </View>
+  );
+}
+
 function TabIcon({
   Icon, color, size, focused, brandColor,
 }: {
@@ -45,10 +76,10 @@ function TabIcon({
 
 export default function MainTabNavigator() {
   const insets = useSafeAreaInsets();
-  // Android's gesture/nav bar sits closer to the tab bar — add extra bottom
-  // clearance so the icons/labels aren't crowded by the system buttons.
-  const androidTabPad = Platform.OS === 'android' ? 40 : 0;
-  const tabBarHeight = 46 + insets.bottom + androidTabPad;
+  // Extra bottom clearance so icons/labels aren't crowded by the system nav —
+  // full amount on Android's gesture/nav bar, half on iOS.
+  const extraTabPad = Platform.OS === 'android' ? 40 : 20;
+  const tabBarHeight = 46 + insets.bottom + extraTabPad;
 
   const brandColor = useBrandColor();
   const fabIconColor = useBrandTextColor();
@@ -77,22 +108,17 @@ export default function MainTabNavigator() {
           borderTopWidth: 0,
           elevation: 0,
           height: tabBarHeight,
-          paddingBottom: insets.bottom + 4 + androidTabPad,
+          paddingBottom: insets.bottom + 4 + extraTabPad,
           paddingTop: 12,
-          paddingHorizontal: 32,
+          paddingHorizontal: 12,
         },
-        tabBarBackground: () => (
-          <View style={StyleSheet.absoluteFill}>
-            <BlurView tint="dark" intensity={40} style={StyleSheet.absoluteFill} />
-            <View style={[StyleSheet.absoluteFill, styles.tabBarTint]} />
-          </View>
-        ),
+        tabBarBackground: () => <TabBarFade />,
         tabBarActiveTintColor: brandColor,
         tabBarInactiveTintColor: 'rgba(255,255,255,0.9)',
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '700',
-          marginTop: 5,
+          marginTop: 7,
         },
         tabBarItemStyle: {
           paddingVertical: 0,
@@ -197,10 +223,10 @@ const styles = StyleSheet.create({
   fab: {
     width: 56,
     height: 56,
-    borderRadius: 18,
+    borderRadius: 108,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 15,
+    marginTop: -5,
     marginBottom: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

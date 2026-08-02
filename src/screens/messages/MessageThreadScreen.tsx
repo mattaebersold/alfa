@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +15,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
+import SharedModal from '../../components/ui/SharedModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
@@ -90,15 +91,45 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   });
   const otherUser = populatedSender ?? fetchedOtherUser;
 
-  // Set title from first message subject or sender name
-  useEffect(() => {
-    if (messages.length > 0) {
-      const firstMsg = messages[0];
-      const other = firstMsg.sender_id === myId ? firstMsg.recipient : firstMsg.sender;
-      const title = subject ?? (other ? `@${other.username}` : 'Message');
-      navigation.setOptions({ title });
-    }
-  }, [messages, myId, navigation, subject]);
+  // Sheet owns its visibility so it can animate out before the route unmounts.
+  const [visible, setVisible] = useState(true);
+  const pendingNav = useRef<(() => void) | null>(null);
+
+  const handleDismissed = () => {
+    const go = pendingNav.current;
+    pendingNav.current = null;
+    navigation.goBack();
+    go?.();
+  };
+
+  // Header shows who you're talking to — their avatar and handle — rather than
+  // the thread's subject line.
+  const headerContent = (
+    <TouchableOpacity
+      style={styles.headerTitleRow}
+      activeOpacity={otherUser?.user_id ? 0.7 : 1}
+      disabled={!otherUser?.user_id}
+      onPress={() => {
+        // Close first: pushing while the RN Modal is mounted would render the
+        // profile behind it.
+        pendingNav.current = () =>
+          (navigation as any).navigate('UserDetail', {
+            userId: otherUser!.user_id,
+            username: otherUser!.username,
+          });
+        setVisible(false);
+      }}
+    >
+      <Avatar
+        filename={otherUser?.gallery?.[0]?.filename ?? otherUser?.profilePicture}
+        name={otherUser?.username ?? '?'}
+        size={30}
+      />
+      {otherUser?.username ? (
+        <Text style={styles.headerTitleText} numberOfLines={1}>@{otherUser.username}</Text>
+      ) : null}
+    </TouchableOpacity>
+  );
 
   // Sort oldest first for display
   const sorted = [...messages].sort(
@@ -126,17 +157,15 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     }
   }, [body, recipientId, sendMessage, subject, parentMessageId, refetch]);
 
-  if (isLoading) return <Spinner fullScreen />;
-
-  // keyboardVerticalOffset = nav header (44) + status bar (insets.top)
-  const keyboardOffset = Platform.OS === 'ios' ? insets.top + 44 : 0;
-
   return (
-    <KeyboardAvoidingView
-      style={[ss.fill, { backgroundColor: colors.cream }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={keyboardOffset}
+    <SharedModal
+      visible={visible}
+      onClose={() => setVisible(false)}
+      onDismissed={handleDismissed}
+      titleContent={headerContent}
     >
+      {isLoading ? <Spinner /> : (
+      <View style={ss.fill}>
       <FlatList
         ref={listRef}
         data={sorted}
@@ -180,7 +209,9 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
           }
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+      </View>
+      )}
+    </SharedModal>
   );
 }
 
@@ -209,4 +240,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   sendBtnDisabled: { opacity: 0.4 },
+
+  headerTitleRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitleText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', maxWidth: 180 },
 });

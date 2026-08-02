@@ -4,8 +4,9 @@ import {
 } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Settings, Warehouse, Plus, ChevronLeft, MoreVertical, X, Search } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
+import { Settings, Warehouse, Plus, MoreVertical, X, Search } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -246,6 +247,7 @@ export default function ProfileScreen() {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [bioLines, setBioLines] = useState<number | null>(null);
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const [blockProfileUser] = useBlockUserMutation();
   const [reportProfileUser] = useCreateReportMutation();
   const sheetY = useRef(new Animated.Value(600)).current;
@@ -356,8 +358,13 @@ export default function ProfileScreen() {
   const followers = followersData?.entries ?? [];
   const following = followingData?.entries ?? [];
 
-  const safeEdges = ['top'] as const;
-  const safeBg    = isOwnProfile ? colors.primaryAlt : colors.cream;
+  // Every profile uses the floating header over the cover image, so the screen
+  // claims no top inset.
+  const safeEdges: Edge[] = [];
+  // Clear the floating tab bar. Computed rather than read via
+  // useBottomTabBarHeight, which throws when this renders outside the tabs.
+  const tabBarClearance = 88 + insets.bottom;
+  const safeBg    = colors.cream;
 
   const countFor = (key: Tab): number => {
     switch (key) {
@@ -370,15 +377,9 @@ export default function ProfileScreen() {
   };
 
   // ── Top chrome ─────────────────────────────────────────────────────────────
-  const topBar = isOwnProfile ? (
-    <AppHeader />
-  ) : (
-    <View style={[styles.backBar, { backgroundColor: colors.cream, borderBottomColor: colors.border }]}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
-        <ChevronLeft size={26} color={colors.fg} />
-      </TouchableOpacity>
-    </View>
-  );
+  // Identical chrome whether it's your profile or someone else's — the back
+  // chevron is replaced by the header's own navigation (plus swipe-back).
+  const topBar = <AppHeader />;
 
   // ── Section tiles — tap to open a modal with that section's content ───────
   const tilesEl = (
@@ -401,14 +402,22 @@ export default function ProfileScreen() {
   const profileHeader = (
     <View>
       <View style={styles.bannerContainer}>
-        {bannerUri
-          ? <Image source={{ uri: bannerUri }} style={styles.banner} contentFit="cover" />
-          : <View style={styles.bannerPlaceholder} />
-        }
+        {/* Same stand-in a car uses when it has no photo. */}
+        <Image
+          source={bannerUri ? { uri: bannerUri } : require('../../../assets/car-placeholder.jpg')}
+          style={styles.banner}
+          contentFit="cover"
+        />
+        {/* Darkens the top of the cover so the floating header reads over it. */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0)']}
+          style={styles.bannerScrim}
+          pointerEvents="none"
+        />
       </View>
       <View style={styles.avatarRow}>
         <View style={styles.avatarWrap}>
-          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={80} />
+          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={104} />
         </View>
         {isOwnProfile ? (
           <View style={styles.headerActions}>
@@ -594,7 +603,7 @@ export default function ProfileScreen() {
       {topBar}
       <ScrollView
         style={{ backgroundColor: colors.cream }}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         {profileHeader}
@@ -633,14 +642,20 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   list:            { paddingBottom: 24 },
-  bannerContainer: { width: '100%', aspectRatio: 3 / 1 },
+  // Taller than a classic cover strip because the floating header sits over its
+  // top portion — this keeps a usable amount of image visible beneath it.
+  bannerContainer: { width: '100%', aspectRatio: 5 / 3 },
   banner:          { width: '100%', height: '100%' },
-  bannerPlaceholder: { width: '100%', height: '100%', backgroundColor: colors.primaryAlt },
-  avatarRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 16, marginTop: -40 },
+  // Neutral, not brand-colored — at this height a solid accent block dominates
+  // the screen for anyone without a cover image.
+  bannerScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '60%' },
+  avatarRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 16, marginTop: -52 },
   avatarWrap:      {
-    width: 86, height: 86, borderRadius: 43,
-    borderWidth: 3, borderColor: '#FFFFFF', overflow: 'hidden',
+    width: 104, height: 104, borderRadius: 52,
+    overflow: 'hidden',
     backgroundColor: colors.primaryAlt,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
   headerActions: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   iconBtn:       {
@@ -651,8 +666,6 @@ const styles = StyleSheet.create({
   msgBtn:     { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
   msgBtnText: { fontSize: 14, fontWeight: '600' },
   profileMenuBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
-  backBar:    { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingVertical: 4 },
-  backBtn:    { padding: 8 },
   info:       { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
   nameRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   name:       { fontSize: 20, fontWeight: '800' },

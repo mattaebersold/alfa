@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  View, TextInput, FlatList, TouchableOpacity, Text, StyleSheet,
+  View, TextInput, TouchableOpacity, Text, StyleSheet,
 } from 'react-native';
 import { useSearchUsersQuery } from '../../api/apiService';
 import Avatar from './Avatar';
@@ -67,25 +67,24 @@ export default function MentionInput({
     <View style={[styles.wrapper, containerStyle]}>
       {mentionQuery !== null && results.length > 0 && (
         <View style={[styles.dropdown, { backgroundColor: c.card, borderColor: c.border }]}>
-          <FlatList
-            data={results.slice(0, 6)}
-            keyExtractor={(item: any) => item.user_id}
-            keyboardShouldPersistTaps="always"
-            renderItem={({ item }: { item: any }) => (
-              <TouchableOpacity
-                style={[styles.resultRow, { borderBottomColor: c.border }]}
-                onPress={() => selectUser(item)}
-                activeOpacity={0.7}
-              >
-                <Avatar
-                  filename={item.gallery?.[0]?.filename ?? item.profilePicture}
-                  name={item.username}
-                  size={28}
-                />
-                <Text style={[styles.username, { color: c.fg }]}>@{item.username}</Text>
-              </TouchableOpacity>
-            )}
-          />
+          {/* Rendered with map() rather than a FlatList: this input often lives
+              inside a ScrollView, and a nested VirtualizedList warns/breaks. The
+              suggestion list is tiny (≤6), so a plain map is the right tool. */}
+          {results.slice(0, 6).map((item: any) => (
+            <TouchableOpacity
+              key={item.user_id}
+              style={[styles.resultRow, { borderBottomColor: c.border }]}
+              onPress={() => selectUser(item)}
+              activeOpacity={0.7}
+            >
+              <Avatar
+                filename={item.gallery?.[0]?.filename ?? item.profilePicture}
+                name={item.username}
+                size={28}
+              />
+              <Text style={[styles.username, { color: c.fg }]}>@{item.username}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
       <TextInput

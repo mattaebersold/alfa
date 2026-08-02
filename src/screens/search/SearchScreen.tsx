@@ -77,8 +77,8 @@ export default function SearchScreen() {
   const hasResults = users.length > 0 || cars.length > 0 || posts.length > 0;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
-      <AppHeader />
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <AppHeader spacer />
       <View style={[styles.searchContent, { backgroundColor: colors.cream }]}>
       {/* Search bar */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>

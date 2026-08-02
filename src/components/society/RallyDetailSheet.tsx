@@ -1,12 +1,12 @@
 import React, { useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Linking, Dimensions, Modal,
+  FlatList, Linking, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { MapPin, Clock, Check, X } from 'lucide-react-native';
+import SharedModal from '../ui/SharedModal';
 import {
   useGetRallyQuery,
   useAttendRallyMutation,
@@ -45,24 +45,13 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
   const date = rally?.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
 
   return (
-    <Modal
+    <SharedModal
       visible={!!rallyId}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title={rally?.title ?? 'Rally'}
     >
-      <SafeAreaView style={[styles.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
-        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
-          <Text style={[styles.headerTitle, { color: colors.fg }]} numberOfLines={1}>
-            {rally?.title ?? 'Rally'}
-          </Text>
-          <TouchableOpacity onPress={onClose} hitSlop={10}>
-            <X size={22} color={colors.fg} />
-          </TouchableOpacity>
-        </View>
-
-        {isLoading || !rally ? (
-          <Spinner fullScreen />
+      {isLoading || !rally ? (
+          <Spinner />
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
             {hero
@@ -129,18 +118,11 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
             </View>
           </ScrollView>
         )}
-      </SafeAreaView>
-    </Modal>
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  fill:   { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, gap: 12,
-  },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700' },
   scroll:  { paddingBottom: 40 },
   hero:    { width: '100%', aspectRatio: 16 / 9 },
   galleryStrip: { padding: 8, gap: 6 },

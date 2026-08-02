@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useGetPostsQuery, useGetBatchLikesMutation } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
@@ -18,6 +19,10 @@ interface FeedListProps {
   excludeTypes?: string[];
   onPostPress?: (post: Post) => void;
   ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
+  /** Extra top padding, so the list can scroll under a floating header. */
+  paddingTop?: number;
+  /** Scroll handler, e.g. the auto-hiding header's. */
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
 
 const PAGE_SIZE = 12;
@@ -30,6 +35,8 @@ export default function FeedList({
   excludeTypes,
   onPostPress,
   ListHeaderComponent,
+  paddingTop = 0,
+  onScroll,
 }: FeedListProps) {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
@@ -152,7 +159,9 @@ export default function FeedList({
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.list, { paddingTop, paddingBottom: tabBarHeight }]}
       />
       {commentPost && (
         <CommentsSheet

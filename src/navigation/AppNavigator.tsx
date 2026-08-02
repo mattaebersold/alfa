@@ -133,7 +133,9 @@ export default function AppNavigator() {
       <Stack.Screen
         name="MessageThread"
         component={MessageThreadScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Message' }}
+        // Presented as a SharedModal sheet — the route is transparent and
+        // un-animated so the sheet runs its own animation over what's behind.
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
       />
       <Stack.Screen
         name="ComposeMessage"
@@ -150,10 +152,17 @@ export default function AppNavigator() {
         component={SettingsScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Settings' }}
       />
+      {/* Presented as a SharedModal bottom sheet, so the route itself must be
+          transparent and un-animated — the sheet runs its own animation and
+          blurs whatever is behind it. */}
       <Stack.Screen
         name="ArticleDetail"
         component={ArticleDetailScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Article' }}
+        options={{
+          headerShown: false,
+          presentation: 'transparentModal',
+          animation: 'none',
+        }}
       />
       <Stack.Screen
         name="Marketplace"
@@ -168,11 +177,8 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CarTasks"
         component={CarTasksScreen}
-        options={({ route }) => ({
-          ...headerOptions,
-          headerShown: true,
-          title: route.params.carTitle ?? 'Tasks',
-        })}
+        // Root-level screen with its own floating back button, so no native header.
+        options={{ headerShown: false }}
       />
       {/* In-stack car detail resolves to the tab stacks (Feed/Cars) so the bottom nav
           stays visible; this root entry is the fallback for root-modal contexts + deep links. */}

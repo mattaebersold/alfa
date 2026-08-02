@@ -21,9 +21,13 @@ interface CommentRowProps {
   currentUserId?: string;
   onReply?: (commentId: string, username: string) => void;
   isReply?: boolean;
+  /** Override the row background, e.g. to set comments off from a post body. */
+  backgroundColor?: string;
 }
 
-export default function CommentRow({ comment, currentUserId, onReply, isReply }: CommentRowProps) {
+export default function CommentRow({
+  comment, currentUserId, onReply, isReply, backgroundColor,
+}: CommentRowProps) {
   const colors = useColors();
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const { data: user } = useGetUserByIdQuery(comment.user_id, { skip: !comment.user_id });
@@ -41,7 +45,7 @@ export default function CommentRow({ comment, currentUserId, onReply, isReply }:
   return (
     <View style={[
       styles.container,
-      { backgroundColor: colors.card },
+      { backgroundColor: backgroundColor ?? colors.card },
       isReply && styles.replyContainer,
     ]}>
       {isReply && <View style={[styles.replyLine, { backgroundColor: colors.primaryAlt }]} />}

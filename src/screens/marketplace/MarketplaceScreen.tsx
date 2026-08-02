@@ -10,7 +10,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetPostsQuery } from '../../api/apiService';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Badge, { CATEGORY_LABELS } from '../../components/ui/Badge';
@@ -71,6 +72,7 @@ function ListingRow({ post, onPress, onMessage }: { post: Post; onPress: () => v
 export default function MarketplaceScreen() {
   const appNav = useNavigation<AppNav>();
   const colors = useColors();
+  const headerPad = useHeaderPad();
   const insets = useSafeAreaInsets();
   // Clear the floating tab bar (matches MainTabNavigator's height) without the
   // useBottomTabBarHeight hook, which throws if the screen renders outside the tabs.
@@ -96,9 +98,12 @@ export default function MarketplaceScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
-      <View style={[styles.content, { backgroundColor: colors.cream }]}>
+      {/* The search bar and tabs are pinned above the list, so this screen's
+          heading stays pinned with them rather than scrolling away. */}
+      <View style={[styles.content, { backgroundColor: colors.cream, paddingTop: headerPad }]}>
+      <ScreenHeading title="Marketplace" />
       {/* Search bar */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Search size={16} color={colors.grey} />

@@ -64,7 +64,7 @@ export default function FeedQuickLinks() {
 }
 
 const styles = StyleSheet.create({
-  row:      { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  row:      { paddingHorizontal: 8, paddingVertical: 10, gap: 8 },
   pill:     {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     paddingHorizontal: 14, paddingVertical: 9,

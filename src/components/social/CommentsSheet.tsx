@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700' },
   list:        { paddingTop: 4, paddingBottom: 16 },
   empty:       { textAlign: 'center', padding: 32, fontSize: 14 },
-  inputWrap:   { borderTopWidth: 1, paddingBottom: Platform.OS === 'android' ? 60 : 0 },
+  inputWrap:   { borderTopWidth: 1, paddingBottom: Platform.OS === 'android' ? 60 : 30 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1 },
   replyText:   { fontSize: 13 },
   inputRow:      { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },

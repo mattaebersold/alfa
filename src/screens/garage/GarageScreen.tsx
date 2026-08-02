@@ -5,10 +5,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import EmptyState from '../../components/ui/EmptyState';
@@ -50,6 +53,9 @@ export default function GarageScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const isPro = useIsPro();
+  const headerPad = useHeaderPad();
+  const tabBarHeight = useBottomTabBarHeight();
+  const onScroll = useHeaderScroll(headerPad);
   const { data, isLoading, refetch } = useGetUserGarageQuery();
   const cars = data?.entries ?? [];
 
@@ -68,7 +74,7 @@ export default function GarageScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
         style={{ backgroundColor: colors.cream }}
@@ -88,28 +94,30 @@ export default function GarageScreen() {
           />
         )}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={[styles.count, { color: colors.grey }]}>
-              {cars.length} {cars.length === 1 ? 'car' : 'cars'}
-            </Text>
-            {carLimitReached ? (
-              <TouchableOpacity
-                style={styles.proCtaBtn}
-                onPress={() => {}}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.proCtaText}>Add more — become Pro (coming soon)</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => (navigation as any).navigate('CarCreate', {})}
-              >
-                <Plus size={16} color="#FFFFFF" />
-                <Text style={styles.addBtnText}>Add Car</Text>
-              </TouchableOpacity>
+          <>
+            {/* Heading rides in the list so it scrolls away with the content. */}
+            <ScreenHeading
+              title="Garage"
+              count={cars.length}
+              right={
+                <TouchableOpacity
+                  style={styles.addBtn}
+                  onPress={() => (navigation as any).navigate('CarCreate', {})}
+                >
+                  <Plus size={16} color="#FFFFFF" />
+                  <Text style={styles.addBtnText}>Add Car</Text>
+                </TouchableOpacity>
+              }
+            />
+            {/* Upsell only shows once the free tier is full. */}
+            {carLimitReached && (
+              <View style={styles.header}>
+                <TouchableOpacity style={styles.proCtaBtn} onPress={() => {}} activeOpacity={0.8}>
+                  <Text style={styles.proCtaText}>Add more — become Pro (coming soon)</Text>
+                </TouchableOpacity>
+              </View>
             )}
-          </View>
+          </>
         }
         ListEmptyComponent={
           <EmptyState
@@ -122,7 +130,9 @@ export default function GarageScreen() {
         refreshControl={
           <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primaryAlt} />
         }
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 24 }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       />
 
@@ -131,7 +141,7 @@ export default function GarageScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { paddingBottom: 24, flexGrow: 1 },
+  list: { flexGrow: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -141,7 +151,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  count: { fontSize: 14, fontWeight: '600' },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -159,5 +168,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     maxWidth: 240,
   },
-  proCtaText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12, textAlign: 'center' },
+  // Black on the gold fill, matching the rest of the brand-colored buttons.
+  proCtaText: { color: '#000000', fontWeight: '700', fontSize: 12, textAlign: 'center' },
 });

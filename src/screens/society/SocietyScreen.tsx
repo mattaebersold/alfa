@@ -10,7 +10,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { useGetEventsQuery, useGetRallysQuery } from '../../api/apiService';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import EventDetailSheet from '../../components/society/EventDetailSheet';
 import RallyDetailSheet from '../../components/society/RallyDetailSheet';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -93,14 +95,14 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
   );
 }
 
-function RallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
+function RallyCard({ rally, onPress, width }: { rally: Rally; onPress: () => void; width: number }) {
   const colors = useColors();
   const [ratio, setRatio] = useState(16 / 9);
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(rally.gallery);
   const date = rally.event_date ? format(new Date(rally.event_date), 'MMM d, yyyy') : null;
 
   return (
-    <TouchableOpacity style={[styles.rallyCard, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.88}>
+    <TouchableOpacity style={[styles.rallyCard, { width, backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.88}>
       {hero ? (
         <Image
           source={{ uri: hero }}
@@ -124,6 +126,8 @@ export default function SocietyScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedRallyId, setSelectedRallyId] = useState<string | null>(null);
 
@@ -131,6 +135,8 @@ export default function SocietyScreen() {
   const allEvents = useMemo(() => dedupeById(eventsData?.entries ?? []), [eventsData]);
   const { data: rallysData } = useGetRallysQuery({ limit: 20 });
   const rallys = useMemo(() => dedupeById(rallysData?.entries ?? []), [rallysData]);
+  // Peek at the next card only when there is one; otherwise fill the row.
+  const rallyCardWidth = rallys.length > 1 ? RALLY_WIDTH : SCREEN_WIDTH - 32;
 
   const featured = useMemo(() => allEvents.filter((e) => e.featured), [allEvents]);
   // Upcoming = non-featured events dated today or later, soonest first (past events hidden).
@@ -144,6 +150,8 @@ export default function SocietyScreen() {
 
   const listHeader = (
     <View>
+      {/* Heading rides in the list so it scrolls away with the content. */}
+      <ScreenHeading title="Events" />
       {/* Featured slider */}
       {featured.length > 0 && (
         <View style={styles.featuredSection}>
@@ -176,11 +184,14 @@ export default function SocietyScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.featuredList}
-            snapToInterval={RALLY_WIDTH + 12}
+            // A lone rally has nothing to peek at, so it takes the full width.
+            scrollEnabled={rallys.length > 1}
+            snapToInterval={rallyCardWidth + 12}
             decelerationRate="fast"
             renderItem={({ item }) => (
               <RallyCard
                 rally={item}
+                width={rallyCardWidth}
                 onPress={() => setSelectedRallyId(item.internal_id)}
               />
             )}
@@ -221,7 +232,7 @@ export default function SocietyScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
@@ -238,7 +249,9 @@ export default function SocietyScreen() {
           featured.length === 0 ? <EmptyState title="No events" /> : null
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       />
       </View>
 
@@ -272,7 +285,7 @@ const styles = StyleSheet.create({
 
   // ORS Rallys
   rallySection:     { paddingTop: 16 },
-  rallyCard:        { width: RALLY_WIDTH, borderRadius: 14, overflow: 'hidden' },
+  rallyCard:        { borderRadius: 14, overflow: 'hidden' },
   rallyImage:       { width: '100%' },
   rallyBody:        { padding: 12 },
   rallyDate:        { fontSize: 11, fontWeight: '700', color: colors.primaryAlt, marginBottom: 3 },

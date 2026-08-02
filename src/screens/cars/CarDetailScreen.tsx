@@ -6,12 +6,14 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight, Wrench, Users, Warehouse, Car, MessageCircle } from 'lucide-react-native';
+import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation } from '@react-navigation/native';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
@@ -33,16 +35,17 @@ import EmptyState from '../../components/ui/EmptyState';
 import LikeButton from '../../components/social/LikeButton';
 import FollowButton from '../../components/social/FollowButton';
 import CommentsSheet from '../../components/social/CommentsSheet';
+import InlineComments from '../../components/social/InlineComments';
 import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import BottomSheet from '../../components/ui/SharedModal';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
-import { uploadFile } from '../../utils/upload';
+import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { stripHtml } from '../../utils/text';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useBrandTextColor } from '../../hooks/useBrandColor';
+import { useBrandTextColor, useIsPro } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES } from '../../constants/carTypes';
 import type { AppStackParamList } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod } from '../../types/api';
@@ -326,6 +329,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
   const brandTextColor = useBrandTextColor();
+  const isPro = useIsPro();
+  const headerPad = useHeaderPad();
+  const onHeaderScroll = useHeaderScroll(headerPad);
+  const insets = useSafeAreaInsets();
+  // Clear the floating tab bar (matches MainTabNavigator's height). Computed
+  // rather than read via useBottomTabBarHeight, which throws when this screen
+  // is presented from a root modal route outside the tabs.
+  const tabBarClearance = 88 + insets.bottom;
   const scrollRef = useRef<ScrollView>(null);
   const [activeSheet, setActiveSheet] = useState<Sheet>(null);
   const [modsExpanded, setModsExpanded] = useState(false);
@@ -404,6 +415,26 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const isOwner = userInfo?.user_id === (car?.user_id ?? '');
   const isCoOwner = userInfo?.user_id === (car?.coowner_id ?? '');
   const isOwnerOrCoOwner = isOwner || isCoOwner;
+
+  // Pro owners get the to-do list promoted above the gallery; everyone else
+  // who can edit sees it in the action row below.
+  const showTodosAboveGallery = isOwnerOrCoOwner && isPro;
+
+  const todosButton = (
+    <TouchableOpacity
+      style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
+      onPress={() => appNav.navigate('CarTasks', {
+        carId,
+        carTitle: car?.title || [car?.year, car?.make, car?.model].filter(Boolean).join(' '),
+      })}
+      activeOpacity={0.85}
+    >
+      <CheckSquare size={16} color={brandTextColor} />
+      <Text style={[styles.tasksBtnText, { color: brandTextColor }]}>
+        To-dos{taskCount > 0 ? ` (${taskCount})` : ''}
+      </Text>
+    </TouchableOpacity>
+  );
 
   const { data: carFollowStatus } = useGetCarFollowStatusQuery(carId, { skip: !carId || isOwnerOrCoOwner });
   const [followCar, { isLoading: followingCar }] = useFollowCarMutation();
@@ -485,8 +516,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
           if (!result.canceled) {
-            const a = result.assets[0];
-            setGalleryImages((prev) => [...prev, { uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }].slice(0, 20));
+            const picked = await normalizePickedAssets(result.assets);
+            setGalleryImages((prev) => [...prev, ...picked].slice(0, 20));
           }
         },
       },
@@ -495,7 +526,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.85 });
           if (!result.canceled) {
-            const newImgs = result.assets.map((a) => ({ uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }));
+            const newImgs = await normalizePickedAssets(result.assets);
             setGalleryImages((prev) => [...prev, ...newImgs].slice(0, 20));
           }
         },
@@ -655,8 +686,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
           if (!result.canceled) {
-            const a = result.assets[0];
-            setEditAlbumNewImages((prev) => [...prev, { uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }].slice(0, 20));
+            const picked = await normalizePickedAssets(result.assets);
+            setEditAlbumNewImages((prev) => [...prev, ...picked].slice(0, 20));
           }
         },
       },
@@ -665,7 +696,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.85 });
           if (!result.canceled) {
-            const newImgs = result.assets.map((a) => ({ uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' }));
+            const newImgs = await normalizePickedAssets(result.assets);
             setEditAlbumNewImages((prev) => [...prev, ...newImgs].slice(0, 20));
           }
         },
@@ -869,9 +900,25 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: headerPad, paddingBottom: tabBarClearance + 16 }}
+        onScroll={onHeaderScroll}
+        scrollEventThrottle={16}
+      >
+
+        {/* Car title leads the page and scrolls away with the content. */}
+        <ScreenHeading
+          title={car.title || [car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
+        />
+
+        {/* Pro owners get their to-do list up front, ahead of the gallery. */}
+        {showTodosAboveGallery && (
+          <View style={styles.todosAbove}>{todosButton}</View>
+        )}
 
         {/* ── Gallery strip ── */}
         <View style={styles.galleryWrap}>
@@ -888,18 +935,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         <View style={[styles.titleSection, { backgroundColor: colors.bgDark }]}>
           <View style={styles.titleRow}>
             <View style={styles.titleLeft}>
+              {/* The name is the page heading above; this line carries the
+                  year/make/model detail, and only when it adds something. */}
               {car.title ? (
-                <>
-                  <Text style={[styles.carTitle, { color: colors.fg }]}>{car.title}</Text>
-                  <Text style={[styles.carSubtitle, { color: colors.grey }]}>
-                    {[car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
-                  </Text>
-                </>
-              ) : (
-                <Text style={[styles.carTitle, { color: colors.fg }]}>
+                <Text style={[styles.carSubtitle, { color: colors.grey }]}>
                   {[car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
                 </Text>
-              )}
+              ) : null}
             </View>
             {isOwnerOrCoOwner ? (
               <View style={styles.titleActions}>
@@ -1034,16 +1076,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
           {isOwnerOrCoOwner && (
             <>
-              <TouchableOpacity
-                style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
-                onPress={() => appNav.navigate('CarTasks', { carId, carTitle: car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') })}
-                activeOpacity={0.85}
-              >
-                <Wrench size={16} color={brandTextColor} />
-                <Text style={[styles.tasksBtnText, { color: brandTextColor }]}>
-                  Manage Tasks{taskCount > 0 ? ` (${taskCount})` : ''}
-                </Text>
-              </TouchableOpacity>
+              {/* Pro owners get this above the gallery instead — see todosButton. */}
+              {!showTodosAboveGallery && todosButton}
               <TouchableOpacity
                 style={[styles.followersBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
                 onPress={() => setPane('followers')}
@@ -1094,7 +1128,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 onPress={() => setPane('otherMake')}
                 activeOpacity={0.75}
               >
-                <Car size={32} color={ACCENT_BLUE} />
+                <Car size={32} color={colors.primaryAlt} />
                 <Text style={[styles.discoverTileLabel, { color: colors.fgDark }]} numberOfLines={2}>
                   Other {car.make}s
                 </Text>
@@ -1106,7 +1140,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 onPress={() => setPane('otherModel')}
                 activeOpacity={0.75}
               >
-                <Car size={32} color={ACCENT_BLUE} />
+                <Car size={32} color={colors.primaryAlt} />
                 <Text style={[styles.discoverTileLabel, { color: colors.fgDark }]} numberOfLines={2}>
                   Other {car.make} {car.model}s
                 </Text>
@@ -1114,6 +1148,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             ) : null}
           </View>
         </View>
+
+        {/* ── Comments on this car ── */}
+        <InlineComments
+          documentId={car.internal_id}
+          entryType={(car as any).entry_type ?? 'garagecar'}
+          backgroundColor={colors.bgDark}
+        />
 
       </ScrollView>
 
@@ -1442,12 +1483,14 @@ const styles = StyleSheet.create({
     marginTop: 12, paddingVertical: 13, borderRadius: 12,
   },
   tasksBtnText:   { fontSize: 15, fontWeight: '800' },
+  // Above-gallery placement supplies its own gutters; the in-row copy inherits
+  // the action row's padding.
+  todosAbove:     { paddingHorizontal: 16, marginBottom: 4 },
   followersBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginTop: 10, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5,
   },
   followersBtnText: { fontSize: 15, fontWeight: '800' },
-  carTitle:       { fontSize: 22, fontWeight: '800', lineHeight: 28 },
   carSubtitle:    { fontSize: 14, marginTop: 3, fontWeight: '500' },
   badgeRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   carBadge:       { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6 },

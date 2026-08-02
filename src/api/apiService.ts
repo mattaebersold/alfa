@@ -91,6 +91,16 @@ export const apiService = createApi({
       invalidatesTags: ['Post', 'UserEntries'],
     }),
 
+    // Direct-to-Mux: returns a one-time upload URL the client PUTs the video to.
+    createMuxUploadUrl: builder.mutation<{ id: string; url: string }, void>({
+      query: () => ({ url: 'api/post/mux/upload-url', method: 'POST' }),
+    }),
+
+    // Mobile: append one image to a post's gallery (sequential upload flow).
+    addPostImage: builder.mutation<{ entry: Post; image: any }, FormData>({
+      query: (body) => ({ url: 'api/post/mobile/add-image', method: 'POST', body }),
+    }),
+
     analyzeDiecast: builder.mutation<{ result: DiecastAnalysis }, FormData>({
       query: (body) => ({ url: 'api/post/analyze-diecast', method: 'POST', body }),
     }),
@@ -388,7 +398,8 @@ export const apiService = createApi({
       invalidatesTags: (result, error, { car_id }) => [{ type: 'CarTask', id: car_id }],
     }),
 
-    toggleCarTask: builder.mutation<CarTask, { internal_id: string; car_id: string }>({
+    // `completed` is optional — omitting it makes the server flip the current value.
+    toggleCarTask: builder.mutation<CarTask, { internal_id: string; car_id: string; completed?: boolean }>({
       query: (body) => ({ url: 'api/cartask/toggle-completion', method: 'POST', body }),
       invalidatesTags: (result, error, { car_id }) => [{ type: 'CarTask', id: car_id }],
     }),
@@ -903,6 +914,8 @@ export const {
   useGetPostsQuery,
   useGetPostQuery,
   useCreatePostMutation,
+  useCreateMuxUploadUrlMutation,
+  useAddPostImageMutation,
   useUpdatePostMutation,
   useDeletePostMutation,
   useGetLikeInfoQuery,

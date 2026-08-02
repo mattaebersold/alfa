@@ -7,10 +7,13 @@ interface AvatarProps {
   filename?: string | null;
   name?: string;
   size?: number;
+  /** Corner radius. Defaults to a circle; pass a smaller value for a squircle. */
+  radius?: number;
 }
 
-export default function Avatar({ filename, name = '?', size = 40 }: AvatarProps) {
+export default function Avatar({ filename, name = '?', size = 40, radius }: AvatarProps) {
   const uri = imageUrl(filename);
+  const corner = radius ?? size / 2;
   const [failed, setFailed] = useState(false);
 
   // Reset the error state if the source changes.
@@ -27,11 +30,11 @@ export default function Avatar({ filename, name = '?', size = 40 }: AvatarProps)
   const showImage = uri && !failed;
 
   return (
-    <View style={[styles.container, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[styles.container, { width: size, height: size, borderRadius: corner }]}>
       {showImage ? (
         <Image
           source={{ uri }}
-          style={{ width: size, height: size, borderRadius: size / 2 }}
+          style={{ width: size, height: size, borderRadius: corner }}
           contentFit="cover"
           transition={200}
           onError={() => setFailed(true)}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, Alert, ImageBackground, Image,
+  KeyboardAvoidingView, Platform, ScrollView, Alert, Image,
   Dimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -13,6 +13,8 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
 import TermsModal from '../../components/auth/TermsModal';
+import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
+import { SPLASH_IMAGES } from '../../constants/splash';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
@@ -43,10 +45,9 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   };
 
   return (
-    <ImageBackground
-      source={require('../../../assets/splash.jpg')}
+    <CrossfadeBackground
+      sources={SPLASH_IMAGES}
       style={ss.fill}
-      resizeMode="cover"
     >
       <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
@@ -159,7 +160,7 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
         onClose={() => setTermsVisible(false)}
         onAccept={() => setTermsAccepted(true)}
       />
-    </ImageBackground>
+    </CrossfadeBackground>
   );
 }
 

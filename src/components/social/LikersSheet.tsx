@@ -63,7 +63,7 @@ export default function LikersSheet({ entryId, visible, onClose }: LikersSheetPr
 const styles = StyleSheet.create({
   overlay:  { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
   backdrop: { ...StyleSheet.absoluteFillObject },
-  sheet:    { maxHeight: '80%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden', paddingBottom: Platform.OS === 'android' ? 60 : 0 },
+  sheet:    { maxHeight: '80%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden', paddingBottom: Platform.OS === 'android' ? 60 : 30 },
   header:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,

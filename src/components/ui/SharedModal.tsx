@@ -15,12 +15,17 @@ const SHEET_HEADER_BG = '#000000';
 // Android's bottom system UI (gesture bar / nav buttons) overlaps the sheet, so
 // pad the bottom to keep content clear of it. iOS clearance is handled by the
 // safe-area layout, so this is Android-only.
-const ANDROID_BOTTOM_PAD = Platform.OS === 'android' ? 60 : 0;
+const SHEET_BOTTOM_PAD = Platform.OS === 'android' ? 60 : 30;
 
 interface SharedModalProps {
   visible: boolean;
   onClose: () => void;
   title?: string;
+  /**
+   * Custom header content in place of the plain `title` text — for headers that
+   * need more than a string (an avatar plus a name, say).
+   */
+  titleContent?: React.ReactNode;
   /** Extra element rendered on the right of the header (before the close X). */
   headerRight?: React.ReactNode;
   /**
@@ -37,7 +42,7 @@ interface SharedModalProps {
  * between 50% and 90% of screen height. Convert other modals to this when asked
  * to "use SharedModal". The caller supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, headerRight, onDismissed, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -78,9 +83,9 @@ export default function SharedModal({ visible, onClose, title, headerRight, onDi
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { paddingBottom: ANDROID_BOTTOM_PAD, transform: [{ translateY: slideY }] }]}>
+        <Animated.View style={[styles.sheet, { paddingBottom: SHEET_BOTTOM_PAD, transform: [{ translateY: slideY }] }]}>
           <View style={styles.header}>
-            <Text style={styles.title} numberOfLines={1}>{title}</Text>
+            {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
             <View style={styles.headerRight}>
               {headerRight}
               <TouchableOpacity onPress={onClose} hitSlop={8}>
@@ -100,8 +105,8 @@ const styles = StyleSheet.create({
     minHeight: SCREEN_HEIGHT * 0.5,
     maxHeight: '90%',
     backgroundColor: SHEET_BG,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     overflow: 'hidden',
   },
   header: {

@@ -9,7 +9,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetPodcastsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
@@ -57,18 +59,22 @@ function PodcastCard({ podcast, onPress }: { podcast: Podcast; onPress: () => vo
 export default function PodcastsScreen() {
   const colors = useColors();
   const appNav = useNavigation<AppNav>();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
   const { data: podcasts = [], isLoading } = useGetPodcastsQuery();
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
         style={{ flex: 1, backgroundColor: colors.cream }}
         data={podcasts}
         keyExtractor={(p) => p.internal_id}
         numColumns={2}
+        // Heading rides in the list so it scrolls away with the content.
+        ListHeaderComponent={<ScreenHeading title="Podcasts" />}
         renderItem={({ item }) => (
           <PodcastCard
             podcast={item}
@@ -77,7 +83,9 @@ export default function PodcastsScreen() {
         )}
         ListEmptyComponent={<EmptyState title="No podcasts yet" />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad }]}
         columnWrapperStyle={styles.row}
       />
     </SafeAreaView>

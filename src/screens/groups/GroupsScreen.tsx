@@ -14,7 +14,9 @@ import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
@@ -80,6 +82,8 @@ export default function GroupsScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
   const { userInfo } = useAppSelector((s) => s.auth);
   const brandTextColor = useBrandTextColor();
   const [search, setSearch] = useState('');
@@ -129,7 +133,7 @@ export default function GroupsScreen() {
   if (userGroupsLoading || allGroupsLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.primaryAlt }]} edges={['top']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
@@ -137,13 +141,17 @@ export default function GroupsScreen() {
           keyExtractor={(g) => g.internal_id}
           numColumns={2}
           columnWrapperStyle={styles.cardRow}
-          contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
+          contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }]}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
+              {/* Heading rides in the list so it scrolls away with the content. */}
+              <ScreenHeading title="Groups" />
               {userGroups.length > 0 && (
                 <View style={styles.myGroupsSection}>
                   <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>

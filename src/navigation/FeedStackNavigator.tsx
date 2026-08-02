@@ -36,7 +36,12 @@ export default function FeedStackNavigator() {
       <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Members" component={MembersScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Articles" component={ArticlesScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ArticleDetail" component={ArticleDetailScreen} options={{ title: 'Article' }} />
+      {/* Sheet-presented — see the matching entry in AppNavigator. */}
+      <Stack.Screen
+        name="ArticleDetail"
+        component={ArticleDetailScreen}
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
+      />
       <Stack.Screen name="Podcasts" component={PodcastsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false }} />

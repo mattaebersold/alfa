@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
-  ImageBackground, Image, Dimensions,
+  Image, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -14,6 +14,9 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
 import TermsModal from '../../components/auth/TermsModal';
+import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
+import { SPLASH_IMAGES } from '../../constants/splash';
+import { toUploadableJpeg } from '../../utils/upload';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
@@ -107,14 +110,16 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     fd.append('zip', form.zip.trim());
 
     if (photo?.uri) {
+      // Convert to JPEG first — iOS delivers HEIC, which the server can't decode.
+      const jpegUri = await toUploadableJpeg(photo.uri);
       // Registration posts via axios → React Native XHR, which needs the classic
       // { uri, name, type } file shape (NOT the expo-file-system File used for the
       // spec-compliant fetch in RTK Query). This is what makes the upload work on
       // Android, where XHR can't serialize the expo File object.
       fd.append('profilePhoto', {
-        uri: photo.uri,
-        name: photo.fileName ?? `profile_${Date.now()}.jpg`,
-        type: photo.mimeType ?? 'image/jpeg',
+        uri: jpegUri,
+        name: `profile_${Date.now()}.jpg`,
+        type: 'image/jpeg',
       } as any);
     }
 
@@ -147,10 +152,9 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   ];
 
   return (
-    <ImageBackground
-      source={require('../../../assets/splash.jpg')}
+    <CrossfadeBackground
+      sources={SPLASH_IMAGES}
       style={ss.fill}
-      resizeMode="cover"
     >
       <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <TouchableOpacity
@@ -293,7 +297,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
         onClose={() => setTermsVisible(false)}
         onAccept={() => setTermsAccepted(true)}
       />
-    </ImageBackground>
+    </CrossfadeBackground>
   );
 }
 
