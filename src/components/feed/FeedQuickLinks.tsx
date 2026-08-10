@@ -28,7 +28,7 @@ export default function FeedQuickLinks() {
     {
       label: 'All Events',
       Icon: Calendar,
-      onPress: () => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Society' } }),
+      onPress: () => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Events' } }),
     },
     {
       label: 'ORS Rallys',

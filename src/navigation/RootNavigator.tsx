@@ -11,6 +11,7 @@ import { registerForPushNotifications } from '../utils/pushNotifications';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
+import { EventSheetProvider } from '../providers/EventSheetProvider';
 
 // ── Deep linking config ───────────────────────────────────────────────────────
 const prefix = Linking.createURL('/');
@@ -94,7 +95,11 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer linking={linking as any}>
-      <AuthGate />
+      {/* Inside the container: the event sheet it hosts renders navigation-aware
+          content, so it needs a navigation context of its own. */}
+      <EventSheetProvider>
+        <AuthGate />
+      </EventSheetProvider>
     </NavigationContainer>
   );
 }

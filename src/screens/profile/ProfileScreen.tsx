@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Pressable, TextInput,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Pressable, TextInput, Dimensions,
 } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { Image } from 'expo-image';
@@ -25,6 +25,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
+import CarCard from '../../components/cards/CarCard';
 import FollowButton from '../../components/social/FollowButton';
 import ListCard from '../../components/lists/ListCard';
 import Spinner from '../../components/ui/Spinner';
@@ -38,37 +39,19 @@ import type { GarageCar, Post, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type Tab = 'posts' | 'cars' | 'followers' | 'following' | 'lists';
+// Cars live on the page itself (see the garage section), so they get no tile.
+type Tab = 'posts' | 'followers' | 'following' | 'lists';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
-  { key: 'cars',      label: 'Cars' },
   { key: 'followers', label: 'Followers' },
   { key: 'following', label: 'Following' },
   { key: 'lists',     label: 'Lists' },
 ];
 
-function pairs<T>(arr: T[]): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += 2) out.push(arr.slice(i, i + 2));
-  return out;
-}
-
-function CarGridItem({ car, onPress }: { car: GarageCar; onPress: () => void }) {
-  const colors = useColors();
-  const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
-  return (
-    <TouchableOpacity style={[styles.carCard, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
-      {hero
-        ? <Image source={{ uri: hero }} style={styles.carImage} contentFit="cover" />
-        : <View style={[styles.carImage, { backgroundColor: colors.secondary }]} />
-      }
-      <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
-        {car.year} {car.make} {car.model}
-      </Text>
-    </TouchableOpacity>
-  );
-}
+// Garage carousel — cards stop short of full width so the next one peeks out.
+const GARAGE_GUTTER = 12;
+const GARAGE_CARD_WIDTH = Dimensions.get('window').width * 0.9 - GARAGE_GUTTER;
 
 function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
   const colors = useColors();
@@ -369,7 +352,6 @@ export default function ProfileScreen() {
   const countFor = (key: Tab): number => {
     switch (key) {
       case 'posts':     return postsData?.total ?? posts.length;
-      case 'cars':      return carsData?.total ?? cars.length;
       case 'followers': return followersData?.total ?? followers.length;
       case 'following': return followingData?.total ?? following.length;
       case 'lists':     return listsData?.total ?? lists.length;
@@ -395,6 +377,45 @@ export default function ProfileScreen() {
           <Text style={[styles.tileLabel, { color: colors.grey }]}>{t.label}</Text>
         </TouchableOpacity>
       ))}
+    </View>
+  );
+
+  // ── Garage — lives on the page rather than behind a tile ──────────────────
+  // A featured car (if any) leads at full width; the rest sit two-up beneath it.
+  const featuredCar = cars.find((c) => c.featured);
+  const restCars = featuredCar ? cars.filter((c) => c.internal_id !== featuredCar.internal_id) : cars;
+
+  const garageEl = (
+    <View style={styles.garageSection}>
+      <View style={styles.garageHeader}>
+        <Text style={[styles.garageTitle, { color: colors.fg }]}>Garage</Text>
+        <Text style={[styles.garageCount, { color: colors.grey }]}>{carsData?.total ?? cars.length}</Text>
+      </View>
+
+      {cars.length === 0 ? (
+        <EmptyState title="No cars yet" />
+      ) : (
+        <>
+          {featuredCar && <CarCard car={featuredCar} featured />}
+          {restCars.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.garageCarousel}
+              // Snaps card-by-card rather than page-by-page, so the peek stays put.
+              snapToInterval={GARAGE_CARD_WIDTH + GARAGE_GUTTER}
+              snapToAlignment="start"
+              decelerationRate="fast"
+            >
+              {restCars.map((car: GarageCar) => (
+                <View key={car.internal_id} style={styles.garageCarouselItem}>
+                  <CarCard car={car} compact />
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </>
+      )}
     </View>
   );
 
@@ -504,28 +525,6 @@ export default function ProfileScreen() {
             ListEmptyComponent={<EmptyState title="No posts yet" />}
           />
         );
-      case 'cars':
-        return (
-          <FlatList
-            data={pairs(cars)}
-            keyExtractor={(_row, i) => `carrow-${i}`}
-            contentContainerStyle={styles.modalList}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <View style={styles.carRow}>
-                {(item as GarageCar[]).map((car) => (
-                  <CarGridItem
-                    key={car.internal_id}
-                    car={car}
-                    onPress={() => openAndClose(() => (navigation as any).navigate('CarDetail', { carId: car.internal_id }))}
-                  />
-                ))}
-                {(item as GarageCar[]).length === 1 && <View style={styles.carCardSpacer} />}
-              </View>
-            )}
-            ListEmptyComponent={<EmptyState title="No cars yet" />}
-          />
-        );
       case 'followers':
       case 'following': {
         const source = renderedSection === 'followers' ? followers : following;
@@ -608,6 +607,7 @@ export default function ProfileScreen() {
       >
         {profileHeader}
         {tilesEl}
+        {garageEl}
       </ScrollView>
 
       <Modal
@@ -644,7 +644,8 @@ const styles = StyleSheet.create({
   list:            { paddingBottom: 24 },
   // Taller than a classic cover strip because the floating header sits over its
   // top portion — this keeps a usable amount of image visible beneath it.
-  bannerContainer: { width: '100%', aspectRatio: 5 / 3 },
+  // 10/9 is the old 5/3 with 50% more height.
+  bannerContainer: { width: '100%', aspectRatio: 10 / 9 },
   banner:          { width: '100%', height: '100%' },
   // Neutral, not brand-colored — at this height a solid accent block dominates
   // the screen for anyone without a cover image.
@@ -709,15 +710,19 @@ const styles = StyleSheet.create({
   },
   userSearchInput: { flex: 1, fontSize: 14 },
 
-  carRow:     { flexDirection: 'row', gap: 8, marginHorizontal: 8, marginBottom: 8 },
   postRowThumb: { width: 58, height: 58, borderRadius: 6 },
-  carCard:    {
-    flex: 1, borderRadius: 10, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+
+  garageSection: { marginTop: 18 },
+  garageHeader:  {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, marginBottom: 6,
   },
-  carCardSpacer: { flex: 1 },
-  carImage:      { width: '100%', aspectRatio: 4 / 3 },
-  carTitle:      { fontSize: 12, fontWeight: '700', padding: 8 },
+  garageTitle:   { fontSize: 18, fontWeight: '800' },
+  garageCount:   { fontSize: 14, fontWeight: '700' },
+  garageCarousel: {
+    gap: GARAGE_GUTTER, paddingHorizontal: GARAGE_GUTTER, paddingTop: 6,
+  },
+  garageCarouselItem: { width: GARAGE_CARD_WIDTH },
   newListBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12, marginTop: 12,

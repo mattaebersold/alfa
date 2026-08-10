@@ -21,14 +21,16 @@ import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import type { SocietyScreenProps, AppStackParamList } from '../../navigation/types';
+import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
 
-export default function EventDetailScreen({ route }: SocietyScreenProps<'EventDetail'>) {
+// Reached only as the root "EventDetailModal" route now — the society stack's
+// own EventDetail entry went with the old events screen.
+export default function EventDetailScreen({ route }: { route: { params: { eventId: string } } }) {
   const { eventId } = route.params;
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const colors = useColors();

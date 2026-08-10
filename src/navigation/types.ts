@@ -30,9 +30,7 @@ export type FeedStackParamList = {
 
 // ── Society Stack ───────────────────────────────────────────────────────────
 export type SocietyStackParamList = {
-  Society: undefined;
-  EventDetail: { eventId: string };
-  Calendar: undefined;
+  Events: undefined;
   Rallys: undefined;
   RallyDetail: { rallyId: string };
 };
@@ -94,6 +92,9 @@ export type AppStackParamList = {
   ArticleDetail: { articleId: string };
   Marketplace: undefined;
   Shop: undefined;
+  About: undefined;
+  SocietyEventDetail: { eventId: string; occurrenceDate?: string };
+  SocietyEventCreate: { eventId?: string } | undefined;
   Search: undefined;
   Create: undefined;
   DiecastCreate: undefined;

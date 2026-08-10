@@ -3,13 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated } 
 import { Image as ExpoImage } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
-import { Bell, Warehouse, Menu } from 'lucide-react-native';
+import { Warehouse, Menu } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
 import { useAppSelector } from '../../store/store';
-import { useGetUnreadNotificationCountQuery, useGetUserGarageQuery } from '../../api/apiService';
+import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery, useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import { CONFIG } from '../../constants/config';
@@ -71,9 +71,13 @@ function FloatingButton({
   );
 }
 
-/** Up to `max` overlapping car photos from the user's garage. */
+/**
+ * Up to `max` overlapping car photos from the user's garage, followed by a
+ * "+N" chip when the garage holds more than that.
+ */
 function GarageThumbs({ cars, max = 2 }: { cars: GarageCar[]; max?: number }) {
   const shown = cars.slice(0, max);
+  const overflow = cars.length - shown.length;
   if (shown.length === 0) return <Warehouse size={19} color={ICON} />;
 
   return (
@@ -91,6 +95,11 @@ function GarageThumbs({ cars, max = 2 }: { cars: GarageCar[]; max?: number }) {
           />
         );
       })}
+      {overflow > 0 && (
+        <View style={[styles.thumb, styles.thumbOverlap, styles.thumbMore]}>
+          <Text style={styles.thumbMoreText}>+{overflow}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -121,8 +130,15 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
     skip: !isLoggedIn,
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
+  const { data: msgData } = useGetUnreadMessageCountQuery(undefined, {
+    skip: !isLoggedIn,
+    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
+  });
 
+  // Both live in the menu now, so a single dot on the menu button covers them.
   const notifCount = notifData?.count ?? 0;
+  const messageCount = msgData?.count ?? 0;
+  const hasUnread = notifCount + messageCount > 0;
 
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
@@ -162,19 +178,8 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           />
         </FloatingButton>
 
-        {/* Right — notifications (only when unread), garage, profile, menu */}
+        {/* Right — garage, profile, menu */}
         <View style={styles.rightActions}>
-          {notifCount > 0 && (
-            <FloatingButton
-              label={`Notifications, ${notifCount} unread`}
-              tint={tint}
-              badge
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Bell size={21} color={ICON} />
-            </FloatingButton>
-          )}
-
           <FloatingButton
             label="Garage"
             tint={tint}
@@ -199,8 +204,9 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           </FloatingButton>
 
           <FloatingButton
-            label="Menu"
+            label={hasUnread ? `Menu, ${notifCount + messageCount} unread` : 'Menu'}
             tint={tint}
+            badge={hasUnread}
             onPress={() => setDrawerOpen(true)}
           >
             <Menu size={21} color={ICON} />
@@ -257,6 +263,8 @@ const styles = StyleSheet.create({
   thumbRow:     { flexDirection: 'row', alignItems: 'center' },
   thumb:        { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
   thumbOverlap: { marginLeft: -9 },
+  thumbMore:    { backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
+  thumbMoreText:{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
 
   logo: { width: 26, height: 26 },
 

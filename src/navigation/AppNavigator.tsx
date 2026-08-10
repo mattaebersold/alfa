@@ -53,6 +53,9 @@ import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
+import AboutScreen from '../screens/marketing/AboutScreen';
+import SocietyEventDetailScreen from '../screens/society/SocietyEventDetailScreen';
+import SocietyEventCreateScreen from '../screens/society/SocietyEventCreateScreen';
 import GroupMarketplaceScreen from '../screens/groups/GroupMarketplaceScreen';
 import GroupResourcesScreen from '../screens/groups/GroupResourcesScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
@@ -168,6 +171,21 @@ export default function AppNavigator() {
         name="Marketplace"
         component={MarketplaceScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SocietyEventDetail"
+        component={SocietyEventDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SocietyEventCreate"
+        component={SocietyEventCreateScreen}
+        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.eventId ? 'Edit Event' : 'New Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
       />
       <Stack.Screen
         name="Shop"

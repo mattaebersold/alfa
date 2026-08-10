@@ -190,6 +190,56 @@ export interface Event {
   user?: User;
 }
 
+/**
+ * Society event — the rebuilt model. When it happens is a schedule, not a date
+ * column, so `occurrence_date` is what the server computed for a given day and
+ * `next_occurrence` is the soonest one still ahead.
+ */
+export interface SocietyEvent {
+  _id?: string;
+  internal_id: string;
+  user_id: string;
+  entry_type?: string;
+  title?: string;
+  body?: string;
+  gallery?: GalleryItem[];
+  category?: string;
+
+  frequency?: 'single' | 'weekly' | 'biweekly' | 'monthly' | 'annually';
+  date?: string;
+  weekdays?: number[];
+  week_ordinals?: number[];
+  day_of_month?: number;
+  anchor_date?: string;
+  until_date?: string;
+  exceptions?: string[];
+  start_time?: string;
+  end_time?: string;
+
+  /** Set on expanded rows: the date this particular occurrence falls on. */
+  occurrence_date?: string;
+  /** "YYYY-MM-DD" for the occurrence. */
+  day?: string;
+  next_occurrence?: string | null;
+  /** Human-readable schedule, e.g. "Every other Sunday". */
+  schedule_label?: string;
+
+  location?: string;
+  location_url?: string;
+  location_lat?: number;
+  location_lng?: number;
+  location_place_id?: string;
+
+  group_id?: string;
+  event_organizer?: string;
+  interested_count?: number;
+  is_interested?: boolean;
+  /** A few profiles for the avatar stack on cards. */
+  interested_preview?: User[];
+  created_at?: string;
+  user?: User;
+}
+
 export interface Group {
   _id?: string;
   internal_id: string;

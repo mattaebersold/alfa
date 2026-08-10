@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { Wrench, Settings, Users } from 'lucide-react-native';
+import { Wrench, Settings, Users, Star } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useGetUserByIdQuery, useDeleteCarMutation, useGetCarFollowerCountQuery } from '../../api/apiService';
@@ -18,6 +18,14 @@ interface CarCardProps {
   onTasksPress?: () => void;
   taskCount?: number;
   onEditPress?: () => void;
+  /**
+   * Parent-sized variant (grids, carousels): the card drops its own margins,
+   * locks a 4:3 image so neighbours line up, and hides the owner chips — the
+   * surfaces that use it already say whose cars these are.
+   */
+  compact?: boolean;
+  /** Shows a "Featured" badge over the image. */
+  featured?: boolean;
 }
 
 // Murray-style badge colors per car type
@@ -65,7 +73,7 @@ function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string })
   );
 }
 
-export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount = 0, onEditPress }: CarCardProps) {
+export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount = 0, onEditPress, compact = false, featured = false }: CarCardProps) {
   const colors = useColors();
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -132,21 +140,28 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card }]}
+      style={[styles.card, compact && styles.cardCompact, { backgroundColor: colors.card }]}
       onPress={handlePress}
       activeOpacity={0.92}
     >
       <View style={styles.imageContainer}>
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
-          style={[styles.image, { aspectRatio }]}
+          style={[styles.image, { aspectRatio: compact ? 4 / 3 : aspectRatio }]}
           contentFit="cover"
           transition={300}
-          onLoad={(e) => {
+          onLoad={compact ? undefined : (e) => {
             const { width, height } = e.source ?? {};
             if (width && height) setAspectRatio(width / height);
           }}
         />
+
+        {featured && (
+          <View style={styles.featuredBadge}>
+            <Star size={10} color="#000" fill="#000" />
+            <Text style={styles.featuredBadgeText}>Featured</Text>
+          </View>
+        )}
 
         {/* Top-right: task badge + owner cog OR report button for non-owners */}
         <View style={styles.imageTopRight}>
@@ -198,7 +213,8 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
           {displaySubtitle && (
             <Text style={[styles.subtitle, { color: colors.grey }]} numberOfLines={1}>{displaySubtitle}</Text>
           )}
-          <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />
+          {/* Owner chips are noise in a grid of one person's own cars. */}
+          {!compact && <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />}
         </View>
       </View>
     </TouchableOpacity>
@@ -211,6 +227,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12, marginVertical: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
+  // Half-width variant — the grid owns the width and the gutters.
+  cardCompact:     { marginHorizontal: 0, marginVertical: 0 },
   imageContainer:  { position: 'relative' },
   image:           { width: '100%' },
   imageTopRight: {
@@ -240,6 +258,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   imageBadgeText: { fontSize: 11, fontWeight: '700' },
+
+  featuredBadge: {
+    position: 'absolute', top: 8, left: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: colors.pro,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
+  },
+  featuredBadgeText: {
+    fontSize: 11, fontWeight: '800', color: '#000',
+    textTransform: 'uppercase', letterSpacing: 0.4,
+  },
 
   taskBadge:       {
     backgroundColor: colors.pro, borderRadius: 12,

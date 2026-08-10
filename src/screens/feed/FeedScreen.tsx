@@ -71,6 +71,7 @@ export default function FeedScreen() {
         <FeedList
           onPostPress={handlePostPress}
           excludeTypes={['story']}
+          includeGarageAdditions
           ListHeaderComponent={FeedHeader}
           paddingTop={headerPad}
           onScroll={onScroll}

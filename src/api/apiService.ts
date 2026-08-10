@@ -1,7 +1,7 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQuery } from './baseQuery';
 import type {
-  User, GarageCar, Post, Event, Group, GroupMember, Article,
+  User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
 } from '../types/api';
@@ -11,6 +11,7 @@ export const apiService = createApi({
   baseQuery,
   tagTypes: [
     'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment',
+    'SocietyEvent', 'EventInterest',
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
@@ -205,11 +206,16 @@ export const apiService = createApi({
       providesTags: ['GarageCar'],
     }),
 
-    getFollowingGarage: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number }>({
+    getFollowingGarage: builder.query<{ entries: GarageCar[]; total: number }, { page?: number; limit?: number }>({
       query: ({ page = 0, limit = 12 } = {}) => ({
         url: 'api/garage/following',
         params: { page, limit },
       }),
+      // The endpoint answers with `cars`, not `entries`.
+      transformResponse: (r: any): { entries: GarageCar[]; total: number } => {
+        const entries = r?.entries ?? r?.cars ?? [];
+        return { entries, total: r?.total ?? entries.length };
+      },
       providesTags: ['Cars'],
     }),
 
@@ -415,6 +421,68 @@ export const apiService = createApi({
     }),
 
     // ── Events ───────────────────────────────────────────────────────────────
+
+    // ── Society events (rebuilt model) ───────────────────────────────────
+    // Occurrences are expanded server-side from each event's schedule, so a
+    // "first and third Saturday" event arrives with real dates like any other.
+    getUpcomingEvents: builder.query<{ entries: SocietyEvent[]; total: number }, { limit?: number; category?: string; days?: number } | void>({
+      query: (params) => ({ url: 'api/events/upcoming', params: params ?? {} }),
+      providesTags: ['SocietyEvent'],
+    }),
+
+    getEventCalendar: builder.query<{ year: number; month: number; days: Record<string, SocietyEvent[]>; total: number }, { year: number; month: number; category?: string }>({
+      query: (params) => ({ url: 'api/events/calendar', params }),
+      providesTags: ['SocietyEvent'],
+    }),
+
+    getSocietyEvent: builder.query<SocietyEvent, string>({
+      query: (id) => `api/events/${id}`,
+      providesTags: (r, e, id) => [{ type: 'SocietyEvent', id }],
+    }),
+
+    getEventInterestedUsers: builder.query<{ entries: User[]; total: number }, string>({
+      query: (id) => `api/events/${id}/interested`,
+      providesTags: (r, e, id) => [{ type: 'EventInterest', id }],
+    }),
+
+    getEventTaggedPosts: builder.query<{ entries: Post[]; total: number }, string>({
+      query: (id) => `api/events/${id}/tagged-posts`,
+    }),
+
+    getFollowingEvents: builder.query<{ entries: SocietyEvent[]; total: number }, { limit?: number } | void>({
+      query: (params) => ({ url: 'api/events/following', params: params ?? {} }),
+      providesTags: ['SocietyEvent'],
+    }),
+
+    getMyEvents: builder.query<{ entries: SocietyEvent[]; total: number; upcoming_count: number }, void>({
+      query: () => 'api/events/mine/interested',
+      providesTags: ['EventInterest'],
+    }),
+
+    getMyEventsCount: builder.query<{ count: number }, void>({
+      query: () => 'api/events/mine/count',
+      providesTags: ['EventInterest'],
+    }),
+
+    toggleEventInterest: builder.mutation<{ is_interested: boolean; interested_count: number }, string>({
+      query: (event_id) => ({ url: 'api/events/interest', method: 'POST', body: { event_id } }),
+      invalidatesTags: (r, e, id) => [{ type: 'SocietyEvent', id }, 'EventInterest', 'SocietyEvent'],
+    }),
+
+    createSocietyEvent: builder.mutation<SocietyEvent, FormData>({
+      query: (body) => ({ url: 'api/events/create', method: 'POST', body }),
+      invalidatesTags: ['SocietyEvent'],
+    }),
+
+    updateSocietyEvent: builder.mutation<SocietyEvent, FormData>({
+      query: (body) => ({ url: 'api/events/update', method: 'POST', body }),
+      invalidatesTags: ['SocietyEvent'],
+    }),
+
+    deleteSocietyEvent: builder.mutation<void, string>({
+      query: (internal_id) => ({ url: 'api/events/delete', method: 'POST', body: { internal_id } }),
+      invalidatesTags: ['SocietyEvent', 'EventInterest'],
+    }),
 
     getEvents: builder.query<PaginatedResponse<Event>, { page?: number; limit?: number; group_id?: string }>({
       query: (params = {}) => ({ url: 'api/event', params: { page: params.page ?? 0, limit: params.limit ?? 12, ...params } }),
@@ -965,6 +1033,18 @@ export const {
   useToggleCarTaskMutation,
   useUpdateCarTaskPositionsMutation,
   useDeleteCarTaskMutation,
+  useGetUpcomingEventsQuery,
+  useGetEventCalendarQuery,
+  useGetSocietyEventQuery,
+  useGetEventInterestedUsersQuery,
+  useGetEventTaggedPostsQuery,
+  useGetFollowingEventsQuery,
+  useGetMyEventsQuery,
+  useGetMyEventsCountQuery,
+  useToggleEventInterestMutation,
+  useCreateSocietyEventMutation,
+  useUpdateSocietyEventMutation,
+  useDeleteSocietyEventMutation,
   useGetEventsQuery,
   useGetEventQuery,
   useAttendEventMutation,

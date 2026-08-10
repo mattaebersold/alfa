@@ -13,7 +13,6 @@ import GroupsStackNavigator from './GroupsStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
 import { colors } from '../constants/colors';
 import { useBrandColor, useBrandTextColor } from '../hooks/useBrandColor';
-import { useAppSelector } from '../store/store';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -84,15 +83,13 @@ export default function MainTabNavigator() {
   const brandColor = useBrandColor();
   const fabIconColor = useBrandTextColor();
   const rootNav = useNavigation<any>();
-  const { userInfo } = useAppSelector((s) => s.auth);
-  const isAdmin = userInfo?.accountType === 'admin';
 
   const openCreateMenu = () => {
     Alert.alert('Create', undefined, [
       { text: 'Post', onPress: () => rootNav.navigate('Create') },
       { text: 'Garage Car', onPress: () => rootNav.navigate('CarCreate') },
       { text: 'Diecast Listing', onPress: () => rootNav.navigate('DiecastCreate') },
-      ...(isAdmin ? [{ text: 'Event', onPress: () => rootNav.navigate('EventCreate') }] : []),
+      { text: 'Event', onPress: () => rootNav.navigate('SocietyEventCreate') },
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   };
@@ -153,7 +150,7 @@ export default function MainTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('SocietyTab', { screen: 'Society' });
+            navigation.navigate('SocietyTab', { screen: 'Events' });
           },
         })}
       />

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
   Pressable, Linking, Animated, Dimensions,
@@ -6,15 +6,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import {
-  House, Car, Users, ShoppingBag, BookOpen, Headphones,
-  Flag, X, ChevronRight, Settings, Link, LayoutDashboard, Store, Route, MessageCircle,
-  Search, MessageSquare, UserRound,
+  Car, Users, ShoppingBag, BookOpen,
+  Flag, X, ChevronRight, Link, Store, Route, MessageCircle,
+  Search, UserRound, Bell, Info, CalendarCheck, Mail,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LogOut } from 'lucide-react-native';
 import Avatar from './Avatar';
 import { useAppSelector, useAppDispatch } from '../../store/store';
+import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
+import MyEventsSheet from '../society/MyEventsSheet';
+import { useEventSheet } from '../../providers/EventSheetProvider';
+import { CONFIG } from '../../constants/config';
 import { logout } from '../../store/authSlice';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
@@ -32,22 +36,58 @@ function perceivedBrightness(hex: string): number {
 }
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, textMid, textHi, tileBg }: {
+function NavTile({ label, Icon, onPress, textMid, textHi, tileBg, count, wide }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
   textMid: string;
   textHi: string;
   tileBg: string;
+  /** Unread count — renders a red pill on the right when above zero. */
+  count?: number;
+  /** Fill the row instead of taking half of it. */
+  wide?: boolean;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.navTile, { backgroundColor: tileBg }]}
+      style={[styles.navTile, wide && styles.navTileWide, { backgroundColor: tileBg }]}
       onPress={onPress}
       activeOpacity={0.75}
     >
       <Icon size={17} color={textMid} />
       <Text style={[styles.navTileLabel, { color: textHi }]} numberOfLines={1}>{label}</Text>
+      {count != null && count > 0 && (
+        <View style={styles.unreadPill}>
+          <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+/** Round icon button with an unread bubble — the header's inbox shortcuts. */
+function HeaderIconButton({ Icon, count, onPress, bg, tint, label }: {
+  Icon: React.ComponentType<{ size: number; color: string }>;
+  count?: number;
+  onPress: () => void;
+  bg: string;
+  tint: string;
+  label: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.headerIconBtn, { backgroundColor: bg }]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={count ? `${label}, ${count} unread` : label}
+      hitSlop={6}
+    >
+      <Icon size={17} color={tint} />
+      {count != null && count > 0 && (
+        <View style={styles.headerBubble}>
+          <Text style={styles.headerBubbleText}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -63,6 +103,25 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const brandColor = useBrandColor();
+  const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
+
+  // Same sources as the header's red dot, so the badges always agree with it.
+  const { data: notifData } = useGetUnreadNotificationCountQuery(undefined, {
+    skip: !isLoggedIn,
+    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
+  });
+  const { data: msgData } = useGetUnreadMessageCountQuery(undefined, {
+    skip: !isLoggedIn,
+    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
+  });
+  const notifCount = notifData?.count ?? 0;
+  const messageCount = msgData?.count ?? 0;
+
+  // Upcoming events you've flagged interest in — the bubble on "Your Events".
+  const { data: myEventsData } = useGetMyEventsCountQuery(undefined, { skip: !isLoggedIn });
+  const myEventsCount = myEventsData?.count ?? 0;
+  const [myEventsOpen, setMyEventsOpen] = useState(false);
+  const { openEventSheet } = useEventSheet();
 
   const { isDark, textHi, textMid, textLo, divider, userCardBg, closeBtnBg } = useMemo(() => {
     const dark = perceivedBrightness(brandColor) < 128;
@@ -157,10 +216,28 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
           <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
             {/* Header */}
             <View style={styles.panelHeader}>
-              <Text style={[styles.panelLogo, { color: textHi }]}>Open Road Society</Text>
-              <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: closeBtnBg }]} hitSlop={8}>
-                <X size={16} color={textMid} />
-              </TouchableOpacity>
+              <Text style={[styles.panelLogo, { color: textHi }]} numberOfLines={1}>Open Road Society</Text>
+              <View style={styles.headerActions}>
+                <HeaderIconButton
+                  Icon={Mail}
+                  label="Messages"
+                  count={messageCount}
+                  bg={closeBtnBg}
+                  tint={textMid}
+                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
+                />
+                <HeaderIconButton
+                  Icon={Bell}
+                  label="Notifications"
+                  count={notifCount}
+                  bg={closeBtnBg}
+                  tint={textMid}
+                  onPress={() => closeThen(() => navigation.navigate('Notifications'))}
+                />
+                <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: closeBtnBg }]} hitSlop={8}>
+                  <X size={16} color={textMid} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* User card → Dashboard */}
@@ -188,22 +265,23 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
-              {/* Search + Messages — full-width, they're the most-used actions. */}
               <View style={styles.pairRow}>
-                <NavTile label="Search" Icon={Search} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                <NavTile label="Your Events" Icon={CalendarCheck} tileBg={userCardBg} textMid={textMid} textHi={textHi} wide
+                  count={myEventsCount}
+                  onPress={() => setMyEventsOpen(true)} />
+              </View>
+
+              <View style={[styles.pairRow, styles.rowGap]}>
+                <NavTile label="Search" Icon={Search} tileBg={userCardBg} textMid={textMid} textHi={textHi} wide
                   onPress={() => goFeed('Search')} />
-                <NavTile label="Messages" Icon={MessageSquare} tileBg={userCardBg} textMid={textMid} textHi={textHi}
-                  onPress={() => closeThen(() => navigation.navigate('Messages'))} />
               </View>
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>BROWSE</Text>
               {/* Two-column grid — half the height of a stacked list, which is
                   what kept the log-out button pushed below the fold. */}
               <View style={styles.grid}>
-                <NavTile label="Home" Icon={House} tileBg={userCardBg} textMid={textMid} textHi={textHi}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'FeedTab' }))} />
                 <NavTile label="Events" Icon={Flag} tileBg={userCardBg} textMid={textMid} textHi={textHi}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Society' } } as any))} />
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Events' } } as any))} />
                 <NavTile label="ORS Rallys" Icon={Route} tileBg={userCardBg} textMid={textMid} textHi={textHi}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
                 <NavTile label="Cars" Icon={Car} tileBg={userCardBg} textMid={textMid} textHi={textHi}
@@ -214,8 +292,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => goFeed('Members')} />
                 <NavTile label="Articles" Icon={BookOpen} tileBg={userCardBg} textMid={textMid} textHi={textHi}
                   onPress={() => goFeed('Articles')} />
-                <NavTile label="Podcasts" Icon={Headphones} tileBg={userCardBg} textMid={textMid} textHi={textHi}
-                  onPress={() => goFeed('Podcasts')} />
               </View>
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>SHOP</Text>
@@ -226,14 +302,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => closeThen(() => navigation.navigate('Shop'))} />
               </View>
 
-              <Text style={[styles.sectionLabel, { color: textLo }]}>MY ACCOUNT</Text>
-              <View style={styles.grid}>
-                <NavTile label="Dashboard" Icon={LayoutDashboard} tileBg={userCardBg} textMid={textMid} textHi={textHi}
-                  onPress={() => goFeed('Dashboard')} />
-                <NavTile label="Settings" Icon={Settings} tileBg={userCardBg} textMid={textMid} textHi={textHi}
-                  onPress={() => closeThen(() => navigation.navigate('Settings'))} />
-              </View>
-
               <Text style={[styles.sectionLabel, { color: textLo }]}>MORE</Text>
               <View style={styles.grid}>
                 <NavTile label="Instagram" Icon={Link} tileBg={userCardBg} textMid={textMid} textHi={textHi}
@@ -241,6 +309,18 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 <NavTile label="Discord" Icon={MessageCircle} tileBg={userCardBg} textMid={textMid} textHi={textHi}
                   onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')} />
               </View>
+
+              {/* Dark slab rather than a tile — it's the story of the place, not
+                  another destination in the grid. */}
+              <TouchableOpacity
+                style={[styles.aboutBtn, { backgroundColor: isDark ? 'rgba(0,0,0,0.45)' : '#111111' }]}
+                onPress={() => closeThen(() => navigation.navigate('About'))}
+                activeOpacity={0.85}
+              >
+                <Info size={18} color="#FFFFFF" />
+                <Text style={styles.aboutBtnText}>About Open Road Society</Text>
+                <ChevronRight size={15} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
             </ScrollView>
 
             <View style={[styles.footer, { borderTopColor: divider }]}>
@@ -271,6 +351,17 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
           </View>
         </Animated.View>
       </View>
+
+      <MyEventsSheet
+        visible={myEventsOpen}
+        onClose={() => setMyEventsOpen(false)}
+        onSelectEvent={(event) => {
+          setMyEventsOpen(false);
+          // Close the drawer first — the sheet lives at the root, so it would
+          // otherwise open behind it.
+          closeThen(() => openEventSheet({ eventId: event.internal_id }));
+        }}
+      />
     </Modal>
   );
 }
@@ -286,7 +377,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16,
   },
-  panelLogo:  { fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  panelLogo:  { fontSize: 15, fontWeight: '800', letterSpacing: 0.3, flexShrink: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerIconBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerBubble: {
+    position: 'absolute', top: -3, right: -3,
+    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4,
+    backgroundColor: '#EC4632',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerBubbleText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
   closeBtn:   {
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
@@ -309,7 +412,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 9,
     paddingHorizontal: 10, paddingVertical: 12, borderRadius: 10,
   },
+  navTileWide:  { width: undefined, flex: 1 },
   navTileLabel: { fontSize: 13.5, fontWeight: '700', flexShrink: 1 },
+  rowGap:       { marginTop: 8 },
+  unreadPill:   {
+    marginLeft: 'auto',
+    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5,
+    backgroundColor: '#EC4632',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  unreadPillText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
+
+  aboutBtn:     {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 4, marginTop: 20,
+    paddingHorizontal: 14, paddingVertical: 14, borderRadius: 12,
+  },
+  aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
 
   sectionLabel:  {
     fontSize: 11, fontWeight: '800',

@@ -1,15 +1,17 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useGetPostsQuery, useGetBatchLikesMutation } from '../../api/apiService';
+import { useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery, useGetFollowingEventsQuery } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
+import GarageAdditionCard from './GarageAdditionCard';
+import NewEventCard from './NewEventCard';
 import CommentsSheet from '../social/CommentsSheet';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
-import type { Post } from '../../types/api';
+import type { Post, GarageCar, SocietyEvent } from '../../types/api';
 
 interface FeedListProps {
   filter?: string;
@@ -17,6 +19,11 @@ interface FeedListProps {
   carId?: string;
   type?: string;
   excludeTypes?: string[];
+  /**
+   * Mix in cars that people you follow have added to their garages, interleaved
+   * with the posts by date. Home feed only — scoped lists stay posts-only.
+   */
+  includeGarageAdditions?: boolean;
   onPostPress?: (post: Post) => void;
   ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
   /** Extra top padding, so the list can scroll under a floating header. */
@@ -26,6 +33,15 @@ interface FeedListProps {
 }
 
 const PAGE_SIZE = 12;
+/** How far back the garage additions reach — they interleave, so a chunk is plenty. */
+const GARAGE_ADDITIONS_LIMIT = 20;
+
+type FeedRow =
+  | { kind: 'post'; post: Post; time: number }
+  | { kind: 'car'; car: GarageCar; time: number }
+  | { kind: 'event'; event: SocietyEvent; time: number };
+
+const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
 
 export default function FeedList({
   filter,
@@ -33,6 +49,7 @@ export default function FeedList({
   carId,
   type,
   excludeTypes,
+  includeGarageAdditions = false,
   onPostPress,
   ListHeaderComponent,
   paddingTop = 0,
@@ -50,6 +67,20 @@ export default function FeedList({
   const [getBatchLikes] = useGetBatchLikesMutation();
 
   const activeFilter = filter ?? (contentFilterEnabled ? 'safe' : undefined);
+
+  const { data: garageAdditions } = useGetFollowingGarageQuery(
+    { limit: GARAGE_ADDITIONS_LIMIT },
+    { skip: !includeGarageAdditions },
+  );
+  // Memoized so the merged row list below keeps a stable identity between renders.
+  const garageCars = useMemo(() => garageAdditions?.entries ?? [], [garageAdditions]);
+
+  // New events from people you follow ride the same feed.
+  const { data: followingEvents } = useGetFollowingEventsQuery(
+    { limit: 20 },
+    { skip: !includeGarageAdditions },
+  );
+  const newEvents = useMemo(() => followingEvents?.entries ?? [], [followingEvents]);
 
   const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
     page,
@@ -117,6 +148,29 @@ export default function FeedList({
     }
   }, [isFetching, data, allPosts.length]);
 
+  const hasMorePosts = !!data && allPosts.length < data.total;
+
+  // Merge garage additions into the post stream by date. Cars older than the
+  // oldest loaded post are held back until the posts around them arrive —
+  // otherwise they'd sit at the bottom and jump on the next page.
+  const rows = useMemo<FeedRow[]>(() => {
+    const postRows: FeedRow[] = allPosts.map((post) => ({ kind: 'post', post, time: timeOf(post.created_at) }));
+    if (!includeGarageAdditions || (garageCars.length === 0 && newEvents.length === 0)) return postRows;
+
+    const oldestPost = postRows.length ? Math.min(...postRows.map((r) => r.time)) : 0;
+    const inWindow = (created?: string) => !hasMorePosts || timeOf(created) >= oldestPost;
+
+    const carRows: FeedRow[] = garageCars
+      .filter((car) => inWindow(car.created_at))
+      .map((car) => ({ kind: 'car', car, time: timeOf(car.created_at) }));
+
+    const eventRows: FeedRow[] = newEvents
+      .filter((event) => inWindow(event.created_at))
+      .map((event) => ({ kind: 'event', event, time: timeOf(event.created_at) }));
+
+    return [...postRows, ...carRows, ...eventRows].sort((a, b) => b.time - a.time);
+  }, [allPosts, garageCars, newEvents, includeGarageAdditions, hasMorePosts]);
+
   if (isLoading && page === 0) {
     return (
       <View style={styles.loadingCenter}>
@@ -128,15 +182,25 @@ export default function FeedList({
   return (
     <>
       <FlatList
-        data={allPosts}
-        keyExtractor={(item) => item.internal_id}
-        renderItem={({ item }) => (
-          <FeedItemCard
-            post={item}
-            isLiked={item.isLiked ?? likedMap[item.internal_id]}
-            onPress={() => onPostPress?.(item)}
-            onCommentPress={() => setCommentPost(item)}
-          />
+        data={rows}
+        keyExtractor={(row) =>
+          row.kind === 'post' ? `post-${row.post.internal_id}`
+            : row.kind === 'car' ? `car-${row.car.internal_id}`
+            : `event-${row.event.internal_id}`
+        }
+        renderItem={({ item: row }) => (
+          row.kind === 'car' ? (
+            <GarageAdditionCard car={row.car} />
+          ) : row.kind === 'event' ? (
+            <NewEventCard event={row.event} />
+          ) : (
+            <FeedItemCard
+              post={row.post}
+              isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
+              onPress={() => onPostPress?.(row.post)}
+              onCommentPress={() => setCommentPost(row.post)}
+            />
+          )
         )}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={

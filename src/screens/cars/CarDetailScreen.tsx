@@ -60,9 +60,9 @@ function carCategoryLabel(key?: string) {
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const HERO_WIDTH = SCREEN_WIDTH * 0.88;
-const ALBUM_COL_WIDTH = 200;
-const GALLERY_HEIGHT = 280;
+const HERO_WIDTH = SCREEN_WIDTH * 0.92;
+const ALBUM_COL_WIDTH = 260;
+const GALLERY_HEIGHT = 380;
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
 type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | null;
@@ -275,6 +275,24 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
   );
 }
 
+// ── Filter chip (Records type/category filters) ──────────────────────────────
+
+function FilterChip({ label, active, onPress, accent }: { label: string; active: boolean; onPress: () => void; accent: string }) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.filterChip,
+        { borderColor: SHEET_BORDER },
+        active && { backgroundColor: accent, borderColor: accent },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Text style={[styles.filterChipText, { color: active ? '#000000' : SHEET_FG }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 // ── Mod card ─────────────────────────────────────────────────────────────────
 
 function ModCard({ mod, colors, onOptions }: { mod: Mod; colors: ReturnType<typeof useColors>; onOptions?: () => void }) {
@@ -344,6 +362,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [descLines, setDescLines] = useState<number | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  // Records pane filters — cleared whenever the pane leaves Records.
+  const [recordType, setRecordType] = useState<string | null>(null);
+  const [recordCategory, setRecordCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pane !== 'posts') { setRecordType(null); setRecordCategory(null); }
+  }, [pane]);
   // Single top-level gallery viewer (lightbox). Opening it from inside the
   // galleries pane is deferred until the pane's modal has fully dismissed —
   // iOS can't present a modal on top of one that's still on screen.
@@ -800,31 +825,80 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             ))}
           </View>
         );
-      case 'posts':
+      case 'posts': {
         if (posts.length === 0) return <EmptyState title="No records yet" />;
-        return posts.map((item) => {
-          const thumb = firstGalleryUrl(item.gallery);
-          const title = item.title ?? (item.body ? stripHtml(item.body) : null);
-          const timeAgo = item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '';
-          return (
-            <TouchableOpacity
-              key={item.internal_id}
-              style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
-              onPress={() => { setPane(null); appNav.navigate('PostDetailModal', { postId: item.internal_id }); }}
-              activeOpacity={0.7}
-            >
-              {thumb ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" /> : null}
-              <View style={{ flex: 1, gap: 3 }}>
-                {title ? <Text style={{ color: SHEET_FG, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>{title}</Text> : null}
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  {item.type && <Text style={{ color: colors.grey, fontSize: 11 }}>{TYPE_LABELS[item.type] ?? item.type}</Text>}
-                  {item.category && <Text style={{ color: colors.grey, fontSize: 11 }}>· {CATEGORY_LABELS[item.category] ?? item.category}</Text>}
-                  {timeAgo ? <Text style={{ color: colors.grey, fontSize: 11 }}>· {timeAgo}</Text> : null}
-                </View>
+
+        // Filters are built from what this car actually has, so they never offer
+        // a choice that returns nothing.
+        const typeKeys = Array.from(new Set(posts.map((p) => p.type).filter(Boolean))) as string[];
+        const byType = recordType ? posts.filter((p) => p.type === recordType) : posts;
+        const categoryKeys = Array.from(new Set(byType.map((p) => p.category).filter(Boolean))) as string[];
+        const visiblePosts = recordCategory ? byType.filter((p) => p.category === recordCategory) : byType;
+
+        const filtersEl = (typeKeys.length > 1 || categoryKeys.length > 1) ? (
+          <View style={[styles.recordFilters, { borderBottomColor: SHEET_BORDER }]}>
+            {typeKeys.length > 1 && (
+              <View style={styles.recordFilterRow}>
+                <FilterChip label="All Types" active={!recordType} accent={colors.primaryAlt} onPress={() => { setRecordType(null); setRecordCategory(null); }} />
+                {typeKeys.map((t) => (
+                  <FilterChip
+                    key={t}
+                    label={TYPE_LABELS[t] ?? t}
+                    active={recordType === t}
+                    accent={colors.primaryAlt}
+                    onPress={() => { setRecordType(recordType === t ? null : t); setRecordCategory(null); }}
+                  />
+                ))}
               </View>
-            </TouchableOpacity>
-          );
-        });
+            )}
+            {categoryKeys.length > 1 && (
+              <View style={styles.recordFilterRow}>
+                <FilterChip label="All Categories" active={!recordCategory} accent={colors.primaryAlt} onPress={() => setRecordCategory(null)} />
+                {categoryKeys.map((c) => (
+                  <FilterChip
+                    key={c}
+                    label={CATEGORY_LABELS[c] ?? c}
+                    active={recordCategory === c}
+                    accent={colors.primaryAlt}
+                    onPress={() => setRecordCategory(recordCategory === c ? null : c)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null;
+
+        return (
+          <>
+            {filtersEl}
+            {visiblePosts.length === 0
+              ? <EmptyState title="No records match those filters" />
+              : visiblePosts.map((item) => {
+                  const thumb = firstGalleryUrl(item.gallery);
+                  const title = item.title ?? (item.body ? stripHtml(item.body) : null);
+                  const timeAgo = item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '';
+                  return (
+                    <TouchableOpacity
+                      key={item.internal_id}
+                      style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
+                      onPress={() => { setPane(null); appNav.navigate('PostDetailModal', { postId: item.internal_id }); }}
+                      activeOpacity={0.7}
+                    >
+                      {thumb ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" /> : null}
+                      <View style={{ flex: 1, gap: 3 }}>
+                        {title ? <Text style={{ color: SHEET_FG, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>{title}</Text> : null}
+                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                          {item.type && <Text style={{ color: colors.grey, fontSize: 11 }}>{TYPE_LABELS[item.type] ?? item.type}</Text>}
+                          {item.category && <Text style={{ color: colors.grey, fontSize: 11 }}>· {CATEGORY_LABELS[item.category] ?? item.category}</Text>}
+                          {timeAgo ? <Text style={{ color: colors.grey, fontSize: 11 }}>· {timeAgo}</Text> : null}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+          </>
+        );
+      }
       case 'mods':
         if (mods.length === 0) return <EmptyState title="No mods yet" />;
         return mods.map((mod) => <ModCard key={mod.internal_id} mod={mod} colors={colors} />);
@@ -1546,7 +1620,12 @@ const styles = StyleSheet.create({
   modRowTitle:          { fontSize: 14, fontWeight: '600' },
   modRowType:           { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
 
-  tilesWrap:       { padding: 16, borderTopWidth: 1, paddingBottom: 180 },
+  recordFilters:   { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, gap: 8 },
+  recordFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+  filterChipText:  { fontSize: 12, fontWeight: '700' },
+
+  tilesWrap:       { padding: 16, borderTopWidth: 1, paddingBottom: 20 },
   carTilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   carTile:         {
     flexBasis: '47%', flexGrow: 1,
@@ -1574,8 +1653,6 @@ const styles = StyleSheet.create({
   specsSection:    { padding: 16 },
   postsSection:    { paddingBottom: 32, borderTopWidth: 1 },
   filterRow:       { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  filterChipText:  { fontSize: 12, fontWeight: '600' },
   recordThumb:     { width: 58, height: 58, borderRadius: 6 },
   postsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   inlineCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
