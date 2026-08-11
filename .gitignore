@@ -43,3 +43,6 @@ yarn-error.*
 # Google Play service account key (secret — never commit)
 open-road-society-*.json
 google-services.json
+
+# Local typecheck config (TS6 deprecation shim) — kept out of the repo
+tsconfig.check.json

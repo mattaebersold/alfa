@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
-import PostTagPicker from './PostTagPicker';
+import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
 import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalleryEditor';
 import { uploadFile } from '../../utils/upload';
 import {
@@ -42,8 +42,9 @@ const CATEGORIES_BY_TYPE: Record<string, { key: string; label: string }[]> = {
   want:    [{ key: 'part', label: 'Part' }, { key: 'car', label: 'Car' }, { key: 'other', label: 'Other' }],
 };
 
-type TagKind = 'user' | 'car' | 'event';
-interface TagItem { id: string; label: string; kind: TagKind }
+// Tag types come from the picker — see CreateScreen for the same reasoning.
+type TagKind = PickerTagKind;
+type TagItem = PickerTagItem;
 
 // Map the backend's tag_entry_type to our TagKind.
 function kindFromEntryType(t: string): TagKind | null {
@@ -147,6 +148,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const categories = CATEGORIES_BY_TYPE[type] ?? [];
 
   const toggleTag = (tag: TagItem) => {
+    if (tag.kind === 'group') return;
     const [list, setter] = tag.kind === 'user' ? [taggedUsers, setTaggedUsers]
       : tag.kind === 'car' ? [taggedCars, setTaggedCars]
       : [taggedEvents, setTaggedEvents];

@@ -18,7 +18,7 @@ import {
 } from '../../api/apiService';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import MentionInput from '../../components/ui/MentionInput';
-import PostTagPicker from '../../components/social/PostTagPicker';
+import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
 import { colors } from '../../constants/colors';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
@@ -72,8 +72,10 @@ const CATEGORIES: Record<PostType, { key: string; label: string }[]> = {
 
 // ── Tag types ─────────────────────────────────────────────────────────────────
 
-type TagKind = 'user' | 'car' | 'event';
-interface TagItem { id: string; label: string; kind: TagKind }
+// Tag types come from the picker so widening its TagKind (e.g. adding groups)
+// can't silently drift from what this screen handles.
+type TagKind = PickerTagKind;
+type TagItem = PickerTagItem;
 
 // ── Section ───────────────────────────────────────────────────────────────────
 
@@ -255,6 +257,8 @@ export default function CreateScreen() {
   // ── Tag helpers ─────────────────────────────────────────────────────────────
 
   const toggleTag = useCallback((tag: TagItem) => {
+    // Posts don't offer group tagging, so the picker never emits one here.
+    if (tag.kind === 'group') return;
     const setter = tag.kind === 'user' ? setTaggedUsers : tag.kind === 'car' ? setTaggedCars : setTaggedEvents;
     setter((prev) => {
       const exists = prev.some(t => t.id === tag.id);

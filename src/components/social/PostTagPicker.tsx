@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag } from 'lucide-react-native';
+import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon } from 'lucide-react-native';
 import {
   useSearchQuery,
   useGetPreviouslyTaggedUsersQuery,
   useGetPreviouslyTaggedCarsQuery,
   useGetPreviouslyTaggedEventsQuery,
+  useGetPreviouslyTaggedGroupsQuery,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 
-export type TagKind = 'user' | 'car' | 'event';
+export type TagKind = 'user' | 'car' | 'event' | 'group';
 export interface TagItem { id: string; label: string; kind: TagKind }
 
 // Small debounce so each row's search only fires when typing settles.
@@ -138,25 +139,34 @@ interface Props {
   users: TagItem[];
   cars: TagItem[];
   events: TagItem[];
+  /**
+   * Groups. Opt-in: passing this array turns on the group row. Posts don't
+   * pass it today, so their tag UI is unchanged; routes do.
+   */
+  groups?: TagItem[];
   onToggle: (t: TagItem) => void;
 }
 
-export default function PostTagPicker({ users, cars, events, onToggle }: Props) {
+export default function PostTagPicker({ users, cars, events, groups, onToggle }: Props) {
   const colors = useColors();
 
   const [userQ, setUserQ]   = useState('');
   const [carQ, setCarQ]     = useState('');
   const [eventQ, setEventQ] = useState('');
+  const [groupQ, setGroupQ] = useState('');
   const dUser  = useDebounced(userQ);
   const dCar   = useDebounced(carQ);
   const dEvent = useDebounced(eventQ);
+  const dGroup = useDebounced(groupQ);
 
   const { data: userSearch }  = useSearchQuery(dUser,  { skip: dUser.length < 2 });
   const { data: carSearch }   = useSearchQuery(dCar,   { skip: dCar.length < 2 });
   const { data: eventSearch } = useSearchQuery(dEvent, { skip: dEvent.length < 2 });
+  const { data: groupSearch } = useSearchQuery(dGroup, { skip: !groups || dGroup.length < 2 });
   const { data: prevUsers }  = useGetPreviouslyTaggedUsersQuery();
   const { data: prevCars }   = useGetPreviouslyTaggedCarsQuery();
   const { data: prevEvents } = useGetPreviouslyTaggedEventsQuery();
+  const { data: prevGroups } = useGetPreviouslyTaggedGroupsQuery(undefined, { skip: !groups });
 
   const toUser  = (u: any): TagItem => ({
     id: u.user_id || u.internal_id,
@@ -169,6 +179,7 @@ export default function PostTagPicker({ users, cars, events, onToggle }: Props) 
     kind: 'car',
   });
   const toEvent = (e: any): TagItem => ({ id: e.internal_id, label: e.title || 'Event', kind: 'event' });
+  const toGroup = (g: any): TagItem => ({ id: g.internal_id, label: g.title || 'Group', kind: 'group' });
 
   return (
     <View>
@@ -193,6 +204,15 @@ export default function PostTagPicker({ users, cars, events, onToggle }: Props) 
         recent={(prevEvents?.events ?? []).map(toEvent)}
         onToggle={onToggle}
       />
+      {groups && (
+        <TagRow
+          title="Tag Groups" placeholder="Search groups…" Icon={UsersIcon} accent={colors.gold}
+          query={groupQ} onQuery={setGroupQ} selected={groups}
+          suggestions={(groupSearch?.groups ?? []).map(toGroup)}
+          recent={(prevGroups?.groups ?? []).map(toGroup)}
+          onToggle={onToggle}
+        />
+      )}
     </View>
   );
 }

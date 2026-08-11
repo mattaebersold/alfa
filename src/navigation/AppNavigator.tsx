@@ -27,6 +27,9 @@ import SettingsScreen from '../screens/profile/SettingsScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import CreateScreen from '../screens/create/CreateScreen';
 import DiecastCreateScreen from '../screens/create/DiecastCreateScreen';
+import RouteRecordScreen from '../screens/routes/RouteRecordScreen';
+import RouteSaveScreen from '../screens/routes/RouteSaveScreen';
+import RouteDetailScreen from '../screens/routes/RouteDetailScreen';
 import { DIECAST_BLUE } from '../constants/diecast';
 import CreateStoryScreen from '../screens/create/CreateStoryScreen';
 import StoryDetailsScreen from '../screens/create/StoryDetailsScreen';
@@ -93,6 +96,23 @@ export default function AppNavigator() {
         name="Create"
         component={CreateScreen}
         options={({ navigation }) => ({ headerShown: true, title: 'Create', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+      />
+      {/* Recording takes the whole screen — a live map with no chrome competing
+          with it — and the save step follows as a normal modal. */}
+      <Stack.Screen
+        name="RouteRecord"
+        component={RouteRecordScreen}
+        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="RouteDetailModal"
+        component={RouteDetailScreen}
+        options={({ navigation }) => ({ headerShown: true, title: 'Route', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+      />
+      <Stack.Screen
+        name="RouteSave"
+        component={RouteSaveScreen}
+        options={{ headerShown: true, title: 'Save Route', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '' }}
       />
       <Stack.Screen
         name="DiecastCreate"

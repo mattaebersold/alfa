@@ -6,10 +6,12 @@ import { Image } from 'expo-image';
 import { useGetSiteSettingsQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
 import Avatar from '../ui/Avatar';
+import RowEndSpacer from '../ui/RowEndSpacer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 0;
 const CARD_GAP = 10;
+const ROW_PAD = 14; // matches the section heading's inset
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 const CARD_HEIGHT = 240;
 const S3 = 'https://partstash-ghia-images.s3.us-west-2.amazonaws.com/';
@@ -86,6 +88,7 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
             onPress={() => onCarPress(car.internal_id)}
           />
         ))}
+        <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
     </View>
   );
@@ -94,7 +97,7 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
 const styles = StyleSheet.create({
   container:  { backgroundColor: '#000', paddingTop: 14, paddingBottom: 14 },
   heading:    { fontSize: 16, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF' },
-  scroll:     { gap: CARD_GAP, paddingHorizontal: H_PAD },
+  scroll:     { gap: CARD_GAP, paddingLeft: ROW_PAD },
   card:       {
     width: CARD_WIDTH, height: CARD_HEIGHT,
     borderRadius: 14, overflow: 'hidden',

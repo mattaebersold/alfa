@@ -19,6 +19,13 @@ interface InlineCommentsProps {
   entryType: string;
   /** Section heading; omit to render none. */
   title?: string;
+  /**
+   * Fired when the comment box takes focus.
+   *
+   * This component lives inside a parent ScrollView, so it can't scroll itself
+   * into view above the keyboard — only the parent owns that scroll position.
+   */
+  onInputFocus?: () => void;
   /** Background for the section, so it can be set off from the page. */
   backgroundColor?: string;
 }
@@ -31,7 +38,7 @@ interface InlineCommentsProps {
  * same-direction VirtualizedList inside one breaks scrolling and warns.
  */
 export default function InlineComments({
-  documentId, entryType, title = 'Comments', backgroundColor,
+  documentId, entryType, title = 'Comments', backgroundColor, onInputFocus,
 }: InlineCommentsProps) {
   const c = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -111,9 +118,18 @@ export default function InlineComments({
         <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={30} />
         <View style={styles.inputFlex}>
           <MentionInput
+            // MentionInput applies no colour of its own, so without this the
+            // TextInput falls back to RN's default black — invisible against
+            // the dark comment surface. Same reason as placeholderTextColor
+            // below, which was already handled.
+            style={[styles.input, { color: c.fg }]}
             value={commentText}
             onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
             placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
+            // Without this the placeholder falls back to RN's system colour,
+            // which is near-invisible on the dark sheet.
+            placeholderTextColor={c.grey}
+            onFocus={onInputFocus}
             multiline
           />
         </View>
@@ -157,6 +173,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16,
   },
   inputFlex: { flex: 1 },
+  // Matches the comment sheet's input metrics; the surrounding row supplies
+  // the spacing, so this stays borderless rather than becoming a pill.
+  input:     { fontSize: 15, maxHeight: 100, paddingVertical: 4 },
   sendBtn:   { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:  { fontWeight: '700', fontSize: 13 },

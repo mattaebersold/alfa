@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Road Society",
     "slug": "alfa",
-    "version": "1.22",
+    "version": "1.23",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -23,7 +23,8 @@
         "NSMicrophoneUsageDescription": "Required to record video stories with audio.",
         "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
         "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Open Road Society records the roads you drive so you can save and share them as routes."
       }
     },
     "android": {
@@ -37,7 +38,9 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -70,7 +73,14 @@
       ],
       "expo-asset",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-maps",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Open Road Society uses your location to record the roads you drive, so you can save and share them as routes."
+        }
+      ]
     ],
     "scheme": "openroadsociety",
     "extra": {

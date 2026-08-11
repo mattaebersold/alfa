@@ -433,6 +433,126 @@ export interface Tag {
   tagged_car?: GarageCar;
 }
 
+// ── Driving routes ───────────────────────────────────────────────────────────
+
+/** Derived stats. Computed server-side from the recorded track — see
+ *  horacio/helpers/routeGeometry.js. All distances in metres, speeds in m/s. */
+export interface RouteStats {
+  distance_meters: number;
+  duration_ms: number;
+  /** Time spent moving; excludes stops. */
+  moving_ms: number;
+  /** Averaged over moving time, not elapsed. */
+  avg_speed: number;
+  max_speed: number;
+  elevation_gain: number;
+  /** Degrees of turning per kilometre. */
+  turn_per_km: number;
+  /** turn_per_km normalised to 0-100. */
+  curviness: number;
+  bounds?: { min_lat: number; max_lat: number; min_lng: number; max_lng: number };
+  start_point?: { lat: number; lng: number };
+  end_point?: { lat: number; lng: number };
+  sample_count?: number;
+}
+
+/** A place near the driver, offered when naming a pit stop. */
+export interface NearbyPlace {
+  place_id: string;
+  name: string;
+  category?: string | null;
+  lat?: number;
+  lng?: number;
+  /** Metres from the driver. */
+  distance?: number | null;
+}
+
+/** Somewhere worth stopping, dropped while recording. */
+export interface RoutePitStop {
+  lat: number;
+  lng: number;
+  t?: number;
+  label?: string;
+  note?: string;
+  place_id?: string;
+}
+
+/** One leg of a route's directions: a road, how far along it, how you joined. */
+export interface RouteStep {
+  road: string;
+  meters: number;
+  /** 'continue' | 'left' | 'right' | 'slight left' | 'sharp right' | … */
+  turn?: string | null;
+}
+
+export interface DrivingRoute {
+  _id?: string;
+  internal_id: string;
+  user_id: string;
+  entry_type?: 'route';
+  title?: string;
+  body?: string;
+  gallery?: GalleryItem[];
+  private?: boolean;
+
+  /** Encoded polyline (precision 5) of the simplified path. */
+  polyline?: string;
+  /** Speed (m/s) at each polyline point, same length and order. Drives the
+   *  red→green speed gradient on traces and maps. */
+  speed_profile?: number[];
+  stats?: RouteStats;
+
+  /**
+   * The named roads this drive followed, resolved once when the route was saved
+   * and stored server-side. Reading them costs no map API calls.
+   */
+  directions?: RouteStep[];
+  pit_stops?: RoutePitStop[];
+  directions_status?: 'pending' | 'ready' | 'unavailable';
+
+  /** Creator's subjective 1-5 rating, shown next to the computed curviness. */
+  technical_rating?: number;
+  surface?: 'paved' | 'mixed' | 'dirt';
+  start_place?: string;
+  end_place?: string;
+  car_id?: string;
+  vote_count?: number;
+
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** What GET /api/routes/:id returns. */
+export interface DrivingRouteDetail {
+  entry: DrivingRoute;
+  user?: User;
+  vote_count: number;
+  has_voted: boolean;
+}
+
+export type RouteSort = 'recent' | 'votes' | 'distance' | 'curviness' | 'duration';
+
+/** Query params accepted by GET /api/routes.
+ *  `min_distance`/`max_distance` are in KILOMETRES — the API multiplies by 1000
+ *  to compare against `stats.distance_meters`. The UI works in miles, so it
+ *  converts before calling. */
+export interface RouteListParams {
+  page?: number;
+  limit?: number;
+  sort?: RouteSort;
+  user_id?: string;
+  scope?: 'protected';
+  surface?: string;
+  car_id?: string;
+  /** Routes tagged with this group — powers the group's Routes section. */
+  group_id?: string;
+  min_distance?: number;
+  max_distance?: number;
+  min_curviness?: number;
+  max_curviness?: number;
+  min_technical?: number;
+}
+
 // Paginated response envelope
 export interface PaginatedResponse<T> {
   entries: T[];

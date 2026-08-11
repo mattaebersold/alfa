@@ -50,6 +50,7 @@ import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES } from '../../constants/carTypes';
 import type { AppStackParamList } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod } from '../../types/api';
 import { ss } from '../../styles/shared';
+import RowEndSpacer from '../../components/ui/RowEndSpacer';
 
 const ALL_CATEGORIES = Object.values(CAR_CATEGORIES).flat();
 function carTypeLabel(key?: string) {
@@ -267,6 +268,7 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
             <Text style={styles.addGalleryText}>Add Gallery</Text>
           </TouchableOpacity>
         )}
+        <RowEndSpacer />
       </ScrollView>
       {lightbox && (
         <Lightbox images={lightbox.images} initialIndex={lightbox.index} title={lightbox.title} onClose={() => setLightbox(null)} />
@@ -976,12 +978,24 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
+      {/* Lifts the page clear of the keyboard when the comment box is focused,
+          matching the post pane. The offset is 0 rather than the post pane's 90
+          because AppHeader floats absolutely here — this view already starts at
+          the top of the screen. */}
+      <KeyboardAvoidingView
+        style={ss.fill}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: headerPad, paddingBottom: tabBarClearance + 16 }}
         onScroll={onHeaderScroll}
         scrollEventThrottle={16}
+        // Without this the first tap on Post is swallowed dismissing the
+        // keyboard, so posting a comment takes two taps.
+        keyboardShouldPersistTaps="handled"
       >
 
         {/* Car title leads the page and scrolls away with the content. */}
@@ -1228,9 +1242,16 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           documentId={car.internal_id}
           entryType={(car as any).entry_type ?? 'garagecar'}
           backgroundColor={colors.bgDark}
+          // Comments are the last section, so scrolling to the end puts the
+          // input just above the keyboard. Shrinking the viewport alone leaves
+          // it off-screen when the page is scrolled up.
+          onInputFocus={() => {
+            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+          }}
         />
 
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Mod edit sheet ── */}
       <BottomSheet
@@ -1498,7 +1519,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 const styles = StyleSheet.create({
 
   galleryWrap:    { height: GALLERY_HEIGHT + 24, backgroundColor: '#000' },
-  galleryStrip:   { paddingVertical: 12, gap: 10, alignItems: 'flex-start' },
+  galleryStrip:   { paddingVertical: 12, paddingLeft: 12, gap: 10, alignItems: 'flex-start' },
   heroSlide:      { width: HERO_WIDTH, height: GALLERY_HEIGHT, borderRadius: 12, overflow: 'hidden' },
   fullHero:       { width: SCREEN_WIDTH, height: GALLERY_HEIGHT + 24 },
   addGalleryOverlay: {

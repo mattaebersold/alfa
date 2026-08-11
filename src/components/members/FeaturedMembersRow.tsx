@@ -7,10 +7,12 @@ import { Car } from 'lucide-react-native';
 import SteeringWheel from '../ui/SteeringWheel';
 import { useGetSiteSettingsQuery, useGetCarsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
+import RowEndSpacer from '../ui/RowEndSpacer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.40;
 const CARD_GAP = 10;
+const ROW_PAD = 14; // matches the section heading's inset
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -83,6 +85,7 @@ export default function FeaturedMembersRow({ onMemberPress }: Props) {
             onPress={() => onMemberPress(member.user_id, member.username)}
           />
         ))}
+        <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
     </View>
   );
@@ -91,7 +94,7 @@ export default function FeaturedMembersRow({ onMemberPress }: Props) {
 const styles = StyleSheet.create({
   container:  { backgroundColor: '#000', paddingTop: 14, paddingBottom: 14 },
   heading:    { fontSize: 16, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF' },
-  scroll:     { gap: CARD_GAP, paddingHorizontal: 0 },
+  scroll:     { gap: CARD_GAP, paddingLeft: ROW_PAD },
   card:       {
     width: CARD_WIDTH,
     aspectRatio: 1,

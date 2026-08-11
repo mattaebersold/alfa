@@ -17,6 +17,7 @@ import {
   useGetGroupResourcesQuery,
   useGetEventsQuery,
   useGetGroupCarsQuery,
+  useGetRoutesQuery,
   useGetUserGarageQuery,
   useUpdateCarGroupMutation,
   useGetPostsQuery,
@@ -29,10 +30,12 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
+import RouteTrace from '../../components/routes/RouteTrace';
+import { formatDistance, curvinessLabel } from '../../utils/routeGeometry';
 import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
-type ActiveTab = 'posts' | 'forum' | 'news' | 'members' | 'cars' | 'events' | 'market' | 'resources';
+type ActiveTab = 'posts' | 'forum' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
 
 const TABS: { key: ActiveTab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
@@ -41,6 +44,7 @@ const TABS: { key: ActiveTab; label: string }[] = [
   { key: 'members',   label: 'Members' },
   { key: 'cars',      label: 'Cars' },
   { key: 'events',    label: 'Events' },
+  { key: 'routes',    label: 'Routes' },
   { key: 'market',    label: 'Market' },
   { key: 'resources', label: 'Resources' },
 ];
@@ -127,6 +131,9 @@ export default function GroupSectionScreen() {
   const { data: resourcesData, isFetching: resourcesFetching } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
   const { data: eventsData,    isFetching: eventsFetching }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
   const { data: carsData,      isFetching: carsFetching }      = useGetGroupCarsQuery(groupId, { skip: tab !== 'cars' });
+  // Routes tagged with this group. The association lives in the shared Tag
+  // collection, so the API resolves it rather than the route carrying a group_id.
+  const { data: routesData,    isFetching: routesFetching }    = useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: 30 }, { skip: tab !== 'routes' });
   const { data: marketData,    isFetching: marketFetching }    = useGetPostsQuery({ group_id: groupId, type: 'listing', limit: 30 }, { skip: tab !== 'market' });
 
   const switchTab = (newTab: ActiveTab) => {
@@ -284,6 +291,27 @@ export default function GroupSectionScreen() {
     }
 
 
+    if (item._tab === 'routes') {
+      const stats = d.stats;
+      return (
+        <TouchableOpacity
+          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
+          onPress={() => (navigation as any).navigate('RouteDetailModal', { routeId: d.internal_id })}
+          activeOpacity={0.8}
+        >
+          <RouteTrace polyline={d.polyline} speeds={d.speed_profile} color={c.primaryAlt} style={styles.rowThumb} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title || 'Untitled route'}</Text>
+            {stats && (
+              <Text style={[styles.metaText, { color: c.grey }]}>
+                {formatDistance(stats.distance_meters)} · {curvinessLabel(stats.curviness)} · {d.vote_count ?? 0} votes
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
     if (item._tab === 'events') {
       const hero = firstGalleryUrl(d.gallery);
       const date = d.event_date ? format(new Date(d.event_date), 'MMM d, yyyy') : null;
@@ -353,7 +381,8 @@ export default function GroupSectionScreen() {
     (tab === 'resources' && resourcesFetching) ||
     (tab === 'events' && eventsFetching) ||
     (tab === 'cars' && carsFetching) ||
-    (tab === 'market' && marketFetching)
+    (tab === 'market' && marketFetching) ||
+    (tab === 'routes' && routesFetching)
   );
 
   let rawItems: any[] = [];
@@ -364,6 +393,7 @@ export default function GroupSectionScreen() {
     case 'resources': rawItems = resourcesData?.entries ?? []; break;
     case 'events':    rawItems = eventsData?.entries ?? [];    break;
     case 'cars':      rawItems = carsData?.entries ?? [];      break;
+    case 'routes':    rawItems = routesData?.entries ?? [];    break;
     case 'market':    rawItems = marketData?.entries ?? [];    break;
     case 'members':   rawItems = members.filter((m) => m.status === 'active'); break;
   }

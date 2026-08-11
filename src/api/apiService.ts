@@ -4,6 +4,7 @@ import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
+  DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -16,7 +17,7 @@ export const apiService = createApi({
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
-    'Block', 'FlaggedContent',
+    'Block', 'FlaggedContent', 'Route',
   ],
   endpoints: (builder) => ({
 
@@ -484,6 +485,49 @@ export const apiService = createApi({
       invalidatesTags: ['SocietyEvent', 'EventInterest'],
     }),
 
+    // ── Driving routes ──────────────────────────────────────────────────────
+    // Reads are open to everyone; creating is pro-only and enforced by the API.
+
+    getRoutes: builder.query<{ entries: DrivingRoute[]; total: number }, RouteListParams | void>({
+      query: (params) => ({ url: 'api/routes', params: (params ?? {}) as Record<string, any> }),
+      providesTags: ['Route'],
+    }),
+
+    // Proxied through our API so the maps key never ships in the app binary.
+    getNearbyPlaces: builder.query<{ places: NearbyPlace[] }, { lat: number; lng: number }>({
+      query: ({ lat, lng }) => ({ url: 'api/routes/nearby', params: { lat, lng } }),
+    }),
+
+    getRoute: builder.query<DrivingRouteDetail, string>({
+      query: (id) => `api/routes/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Route', id }],
+    }),
+
+    createRoute: builder.mutation<DrivingRoute, FormData>({
+      query: (body) => ({ url: 'api/routes/create', method: 'POST', body }),
+      invalidatesTags: ['Route', 'UserEntries'],
+    }),
+
+    updateRoute: builder.mutation<{ entry: DrivingRoute }, FormData>({
+      query: (body) => ({ url: 'api/routes/update', method: 'POST', body }),
+      invalidatesTags: ['Route'],
+    }),
+
+    deleteRoute: builder.mutation<void, string>({
+      query: (internal_id) => ({ url: 'api/routes/delete', method: 'POST', body: { internal_id } }),
+      invalidatesTags: ['Route', 'UserEntries'],
+    }),
+
+    voteRoute: builder.mutation<{ vote_count: number; has_voted: boolean }, string>({
+      query: (internal_id) => ({ url: 'api/routes/vote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, id) => [{ type: 'Route', id }, 'Route'],
+    }),
+
+    unvoteRoute: builder.mutation<{ vote_count: number; has_voted: boolean }, string>({
+      query: (internal_id) => ({ url: 'api/routes/unvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, id) => [{ type: 'Route', id }, 'Route'],
+    }),
+
     getEvents: builder.query<PaginatedResponse<Event>, { page?: number; limit?: number; group_id?: string }>({
       query: (params = {}) => ({ url: 'api/event', params: { page: params.page ?? 0, limit: params.limit ?? 12, ...params } }),
       providesTags: ['Events'],
@@ -771,7 +815,22 @@ export const apiService = createApi({
       query: (limit = 12) => `api/tags/previously-tagged/events?limit=${limit ?? 12}`,
     }),
 
-    syncPostTags: builder.mutation<void, { post_id: string; tagged_users: string[]; tagged_cars: string[]; tagged_events: string[] }>({
+    // Falls back to the groups you're a member of when you haven't tagged any
+    // yet, so the picker opens with something useful rather than blank.
+    getPreviouslyTaggedGroups: builder.query<{ groups: Group[]; total: number }, number | void>({
+      query: (limit = 12) => `api/tags/previously-tagged/groups?limit=${limit ?? 12}`,
+    }),
+
+    // `entity_type` selects which collection the id is looked up in — posts by
+    // default, or 'article' / 'route'. The Tag records themselves are generic.
+    syncPostTags: builder.mutation<void, {
+      post_id: string;
+      tagged_users: string[];
+      tagged_cars: string[];
+      tagged_events: string[];
+      tagged_groups?: string[];
+      entity_type?: 'post' | 'article' | 'route';
+    }>({
       query: (body) => ({ url: 'api/tags/sync', method: 'POST', body }),
       invalidatesTags: (result, error, { post_id }) => [{ type: 'Post', id: `tags-${post_id}` }],
     }),
@@ -1124,4 +1183,13 @@ export const {
   useBlockUserMutation,
   useUnblockUserMutation,
   useGetBlockedUsersQuery,
+  useGetPreviouslyTaggedGroupsQuery,
+  useGetRoutesQuery,
+  useGetNearbyPlacesQuery,
+  useGetRouteQuery,
+  useCreateRouteMutation,
+  useUpdateRouteMutation,
+  useDeleteRouteMutation,
+  useVoteRouteMutation,
+  useUnvoteRouteMutation,
 } = apiService;

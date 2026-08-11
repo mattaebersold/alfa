@@ -9,6 +9,7 @@ import { useGetRallysQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { Rally } from '../../types/api';
+import RowEndSpacer from '../ui/RowEndSpacer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks, matching the events row.
@@ -77,6 +78,7 @@ export default function RallyCarousel() {
             </TouchableOpacity>
           );
         })}
+        <RowEndSpacer />
       </ScrollView>
 
       <RallyDetailSheet rallyId={selectedRallyId} onClose={() => setSelectedRallyId(null)} />
@@ -88,7 +90,7 @@ const styles = StyleSheet.create({
   head:    { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 10 },
   heading: { fontSize: 20, fontWeight: '800' },
 
-  row:  { paddingHorizontal: 12, gap: 12 },
+  row:  { paddingLeft: 12, gap: 12 },
   card: { aspectRatio: 16 / 10, borderRadius: 12, overflow: 'hidden', justifyContent: 'flex-end' },
 
   body:  { padding: 12, gap: 3 },

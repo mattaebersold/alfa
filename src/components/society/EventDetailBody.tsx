@@ -26,6 +26,7 @@ import { categoryFor, formatTime, occurrenceDate } from '../../constants/eventTy
 import EventDateBadge from './EventDateBadge';
 import EventImage from './EventImage';
 import { googleCalendarUrl } from '../../utils/calendarLinks';
+import RowEndSpacer from '../ui/RowEndSpacer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Three tiles across the padded section, so a fourth peeks from the slider.
@@ -290,6 +291,7 @@ export function EventDetailBody({
                 </TouchableOpacity>
               );
             })}
+            <RowEndSpacer width={16} />
           </ScrollView>
         )}
 
@@ -378,7 +380,7 @@ const styles = StyleSheet.create({
   map: { width: '100%', height: 130, borderRadius: 12 },
 
   postRowOuter: { marginHorizontal: -16 },
-  postRow:      { paddingHorizontal: 16, gap: 8 },
+  postRow:      { paddingLeft: 16, gap: 8 },
   postTile:     { width: POST_TILE, aspectRatio: 1, borderRadius: 8, overflow: 'hidden' },
 
   footer: {

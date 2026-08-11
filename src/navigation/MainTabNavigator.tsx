@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Home, Users, Car, Plus } from 'lucide-react-native';
+import { Home, Users, Car, Route as RouteIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import CheckeredFlag from '../components/ui/CheckeredFlag';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
 import GroupsStackNavigator from './GroupsStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
+import RoutesStackNavigator from './RoutesStackNavigator';
 import { colors } from '../constants/colors';
-import { useBrandColor, useBrandTextColor } from '../hooks/useBrandColor';
+import { useBrandColor } from '../hooks/useBrandColor';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -22,9 +22,6 @@ function perceivedBrightness(hex: string): number {
   const b = parseInt(hex.slice(5, 7), 16);
   return (r * 299 + g * 587 + b * 114) / 1000;
 }
-
-// Empty placeholder — never actually rendered (Create tab intercepted before navigation)
-function EmptyScreen() { return null; }
 
 // Tab-bar background: a vertical gradient that's dark at the bottom and fades
 // fully to transparent at the top. Measured in pixels (onLayout) so it reliably
@@ -81,18 +78,6 @@ export default function MainTabNavigator() {
   const tabBarHeight = 46 + insets.bottom + extraTabPad;
 
   const brandColor = useBrandColor();
-  const fabIconColor = useBrandTextColor();
-  const rootNav = useNavigation<any>();
-
-  const openCreateMenu = () => {
-    Alert.alert('Create', undefined, [
-      { text: 'Post', onPress: () => rootNav.navigate('Create') },
-      { text: 'Garage Car', onPress: () => rootNav.navigate('CarCreate') },
-      { text: 'Diecast Listing', onPress: () => rootNav.navigate('DiecastCreate') },
-      { text: 'Event', onPress: () => rootNav.navigate('SocietyEventCreate') },
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
-  };
 
   return (
     <Tab.Navigator
@@ -155,25 +140,21 @@ export default function MainTabNavigator() {
         })}
       />
 
-      {/* Center + button */}
       <Tab.Screen
-        name="MarketTab"
-        component={EmptyScreen}
+        name="RoutesTab"
+        component={RoutesStackNavigator}
         options={{
-          title: '',
-          tabBarIcon: () => (
-            <View style={[styles.fab, { backgroundColor: brandColor }]}>
-              <Plus size={26} color={fabIconColor} strokeWidth={2.5} />
-            </View>
+          title: 'Routes',
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={RouteIcon} color={color} size={size} focused={focused} brandColor={brandColor} />
           ),
-          tabBarLabel: () => null,
         }}
-        listeners={{
+        listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            openCreateMenu();
+            navigation.navigate('RoutesTab', { screen: 'Routes' });
           },
-        }}
+        })}
       />
 
       <Tab.Screen
@@ -216,19 +197,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 108,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -5,
-    marginBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 10,
   },
 });

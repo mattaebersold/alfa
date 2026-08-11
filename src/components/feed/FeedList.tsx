@@ -2,16 +2,17 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery, useGetFollowingEventsQuery } from '../../api/apiService';
+import { useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery, useGetFollowingEventsQuery, useGetRoutesQuery } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
 import GarageAdditionCard from './GarageAdditionCard';
 import NewEventCard from './NewEventCard';
+import RouteCard from '../cards/RouteCard';
 import CommentsSheet from '../social/CommentsSheet';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
-import type { Post, GarageCar, SocietyEvent } from '../../types/api';
+import type { Post, GarageCar, SocietyEvent, DrivingRoute } from '../../types/api';
 
 interface FeedListProps {
   filter?: string;
@@ -39,7 +40,8 @@ const GARAGE_ADDITIONS_LIMIT = 20;
 type FeedRow =
   | { kind: 'post'; post: Post; time: number }
   | { kind: 'car'; car: GarageCar; time: number }
-  | { kind: 'event'; event: SocietyEvent; time: number };
+  | { kind: 'event'; event: SocietyEvent; time: number }
+  | { kind: 'route'; route: DrivingRoute; time: number };
 
 const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
 
@@ -81,6 +83,16 @@ export default function FeedList({
     { skip: !includeGarageAdditions },
   );
   const newEvents = useMemo(() => followingEvents?.entries ?? [], [followingEvents]);
+
+  // Routes ride the same feed. Unlike garage additions and events — which are
+  // scoped to people you follow — these are the newest public routes, because
+  // routes are a discovery feature: the point is finding roads you haven't
+  // driven, not seeing what your friends did.
+  const { data: routeData } = useGetRoutesQuery(
+    { sort: 'recent', limit: 20 },
+    { skip: !includeGarageAdditions },
+  );
+  const newRoutes = useMemo(() => routeData?.entries ?? [], [routeData]);
 
   const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
     page,
@@ -155,7 +167,8 @@ export default function FeedList({
   // otherwise they'd sit at the bottom and jump on the next page.
   const rows = useMemo<FeedRow[]>(() => {
     const postRows: FeedRow[] = allPosts.map((post) => ({ kind: 'post', post, time: timeOf(post.created_at) }));
-    if (!includeGarageAdditions || (garageCars.length === 0 && newEvents.length === 0)) return postRows;
+    if (!includeGarageAdditions
+      || (garageCars.length === 0 && newEvents.length === 0 && newRoutes.length === 0)) return postRows;
 
     const oldestPost = postRows.length ? Math.min(...postRows.map((r) => r.time)) : 0;
     const inWindow = (created?: string) => !hasMorePosts || timeOf(created) >= oldestPost;
@@ -168,8 +181,12 @@ export default function FeedList({
       .filter((event) => inWindow(event.created_at))
       .map((event) => ({ kind: 'event', event, time: timeOf(event.created_at) }));
 
-    return [...postRows, ...carRows, ...eventRows].sort((a, b) => b.time - a.time);
-  }, [allPosts, garageCars, newEvents, includeGarageAdditions, hasMorePosts]);
+    const routeRows: FeedRow[] = newRoutes
+      .filter((route) => inWindow(route.created_at))
+      .map((route) => ({ kind: 'route', route, time: timeOf(route.created_at) }));
+
+    return [...postRows, ...carRows, ...eventRows, ...routeRows].sort((a, b) => b.time - a.time);
+  }, [allPosts, garageCars, newEvents, newRoutes, includeGarageAdditions, hasMorePosts]);
 
   if (isLoading && page === 0) {
     return (
@@ -186,6 +203,7 @@ export default function FeedList({
         keyExtractor={(row) =>
           row.kind === 'post' ? `post-${row.post.internal_id}`
             : row.kind === 'car' ? `car-${row.car.internal_id}`
+            : row.kind === 'route' ? `route-${row.route.internal_id}`
             : `event-${row.event.internal_id}`
         }
         renderItem={({ item: row }) => (
@@ -193,6 +211,8 @@ export default function FeedList({
             <GarageAdditionCard car={row.car} />
           ) : row.kind === 'event' ? (
             <NewEventCard event={row.event} />
+          ) : row.kind === 'route' ? (
+            <RouteCard route={row.route} />
           ) : (
             <FeedItemCard
               post={row.post}

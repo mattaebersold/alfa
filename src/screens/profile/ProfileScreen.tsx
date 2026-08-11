@@ -37,6 +37,7 @@ import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
 import type { GarageCar, Post, User } from '../../types/api';
 import { ss } from '../../styles/shared';
+import RowEndSpacer from '../../components/ui/RowEndSpacer';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // Cars live on the page itself (see the garage section), so they get no tile.
@@ -412,6 +413,7 @@ export default function ProfileScreen() {
                   <CarCard car={car} compact />
                 </View>
               ))}
+              <RowEndSpacer width={GARAGE_GUTTER} />
             </ScrollView>
           )}
         </>
@@ -720,7 +722,7 @@ const styles = StyleSheet.create({
   garageTitle:   { fontSize: 18, fontWeight: '800' },
   garageCount:   { fontSize: 14, fontWeight: '700' },
   garageCarousel: {
-    gap: GARAGE_GUTTER, paddingHorizontal: GARAGE_GUTTER, paddingTop: 6,
+    gap: GARAGE_GUTTER, paddingLeft: GARAGE_GUTTER, paddingTop: 6,
   },
   garageCarouselItem: { width: GARAGE_CARD_WIDTH },
   newListBtn:    {

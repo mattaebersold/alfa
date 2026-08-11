@@ -66,11 +66,18 @@ export type CarsStackParamList = {
   ModelDetail: { brand: string; model: string };
 };
 
+// ── Routes Stack ─────────────────────────────────────────────────────────────
+export type RoutesStackParamList = {
+  Routes: undefined;
+  RouteDetail: { routeId: string };
+  UserDetail: { userId: string; username?: string };
+};
+
 // ── Main Tab ─────────────────────────────────────────────────────────────────
 export type MainTabParamList = {
   FeedTab: NavigatorScreenParams<FeedStackParamList> | undefined;
   SocietyTab: NavigatorScreenParams<SocietyStackParamList> | undefined;
-  MarketTab: undefined;
+  RoutesTab: NavigatorScreenParams<RoutesStackParamList> | undefined;
   GroupsTab: NavigatorScreenParams<GroupsStackParamList> | undefined;
   CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
 };
@@ -98,6 +105,10 @@ export type AppStackParamList = {
   Search: undefined;
   Create: undefined;
   DiecastCreate: undefined;
+  // Routes — recording is a full-screen flow, so it lives outside the tabs.
+  RouteRecord: undefined;
+  RouteSave: { draftId: string };
+  RouteDetailModal: { routeId: string };
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)
   CarDetail: { carId: string };
@@ -152,6 +163,9 @@ export type GroupsScreenProps<T extends keyof GroupsStackParamList> =
 
 export type MarketScreenProps<T extends keyof MarketStackParamList> =
   NativeStackScreenProps<MarketStackParamList, T>;
+
+export type RoutesScreenProps<T extends keyof RoutesStackParamList> =
+  NativeStackScreenProps<RoutesStackParamList, T>;
 
 export type AppScreenProps<T extends keyof AppStackParamList> =
   NativeStackScreenProps<AppStackParamList, T>;

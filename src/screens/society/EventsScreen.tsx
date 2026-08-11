@@ -20,6 +20,7 @@ import { EVENT_CATEGORIES } from '../../constants/eventTypes';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { ss } from '../../styles/shared';
 import type { SocietyEvent } from '../../types/api';
+import RowEndSpacer from '../../components/ui/RowEndSpacer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks out of the carousel.
@@ -108,6 +109,7 @@ export default function EventsScreen() {
               </TouchableOpacity>
             );
           })}
+          <RowEndSpacer />
         </ScrollView>
 
         {/* Upcoming carousel — the rest of this month, from today forward */}
@@ -139,6 +141,7 @@ export default function EventsScreen() {
                 onPress={openEvent}
               />
             ))}
+            <RowEndSpacer />
           </ScrollView>
         )}
 
@@ -187,7 +190,7 @@ export default function EventsScreen() {
 const styles = StyleSheet.create({
   createBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 
-  filterRow: { paddingHorizontal: 12, gap: 8, paddingBottom: 4 },
+  filterRow: { paddingLeft: 12, gap: 8, paddingBottom: 4 },
   chip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   chipText:  { fontSize: 12, fontWeight: '700' },
 
@@ -198,7 +201,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '800' },
   sectionSub:   { fontSize: 13, fontWeight: '600' },
 
-  carousel: { paddingHorizontal: 12, gap: 12 },
+  carousel: { paddingLeft: 12, gap: 12 },
 
   sheetBody: { padding: 12, gap: 12, paddingBottom: 32 },
 });
