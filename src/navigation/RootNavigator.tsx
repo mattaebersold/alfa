@@ -5,7 +5,7 @@ import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { restoreSession } from '../store/authSlice';
-import { useGetLoggedInUserQuery, useRegisterDeviceTokenMutation } from '../api/apiService';
+import { apiService, useGetLoggedInUserQuery, useRegisterDeviceTokenMutation } from '../api/apiService';
 import { setCredentials } from '../store/authSlice';
 import { registerForPushNotifications } from '../utils/pushNotifications';
 import AuthNavigator from './AuthNavigator';
@@ -74,17 +74,37 @@ export default function RootNavigator() {
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
 
+  /**
+   * Turns an arriving push into a cache invalidation.
+   *
+   * A push is the earliest signal that server state changed, so spending it on a
+   * banner alone wastes it — dropping the matching tag makes every mounted query
+   * refetch, and an open thread shows the new message immediately rather than at
+   * its next poll. Nothing happens if the relevant screen isn't mounted; RTK
+   * Query only refetches subscribed queries.
+   */
+  const refreshFor = (content: Notifications.NotificationContent) => {
+    const type = (content.data as { type?: string } | undefined)?.type;
+    if (type === 'message') {
+      dispatch(apiService.util.invalidateTags(['Message']));
+    } else {
+      dispatch(apiService.util.invalidateTags(['Notifications']));
+    }
+  };
+
   useEffect(() => {
     dispatch(restoreSession());
 
     // Listen for incoming notifications while app is in foreground
-    notificationListener.current = Notifications.addNotificationReceivedListener(() => {
-      // Badge/UI updates handled automatically by the notification handler
+    notificationListener.current = Notifications.addNotificationReceivedListener((n) => {
+      refreshFor(n.request.content);
     });
 
     // Handle notification tap (open app from notification)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {
-      // Future: navigate to relevant screen based on notification data
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((r) => {
+      // Opening from a cold start or the background means the cache is stale by
+      // however long the app was away. Future: also navigate to the thread.
+      refreshFor(r.notification.request.content);
     });
 
     return () => {

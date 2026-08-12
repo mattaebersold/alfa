@@ -8,9 +8,9 @@ import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, Plus, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle } from 'lucide-react-native';
+import { X, Images, MoreHorizontal, MoreVertical, Plus, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
@@ -18,17 +18,20 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
   useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery, useGetCarModsQuery,
+  useDeletePostMutation,
   useDeleteCarMutation,
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
   useDeleteCarGalleryMutation,
   useCreateCarGalleryShellMutation, useAddCarGalleryImageMutation,
   useRemoveCarGalleryImagesMutation, useUpdateCarGalleryMetaMutation,
   useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
-  useGetCarFollowersQuery, useGetGroupQuery, useGetCarsQuery,
+  useGetCarFollowersQuery, useGetCarGroupsQuery, useGetCarsQuery,
   apiService,
 } from '../../api/apiService';
 import { useAppSelector, useAppDispatch } from '../../store/store';
-import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
+import { CATEGORY_LABELS } from '../../components/ui/Badge';
+import { categoryColor, pillTextColor } from '../../utils/categoryColor';
+import RecordRow from '../../components/social/RecordRow';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -38,6 +41,7 @@ import CommentsSheet from '../../components/social/CommentsSheet';
 import InlineComments from '../../components/social/InlineComments';
 import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
+import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import BottomSheet from '../../components/ui/SharedModal';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -48,7 +52,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandTextColor, useIsPro } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES } from '../../constants/carTypes';
 import type { AppStackParamList } from '../../navigation/types';
-import type { CarGalleryAlbum, GalleryItem, Mod } from '../../types/api';
+import type { CarGalleryAlbum, GalleryItem, Mod, Post, Group } from '../../types/api';
+import PostEditSheet from '../../components/social/PostEditSheet';
 import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 
@@ -63,7 +68,10 @@ function carCategoryLabel(key?: string) {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HERO_WIDTH = SCREEN_WIDTH * 0.92;
 const ALBUM_COL_WIDTH = 260;
-const GALLERY_HEIGHT = 380;
+// Derived from the hero's width so the main image lands on 4:3 rather than the
+// near-square it was at a fixed 380. The album cards and the strip's frame are
+// both sized off this, so they follow it down.
+const GALLERY_HEIGHT = Math.round(HERO_WIDTH * 3 / 4);
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
 type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | null;
@@ -277,7 +285,7 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
   );
 }
 
-// ── Filter chip (Records type/category filters) ──────────────────────────────
+// ── Filter chip (Records category filter) ────────────────────────────────────
 
 function FilterChip({ label, active, onPress, accent }: { label: string; active: boolean; onPress: () => void; accent: string }) {
   return (
@@ -290,7 +298,7 @@ function FilterChip({ label, active, onPress, accent }: { label: string; active:
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <Text style={[styles.filterChipText, { color: active ? '#000000' : SHEET_FG }]}>{label}</Text>
+      <Text style={[styles.filterChipText, { color: active ? pillTextColor(accent) : SHEET_FG }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -364,12 +372,11 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [descLines, setDescLines] = useState<number | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
-  // Records pane filters — cleared whenever the pane leaves Records.
-  const [recordType, setRecordType] = useState<string | null>(null);
+  // Records pane filter — cleared whenever the pane leaves Records.
   const [recordCategory, setRecordCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    if (pane !== 'posts') { setRecordType(null); setRecordCategory(null); }
+    if (pane !== 'posts') setRecordCategory(null);
   }, [pane]);
   // Single top-level gallery viewer (lightbox). Opening it from inside the
   // galleries pane is deferred until the pane's modal has fully dismissed —
@@ -406,8 +413,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const { data: car, isLoading } = useGetCarWithUserQuery(carId);
   const { data: coOwnerData } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
+  // The active list carries both done and outstanding items — only archiving
+  // removes one — so completion is a count over what's already loaded.
   const { data: tasksData } = useGetCarTasksQuery(carId, { skip: !car });
-  const taskCount = tasksData?.entries?.length ?? 0;
+  const tasks = tasksData?.entries ?? [];
+  const taskTotal = tasks.length;
+  const tasksDone = tasks.filter((t) => t.completed).length;
+  const tasksOpen = taskTotal - tasksDone;
 
   const { data: postsData, isFetching: postsFetching } = useGetPostsQuery(
     { car_id: carId, limit: 30 },
@@ -424,7 +436,11 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const paneAlbums = paneGalData?.entries ?? [];
   const { data: carFollowersData } = useGetCarFollowersQuery(carId, { skip: !car });
   const carFollowers = carFollowersData?.entries ?? [];
-  const { data: carGroup } = useGetGroupQuery(car?.group_id ?? '', { skip: !car?.group_id });
+  // Asks the server which groups list this car, rather than reading
+  // `car.group_id` — a car can be in a group purely because its owner is a
+  // member and it matches the group's make/model, which never sets that field.
+  const { data: carGroupsData } = useGetCarGroupsQuery(carId, { skip: !car });
+  const carGroups = carGroupsData?.entries ?? [];
   // The backend filters on make_handle/model_handle (slugs), not display values.
   const makeHandle = car?.make_handle ?? car?.make?.toLowerCase();
   const modelHandle = car?.model_handle ?? car?.model?.toLowerCase().replace(/ /g, '-');
@@ -456,10 +472,28 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       })}
       activeOpacity={0.85}
     >
-      <CheckSquare size={16} color={brandTextColor} />
-      <Text style={[styles.tasksBtnText, { color: brandTextColor }]}>
-        To-dos{taskCount > 0 ? ` (${taskCount})` : ''}
+      {/* Both sides reserve the same width so the label sits on the button's
+          centre line, not on the centre of whatever space is left over. */}
+      <View style={styles.tasksBtnSide}>
+        <CheckSquare size={18} color={brandTextColor} />
+      </View>
+
+      <Text style={[styles.tasksBtnText, styles.tasksBtnLabel, { color: brandTextColor }]}>
+        To-dos
       </Text>
+
+      <View style={[styles.tasksBtnSide, styles.tasksBtnSideEnd]}>
+        {taskTotal > 0 && (
+          <>
+            <View style={[styles.taskCount, { backgroundColor: brandTextColor }]}>
+              <Text style={[styles.taskCountText, { color: colors.primaryAlt }]}>
+                {tasksOpen}
+              </Text>
+            </View>
+            <TaskProgressPie completed={tasksDone} total={taskTotal} size={18} color={brandTextColor} />
+          </>
+        )}
+      </View>
     </TouchableOpacity>
   );
 
@@ -660,6 +694,49 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     }
   };
 
+  /**
+   * Reopens the pane you left when a record detail sends you away.
+   *
+   * The detail is a native-stack modal and the pane is an RN `<Modal>`; iOS
+   * won't present one over the other, which is why the pane has to close first.
+   * Remembering which pane it was and restoring it on the way back is the next
+   * best thing — you land where you were instead of back on the car.
+   */
+  const restorePaneRef = useRef<CarPane>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (restorePaneRef.current) {
+        const p = restorePaneRef.current;
+        restorePaneRef.current = null;
+        setPane(p);
+      }
+    }, []),
+  );
+
+  const openRecord = (postId: string) => {
+    restorePaneRef.current = pane;
+    setPane(null);
+    appNav.navigate('PostDetailModal', { postId });
+  };
+
+  const [deletePost] = useDeletePostMutation();
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+
+  const openRecordMenu = (post: Post) => {
+    Alert.alert(post.title ?? 'Record', undefined, [
+      { text: 'Edit', onPress: () => setEditingPost(post) },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => Alert.alert('Delete record?', 'This cannot be undone.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => deletePost({ internal_id: post.internal_id }) },
+        ]),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   // iOS can't present a new modal until the current one has finished
   // dismissing; give it a beat. Android stacks modals fine, so run immediately.
   const presentAfterDismiss = (fn: () => void, hadModalOpen: boolean) => {
@@ -830,43 +907,25 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       case 'posts': {
         if (posts.length === 0) return <EmptyState title="No records yet" />;
 
-        // Filters are built from what this car actually has, so they never offer
-        // a choice that returns nothing.
-        const typeKeys = Array.from(new Set(posts.map((p) => p.type).filter(Boolean))) as string[];
-        const byType = recordType ? posts.filter((p) => p.type === recordType) : posts;
-        const categoryKeys = Array.from(new Set(byType.map((p) => p.category).filter(Boolean))) as string[];
-        const visiblePosts = recordCategory ? byType.filter((p) => p.category === recordCategory) : byType;
+        // Built from what this car actually has, so a filter never offers a
+        // choice that returns nothing.
+        const categoryKeys = Array.from(new Set(posts.map((p) => p.category).filter(Boolean))) as string[];
+        const visiblePosts = recordCategory ? posts.filter((p) => p.category === recordCategory) : posts;
 
-        const filtersEl = (typeKeys.length > 1 || categoryKeys.length > 1) ? (
+        const filtersEl = categoryKeys.length > 1 ? (
           <View style={[styles.recordFilters, { borderBottomColor: SHEET_BORDER }]}>
-            {typeKeys.length > 1 && (
-              <View style={styles.recordFilterRow}>
-                <FilterChip label="All Types" active={!recordType} accent={colors.primaryAlt} onPress={() => { setRecordType(null); setRecordCategory(null); }} />
-                {typeKeys.map((t) => (
-                  <FilterChip
-                    key={t}
-                    label={TYPE_LABELS[t] ?? t}
-                    active={recordType === t}
-                    accent={colors.primaryAlt}
-                    onPress={() => { setRecordType(recordType === t ? null : t); setRecordCategory(null); }}
-                  />
-                ))}
-              </View>
-            )}
-            {categoryKeys.length > 1 && (
-              <View style={styles.recordFilterRow}>
-                <FilterChip label="All Categories" active={!recordCategory} accent={colors.primaryAlt} onPress={() => setRecordCategory(null)} />
-                {categoryKeys.map((c) => (
-                  <FilterChip
-                    key={c}
-                    label={CATEGORY_LABELS[c] ?? c}
-                    active={recordCategory === c}
-                    accent={colors.primaryAlt}
-                    onPress={() => setRecordCategory(recordCategory === c ? null : c)}
-                  />
-                ))}
-              </View>
-            )}
+            <View style={styles.recordFilterRow}>
+              <FilterChip label="All" active={!recordCategory} accent={colors.primaryAlt} onPress={() => setRecordCategory(null)} />
+              {categoryKeys.map((c) => (
+                <FilterChip
+                  key={c}
+                  label={CATEGORY_LABELS[c] ?? c}
+                  active={recordCategory === c}
+                  accent={categoryColor(c)}
+                  onPress={() => setRecordCategory(recordCategory === c ? null : c)}
+                />
+              ))}
+            </View>
           </View>
         ) : null;
 
@@ -880,22 +939,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   const title = item.title ?? (item.body ? stripHtml(item.body) : null);
                   const timeAgo = item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '';
                   return (
-                    <TouchableOpacity
+                    <RecordRow
                       key={item.internal_id}
-                      style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
-                      onPress={() => { setPane(null); appNav.navigate('PostDetailModal', { postId: item.internal_id }); }}
-                      activeOpacity={0.7}
-                    >
-                      {thumb ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" /> : null}
-                      <View style={{ flex: 1, gap: 3 }}>
-                        {title ? <Text style={{ color: SHEET_FG, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>{title}</Text> : null}
-                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                          {item.type && <Text style={{ color: colors.grey, fontSize: 11 }}>{TYPE_LABELS[item.type] ?? item.type}</Text>}
-                          {item.category && <Text style={{ color: colors.grey, fontSize: 11 }}>· {CATEGORY_LABELS[item.category] ?? item.category}</Text>}
-                          {timeAgo ? <Text style={{ color: colors.grey, fontSize: 11 }}>· {timeAgo}</Text> : null}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                      title={title}
+                      imageUri={thumb}
+                      meta={timeAgo}
+                      category={item.category}
+                      onPress={() => openRecord(item.internal_id)}
+                      onMenuPress={isOwnerOrCoOwner ? () => openRecordMenu(item) : undefined}
+                      fg={SHEET_FG}
+                      border={SHEET_BORDER}
+                      placeholder={SHEET_PLACEHOLDER}
+                    />
                   );
                 })}
           </>
@@ -956,20 +1011,24 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           <CarCard key={c.internal_id} car={c} onBeforeNavigate={() => setPane(null)} />
         ));
       case 'groups':
-        if (!carGroup) return <EmptyState title="Not in any group" />;
-        return (
-          <TouchableOpacity
-            style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
-            onPress={() => { setPane(null); (appNav as any).navigate('GroupDetail', { groupId: carGroup.internal_id }); }}
-            activeOpacity={0.7}
-          >
-            {firstGalleryUrl(carGroup.banners) ?? firstGalleryUrl(carGroup.gallery)
-              ? <Image source={{ uri: (firstGalleryUrl(carGroup.banners) ?? firstGalleryUrl(carGroup.gallery))! }} style={styles.recordThumb} contentFit="cover" />
-              : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
-            <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '700' }}>{carGroup.title}</Text>
-            <ChevronRight size={18} color={colors.grey} />
-          </TouchableOpacity>
-        );
+        if (carGroups.length === 0) return <EmptyState title="Not in any group" />;
+        return carGroups.map((g: Group) => {
+          const banner = firstGalleryUrl(g.banners) ?? firstGalleryUrl(g.gallery);
+          return (
+            <TouchableOpacity
+              key={g.internal_id}
+              style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
+              onPress={() => { setPane(null); (appNav as any).navigate('GroupDetail', { groupId: g.internal_id }); }}
+              activeOpacity={0.7}
+            >
+              {banner
+                ? <Image source={{ uri: banner }} style={styles.recordThumb} contentFit="cover" />
+                : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
+              <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '700' }}>{g.title}</Text>
+              <ChevronRight size={18} color={colors.grey} />
+            </TouchableOpacity>
+          );
+        });
       default:
         return null;
     }
@@ -1190,7 +1249,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 t.key === 'mods'       ? (modsData?.total ?? mods.length) :
                 t.key === 'galleries'  ? paneAlbums.length :
                 t.key === 'followers'  ? (carFollowersData?.total ?? carFollowers.length) :
-                /* groups */             (car.group_id ? 1 : 0);
+                /* groups */             (carGroupsData?.total ?? carGroups.length);
               return (
                 <TouchableOpacity
                   key={t.key}
@@ -1489,10 +1548,21 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       </BottomSheet>
 
       {/* ── Section pane ── */}
-      <BottomSheet visible={pane !== null} onClose={() => setPane(null)} onDismissed={handlePaneDismissed} title={paneTitle}>
+      {/* Fixed height: these panes range from two rows to fifty, and a sheet
+          that resizes itself per section is disorienting to move between. */}
+      <BottomSheet visible={pane !== null} onClose={() => setPane(null)} onDismissed={handlePaneDismissed} title={paneTitle} heightRatio={0.92}>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {renderPane()}
         </ScrollView>
+        {/* Inside the pane's own Modal, so editing layers over the list rather
+            than forcing it closed the way the detail screen has to. */}
+        {editingPost && (
+          <PostEditSheet
+            post={editingPost}
+            visible={!!editingPost}
+            onClose={() => setEditingPost(null)}
+          />
+        )}
       </BottomSheet>
 
       {/* ── Comments ── */}
@@ -1575,9 +1645,20 @@ const styles = StyleSheet.create({
   addBtn:         { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   tasksBtn:       {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginTop: 12, paddingVertical: 13, borderRadius: 12,
+    marginTop: 12, marginBottom: 18,
+    paddingVertical: 17, paddingHorizontal: 16, borderRadius: 14,
   },
-  tasksBtnText:   { fontSize: 15, fontWeight: '800' },
+  tasksBtnText:   { fontSize: 16, fontWeight: '800' },
+  tasksBtnLabel:  { flex: 1, textAlign: 'center' },
+  // Matched widths on both flanks — wide enough for the badge and pie together.
+  tasksBtnSide:   { minWidth: 56, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  tasksBtnSideEnd:{ justifyContent: 'flex-end' },
+  taskCount:      {
+    minWidth: 20, height: 20, borderRadius: 10,
+    paddingHorizontal: 5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  taskCountText:  { fontSize: 12, fontWeight: '800' },
   // Above-gallery placement supplies its own gutters; the in-row copy inherits
   // the action row's padding.
   todosAbove:     { paddingHorizontal: 16, marginBottom: 4 },
@@ -1675,6 +1756,8 @@ const styles = StyleSheet.create({
   postsSection:    { paddingBottom: 32, borderTopWidth: 1 },
   filterRow:       { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   recordThumb:     { width: 58, height: 58, borderRadius: 6 },
+  // `alignSelf` keeps the pill hugging its label now that it's on its own line
+  // rather than sharing a row.
   postsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   inlineCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   inlineCreateBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },

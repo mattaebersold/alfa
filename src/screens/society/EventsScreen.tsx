@@ -25,11 +25,13 @@ import RowEndSpacer from '../../components/ui/RowEndSpacer';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks out of the carousel.
 const CARD_WIDTH = SCREEN_WIDTH * 0.78;
+/** How far ahead the Upcoming carousel looks. */
+const UPCOMING_DAYS = 30;
 
 /**
- * Events: what's still to come this month as a carousel, then the month
- * calendar. Tapping a day opens the day's stack; tapping an event there closes
- * the sheet and opens the detail screen.
+ * Events: the next 30 days as a carousel, then the month calendar. Tapping a
+ * day opens the day's stack; tapping an event there closes the sheet and opens
+ * the detail screen.
  */
 export default function EventsScreen() {
   const colors = useColors();
@@ -46,8 +48,11 @@ export default function EventsScreen() {
   // is held until the sheet is fully gone.
   const [pendingEvent, setPendingEvent] = useState<SocietyEvent | null>(null);
 
+  // A rolling 30-day window rather than the calendar month: on the 28th, "the
+  // rest of this month" is two days of events and the carousel looks abandoned.
   const { data, isLoading } = useGetUpcomingEventsQuery({
     limit: 20,
+    days: UPCOMING_DAYS,
     ...(category ? { category } : {}),
   });
   const upcoming = data?.entries ?? [];
@@ -112,18 +117,18 @@ export default function EventsScreen() {
           <RowEndSpacer />
         </ScrollView>
 
-        {/* Upcoming carousel — the rest of this month, from today forward */}
+        {/* Upcoming carousel — the next 30 days, from today forward */}
         <View style={styles.sectionHead}>
           <Text style={[styles.sectionTitle, { color: colors.fg }]}>Upcoming</Text>
           <Text style={[styles.sectionSub, { color: colors.grey }]}>
-            {new Date().toLocaleDateString('en-US', { month: 'long' })}
+            Next {UPCOMING_DAYS} days
           </Text>
         </View>
 
         {isLoading ? (
           <Spinner />
         ) : upcoming.length === 0 ? (
-          <EmptyState title="Nothing else this month" />
+          <EmptyState title={`Nothing in the next ${UPCOMING_DAYS} days`} />
         ) : (
           <ScrollView
             horizontal

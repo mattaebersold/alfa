@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Play, Pause, Square, X, MapPin } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import RouteMap from '../../components/routes/RouteMap';
 import { useRouteRecorder, readDraft, clearDraft } from '../../hooks/useRouteRecorder';
 import { useColors } from '../../hooks/useColors';
@@ -75,6 +76,47 @@ export default function RouteRecordScreen() {
     );
   }, [isPro]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Location permission and an opening camera position.
+   *
+   * Recording asks for permission itself, but only once Start is tapped — which
+   * left the map with no blue dot, a dead recenter button (the SDK spins waiting
+   * on a fix it isn't allowed to take) and the camera parked on the world view.
+   * Asking on arrival means the map is already showing where you are by the time
+   * you decide to drive.
+   */
+  const [locationGranted, setLocationGranted] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
+  const [initialCenter, setInitialCenter] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!isPro) return;
+    let cancelled = false;
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (cancelled) return;
+      setLocationGranted(status === 'granted');
+      setLocationDenied(status !== 'granted');
+      if (status !== 'granted') return;
+
+      try {
+        // Balanced, not BestForNavigation: this is only to place the camera, and
+        // a navigation-grade first fix can take tens of seconds from cold.
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (!cancelled) {
+          setInitialCenter({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+        }
+      } catch {
+        // No fix yet — the map just opens uncentred, which is what it did before.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isPro]);
+
   // The position is frozen when the button is tapped, so typing a name at the
   // roadside doesn't drag the pin along with the car.
   const [pitStopAt, setPitStopAt] = useState<{ lat: number; lng: number } | null>(null);
@@ -144,9 +186,11 @@ export default function RouteRecordScreen() {
       <RouteMap
         path={path}
         speeds={path.map((p) => p.speed)}
-        center={lastPoint}
+        center={lastPoint ?? initialCenter ?? undefined}
         color={brand}
-        showsUserLocation
+        // Enabling this without the grant in hand gives a blue dot that never
+        // appears and a recenter button that never resolves.
+        showsUserLocation={locationGranted}
         followsUser={isRecording}
         style={StyleSheet.absoluteFill}
       />
@@ -162,11 +206,23 @@ export default function RouteRecordScreen() {
         <X size={22} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {error && (
+      {error ? (
         <View style={[styles.errorBar, { top: insets.top + 12 }]}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
-      )}
+      ) : locationDenied ? (
+        // A denied grant can't be re-prompted after the first refusal, so the
+        // only way out is Settings — say so rather than leaving a dead map.
+        <TouchableOpacity
+          style={[styles.errorBar, { top: insets.top + 12 }]}
+          onPress={() => Linking.openSettings()}
+          accessibilityRole="button"
+        >
+          <Text style={styles.errorText}>
+            Location access is off. Tap to enable it in Settings.
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Stats + controls */}
       <View style={[styles.panel, { backgroundColor: colors.card, paddingBottom: insets.bottom + 20 }]}>

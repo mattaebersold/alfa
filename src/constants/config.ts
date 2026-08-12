@@ -4,6 +4,9 @@ export const CONFIG = {
   RECAPTCHA_SITE_KEY: '6Le2gDssAAAAAEEsB35y_2yMMs3BWOIRFL9lnrOo',
   NOTIFICATION_POLL_INTERVAL: 30_000,
   MESSAGE_POLL_INTERVAL: 30_000,
+  // An open thread is a conversation in progress, so it refreshes far more
+  // eagerly than the inbox badge that just needs to be roughly current.
+  THREAD_POLL_INTERVAL: 8_000,
   USER_REFRESH_INTERVAL: 900_000,
   DEFAULT_PAGE_LIMIT: 12,
 } as const;

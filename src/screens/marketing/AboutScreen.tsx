@@ -15,7 +15,6 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import { HISTORY_IMAGES } from './historyImages';
-import YouTubeEmbed from '../../components/ui/YouTubeEmbed';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -28,8 +27,6 @@ const PARAGRAPHS = [
   'We also curate a marketplace focused solely on cars and parts, where you can list rare and hard to find parts for sale, list cars for sale, and create want-ads for others to see.',
   "Sharing enthusiasm for car culture is at the heart of what the society is all about. We want to cut through the never-ending online noise and create a simple, focused, and dedicated space to spend time with friends who give a damn about the same thing.",
 ];
-
-const ABOUT_VIDEO_ID = 'rj5X9UIuzJs';
 
 const PULL_QUOTE = "If we don't drive together, then we're going to die alone.";
 
@@ -225,10 +222,6 @@ export default function AboutScreen() {
           <Text style={[styles.quote, { color: colors.fg }]}>{PULL_QUOTE}</Text>
         </View>
 
-        <View style={styles.video}>
-          <YouTubeEmbed videoId={ABOUT_VIDEO_ID} />
-        </View>
-
         {FOUNDERS.map((f, i) => (
           <FounderBlock key={f.name} founder={f} flipped={i % 2 === 1} />
         ))}
@@ -280,7 +273,6 @@ const styles = StyleSheet.create({
   profileLink:     { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: -2 },
   profileLinkText: { fontSize: 14, fontWeight: '800' },
 
-  video:       { marginBottom: 24 },
   historyHead: { paddingHorizontal: 16, paddingTop: 36, paddingBottom: 12, gap: 4 },
   sectionTitle:{ fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
   sectionSub:  { fontSize: 13, lineHeight: 19 },

@@ -102,3 +102,17 @@ export const CATEGORY_BADGE_COLORS: Record<string, { bg: string; fg: string }> =
   wild:         { bg: '#B6DFA0', fg: '#000000' },
   default:      { bg: '#E0E0E0', fg: '#000000' },
 };
+
+/**
+ * A palette colour at a given alpha.
+ *
+ * Gradients have to fade to a *transparent version of the destination colour*,
+ * not to plain `transparent` — that interpolates through transparent black and
+ * leaves a grey cast partway down the ramp.
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  const m = hex.match(/^#([0-9a-f]{6})$/i);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}

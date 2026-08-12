@@ -6,6 +6,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import StoriesRow from '../../components/stories/StoriesRow';
 import FeedQuickLinks from '../../components/feed/FeedQuickLinks';
+import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
+import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
@@ -38,8 +40,10 @@ function FeedHeader() {
   return (
     <View>
       {/* {isPro && <StoriesRow />} */}
-      <PostPrompt />
       <FeedQuickLinks />
+      <PostPrompt />
+      <SuggestedMembersRow />
+      <SuggestedCarsRow />
     </View>
   );
 }

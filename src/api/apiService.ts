@@ -180,7 +180,9 @@ export const apiService = createApi({
 
     // ── Cars / Garage ────────────────────────────────────────────────────────
 
-    getCars: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number; make?: string; model?: string; username?: string; user_id?: string }>({
+    // `make`/`model` are only honoured alongside `filter: 'related'`, and match
+    // against the handle forms (`make_handle`) rather than the display names.
+    getCars: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number; filter?: string; make?: string; model?: string; username?: string; user_id?: string }>({
       query: (params = {}) => ({
         url: 'api/garage',
         params: { page: params.page ?? 0, limit: params.limit ?? 12, ...params },
@@ -646,6 +648,23 @@ export const apiService = createApi({
       providesTags: (result, error, { groupId }) => [{ type: 'GroupForum', id: groupId }],
     }),
 
+    createGroupForumPost: builder.mutation<void, { group_id: string; title: string; body: string; category?: string }>({
+      query: (body) => ({ url: 'api/groupforum/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupForum', id: group_id }],
+    }),
+
+    // Both endpoints toggle: voting the same way twice clears your vote, and
+    // voting the other way switches it. `group_id` is only for invalidation.
+    upvoteGroupForumPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupforum/upvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupForum', id: group_id }],
+    }),
+
+    downvoteGroupForumPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupforum/downvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupForum', id: group_id }],
+    }),
+
     // ── Group News ────────────────────────────────────────────────────────────
 
     getGroupNews: builder.query<{ entries: GroupNewsPost[] }, { groupId: string; page?: number; limit?: number }>({
@@ -656,6 +675,12 @@ export const apiService = createApi({
       providesTags: (result, error, { groupId }) => [{ type: 'GroupNews', id: groupId }],
     }),
 
+    // Admin-only server-side; the UI hides the entry point for everyone else.
+    createGroupNewsPost: builder.mutation<void, { group_id: string; title: string; body: string; url?: string }>({
+      query: (body) => ({ url: 'api/groupnews/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupNews', id: group_id }],
+    }),
+
     // ── Group Resources ───────────────────────────────────────────────────────
 
     getGroupResources: builder.query<{ entries: GroupResource[] }, { groupId: string; page?: number; limit?: number }>({
@@ -664,6 +689,11 @@ export const apiService = createApi({
         params: { group_id: groupId },
       }),
       providesTags: (result, error, { groupId }) => [{ type: 'GroupResources', id: groupId }],
+    }),
+
+    createGroupResource: builder.mutation<void, { group_id: string; title: string; body: string; url?: string; category?: string }>({
+      query: (body) => ({ url: 'api/groupresource/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
     }),
 
     // ── Articles ─────────────────────────────────────────────────────────────
@@ -873,6 +903,18 @@ export const apiService = createApi({
 
     checkEmail: builder.mutation<{ msg: 'true' | 'false' }, { email: string }>({
       query: (body) => ({ url: 'api/users/checkEmail', method: 'POST', body }),
+    }),
+
+    // Groups a car belongs to — both explicitly filed (car.group_id) and by its
+    // owner's membership in a group whose make/model the car matches. The
+    // second kind never writes to the car, so `car.group_id` alone undercounts.
+    getCarGroups: builder.query<{ entries: Group[]; total: number }, string>({
+      query: (carId) => `api/garage/${carId}/groups`,
+      transformResponse: (response: any): { entries: Group[]; total: number } => {
+        const entries = Array.isArray(response) ? response : response?.entries ?? [];
+        return { entries, total: response?.total ?? entries.length };
+      },
+      providesTags: ['Group'],
     }),
 
     getGroupCars: builder.query<{ entries: GarageCar[] }, string>({
@@ -1160,6 +1202,12 @@ export const {
   useCheckUsernameMutation,
   useCheckEmailMutation,
   useGetGroupCarsQuery,
+  useGetCarGroupsQuery,
+  useCreateGroupForumPostMutation,
+  useUpvoteGroupForumPostMutation,
+  useDownvoteGroupForumPostMutation,
+  useCreateGroupNewsPostMutation,
+  useCreateGroupResourceMutation,
   useUpdateCarGroupMutation,
   useDeleteAccountMutation,
   useRegisterDeviceTokenMutation,

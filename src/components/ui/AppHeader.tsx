@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Alert, Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
@@ -22,12 +22,21 @@ const BTN = 44;          // floating button edge length
 const BTN_RADIUS = 15;   // squircle-ish corner
 const ROW_PAD_V = 8;     // vertical padding around the button row
 
+/**
+ * How far below the safe-area inset the button row starts.
+ *
+ * iOS notch/island insets already clear the status bar generously, so the full
+ * pad on top of them leaves the header sitting low. Android's inset is the
+ * status bar height exactly and needs the breathing room.
+ */
+const TOP_OFFSET = Platform.OS === 'ios' ? 0 : ROW_PAD_V;
+
 const ICON = '#000000';
 
 /**
  * Height the header occupies below the safe-area inset.
  */
-export const APP_HEADER_HEIGHT = BTN + ROW_PAD_V * 2;
+export const APP_HEADER_HEIGHT = BTN + TOP_OFFSET + ROW_PAD_V;
 
 /**
  * Top padding a screen's scroll content needs so its first item starts clear of
@@ -181,7 +190,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
         style={[
           styles.bar,
           {
-            top: insets.top + ROW_PAD_V,
+            top: insets.top + TOP_OFFSET,
             transform: [{ translateY: headerOffset }],
           },
         ]}

@@ -18,6 +18,28 @@ function CloseButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+/**
+ * The close (X) for modal screens, as header options.
+ *
+ * iOS 26 gives navigation-bar buttons a Liquid Glass background, and a plain
+ * `headerRight` offers no way to decline it — on a real device that glass reads
+ * as an opaque white capsule with the icon lost inside it. The simulator draws
+ * it faithfully enough to look fine, which is why this only shows up on device.
+ *
+ * `unstable_headerRightItems` is the same element by another route, but one that
+ * can set `hidesSharedBackground`. It's iOS-only by design; Android ignores it
+ * and falls through to `headerRight` below.
+ */
+function closeButtonOptions(navigation: { goBack: () => void }) {
+  const element = <CloseButton onPress={() => navigation.goBack()} />;
+  return {
+    headerRight: () => element,
+    unstable_headerRightItems: () => [
+      { type: 'custom' as const, element, hidesSharedBackground: true },
+    ],
+  };
+}
+
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import MessageThreadScreen from '../screens/messages/MessageThreadScreen';
@@ -85,17 +107,17 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Notifications', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Notifications', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="Messages"
         component={MessagesScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Messages', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Messages', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="Create"
         component={CreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Create', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Create', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       {/* Recording takes the whole screen — a live map with no chrome competing
           with it — and the save step follows as a normal modal. */}
@@ -107,7 +129,7 @@ export default function AppNavigator() {
       <Stack.Screen
         name="RouteDetailModal"
         component={RouteDetailScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Route', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Route', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="RouteSave"
@@ -117,27 +139,27 @@ export default function AppNavigator() {
       <Stack.Screen
         name="DiecastCreate"
         component={DiecastCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Diecast Listing', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: DIECAST_BLUE }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Diecast Listing', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: DIECAST_BLUE }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CarCreate"
         component={CarCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Add Car', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Add Car', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="ModCreate"
         component={ModCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Add Mod', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Add Mod', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CreateList"
         component={CreateListScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'New List', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'New List', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="EventCreate"
         component={EventCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Create Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Create Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
 
       {/* ── Full-screen camera/viewer flows ───────────────────────────────── */}
@@ -205,7 +227,7 @@ export default function AppNavigator() {
       <Stack.Screen
         name="SocietyEventCreate"
         component={SocietyEventCreateScreen}
-        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.eventId ? 'Edit Event' : 'New Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', headerRight: () => <CloseButton onPress={() => navigation.goBack()} /> })}
+        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.eventId ? 'Edit Event' : 'New Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="Shop"

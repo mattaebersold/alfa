@@ -1,9 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { Send } from 'lucide-react-native';
 import {
@@ -17,12 +16,20 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import SharedModal from '../../components/ui/SharedModal';
 import { colors } from '../../constants/colors';
+import { CONFIG } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
+import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps } from '../../navigation/types';
 import type { Message, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 
-function MessageBubble({ message, isMe, otherUser }: { message: Message; isMe: boolean; otherUser?: User }) {
+function MessageBubble({ message, isMe, otherUser, showTime }: {
+  message: Message;
+  isMe: boolean;
+  otherUser?: User;
+  /** Only the newest message from each side is stamped — see `stampedIds`. */
+  showTime: boolean;
+}) {
   const colors = useColors();
   const timeAgo = message.created_at
     ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
@@ -50,9 +57,11 @@ function MessageBubble({ message, isMe, otherUser }: { message: Message; isMe: b
             {message.body}
           </Text>
         </View>
-        <Text style={[styles.bubbleTime, { color: colors.grey }, isMe && { textAlign: 'right' }]}>
-          {timeAgo}
-        </Text>
+        {showTime && timeAgo ? (
+          <Text style={[styles.bubbleTime, { color: colors.grey }, isMe && { textAlign: 'right' }]}>
+            {timeAgo}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -61,16 +70,30 @@ function MessageBubble({ message, isMe, otherUser }: { message: Message; isMe: b
 export default function MessageThreadScreen({ route, navigation }: AppScreenProps<'MessageThread'>) {
   const { threadId, recipientId: routeRecipientId, subject } = route.params;
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
 
   const [body, setBody] = useState('');
   const listRef = useRef<FlatList>(null);
 
-  const { data: messages = [], isLoading, refetch } = useGetMessageThreadQuery(threadId);
+  // An open thread polls so replies land without reopening the app. A push
+  // arriving invalidates the cache too (see RootNavigator), which is the fast
+  // path — this is the fallback for when notifications are declined or dropped.
+  const appActive = useIsAppActive();
+  const { data: messages = [], isLoading, refetch } = useGetMessageThreadQuery(threadId, {
+    pollingInterval: appActive ? CONFIG.THREAD_POLL_INTERVAL : 0,
+  });
   const [sendMessage, { isLoading: sending }] = useSendMessageMutation();
   const [markRead] = useMarkMessageReadMutation();
+
+  // Coming back from the background, catch up immediately rather than waiting
+  // out a poll interval. The ref keeps this from firing on the initial mount,
+  // where it would only duplicate the query's own first fetch.
+  const wasActive = useRef(appActive);
+  useEffect(() => {
+    if (appActive && !wasActive.current) refetch();
+    wasActive.current = appActive;
+  }, [appActive, refetch]);
 
   // Mark unread messages as read on mount
   useEffect(() => {
@@ -80,6 +103,19 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       }
     });
   }, [messages, myId, markRead]);
+
+  // The keyboard shrinks the list without changing its content, so neither
+  // onContentSizeChange nor a plain re-render brings the newest message back
+  // into view — the offset is preserved and the last bubble ends up hidden
+  // behind the reply bar. Follow the keyboard down to the bottom instead.
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(event, () => {
+      // One frame after the resize lands, or scrollToEnd targets the old height.
+      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    });
+    return () => sub.remove();
+  }, []);
 
   // Derive the other participant's ID from messages if not provided in route
   const recipientId = routeRecipientId ?? messages.find((m) => m.sender_id !== myId)?.sender_id;
@@ -136,6 +172,18 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     (a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime(),
   );
 
+  // Only the newest message from each side carries a timestamp. Stamping every
+  // bubble turns a quick back-and-forth into a column of "about 15 hours ago";
+  // these two are the ones that answer when each of you last wrote.
+  const stampedIds = new Set<string>();
+  let haveMine = false;
+  let haveTheirs = false;
+  for (let i = sorted.length - 1; i >= 0 && !(haveMine && haveTheirs); i--) {
+    const mine = sorted[i].sender_id === myId;
+    if (mine && !haveMine) { stampedIds.add(sorted[i].internal_id); haveMine = true; }
+    if (!mine && !haveTheirs) { stampedIds.add(sorted[i].internal_id); haveTheirs = true; }
+  }
+
   // The first message's internal_id is used as parent_message_id to link replies to the thread
   const parentMessageId = sorted[0]?.internal_id ?? threadId;
 
@@ -163,6 +211,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       onClose={() => setVisible(false)}
       onDismissed={handleDismissed}
       titleContent={headerContent}
+      fullHeight
     >
       {isLoading ? <Spinner /> : (
       <View style={ss.fill}>
@@ -171,21 +220,31 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         data={sorted}
         keyExtractor={(item) => item.internal_id}
         renderItem={({ item }) => (
-          <MessageBubble message={item} isMe={item.sender_id === myId} otherUser={otherUser} />
+          <MessageBubble
+            message={item}
+            isMe={item.sender_id === myId}
+            otherUser={otherUser}
+            showTime={stampedIds.has(item.internal_id)}
+          />
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        // A thread opens on its newest message, and stays there as messages
+        // arrive or the keyboard resizes the list out from under it.
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       />
 
-      {/* Reply bar */}
+      {/* Reply bar. Clearance for the home indicator / gesture bar is the
+          sheet's own bottom padding, which collapses when the keyboard is up —
+          adding the safe-area inset here too would double it. */}
       <View style={[
         styles.replyBar,
         {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          paddingBottom: Math.max(insets.bottom, 8),
         },
       ]}>
         <TextInput
@@ -230,7 +289,7 @@ const styles = StyleSheet.create({
   bubbleTime:       { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
   replyBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingTop: 10,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10,
     borderTopWidth: 1,
   },
   sendBtn: {

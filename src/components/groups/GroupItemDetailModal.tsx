@@ -5,10 +5,15 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
-import { ExternalLink } from 'lucide-react-native';
+import { ExternalLink, ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
-import { useCreateCommentMutation } from '../../api/apiService';
+import {
+  useCreateCommentMutation,
+  useUpvoteGroupForumPostMutation,
+  useDownvoteGroupForumPostMutation,
+} from '../../api/apiService';
+import { useColors } from '../../hooks/useColors';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
@@ -45,6 +50,10 @@ interface Props {
 
 export default function GroupItemDetailModal({ item, kind, categoryLabel, visible, onClose }: Props) {
   const { userInfo } = useAppSelector((s) => s.auth);
+  const colors = useColors();
+  const [upvote, { isLoading: upvoting }] = useUpvoteGroupForumPostMutation();
+  const [downvote, { isLoading: downvoting }] = useDownvoteGroupForumPostMutation();
+  const voting = upvoting || downvoting;
   const [commentText, setCommentText] = useState('');
   const [mentionedIds, setMentionedIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
@@ -123,6 +132,33 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
           </View>
           {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}
 
+          {/* Voting. Lives here rather than on the list row — it's a response to
+              having read the thing, and the row is a link, not a control. */}
+          {kind === 'forum' && (
+            <View style={styles.voteRow}>
+              <TouchableOpacity
+                style={[styles.voteBtn, { borderColor: colors.borderDark }]}
+                onPress={() => upvote({ internal_id: d.internal_id, group_id: d.group_id })}
+                disabled={voting}
+                accessibilityRole="button"
+                accessibilityLabel="Upvote"
+              >
+                <ThumbsUp size={16} color={colors.fg} />
+                <Text style={[styles.voteCount, { color: colors.fg }]}>{d.upvotes ?? 0}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.voteBtn, { borderColor: colors.borderDark }]}
+                onPress={() => downvote({ internal_id: d.internal_id, group_id: d.group_id })}
+                disabled={voting}
+                accessibilityRole="button"
+                accessibilityLabel="Downvote"
+              >
+                <ThumbsDown size={16} color={colors.fg} />
+                <Text style={[styles.voteCount, { color: colors.fg }]}>{d.downvotes ?? 0}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Resource link */}
           {kind === 'resource' && d.url && !ytId ? (
             <SharedButton label="Open Link" Icon={ExternalLink} onPress={() => Linking.openURL(d.url)} full style={{ marginTop: 16 }} />
@@ -197,6 +233,13 @@ const styles = StyleSheet.create({
   title:   { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26, marginBottom: 12 },
   meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   metaText:{ fontSize: 12, color: '#B4B4B4' },
+  voteRow:  { flexDirection: 'row', gap: 10, marginTop: 18 },
+  voteBtn:  {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingHorizontal: 16, paddingVertical: 9,
+    borderRadius: 999, borderWidth: 1,
+  },
+  voteCount:{ fontSize: 14, fontWeight: '700' },
   text:    { fontSize: 15, lineHeight: 24, color: '#ECECEC' },
   commentsHeading: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 24, marginBottom: 12 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },

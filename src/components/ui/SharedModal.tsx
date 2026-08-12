@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable,
-  KeyboardAvoidingView, Platform, Dimensions,
+  Keyboard, Platform, Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 
@@ -34,19 +35,78 @@ interface SharedModalProps {
    * modal until the current one has fully dismissed).
    */
   onDismissed?: () => void;
+  /**
+   * Fill the screen instead of sizing to content.
+   *
+   * Content-sized is right for a sheet you skim and dismiss, but wrong for one
+   * you live in — a chat thread sized to its content opens at the 50% floor and
+   * leaves its message list with no room to scroll.
+   */
+  fullHeight?: boolean;
+  /**
+   * Pin the sheet to a fraction of the screen (0–1) instead of sizing to
+   * content. For a sheet whose contents vary wildly — a list that might hold
+   * two rows or fifty — a stable height beats one that jumps per open.
+   */
+  heightRatio?: number;
   children: React.ReactNode;
 }
 
 /**
  * Shared bottom-sheet modal — near-black, blurred overlay, grows with content
- * between 50% and 90% of screen height. Convert other modals to this when asked
- * to "use SharedModal". The caller supplies the scrollable content as children.
+ * between 50% and 90% of screen height, or fills the screen with `fullHeight`.
+ * Convert other modals to this when asked to "use SharedModal". The caller
+ * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
   const [rendered, setRendered] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  /**
+   * Keyboard clearance.
+   *
+   * KeyboardAvoidingView used to do this, but only on iOS — Android was passed
+   * `undefined`, i.e. no avoidance at all, so the keyboard covered the input.
+   * `adjustResize` doesn't rescue it either: this is a `statusBarTranslucent`
+   * Modal in an edge-to-edge app, and neither of those windows gets resized.
+   *
+   * Driving the inset from the keyboard events directly behaves the same on both
+   * platforms, and hands us the system's own animation curve to match.
+   */
+  const keyboardPad = useRef(new Animated.Value(0)).current;
+  const [keyboardUp, setKeyboardUp] = useState(false);
+
+  useEffect(() => {
+    // iOS reports `will` events ahead of the animation so we can move with it.
+    // Android only fires `did`, after the fact.
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const show = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardUp(true);
+      Animated.timing(keyboardPad, {
+        // The reported height is measured from the bottom of the screen, which
+        // is also where this sheet sits — so it needs no inset correction.
+        toValue: e.endCoordinates.height,
+        duration: e.duration || 220,
+        useNativeDriver: false, // padding isn't a native-driver property
+      }).start();
+    });
+
+    const hide = Keyboard.addListener(hideEvent, (e) => {
+      setKeyboardUp(false);
+      Animated.timing(keyboardPad, {
+        toValue: 0,
+        duration: e?.duration || 220,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => { show.remove(); hide.remove(); };
+  }, [keyboardPad]);
 
   useEffect(() => {
     if (visible) {
@@ -74,17 +134,33 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={{ flex: 1, justifyContent: 'flex-end' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <Animated.View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: keyboardPad }}>
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]} pointerEvents="none">
           <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { paddingBottom: SHEET_BOTTOM_PAD, transform: [{ translateY: slideY }] }]}>
-          <View style={styles.header}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            heightRatio
+              ? [styles.sheetRatio, { height: `${Math.round(heightRatio * 100)}%` as const }]
+              : fullHeight ? styles.sheetFull : styles.sheetSized,
+            {
+              // With the keyboard up this padding is dead space between the
+              // content and the keyboard, so it collapses out of the way.
+              paddingBottom: keyboardUp ? 0 : SHEET_BOTTOM_PAD,
+              transform: [{ translateY: slideY }],
+            },
+          ]}
+        >
+          <View style={[
+            styles.header,
+            // A full-height sheet reaches the top of the screen, and this Modal
+            // is status-bar-translucent — without this the header sits under the
+            // clock. A sized sheet never gets up there.
+            fullHeight && { paddingTop: insets.top + 14 },
+          ]}>
             {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
             <View style={styles.headerRight}>
               {headerRight}
@@ -95,19 +171,31 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           </View>
           {children}
         </Animated.View>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: {
+    backgroundColor: SHEET_BG,
+    overflow: 'hidden',
+  },
+  sheetSized: {
     minHeight: SCREEN_HEIGHT * 0.5,
     maxHeight: '90%',
-    backgroundColor: SHEET_BG,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    overflow: 'hidden',
+  },
+  // Fills whatever the keyboard leaves, so the sheet shrinks rather than slides
+  // and its own bottom bar stays on screen. No top radius — there's no edge for
+  // it to round against.
+  sheetFull: { flex: 1 },
+  // Fixed fraction: keeps the sized sheet's rounded cap, drops its min/max so
+  // the explicit height is the only thing driving it.
+  sheetRatio: {
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
