@@ -32,6 +32,36 @@ export interface RouteSample {
   accuracy: number;
 }
 
+const round = (n: number, places: number) => {
+  if (!Number.isFinite(n)) return n;
+  const f = 10 ** places;
+  return Math.round(n * f) / f;
+};
+
+/**
+ * Trims a track for transmission.
+ *
+ * A raw GPS fix arrives as full doubles, so one sample serialises to roughly
+ * 200 bytes — almost all of it digits nobody uses. Six decimal places of
+ * latitude is about 11cm, which is finer than any consumer GPS resolves, and
+ * one decimal is more than enough for speed, altitude, heading and accuracy.
+ * Rounding at the boundary rather than at capture keeps the live stats on the
+ * record screen working from the untouched values, and roughly halves what goes
+ * over the wire — which matters because the whole track posts as a single
+ * multipart field with a size ceiling on it.
+ */
+export function compactSamples(samples: RouteSample[]): RouteSample[] {
+  return samples.map((s) => ({
+    lat: round(s.lat, 6),
+    lng: round(s.lng, 6),
+    t: s.t,
+    speed: round(s.speed, 1),
+    alt: round(s.alt, 1),
+    heading: round(s.heading, 1),
+    accuracy: round(s.accuracy, 1),
+  }));
+}
+
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 
 /** Great-circle distance in metres. */

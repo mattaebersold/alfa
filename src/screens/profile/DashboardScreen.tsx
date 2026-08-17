@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare } from 'lucide-react-native';
+import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,6 +29,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
 import FeedItemCard from '../../components/cards/FeedItemCard';
+import HomeBannerManager from '../../components/feed/HomeBannerManager';
 import CarCard from '../../components/cards/CarCard';
 import SharedButton from '../../components/ui/SharedButton';
 import SharedModal from '../../components/ui/SharedModal';
@@ -39,7 +40,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | null;
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'homeBanner' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -424,19 +425,31 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Admin: flagged content */}
+        {/* Admin */}
         {isAdmin && (
-          <TouchableOpacity
-            style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
-            onPress={() => setSheet('flagged')}
-            activeOpacity={0.75}
-          >
-            <ShieldAlert size={15} color="#e07b39" />
-            <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
-              ADMIN: View Flagged Content
-              {totalFlagged > 0 ? ` (${totalFlagged})` : ''}
-            </Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+              onPress={() => setSheet('flagged')}
+              activeOpacity={0.75}
+            >
+              <ShieldAlert size={15} color="#e07b39" />
+              <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+                ADMIN: View Flagged Content
+                {totalFlagged > 0 ? ` (${totalFlagged})` : ''}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+              onPress={() => setSheet('homeBanner')}
+              activeOpacity={0.75}
+            >
+              <ImageIcon size={15} color="#e07b39" />
+              <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+                ADMIN: Home Feature Banner
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
 
         {/* Danger zone */}
@@ -530,6 +543,13 @@ export default function DashboardScreen() {
           showsVerticalScrollIndicator={false}
         />
       </SheetModal>
+
+      {/* Admin: home feature banner sheet */}
+      {isAdmin && (
+        <SheetModal visible={sheet === 'homeBanner'} title="Home Feature Banner" onClose={() => setSheet(null)} colors={colors}>
+          <HomeBannerManager />
+        </SheetModal>
+      )}
 
       {/* Admin: flagged content sheet */}
       {isAdmin && (

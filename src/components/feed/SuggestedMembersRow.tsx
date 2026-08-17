@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Text, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useGetUsersQuery, useGetUserFollowingQuery } from '../../api/apiService';
@@ -8,6 +8,8 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
+import { shuffle } from '../../utils/array';
 
 /**
  * "Suggested Members" — recent joiners you don't already follow.
@@ -18,9 +20,10 @@ import RowEndSpacer from '../ui/RowEndSpacer';
  * endpoint, and both queries are ones other screens already warm.
  */
 
-const CARD_WIDTH = 96;
-const CARD_GAP = 10;
-const ROW_PAD = 12;
+const AVATAR_SIZE = 50;
+const CARD_WIDTH = 72;
+const CARD_GAP = 6;
+const ROW_PAD = SUGGESTION_CARD_PAD;
 /** Pulled deep enough that filtering out everyone you follow still leaves some. */
 const POOL_SIZE = 30;
 const MAX_SUGGESTIONS = 10;
@@ -32,7 +35,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
       <Avatar
         filename={member.gallery?.[0]?.filename ?? member.profilePicture}
         name={member.username ?? '?'}
-        size={64}
+        size={AVATAR_SIZE}
       />
       <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>
         @{member.username}
@@ -41,9 +44,13 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
   );
 }
 
-export default function SuggestedMembersRow() {
+interface Props {
+  /** Opens the shared hide dialog. Omit and no close button is drawn. */
+  onRequestHide?: () => void;
+}
+
+export default function SuggestedMembersRow({ onRequestHide }: Props) {
   const navigation = useNavigation<any>();
-  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
 
@@ -53,12 +60,16 @@ export default function SuggestedMembersRow() {
     { skip: !myId },
   );
 
+  // Shuffled, not sliced off the top: the pool is newest-first and three times
+  // the size of the shelf, so without this the same ten recent joiners would be
+  // the only members ever suggested. Memoised on the source data so it settles
+  // once per fetch rather than reordering under a scrolling finger.
   const suggestions = useMemo(() => {
     const pool = usersData?.entries ?? [];
     const followed = new Set((followingData?.entries ?? []).map((u) => u.user_id));
-    return pool
-      .filter((u) => u.user_id && u.user_id !== myId && !followed.has(u.user_id))
-      .slice(0, MAX_SUGGESTIONS);
+    return shuffle(
+      pool.filter((u) => u.user_id && u.user_id !== myId && !followed.has(u.user_id)),
+    ).slice(0, MAX_SUGGESTIONS);
   }, [usersData, followingData, myId]);
 
   // Nothing to suggest is a normal state for someone who follows everyone —
@@ -66,8 +77,7 @@ export default function SuggestedMembersRow() {
   if (!suggestions.length) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgDark, borderColor: colors.borderDark }]}>
-      <Text style={[styles.heading, { color: colors.fg }]}>Suggested Members</Text>
+    <SuggestionCard title="Suggested Members" onClose={onRequestHide}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -85,23 +95,12 @@ export default function SuggestedMembersRow() {
         ))}
         <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
-    </View>
+    </SuggestionCard>
   );
 }
 
 const styles = StyleSheet.create({
-  // Its own band — a lighter ground between two rules — so a suggestion shelf
-  // reads as something the app is offering rather than as more feed content.
-  // Each row bands itself instead of sharing a wrapper: either can come back
-  // empty, and a shared one would leave the rules around nothing.
-  container: {
-    paddingTop: 14, paddingBottom: 12,
-    marginTop: 12, marginBottom: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  heading:   { fontSize: 15, fontWeight: '800', letterSpacing: 0.3, paddingHorizontal: ROW_PAD, marginBottom: 10 },
   scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
-  card:      { width: CARD_WIDTH, alignItems: 'center', gap: 7 },
-  username:  { fontSize: 12, fontWeight: '600', maxWidth: CARD_WIDTH },
+  card:      { width: CARD_WIDTH, alignItems: 'center', gap: 5 },
+  username:  { fontSize: 11, fontWeight: '600', maxWidth: CARD_WIDTH },
 });

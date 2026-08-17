@@ -12,7 +12,7 @@ import { readDraft, clearDraft } from '../../hooks/useRouteRecorder';
 import { useCreateRouteMutation, useSyncPostTagsMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { formatDistance, formatDuration, formatSpeed } from '../../utils/routeGeometry';
+import { formatDistance, formatDuration, formatSpeed, compactSamples } from '../../utils/routeGeometry';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -128,7 +128,7 @@ export default function RouteSaveScreen() {
     const fd = new FormData();
     fd.append('title', title.trim());
     if (body.trim()) fd.append('body', body.trim());
-    fd.append('samples', JSON.stringify(draft.samples));
+    fd.append('samples', JSON.stringify(compactSamples(draft.samples)));
     fd.append('surface', surface);
     if (draft.pitStops?.length) fd.append('pit_stops', JSON.stringify(draft.pitStops));
     if (technical) fd.append('technical_rating', String(technical));

@@ -11,6 +11,8 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
+import { shuffle } from '../../utils/array';
 import type { GarageCar } from '../../types/api';
 
 /**
@@ -27,7 +29,7 @@ import type { GarageCar } from '../../types/api';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.44;
 const CARD_GAP = 10;
-const ROW_PAD = 12;
+const ROW_PAD = SUGGESTION_CARD_PAD;
 const RELATED_POOL = 24;
 const RECENT_POOL = 30;
 const MAX_SUGGESTIONS = 10;
@@ -54,9 +56,13 @@ function CarCardMini({ car, onPress }: { car: GarageCar; onPress: () => void }) 
   );
 }
 
-export default function SuggestedCarsRow() {
+interface Props {
+  /** Opens the shared hide dialog. Omit and no close button is drawn. */
+  onRequestHide?: () => void;
+}
+
+export default function SuggestedCarsRow({ onRequestHide }: Props) {
   const navigation = useNavigation<any>();
-  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
 
@@ -107,23 +113,28 @@ export default function SuggestedCarsRow() {
 
     // A shared model is a much stronger signal than a shared make, so those
     // lead — someone with an E30 cares more about other E30s than other BMWs.
-    const modelMatches = pool.filter((c) => c.model_handle && myModels.has(c.model_handle));
-    const makeMatches = pool.filter(
+    //
+    // Each tier is shuffled within itself rather than the list being shuffled as
+    // a whole: that keeps model matches ahead of make matches, so the ordering
+    // still means something, while stopping the same cars from taking the front
+    // of the shelf on every visit.
+    const modelMatches = shuffle(pool.filter((c) => c.model_handle && myModels.has(c.model_handle)));
+    const makeMatches = shuffle(pool.filter(
       (c) => c.make_handle && myMakes.has(c.make_handle) && !(c.model_handle && myModels.has(c.model_handle)),
-    );
+    ));
     const matches = [...modelMatches, ...makeMatches];
 
-    // Empty garage, or nothing in the pools matched it — show the newest cars
-    // you don't already follow instead of showing nothing.
-    if (!matches.length) return pool.slice(0, FALLBACK_COUNT);
+    // Empty garage, or nothing in the pools matched it — show cars you don't
+    // already follow instead of showing nothing. Nothing ranks these, so the
+    // whole fallback pool shuffles.
+    if (!matches.length) return shuffle(pool).slice(0, FALLBACK_COUNT);
     return matches.slice(0, MAX_SUGGESTIONS);
   }, [relatedData, recentData, myCars, followedCars, myId]);
 
   if (!suggestions.length) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgDark, borderColor: colors.borderDark }]}>
-      <Text style={[styles.heading, { color: colors.fg }]}>Suggested Cars</Text>
+    <SuggestionCard title="Suggested Cars" onClose={onRequestHide}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -140,19 +151,11 @@ export default function SuggestedCarsRow() {
         ))}
         <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
-    </View>
+    </SuggestionCard>
   );
 }
 
 const styles = StyleSheet.create({
-  // Matches SuggestedMembersRow's band — see the note there.
-  container: {
-    paddingTop: 14, paddingBottom: 12,
-    marginBottom: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  heading:   { fontSize: 15, fontWeight: '800', letterSpacing: 0.3, paddingHorizontal: ROW_PAD, marginBottom: 10 },
   scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
   card:      { width: CARD_WIDTH, gap: 6 },
   thumb:     {

@@ -18,10 +18,38 @@ export interface User {
   followersCount?: number;
   followingCount?: number;
   emailSettings?: EmailSettings;
+  feedPreferences?: FeedPreferences;
   allowEmail?: boolean;
   memberNumber?: number;
   created_at?: string;
   userToken?: string;
+}
+
+/** Per-user dismissals of the home feed's promotional modules. */
+export interface FeedPreferences {
+  hideSuggestions?: 'none' | 'temporary' | 'permanent';
+  /** Set only for a temporary hide; the rows return once it passes. */
+  hideSuggestionsUntil?: string | null;
+  /** banner_id of the last home feature banner this user closed. */
+  dismissedHomeBannerId?: string | null;
+}
+
+/** The single admin-managed home feature banner. */
+export interface HomeBanner {
+  banner_id: string;
+  image: string;
+  /**
+   * A key from BANNER_DESTINATIONS (src/constants/bannerDestinations.ts), or
+   * BANNER_EXTERNAL_URL for a web address. Null on banners saved before
+   * destinations existed — those fall back to `url`.
+   */
+  destination?: string | null;
+  /** Record id, for the destinations that point at one specific thing. */
+  destination_id?: string | null;
+  /** Only meaningful when `destination` is the external-URL sentinel. */
+  url?: string | null;
+  active?: boolean;
+  updated_at?: string;
 }
 
 export interface EmailSettings {
@@ -293,10 +321,21 @@ export interface Rally {
   event_date?: string;
   event_time?: string;
   location?: string;
+  location_url?: string;
   location_lat?: number;
   location_lng?: number;
+  location_place_id?: string;
   group_id?: string;
   slots_available?: number;
+  attendee_limit?: number;
+  /** An Airtable form URL — the rally's registration form. */
+  form_id?: string;
+  /**
+   * Rally livery, `#rrggbb`. Paints the rally's calendar tile as a gradient.
+   * Either may be absent — see rallyColors() in utils/rally.
+   */
+  primary_color?: string | null;
+  secondary_color?: string | null;
   attending_members?: string[];
   type?: string;
   category?: string;
@@ -372,6 +411,8 @@ export interface CarTask {
   user_id?: string;
   title?: string;
   body?: string;
+  /** Optional reference — a parts listing, a forum thread, a how-to. */
+  link?: string;
   status?: string;
   completed?: boolean;
   position?: number;

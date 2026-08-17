@@ -183,7 +183,7 @@ export default function CreateScreen() {
 
   const addFromLibrary = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.85,
     });
@@ -201,7 +201,7 @@ export default function CreateScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 0.85,
     });
     if (!result.canceled && result.assets[0]) {
@@ -213,7 +213,7 @@ export default function CreateScreen() {
 
   const addVideoFromLibrary = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       quality: 1,
       videoMaxDuration: 120,
     });
@@ -230,7 +230,7 @@ export default function CreateScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       videoMaxDuration: 120,
     });
     if (!result.canceled && result.assets[0]) {

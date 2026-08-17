@@ -111,7 +111,7 @@ export default function DiecastCreateScreen() {
     }
     const result = source === 'camera'
       ? await ImagePicker.launchCameraAsync({ quality: 0.85 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 });
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
     if (!result.canceled && result.assets[0]) {
       const a = result.assets[0];
       setPhoto({ uri: a.uri, name: a.fileName ?? `diecast_${Date.now()}.jpg`, type: a.mimeType ?? 'image/jpeg' });

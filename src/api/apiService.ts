@@ -5,6 +5,7 @@ import type {
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
+  FeedPreferences, HomeBanner,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -17,7 +18,7 @@ export const apiService = createApi({
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
-    'Block', 'FlaggedContent', 'Route',
+    'Block', 'FlaggedContent', 'Route', 'SiteSettings',
   ],
   endpoints: (builder) => ({
 
@@ -410,6 +411,24 @@ export const apiService = createApi({
     // `completed` is optional — omitting it makes the server flip the current value.
     toggleCarTask: builder.mutation<CarTask, { internal_id: string; car_id: string; completed?: boolean }>({
       query: (body) => ({ url: 'api/cartask/toggle-completion', method: 'POST', body }),
+      // Ticking a box is the one interaction that has to feel instant — the
+      // checkbox is the feedback, and waiting a round trip for it to fill makes
+      // a tap feel dropped. Only applied when the caller states the intended
+      // value; a bare toggle leaves the server to decide and we can't guess.
+      async onQueryStarted({ internal_id, car_id, completed }, { dispatch, queryFulfilled }) {
+        if (completed === undefined) return;
+        const undo = dispatch(
+          apiService.util.updateQueryData('getCarTasks', car_id, (draft) => {
+            const task = draft.entries.find((t) => t.internal_id === internal_id);
+            if (task) task.completed = completed;
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          undo.undo();
+        }
+      },
       invalidatesTags: (result, error, { car_id }) => [{ type: 'CarTask', id: car_id }],
     }),
 
@@ -606,10 +625,18 @@ export const apiService = createApi({
 
     // ── Rallys ───────────────────────────────────────────────────────────────
 
-    getRallys: builder.query<PaginatedResponse<Rally>, { page?: number; limit?: number }>({
-      query: ({ page = 0, limit = 12 } = {}) => ({
+    getRallys: builder.query<PaginatedResponse<Rally>, {
+      page?: number; limit?: number; time_filter?: 'upcoming' | 'past';
+      /** Both required together — the server pairs them into a month range. */
+      year?: number; month?: number;
+    }>({
+      query: ({ page = 0, limit = 12, time_filter, year, month } = {}) => ({
         url: 'api/rally',
-        params: { page, limit },
+        params: {
+          page, limit,
+          ...(time_filter ? { time_filter } : {}),
+          ...(year && month ? { year, month } : {}),
+        },
       }),
       providesTags: ['Rally'],
     }),
@@ -888,6 +915,50 @@ export const apiService = createApi({
       invalidatesTags: ['User'],
     }),
 
+    /**
+     * Dismissals of the home feed's suggestion rows and feature banner.
+     * Only the keys you send are written; the rest are left as they were.
+     */
+    updateFeedPreferences: builder.mutation<
+      { success: boolean; feedPreferences: FeedPreferences },
+      { hideSuggestions?: 'none' | 'temporary' | 'permanent'; dismissedHomeBannerId?: string | null }
+    >({
+      query: (body) => ({
+        url: 'api/users/settings/update/feedPreferences',
+        method: 'POST',
+        body,
+      }),
+      // Applied locally before the request leaves. Dismissing a feed module is a
+      // "make this go away" gesture, and waiting out a round trip plus a refetch
+      // leaves the thing you just closed sitting there long enough to tap again.
+      // The patch is undone if the write fails, so the row reappears rather than
+      // lying about being hidden.
+      async onQueryStarted(patch, { dispatch, queryFulfilled }) {
+        const undo = dispatch(
+          apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+            draft.feedPreferences = { ...draft.feedPreferences };
+            if (patch.hideSuggestions !== undefined) {
+              draft.feedPreferences.hideSuggestions = patch.hideSuggestions;
+              // Mirrors the server's SUGGESTIONS_HIDE_DAYS so the optimistic
+              // state and the confirmed one agree on when the rows come back.
+              draft.feedPreferences.hideSuggestionsUntil = patch.hideSuggestions === 'temporary'
+                ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                : null;
+            }
+            if (patch.dismissedHomeBannerId !== undefined) {
+              draft.feedPreferences.dismissedHomeBannerId = patch.dismissedHomeBannerId;
+            }
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          undo.undo();
+        }
+      },
+      invalidatesTags: ['User'],
+    }),
+
     updateUserSettingImage: builder.mutation<User, { type: string; formData: FormData }>({
       query: ({ type, formData }) => ({
         url: `api/users/settings/update/${type}`,
@@ -957,8 +1028,24 @@ export const apiService = createApi({
 
     // ── Site Settings ────────────────────────────────────────────────────────
 
-    getSiteSettings: builder.query<{ featured_cars?: GarageCar[]; featured_users?: User[] }, void>({
+    getSiteSettings: builder.query<{
+      featured_cars?: GarageCar[];
+      featured_users?: User[];
+      home_banner?: HomeBanner | null;
+    }, void>({
       query: () => 'api/site-settings',
+      providesTags: ['SiteSettings'],
+    }),
+
+    /** Admin only. The image rides on the `hero_image` FormData field. */
+    updateHomeBanner: builder.mutation<{ success: boolean; home_banner: HomeBanner }, FormData>({
+      query: (formData) => ({ url: 'api/site-settings/home-banner', method: 'POST', body: formData }),
+      invalidatesTags: ['SiteSettings'],
+    }),
+
+    deleteHomeBanner: builder.mutation<{ success: boolean }, void>({
+      query: () => ({ url: 'api/site-settings/home-banner/delete', method: 'POST' }),
+      invalidatesTags: ['SiteSettings'],
     }),
 
     // ── Podcasts ─────────────────────────────────────────────────────────────
@@ -1199,6 +1286,7 @@ export const {
   useSearchQuery,
   useUpdateUserSettingMutation,
   useUpdateUserSettingImageMutation,
+  useUpdateFeedPreferencesMutation,
   useCheckUsernameMutation,
   useCheckEmailMutation,
   useGetGroupCarsQuery,
@@ -1214,6 +1302,8 @@ export const {
   useGetStoriesFeedQuery,
   useMarkStoriesSeenMutation,
   useGetSiteSettingsQuery,
+  useUpdateHomeBannerMutation,
+  useDeleteHomeBannerMutation,
   useGetPodcastsQuery,
   useGetPodcastQuery,
   useGetListsQuery,

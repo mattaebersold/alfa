@@ -12,6 +12,8 @@ import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
+import { navigationRef, navigateFromOutside } from './navigationRef';
+import { notificationTarget } from '../utils/notificationTarget';
 
 // ── Deep linking config ───────────────────────────────────────────────────────
 const prefix = Linking.createURL('/');
@@ -84,12 +86,35 @@ export default function RootNavigator() {
    * Query only refetches subscribed queries.
    */
   const refreshFor = (content: Notifications.NotificationContent) => {
-    const type = (content.data as { type?: string } | undefined)?.type;
-    if (type === 'message') {
+    const data = content.data as { type?: string; kind?: string } | undefined;
+    if (data?.type === 'message') {
       dispatch(apiService.util.invalidateTags(['Message']));
-    } else {
-      dispatch(apiService.util.invalidateTags(['Notifications']));
+      return;
     }
+    dispatch(apiService.util.invalidateTags(['Notifications']));
+    // A car update means the car's own screens are stale too, not just the
+    // notifications list — the mod or photo it announced is already on the
+    // server, so an open car detail should show it without a manual pull.
+    if (data?.kind) {
+      dispatch(apiService.util.invalidateTags(['Cars', 'GarageCar', 'Mods', 'CarGallery', 'Projects', 'CarTask', 'Post']));
+    }
+  };
+
+  /**
+   * A tapped push opens what it's about.
+   *
+   * The payload carries `content_type`/`content_id` for exactly this — without
+   * it a tap could only open the app and leave you to find the thing yourself.
+   * Older pushes carry no data and simply open where the app left off.
+   */
+  const navigateFor = (content: Notifications.NotificationContent) => {
+    const data = content.data as { content_type?: string; content_id?: string } | undefined;
+    if (!data?.content_type || !data?.content_id) return;
+    const target = notificationTarget({
+      content_type: data.content_type,
+      content_id: data.content_id,
+    });
+    if (target) navigateFromOutside(target.name, target.params);
   };
 
   useEffect(() => {
@@ -103,8 +128,9 @@ export default function RootNavigator() {
     // Handle notification tap (open app from notification)
     responseListener.current = Notifications.addNotificationResponseReceivedListener((r) => {
       // Opening from a cold start or the background means the cache is stale by
-      // however long the app was away. Future: also navigate to the thread.
+      // however long the app was away.
       refreshFor(r.notification.request.content);
+      navigateFor(r.notification.request.content);
     });
 
     return () => {
@@ -114,7 +140,7 @@ export default function RootNavigator() {
   }, [dispatch]);
 
   return (
-    <NavigationContainer linking={linking as any}>
+    <NavigationContainer ref={navigationRef} linking={linking as any}>
       {/* Inside the container: the event sheet it hosts renders navigation-aware
           content, so it needs a navigation context of its own. */}
       <EventSheetProvider>

@@ -1,28 +1,37 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Dimensions, FlatList,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
-import { MapPin, Clock, Check, X } from 'lucide-react-native';
-import { useGetRallyQuery, useAttendRallyMutation, useDeclineRallyMutation } from '../../api/apiService';
+import { WebView } from 'react-native-webview';
+import { MapPin, Clock, Users, Navigation, ArrowLeft } from 'lucide-react-native';
+import { useGetRallyQuery } from '../../api/apiService';
+import RouteMap from '../../components/routes/RouteMap';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { toRallyFormEmbedUrl } from '../../utils/rally';
 import type { SocietyScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
+/**
+ * Full-screen rally detail — reached from deep links and notifications. The
+ * sheet at components/society/RallyDetailSheet.tsx is the same content in the
+ * list context; the two are kept in step deliberately.
+ *
+ * Registration runs through the rally's own Airtable form rather than an RSVP
+ * on our side, so there are no attend/decline controls here.
+ */
 export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDetail'>) {
   const { rallyId } = route.params;
   const colors = useColors();
   const { data: rally, isLoading } = useGetRallyQuery(rallyId);
-  const [attend, { isLoading: attending }] = useAttendRallyMutation();
-  const [decline, { isLoading: declining }] = useDeclineRallyMutation();
+  const [showForm, setShowForm] = useState(false);
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
@@ -38,6 +47,35 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const gallery = rally.gallery ?? [];
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
   const date = rally.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
+  const formUrl = toRallyFormEmbedUrl(rally.form_id);
+  const hasCoords = Number.isFinite(rally.location_lat) && Number.isFinite(rally.location_lng);
+
+  if (showForm && formUrl) {
+    return (
+      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+        <TouchableOpacity
+          style={[styles.formBar, { borderBottomColor: colors.border }]}
+          onPress={() => setShowForm(false)}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={18} color={colors.fg} />
+          <Text style={[styles.formBarText, { color: colors.fg }]}>Back to rally</Text>
+        </TouchableOpacity>
+        <WebView
+          source={{ uri: formUrl }}
+          style={styles.form}
+          javaScriptEnabled
+          domStorageEnabled
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.formLoading}>
+              <ActivityIndicator color={colors.primaryAlt} />
+            </View>
+          )}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
@@ -79,34 +117,58 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
             </TouchableOpacity>
           ) : null}
 
+          {rally.attendee_limit != null && (
+            <View style={styles.metaRow}>
+              <Users size={15} color={colors.grey} />
+              <Text style={[styles.metaText, { color: colors.grey }]}>{rally.attendee_limit} car limit</Text>
+            </View>
+          )}
+
           {rally.slots_available != null && (
             <Text style={styles.slots}>{rally.slots_available} slots available</Text>
           )}
 
-          {/* RSVP */}
-          <View style={styles.rsvpRow}>
+          {formUrl && (
             <TouchableOpacity
-              style={[styles.rsvpBtn, styles.rsvpAttend]}
-              onPress={() => attend({ rally_id: rallyId })}
-              disabled={attending}
+              style={[styles.registerBtn, { backgroundColor: colors.primaryAlt }]}
+              onPress={() => setShowForm(true)}
+              activeOpacity={0.85}
             >
-              <Check size={16} color="#FFFFFF" />
-              <Text style={styles.rsvpText}>Attend</Text>
+              <Text style={styles.registerText}>Register Now</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.rsvpBtn, { backgroundColor: colors.segment, borderWidth: 1, borderColor: colors.border }]}
-              onPress={() => decline({ rally_id: rallyId })}
-              disabled={declining}
-            >
-              <X size={16} color={colors.fg} />
-              <Text style={[styles.rsvpText, { color: colors.fg }]}>Decline</Text>
-            </TouchableOpacity>
-          </View>
+          )}
 
           {rally.body ? (
             <Text style={[styles.description, { color: colors.fg }]}>{stripHtml(rally.body)}</Text>
           ) : null}
         </View>
+
+        {hasCoords && (
+          <View style={styles.mapSection}>
+            <View style={styles.mapWrap} pointerEvents="none">
+              <RouteMap
+                path={[]}
+                center={{ lat: rally.location_lat as number, lng: rally.location_lng as number }}
+                zoom={14}
+                color={colors.primaryAlt}
+                markers={[{
+                  lat: rally.location_lat as number,
+                  lng: rally.location_lng as number,
+                  label: rally.location || rally.title,
+                }]}
+                style={ss.fill}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.directionsBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+              onPress={handleOpenMaps}
+              activeOpacity={0.8}
+            >
+              <Navigation size={15} color={colors.primaryAlt} />
+              <Text style={[styles.directionsText, { color: colors.fg }]}>Get Directions</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -123,10 +185,24 @@ const styles = StyleSheet.create({
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:        { fontSize: 14 },
   metaLink:        { color: colors.primaryAlt, fontWeight: '600' },
-  slots:           { fontSize: 13, fontWeight: '700', color: colors.primaryAlt, marginBottom: 12 },
-  rsvpRow:         { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
-  rsvpAttend:      { backgroundColor: colors.primaryAlt },
-  rsvpText:        { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  slots:           { fontSize: 13, fontWeight: '700', color: colors.primaryAlt, marginBottom: 4 },
+  registerBtn:     { marginTop: 12, marginBottom: 18, paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
+  registerText:    { fontSize: 15, fontWeight: '800', color: '#000000' },
   description:     { fontSize: 15, lineHeight: 22 },
+
+  mapSection:      { paddingHorizontal: 16, gap: 10 },
+  mapWrap:         { height: 180, borderRadius: 12, overflow: 'hidden' },
+  directionsBtn:   {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderRadius: 10, borderWidth: 1,
+  },
+  directionsText:  { fontSize: 14, fontWeight: '700' },
+
+  formBar:         {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  formBarText:     { fontSize: 15, fontWeight: '600' },
+  form:            { flex: 1, backgroundColor: '#FFFFFF' },
+  formLoading:     { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
 });

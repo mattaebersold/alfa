@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Pressable,
-  TextInput, Modal, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, Pressable, Animated,
+  TextInput, Modal, Alert, KeyboardAvoidingView, Platform, ScrollView, Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
-import { Plus, Check, MoreVertical, ChevronDown, ChevronUp, Archive, ArrowLeft } from 'lucide-react-native';
+import { Plus, Check, MoreVertical, ChevronDown, ChevronUp, Archive, ArrowLeft, Link2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   useGetCarTasksQuery,
@@ -143,187 +143,63 @@ function priorityTextColor(bg: string): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-// ── Add/Edit Task Modal ───────────────────────────────────────────────────────
-function TaskModal({
-  visible,
-  onClose,
-  onSave,
-  initial,
-  loading,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSave: (data: { title: string; body: string; priority: Priority; category: string }) => void;
-  initial?: Partial<CarTask>;
-  loading: boolean;
-}) {
-  const colors = useColors();
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [body, setBody] = useState(initial?.body ?? '');
-  const [priority, setPriority] = useState<Priority>((initial?.priority as Priority) ?? 'medium');
-  const [category, setCategory] = useState<string>(initial?.category ?? 'general');
-
-  React.useEffect(() => {
-    if (visible) {
-      setTitle(initial?.title ?? '');
-      setBody(initial?.body ?? '');
-      setPriority((initial?.priority as Priority) ?? 'medium');
-      setCategory(initial?.category ?? 'general');
-    }
-  }, [visible, initial]);
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={modal.flex}
-        >
-          {/* Header */}
-          <View style={[modal.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={[modal.cancel, { color: colors.grey }]}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={[modal.title, { color: colors.fg }]}>{initial?.internal_id ? 'Edit Task' : 'New Task'}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (!title.trim()) { Alert.alert('Error', 'Title is required'); return; }
-                onSave({ title: title.trim(), body: body.trim(), priority, category });
-              }}
-              disabled={loading}
-            >
-              <Text style={[modal.save, loading && modal.saveDisabled]}>Save</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={modal.body} keyboardShouldPersistTaps="handled">
-            <View style={modal.field}>
-              <Text style={[modal.label, { color: colors.fg }]}>Title *</Text>
-              <TextInput
-                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="e.g. Replace brake pads"
-                placeholderTextColor={colors.grey}
-                autoFocus
-              />
-            </View>
-
-            <View style={modal.field}>
-              <Text style={[modal.label, { color: colors.fg }]}>Notes</Text>
-              <TextInput
-                style={[ss.input, ss.inputMulti, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-                value={body}
-                onChangeText={setBody}
-                placeholder="Details, part numbers, etc."
-                placeholderTextColor={colors.grey}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <View style={modal.field}>
-              <Text style={[modal.label, { color: colors.fg }]}>Priority</Text>
-              <View style={modal.chips}>
-                {PRIORITIES.map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[
-                      modal.chip,
-                      { borderColor: colors.border, backgroundColor: colors.card },
-                      priority === p && { backgroundColor: PRIORITY_COLORS[p], borderColor: PRIORITY_COLORS[p] },
-                    ]}
-                    onPress={() => setPriority(p)}
-                  >
-                    <Text style={[modal.chipText, { color: colors.fg }, priority === p && { color: '#FFFFFF' }]}>
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={modal.field}>
-              <Text style={[modal.label, { color: colors.fg }]}>Category</Text>
-              <View style={modal.chips}>
-                {TASK_CATEGORIES.map((cat) => (
-                  <TouchableOpacity
-                    key={cat.key}
-                    style={[
-                      modal.chip,
-                      { borderColor: colors.border, backgroundColor: colors.card },
-                      category === cat.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-                    ]}
-                    onPress={() => setCategory(cat.key)}
-                  >
-                    <Text style={[modal.chipText, { color: colors.fg }, category === cat.key && { color: '#FFFFFF' }]}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-const modal = StyleSheet.create({
-  flex:    { flex: 1 },
-  header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  title:   { fontSize: 17, fontWeight: '700' },
-  cancel:  { fontSize: 16 },
-  save:    { fontSize: 16, fontWeight: '700', color: colors.primaryAlt },
-  saveDisabled: { opacity: 0.4 },
-  body:    { padding: 16 },
-  field:   { marginBottom: 20 },
-  label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:    { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5 },
-  chipText:{ fontSize: 13, fontWeight: '600' },
-});
-
-// ── New Task Dialog ───────────────────────────────────────────────────────────
+// ── Task Dialog ───────────────────────────────────────────────────────────────
 /**
- * A small centred dialog for adding a task.
+ * A small centred dialog for adding *or* editing a task.
  *
- * Only the three fields worth deciding up front — a title, where it goes, and
- * how urgent it is. Notes stay in the full edit sheet: they get written later,
- * when you have part numbers, not while you're jotting the task down.
+ * The three fields worth deciding up front — a title, where it goes, and how
+ * urgent it is — are always visible. A description and a reference link are the
+ * exception rather than the rule, so they sit behind a collapsed "Optional
+ * fields" section: available in the same pass if you already have them,
+ * invisible if you don't.
+ *
+ * Editing used to open a full-screen page sheet instead. Two different surfaces
+ * for the same five fields meant the same task looked like two different forms
+ * depending on how you got there, so the pane is gone and this is the one way in.
  */
-function NewTaskDialog({
+function TaskDialog({
   visible,
   onClose,
   onSave,
   saving,
+  initial,
   initialCategory = 'general',
 }: {
   visible: boolean;
   onClose: () => void;
-  onSave: (data: { title: string; priority: Priority; category: string }) => void;
+  onSave: (data: { title: string; body: string; link: string; priority: Priority; category: string }) => void;
   saving: boolean;
-  /** Preselected when opened from a category header; still changeable here. */
+  /** The task being edited. Absent means this is a new one. */
+  initial?: Partial<CarTask>;
+  /** Preselected for a new task opened from a category header; still changeable. */
   initialCategory?: string;
 }) {
   const colors = useColors();
+  const isEdit = !!initial?.internal_id;
   const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [link, setLink] = useState('');
+  const [optionalOpen, setOptionalOpen] = useState(false);
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState(initialCategory);
 
-  // Reset on open, not on close — clearing while it animates out is visible.
+  // Seed on open, not on close — clearing while it animates out is visible.
   useEffect(() => {
-    if (visible) {
-      setTitle('');
-      setPriority('medium');
-      setCategory(initialCategory);
-    }
-  }, [visible, initialCategory]);
+    if (!visible) return;
+    setTitle(initial?.title ?? '');
+    setBody(initial?.body ?? '');
+    setLink(initial?.link ?? '');
+    // A task that already has notes or a link opens with them showing —
+    // collapsing existing content behind a closed accordion would hide it from
+    // the person who came here to change it.
+    setOptionalOpen(!!(initial?.body || initial?.link));
+    setPriority((initial?.priority as Priority) ?? 'medium');
+    setCategory(initial?.category ?? initialCategory);
+  }, [visible, initial, initialCategory]);
 
   const submit = () => {
     if (!title.trim() || saving) return;
-    onSave({ title: title.trim(), priority, category });
+    onSave({ title: title.trim(), body: body.trim(), link: link.trim(), priority, category });
   };
 
   return (
@@ -333,8 +209,16 @@ function NewTaskDialog({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {/* Scrollable because the optional section can push the dialog past the
+            screen once the keyboard is up. */}
+        <ScrollView
+          style={dialog.scroll}
+          contentContainerStyle={dialog.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={[dialog.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
-          <Text style={[dialog.heading, { color: colors.fg }]}>New Task</Text>
+          <Text style={[dialog.heading, { color: colors.fg }]}>{isEdit ? 'Edit Task' : 'New Task'}</Text>
 
           <TextInput
             style={[dialog.input, { borderColor: TASK_DIVIDER, color: '#FFFFFF' }]}
@@ -342,7 +226,10 @@ function NewTaskDialog({
             onChangeText={setTitle}
             placeholder="e.g. Replace brake pads"
             placeholderTextColor={colors.grey}
-            autoFocus
+            // Only for a new task: editing one starts with the cursor jumping
+            // into a field that's already filled in, which fights the keyboard
+            // for the rest of the form.
+            autoFocus={!isEdit}
             returnKeyType="done"
             onSubmitEditing={submit}
           />
@@ -396,6 +283,48 @@ function NewTaskDialog({
             })}
           </View>
 
+          {/* Optional fields — collapsed unless the task already has some */}
+          <TouchableOpacity
+            style={[dialog.accordionHeader, { borderColor: TASK_DIVIDER }]}
+            onPress={() => setOptionalOpen((v) => !v)}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: optionalOpen }}
+            accessibilityLabel="Optional fields"
+          >
+            <Text style={[dialog.accordionText, { color: colors.grey }]}>Optional fields</Text>
+            {optionalOpen
+              ? <ChevronUp size={15} color={colors.grey} />
+              : <ChevronDown size={15} color={colors.grey} />}
+          </TouchableOpacity>
+
+          {optionalOpen && (
+            <View style={dialog.accordionBody}>
+              <Text style={[dialog.label, dialog.labelTight, { color: colors.grey }]}>Description</Text>
+              <TextInput
+                style={[dialog.input, dialog.textarea, { borderColor: TASK_DIVIDER, color: '#FFFFFF' }]}
+                value={body}
+                onChangeText={setBody}
+                placeholder="Details, part numbers, etc."
+                placeholderTextColor={colors.grey}
+                multiline
+                textAlignVertical="top"
+              />
+
+              <Text style={[dialog.label, { color: colors.grey }]}>Link</Text>
+              <TextInput
+                style={[dialog.input, { borderColor: TASK_DIVIDER, color: '#FFFFFF' }]}
+                value={link}
+                onChangeText={setLink}
+                placeholder="https://..."
+                placeholderTextColor={colors.grey}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+            </View>
+          )}
+
           <View style={dialog.actions}>
             <TouchableOpacity onPress={onClose} style={dialog.cancelBtn}>
               <Text style={[dialog.cancelText, { color: colors.grey }]}>Cancel</Text>
@@ -409,10 +338,11 @@ function NewTaskDialog({
                 (!title.trim() || saving) && dialog.addBtnOff,
               ]}
             >
-              <Text style={dialog.addText}>Add</Text>
+              <Text style={dialog.addText}>{isEdit ? 'Save' : 'Add'}</Text>
             </TouchableOpacity>
           </View>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -423,12 +353,27 @@ const dialog = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)', padding: 24,
   },
+  // The ScrollView must not stretch to the backdrop's full height, or its
+  // content stops being centred and pins to the top.
+  scroll:        { flexGrow: 0, width: '100%', maxWidth: 400 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center' },
   card:       { width: '100%', maxWidth: 400, borderRadius: 16, borderWidth: 1, padding: 18 },
   heading:    { fontSize: 17, fontWeight: '800', marginBottom: 14 },
   input:      {
     height: 44, borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 12, fontSize: 15,
   },
+  textarea:   { height: 88, paddingTop: 10, paddingBottom: 10 },
+  accordionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 16, paddingVertical: 10, paddingHorizontal: 12,
+    borderWidth: 1, borderRadius: 10,
+  },
+  accordionText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  accordionBody: { marginTop: 10, gap: 6 },
+  // The first label inside the accordion doesn't need the gap the shared label
+  // style adds — the accordion header already spaced it.
+  labelTight:    { marginTop: 0 },
   label:      { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
   chips:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
@@ -462,6 +407,48 @@ function TaskRow({
   isLast?: boolean;
 }) {
   const colors = useColors();
+
+  /**
+   * Ticking a task off should feel like something.
+   *
+   * The checkbox pops past its own size and springs back, and a wash of the
+   * brand colour sweeps across the row — enough to register in peripheral vision
+   * when you're working down a list, short enough not to hold up the next tap.
+   * Both are fired from the press rather than from `task.completed` changing, so
+   * the feedback is immediate; the mutation patches the cache optimistically, so
+   * the checkbox fills on the same frame.
+   *
+   * Un-completing gets the pop and a light tick, but no flash and no success
+   * notification — undoing isn't an achievement.
+   */
+  const checkScale = useRef(new Animated.Value(1)).current;
+  const flash = useRef(new Animated.Value(0)).current;
+
+  const handleToggle = () => {
+    const completing = !task.completed;
+
+    if (completing) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+
+    checkScale.setValue(1);
+    Animated.sequence([
+      Animated.timing(checkScale, { toValue: 1.35, duration: 110, useNativeDriver: true }),
+      Animated.spring(checkScale, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }),
+    ]).start();
+
+    if (completing) {
+      flash.setValue(0);
+      Animated.sequence([
+        Animated.timing(flash, { toValue: 0.22, duration: 90, useNativeDriver: true }),
+        Animated.timing(flash, { toValue: 0, duration: 320, useNativeDriver: true }),
+      ]).start();
+    }
+
+    onToggle();
+  };
 
   // With the grab handle gone, the long press is the only way into a drag — so
   // it has to announce itself. The tap lands at the moment the row becomes
@@ -497,16 +484,19 @@ function TaskRow({
       activeOpacity={1}
     >
       {/* Checkbox — the only way to complete a task */}
-      <TouchableOpacity
-        style={[taskRow.check, task.completed && taskRow.checkDone]}
-        onPress={onToggle}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: !!task.completed }}
-        accessibilityLabel={task.title}
-      >
-        {task.completed && <Check size={11} color="#FFFFFF" />}
-      </TouchableOpacity>
+      <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+        <TouchableOpacity
+          style={[taskRow.check, task.completed && taskRow.checkDone]}
+          onPress={handleToggle}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: !!task.completed }}
+          accessibilityLabel={task.title}
+        >
+          {task.completed && <Check size={11} color="#FFFFFF" />}
+        </TouchableOpacity>
+      </Animated.View>
+
 
       {/* Content */}
       <View style={taskRow.content}>
@@ -528,6 +518,20 @@ function TaskRow({
         {task.body ? (
           <Text style={[taskRow.body, { color: colors.muted }]} numberOfLines={2}>{task.body}</Text>
         ) : null}
+        {task.link ? (
+          <TouchableOpacity
+            style={taskRow.linkRow}
+            onPress={() => Linking.openURL(task.link as string).catch(() => {})}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityRole="link"
+            accessibilityLabel={`Open link for ${task.title ?? 'task'}`}
+          >
+            <Link2 size={12} color={colors.primaryAlt} />
+            <Text style={[taskRow.linkText, { color: colors.primaryAlt }]} numberOfLines={1}>
+              {task.link.replace(/^https?:\/\/(www\.)?/, '')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Overflow menu */}
@@ -544,6 +548,20 @@ function TaskRow({
       >
         <MoreVertical size={18} color={colors.grey} />
       </TouchableOpacity>
+
+      {/* Completion flash — a wash of the brand colour that sweeps out as the
+          row settles into its done state. Last child so it washes the whole row
+          evenly rather than sliding under the later siblings, absolutely
+          positioned so it stays out of the layout, and non-interactive so it
+          can't eat the taps underneath it. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          taskRow.flash,
+          { backgroundColor: colors.primaryAlt, opacity: flash },
+        ]}
+      />
     </TouchableOpacity>
   );
 }
@@ -563,6 +581,9 @@ const taskRow = StyleSheet.create({
     borderBottomRightRadius: GROUP_RADIUS,
   },
   rowDone: { opacity: 0.55 },
+  // Clipped to the row's own rounding so the wash can't spill past a group's
+  // bottom corners.
+  flash:   { borderRadius: GROUP_RADIUS },
   rowActive: { opacity: 0.95, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   check: {
     // Dimmed white while empty — present without competing with the title.
@@ -579,6 +600,8 @@ const taskRow = StyleSheet.create({
   // instead of being pushed out to the far edge of the row.
   title:    { flexShrink: 1, fontSize: 14, fontWeight: '400' },
   body:     { fontSize: 13, lineHeight: 18, marginTop: 3 },
+  linkRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  linkText: { flexShrink: 1, fontSize: 12, fontWeight: '600' },
   // Filled pill rather than loose text — it reads as a label at this size, and
   // matches the priority chips in the add/edit sheet. `flexShrink: 0` stops the
   // row's squeeze landing on the pill rather than on the title.
@@ -603,10 +626,10 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
   // Collapsed by default — done work is reference, not the reason you opened
   // the list, and on a long-running project it dwarfs what's still open.
   const [showCompleted, setShowCompleted] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+  // One dialog for both adding and editing — `editingTask` is the only thing
+  // that differs between the two.
+  const [dialogVisible, setDialogVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<CarTask | undefined>(undefined);
-  // New tasks get a small dialog; the full sheet is only for editing one.
-  const [newTaskVisible, setNewTaskVisible] = useState(false);
   const [newTaskCategory, setNewTaskCategory] = useState('general');
   // Empty means everything is open — categories always start expanded, and
   // collapsing is a per-visit choice rather than something that persists.
@@ -617,8 +640,16 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
   // Opened from a category header, the dialog starts on that category — the
   // common case is adding another task where you're already looking.
   const openNewTask = (category = 'general') => {
+    setEditingTask(undefined);
     setNewTaskCategory(category);
-    setNewTaskVisible(true);
+    setDialogVisible(true);
+  };
+
+  const closeDialog = () => {
+    setDialogVisible(false);
+    // Cleared on close so the next "new task" doesn't briefly show the last
+    // edited one while the dialog fades in.
+    setEditingTask(undefined);
   };
 
   const { data: tasksData, isLoading } = useGetCarTasksQuery(carId);
@@ -661,29 +692,26 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
     if (persist.length) updatePositions({ tasks: persist, car_id: carId });
   };
 
-  const handleSave = async (data: { title: string; body: string; priority: Priority; category: string }) => {
-    if (editingTask?.internal_id) {
-      await updateTask({ ...editingTask, ...data }).unwrap();
-    } else {
-      await createTask({ car_id: carId, position: tasks.length, ...data }).unwrap();
-    }
-    setModalVisible(false);
-    setEditingTask(undefined);
-  };
-
-  const handleCreate = async (data: { title: string; priority: Priority; category: string }) => {
+  const handleSave = async (data: { title: string; body: string; link: string; priority: Priority; category: string }) => {
     try {
-      await createTask({ car_id: carId, position: tasks.length, ...data }).unwrap();
-      setNewTaskVisible(false);
+      if (editingTask?.internal_id) {
+        await updateTask({ ...editingTask, ...data }).unwrap();
+      } else {
+        await createTask({ car_id: carId, position: tasks.length, ...data }).unwrap();
+      }
+      closeDialog();
     } catch {
       // Leave the dialog open with its text intact so nothing typed is lost.
-      Alert.alert('Could not add task', 'Please try again.');
+      Alert.alert(
+        editingTask ? 'Could not save task' : 'Could not add task',
+        'Please try again.',
+      );
     }
   };
 
   const handleEdit = (task: CarTask) => {
     setEditingTask(task);
-    setModalVisible(true);
+    setDialogVisible(true);
   };
 
   const handleToggle = (task: CarTask) => {
@@ -900,20 +928,13 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
         <Plus size={24} color="#000000" strokeWidth={3} />
       </TouchableOpacity>
 
-      <NewTaskDialog
-        visible={newTaskVisible}
-        onClose={() => setNewTaskVisible(false)}
-        onSave={handleCreate}
-        saving={creating}
-        initialCategory={newTaskCategory}
-      />
-
-      <TaskModal
-        visible={modalVisible}
-        onClose={() => { setModalVisible(false); setEditingTask(undefined); }}
+      <TaskDialog
+        visible={dialogVisible}
+        onClose={closeDialog}
         onSave={handleSave}
+        saving={creating || updating}
         initial={editingTask}
-        loading={creating || updating}
+        initialCategory={newTaskCategory}
       />
     </SafeAreaView>
   );

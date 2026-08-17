@@ -585,7 +585,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       {
         text: 'Choose from Library',
         onPress: async () => {
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.85 });
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.85 });
           if (!result.canceled) {
             const newImgs = await normalizePickedAssets(result.assets);
             setGalleryImages((prev) => [...prev, ...newImgs].slice(0, 20));
@@ -798,7 +798,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       {
         text: 'Choose from Library',
         onPress: async () => {
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, quality: 0.85 });
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.85 });
           if (!result.canceled) {
             const newImgs = await normalizePickedAssets(result.assets);
             setEditAlbumNewImages((prev) => [...prev, ...newImgs].slice(0, 20));

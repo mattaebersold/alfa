@@ -307,7 +307,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
         text: 'Choose from Library',
         onPress: async () => {
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsMultipleSelection: true,
             quality: 0.85,
           });

@@ -46,7 +46,7 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.85,
     });

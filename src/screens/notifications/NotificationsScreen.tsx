@@ -22,28 +22,22 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { notificationTarget } from '../../utils/notificationTarget';
 import type { Notification } from '../../types/api';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-// Map a notification's referenced content to a navigation target.
-function targetForNotification(n: Notification): { name: keyof AppStackParamList; params: any } | null {
-  const id = n.content_id;
-  if (n.type === 'follow') {
-    const uid = n.sender?.user_id ?? id;
-    return uid ? { name: 'UserDetail', params: { userId: uid } } : null;
-  }
-  switch (n.content_type) {
-    case 'post':      return id ? { name: 'PostDetailModal', params: { postId: id } } : null;
-    case 'garagecar': return id ? { name: 'CarDetail', params: { carId: id } } : null;
-    case 'user':      return id ? { name: 'UserDetail', params: { userId: id } } : null;
-    case 'group':     return id ? { name: 'GroupDetail', params: { groupId: id } } : null;
-    default:
-      return n.sender?.user_id ? { name: 'UserDetail', params: { userId: n.sender.user_id } } : null;
-  }
-}
+// Map a notification's referenced content to a navigation target. The mapping
+// itself lives in utils/notificationTarget so a tapped push lands in the same
+// place as a tapped row.
+const targetForNotification = (n: Notification) => notificationTarget({
+  type: n.type,
+  content_type: n.content_type,
+  content_id: n.content_id,
+  senderUserId: n.sender?.user_id,
+});
 
 function NotificationRow({
   notification,

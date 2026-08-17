@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -8,6 +8,9 @@ import StoriesRow from '../../components/stories/StoriesRow';
 import FeedQuickLinks from '../../components/feed/FeedQuickLinks';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
+import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
+import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
+import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
@@ -37,13 +40,29 @@ function PostPrompt() {
 
 function FeedHeader() {
   const isPro = useIsPro();
+  const { suggestionsHidden, hideSuggestions } = useFeedPreferences();
+  // One dialog for both rows: the choice it collects applies to suggestions as
+  // a whole, so a per-row copy would be two ways to reach the same switch.
+  const [hideDialog, setHideDialog] = useState(false);
+  const openHideDialog = () => setHideDialog(true);
+
   return (
     <View>
       {/* {isPro && <StoriesRow />} */}
+      <HomeFeatureBanner />
       <FeedQuickLinks />
       <PostPrompt />
-      <SuggestedMembersRow />
-      <SuggestedCarsRow />
+      {!suggestionsHidden && (
+        <>
+          <SuggestedMembersRow onRequestHide={openHideDialog} />
+          <SuggestedCarsRow onRequestHide={openHideDialog} />
+        </>
+      )}
+      <HideSuggestionsDialog
+        visible={hideDialog}
+        onClose={() => setHideDialog(false)}
+        onChoose={hideSuggestions}
+      />
     </View>
   );
 }

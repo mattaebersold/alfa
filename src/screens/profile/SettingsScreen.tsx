@@ -213,7 +213,7 @@ export default function SettingsScreen() {
 
   const pickAndUpload = async (type: 'gallery' | 'banners', aspect: [number, number]) => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect,
       quality: 0.8,
