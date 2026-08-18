@@ -11,6 +11,7 @@ import { ImagePlus, X } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCreateEventMutation } from '../../api/apiService';
+import { DateField, TimeField } from '../../components/ui/DateTimeField';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
@@ -185,25 +186,9 @@ export default function EventCreateScreen() {
         {/* Date & Time */}
         <View style={[styles.fieldSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <SectionLabel text="DATE & TIME" />
-          <View style={[styles.fieldRow, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.fieldLabel, { color: colors.grey }]}>Date</Text>
-            <TextInput
-              style={[styles.fieldInput, { color: colors.fg }]}
-              value={eventDate}
-              onChangeText={setEventDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.grey}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <Text style={[styles.fieldLabel, { color: colors.grey }]}>Time</Text>
-            <TextInput
-              style={[styles.fieldInput, { color: colors.fg }]}
-              value={eventTime}
-              onChangeText={setEventTime}
-              placeholder="e.g. 10:00 AM"
-              placeholderTextColor={colors.grey}
-            />
+          <View style={styles.pickerRow}>
+            <DateField value={eventDate} onChange={setEventDate} clearable />
+            <TimeField value={eventTime} onChange={setEventTime} clearable />
           </View>
         </View>
 
@@ -289,13 +274,8 @@ const styles = StyleSheet.create({
     fontSize: 11, fontWeight: '700', letterSpacing: 0.6,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6,
   },
-  fieldRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  fieldLabel:  { fontSize: 13, fontWeight: '600', width: 60 },
-  fieldInput:  { flex: 1, fontSize: 14, paddingVertical: 11 },
+  // The picker fields carry their own border, so the row only spaces them.
+  pickerRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingBottom: 12 },
   locationInput: {
     paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
   },

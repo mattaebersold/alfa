@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Avatar from '../ui/Avatar';
 import EventDateBadge from '../society/EventDateBadge';
 import EventImage from '../society/EventImage';
 import { firstGalleryUrl } from '../../utils/image';
-import { categoryFor, occurrenceDate } from '../../constants/eventTypes';
+import { categoryFor, occurrenceDate, ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import type { SocietyEvent, User } from '../../types/api';
+
+/**
+ * The card follows its photo's own shape, but a panorama or a very tall crop
+ * would otherwise turn one card into a sliver or a skyscraper. These bounds sit
+ * outside anything a phone camera produces, so ordinary photos pass through.
+ */
+const MIN_RATIO = 0.5;
+const MAX_RATIO = 3;
 
 interface EventCardProps {
   event: SocietyEvent;
@@ -46,11 +54,17 @@ function InterestedStack({ users, total }: { users?: User[]; total: number }) {
  * and the interested avatars bottom-right.
  */
 export default function EventCard({ event, onPress, variant = 'default', width }: EventCardProps) {
+  // The photo's own shape, once it has decoded. Until then — and for events with
+  // no photo at all — the card keeps the variant's shape so a list of them
+  // doesn't start out ragged.
+  const [ratio, setRatio] = useState<number | null>(null);
+
   if (!event) return null;
 
   const category = categoryFor(event.category);
   const date = occurrenceDate(event);
   const hero = firstGalleryUrl(event.gallery);
+  const fallbackRatio = variant === 'row' ? 16 / 7 : 4 / 3;
 
   return (
     <TouchableOpacity
@@ -66,8 +80,12 @@ export default function EventCard({ event, onPress, variant = 'default', width }
         </Text>
       </View>
 
-      <View style={{ aspectRatio: variant === 'row' ? 16 / 7 : 4 / 3 }}>
-        <EventImage uri={hero} style={StyleSheet.absoluteFill} />
+      <View style={{ aspectRatio: ratio ?? fallbackRatio }}>
+        <EventImage
+          uri={hero}
+          style={StyleSheet.absoluteFill}
+          onAspectRatio={(r) => setRatio(Math.min(Math.max(r, MIN_RATIO), MAX_RATIO))}
+        />
 
         {/* Scrim — keeps the overlaid text legible on any photo */}
         <LinearGradient
@@ -76,6 +94,14 @@ export default function EventCard({ event, onPress, variant = 'default', width }
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
+
+        {/* Top-left is the only corner nothing else claims — the avatars sit
+            bottom-right and the copy runs along the bottom. */}
+        {event.ors_sponsored && (
+          <View style={[styles.orsBadge, { backgroundColor: ORS_EVENT_COLOR }]}>
+            <Text style={styles.orsBadgeText}>ORS Event</Text>
+          </View>
+        )}
 
         <View style={styles.interested}>
           <InterestedStack users={event.interested_preview} total={event.interested_count ?? 0} />
@@ -101,6 +127,15 @@ const styles = StyleSheet.create({
   },
   headerText:     { fontSize: 14, fontWeight: '800', color: '#000000' },
   headerCategory: { flexShrink: 1, textAlign: 'right' },
+
+  orsBadge: {
+    position: 'absolute', top: 8, left: 8,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
+  },
+  orsBadgeText: {
+    fontSize: 10, fontWeight: '800', color: '#000000',
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
 
   interested: { position: 'absolute', bottom: 8, right: 8 },
   stack:        { flexDirection: 'row', alignItems: 'center' },

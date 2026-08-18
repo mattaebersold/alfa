@@ -9,6 +9,7 @@ import FeedQuickLinks from '../../components/feed/FeedQuickLinks';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
 import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
+import UpcomingEventsRow from '../../components/feed/UpcomingEventsRow';
 import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
 import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -50,6 +51,7 @@ function FeedHeader() {
     <View>
       {/* {isPro && <StoriesRow />} */}
       <HomeFeatureBanner />
+      <UpcomingEventsRow />
       <FeedQuickLinks />
       <PostPrompt />
       {!suggestionsHidden && (

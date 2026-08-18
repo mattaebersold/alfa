@@ -18,6 +18,9 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import { EVENT_CATEGORIES, toDayKey } from '../../constants/eventTypes';
 import { uploadFile } from '../../utils/upload';
 import { useEventSheet } from '../../providers/EventSheetProvider';
+import { useAppSelector } from '../../store/store';
+import { DateField, TimeField } from '../../components/ui/DateTimeField';
+import OrsSponsoredToggle from '../../components/society/OrsSponsoredToggle';
 import { ss } from '../../styles/shared';
 
 const FREQUENCIES = [
@@ -59,36 +62,6 @@ function Pill({ active, label, color, onPress }: { active: boolean; label: strin
 }
 
 /**
- * Two plain HH:MM fields. A native time picker is heavier than this needs to
- * be — the value is stored as a wall-clock string either way.
- */
-function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const colors = useColors();
-
-  // Digits only, auto-inserting the colon so "830" becomes "8:30".
-  const handle = (raw: string) => {
-    const digits = raw.replace(/[^0-9]/g, '').slice(0, 4);
-    if (digits.length <= 2) return onChange(digits);
-    onChange(`${digits.slice(0, digits.length - 2)}:${digits.slice(-2)}`);
-  };
-
-  return (
-    <View style={{ flex: 1 }}>
-      <Text style={[styles.fieldLabel, { color: colors.grey }]}>{label}</Text>
-      <TextInput
-        style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-        value={value}
-        onChangeText={handle}
-        placeholder="18:30"
-        placeholderTextColor={colors.grey}
-        keyboardType="number-pad"
-        maxLength={5}
-      />
-    </View>
-  );
-}
-
-/**
  * Create or edit a society event. Open to any member; editing is reached from
  * the owner menu on the detail, which passes the event's id.
  */
@@ -103,6 +76,8 @@ export default function SocietyEventCreateScreen() {
   const [updateEvent, { isLoading: updating }] = useUpdateSocietyEventMutation();
   const { data: existing } = useGetSocietyEventQuery(editingId ?? '', { skip: !editingId });
   const { openEventSheet } = useEventSheet();
+  const { userInfo } = useAppSelector((s) => s.auth);
+  const isAdmin = userInfo?.accountType === 'admin';
   const isLoading = creating || updating;
 
   const [title, setTitle] = useState('');
@@ -116,6 +91,7 @@ export default function SocietyEventCreateScreen() {
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
   const [image, setImage] = useState<string | null>(null);
+  const [orsSponsored, setOrsSponsored] = useState(false);
 
   // Prefill when editing.
   useEffect(() => {
@@ -130,6 +106,7 @@ export default function SocietyEventCreateScreen() {
     setStartTime(existing.start_time ?? '');
     setEndTime(existing.end_time ?? '');
     setLocation(existing.location ?? '');
+    setOrsSponsored(!!existing.ors_sponsored);
   }, [existing]);
 
   const needsDate = frequency === 'single' || frequency === 'annually';
@@ -165,6 +142,8 @@ export default function SocietyEventCreateScreen() {
     if (startTime) fd.append('start_time', startTime);
     if (endTime) fd.append('end_time', endTime);
     if (location.trim()) fd.append('location', location.trim());
+    // Only admins can set this; horacio ignores it from anyone else.
+    if (isAdmin) fd.append('ors_sponsored', String(orsSponsored));
     if (image) fd.append('gallery', uploadFile(image) as any);
     if (editingId) fd.append('internal_id', editingId);
 
@@ -232,25 +211,11 @@ export default function SocietyEventCreateScreen() {
         </View>
 
         {needsDate && (
-          <>
-            <Text style={[styles.fieldLabel, { color: colors.grey }]}>
-              {frequency === 'annually' ? 'First date (repeats yearly)' : 'Date'}
-            </Text>
-            <TextInput
-              style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-              value={date}
-              onChangeText={(raw) => {
-                // Digits only, auto-formatted as YYYY-MM-DD while typing.
-                const d = raw.replace(/[^0-9]/g, '').slice(0, 8);
-                const parts = [d.slice(0, 4), d.slice(4, 6), d.slice(6, 8)].filter(Boolean);
-                setDate(parts.join('-'));
-              }}
-              placeholder="2026-10-17"
-              placeholderTextColor={colors.grey}
-              keyboardType="number-pad"
-              maxLength={10}
-            />
-          </>
+          <DateField
+            label={frequency === 'annually' ? 'First date (repeats yearly)' : 'Date'}
+            value={date}
+            onChange={setDate}
+          />
         )}
 
         {needsWeekdays && (
@@ -288,8 +253,8 @@ export default function SocietyEventCreateScreen() {
         )}
 
         <View style={styles.timeRow}>
-          <TimeField label="Start time" value={startTime} onChange={setStartTime} />
-          <TimeField label="End time" value={endTime} onChange={setEndTime} />
+          <TimeField label="Start time" value={startTime} onChange={setStartTime} clearable />
+          <TimeField label="End time" value={endTime} onChange={setEndTime} clearable />
         </View>
 
         {/* ── Place ────────────────────────────────────────────────────────── */}
@@ -321,6 +286,8 @@ export default function SocietyEventCreateScreen() {
             <Text style={[styles.imagePickerText, { color: colors.grey }]}>Add a photo</Text>
           </TouchableOpacity>
         )}
+
+        <OrsSponsoredToggle value={orsSponsored} onChange={setOrsSponsored} />
 
         <TouchableOpacity
           style={[styles.submit, { backgroundColor: brand, opacity: isLoading ? 0.6 : 1 }]}

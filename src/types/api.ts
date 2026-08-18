@@ -260,6 +260,8 @@ export interface SocietyEvent {
 
   group_id?: string;
   event_organizer?: string;
+  /** Officially run or backed by ORS — earns the "ORS Event" badge. */
+  ors_sponsored?: boolean;
   interested_count?: number;
   is_interested?: boolean;
   /** A few profiles for the avatar stack on cards. */

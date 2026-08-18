@@ -34,6 +34,22 @@ export function rallyColors(rally: Pick<Rally, 'primary_color' | 'secondary_colo
   return [primary ?? base, secondary ?? base];
 }
 
+/**
+ * Is this rally still ahead of us?
+ *
+ * Registration only belongs on a rally you can still join, so this gates the
+ * embedded form. A rally with no date at all counts as upcoming — an undated
+ * rally is one an admin hasn't finished scheduling, not one that has passed.
+ */
+export function isRallyUpcoming(rally?: Pick<Rally, 'event_date'> | null): boolean {
+  if (!rally?.event_date) return true;
+  const date = new Date(rally.event_date);
+  if (Number.isNaN(date.getTime())) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() >= today.getTime();
+}
+
 export function toRallyFormEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
   try {

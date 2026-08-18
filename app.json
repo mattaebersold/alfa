@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Road Society",
     "slug": "alfa",
-    "version": "1.25",
+    "version": "1.26",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -80,7 +80,8 @@
         {
           "locationWhenInUsePermission": "Open Road Society uses your location to record the roads you drive, so you can save and share them as routes."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "scheme": "openroadsociety",
     "extra": {

@@ -1,20 +1,19 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, FlatList,
-  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
-import { WebView } from 'react-native-webview';
-import { MapPin, Clock, Users, Navigation, ArrowLeft } from 'lucide-react-native';
+import { MapPin, Clock, Users, Navigation } from 'lucide-react-native';
 import { useGetRallyQuery } from '../../api/apiService';
 import RouteMap from '../../components/routes/RouteMap';
+import RallyRegistrationForm from '../../components/society/RallyRegistrationForm';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { toRallyFormEmbedUrl } from '../../utils/rally';
+import { isRallyUpcoming, toRallyFormEmbedUrl } from '../../utils/rally';
 import type { SocietyScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
@@ -31,7 +30,6 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const { rallyId } = route.params;
   const colors = useColors();
   const { data: rally, isLoading } = useGetRallyQuery(rallyId);
-  const [showForm, setShowForm] = useState(false);
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
@@ -48,34 +46,10 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
   const date = rally.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
   const formUrl = toRallyFormEmbedUrl(rally.form_id);
+  // Registration is embedded below, but only while there's still a rally to
+  // register for — a past rally's form is a dead end.
+  const showRegistration = !!formUrl && isRallyUpcoming(rally);
   const hasCoords = Number.isFinite(rally.location_lat) && Number.isFinite(rally.location_lng);
-
-  if (showForm && formUrl) {
-    return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-        <TouchableOpacity
-          style={[styles.formBar, { borderBottomColor: colors.border }]}
-          onPress={() => setShowForm(false)}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={18} color={colors.fg} />
-          <Text style={[styles.formBarText, { color: colors.fg }]}>Back to rally</Text>
-        </TouchableOpacity>
-        <WebView
-          source={{ uri: formUrl }}
-          style={styles.form}
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState
-          renderLoading={() => (
-            <View style={styles.formLoading}>
-              <ActivityIndicator color={colors.primaryAlt} />
-            </View>
-          )}
-        />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
@@ -128,20 +102,15 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
             <Text style={styles.slots}>{rally.slots_available} slots available</Text>
           )}
 
-          {formUrl && (
-            <TouchableOpacity
-              style={[styles.registerBtn, { backgroundColor: colors.primaryAlt }]}
-              onPress={() => setShowForm(true)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.registerText}>Register Now</Text>
-            </TouchableOpacity>
-          )}
-
           {rally.body ? (
             <Text style={[styles.description, { color: colors.fg }]}>{stripHtml(rally.body)}</Text>
           ) : null}
         </View>
+
+        {/* Registration sits directly under the details, ahead of the map:
+            signing up is the point of an upcoming rally, and it shouldn't be
+            below the thing that tells you how to drive there. */}
+        {showRegistration && <RallyRegistrationForm url={formUrl as string} />}
 
         {hasCoords && (
           <View style={styles.mapSection}>
@@ -185,9 +154,7 @@ const styles = StyleSheet.create({
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:        { fontSize: 14 },
   metaLink:        { color: colors.primaryAlt, fontWeight: '600' },
-  slots:           { fontSize: 13, fontWeight: '700', color: colors.primaryAlt, marginBottom: 4 },
-  registerBtn:     { marginTop: 12, marginBottom: 18, paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
-  registerText:    { fontSize: 15, fontWeight: '800', color: '#000000' },
+  slots:           { fontSize: 13, fontWeight: '700', color: colors.primaryAlt, marginBottom: 12 },
   description:     { fontSize: 15, lineHeight: 22 },
 
   mapSection:      { paddingHorizontal: 16, gap: 10 },
@@ -197,12 +164,4 @@ const styles = StyleSheet.create({
     paddingVertical: 12, borderRadius: 10, borderWidth: 1,
   },
   directionsText:  { fontSize: 14, fontWeight: '700' },
-
-  formBar:         {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  formBarText:     { fontSize: 15, fontWeight: '600' },
-  form:            { flex: 1, backgroundColor: '#FFFFFF' },
-  formLoading:     { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
 });

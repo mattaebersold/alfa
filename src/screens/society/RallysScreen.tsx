@@ -45,12 +45,6 @@ function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => vo
         {rally.slots_available != null && (
           <Text style={styles.slots}>{rally.slots_available} slots available</Text>
         )}
-        {/* The card is tappable end-to-end, but an explicit button is what makes
-            "you can sign up for this" legible at a glance. It opens the same
-            detail pane, where the registration form lives. */}
-        <View style={[styles.registerBtn, { backgroundColor: colors.primaryAlt }]}>
-          <Text style={styles.registerText}>Register Now</Text>
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -194,10 +188,6 @@ const styles = StyleSheet.create({
   title:        { fontSize: 16, fontWeight: '800', lineHeight: 22 },
   location:     { fontSize: 13, marginTop: 4 },
   slots:        { fontSize: 12, color: colors.primaryAlt, fontWeight: '700', marginTop: 6 },
-  registerBtn:  {
-    marginTop: 12, paddingVertical: 11, borderRadius: 10, alignItems: 'center',
-  },
-  registerText: { fontSize: 14, fontWeight: '800', color: '#000000' },
 
   pastSection:  { marginTop: 6 },
   pastScroll:   { paddingHorizontal: 12, paddingTop: 10, gap: 10 },

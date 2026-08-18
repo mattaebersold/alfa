@@ -1,19 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Linking, ActivityIndicator,
+  FlatList, Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { format } from 'date-fns';
-import { WebView } from 'react-native-webview';
-import { MapPin, Clock, ArrowLeft, Navigation, Users } from 'lucide-react-native';
+import { MapPin, Clock, Navigation, Users } from 'lucide-react-native';
 import SharedModal from '../ui/SharedModal';
 import { useGetRallyQuery } from '../../api/apiService';
 import RouteMap from '../routes/RouteMap';
+import RallyRegistrationForm from './RallyRegistrationForm';
 import Spinner from '../ui/Spinner';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { toRallyFormEmbedUrl } from '../../utils/rally';
+import { isRallyUpcoming, toRallyFormEmbedUrl } from '../../utils/rally';
 import { stripHtml } from '../../utils/text';
 
 interface Props {
@@ -25,13 +25,6 @@ interface Props {
 export default function RallyDetailSheet({ rallyId, onClose }: Props) {
   const colors = useColors();
   const { data: rally, isLoading } = useGetRallyQuery(rallyId!, { skip: !rallyId });
-
-  // The registration form takes over the sheet rather than opening a modal of
-  // its own: iOS won't present a second modal until the first has dismissed, and
-  // a tall form inside a scrolling sheet fights the sheet for every drag. Given
-  // the whole sheet it scrolls itself, and the keyboard has room to work.
-  const [showForm, setShowForm] = useState(false);
-  useEffect(() => { if (!rallyId) setShowForm(false); }, [rallyId]);
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
@@ -46,36 +39,22 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
   const hero = rally?.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
   const date = rally?.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
   const formUrl = toRallyFormEmbedUrl(rally?.form_id);
+  // Registration is embedded below, but only while there's still a rally to
+  // register for — a past rally's form is a dead end.
+  const showRegistration = !!formUrl && isRallyUpcoming(rally);
   const hasCoords = Number.isFinite(rally?.location_lat) && Number.isFinite(rally?.location_lng);
 
   return (
     <SharedModal
       visible={!!rallyId}
       onClose={onClose}
-      title={showForm ? 'Register' : rally?.title ?? 'Rally'}
-      fullHeight={showForm}
-      headerRight={showForm ? (
-        <TouchableOpacity onPress={() => setShowForm(false)} hitSlop={8} style={styles.backBtn}>
-          <ArrowLeft size={16} color="#FFFFFF" />
-          <Text style={styles.backText}>Details</Text>
-        </TouchableOpacity>
-      ) : undefined}
+      title={rally?.title ?? 'Rally'}
+      // The embedded form is tall and its inputs need the keyboard, so the sheet
+      // takes the whole screen rather than sizing to content.
+      fullHeight={showRegistration}
     >
       {isLoading || !rally ? (
         <Spinner />
-      ) : showForm && formUrl ? (
-        <WebView
-          source={{ uri: formUrl }}
-          style={styles.form}
-          javaScriptEnabled
-          domStorageEnabled
-          startInLoadingState
-          renderLoading={() => (
-            <View style={styles.formLoading}>
-              <ActivityIndicator color={colors.primaryAlt} />
-            </View>
-          )}
-        />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           {hero
@@ -126,22 +105,15 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
               <Text style={[styles.slots, { color: colors.primaryAlt }]}>{rally.slots_available} slots available</Text>
             )}
 
-            {/* Registration runs through the rally's own form, not through an
-                RSVP on our side — so this is the only call to action. */}
-            {formUrl && (
-              <TouchableOpacity
-                style={[styles.registerBtn, { backgroundColor: colors.primaryAlt }]}
-                onPress={() => setShowForm(true)}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.registerText}>Register Now</Text>
-              </TouchableOpacity>
-            )}
-
             {rally.body ? (
               <Text style={[styles.description, { color: colors.fg }]}>{stripHtml(rally.body)}</Text>
             ) : null}
           </View>
+
+          {/* Registration sits directly under the details, ahead of the map:
+              signing up is the point of an upcoming rally, and it shouldn't be
+              below the thing that tells you how to drive there. */}
+          {showRegistration && <RallyRegistrationForm url={formUrl as string} />}
 
           {/* A native map rather than an embedded Google Maps iframe: expo-maps
               is already in the app for driving routes, it renders far better on
@@ -187,9 +159,7 @@ const styles = StyleSheet.create({
   title:   { fontSize: 22, fontWeight: '800', marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:{ fontSize: 14 },
-  slots:   { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  registerBtn:  { marginTop: 12, marginBottom: 18, paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
-  registerText: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  slots:   { fontSize: 13, fontWeight: '700', marginBottom: 12 },
   description: { fontSize: 15, lineHeight: 22 },
 
   mapSection: { paddingHorizontal: 16, gap: 10 },
@@ -203,9 +173,4 @@ const styles = StyleSheet.create({
     paddingVertical: 12, borderRadius: 10, borderWidth: 1,
   },
   directionsText: { fontSize: 14, fontWeight: '700' },
-
-  backBtn:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  backText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  form:     { flex: 1, backgroundColor: '#FFFFFF' },
-  formLoading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
 });

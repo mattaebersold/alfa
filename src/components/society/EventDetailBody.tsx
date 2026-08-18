@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Clock, Repeat, MapPin, Check, Plus, CalendarPlus, MoreHorizontal } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
+import CheckeredFlag from '../ui/CheckeredFlag';
 import InlineComments from '../social/InlineComments';
 import Spinner from '../ui/Spinner';
 import EmptyState from '../ui/EmptyState';
@@ -22,7 +23,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { categoryFor, formatTime, occurrenceDate } from '../../constants/eventTypes';
+import { categoryFor, formatTime, occurrenceDate, ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import EventDateBadge from './EventDateBadge';
 import EventImage from './EventImage';
 import { googleCalendarUrl } from '../../utils/calendarLinks';
@@ -179,6 +180,15 @@ export function EventDetailBody({
         )}
         <Text style={[styles.heroTitle, { color: colors.fg }]} numberOfLines={3}>{event.title}</Text>
       </View>
+
+      {/* Sponsorship banner — under the title, so it frames the event rather
+          than reading as one more attribute of it. */}
+      {event.ors_sponsored && (
+        <View style={[styles.orsBanner, { backgroundColor: ORS_EVENT_COLOR }]}>
+          <CheckeredFlag size={14} color="#000000" />
+          <Text style={styles.orsBannerText}>ORS Sponsored Event</Text>
+        </View>
+      )}
 
       <View style={styles.tiles}>
         <EventDateBadge date={shownDate} />
@@ -354,6 +364,15 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 26, fontWeight: '800',
     paddingHorizontal: 16, paddingBottom: 10, letterSpacing: -0.5,
+  },
+
+  orsBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginHorizontal: 16, marginTop: 10, paddingVertical: 9, borderRadius: 10,
+  },
+  orsBannerText: {
+    fontSize: 12, fontWeight: '800', color: '#000000',
+    textTransform: 'uppercase', letterSpacing: 0.8,
   },
 
   tiles: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, marginTop: 6 },

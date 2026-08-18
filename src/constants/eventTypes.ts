@@ -16,6 +16,13 @@ export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] =
   { key: 'misc',              label: 'Misc',           color: '#B8C0C8' },
 ];
 
+/**
+ * The gold worn by events ORS runs or backs (`ors_sponsored`). Deliberately
+ * outside the category palette so it never reads as another category.
+ * Mirrored in murray's helpers/eventHelpers.js — change both together.
+ */
+export const ORS_EVENT_COLOR = '#CDA96F';
+
 export const categoryFor = (key?: string) =>
   EVENT_CATEGORIES.find((c) => c.key === key) ?? EVENT_CATEGORIES[EVENT_CATEGORIES.length - 1];
 
