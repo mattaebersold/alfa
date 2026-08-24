@@ -9,7 +9,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ChevronLeft, MessageSquare, MessageCircle, Newspaper, Users, MoreVertical,
-  Car, Calendar, ShoppingBag, BookOpen, Settings, Plus, Check, X,
+  Car, Calendar, ShoppingBag, BookOpen, Settings, Plus, Check, X, UserPlus,
 } from 'lucide-react-native';
 import {
   useGetGroupQuery,
@@ -20,8 +20,7 @@ import {
   useGetUserGarageQuery,
   useUpdateCarGroupMutation,
 } from '../../api/apiService';
-import type { GarageCar, GroupMember } from '../../types/api';
-import SharedModal from '../../components/ui/SharedModal';
+import type { GarageCar } from '../../types/api';
 import GroupSettingsSheet from '../../components/groups/GroupSettingsSheet';
 import FollowButton from '../../components/social/FollowButton';
 import { useAppSelector } from '../../store/store';
@@ -31,10 +30,16 @@ import SharedButton from '../../components/ui/SharedButton';
 import Spinner from '../../components/ui/Spinner';
 import { colors, withAlpha } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
+import CarSummaryModal from '../../components/cars/CarSummaryModal';
+import UserSummaryModal from '../../components/members/UserSummaryModal';
+import GroupInviteSheet from '../../components/groups/GroupInviteSheet';
+import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -65,6 +70,11 @@ export default function GroupDetailScreen() {
   const { userInfo } = useAppSelector((s) => s.auth);
 
   const [carModalOpen, setCarModalOpen] = useState(false);
+  // A car opens as a summary rather than a page push — see CarSummaryModal.
+  const [carSummary, setCarSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
+  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
+  const [rosterOrigin, setRosterOrigin] = useState<SummaryOrigin | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The roster arrives in one response, so paging is done here: render a page
@@ -72,9 +82,15 @@ export default function GroupDetailScreen() {
   // rows at once.
   const [memberPage, setMemberPage] = useState(1);
 
-  const { data: group, isLoading } = useGetGroupQuery(groupId);
-  const { data: members = [] }     = useGetGroupMembersQuery(groupId);
-  const { data: groupCarsData }    = useGetGroupCarsQuery(groupId);
+  const { data: group, isLoading, refetch: refetchGroup } = useGetGroupQuery(groupId);
+  const { data: members = [], refetch: refetchMembers }   = useGetGroupMembersQuery(groupId);
+  // Coming back from elsewhere — the notifications list, most often, where a
+  // join request gets approved — the roster here has to reflect that decision.
+  useRefetchOnFocus(refetchMembers);
+  useRefetchOnFocus(refetchGroup);
+  const { data: groupCarsData, refetch: refetchCars } = useGetGroupCarsQuery(groupId);
+  const refreshControl = useRefreshControl(() =>
+    Promise.all([refetchGroup(), refetchMembers(), refetchCars()]));
   const { data: garageData }       = useGetUserGarageQuery(undefined, { skip: !carModalOpen });
   const [join,  { isLoading: joining }]  = useJoinGroupMutation();
   const [leave, { isLoading: leaving }]  = useLeaveGroupMutation();
@@ -120,29 +136,6 @@ export default function GroupDetailScreen() {
     (a, b) => (a.member_type === 'admin' ? 0 : 1) - (b.member_type === 'admin' ? 0 : 1),
   );
 
-  const openMemberMenu = (m: GroupMember) => {
-    const username = m.user?.username;
-    Alert.alert(username ? `@${username}` : 'Member', undefined, [
-      {
-        text: 'Message user',
-        onPress: () => {
-          // The roster lives in an RN Modal; a pushed screen would render
-          // behind it, so close first and then navigate.
-          setMembersOpen(false);
-          (navigation as any).navigate('ComposeMessage', { userId: m.user_id, username });
-        },
-      },
-      {
-        text: 'View profile',
-        onPress: () => {
-          setMembersOpen(false);
-          (navigation as any).navigate('UserDetail', { userId: m.user_id, username });
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
   const openGroupMenu = () => {
     const options: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
 
@@ -180,7 +173,7 @@ export default function GroupDetailScreen() {
       {/* No spacer — the header floats so the banner starts at the very top of
           the viewport, the way the profile screen's cover does. */}
       <AppHeader />
-      <ScrollView style={{ backgroundColor: c.cream }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView refreshControl={refreshControl} style={{ backgroundColor: c.cream }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Banner */}
         <View style={styles.bannerWrap}>
@@ -266,13 +259,16 @@ export default function GroupDetailScreen() {
 
         {/* Members strip — opens the full roster */}
         {activeMembers.length > 0 && (
-          <TouchableOpacity
+          <SummaryTouchable
             // `borderDark`, not `border` — at #202020 against a #1e1e1e card the
             // rule between this and the description below was invisible.
             style={[styles.membersStrip, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}
-            onPress={() => { setMemberPage(1); setMembersOpen(true); }}
+            onPress={(origin) => {
+              setMemberPage(1);
+              setRosterOrigin(origin);
+              setMembersOpen(true);
+            }}
             activeOpacity={0.75}
-            accessibilityRole="button"
             accessibilityLabel={`View all ${activeMembers.length} members`}
           >
             <Text style={[styles.memberCount, { color: c.grey }]}>
@@ -292,7 +288,7 @@ export default function GroupDetailScreen() {
                 </View>
               )}
             </View>
-          </TouchableOpacity>
+          </SummaryTouchable>
         )}
 
         {/* Description */}
@@ -326,10 +322,10 @@ export default function GroupDetailScreen() {
               {groupCars.map((car) => {
                 const img = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
                 return (
-                  <TouchableOpacity
+                  <SummaryTouchable
                     key={car.internal_id}
                     style={[styles.groupCarCard, { backgroundColor: c.card }]}
-                    onPress={() => (navigation as any).navigate('CarDetail', { carId: car.internal_id })}
+                    onPress={(origin) => setCarSummary({ carId: car.internal_id, origin })}
                     activeOpacity={0.88}
                   >
                     {img
@@ -338,7 +334,7 @@ export default function GroupDetailScreen() {
                     <Text style={[styles.groupCarTitle, { color: c.fg }]} numberOfLines={1}>
                       {[car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car'}
                     </Text>
-                  </TouchableOpacity>
+                  </SummaryTouchable>
                 );
               })}
             </ScrollView>
@@ -417,28 +413,56 @@ export default function GroupDetailScreen() {
         </View>
       </Modal>
 
-      {/* ── Members roster ── */}
-      <SharedModal
+      {/* ── Members roster ──
+          A summary of the group's people, in the same panel the cars and the
+          members themselves use, rather than a slide-up sheet of its own. The
+          rows are mapped rather than listed: SummaryModal brings its own
+          scroller, and a FlatList inside one is a scroller inside a scroller. */}
+      <SummaryModal
         visible={membersOpen}
         onClose={() => setMembersOpen(false)}
-        title={`${activeMembers.length} member${activeMembers.length !== 1 ? 's' : ''}`}
-        heightRatio={0.9}
+        origin={rosterOrigin}
+        actionLabel="View All Members"
+        onAction={() => (navigation as any).navigate('GroupMembers', { groupId })}
       >
-        <FlatList
-          data={roster.slice(0, memberPage * MEMBER_PAGE_SIZE)}
-          keyExtractor={(m: GroupMember) => m.user_id}
-          contentContainerStyle={{ paddingBottom: 32 }}
-          // Grows a page at a time as you reach the bottom.
-          onEndReachedThreshold={0.4}
-          onEndReached={() => {
-            if (memberPage * MEMBER_PAGE_SIZE < roster.length) setMemberPage((p) => p + 1);
-          }}
-          renderItem={({ item }) => {
+        <View style={styles.rosterHead}>
+          <Text style={[styles.rosterTitle, { color: c.fg }]}>
+            {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
+          </Text>
+          {/* Admins could approve people who asked, but had no way to ask
+              anyone — the invite endpoint had no way in from the app. */}
+          {isAdmin && (
+            <TouchableOpacity
+              style={[styles.inviteBtn, { backgroundColor: c.primaryAlt }]}
+              onPress={() => {
+                setMembersOpen(false);
+                requestAnimationFrame(() => setInviteOpen(true));
+              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <UserPlus size={14} color="#FFFFFF" strokeWidth={2.6} />
+              <Text style={styles.inviteBtnText}>Invite</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {roster.slice(0, memberPage * MEMBER_PAGE_SIZE).map((item) => {
             const isMe = item.user_id === userInfo?.user_id;
             return (
-              // A plain View: the row's actions are the follow button and the
-              // menu, so tapping the row itself does nothing.
-              <View style={[styles.memberRow, { borderBottomColor: c.borderDark }]}>
+              // The row opens the member's summary; the follow button stays as
+              // an inline shortcut. The ⋮ menu it replaces offered "message"
+              // and "view profile", both of which the summary carries.
+              <SummaryTouchable
+                key={item.user_id}
+                style={[styles.memberRow, { borderBottomColor: c.borderDark }]}
+                onPress={(origin) => {
+                  // The roster is itself a modal; a second one over it fights
+                  // for the screen, so close this first.
+                  setMembersOpen(false);
+                  requestAnimationFrame(() => setUserSummary({ userId: item.user_id, origin }));
+                }}
+              >
                 <Avatar
                   filename={item.user?.gallery?.[0]?.filename}
                   name={item.user?.username ?? '?'}
@@ -458,25 +482,49 @@ export default function GroupDetailScreen() {
                 {!isMe && item.user?.username ? (
                   <FollowButton username={item.user.username} />
                 ) : null}
-                <TouchableOpacity
-                  onPress={() => openMemberMenu(item)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.memberMenuBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Options for ${item.user?.username ?? 'member'}`}
-                >
-                  <MoreVertical size={18} color={c.grey} />
-                </TouchableOpacity>
-              </View>
+
+              </SummaryTouchable>
             );
-          }}
-        />
-      </SharedModal>
+        })}
+
+        {/* A page at a time, on request. Without a list underneath there's
+            nothing to reach the end of. */}
+        {memberPage * MEMBER_PAGE_SIZE < roster.length && (
+          <TouchableOpacity
+            style={styles.rosterMore}
+            onPress={() => setMemberPage((p) => p + 1)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.rosterMoreText, { color: c.primaryAlt }]}>
+              Show more
+            </Text>
+          </TouchableOpacity>
+        )}
+      </SummaryModal>
 
       <GroupSettingsSheet
         groupId={groupId}
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      <CarSummaryModal
+        carId={carSummary?.carId ?? null}
+        origin={carSummary?.origin}
+        onClose={() => setCarSummary(null)}
+      />
+
+      <UserSummaryModal
+        userId={userSummary?.userId ?? null}
+        origin={userSummary?.origin}
+        onClose={() => setUserSummary(null)}
+      />
+
+      <GroupInviteSheet
+        groupId={groupId}
+        groupTitle={group.title}
+        visible={inviteOpen}
+        onClose={() => setInviteOpen(false)}
       />
     </SafeAreaView>
   );
@@ -484,6 +532,19 @@ export default function GroupDetailScreen() {
 
 const styles = StyleSheet.create({
   scroll:       { paddingBottom: 120 },
+
+  rosterHead:    {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10,
+  },
+  inviteBtn:     {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+  },
+  inviteBtnText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  rosterTitle:   { fontSize: 19, fontWeight: '800' },
+  rosterMore:    { paddingVertical: 16, alignItems: 'center' },
+  rosterMoreText:{ fontSize: 14, fontWeight: '700' },
 
   bannerWrap:   { position: 'relative' },
   // Short enough to stay a header rather than a hero, while leaving the

@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, MoreVertical, Plus, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle } from 'lucide-react-native';
+import { X, Images, MoreHorizontal, MoreVertical, Plus, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle, MessageSquarePlus, Wrench } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -43,6 +43,7 @@ import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import BottomSheet from '../../components/ui/SharedModal';
+import ActionSheet from '../../components/ui/ActionSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -51,11 +52,12 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useBrandTextColor, useIsPro } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES } from '../../constants/carTypes';
-import type { AppStackParamList } from '../../navigation/types';
+import type { AppStackParamList, CarDetailAction } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod, Post, Group } from '../../types/api';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 const ALL_CATEGORIES = Object.values(CAR_CATEGORIES).flat();
 function carTypeLabel(key?: string) {
@@ -350,8 +352,8 @@ const modStyles = StyleSheet.create({
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 
-export default function CarDetailScreen({ route }: { route: { params: { carId: string } } }) {
-  const { carId } = route.params;
+export default function CarDetailScreen({ route }: { route: { params: { carId: string; action?: CarDetailAction } } }) {
+  const { carId, action } = route.params;
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const localNav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -366,7 +368,9 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   // is presented from a root modal route outside the tabs.
   const tabBarClearance = 88 + insets.bottom;
   const scrollRef = useRef<ScrollView>(null);
-  const [activeSheet, setActiveSheet] = useState<Sheet>(null);
+  // A caller can ask for a sheet on arrival — "Add Gallery" from the car's card
+  // opens this screen purely to get at the composer that lives on it.
+  const [activeSheet, setActiveSheet] = useState<Sheet>(action === 'gallery' ? 'gallery' : null);
   const [modsExpanded, setModsExpanded] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [descLines, setDescLines] = useState<number | null>(null);
@@ -411,7 +415,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [deleteMod] = useDeleteModMutation();
   const [deleteCarGallery] = useDeleteCarGalleryMutation();
 
-  const { data: car, isLoading } = useGetCarWithUserQuery(carId);
+  const { data: car, isLoading, refetch: refetchCar } = useGetCarWithUserQuery(carId);
   const { data: coOwnerData } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
   // The active list carries both done and outstanding items — only archiving
   // removes one — so completion is a count over what's already loaded.
@@ -421,19 +425,28 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const tasksDone = tasks.filter((t) => t.completed).length;
   const tasksOpen = taskTotal - tasksDone;
 
-  const { data: postsData, isFetching: postsFetching } = useGetPostsQuery(
+  const { data: postsData, isFetching: postsFetching, refetch: refetchPosts } = useGetPostsQuery(
     { car_id: carId, limit: 30 },
   );
   const posts = postsData?.entries ?? [];
 
-  const { data: modsData, isFetching: modsFetching } = useGetCarModsQuery(
+  const { data: modsData, isFetching: modsFetching, refetch: refetchMods } = useGetCarModsQuery(
     carId,
     { skip: !car }
   );
   const mods = modsData?.entries ?? [];
 
-  const { data: paneGalData } = useGetCarGalleriesQuery(carId, { skip: !car });
+  const { data: paneGalData, refetch: refetchGalleries } = useGetCarGalleriesQuery(carId, { skip: !car });
   const paneAlbums = paneGalData?.entries ?? [];
+
+  // The car, and the three lists the page is made of. The mod and gallery
+  // queries are skipped until the car loads, so they only join in once there
+  // is one.
+  const refreshControl = useRefreshControl(() => Promise.all([
+    refetchCar(),
+    refetchPosts(),
+    ...(car ? [refetchMods(), refetchGalleries()] : []),
+  ]));
   const { data: carFollowersData } = useGetCarFollowersQuery(carId, { skip: !car });
   const carFollowers = carFollowersData?.entries ?? [];
   // Asks the server which groups list this car, rather than reading
@@ -458,6 +471,10 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const isOwner = userInfo?.user_id === (car?.user_id ?? '');
   const isCoOwner = userInfo?.user_id === (car?.coowner_id ?? '');
   const isOwnerOrCoOwner = isOwner || isCoOwner;
+
+  /** What to call this car in menus and in tags handed to other screens. */
+  const carDisplayName =
+    car?.title || [car?.year, car?.make, car?.model].filter(Boolean).join(' ') || 'this car';
 
   // Pro owners get the to-do list promoted above the gallery; everyone else
   // who can edit sees it in the action row below.
@@ -528,15 +545,10 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     ]);
   }, [unfollowCar, carId]);
 
-  const handleAddPress = useCallback(() => {
-    if (!car) return;
-    const title = [car.year, car.make, car.model].filter(Boolean).join(' ');
-    Alert.alert('Add to this car', undefined, [
-      { text: 'Add Mod',     onPress: () => appNav.navigate('ModCreate', { carId, carTitle: title }) },
-      { text: 'Add Gallery', onPress: () => setActiveSheet('gallery') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [car, appNav, carId]);
+  // Same three choices as the car's own card offers, in the same sheet — the
+  // two + buttons lead to the same places.
+  const [addSheet, setAddSheet] = useState(false);
+  const handleAddPress = useCallback(() => setAddSheet(true), []);
 
   const handleMenuPress = useCallback(() => {
     if (!car) return;
@@ -1047,6 +1059,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         keyboardVerticalOffset={0}
       >
       <ScrollView
+        refreshControl={refreshControl}
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: headerPad, paddingBottom: tabBarClearance + 16 }}
@@ -1413,6 +1426,29 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           </ScrollView>
         )}
       </BottomSheet>
+
+      <ActionSheet
+        visible={addSheet}
+        onClose={() => setAddSheet(false)}
+        title={`Add to ${carDisplayName}`}
+        options={[
+          {
+            label: 'New Post',
+            Icon: MessageSquarePlus,
+            onPress: () => appNav.navigate('Create', { carId, carTitle: carDisplayName }),
+          },
+          {
+            label: 'Add Mod',
+            Icon: Wrench,
+            onPress: () => appNav.navigate('ModCreate', { carId, carTitle: carDisplayName }),
+          },
+          {
+            label: 'Add Gallery',
+            Icon: Images,
+            onPress: () => setActiveSheet('gallery'),
+          },
+        ]}
+      />
 
       {/* ── Gallery create sheet ── */}
       <BottomSheet visible={activeSheet === 'gallery'} onClose={() => { setActiveSheet(null); setGalleryTitle(''); setGalleryImages([]); }} title="New Gallery">

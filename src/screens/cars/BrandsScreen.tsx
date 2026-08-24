@@ -10,11 +10,13 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
   const colors = useColors();
   const [query, setQuery] = useState('');
-  const { data: brands = [], isLoading } = useGetCarBrandsQuery();
+  const { data: brands = [], isLoading, refetch } = useGetCarBrandsQuery();
+  const refreshControl = useRefreshControl(refetch);
 
   const filtered = useMemo(
     () =>
@@ -48,6 +50,7 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
       </View>
 
       <FlatList
+        refreshControl={refreshControl}
         data={filtered}
         keyExtractor={(make) => make}
         numColumns={2}

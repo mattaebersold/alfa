@@ -18,6 +18,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { User, Post, GarageCar } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -66,8 +67,11 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const debouncedQuery = query.trim();
 
-  const { data: results, isLoading } = useSearchQuery(debouncedQuery, {
+  const { data: results, isLoading, refetch } = useSearchQuery(debouncedQuery, {
     skip: debouncedQuery.length < 2,
+  });
+  const refreshControl = useRefreshControl(() => {
+    if (debouncedQuery.length >= 2) return refetch();
   });
 
   const users: User[] = results?.users ?? [];
@@ -111,7 +115,7 @@ export default function SearchScreen() {
           <Text style={[styles.hintText, { color: colors.grey }]}>No results for "{debouncedQuery}"</Text>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+        <ScrollView refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {users.length > 0 && (
             <View>
               <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>

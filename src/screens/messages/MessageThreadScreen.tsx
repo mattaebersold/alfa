@@ -22,6 +22,7 @@ import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps } from '../../navigation/types';
 import type { Message, User } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 function MessageBubble({ message, isMe, otherUser, showTime }: {
   message: Message;
@@ -83,6 +84,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   const { data: messages = [], isLoading, refetch } = useGetMessageThreadQuery(threadId, {
     pollingInterval: appActive ? CONFIG.THREAD_POLL_INTERVAL : 0,
   });
+  const refreshControl = useRefreshControl(refetch);
   const [sendMessage, { isLoading: sending }] = useSendMessageMutation();
   const [markRead] = useMarkMessageReadMutation();
 
@@ -216,6 +218,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       {isLoading ? <Spinner /> : (
       <View style={ss.fill}>
       <FlatList
+        refreshControl={refreshControl}
         ref={listRef}
         data={sorted}
         keyExtractor={(item) => item.internal_id}

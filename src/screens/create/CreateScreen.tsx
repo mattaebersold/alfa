@@ -9,66 +9,26 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ImagePlus, X, ChevronDown, ChevronUp, Check, Play } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Camera, Images, Video, Film } from 'lucide-react-native';
 import {
   useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
   useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
 } from '../../api/apiService';
 import { useAppSelector, useAppDispatch } from '../../store/store';
+import ActionSheet from '../../components/ui/ActionSheet';
 import MentionInput from '../../components/ui/MentionInput';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
 import { colors } from '../../constants/colors';
+import { POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
-
-// ── Post types ────────────────────────────────────────────────────────────────
-
-type PostType = 'general' | 'record' | 'listing' | 'want' | 'spot';
-
-const POST_TYPES: { type: PostType; label: string; color: string }[] = [
-  { type: 'general',  label: 'General',    color: colors.primaryAlt },
-  { type: 'record',   label: 'Car Record', color: colors.teal },
-  { type: 'listing',  label: 'Listing',    color: '#00C851' },
-  { type: 'want',     label: 'Want Ad',    color: '#F1184C' },
-  { type: 'spot',     label: 'Spotted',    color: colors.tangerine },
-];
-
-const CATEGORIES: Record<PostType, { key: string; label: string }[]> = {
-  general: [
-    { key: 'show',  label: 'Show' },
-    { key: 'misc',  label: 'Misc.' },
-  ],
-  record: [
-    { key: 'general',      label: 'General' },
-    { key: 'mod',          label: 'Mod' },
-    { key: 'restoration',  label: 'Restoration' },
-    { key: 'maintenance',  label: 'Maintenance' },
-    { key: 'detailing',    label: 'Detailing' },
-  ],
-  listing: [
-    { key: 'new',         label: 'New Part' },
-    { key: 'used',        label: 'Used Part' },
-    { key: 'car',         label: 'Car' },
-    { key: 'accessories', label: 'Accessories' },
-    { key: 'other',       label: 'Other' },
-  ],
-  want: [
-    { key: 'part',  label: 'Part' },
-    { key: 'car',   label: 'Car' },
-    { key: 'other', label: 'Other' },
-  ],
-  spot: [
-    { key: 'show',    label: 'Show' },
-    { key: 'museum',  label: 'Museum' },
-    { key: 'wild',    label: 'In the wild' },
-  ],
-};
 
 // ── Tag types ─────────────────────────────────────────────────────────────────
 
@@ -128,8 +88,15 @@ function VideoPreview({ uri, onRemove }: { uri: string; onRemove: () => void }) 
 
 export default function CreateScreen() {
   const appNav = useNavigation<AppNav>();
+  const route = useRoute<RouteProp<AppStackParamList, 'Create'>>();
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
+
+  // Opened from a car ("New post" on your own car's card), the post starts with
+  // that car already tagged — the tag is the whole reason you started there.
+  const prefilledCar: TagItem[] = route.params?.carId
+    ? [{ id: route.params.carId, label: route.params.carTitle || 'Car', kind: 'car' }]
+    : [];
 
   // Core
   const [postType, setPostType]   = useState<PostType>('general');
@@ -161,7 +128,7 @@ export default function CreateScreen() {
 
   // Tags (people, cars, events) — the search/autocomplete lives in PostTagPicker
   const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
-  const [taggedCars, setTaggedCars]     = useState<TagItem[]>([]);
+  const [taggedCars, setTaggedCars]     = useState<TagItem[]>(prefilledCar);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
 
   const [createPost, { isLoading: submitting }] = useCreatePostMutation();
@@ -174,7 +141,7 @@ export default function CreateScreen() {
   });
   const userGroups: any[] = Array.isArray(rawGroups) ? rawGroups : (rawGroups as any)?.entries ?? [];
 
-  const currentCategories = CATEGORIES[postType];
+  const currentCategories = POST_CATEGORIES[postType];
 
   const showPrice    = postType === 'listing' || postType === 'want';
   const showMileage  = postType === 'listing' || postType === 'record';
@@ -239,16 +206,15 @@ export default function CreateScreen() {
     }
   }, []);
 
+  // A sheet rather than Alert.alert: Android's platform dialog takes three
+  // buttons and drops the rest, so two of these four options and the Cancel
+  // never made it to the screen — and what was left couldn't be dismissed by
+  // tapping outside or by the back button.
+  const [mediaSheet, setMediaSheet] = useState(false);
   const pickImage = useCallback(() => {
     Keyboard.dismiss();
-    Alert.alert('Add Media', undefined, [
-      { text: 'Take Photo', onPress: addFromCamera },
-      { text: 'Choose Photos', onPress: addFromLibrary },
-      { text: 'Take Video', onPress: addVideoFromCamera },
-      { text: 'Choose Video', onPress: addVideoFromLibrary },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [addFromCamera, addFromLibrary, addVideoFromCamera, addVideoFromLibrary]);
+    setMediaSheet(true);
+  }, []);
 
   const removeImage = useCallback((idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));
@@ -473,12 +439,13 @@ export default function CreateScreen() {
 
         {/* Photos / video */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImage}>
-            <ImagePlus size={18} color={colors.primaryAlt} />
-            <Text style={[styles.addPhotoText, { color: colors.primaryAlt }]}>
-              {video ? 'Change Media' : 'Add Photos or Video'}
-            </Text>
-          </TouchableOpacity>
+          <PhotoPickerField
+            onPress={pickImage}
+            title={video ? 'Change Media' : images.length ? 'Add More Media' : 'Add Photos or Video'}
+            hint="Take one now or choose from your library"
+            compact={!!video || images.length > 0}
+            style={styles.photoField}
+          />
           {video ? (
             <View style={styles.thumbRow}>
               <VideoPreview uri={video.uri} onRemove={() => setVideo(null)} />
@@ -608,6 +575,18 @@ export default function CreateScreen() {
         </TouchableOpacity>
       </View>
 
+      <ActionSheet
+        visible={mediaSheet}
+        onClose={() => setMediaSheet(false)}
+        title="Add media"
+        message="A post carries either photos or one video."
+        options={[
+          { label: 'Take Photo',   Icon: Camera, onPress: addFromCamera },
+          { label: 'Choose Photos', Icon: Images, onPress: addFromLibrary },
+          { label: 'Take Video',   Icon: Video,  onPress: addVideoFromCamera },
+          { label: 'Choose Video', Icon: Film,   onPress: addVideoFromLibrary },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -628,8 +607,7 @@ const styles = StyleSheet.create({
   bodyInput:    { paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, minHeight: 110, lineHeight: 22, borderWidth: 1, borderRadius: 10, textAlignVertical: 'top' as const },
 
   photosSection:{ borderBottomWidth: 1, paddingBottom: 10 },
-  addPhotoBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
-  addPhotoText: { fontSize: 14, fontWeight: '600' },
+  photoField:   { marginHorizontal: 14, marginTop: 12, marginBottom: 4 },
   thumbRow:     { paddingHorizontal: 14 },
   thumbWrap:    { marginRight: 8, position: 'relative' },
   thumb:        { width: 72, height: 72, borderRadius: 8 },

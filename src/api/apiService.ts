@@ -5,7 +5,7 @@ import type {
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
-  FeedPreferences, HomeBanner,
+  FeedPreferences, HomeBanner, CarActivityItem,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -290,6 +290,18 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'CarFollow', id: `count-${id}` }],
     }),
 
+    // Mods and galleries added to cars the user follows — merged into the home
+    // feed beside posts and garage additions.
+    getFollowedCarActivity: builder.query<{ entries: CarActivityItem[]; total: number }, { limit?: number } | void>({
+      query: ({ limit = 20 } = {}) => ({ url: 'api/carfollow/activity', params: { limit } }),
+      transformResponse: (r: any): { entries: CarActivityItem[]; total: number } => {
+        const entries = (r?.entries ?? []).filter((e: any) => e?.car);
+        return { entries, total: r?.total ?? entries.length };
+      },
+      // Follow a car, or add a mod/gallery to one, and this list is stale.
+      providesTags: ['CarFollow', 'Mods', 'CarGallery'],
+    }),
+
     // Cars the logged-in user follows (Dashboard "Followed Cars").
     getFollowedCars: builder.query<{ entries: GarageCar[]; total: number }, void>({
       query: () => 'api/carfollow/followed-cars/0/none/50',
@@ -438,8 +450,15 @@ export const apiService = createApi({
     }),
 
     deleteCarTask: builder.mutation<void, { taskId: string; car_id: string }>({
-      query: ({ taskId }) => ({ url: `api/cartask/${taskId}`, method: 'DELETE' }),
-      invalidatesTags: (result, error, { car_id }) => [{ type: 'CarTask', id: car_id }],
+      // `/delete/:taskId`, not `/:taskId` — the bare path matches no route, so
+      // every delete came back 404 and the task stayed put.
+      query: ({ taskId }) => ({ url: `api/cartask/delete/${taskId}`, method: 'DELETE' }),
+      // The archived list is a separate cache entry and holds tasks too, so a
+      // delete from it has to drop that entry as well.
+      invalidatesTags: (result, error, { car_id }) => [
+        { type: 'CarTask', id: car_id },
+        { type: 'CarTask', id: `${car_id}-archived` },
+      ],
     }),
 
     // ── Events ───────────────────────────────────────────────────────────────
@@ -603,24 +622,47 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'GroupMembers', id }],
     }),
 
+    // Every membership change also invalidates 'Group': the group document and
+    // the group cards carry a member count and the viewer's own membership, so
+    // refreshing only the roster leaves those disagreeing with it.
     joinGroup: builder.mutation<void, string>({
       query: (groupId) => ({ url: `api/group/${groupId}/join`, method: 'POST' }),
-      invalidatesTags: ['GroupMembers'],
+      invalidatesTags: ['GroupMembers', 'Group'],
     }),
 
     leaveGroup: builder.mutation<void, string>({
       query: (groupId) => ({ url: `api/group/${groupId}/leave`, method: 'DELETE' }),
-      invalidatesTags: ['GroupMembers'],
+      invalidatesTags: ['GroupMembers', 'Group'],
     }),
 
     approveGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
       query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/approve/${userId}`, method: 'POST' }),
-      invalidatesTags: ['GroupMembers', 'Notifications'],
+      invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
     }),
 
     rejectGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
       query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/reject/${userId}`, method: 'POST' }),
-      invalidatesTags: ['GroupMembers', 'Notifications'],
+      invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
+    }),
+
+    // ── Invitations ──────────────────────────────────────────────────────
+    // The mirror of the join request: an admin asks a member in, and the
+    // member answers from their notifications.
+
+    inviteGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
+      query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/invite/${userId}`, method: 'POST' }),
+      invalidatesTags: ['GroupMembers', 'Group'],
+    }),
+
+    /** Accepting is joining: the server sends an invited member straight to active. */
+    acceptGroupInvite: builder.mutation<void, string>({
+      query: (groupId) => ({ url: `api/group/${groupId}/join`, method: 'POST' }),
+      invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
+    }),
+
+    declineGroupInvite: builder.mutation<void, string>({
+      query: (groupId) => ({ url: `api/group/${groupId}/decline-invite`, method: 'POST' }),
+      invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
     }),
 
     // ── Rallys ───────────────────────────────────────────────────────────────
@@ -778,6 +820,11 @@ export const apiService = createApi({
 
     deleteNotification: builder.mutation<void, string>({
       query: (id) => ({ url: `api/notifications/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Notifications'],
+    }),
+
+    deleteAllNotifications: builder.mutation<void, void>({
+      query: () => ({ url: 'api/notifications/delete-all', method: 'DELETE' }),
       invalidatesTags: ['Notifications'],
     }),
 
@@ -1202,6 +1249,7 @@ export const {
   useGetCarFollowersQuery,
   useGetCarFollowerCountQuery,
   useGetFollowedCarsQuery,
+  useGetFollowedCarActivityQuery,
   useGetCarGalleriesQuery,
   useCreateCarGalleryMutation,
   useGetCarModsQuery,
@@ -1243,6 +1291,9 @@ export const {
   useGetUserGroupsQuery,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
+  useInviteGroupMemberMutation,
+  useAcceptGroupInviteMutation,
+  useDeclineGroupInviteMutation,
   useLeaveGroupMutation,
   useApproveGroupMemberMutation,
   useRejectGroupMemberMutation,
@@ -1256,6 +1307,7 @@ export const {
   useArchiveNotificationMutation,
   useArchiveAllNotificationsMutation,
   useDeleteNotificationMutation,
+  useDeleteAllNotificationsMutation,
   useGetMessagesQuery,
   useGetMessageThreadQuery,
   useGetUnreadMessageCountQuery,

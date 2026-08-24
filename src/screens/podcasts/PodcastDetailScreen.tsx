@@ -14,6 +14,7 @@ import type { AppScreenProps } from '../../navigation/types';
 import type { PodcastEpisode } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type Props = AppScreenProps<'PodcastDetail'>;
 
@@ -78,7 +79,8 @@ function EpisodeRow({
 export default function PodcastDetailScreen({ route }: Props) {
   const { podcastId } = route.params;
   const colors = useColors();
-  const { data, isLoading } = useGetPodcastQuery(podcastId);
+  const { data, isLoading, refetch } = useGetPodcastQuery(podcastId);
+  const refreshControl = useRefreshControl(refetch);
   const [activeEpisode, setActiveEpisode] = useState<PodcastEpisode | null>(null);
 
   if (isLoading || !data) return <Spinner fullScreen />;
@@ -124,6 +126,7 @@ export default function PodcastDetailScreen({ route }: Props) {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
+        refreshControl={refreshControl}
         data={episodes}
         keyExtractor={(ep) => ep.internal_id}
         ListHeaderComponent={ListHeader}

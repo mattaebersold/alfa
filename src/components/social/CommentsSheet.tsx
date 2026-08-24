@@ -8,13 +8,24 @@ import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { Dimensions } from 'react-native';
 import { useCreateCommentMutation } from '../../api/apiService';
-import { useCommentThread } from '../../hooks/useCommentThread';
+import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import MentionInput from '../ui/MentionInput';
-import CommentRow, { type CommentData } from './CommentRow';
+import CommentRow, { COMMENT_SURFACE } from './CommentRow';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { ss } from '../../styles/shared';
+import UserSummaryModal from '../members/UserSummaryModal';
+import { type SummaryOrigin } from '../ui/SummaryModal';
+
+/**
+ * One ground for the whole sheet — header, list and composer alike.
+ *
+ * It used to be three: a black header, a #161616 body and a #0B0B0B composer,
+ * which read as three panels stacked rather than as one surface with comments
+ * on it. The comment cards supply the only other tone.
+ */
+const SHEET_BG = COMMENT_SURFACE;
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -32,6 +43,8 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  // Whose summary is open, and the row it grew out of.
+  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
   const { rows, comments, isFetching } = useCommentThread(entryType, postId, { skip: !visible });
 
@@ -99,9 +112,9 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { backgroundColor: '#161616', transform: [{ translateY: slideY }] }]}>
+        <Animated.View style={[styles.sheet, { backgroundColor: SHEET_BG, transform: [{ translateY: slideY }] }]}>
           {/* Header */}
-          <View style={[styles.header, { backgroundColor: '#000000', borderBottomColor: '#000000' }]}>
+          <View style={[styles.header, { backgroundColor: SHEET_BG }]}>
             <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Comments</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
               <X size={22} color="rgba(255,255,255,0.7)" />
@@ -118,11 +131,15 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
               style={{ flex: 1 }}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
+              renderItem={({ item }: { item: CommentRowItem }) => (
                 <CommentRow
                   comment={item.comment}
                   currentUserId={userInfo?.user_id}
                   isReply={item.isReply}
+                  isThreadStart={item.isThreadStart}
+                  isThreadEnd={item.isThreadEnd}
+                  threadId={item.threadId}
+                  onOpenUser={(userId, origin) => setUserSummary({ userId, origin })}
                   onReply={(commentId, username) => {
                     setReplyingTo({ commentId, username });
                     setCommentText(`@${username} `);
@@ -136,7 +153,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
           )}
 
           {/* Input area */}
-          <View style={[styles.inputWrap, { backgroundColor: '#0B0B0B', borderTopColor: '#000000' }]}>
+          <View style={[styles.inputWrap, { backgroundColor: SHEET_BG }]}>
             {replyingTo && (
               <View style={[styles.replyBanner, { backgroundColor: '#1E1E1E', borderBottomColor: '#000000' }]}>
                 <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
@@ -168,6 +185,14 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Inside the sheet's own tree, so it presents over it rather than
+              needing the sheet closed first. */}
+          <UserSummaryModal
+            userId={userSummary?.userId ?? null}
+            origin={userSummary?.origin}
+            onClose={() => setUserSummary(null)}
+          />
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -175,12 +200,16 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
 }
 
 const styles = StyleSheet.create({
-  sheet:       { minHeight: SCREEN_HEIGHT * 0.5, maxHeight: '85%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
-  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  // Comments are a place you settle into, not a peek — it opens near
+  // full-height rather than growing into it as the thread gets long.
+  sheet:       { height: SCREEN_HEIGHT * 0.88, maxHeight: '90%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  // No rules against the list: header, comments and composer are one surface,
+  // and a line across it made them read as separate panels again.
+  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   headerTitle: { fontSize: 17, fontWeight: '700' },
   list:        { paddingTop: 4, paddingBottom: 16 },
   empty:       { textAlign: 'center', padding: 32, fontSize: 14 },
-  inputWrap:   { borderTopWidth: 1, paddingBottom: Platform.OS === 'android' ? 60 : 30 },
+  inputWrap:   { paddingBottom: Platform.OS === 'android' ? 60 : 30 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1 },
   replyText:   { fontSize: 13 },
   inputRow:      { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },

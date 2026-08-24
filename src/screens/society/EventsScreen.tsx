@@ -21,10 +21,20 @@ import { useEventSheet } from '../../providers/EventSheetProvider';
 import { ss } from '../../styles/shared';
 import type { SocietyEvent } from '../../types/api';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks out of the carousel.
 const CARD_WIDTH = SCREEN_WIDTH * 0.78;
+/**
+ * One shape for every card in the row.
+ *
+ * Left to take its photo's own proportions, a single portrait shot set the
+ * height of the whole carousel and every other card stretched to match it —
+ * their images kept their own shape, so the extra height came out as dead card
+ * below the picture. Same fixed frame the home feed's row uses.
+ */
+const CARD_RATIO = 16 / 9;
 /** How far ahead the Upcoming carousel looks. */
 const UPCOMING_DAYS = 30;
 
@@ -50,11 +60,12 @@ export default function EventsScreen() {
 
   // A rolling 30-day window rather than the calendar month: on the 28th, "the
   // rest of this month" is two days of events and the carousel looks abandoned.
-  const { data, isLoading } = useGetUpcomingEventsQuery({
+  const { data, isLoading, refetch } = useGetUpcomingEventsQuery({
     limit: 20,
     days: UPCOMING_DAYS,
     ...(category ? { category } : {}),
   });
+  const refreshControl = useRefreshControl(refetch, headerPad);
   const upcoming = data?.entries ?? [];
 
   const openEvent = (event: SocietyEvent) =>
@@ -64,6 +75,7 @@ export default function EventsScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <ScrollView
+        refreshControl={refreshControl}
         contentContainerStyle={{ paddingTop: headerPad, paddingBottom: 88 + insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
@@ -143,6 +155,7 @@ export default function EventsScreen() {
                 key={`${event.internal_id}-${event.day}-${i}`}
                 event={event}
                 width={CARD_WIDTH}
+                ratio={CARD_RATIO}
                 onPress={openEvent}
               />
             ))}
@@ -206,7 +219,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '800' },
   sectionSub:   { fontSize: 13, fontWeight: '600' },
 
-  carousel: { paddingLeft: 12, gap: 12 },
+  // Top-aligned as well as fixed-ratio: whatever a card's height works out to,
+  // it is never stretched to a neighbour's.
+  carousel: { paddingLeft: 12, gap: 12, alignItems: 'flex-start' },
 
   sheetBody: { padding: 12, gap: 12, paddingBottom: 32 },
 });

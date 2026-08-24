@@ -2,16 +2,20 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery, useGetRoutesQuery } from '../../api/apiService';
+import {
+  useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery,
+  useGetRoutesQuery, useGetFollowedCarActivityQuery,
+} from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
 import GarageAdditionCard from './GarageAdditionCard';
+import CarActivityCard from './CarActivityCard';
 import RouteCard from '../cards/RouteCard';
 import CommentsSheet from '../social/CommentsSheet';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
-import type { Post, GarageCar, DrivingRoute } from '../../types/api';
+import type { Post, GarageCar, DrivingRoute, CarActivityItem } from '../../types/api';
 
 interface FeedListProps {
   filter?: string;
@@ -35,10 +39,13 @@ interface FeedListProps {
 const PAGE_SIZE = 12;
 /** How far back the garage additions reach — they interleave, so a chunk is plenty. */
 const GARAGE_ADDITIONS_LIMIT = 20;
+/** Same idea for mods/galleries on cars you follow. */
+const CAR_ACTIVITY_LIMIT = 20;
 
 type FeedRow =
   | { kind: 'post'; post: Post; time: number }
   | { kind: 'car'; car: GarageCar; time: number }
+  | { kind: 'carActivity'; item: CarActivityItem; time: number }
   | { kind: 'route'; route: DrivingRoute; time: number };
 
 const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
@@ -84,6 +91,14 @@ export default function FeedList({
     { skip: !includeGarageAdditions },
   );
   const newRoutes = useMemo(() => routeData?.entries ?? [], [routeData]);
+
+  // Mods and photos added to cars you follow. Scoped like the garage additions
+  // — this is your list of cars, not a discovery feed.
+  const { data: carActivityData } = useGetFollowedCarActivityQuery(
+    { limit: CAR_ACTIVITY_LIMIT },
+    { skip: !includeGarageAdditions },
+  );
+  const carActivity = useMemo(() => carActivityData?.entries ?? [], [carActivityData]);
 
   const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
     page,
@@ -159,7 +174,7 @@ export default function FeedList({
   const rows = useMemo<FeedRow[]>(() => {
     const postRows: FeedRow[] = allPosts.map((post) => ({ kind: 'post', post, time: timeOf(post.created_at) }));
     if (!includeGarageAdditions
-      || (garageCars.length === 0 && newRoutes.length === 0)) return postRows;
+      || (garageCars.length === 0 && newRoutes.length === 0 && carActivity.length === 0)) return postRows;
 
     const oldestPost = postRows.length ? Math.min(...postRows.map((r) => r.time)) : 0;
     const inWindow = (created?: string) => !hasMorePosts || timeOf(created) >= oldestPost;
@@ -172,8 +187,12 @@ export default function FeedList({
       .filter((route) => inWindow(route.created_at))
       .map((route) => ({ kind: 'route', route, time: timeOf(route.created_at) }));
 
-    return [...postRows, ...carRows, ...routeRows].sort((a, b) => b.time - a.time);
-  }, [allPosts, garageCars, newRoutes, includeGarageAdditions, hasMorePosts]);
+    const activityRows: FeedRow[] = carActivity
+      .filter((item) => inWindow(item.created_at))
+      .map((item) => ({ kind: 'carActivity', item, time: timeOf(item.created_at) }));
+
+    return [...postRows, ...carRows, ...routeRows, ...activityRows].sort((a, b) => b.time - a.time);
+  }, [allPosts, garageCars, newRoutes, carActivity, includeGarageAdditions, hasMorePosts]);
 
   if (isLoading && page === 0) {
     return (
@@ -190,11 +209,14 @@ export default function FeedList({
         keyExtractor={(row) =>
           row.kind === 'post' ? `post-${row.post.internal_id}`
             : row.kind === 'car' ? `car-${row.car.internal_id}`
+            : row.kind === 'carActivity' ? `${row.item.kind}-${row.item.internal_id}`
             : `route-${row.route.internal_id}`
         }
         renderItem={({ item: row }) => (
           row.kind === 'car' ? (
             <GarageAdditionCard car={row.car} />
+          ) : row.kind === 'carActivity' ? (
+            <CarActivityCard item={row.item} />
           ) : row.kind === 'route' ? (
             <RouteCard route={row.route} />
           ) : (

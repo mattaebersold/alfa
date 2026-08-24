@@ -11,12 +11,12 @@ import ReportButton from '../../components/ui/ReportButton';
 import PostOwnerMenu from '../../components/social/PostOwnerMenu';
 import { useNavigation } from '@react-navigation/native';
 import { useGetPostQuery, useCreateCommentMutation, useGetPostCountsQuery, useGetLikeInfoQuery } from '../../api/apiService';
-import { useCommentThread } from '../../hooks/useCommentThread';
+import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
-import CommentRow, { type CommentData } from '../../components/social/CommentRow';
+import CommentRow, { COMMENT_SURFACE } from '../../components/social/CommentRow';
 import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
@@ -31,6 +31,10 @@ import MentionText from '../../components/ui/MentionText';
 import PostTagBadges from '../../components/social/PostTagBadges';
 import { tabNavProxy } from '../../navigation/navigateInTabs';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
+import GroupAttribution from '../../components/groups/GroupAttribution';
+import UserSummaryModal from '../../components/members/UserSummaryModal';
+import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -148,9 +152,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   // Two related greys: the post body sits a step above the comments, so the
   // sections read as distinct without needing a hard divider.
   const bodyBg = '#181818';
-  const commentsBg = '#101010';
+  // The same ground the comments sheet uses — comments should look like
+  // comments wherever you meet them.
+  const commentsBg = COMMENT_SURFACE;
 
-  const { data: postData, isLoading } = useGetPostQuery(postId);
+  const { data: postData, isLoading, refetch } = useGetPostQuery(postId);
+  const refreshControl = useRefreshControl(refetch);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
   const { rows: commentRows, comments } = useCommentThread(post?.entry_type ?? 'post', postId, { skip: !post });
   const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
@@ -159,6 +166,8 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+  // Whose summary is open, and the row it grew out of.
+  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
   const [likersOpen, setLikersOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
@@ -256,6 +265,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         keyboardVerticalOffset={90}
       >
         <FlatList
+          refreshControl={refreshControl}
           data={commentRows}
           keyExtractor={(item: any) => item.comment.internal_id ?? item.comment._id}
           showsVerticalScrollIndicator={false}
@@ -263,9 +273,14 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             <View>
               {/* Title lives in the modal header, not here. */}
               {post.body && (
+                // Without a picture the words are the whole post, so they get
+                // the size to match — the same step the feed card takes.
                 <MentionText
                   text={stripHtml(post.body)}
-                  style={[styles.postBody, { color: colors.muted, backgroundColor: bodyBg }]}
+                  style={[
+                    hasMedia ? styles.postBody : styles.postBodyAlone,
+                    { color: colors.muted, backgroundColor: bodyBg },
+                  ]}
                 />
               )}
 
@@ -297,7 +312,9 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                     size={40}
                   />
                   <View style={styles.postHeaderText}>
-                    <Text style={[styles.author, { color: colors.fg }]}>@{displayName}</Text>
+                    {/* It opens their profile, so it takes the link blue the
+                        mentions in the body use. */}
+                    <Text style={[styles.author, { color: colors.blueLight }]}>@{displayName}</Text>
                   </View>
                 </TouchableOpacity>
                 {/* With media present the badges sit over it instead. */}
@@ -329,6 +346,14 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   ))}
                 </View>
               )}
+
+              {/* Where this came from, when it came from somewhere. Closes the
+                  modal on the way out, so the group replaces it rather than
+                  opening behind it. */}
+              <GroupAttribution
+                groupId={post.group_ids?.[0] ?? post.group_id}
+                onNavigate={dismissThenNavigate}
+              />
 
               {/* Tagged people, cars & events. Opening one closes this modal
                   first so the target replaces it instead of stacking on top. */}
@@ -375,11 +400,15 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               ]} />
             </View>
           }
-          renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
+          renderItem={({ item }: { item: CommentRowItem }) => (
             <CommentRow
               comment={item.comment}
               currentUserId={userInfo?.user_id}
               isReply={item.isReply}
+              isThreadStart={item.isThreadStart}
+              isThreadEnd={item.isThreadEnd}
+              threadId={item.threadId}
+              onOpenUser={(userId, origin) => setUserSummary({ userId, origin })}
               backgroundColor={commentsBg}
               onReply={(commentId, username) => {
                 setReplyingTo({ commentId, username });
@@ -446,6 +475,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         visible={editOpen}
         onClose={() => setEditOpen(false)}
       />
+
+      <UserSummaryModal
+        userId={userSummary?.userId ?? null}
+        origin={userSummary?.origin}
+        onClose={() => setUserSummary(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -482,6 +517,7 @@ const styles = StyleSheet.create({
   author:          { fontSize: 15, fontWeight: '700' },
   username:        { fontSize: 12 },
   postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 12 },
+  postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 16 },
   singleImage:     { width: '100%', height: 300 },
   videoPlayer:     { width: '100%', aspectRatio: 4 / 5, backgroundColor: '#000' },
   dots: {

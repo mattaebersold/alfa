@@ -14,6 +14,7 @@ import type { GroupsScreenProps, AppStackParamList } from '../../navigation/type
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -39,9 +40,10 @@ export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'Gro
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
   const colors = useColors();
-  const { data, isLoading } = useGetPostsQuery({
+  const { data, isLoading, refetch } = useGetPostsQuery({
     group_id: groupId, type: 'listing', limit: 20,
   });
+  const refreshControl = useRefreshControl(refetch);
   const posts = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
@@ -49,6 +51,7 @@ export default function GroupMarketplaceScreen({ route }: GroupsScreenProps<'Gro
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
+        refreshControl={refreshControl}
         data={posts}
         keyExtractor={(p) => p.internal_id}
         renderItem={({ item }) => (

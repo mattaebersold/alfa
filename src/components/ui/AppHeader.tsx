@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
-import { Warehouse, Menu, Plus } from 'lucide-react-native';
+import { Warehouse, Menu } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
+import NotificationsBell from './NotificationsBell';
 import { useAppSelector } from '../../store/store';
-import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery, useGetUserGarageQuery } from '../../api/apiService';
+import { useGetUnreadMessageCountQuery, useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import { CONFIG } from '../../constants/config';
-import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -130,52 +131,25 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
 
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
-  const isPro = useIsPro();
 
   // `headerOffset` is shared across screens, so a screen left mid-scroll would
   // otherwise hand the next one a header that's still slid off-screen.
   useEffect(() => { resetHeader(); }, []);
 
-  const { data: notifData } = useGetUnreadNotificationCountQuery(undefined, {
-    skip: !isLoggedIn,
-    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
-  });
   const { data: msgData } = useGetUnreadMessageCountQuery(undefined, {
     skip: !isLoggedIn,
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
 
-  // Both live in the menu now, so a single dot on the menu button covers them.
-  const notifCount = notifData?.count ?? 0;
+  // The notification count is NotificationsBell's business now; the menu's dot
+  // is left carrying messages alone.
   const messageCount = msgData?.count ?? 0;
-  const hasUnread = notifCount + messageCount > 0;
 
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
 
   const go = (screen: string, params?: object) =>
     (navigation as any).navigate('MainTabs', { screen, params });
-
-  // Create lives here rather than in the tab bar, so the bottom row is purely
-  // for navigating between sections.
-  //
-  // Diecast listings and route recording are pro-only — they're simply absent
-  // for everyone else rather than shown and rejected. The API enforces the same
-  // rule for routes, so hiding the entry point is presentation, not security.
-  const openCreateMenu = () => {
-    Alert.alert('Create', undefined, [
-      { text: 'Post', onPress: () => navigation.navigate('Create') },
-      { text: 'Garage Car', onPress: () => navigation.navigate('CarCreate', {}) },
-      { text: 'Event', onPress: () => navigation.navigate('SocietyEventCreate') },
-      ...(isPro
-        ? [
-            { text: 'Diecast Listing', onPress: () => navigation.navigate('DiecastCreate') },
-            { text: 'Record a Route', onPress: () => navigation.navigate('RouteRecord') },
-          ]
-        : []),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
-  };
 
   return (
     <>
@@ -209,7 +183,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           />
         </FloatingButton>
 
-        {/* Right — garage, profile, menu */}
+        {/* Right — garage, profile, notifications, menu */}
         <View style={styles.rightActions}>
           <FloatingButton
             label="Garage"
@@ -219,14 +193,6 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           >
             <GarageThumbs cars={garageCars} />
             <Text style={styles.btnLabel}>Garage</Text>
-          </FloatingButton>
-
-          <FloatingButton
-            label="Create"
-            tint={tint}
-            onPress={openCreateMenu}
-          >
-            <Plus size={23} color={ICON} strokeWidth={2.6} />
           </FloatingButton>
 
           <FloatingButton
@@ -242,10 +208,15 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
             />
           </FloatingButton>
 
+          {/* Always present; only its count bubble comes and goes. */}
+          <NotificationsBell />
+
           <FloatingButton
-            label={hasUnread ? `Menu, ${notifCount + messageCount} unread` : 'Menu'}
+            label={messageCount > 0 ? `Menu, ${messageCount} unread` : 'Menu'}
             tint={tint}
-            badge={hasUnread}
+            // Notifications have their own button now, so this dot is left
+            // standing for the one unread thing that doesn't: messages.
+            badge={messageCount > 0}
             onPress={() => setDrawerOpen(true)}
           >
             <Menu size={21} color={ICON} />
@@ -297,7 +268,7 @@ const styles = StyleSheet.create({
     width: undefined, flexDirection: 'row', alignItems: 'center', gap: 7,
     overflow: 'visible',
   },
-  btnLabel: { fontSize: 14, fontWeight: '800', color: ICON, letterSpacing: -0.2 },
+  btnLabel: { fontSize: 11, fontWeight: '800', color: ICON, letterSpacing: -0.1 },
 
   thumbRow:     { flexDirection: 'row', alignItems: 'center' },
   thumb:        { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },

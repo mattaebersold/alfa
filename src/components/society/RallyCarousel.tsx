@@ -10,6 +10,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { Rally } from '../../types/api';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import { calendarDate } from '../../utils/calendarDate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks, matching the events row.
@@ -43,7 +44,8 @@ export default function RallyCarousel() {
       >
         {rallys.map((rally: Rally) => {
           const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(rally.gallery);
-          const date = rally.event_date ? format(new Date(rally.event_date), 'MMM d, yyyy') : null;
+          const eventDay = calendarDate(rally.event_date);
+          const date = eventDay ? format(eventDay, 'MMM d, yyyy') : null;
 
           return (
             <TouchableOpacity

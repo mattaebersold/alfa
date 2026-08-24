@@ -161,6 +161,17 @@ export default function RouteSaveScreen() {
       clearDraft();
       navigation.goBack();
     } catch (e: any) {
+      // The draft is deliberately left on disk here. Whatever went wrong, the
+      // drive itself is the irreplaceable part — it can't be re-driven — and
+      // the record screen offers it back the next time it's opened.
+      const offline = e?.status === 'FETCH_ERROR' || e?.status === 'TIMEOUT_ERROR';
+      if (offline) {
+        Alert.alert(
+          "You're offline",
+          "This drive is saved on your phone — nothing is lost. Open Record a Route once you have a connection and choose \"Finish it\" to upload it.",
+        );
+        return;
+      }
       // The API rejects short or unusable tracks with a specific reason —
       // surfacing it beats a generic failure message.
       const message = e?.data?.error ?? 'Could not save this route. Please try again.';

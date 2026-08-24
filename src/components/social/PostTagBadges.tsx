@@ -15,6 +15,7 @@ import { useColors } from '../../hooks/useColors';
 import { format } from 'date-fns';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
+import { calendarDate } from '../../utils/calendarDate';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -104,8 +105,9 @@ function EventModalContent({ event, onViewFull }: { event: Event; onViewFull: ()
   const colors = useColors();
   const hero = firstGalleryUrl(event.gallery);
   let date: string | null = null;
-  if (event.event_date) {
-    try { date = format(new Date(event.event_date), 'EEEE, MMMM d, yyyy'); } catch { date = null; }
+  const eventDay = calendarDate(event.event_date);
+  if (eventDay) {
+    try { date = format(eventDay, 'EEEE, MMMM d, yyyy'); } catch { date = null; }
   }
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>

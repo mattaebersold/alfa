@@ -4,26 +4,24 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetCarsQuery } from '../../api/apiService';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
+import CarSummaryModal from '../../components/cars/CarSummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
+import type { GroupsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
 
-type AppNav = NativeStackNavigationProp<AppStackParamList>;
-
-function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
+function CarRow({ car, onPress }: { car: GarageCar; onPress: (origin: SummaryOrigin | null) => void }) {
   const colors = useColors();
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   return (
-    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.85}>
+    <SummaryTouchable style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress}>
       <Image
         source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
         style={styles.thumb}
@@ -42,16 +40,18 @@ function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
 export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'>) {
   const { groupId } = route.params;
-  const navigation = useNavigation<AppNav>();
   const colors = useColors();
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
+  // Tapping a car summarises it here rather than pushing the car's page — see
+  // CarSummaryModal. The full page is one button away inside it.
+  const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
 
   // Note: Horacio's garage endpoint supports group_id filtering
   const { data, isFetching, isLoading } = useGetCarsQuery({ page, limit: 12 });
@@ -81,7 +81,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
         renderItem={({ item }) => (
           <CarRow
             car={item}
-            onPress={() => navigation.navigate('CarDetail', { carId: item.internal_id })}
+            onPress={(origin) => setSummary({ carId: item.internal_id, origin })}
           />
         )}
         ListEmptyComponent={<EmptyState title="No cars in this group yet" />}
@@ -90,6 +90,12 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
+      />
+
+      <CarSummaryModal
+        carId={summary?.carId ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
       />
     </SafeAreaView>
   );

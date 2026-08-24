@@ -19,6 +19,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { Podcast } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -61,7 +62,8 @@ export default function PodcastsScreen() {
   const appNav = useNavigation<AppNav>();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
-  const { data: podcasts = [], isLoading } = useGetPodcastsQuery();
+  const { data: podcasts = [], isLoading, refetch } = useGetPodcastsQuery();
+  const refreshControl = useRefreshControl(refetch, headerPad);
 
   if (isLoading) return <Spinner fullScreen />;
 
@@ -69,6 +71,7 @@ export default function PodcastsScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
+        refreshControl={refreshControl}
         style={{ flex: 1, backgroundColor: colors.cream }}
         data={podcasts}
         keyExtractor={(p) => p.internal_id}

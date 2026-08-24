@@ -14,6 +14,7 @@ import {
 } from '../../utils/routeGeometry';
 import { openInMaps } from '../../utils/routeDirections';
 import type { RoutesStackParamList } from '../../navigation/types';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type DetailRoute = RouteProp<RoutesStackParamList, 'RouteDetail'>;
 
@@ -26,7 +27,8 @@ export default function RouteDetailScreen() {
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
 
-  const { data, isLoading } = useGetRouteQuery(params.routeId);
+  const { data, isLoading, refetch } = useGetRouteQuery(params.routeId);
+  const refreshControl = useRefreshControl(refetch);
   const [vote] = useVoteRouteMutation();
   const [unvote] = useUnvoteRouteMutation();
 
@@ -41,7 +43,7 @@ export default function RouteDetailScreen() {
   };
 
   return (
-    <ScrollView style={{ backgroundColor: colors.bg }} contentContainerStyle={styles.content}>
+    <ScrollView refreshControl={refreshControl} style={{ backgroundColor: colors.bg }} contentContainerStyle={styles.content}>
       {path.length >= 2 && (
         <View style={styles.mapWrap}>
           <RouteMap

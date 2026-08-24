@@ -17,6 +17,8 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { rallyColors } from '../../utils/rally';
 import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { calendarDate } from '../../utils/calendarDate';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -34,8 +36,9 @@ export default function CalendarScreen() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1-indexed for API
 
-  const { data: calData, isLoading } = useGetCalendarEventsQuery({ year, month });
-  const { data: rallyData } = useGetRallysQuery({ year, month, limit: RALLY_LIMIT });
+  const { data: calData, isLoading, refetch: refetchCal } = useGetCalendarEventsQuery({ year, month });
+  const { data: rallyData, refetch: refetchRallys } = useGetRallysQuery({ year, month, limit: RALLY_LIMIT });
+  const refreshControl = useRefreshControl(() => Promise.all([refetchCal(), refetchRallys()]));
   // Future events only, de-duplicated — past events are hidden from the calendar.
   const events = useMemo(() => {
     const today = new Date();
@@ -44,7 +47,7 @@ export default function CalendarScreen() {
     return (calData?.entries ?? []).filter(
       (e) =>
         e.event_date &&
-        new Date(e.event_date) >= today &&
+        (calendarDate(e.event_date) as Date) >= today &&
         e.internal_id &&
         !seen.has(e.internal_id) &&
         seen.add(e.internal_id),
@@ -64,16 +67,25 @@ export default function CalendarScreen() {
   // Events on selected date, or upcoming events when none selected
   const selectedEvents = useMemo(() => {
     if (selectedDate) {
-      return events.filter((e) => e.event_date && isSameDay(new Date(e.event_date), selectedDate));
+      return events.filter((e) => {
+        const day = calendarDate(e.event_date);
+        return day && isSameDay(day, selectedDate);
+      });
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return events.filter((e) => e.event_date && new Date(e.event_date) >= today);
+    return events.filter((e) => {
+      const day = calendarDate(e.event_date);
+      return day && day >= today;
+    });
   }, [selectedDate, events]);
 
   // Dates that have events
   const eventDates = useMemo(() => {
-    return new Set(events.map((e) => e.event_date ? format(new Date(e.event_date), 'yyyy-MM-dd') : null).filter(Boolean));
+    return new Set(events.map((e) => {
+      const day = calendarDate(e.event_date);
+      return day ? format(day, 'yyyy-MM-dd') : null;
+    }).filter(Boolean));
   }, [events]);
 
   /**
@@ -88,8 +100,9 @@ export default function CalendarScreen() {
   const rallysByDate = useMemo(() => {
     const map = new Map<string, Rally>();
     for (const rally of rallyData?.entries ?? []) {
-      if (!rally.event_date) continue;
-      const key = format(new Date(rally.event_date), 'yyyy-MM-dd');
+      const day = calendarDate(rally.event_date);
+      if (!day) continue;
+      const key = format(day, 'yyyy-MM-dd');
       if (!map.has(key)) map.set(key, rally);
     }
     return map;
@@ -98,7 +111,10 @@ export default function CalendarScreen() {
   const selectedRallys = useMemo(() => {
     const all = rallyData?.entries ?? [];
     if (!selectedDate) return all;
-    return all.filter((r) => r.event_date && isSameDay(new Date(r.event_date), selectedDate));
+    return all.filter((r) => {
+      const day = calendarDate(r.event_date);
+      return day && isSameDay(day, selectedDate);
+    });
   }, [selectedDate, rallyData]);
 
   return (
@@ -200,6 +216,7 @@ export default function CalendarScreen() {
 
       {isLoading ? <Spinner fullScreen /> : (
         <FlatList
+          refreshControl={refreshControl}
           data={selectedEvents}
           keyExtractor={(e, i) => e.internal_id ?? String(i)}
           renderItem={({ item }) => (
@@ -210,10 +227,10 @@ export default function CalendarScreen() {
             >
               <View style={styles.eventDateBadge}>
                 <Text style={styles.eventDay}>
-                  {item.event_date ? format(new Date(item.event_date), 'd') : '—'}
+                  {calendarDate(item.event_date) ? format(calendarDate(item.event_date)!, 'd') : '—'}
                 </Text>
                 <Text style={[styles.eventMon, { color: colors.grey }]}>
-                  {item.event_date ? format(new Date(item.event_date), 'MMM') : ''}
+                  {calendarDate(item.event_date) ? format(calendarDate(item.event_date)!, 'MMM') : ''}
                 </Text>
               </View>
               <View style={styles.eventInfo}>
@@ -244,7 +261,7 @@ export default function CalendarScreen() {
                         <Flag size={16} color={ink} strokeWidth={2.5} />
                         <View style={ss.fill}>
                           <Text style={[styles.rallyCardLabel, { color: ink }]}>
-                            Rally{rally.event_date ? ` · ${format(new Date(rally.event_date), 'MMM d')}` : ''}
+                            Rally{calendarDate(rally.event_date) ? ` · ${format(calendarDate(rally.event_date)!, 'MMM d')}` : ''}
                           </Text>
                           <Text style={[styles.rallyCardTitle, { color: ink }]} numberOfLines={1}>
                             {rally.title}

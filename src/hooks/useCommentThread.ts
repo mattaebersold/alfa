@@ -4,6 +4,18 @@ import { useGetCommentsQuery, useGetCommentRepliesQuery } from '../api/apiServic
 export interface CommentRowItem {
   comment: any;
   isReply: boolean;
+  /** First row of a thread — the comment the replies hang off. */
+  isThreadStart: boolean;
+  /** Last row of a thread: the comment itself, or its final reply. */
+  isThreadEnd: boolean;
+  /**
+   * The top-level comment this row belongs to. Replying to a reply attaches to
+   * the same parent rather than nesting deeper — the server models one level
+   * (`reply_to` points at a comment), and threads that indent forever are
+   * unreadable on a phone anyway. The mention in the draft is what says who is
+   * being answered.
+   */
+  threadId: string;
 }
 
 /**
@@ -41,12 +53,28 @@ export function useCommentThread(entryType: string, documentId: string, opts?: {
         (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
       );
     }
+    // Flags rather than nesting: the list stays flat (one FlatList, no
+    // scroller inside a scroller) while the rows still know where their thread
+    // starts and ends, which is what lets a thread be drawn as one card.
     const out: CommentRowItem[] = [];
     for (const cmt of comments) {
-      out.push({ comment: cmt, isReply: false });
-      for (const r of byParent[cmt.internal_id] || []) {
-        out.push({ comment: r, isReply: true });
-      }
+      const threadReplies = byParent[cmt.internal_id] || [];
+      out.push({
+        comment: cmt,
+        isReply: false,
+        isThreadStart: true,
+        isThreadEnd: threadReplies.length === 0,
+        threadId: cmt.internal_id,
+      });
+      threadReplies.forEach((r, i) => {
+        out.push({
+          comment: r,
+          isReply: true,
+          isThreadStart: false,
+          isThreadEnd: i === threadReplies.length - 1,
+          threadId: cmt.internal_id,
+        });
+      });
     }
     return out;
   }, [comments, repliesData]);

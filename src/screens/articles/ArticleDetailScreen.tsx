@@ -19,6 +19,7 @@ import ArticleBadges from '../../components/articles/ArticleBadges';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -79,8 +80,9 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
   const [visible, setVisible] = React.useState(true);
   const pendingNav = React.useRef<((nav: NavProp) => void) | null>(null);
 
-  const { data: article, isLoading: loadingArticle } = useGetArticleQuery(articleId);
-  const { data: blocksData, isLoading: loadingBlocks } = useGetArticleBlocksQuery(articleId);
+  const { data: article, isLoading: loadingArticle, refetch: refetchArticle } = useGetArticleQuery(articleId);
+  const { data: blocksData, isLoading: loadingBlocks, refetch: refetchBlocks } = useGetArticleBlocksQuery(articleId);
+  const refreshControl = useRefreshControl(() => Promise.all([refetchArticle(), refetchBlocks()]));
   const { data: featuredCar } = useGetCarWithUserQuery(article?.car_id ?? '', { skip: !article?.car_id });
 
   const handleDismissed = () => {
@@ -114,7 +116,7 @@ export default function ArticleDetailScreen({ route }: AppScreenProps<'ArticleDe
       {loadingArticle || !article ? (
         <Spinner />
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           {/* Hero */}
           {hero && (
             <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" transition={200} />

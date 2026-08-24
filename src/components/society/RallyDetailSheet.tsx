@@ -15,6 +15,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { isRallyUpcoming, toRallyFormEmbedUrl } from '../../utils/rally';
 import { stripHtml } from '../../utils/text';
+import { calendarDate } from '../../utils/calendarDate';
 
 interface Props {
   rallyId: string | null;
@@ -37,7 +38,8 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
 
   const gallery = rally?.gallery ?? [];
   const hero = rally?.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
-  const date = rally?.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
+  const eventDay = calendarDate(rally?.event_date);
+  const date = eventDay ? format(eventDay, 'EEEE, MMMM d, yyyy') : null;
   const formUrl = toRallyFormEmbedUrl(rally?.form_id);
   // Registration is embedded below, but only while there's still a rally to
   // register for — a past rally's form is a dead end.

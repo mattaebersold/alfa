@@ -2,6 +2,7 @@
  * Society event presentation constants — mirrors murray's helpers/eventHelpers.js
  * so an event reads the same on both platforms.
  */
+import { calendarDate } from '../utils/calendarDate';
 
 // One hex per category, used by the card's header bar and the calendar dots so
 // a colour means the same thing in both places. Kept deliberately distinct and
@@ -33,9 +34,15 @@ export const parseDayKey = (key?: string | null): Date | null => {
   return (y && m && d) ? new Date(y, m - 1, d) : null;
 };
 
-/** Local "YYYY-MM-DD" for a date. */
+/**
+ * "YYYY-MM-DD" for a date.
+ *
+ * Reads stored dates as calendar dates rather than instants — otherwise editing
+ * an event and saving it moved the date back a day, because the key sent to the
+ * server was derived from the phone's local reading of a UTC-midnight stamp.
+ */
 export const toDayKey = (date: Date | string): string => {
-  const d = new Date(date);
+  const d = calendarDate(date) ?? new Date(date);
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
@@ -55,8 +62,9 @@ export const formatEventDate = (
   date?: string | Date | null,
   opts: { weekday?: boolean; year?: boolean } = {}
 ): string => {
-  if (!date) return '';
-  return new Date(date).toLocaleDateString('en-US', {
+  const d = calendarDate(date);
+  if (!d) return '';
+  return d.toLocaleDateString('en-US', {
     ...(opts.weekday && { weekday: 'short' }),
     month: 'short',
     day: 'numeric',

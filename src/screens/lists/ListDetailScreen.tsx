@@ -23,6 +23,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { ListItem } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type RouteType = RouteProp<AppStackParamList, 'ListDetail'>;
 type NavProp = NavigationProp<AppStackParamList>;
@@ -161,6 +162,7 @@ export default function ListDetailScreen() {
   const [reorderListItems, { isLoading: isSavingOrder }] = useReorderListItemsMutation();
 
   const { data: list, isLoading, refetch } = useGetListQuery(listId);
+  const refreshControl = useRefreshControl(refetch);
   const { data: currentUser } = useGetLoggedInUserQuery();
 
   const isOwner = !!(currentUser && list && currentUser.user_id === list.user_id);
@@ -218,6 +220,7 @@ export default function ListDetailScreen() {
         </ScrollView>
       ) : (
         <FlatList
+          refreshControl={refreshControl}
           data={activeItems}
           keyExtractor={(item) => item.internal_id}
           contentContainerStyle={styles.list}

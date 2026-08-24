@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../../navigation/types';
@@ -33,7 +33,7 @@ function MentionSegment({ username, textStyle }: { username: string; textStyle?:
   // Plain Text with onPress keeps the mention inline and baseline-aligned with the
   // surrounding text — nesting a TouchableOpacity (a View) inside Text breaks alignment.
   return (
-    <Text onPress={handlePress} style={[textStyle, styles.mention, { color: c.primaryAlt }]}>@{username}</Text>
+    <Text onPress={handlePress} style={[textStyle, { color: c.blueLight }]}>@{username}</Text>
   );
 }
 
@@ -61,6 +61,10 @@ export default function MentionText({ text, style, numberOfLines }: MentionTextP
   );
 }
 
-const styles = StyleSheet.create({
-  mention: { fontWeight: '600' },
-});
+// A mention has no styles of its own: it takes the weight of whatever it is
+// written in, and the link blue is what marks it as pressable. Weighting it
+// separately made a sentence change thickness mid-word.
+//
+// The blue itself matters: it used to take `primaryAlt`, which useColors
+// remaps to gold for pro members, so a mention read as a highlight rather than
+// as something to press.

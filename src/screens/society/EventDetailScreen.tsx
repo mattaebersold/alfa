@@ -24,6 +24,8 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { calendarDate } from '../../utils/calendarDate';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
@@ -37,7 +39,8 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
   const [tab, setTab] = useState<Tab>('info');
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  const { data: event, isLoading } = useGetEventQuery(eventId);
+  const { data: event, isLoading, refetch } = useGetEventQuery(eventId);
+  const refreshControl = useRefreshControl(refetch);
   const [attendEvent, { isLoading: attending }] = useAttendEventMutation();
   const [declineEvent, { isLoading: declining }] = useDeclineEventMutation();
   const { data: postsData } = useGetPostsQuery(
@@ -59,7 +62,8 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
   if (isLoading || !event) return <Spinner fullScreen />;
 
   const gallery = event.gallery ?? [];
-  const date = event.event_date ? format(new Date(event.event_date), 'EEEE, MMMM d, yyyy') : null;
+  const eventDay = calendarDate(event.event_date);
+  const date = eventDay ? format(eventDay, 'EEEE, MMMM d, yyyy') : null;
   const posts = postsData?.entries ?? [];
 
   const header = (
@@ -186,7 +190,7 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+      <ScrollView refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
         {header}
       </ScrollView>
     </SafeAreaView>

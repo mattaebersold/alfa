@@ -17,6 +17,7 @@ import { MOD_TYPES } from '../../constants/carTypes';
 import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 
 type ImageAsset = { uri: string; name: string; type: string };
 
@@ -178,6 +179,11 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
           <Text style={[styles.fieldLabel, { color: c.fg }]}>
             Photos <Text style={[styles.optional, { color: c.grey }]}>(optional)</Text>
           </Text>
+          {/* Nothing added yet: the full well, so the option is visible at all.
+              Once there are photos the grid's + tile is enough. */}
+          {images.length === 0 ? (
+            <PhotoPickerField onPress={pickImage} />
+          ) : (
           <View style={styles.imageGrid}>
             {images.map((img, i) => (
               <View key={i} style={styles.imageThumbWrap}>
@@ -200,6 +206,7 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
               </TouchableOpacity>
             )}
           </View>
+          )}
         </View>
 
         <SharedButton

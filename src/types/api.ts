@@ -126,6 +126,21 @@ export interface GarageCar {
   coowner?: User;
 }
 
+/**
+ * Something added to a car — a mod or a gallery — carrying the car it belongs
+ * to. What the feed shows for cars you follow.
+ */
+export interface CarActivityItem {
+  kind: 'mod' | 'gallery';
+  internal_id: string;
+  title?: string | null;
+  body?: string | null;
+  type?: string | null;
+  gallery?: GalleryItem[];
+  created_at?: string;
+  car: GarageCar;
+}
+
 export interface DiecastAnalysis {
   isModelCar: boolean;
   brand?: string;
@@ -162,7 +177,11 @@ export interface Post {
   sold?: boolean;
   car_id?: string;
   event_id?: string;
+  /** Legacy single group. `group_ids` is what the create form writes now. */
   group_id?: string;
+  group_ids?: string[];
+  /** A group post that was pushed to the public feed as well. */
+  also_public?: boolean;
   make?: string;
   model?: string;
   year?: string;
@@ -464,6 +483,18 @@ export interface Notification {
   archived?: boolean;
   createdAt?: string;
   sender?: User;
+  /**
+   * Free-form payload per notification type. `resolution` is stamped by the
+   * server when a request that carried buttons has been settled — every admin
+   * holds their own copy of a group join request, so this is how a copy learns
+   * that someone else already answered it.
+   */
+  metadata?: {
+    resolution?: 'approved' | 'denied' | 'accepted' | 'declined';
+    resolved_by?: string;
+    resolved_at?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface Tag {

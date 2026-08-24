@@ -38,11 +38,18 @@ import RecordRow from '../../components/social/RecordRow';
 import { colors, withAlpha } from '../../constants/colors';
 import FollowButton from '../../components/social/FollowButton';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import RouteTrace from '../../components/routes/RouteTrace';
 import { formatDistance, curvinessLabel } from '../../utils/routeGeometry';
 import { ss } from '../../styles/shared';
+import { calendarDate } from '../../utils/calendarDate';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
+import CarSummaryModal from '../../components/cars/CarSummaryModal';
+import UserSummaryModal from '../../components/members/UserSummaryModal';
+import GroupInviteSheet from '../../components/groups/GroupInviteSheet';
+import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type ActiveTab = 'posts' | 'forum' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
@@ -151,10 +158,17 @@ export default function GroupSectionScreen() {
   const [detailItem, setDetailItem] = useState<any>(null);
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
+  // A car opens as a summary rather than a page push — see CarSummaryModal.
+  const [carSummary, setCarSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
   const { data: group } = useGetGroupQuery(groupId);
   const banner = firstGalleryUrl(group?.banners) ?? firstGalleryUrl(group?.gallery);
-  const { data: members = [] } = useGetGroupMembersQuery(groupId);
+  const { data: members = [], refetch: refetchMembers } = useGetGroupMembersQuery(groupId);
+  // The Members tab is read straight off this list, so it has to catch up with
+  // anything settled elsewhere — an approved join request, say.
+  useRefetchOnFocus(refetchMembers);
   const { data: garageData }   = useGetUserGarageQuery(undefined, { skip: !showCarModal });
   const [updateCarGroup, { isLoading: updatingCarGroup }] = useUpdateCarGroupMutation();
 
@@ -164,16 +178,27 @@ export default function GroupSectionScreen() {
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin' && m.status === 'active');
 
   // Lazy per-tab fetches
-  const { data: postsData,     isFetching: postsFetching }     = useGetPostsQuery({ group_id: groupId, limit: 30 }, { skip: tab !== 'posts' });
-  const { data: forumData,     isFetching: forumFetching }     = useGetGroupForumQuery({ groupId }, { skip: tab !== 'forum' });
-  const { data: newsData,      isFetching: newsFetching }      = useGetGroupNewsQuery({ groupId }, { skip: tab !== 'news' });
-  const { data: resourcesData, isFetching: resourcesFetching } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
-  const { data: eventsData,    isFetching: eventsFetching }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
-  const { data: carsData,      isFetching: carsFetching }      = useGetGroupCarsQuery(groupId, { skip: tab !== 'cars' });
+  const { data: postsData,     isFetching: postsFetching,     refetch: refetchPosts }     = useGetPostsQuery({ group_id: groupId, limit: 30 }, { skip: tab !== 'posts' });
+  const { data: forumData,     isFetching: forumFetching,     refetch: refetchForum }     = useGetGroupForumQuery({ groupId }, { skip: tab !== 'forum' });
+  const { data: newsData,      isFetching: newsFetching,      refetch: refetchNews }      = useGetGroupNewsQuery({ groupId }, { skip: tab !== 'news' });
+  const { data: resourcesData, isFetching: resourcesFetching, refetch: refetchResources } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
+  const { data: eventsData,    isFetching: eventsFetching,    refetch: refetchEvents }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
+  const { data: carsData,      isFetching: carsFetching,      refetch: refetchCars }      = useGetGroupCarsQuery(groupId, { skip: tab !== 'cars' });
   // Routes tagged with this group. The association lives in the shared Tag
   // collection, so the API resolves it rather than the route carrying a group_id.
-  const { data: routesData,    isFetching: routesFetching }    = useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: 30 }, { skip: tab !== 'routes' });
-  const { data: marketData,    isFetching: marketFetching }    = useGetPostsQuery({ group_id: groupId, type: 'listing', limit: 30 }, { skip: tab !== 'market' });
+  const { data: routesData,    isFetching: routesFetching,    refetch: refetchRoutes }    = useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: 30 }, { skip: tab !== 'routes' });
+  const { data: marketData,    isFetching: marketFetching,    refetch: refetchMarket }    = useGetPostsQuery({ group_id: groupId, type: 'listing', limit: 30 }, { skip: tab !== 'market' });
+
+  // Only the visible tab's query is running — refetching a skipped one throws,
+  // so the pull refreshes the tab you're looking at and the members list the
+  // header and Members tab both read.
+  const refetchTab: Record<string, (() => unknown) | undefined> = {
+    posts: refetchPosts, forum: refetchForum, news: refetchNews,
+    resources: refetchResources, events: refetchEvents, cars: refetchCars,
+    routes: refetchRoutes, market: refetchMarket,
+  };
+  const refreshControl = useRefreshControl(() =>
+    Promise.all([refetchMembers(), refetchTab[tab]?.()].filter(Boolean)));
 
   /**
    * Brings the active pill to the left edge of the tab row.
@@ -241,20 +266,6 @@ export default function GroupSectionScreen() {
 
   const visibleTabs = [...TABS, ...(isAdmin ? [{ key: 'settings', label: 'Settings' }] : [])];
 
-  const openMemberMenu = (m: any) => {
-    const username = m.user?.username;
-    Alert.alert(username ? `@${username}` : 'Member', undefined, [
-      {
-        text: 'Message user',
-        onPress: () => (navigation as any).navigate('ComposeMessage', { userId: m.user_id, username }),
-      },
-      {
-        text: 'View profile',
-        onPress: () => (navigation as any).navigate('UserDetail', { userId: m.user_id, username }),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
   const SEARCHABLE_TABS: ActiveTab[] = ['posts', 'forum', 'members', 'cars', 'market', 'resources'];
   const showSearch = SEARCHABLE_TABS.includes(tab);
 
@@ -498,6 +509,15 @@ export default function GroupSectionScreen() {
         <Text style={[styles.carsCtaText, { color: c.primaryAlt }]}>Add your car(s) to this group</Text>
       </TouchableOpacity>
     );
+    if (item._t === 'membersCta') return (
+      <TouchableOpacity
+        style={[styles.carsCta, { backgroundColor: c.card, borderColor: c.primaryAlt }]}
+        onPress={() => setInviteOpen(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.carsCtaText, { color: c.primaryAlt }]}>Invite someone to this group</Text>
+      </TouchableOpacity>
+    );
     if (item._tab === 'loading') return <ActivityIndicator size="large" color={c.primaryAlt} style={styles.loader} />;
     if (item._tab === 'empty')   return <EmptyState title={`No ${tab} yet`} />;
 
@@ -515,6 +535,8 @@ export default function GroupSectionScreen() {
             title={d.title ?? (d.body ? stripHtml(d.body) : null)}
             imageUri={hero}
             meta={[user?.username ? `@${user.username}` : null, timeAgo].filter(Boolean).join(' · ')}
+            avatarFilename={user?.gallery?.[0]?.filename ?? user?.profilePicture ?? null}
+            avatarName={user?.username}
             category={d.category}
             onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
           />
@@ -628,7 +650,8 @@ export default function GroupSectionScreen() {
 
     if (item._tab === 'events') {
       const hero = firstGalleryUrl(d.gallery);
-      const date = d.event_date ? format(new Date(d.event_date), 'MMM d, yyyy') : null;
+      const eventDay = calendarDate(d.event_date);
+      const date = eventDay ? format(eventDay, 'MMM d, yyyy') : null;
       return (
         <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} onPress={() => (navigation as any).navigate('EventDetailModal', { eventId: d.internal_id })} activeOpacity={0.8}>
           {hero ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" /> : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />}
@@ -640,16 +663,38 @@ export default function GroupSectionScreen() {
       );
     }
 
+    // Cars come through paired — a grid rather than a list, because a car is
+    // mostly its photo and a 72px thumbnail is not a photo.
     if (item._tab === 'cars') {
-      const hero = firstGalleryUrl(d.gallery) ?? (d.profile_image ? imageUrl(d.profile_image) : null);
       return (
-        <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} onPress={() => (navigation as any).navigate('CarDetail', { carId: d.internal_id })} activeOpacity={0.8}>
-          {hero ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" /> : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{d.title || [d.year, d.make, d.model].filter(Boolean).join(' ')}</Text>
-            {d.user && <Text style={[styles.metaText, { color: c.grey }]}>@{d.user.username}</Text>}
-          </View>
-        </TouchableOpacity>
+        <View style={styles.carGridRow}>
+          {(item.pair as any[]).map((car) => {
+            const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+            return (
+              <SummaryTouchable
+                key={car.internal_id}
+                style={[styles.carGridCard, { backgroundColor: c.card, borderColor: c.borderDark }]}
+                onPress={(origin) => setCarSummary({ carId: car.internal_id, origin })}
+              >
+                {hero
+                  ? <Image source={{ uri: hero }} style={styles.carGridImage} contentFit="cover" />
+                  : <View style={[styles.carGridImage, { backgroundColor: c.segment }]} />}
+                <View style={styles.carGridInfo}>
+                  <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>
+                    {car.title || [car.year, car.make, car.model].filter(Boolean).join(' ')}
+                  </Text>
+                  {car.user && (
+                    <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
+                      @{car.user.username}
+                    </Text>
+                  )}
+                </View>
+              </SummaryTouchable>
+            );
+          })}
+          {/* Keeps a lone last car half-width instead of letting it stretch. */}
+          {item.pair.length === 1 && <View style={styles.carGridSpacer} />}
+        </View>
       );
     }
 
@@ -659,7 +704,7 @@ export default function GroupSectionScreen() {
       const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
       return (
         <TouchableOpacity
-          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}
+          style={[styles.itemCard, { backgroundColor: c.card, borderColor: c.borderDark }]}
           onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
           activeOpacity={0.8}
         >
@@ -697,9 +742,12 @@ export default function GroupSectionScreen() {
     if (item._tab === 'members') {
       const isMe = d.user_id === userInfo?.user_id;
       return (
-        // A View, not a touchable — the row's actions are the follow button and
-        // the menu, matching the roster pane on the group home.
-        <View style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+        // The row opens the member's summary; the follow button stays as an
+        // inline shortcut. Matches the roster pane on the group home.
+        <SummaryTouchable
+          style={[styles.itemCard, { backgroundColor: c.card, borderColor: c.borderDark }]}
+          onPress={(origin) => setUserSummary({ userId: d.user_id, origin })}
+        >
           <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={42} />
           <View style={styles.memberNameWrap}>
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>@{d.user?.username}</Text>
@@ -710,16 +758,7 @@ export default function GroupSectionScreen() {
             )}
           </View>
           {!isMe && d.user?.username ? <FollowButton username={d.user.username} /> : null}
-          <TouchableOpacity
-            onPress={() => openMemberMenu(d)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={styles.memberMenuBtn}
-            accessibilityRole="button"
-            accessibilityLabel={`Options for ${d.user?.username ?? 'member'}`}
-          >
-            <MoreVertical size={18} color={c.grey} />
-          </TouchableOpacity>
-        </View>
+        </SummaryTouchable>
       );
     }
 
@@ -790,19 +829,29 @@ export default function GroupSectionScreen() {
         });
         return rows;
       })()
-    : processedItems.map((item) => ({ _tab: tab, data: item }));
+    : tab === 'cars'
+      ? processedItems.reduce((rows: any[], car, i) => {
+          if (i % 2 === 0) rows.push({ _tab: 'cars', pair: [car] });
+          else rows[rows.length - 1].pair.push(car);
+          return rows;
+        }, [])
+      : processedItems.map((item) => ({ _tab: tab, data: item }));
 
   const contentItems: any[] = isFetchingTab ? [{ _tab: 'loading' }] : taggedItems.length === 0 ? [{ _tab: 'empty' }] : taggedItems;
   const carsCta = (tab === 'cars' && isMember) ? [{ _t: 'carsCta' }] : [];
-  const flatData: any[] = [TABBAR_SENTINEL, ...carsCta, ...contentItems];
+  // Admins can approve people who ask; this is how they ask someone.
+  const membersCta = (tab === 'members' && isAdmin) ? [{ _t: 'membersCta' }] : [];
+  const flatData: any[] = [TABBAR_SENTINEL, ...carsCta, ...membersCta, ...contentItems];
 
   const keyExtractor = (item: any, i: number) => {
     if (item._t === 'tabbar') return '__tabbar';
     if (item._t === 'catHeader') return `__cat-${item.category}`;
     if (item._t === 'resourceFilters') return '__resourceFilters';
     if (item._t === 'carsCta') return '__carsCta';
+    if (item._t === 'membersCta') return '__membersCta';
     if (item._tab === 'loading') return '__loading';
     if (item._tab === 'empty') return '__empty';
+    if (item.pair) return `pair-${item.pair[0]?.internal_id ?? i}`;
     return item.data?.internal_id ?? item.data?.user_id ?? String(i);
   };
 
@@ -827,6 +876,7 @@ export default function GroupSectionScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
       {compactHeader}
       <FlatList
+        refreshControl={refreshControl}
         ref={listRef}
         data={flatData}
         keyExtractor={keyExtractor}
@@ -900,6 +950,25 @@ export default function GroupSectionScreen() {
           onClose={() => setCreateOpen(false)}
         />
       )}
+
+      <CarSummaryModal
+        carId={carSummary?.carId ?? null}
+        origin={carSummary?.origin}
+        onClose={() => setCarSummary(null)}
+      />
+
+      <UserSummaryModal
+        userId={userSummary?.userId ?? null}
+        origin={userSummary?.origin}
+        onClose={() => setUserSummary(null)}
+      />
+
+      <GroupInviteSheet
+        groupId={groupId}
+        groupTitle={group?.title ?? groupTitle}
+        visible={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -987,6 +1056,27 @@ const styles = StyleSheet.create({
   rowMeta:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metaText:       { fontSize: 12 },
   rowThumb:       { width: 72, height: 52, borderRadius: 8 },
+
+  /**
+   * Members and marketplace rows, as their own objects.
+   *
+   * They were full-bleed bands separated by hairlines, which read as one long
+   * surface with lines drawn across it — forum and news already sat as cards,
+   * so the same list felt like two different lists depending on the tab.
+   */
+  itemCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 12, marginTop: 10,
+    paddingHorizontal: 12, paddingVertical: 12,
+    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  // Two to a row: a car is mostly its photo, so it gets one.
+  carGridRow:    { flexDirection: 'row', gap: 10, marginHorizontal: 12, marginTop: 10 },
+  carGridCard:   { flex: 1, borderRadius: 14, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  carGridImage:  { width: '100%', aspectRatio: 4 / 3 },
+  carGridInfo:   { padding: 10, gap: 2 },
+  carGridSpacer: { flex: 1 },
 
   newsCard:       { marginHorizontal: 12, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
   newsImage:      { width: '100%', aspectRatio: 16 / 9 },

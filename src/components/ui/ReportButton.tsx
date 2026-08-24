@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Alert, StyleSheet } from 'react-native';
-import { MoreHorizontal } from 'lucide-react-native';
+import { MoreVertical } from 'lucide-react-native';
 import { useCreateReportMutation } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { hideContent } from '../../store/moderationSlice';
@@ -44,7 +44,9 @@ export default function ReportButton({ contentType, contentId, size = 20, color 
 
   return (
     <TouchableOpacity onPress={handlePress} hitSlop={8} style={styles.btn}>
-      <MoreHorizontal size={size} color={color ?? colors.grey} />
+      {/* Vertical, and dim: it's a way out of trouble rather than something to
+          reach for, so it shouldn't compete with the words beside it. */}
+      <MoreVertical size={size} color={color ?? 'rgba(255,255,255,0.34)'} />
     </TouchableOpacity>
   );
 }

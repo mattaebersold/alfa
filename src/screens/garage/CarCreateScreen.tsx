@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
-import { X, Plus, Camera } from 'lucide-react-native';
+import { X, Plus } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
   useGetCarBrandsQuery, useGetCarModelsQuery, useGetCarQuery,
@@ -21,6 +21,7 @@ import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 
 // ── Step progress bar ────────────────────────────────────────────────────────
 function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
@@ -462,10 +463,11 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
               <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 2 — Photos</Text>
               <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. First photo will be the cover image.</Text>
 
-              <TouchableOpacity style={styles.photoPickerBtn} onPress={pickImage}>
-                <Camera size={22} color="#FFFFFF" />
-                <Text style={styles.photoPickerText}>Add Photos</Text>
-              </TouchableOpacity>
+              <PhotoPickerField
+                onPress={pickImage}
+                title={form.images.length ? 'Add More Photos' : 'Add Photos'}
+                compact={form.images.length > 0}
+              />
 
               {form.images.length > 0 && (
                 <FlatList

@@ -3,8 +3,10 @@ import { View, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { EventDetailBody, EventInterestBar } from '../../components/society/EventDetailBody';
+import { useGetSocietyEventQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 /**
  * Full-screen event detail. In-app taps open the slide-up sheet instead; this
@@ -19,11 +21,15 @@ export default function SocietyEventDetailScreen({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const headerPad = useHeaderPad();
+  // Same cache entry EventDetailBody reads, so refetching here refreshes it.
+  const { refetch } = useGetSocietyEventQuery(eventId);
+  const refreshControl = useRefreshControl(refetch);
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <ScrollView
+        refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 + insets.bottom }}
       >

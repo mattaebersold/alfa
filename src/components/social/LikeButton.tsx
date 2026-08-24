@@ -69,7 +69,7 @@ export default function LikeButton({
 }
 
 const styles = StyleSheet.create({
-  container:  { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
+  container:  { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 4 },
   count:      { fontSize: 13, fontWeight: '500' },
   likedCount: { color: '#FF4060' },
 });

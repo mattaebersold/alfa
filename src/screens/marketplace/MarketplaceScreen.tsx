@@ -21,6 +21,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type Tab = 'listing' | 'want';
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -81,11 +82,12 @@ export default function MarketplaceScreen() {
   const [search, setSearch] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
 
-  const { data, isLoading } = useGetPostsQuery({
+  const { data, isLoading, refetch } = useGetPostsQuery({
     type: tab,
     search: activeSearch || undefined,
     limit: 30,
   });
+  const refreshControl = useRefreshControl(refetch);
   const posts = data?.entries ?? [];
 
   const handleSearch = useCallback(() => {
@@ -142,6 +144,7 @@ export default function MarketplaceScreen() {
         <Spinner fullScreen />
       ) : (
         <FlatList
+          refreshControl={refreshControl}
           data={posts}
           keyExtractor={(p) => p.internal_id}
           renderItem={({ item }) => (

@@ -8,7 +8,7 @@ import { BlurView } from 'expo-blur';
 import {
   Car, Users, ShoppingBag, BookOpen,
   Flag, X, ChevronRight, Link, Store, Route, MessageCircle,
-  Search, UserRound, Bell, Info, CalendarCheck, Mail,
+  Search, UserRound, Bell, Info, CalendarCheck, Mail, Package, Home,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,7 +20,7 @@ import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { CONFIG } from '../../constants/config';
 import { logout } from '../../store/authSlice';
-import { useBrandColor } from '../../hooks/useBrandColor';
+import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -36,7 +36,7 @@ function perceivedBrightness(hex: string): number {
 }
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, textMid, textHi, tileBg, count, wide }: {
+function NavTile({ label, Icon, onPress, textMid, textHi, tileBg, count, wide, flex }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
@@ -47,10 +47,21 @@ function NavTile({ label, Icon, onPress, textMid, textHi, tileBg, count, wide }:
   count?: number;
   /** Fill the row instead of taking half of it. */
   wide?: boolean;
+  /**
+   * Share of the row, for pairs that shouldn't split it evenly — 1 against 2
+   * gives a third and two thirds. Replaces the fixed half-width, so every tile
+   * in the row needs one.
+   */
+  flex?: number;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.navTile, wide && styles.navTileWide, { backgroundColor: tileBg }]}
+      style={[
+        styles.navTile,
+        wide && styles.navTileWide,
+        flex != null && { width: undefined, flex },
+        { backgroundColor: tileBg },
+      ]}
       onPress={onPress}
       activeOpacity={0.75}
     >
@@ -103,6 +114,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const brandColor = useBrandColor();
+  const isPro = useIsPro();
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
   // Same sources as the header's red dot, so the badges always agree with it.
@@ -190,7 +202,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
     handleClose();
   }, [handleClose]);
 
-  const goFeed = useCallback((screen: 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace') => {
+  const goFeed = useCallback((screen: 'Feed' | 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace') => {
     closeThen(() => navigation.navigate('MainTabs', {
       screen: 'FeedTab',
       params: { screen },
@@ -265,8 +277,18 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
+              {/* The feed left the tab bar, so this is its way back. It shares
+                  a row with Your Events — both are places you go rather than
+                  things you browse, and full-width each they pushed the grid
+                  below the fold. */}
+              {/* A third and two thirds: "Home" is one short word, "Your Events"
+                  carries a count pill as well and wants the room. */}
               <View style={styles.pairRow}>
-                <NavTile label="Your Events" Icon={CalendarCheck} tileBg={userCardBg} textMid={textMid} textHi={textHi} wide
+                <NavTile label="Home" Icon={Home} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  flex={1}
+                  onPress={() => goFeed('Feed')} />
+                <NavTile label="Your Events" Icon={CalendarCheck} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                  flex={2}
                   count={myEventsCount}
                   onPress={() => setMyEventsOpen(true)} />
               </View>
@@ -300,6 +322,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => goFeed('Marketplace')} />
                 <NavTile label="Shop" Icon={Store} tileBg={userCardBg} textMid={textMid} textHi={textHi}
                   onPress={() => closeThen(() => navigation.navigate('Shop'))} />
+                {/* The header's + used to be the only way to list a diecast; it
+                    goes straight to a new post now, so the entry point lives
+                    here beside the other selling surfaces. Pro-only, as before. */}
+                {isPro && (
+                  <NavTile label="List a Diecast" Icon={Package} tileBg={userCardBg} textMid={textMid} textHi={textHi}
+                    onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
+                )}
               </View>
 
               <Text style={[styles.sectionLabel, { color: textLo }]}>MORE</Text>

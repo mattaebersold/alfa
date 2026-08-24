@@ -4,25 +4,31 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupMembersQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
+import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupMember } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
+import UserSummaryModal from '../../components/members/UserSummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
-type AppNav = NativeStackNavigationProp<AppStackParamList>;
-
-function MemberRow({ member, onPress }: { member: GroupMember; onPress: () => void }) {
+function MemberRow({ member, onPress }: {
+  member: GroupMember;
+  onPress: (origin: SummaryOrigin | null) => void;
+}) {
   const colors = useColors();
   const isAdmin = member.member_type === 'admin';
   return (
-    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
+    <SummaryTouchable
+      style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <Avatar
         filename={member.user?.gallery?.[0]?.filename}
         name={member.user?.username ?? '?'}
@@ -36,16 +42,19 @@ function MemberRow({ member, onPress }: { member: GroupMember; onPress: () => vo
           <Text style={styles.adminText}>Admin</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
 export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMembers'>) {
   const { groupId } = route.params;
-  const navigation = useNavigation<AppNav>();
   const colors = useColors();
   const [query, setQuery] = useState('');
-  const { data: members = [], isLoading } = useGetGroupMembersQuery(groupId);
+  // Tapping a member summarises them here rather than pushing their profile —
+  // see UserSummaryModal. The full page is one button away inside it.
+  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
+  const { data: members = [], isLoading, refetch } = useGetGroupMembersQuery(groupId);
+  const refreshControl = useRefreshControl(refetch);
 
   const q = query.trim().toLowerCase();
   const active = members
@@ -57,12 +66,13 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
+        refreshControl={refreshControl}
         data={active}
         keyExtractor={(m) => m.user_id}
         renderItem={({ item }) => (
           <MemberRow
             member={item}
-            onPress={() => item.user_id && navigation.navigate('UserDetail', { userId: item.user_id })}
+            onPress={(origin) => item.user_id && setUserSummary({ userId: item.user_id, origin })}
           />
         )}
         ListHeaderComponent={
@@ -86,6 +96,12 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
         ListEmptyComponent={<EmptyState title={query ? 'No members match' : 'No members yet'} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
+      />
+
+      <UserSummaryModal
+        userId={userSummary?.userId ?? null}
+        origin={userSummary?.origin}
+        onClose={() => setUserSummary(null)}
       />
     </SafeAreaView>
   );

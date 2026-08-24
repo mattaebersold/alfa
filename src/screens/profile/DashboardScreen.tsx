@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon } from 'lucide-react-native';
+import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,6 +38,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'homeBanner' | null;
@@ -202,9 +203,9 @@ export default function DashboardScreen() {
     );
   };
 
-  const { data: user, isLoading } = useGetLoggedInUserQuery();
-  const { data: stats } = useGetUserStatsQuery();
-  const { data: garageData } = useGetUserGarageQuery();
+  const { data: user, isLoading, refetch: refetchUser } = useGetLoggedInUserQuery();
+  const { data: stats, refetch: refetchStats } = useGetUserStatsQuery();
+  const { data: garageData, refetch: refetchGarage } = useGetUserGarageQuery();
   const { data: postsData } = useGetPostsQuery(
     { user_id: userInfo?.user_id ?? '', limit: 30 },
     { skip: !userInfo?.user_id },
@@ -212,6 +213,9 @@ export default function DashboardScreen() {
   const { data: blockedData } = useGetBlockedUsersQuery();
   const { data: followedCarsData } = useGetFollowedCarsQuery();
   const [unblockUser] = useUnblockUserMutation();
+  // The stat grid is the page — the sheets behind it read the same cache.
+  const refreshControl = useRefreshControl(() =>
+    Promise.all([refetchUser(), refetchStats(), refetchGarage()]));
   const isAdmin = userInfo?.accountType === 'admin';
   const { data: flaggedData } = useGetFlaggedContentQuery(undefined, { skip: !isAdmin });
   const [removeContent] = useRemoveContentMutation();
@@ -347,7 +351,7 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader spacer />
-      <ScrollView style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView refreshControl={refreshControl} style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <TouchableOpacity
           style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -392,6 +396,13 @@ export default function DashboardScreen() {
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } } as any)} activeOpacity={0.7}>
             <Car size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>My Garage</Text>
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Adding a car used to mean opening the cars sheet first, or finding
+              it in the header's create menu — which no longer offers it. */}
+          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('CarCreate', {})} activeOpacity={0.7}>
+            <CarFront size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Add a Car</Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>

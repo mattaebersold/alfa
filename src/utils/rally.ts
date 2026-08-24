@@ -10,6 +10,7 @@
  * is just "a registration form", and nothing here assumes a provider.
  */
 import type { Rally } from '../types/api';
+import { calendarDate } from './calendarDate';
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -43,8 +44,10 @@ export function rallyColors(rally: Pick<Rally, 'primary_color' | 'secondary_colo
  */
 export function isRallyUpcoming(rally?: Pick<Rally, 'event_date'> | null): boolean {
   if (!rally?.event_date) return true;
-  const date = new Date(rally.event_date);
-  if (Number.isNaN(date.getTime())) return true;
+  // The rally's own day, not the instant it was stamped at — compared as an
+  // instant, a rally counted as past from midnight *the day before* it ran.
+  const date = calendarDate(rally.event_date);
+  if (!date) return true;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return date.getTime() >= today.getTime();

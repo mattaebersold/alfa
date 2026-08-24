@@ -7,6 +7,16 @@ import ReportButton from '../ui/ReportButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+
+/**
+ * The ground comments sit on, wherever they appear.
+ *
+ * Exported so the sheet and the post detail can't drift apart: the two used
+ * different greys (#161616 and #101010) for the same thing, alongside a third
+ * for the composer and a fourth for the header.
+ */
+export const COMMENT_SURFACE = '#0B0B0B';
 
 export interface CommentData {
   internal_id?: string;
@@ -21,12 +31,31 @@ interface CommentRowProps {
   currentUserId?: string;
   onReply?: (commentId: string, username: string) => void;
   isReply?: boolean;
+  /**
+   * Where this row sits in its thread. A thread — a comment and its replies —
+   * is drawn as one card: the first row caps it, the last closes it, and the
+   * rows between share its sides. Left unset, a row is a card on its own.
+   */
+  isThreadStart?: boolean;
+  isThreadEnd?: boolean;
+  /**
+   * The top-level comment of this row's thread. Replies attach to it rather
+   * than to each other, so answering a reply lands in the same thread instead
+   * of starting a new level of indentation.
+   */
+  threadId?: string;
+  /**
+   * Open a summary of whoever wrote this. Passed up rather than owned here:
+   * one panel for a list of comments, not one per row.
+   */
+  onOpenUser?: (userId: string, origin: SummaryOrigin | null) => void;
   /** Override the row background, e.g. to set comments off from a post body. */
   backgroundColor?: string;
 }
 
 export default function CommentRow({
-  comment, currentUserId, onReply, isReply, backgroundColor,
+  comment, currentUserId, onReply, isReply,
+  isThreadStart = true, isThreadEnd = true, threadId, onOpenUser, backgroundColor,
 }: CommentRowProps) {
   const colors = useColors();
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
@@ -45,25 +74,49 @@ export default function CommentRow({
   return (
     <View style={[
       styles.container,
-      { backgroundColor: backgroundColor ?? colors.card },
+      { backgroundColor: backgroundColor ?? colors.card, borderColor: colors.borderDark },
+      isThreadStart && styles.threadStart,
+      isThreadEnd && styles.threadEnd,
       isReply && styles.replyContainer,
     ]}>
-      {isReply && <View style={[styles.replyLine, { backgroundColor: colors.primaryAlt }]} />}
-      <Avatar
-        filename={user?.gallery?.[0]?.filename}
-        name={user?.firstName ?? '?'}
-        size={isReply ? 28 : 32}
-      />
+      {/* A hairline in the border colour, not the brand one: it marks the
+          indent, it isn't a thing to look at. */}
+      {isReply && <View style={[styles.replyLine, { backgroundColor: colors.borderDark }]} />}
+      {/* Initials come from the username, not the first name: the label under
+          it says "@username", and two people whose first names start with the
+          same letter produced identical circles — which reads as one person's
+          photo repeated rather than as two people. */}
+      <SummaryTouchable
+        onPress={(origin) => onOpenUser?.(comment.user_id, origin)}
+        disabled={!onOpenUser || !comment.user_id}
+        accessibilityLabel={`View @${displayName}`}
+      >
+        <Avatar
+          filename={user?.gallery?.[0]?.filename}
+          name={user?.username ?? '?'}
+          size={isReply ? 28 : 32}
+        />
+      </SummaryTouchable>
       <View style={styles.body}>
         <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: colors.fg }]}>@{displayName}</Text>
+          <SummaryTouchable
+            onPress={(origin) => onOpenUser?.(comment.user_id, origin)}
+            disabled={!onOpenUser || !comment.user_id}
+            accessibilityLabel={`View @${displayName}`}
+          >
+            <Text style={[styles.name, { color: colors.fg }]}>@{displayName}</Text>
+          </SummaryTouchable>
         </View>
-        <MentionText text={comment.body ?? ''} style={[styles.text, { color: colors.muted }]} />
+        {/* Full white: a comment is something someone said, not a caption
+            about it, and at `muted` it sat quieter than the timestamps. */}
+        <MentionText text={comment.body ?? ''} style={[styles.text, { color: colors.fg }]} />
         <View style={styles.footer}>
-          <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
-          {onReply && commentId && !isReply && (
+          <Text style={[styles.time, { color: colors.greyDark }]}>{timeAgo}</Text>
+          {/* Replies can be replied to as well — the answer joins this thread
+              rather than opening one under it. */}
+          {onReply && commentId && (
             <TouchableOpacity
-              onPress={() => onReply(commentId, user?.username ?? displayName ?? '')}
+              onPress={() => onReply(threadId ?? commentId, user?.username ?? displayName ?? '')}
               hitSlop={8}
             >
               <Text style={[styles.replyBtn, { color: colors.primaryAlt }]}>Reply</Text>
@@ -81,29 +134,48 @@ export default function CommentRow({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    marginHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 10,
-    marginBottom: 1,
+    // Sides on every row; the caps come from the thread flags, so a comment
+    // and its replies are enclosed by one outline rather than stacked as
+    // separate slabs divided by seams.
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
   },
+  threadStart: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: 14, borderTopRightRadius: 14,
+    paddingTop: 12,
+  },
+  threadEnd: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
+    paddingBottom: 12,
+    // The gap goes between threads, rather than between every row.
+    marginBottom: 10,
+  },
+  // Half the old inset: a reply is a step in, not a column of its own.
   replyContainer: {
-    paddingLeft: 44,
-    marginLeft: 16,
+    paddingLeft: 30,
     position: 'relative',
   },
   replyLine: {
     position: 'absolute',
-    left: 16,
-    top: 8,
-    bottom: 8,
-    width: 3,
-    borderRadius: 2,
+    left: 14,
+    top: 6,
+    bottom: 6,
+    width: 1.5,
+    borderRadius: 1,
   },
   body:     { flex: 1 },
   nameRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  name:     { fontSize: 13, fontWeight: '700' },
-  text:     { fontSize: 14, lineHeight: 20 },
+  // The comment is the thing being read; the name is a label on it and the
+  // time is a footnote. The weights say so.
+  name:     { fontSize: 13, fontWeight: '500' },
+  text:     { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   footer:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  time:     { fontSize: 11 },
+  time:     { fontSize: 11, fontStyle: 'italic' },
   replyBtn: { fontSize: 12, fontWeight: '700' },
 });

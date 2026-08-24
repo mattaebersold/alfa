@@ -6,8 +6,12 @@ import { useAppSelector } from '../store/store';
 export const DarkColors = {
   ...colors,
   // Backgrounds — matching Murray dark mode
-  cream:    '#121212',
-  bg:       '#121212',
+  //
+  // Darker than the cards that sit on it (#1e1e1e) by a wider margin than
+  // before: at #121212 the two were close enough that a card read as a slightly
+  // different patch of background rather than as an object on it.
+  cream:    '#0A0A0A',
+  bg:       '#0A0A0A',
   segment:  '#1E1E1E',
   secondary:'#282828',
   inputBg:  '#0D0D0D',

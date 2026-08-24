@@ -15,6 +15,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { calendarDate, calendarTime } from '../../utils/calendarDate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** A past rally in the scroller — wide enough to read, narrow enough that the
@@ -26,17 +27,42 @@ const PAST_LIMIT = 20;
 const rallyHero = (rally: Rally) =>
   (rally.hero_image ? imageUrl(rally.hero_image) : null) ?? firstGalleryUrl(rally.gallery);
 
+/**
+ * Bounds for a hero's own shape.
+ *
+ * Outside anything a camera produces, so ordinary photos pass through — they
+ * only stop a panorama becoming a sliver or a phone-portrait becoming a
+ * skyscraper.
+ */
+const MIN_RATIO = 0.6;
+const MAX_RATIO = 2.6;
+
 /** The full card for an upcoming rally: hero, date, title, and a way in. */
 function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
   const colors = useColors();
   const hero = rallyHero(rally);
-  const date = rally.event_date ? format(new Date(rally.event_date), 'MMM d, yyyy') : null;
+  // The card takes the photo's own shape rather than cropping it to 16/9.
+  // These are the club's own posters and route maps as often as they are
+  // photographs, and a fixed frame cut the tops off them.
+  const [ratio, setRatio] = useState(16 / 9);
+  const eventDay = calendarDate(rally.event_date);
+  const date = eventDay ? format(eventDay, 'MMM d, yyyy') : null;
 
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
       {hero
-        ? <Image source={{ uri: hero }} style={styles.cardImage} contentFit="cover" />
-        : <View style={[styles.cardImage, styles.cardPlaceholder]} />
+        ? (
+          <Image
+            source={{ uri: hero }}
+            style={[styles.cardImage, { aspectRatio: ratio }]}
+            contentFit="cover"
+            onLoad={(e) => {
+              const { width, height } = e.source ?? {};
+              if (width && height) setRatio(Math.min(Math.max(width / height, MIN_RATIO), MAX_RATIO));
+            }}
+          />
+        )
+        : <View style={[styles.cardImage, styles.cardFallbackRatio, styles.cardPlaceholder]} />
       }
       <View style={styles.cardBody}>
         {date && <Text style={styles.date}>{date}</Text>}
@@ -54,7 +80,8 @@ function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => vo
 function PastRallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
   const colors = useColors();
   const hero = rallyHero(rally);
-  const date = rally.event_date ? format(new Date(rally.event_date), 'MMM yyyy') : null;
+  const eventDay = calendarDate(rally.event_date);
+  const date = eventDay ? format(eventDay, 'MMM yyyy') : null;
 
   return (
     <TouchableOpacity style={[styles.pastCard, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.85}>
@@ -97,8 +124,8 @@ export default function RallysScreen() {
   // event is the one you're most likely looking for.
   const sortedUpcoming = useMemo(
     () => [...upcoming].sort((a, b) => {
-      const da = a.event_date ? new Date(a.event_date).getTime() : Infinity;
-      const db = b.event_date ? new Date(b.event_date).getTime() : Infinity;
+      const da = calendarTime(a.event_date, Infinity);
+      const db = calendarTime(b.event_date, Infinity);
       return da - db;
     }),
     [upcoming],
@@ -106,8 +133,8 @@ export default function RallysScreen() {
 
   const sortedPast = useMemo(
     () => [...(pastData?.entries ?? [])].sort((a, b) => {
-      const da = a.event_date ? new Date(a.event_date).getTime() : 0;
-      const db = b.event_date ? new Date(b.event_date).getTime() : 0;
+      const da = calendarTime(a.event_date);
+      const db = calendarTime(b.event_date);
       return db - da;
     }),
     [pastData],
@@ -181,7 +208,10 @@ const styles = StyleSheet.create({
     borderRadius: 12, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  cardImage:    { width: '100%', aspectRatio: 16 / 9 },
+  // No ratio here — the card measures the photo and supplies its own. The
+  // fallback keeps a shape for the case where there is no photo to measure.
+  cardImage:    { width: '100%' },
+  cardFallbackRatio: { aspectRatio: 16 / 9 },
   cardPlaceholder: { backgroundColor: colors.primaryAlt },
   cardBody:     { padding: 12 },
   date:         { fontSize: 12, fontWeight: '700', color: colors.primaryAlt, marginBottom: 4 },

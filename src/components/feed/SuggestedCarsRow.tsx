@@ -1,9 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useNavigation } from '@react-navigation/native';
 import {
   useGetCarsQuery, useGetUserGarageQuery, useGetFollowedCarsQuery,
 } from '../../api/apiService';
@@ -14,6 +13,8 @@ import RowEndSpacer from '../ui/RowEndSpacer';
 import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
 import type { GarageCar } from '../../types/api';
+import CarSummaryModal from '../cars/CarSummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 
 /**
  * "Suggested Cars" — cars you don't follow that share a make (better, a model)
@@ -36,12 +37,15 @@ const MAX_SUGGESTIONS = 10;
 /** What the fallback shows when there's nothing to match against. */
 const FALLBACK_COUNT = 5;
 
-function CarCardMini({ car, onPress }: { car: GarageCar; onPress: () => void }) {
+function CarCardMini({ car, onPress }: {
+  car: GarageCar;
+  onPress: (origin: SummaryOrigin | null) => void;
+}) {
   const colors = useColors();
   const hero = firstGalleryUrl(car.gallery) ?? imageUrl(car.profile_image);
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <SummaryTouchable style={styles.card} onPress={onPress}>
       <View style={styles.thumb}>
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
@@ -52,7 +56,7 @@ function CarCardMini({ car, onPress }: { car: GarageCar; onPress: () => void }) 
       <Text style={[styles.carName, { color: colors.fg }]} numberOfLines={1}>
         {[car.year, car.make, car.model].filter(Boolean).join(' ')}
       </Text>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
@@ -62,8 +66,8 @@ interface Props {
 }
 
 export default function SuggestedCarsRow({ onRequestHide }: Props) {
-  const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
   const myId = userInfo?.user_id ?? '';
 
   const { data: myGarage } = useGetUserGarageQuery();
@@ -146,11 +150,19 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
           <CarCardMini
             key={car.internal_id}
             car={car}
-            onPress={() => navigation.navigate('CarDetail', { carId: car.internal_id })}
+            // A suggestion is an invitation to decide about a car, which is
+            // what the summary is for — the full page is one button inside it.
+            onPress={(origin) => setSummary({ carId: car.internal_id, origin })}
           />
         ))}
         <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
+
+      <CarSummaryModal
+        carId={summary?.carId ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
+      />
     </SuggestionCard>
   );
 }

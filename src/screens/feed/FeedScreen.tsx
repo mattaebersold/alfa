@@ -8,7 +8,7 @@ import StoriesRow from '../../components/stories/StoriesRow';
 import FeedQuickLinks from '../../components/feed/FeedQuickLinks';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
-import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
+// import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
 import UpcomingEventsRow from '../../components/feed/UpcomingEventsRow';
 import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
 import { useFeedPreferences } from '../../hooks/useFeedPreferences';
@@ -50,9 +50,11 @@ function FeedHeader() {
   return (
     <View>
       {/* {isPro && <StoriesRow />} */}
-      <HomeFeatureBanner />
-      <UpcomingEventsRow />
+      {/* Feature banner parked for now — <HomeFeatureBanner /> */}
+      {/* Quick links lead: they're where you go, and the feed opens with them
+          rather than with a row you have to scroll past to reach them. */}
       <FeedQuickLinks />
+      <UpcomingEventsRow />
       <PostPrompt />
       {!suggestionsHidden && (
         <>

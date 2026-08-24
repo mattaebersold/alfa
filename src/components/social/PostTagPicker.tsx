@@ -8,6 +8,7 @@ import {
   useGetPreviouslyTaggedEventsQuery,
   useGetPreviouslyTaggedGroupsQuery,
 } from '../../api/apiService';
+import GarageCarStrip from './GarageCarStrip';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 
@@ -35,9 +36,11 @@ interface RowProps {
   suggestions: TagItem[];   // matches from the active search (≥2 chars)
   recent: TagItem[];        // previously-tagged fallback
   onToggle: (t: TagItem) => void;
+  /** Sits between the selected chips and the search field — see the cars row. */
+  above?: React.ReactNode;
 }
 
-function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, suggestions, recent, onToggle }: RowProps) {
+function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, suggestions, recent, onToggle, above }: RowProps) {
   const colors = useColors();
   const selectedIds = new Set(selected.map((t) => t.id));
   const typing = query.trim().length >= 2;
@@ -71,6 +74,8 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
           ))}
         </View>
       )}
+
+      {above}
 
       {/* Search input */}
       <View style={[styles.inputBox, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}>
@@ -144,10 +149,16 @@ interface Props {
    * pass it today, so their tag UI is unchanged; routes do.
    */
   groups?: TagItem[];
+  /**
+   * Put the member's own garage above the car search as a row of tappable
+   * thumbnails. On by default — searching for a car you own is the long way
+   * round to a tag you could have picked from a picture.
+   */
+  showGarage?: boolean;
   onToggle: (t: TagItem) => void;
 }
 
-export default function PostTagPicker({ users, cars, events, groups, onToggle }: Props) {
+export default function PostTagPicker({ users, cars, events, groups, showGarage = true, onToggle }: Props) {
   const colors = useColors();
 
   const [userQ, setUserQ]   = useState('');
@@ -191,11 +202,17 @@ export default function PostTagPicker({ users, cars, events, groups, onToggle }:
         onToggle={onToggle}
       />
       <TagRow
-        title="Tag Cars" placeholder="Search cars…" Icon={CarIcon} accent={colors.teal}
+        title="Tag Cars"
+        // The field is for cars that aren't yours; yours are the row above it.
+        placeholder={showGarage ? 'Search other members’ cars…' : 'Search cars…'}
+        Icon={CarIcon} accent={colors.teal}
         query={carQ} onQuery={setCarQ} selected={cars}
         suggestions={(carSearch?.cars ?? []).map(toCar)}
         recent={(prevCars?.cars ?? []).map(toCar)}
         onToggle={onToggle}
+        above={showGarage
+          ? <GarageCarStrip selectedIds={cars.map((c) => c.id)} onToggle={onToggle} />
+          : undefined}
       />
       <TagRow
         title="Tag Events" placeholder="Search events…" Icon={Flag} accent={colors.tangerine}

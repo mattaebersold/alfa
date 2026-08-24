@@ -38,6 +38,8 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { GarageCar, Post, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
+import GroupAttribution from '../../components/groups/GroupAttribution';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // Cars live on the page itself (see the garage section), so they get no tile.
@@ -62,21 +64,28 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
   return (
+    // A card with the picture on top rather than a row with a stamp beside it:
+    // a post is mostly its photo, and at 58px it was a thumbnail of one.
     <TouchableOpacity
-      style={[ss.listRow, { borderBottomColor: colors.border }]}
+      style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
     >
       {thumb ? (
-        <Image source={{ uri: thumb }} style={styles.postRowThumb} contentFit="cover" />
+        <Image source={{ uri: thumb }} style={styles.postCardImage} contentFit="cover" />
       ) : null}
-      <View style={{ flex: 1, gap: 3 }}>
+      <View style={styles.postCardBody}>
         {title ? (
-          <Text style={{ color: colors.fg, fontSize: 14, fontWeight: '600', lineHeight: 19 }} numberOfLines={2}>
+          <Text
+            style={{ color: colors.fg, fontSize: thumb ? 15 : 17, fontWeight: '700', lineHeight: thumb ? 20 : 23 }}
+            numberOfLines={thumb ? 2 : 4}
+          >
             {title}
           </Text>
         ) : null}
         <Text style={{ color: colors.muted, fontSize: 12 }}>{timeAgo}</Text>
+        {/* Same link the feed card carries, sized for a list. */}
+        <GroupAttribution groupId={post.group_ids?.[0] ?? post.group_id} compact />
       </View>
     </TouchableOpacity>
   );
@@ -262,8 +271,8 @@ export default function ProfileScreen() {
 
   const isOwnProfile = !paramUserId || paramUserId === userInfo?.user_id;
 
-  const { data: loggedInUser, isLoading: loadingOwn } = useGetLoggedInUserQuery(undefined, { skip: !isOwnProfile });
-  const { data: publicUser, isLoading: loadingOther } = useGetPublicUserByIdQuery(paramUserId!, { skip: isOwnProfile || !paramUserId });
+  const { data: loggedInUser, isLoading: loadingOwn, refetch: refetchOwn } = useGetLoggedInUserQuery(undefined, { skip: !isOwnProfile });
+  const { data: publicUser, isLoading: loadingOther, refetch: refetchOther } = useGetPublicUserByIdQuery(paramUserId!, { skip: isOwnProfile || !paramUserId });
 
   const user = isOwnProfile ? loggedInUser : publicUser;
   const isLoading = isOwnProfile ? loadingOwn : loadingOther;
@@ -271,8 +280,17 @@ export default function ProfileScreen() {
 
   // All sections fetched up front so the tiles can show counts and content is
   // ready the moment a tile opens its modal.
-  const { data: postsData }     = useGetPostsQuery({ user_id: userId, limit: 30 }, { skip: !userId });
-  const { data: carsData }      = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
+  const { data: postsData, refetch: refetchPosts } = useGetPostsQuery({ user_id: userId, limit: 30 }, { skip: !userId });
+  const { data: carsData, refetch: refetchCars }  = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
+
+  // The profile is the person plus their posts and garage — the three things
+  // the page actually shows. The rest are counts behind tiles and come back
+  // with the tags these invalidate.
+  const refreshControl = useRefreshControl(() => Promise.all([
+    isOwnProfile ? refetchOwn() : refetchOther(),
+    refetchPosts(),
+    refetchCars(),
+  ]));
   const { data: listsData }     = useGetListsQuery({ user_id: userId, limit: 50 }, { skip: !userId || !isPro });
   const { data: followersData } = useGetUserFollowersQuery({ userId, limit: 50 }, { skip: !userId });
   const { data: followingData } = useGetUserFollowingQuery({ userId, limit: 50 }, { skip: !userId });
@@ -603,6 +621,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: safeBg }]} edges={safeEdges}>
       {topBar}
       <ScrollView
+        refreshControl={refreshControl}
         style={{ backgroundColor: colors.cream }}
         contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance + 24 }]}
         showsVerticalScrollIndicator={false}
@@ -712,7 +731,12 @@ const styles = StyleSheet.create({
   },
   userSearchInput: { flex: 1, fontSize: 14 },
 
-  postRowThumb: { width: 58, height: 58, borderRadius: 6 },
+  postCard: {
+    marginHorizontal: 12, marginTop: 10,
+    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
+  },
+  postCardImage: { width: '100%', aspectRatio: 16 / 10 },
+  postCardBody:  { padding: 12, gap: 4 },
 
   garageSection: { marginTop: 18 },
   garageHeader:  {

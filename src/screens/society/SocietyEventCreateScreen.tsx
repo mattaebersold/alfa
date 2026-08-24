@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { ImagePlus, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import {
   useCreateSocietyEventMutation,
   useUpdateSocietyEventMutation,
@@ -22,6 +22,7 @@ import { useAppSelector } from '../../store/store';
 import { DateField, TimeField } from '../../components/ui/DateTimeField';
 import OrsSponsoredToggle from '../../components/society/OrsSponsoredToggle';
 import { ss } from '../../styles/shared';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 
 const FREQUENCIES = [
   { key: 'single',   label: 'Single Day' },
@@ -277,14 +278,11 @@ export default function SocietyEventCreateScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            style={[styles.imagePicker, { borderColor: colors.border, backgroundColor: colors.card }]}
+          <PhotoPickerField
             onPress={pickImage}
-            activeOpacity={0.8}
-          >
-            <ImagePlus size={20} color={colors.grey} />
-            <Text style={[styles.imagePickerText, { color: colors.grey }]}>Add a photo</Text>
-          </TouchableOpacity>
+            title="Add a Photo"
+            hint="An event with a picture is the one people stop on"
+          />
         )}
 
         <OrsSponsoredToggle value={orsSponsored} onChange={setOrsSponsored} />

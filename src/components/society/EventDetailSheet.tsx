@@ -16,6 +16,7 @@ import Spinner from '../ui/Spinner';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
+import { calendarDate } from '../../utils/calendarDate';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -46,7 +47,8 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
   }, [event]);
 
   const gallery = event?.gallery ?? [];
-  const date = event?.event_date ? format(new Date(event.event_date), 'EEEE, MMMM d, yyyy') : null;
+  const eventDay = calendarDate(event?.event_date);
+  const date = eventDay ? format(eventDay, 'EEEE, MMMM d, yyyy') : null;
 
   return (
     <Modal

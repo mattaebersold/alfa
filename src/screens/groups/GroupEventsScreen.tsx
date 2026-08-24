@@ -16,13 +16,16 @@ import { firstGalleryUrl } from '../../utils/image';
 import type { GroupsScreenProps, AppStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { calendarDate } from '../../utils/calendarDate';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
   const colors = useColors();
   const hero = firstGalleryUrl(event.gallery);
-  const date = event.event_date ? format(new Date(event.event_date), 'MMM d') : null;
+  const eventDay = calendarDate(event.event_date);
+  const date = eventDay ? format(eventDay, 'MMM d') : null;
   return (
     <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.8}>
       {hero
@@ -42,7 +45,8 @@ export default function GroupEventsScreen({ route }: GroupsScreenProps<'GroupEve
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
   const colors = useColors();
-  const { data, isLoading } = useGetEventsQuery({ group_id: groupId, limit: 20 });
+  const { data, isLoading, refetch } = useGetEventsQuery({ group_id: groupId, limit: 20 });
+  const refreshControl = useRefreshControl(refetch);
   const events = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
@@ -50,6 +54,7 @@ export default function GroupEventsScreen({ route }: GroupsScreenProps<'GroupEve
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       <FlatList
+        refreshControl={refreshControl}
         data={events}
         keyExtractor={(e) => e.internal_id}
         renderItem={({ item }) => (

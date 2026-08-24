@@ -11,12 +11,20 @@ export type AuthStackParamList = {
   ResetPassword: { token: string };
 };
 
+/**
+ * Something for the car screen to do on arrival, rather than just show itself.
+ *
+ * The gallery composer only exists on that screen, so anywhere else offering
+ * "add a gallery" has to open the car and ask for the sheet at the same time.
+ */
+export type CarDetailAction = 'gallery';
+
 // ── Feed Stack ──────────────────────────────────────────────────────────────
 export type FeedStackParamList = {
   Feed: undefined;
   PostDetail: { postId: string; edit?: boolean };
   UserDetail: { userId: string; username?: string };
-  CarDetail: { carId: string };
+  CarDetail: { carId: string; action?: CarDetailAction };
   // Drawer-linked top-level screens (keep tab bar + AppHeader visible)
   Groups: undefined;
   Members: undefined;
@@ -59,7 +67,7 @@ export type MarketStackParamList = {
 export type CarsStackParamList = {
   Cars: undefined;
   Garage: undefined;
-  CarDetail: { carId: string };
+  CarDetail: { carId: string; action?: CarDetailAction };
   UserDetail: { userId: string; username?: string };
   Brands: undefined;
   BrandDetail: { brand: string };
@@ -103,7 +111,11 @@ export type AppStackParamList = {
   SocietyEventDetail: { eventId: string; occurrenceDate?: string };
   SocietyEventCreate: { eventId?: string } | undefined;
   Search: undefined;
-  Create: undefined;
+  /**
+   * A car passed in arrives already tagged — that's how "new post" from a car's
+   * own card knows what the post is about.
+   */
+  Create: { carId?: string; carTitle?: string } | undefined;
   DiecastCreate: undefined;
   // Routes — recording is a full-screen flow, so it lives outside the tabs.
   RouteRecord: undefined;
@@ -111,8 +123,8 @@ export type AppStackParamList = {
   RouteDetailModal: { routeId: string };
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)
-  CarDetail: { carId: string };
-  CarDetailModal: { carId: string };
+  CarDetail: { carId: string; action?: CarDetailAction };
+  CarDetailModal: { carId: string; action?: CarDetailAction };
   PostDetailModal: { postId: string; edit?: boolean };
   EventDetailModal: { eventId: string };
   RallyDetailModal: { rallyId: string };

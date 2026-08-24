@@ -19,6 +19,6 @@ export default function CommentButton({ count = 0, onPress }: CommentButtonProps
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
+  container: { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 4 },
   count:     { fontSize: 13, fontWeight: '500' },
 });

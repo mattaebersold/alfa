@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Home, Users, Car, Route as RouteIcon } from 'lucide-react-native';
+import { Users, Car, Route as RouteIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CheckeredFlag from '../components/ui/CheckeredFlag';
+import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
@@ -80,6 +81,9 @@ export default function MainTabNavigator() {
   const brandColor = useBrandColor();
 
   return (
+    // The navigator is wrapped so the create button can sit above every tab at
+    // once, rather than each screen mounting its own copy.
+    <View style={styles.root}>
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
@@ -93,6 +97,10 @@ export default function MainTabNavigator() {
           paddingBottom: insets.bottom + 4 + extraTabPad,
           paddingTop: 12,
           paddingHorizontal: 12,
+          // The create button sits in the bottom-right corner now, over this
+          // bar. Reserving its lane is what keeps it from covering the last
+          // tab rather than floating beside it.
+          paddingRight: FAB_LANE,
         },
         tabBarBackground: () => <TabBarFade />,
         tabBarActiveTintColor: brandColor,
@@ -107,21 +115,21 @@ export default function MainTabNavigator() {
         },
       }}
     >
+      {/* Registered but not shown.
+          The feed's own tab is gone from the bar — it lives in the menu drawer
+          now — but this stack still holds Profile, Dashboard, Groups, Members,
+          Articles, Search and the post/user/car detail screens, and half the
+          app navigates into it by name. Hiding the button rather than removing
+          the route keeps every one of those paths working, and keeps the feed
+          as the screen the app opens on. */}
       <Tab.Screen
         name="FeedTab"
         component={FeedStackNavigator}
         options={{
           title: 'Feed',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={Home} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('FeedTab', { screen: 'Feed' });
-          },
-        })}
       />
       <Tab.Screen
         name="SocietyTab"
@@ -184,10 +192,14 @@ export default function MainTabNavigator() {
         })}
       />
     </Tab.Navigator>
+    <CreateFab />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+
   tabBarTint: { backgroundColor: 'rgba(0,0,0,0.6)' },
 
   iconWrap: {

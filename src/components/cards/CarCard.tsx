@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { Wrench, Settings, Users, Star } from 'lucide-react-native';
+import {
+  Wrench, Settings, Users, Star, Plus,
+  PenSquare, Trash2, MessageSquarePlus, Images,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useGetUserByIdQuery, useDeleteCarMutation, useGetCarFollowerCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import ActionSheet from '../ui/ActionSheet';
 import Avatar from '../ui/Avatar';
 import type { GarageCar } from '../../types/api';
 
@@ -81,6 +85,11 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
   const [aspectRatio, setAspectRatio] = useState(4 / 3);
   const [deleteCar] = useDeleteCarMutation();
+  // Two sheets rather than one with every option in it: adding to a car and
+  // administering it are different errands, and the + is the one people reach
+  // for often.
+  const [addSheet, setAddSheet] = useState(false);
+  const [manageSheet, setManageSheet] = useState(false);
 
   // Follower count — prefer a value already on the payload, else fetch a lightweight count.
   const inlineFollowerCount = (car as any).followersCount as number | undefined;
@@ -107,31 +116,26 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
   const typeLabel = formatLabel(car.type);
   const categoryLabel = formatLabel(car.category);
 
-  const handleCogPress = () => {
-    Alert.alert(carTitle || 'Car', '', [
-      { text: 'Edit', onPress: () => onEditPress?.() },
-      {
-        text: 'Delete', style: 'destructive', onPress: () => {
-          Alert.alert(
-            'Delete Car',
-            `Remove ${carTitle} from your garage? This cannot be undone.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                  try {
-                    await deleteCar({ internal_id: car.internal_id }).unwrap();
-                  } catch {
-                    Alert.alert('Error', 'Could not delete car. Please try again.');
-                  }
-                },
-              },
-            ]
-          );
+  const displayName = car.title || carTitle || 'this car';
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete Car',
+      `Remove ${displayName} from your garage? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive', onPress: async () => {
+            try {
+              await deleteCar({ internal_id: car.internal_id }).unwrap();
+            } catch {
+              Alert.alert('Error', 'Could not delete car. Please try again.');
+            }
+          },
         },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+      ],
+      { cancelable: true },
+    );
   };
 
   const hero =
@@ -163,7 +167,7 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
           </View>
         )}
 
-        {/* Top-right: task badge + owner cog OR report button for non-owners */}
+        {/* Top-right: task badge + owner add/cog OR report button for non-owners */}
         <View style={styles.imageTopRight}>
           {onTasksPress && taskCount > 0 && (
             <TouchableOpacity style={styles.taskBadge} onPress={onTasksPress} hitSlop={4}>
@@ -172,11 +176,30 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
             </TouchableOpacity>
           )}
           {isOwner && (
-            <TouchableOpacity style={styles.imageCogBtn} onPress={handleCogPress} hitSlop={4}>
-              <View style={styles.imageCogInner}>
-                <Settings size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
+            <>
+              {/* Post about it, mod it, add photos — the three things owners
+                  actually do to a car, from wherever the car is shown. */}
+              <TouchableOpacity
+                onPress={() => setAddSheet(true)}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel={`Add to ${displayName}`}
+              >
+                <View style={styles.imageCogInner}>
+                  <Plus size={16} color="#FFFFFF" strokeWidth={2.6} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setManageSheet(true)}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel={`Manage ${displayName}`}
+              >
+                <View style={styles.imageCogInner}>
+                  <Settings size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            </>
           )}
         </View>
 
@@ -217,6 +240,69 @@ export default function CarCard({ car, onBeforeNavigate, onTasksPress, taskCount
           {!compact && <OwnerRow userId={car.user_id} coownerId={car.coowner_id} />}
         </View>
       </View>
+
+      {/* Only the owner can open either of these, and a feed full of other
+          people's cars shouldn't carry a menu per card. */}
+      {isOwner && (
+        <>
+      <ActionSheet
+        visible={addSheet}
+        onClose={() => setAddSheet(false)}
+        title={`Add to ${displayName}`}
+        options={[
+          {
+            label: 'New Post',
+            Icon: MessageSquarePlus,
+            // The car arrives already tagged — a post started from a car is
+            // about that car, and making you search for it afterwards was the
+            // step everyone forgot.
+            onPress: () => {
+              onBeforeNavigate?.();
+              (nav as any).navigate('Create', { carId: car.internal_id, carTitle: displayName });
+            },
+          },
+          {
+            label: 'Add Mod',
+            Icon: Wrench,
+            onPress: () => {
+              onBeforeNavigate?.();
+              (nav as any).navigate('ModCreate', { carId: car.internal_id, carTitle: displayName });
+            },
+          },
+          {
+            label: 'Add Gallery',
+            Icon: Images,
+            // The gallery composer lives on the car's own screen, so this opens
+            // the car with that sheet already up.
+            onPress: () => {
+              onBeforeNavigate?.();
+              (nav as any).navigate('CarDetail', { carId: car.internal_id, action: 'gallery' });
+            },
+          },
+        ]}
+      />
+
+      <ActionSheet
+        visible={manageSheet}
+        onClose={() => setManageSheet(false)}
+        title={displayName}
+        options={[
+          {
+            label: 'Edit Car',
+            Icon: PenSquare,
+            // Most surfaces hand in their own edit route (closing a sheet on
+            // the way); the rest get the plain one.
+            onPress: () => {
+              if (onEditPress) return onEditPress();
+              onBeforeNavigate?.();
+              (nav as any).navigate('CarCreate', { carId: car.internal_id });
+            },
+          },
+          { label: 'Delete Car', Icon: Trash2, destructive: true, onPress: confirmDelete },
+        ]}
+      />
+        </>
+      )}
     </TouchableOpacity>
   );
 }
@@ -235,7 +321,6 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 8, right: 8,
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  imageCogBtn:  {},
   imageCogInner: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: 'rgba(0,0,0,0.45)',

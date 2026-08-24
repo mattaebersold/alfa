@@ -27,6 +27,7 @@ import { useColors } from '../../hooks/useColors';
 import type { MarketScreenProps, AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 export default function ListingDetailScreen({ route }: MarketScreenProps<'ListingDetail'>) {
   const { postId } = route.params;
@@ -34,7 +35,8 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
   const { userInfo } = useAppSelector((s) => s.auth);
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
-  const { data: postData, isLoading } = useGetPostQuery(postId);
+  const { data: postData, isLoading, refetch } = useGetPostQuery(postId);
+  const refreshControl = useRefreshControl(refetch);
   const post = postData ? { ...postData.entry, user: postData.entry.user ?? postData.user } : undefined;
   const { rows: commentRows, comments } = useCommentThread(post?.entry_type ?? 'post', postId, { skip: !post });
   const { data: counts } = useGetPostCountsQuery(postId, { skip: !post });
@@ -73,6 +75,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
         keyboardVerticalOffset={90}
       >
         <FlatList
+          refreshControl={refreshControl}
           data={commentRows as any[]}
           keyExtractor={(item: any) => item.comment.internal_id ?? item.comment._id}
           showsVerticalScrollIndicator={false}

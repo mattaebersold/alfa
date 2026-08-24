@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Text, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useGetUsersQuery, useGetUserFollowingQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
@@ -10,6 +9,8 @@ import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
+import UserSummaryModal from '../members/UserSummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 
 /**
  * "Suggested Members" — recent joiners you don't already follow.
@@ -28,10 +29,13 @@ const ROW_PAD = SUGGESTION_CARD_PAD;
 const POOL_SIZE = 30;
 const MAX_SUGGESTIONS = 10;
 
-function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
+function MemberCard({ member, onPress }: {
+  member: any;
+  onPress: (origin: SummaryOrigin | null) => void;
+}) {
   const colors = useColors();
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <SummaryTouchable style={styles.card} onPress={onPress}>
       <Avatar
         filename={member.gallery?.[0]?.filename ?? member.profilePicture}
         name={member.username ?? '?'}
@@ -40,7 +44,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
       <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>
         @{member.username}
       </Text>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
@@ -50,8 +54,8 @@ interface Props {
 }
 
 export default function SuggestedMembersRow({ onRequestHide }: Props) {
-  const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
+  const [summary, setSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
   const myId = userInfo?.user_id ?? '';
 
   const { data: usersData } = useGetUsersQuery({ limit: POOL_SIZE });
@@ -87,14 +91,19 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
           <MemberCard
             key={member.user_id}
             member={member}
-            onPress={() => navigation.navigate('UserDetail', {
-              userId: member.user_id,
-              username: member.username,
-            })}
+            // A suggestion is an invitation to decide about someone, which is
+            // what the summary is for — the profile is one button inside it.
+            onPress={(origin) => setSummary({ userId: member.user_id, origin })}
           />
         ))}
         <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
+
+      <UserSummaryModal
+        userId={summary?.userId ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
+      />
     </SuggestionCard>
   );
 }

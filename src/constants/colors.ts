@@ -44,6 +44,9 @@ export const colors = {
   gold:      '#C1911B',
   teal:      '#01777A',
   blue:      '#2F3A4C',
+  // The blue that reads as a link on a dark ground — `blue` above is a slate
+  // used as a surface, not as text.
+  blueLight: '#6FC3EC',
 
   // Badges
   badgeListing: '#00FF3F',

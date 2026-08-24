@@ -17,6 +17,8 @@ import { isRallyUpcoming, toRallyFormEmbedUrl } from '../../utils/rally';
 import type { SocietyScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { calendarDate } from '../../utils/calendarDate';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 /**
  * Full-screen rally detail — reached from deep links and notifications. The
@@ -29,7 +31,8 @@ import { ss } from '../../styles/shared';
 export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDetail'>) {
   const { rallyId } = route.params;
   const colors = useColors();
-  const { data: rally, isLoading } = useGetRallyQuery(rallyId);
+  const { data: rally, isLoading, refetch } = useGetRallyQuery(rallyId);
+  const refreshControl = useRefreshControl(refetch);
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
@@ -44,7 +47,8 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 
   const gallery = rally.gallery ?? [];
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
-  const date = rally.event_date ? format(new Date(rally.event_date), 'EEEE, MMMM d, yyyy') : null;
+  const eventDay = calendarDate(rally.event_date);
+  const date = eventDay ? format(eventDay, 'EEEE, MMMM d, yyyy') : null;
   const formUrl = toRallyFormEmbedUrl(rally.form_id);
   // Registration is embedded below, but only while there's still a rally to
   // register for — a past rally's form is a dead end.
@@ -53,7 +57,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Hero */}
         {hero
           ? <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />

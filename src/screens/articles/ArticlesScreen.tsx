@@ -22,6 +22,7 @@ import type { FeedStackParamList } from '../../navigation/types';
 import type { Article } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { useRefreshControl } from '../../hooks/useRefreshControl';
 
 type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -128,7 +129,8 @@ export default function ArticlesScreen() {
   const appNav = useNavigation<AppNav>();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
-  const { data, isLoading } = useGetArticlesQuery({ limit: 20 });
+  const { data, isLoading, refetch } = useGetArticlesQuery({ limit: 20 });
+  const refreshControl = useRefreshControl(refetch, headerPad);
   const articles = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
@@ -137,6 +139,7 @@ export default function ArticlesScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
+        refreshControl={refreshControl}
         style={{ flex: 1, backgroundColor: colors.cream }}
         data={articles}
         keyExtractor={(a) => a.internal_id}

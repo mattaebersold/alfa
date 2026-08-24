@@ -23,6 +23,7 @@ import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import GroupAttribution from '../groups/GroupAttribution';
 
 type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -44,21 +45,38 @@ function muxThumbnailUrl(videoId: string) {
 function LikedByLine({ likers, total, myId, color, style }: {
   likers: string[]; total: number; myId?: string; color: string; style: any;
 }) {
+  const colors = useColors();
+  const navigation = useNavigation<NavProp>();
   const featuredId = likers.find((id) => id !== myId) ?? likers[0];
   const { data: user } = useGetUserByIdQuery(featuredId, { skip: !featuredId });
   if (total <= 0) return null;
 
   const name = user?.username;
-  let text: string;
   if (!name) {
-    text = total === 1 ? 'Liked by someone' : `Liked by ${total} people`;
-  } else if (total === 1) {
-    text = `Liked by ${name}`;
-  } else {
-    const others = total - 1;
-    text = `Liked by ${name} and ${others} ${others === 1 ? 'other' : 'others'}`;
+    return (
+      <Text style={[style, { color }]}>
+        {total === 1 ? 'Liked by someone' : `Liked by ${total} people`}
+      </Text>
+    );
   }
-  return <Text style={[style, { color }]}>{text}</Text>;
+
+  // The name is the one part of this line that leads somewhere, so it's the
+  // part you can press. Colour alone says so — it keeps the weight of the
+  // sentence it sits in.
+  const others = total - 1;
+  return (
+    <Text style={[style, { color }]}>
+      Liked by{' '}
+      <Text
+        style={{ color: colors.blueLight }}
+        onPress={() => navigation.navigate('UserDetail', { userId: user.user_id, username: name })}
+        suppressHighlighting
+      >
+        {name}
+      </Text>
+      {total > 1 ? ` and ${others} ${others === 1 ? 'other' : 'others'}` : ''}
+    </Text>
+  );
 }
 
 export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }: FeedItemCardProps) {
@@ -72,6 +90,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const gallery = post.gallery ?? [];
   const heroImage = firstGalleryUrl(post.gallery);
   const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
+  const hasMedia = gallery.length > 0 || !!videoThumbnail;
+  const bodyText = post.body ? stripHtml(post.body).trim() : '';
 
   // Live like state — tells us whether *I* liked this (so the heart shows filled and
   // tapping un-likes) and the true like count, rather than trusting a stale flag.
@@ -130,9 +150,35 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         )}
       </TouchableOpacity>
 
-      {post.title && (
-        <Text style={[styles.title, { color: fgColor }]} numberOfLines={2}>{post.title}</Text>
+      {/* The title, or the body standing in for it when there isn't one.
+          Without a picture the words are the whole card, and at the size that
+          sits under a photo they read as a caption for something missing.
+
+          Padding lives on the wrapper, not the text: MentionText hands its
+          style down to each inline segment, and a mention carrying the card's
+          horizontal padding would sit in a gap of its own. */}
+      {(post.title || bodyText) && (
+        <View style={hasMedia ? styles.titleWrap : styles.titleAloneWrap}>
+          <MentionText
+            text={post.title || bodyText}
+            style={[hasMedia ? styles.title : styles.titleAlone, { color: fgColor }]}
+            numberOfLines={hasMedia ? 2 : 5}
+          />
+        </View>
       )}
+
+      {/* A taste of the body under the title — enough to know whether to open
+          it, not enough to be the post. Skipped when the body *is* the line
+          above. */}
+      {post.title && bodyText ? (
+        <View style={styles.bodyPreviewWrap}>
+          <MentionText
+            text={bodyText}
+            style={[styles.bodyPreview, { color: mutedColor }]}
+            numberOfLines={2}
+          />
+        </View>
+      ) : null}
 
       {/* Hero image(s) with overlays — swipes through the gallery like the post modal */}
       {gallery.length > 0 && (
@@ -224,6 +270,12 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       )}
 
       {/* Liked-by row */}
+      {/* Where this came from, when it came from somewhere. Below the post
+          rather than above it: the post is what you came to read, and this
+          lands where "and where was this?" actually occurs to you. Above the
+          likes, which belong with the actions they came from. */}
+      <GroupAttribution groupId={post.group_ids?.[0] ?? post.group_id} />
+
       {likeCount > 0 && (
         <LikedByLine
           likers={likers}
@@ -235,7 +287,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       )}
 
       {/* Actions */}
-      <View style={[styles.actions, { borderTopColor: 'rgba(255,255,255,0.06)' }]}>
+      <View style={styles.actions}>
         <LikeButton
           documentId={post.internal_id}
           entryType={entryType}
@@ -261,7 +313,12 @@ const styles = StyleSheet.create({
   author:      { fontSize: 14, fontWeight: '700' },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
-  title:       { fontSize: 14, fontWeight: '600', paddingHorizontal: 12, paddingBottom: 10, lineHeight: 20 },
+  titleWrap:      { paddingHorizontal: 12, paddingBottom: 10 },
+  title:          { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  titleAloneWrap: { paddingHorizontal: 12, paddingTop: 2, paddingBottom: 12 },
+  titleAlone:     { fontSize: 18, fontWeight: '700', lineHeight: 24 },
+  bodyPreviewWrap:{ paddingHorizontal: 12, paddingBottom: 10, marginTop: -4 },
+  bodyPreview:    { fontSize: 13, lineHeight: 18 },
 
   imageWrap:   { position: 'relative', width: '100%', overflow: 'hidden' },
   image:       { width: '100%' },
@@ -312,10 +369,12 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   messageWrap: { paddingHorizontal: 12, paddingTop: 10 },
-  likedBy:     { fontSize: 13, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
+  likedBy:     { fontSize: 12, fontWeight: '600', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
+  // No rule above the actions: the card already ends here, and a line across
+  // it read as a divider between two things rather than as the foot of one.
   actions:     {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 10, paddingVertical: 8,
-    gap: 12, borderTopWidth: 1, marginTop: 4,
+    paddingHorizontal: 10, paddingTop: 3, paddingBottom: 10,
+    gap: 6, marginTop: 0,
   },
 });

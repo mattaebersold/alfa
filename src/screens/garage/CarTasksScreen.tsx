@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Pressable, Animated,
+  View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, RefreshControl,
   TextInput, Modal, Alert, KeyboardAvoidingView, Platform, ScrollView, Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
-import { Plus, Check, MoreVertical, ChevronDown, ChevronUp, Archive, ArrowLeft, Link2 } from 'lucide-react-native';
+import { Plus, Check, Pencil, Trash2, ChevronDown, ChevronUp, Archive, ArrowLeft, Link2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
   useGetCarTasksQuery,
@@ -156,11 +156,15 @@ function priorityTextColor(bg: string): string {
  * Editing used to open a full-screen page sheet instead. Two different surfaces
  * for the same five fields meant the same task looked like two different forms
  * depending on how you got there, so the pane is gone and this is the one way in.
+ *
+ * Deleting lives here too, for the same reason: this is where you already are
+ * when you've decided a task shouldn't exist.
  */
 function TaskDialog({
   visible,
   onClose,
   onSave,
+  onDelete,
   saving,
   initial,
   initialCategory = 'general',
@@ -168,6 +172,8 @@ function TaskDialog({
   visible: boolean;
   onClose: () => void;
   onSave: (data: { title: string; body: string; link: string; priority: Priority; category: string }) => void;
+  /** Only called for an existing task — a new one has nothing to delete. */
+  onDelete: () => void;
   saving: boolean;
   /** The task being edited. Absent means this is a new one. */
   initial?: Partial<CarTask>;
@@ -200,6 +206,21 @@ function TaskDialog({
   const submit = () => {
     if (!title.trim() || saving) return;
     onSave({ title: title.trim(), body: body.trim(), link: link.trim(), priority, category });
+  };
+
+  // Confirmed rather than immediate: the button sits an inch from Save, and a
+  // to-do list is exactly the kind of thing people edit one-handed.
+  const confirmDelete = () => {
+    if (saving) return;
+    Alert.alert(
+      'Delete task?',
+      `"${initial?.title ?? 'This task'}" will be removed. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
+      ],
+      { cancelable: true },
+    );
   };
 
   return (
@@ -326,6 +347,20 @@ function TaskDialog({
           )}
 
           <View style={dialog.actions}>
+            {/* Pushed to the far left, away from Save — destructive and
+                constructive shouldn't share an edge. */}
+            {isEdit && (
+              <TouchableOpacity
+                onPress={confirmDelete}
+                style={dialog.deleteBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Delete task"
+              >
+                <Trash2 size={15} color={colors.red} />
+                <Text style={[dialog.deleteText, { color: colors.red }]}>Delete</Text>
+              </TouchableOpacity>
+            )}
+            <View style={ss.fill} />
             <TouchableOpacity onPress={onClose} style={dialog.cancelBtn}>
               <Text style={[dialog.cancelText, { color: colors.grey }]}>Cancel</Text>
             </TouchableOpacity>
@@ -379,6 +414,8 @@ const dialog = StyleSheet.create({
   chip:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
   chipText:   { fontSize: 12, fontWeight: '700' },
   actions:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+  deleteBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 10, paddingRight: 8 },
+  deleteText: { fontSize: 15, fontWeight: '700' },
   cancelBtn:  { paddingHorizontal: 14, paddingVertical: 10 },
   cancelText: { fontSize: 15, fontWeight: '600' },
   addBtn:     { paddingHorizontal: 22, paddingVertical: 10, borderRadius: 10 },
@@ -391,16 +428,14 @@ function TaskRow({
   task,
   onToggle,
   onEdit,
-  onDelete,
   onLongPress,
   isActive,
   isLast,
 }: {
   task: CarTask;
   onToggle: () => void;
-  /** Reached only through the ⋮ menu — the row itself isn't tappable. */
+  /** The pencil, at the end of the row — the row itself isn't tappable. */
   onEdit: () => void;
-  onDelete: () => void;
   onLongPress?: () => void;
   isActive?: boolean;
   /** Last row of its group — drops the bottom rule. */
@@ -475,7 +510,7 @@ function TaskRow({
         isActive && taskRow.rowActive,
       ]}
       // No onPress: the row does nothing when tapped. Ticking it off is the
-      // checkbox, editing is the ⋮ menu, and long press starts a drag — a
+      // checkbox, editing is the pencil, and long press starts a drag — a
       // whole-row tap would only fire one of those by accident.
       onLongPress={handleLongPress}
       // 180ms was tuned for a row that also had a handle to grab; on its own it
@@ -534,19 +569,18 @@ function TaskRow({
         ) : null}
       </View>
 
-      {/* Overflow menu */}
+      {/* Edit — straight into the dialog. The ⋮ menu it replaces held two
+          items, one of which (Delete) now lives inside that same dialog, so
+          the menu was a tap standing between the row and the only thing it
+          could usefully do. */}
       <TouchableOpacity
-        onPress={() => Alert.alert(task.title ?? 'Task', undefined, [
-          { text: 'Edit', onPress: onEdit },
-          { text: 'Delete', style: 'destructive', onPress: onDelete },
-          { text: 'Cancel', style: 'cancel' },
-        ])}
+        onPress={onEdit}
         style={taskRow.del}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityRole="button"
-        accessibilityLabel={`Options for ${task.title ?? 'task'}`}
+        accessibilityLabel={`Edit ${task.title ?? 'task'}`}
       >
-        <MoreVertical size={18} color={colors.grey} />
+        <Pencil size={16} color={colors.grey} />
       </TouchableOpacity>
 
       {/* Completion flash — a wash of the brand colour that sweeps out as the
@@ -652,9 +686,9 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
     setEditingTask(undefined);
   };
 
-  const { data: tasksData, isLoading } = useGetCarTasksQuery(carId);
+  const { data: tasksData, isLoading, refetch: refetchTasks } = useGetCarTasksQuery(carId);
   const tasks = tasksData?.entries ?? [];
-  const { data: archivedData } = useGetArchivedCarTasksQuery(carId, { skip: !showArchived });
+  const { data: archivedData, refetch: refetchArchived } = useGetArchivedCarTasksQuery(carId, { skip: !showArchived });
   const archived = archivedData?.entries ?? [];
 
   const [createTask, { isLoading: creating }] = useCreateCarTaskMutation();
@@ -720,9 +754,37 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
     toggleTask({ internal_id: task.internal_id, car_id: carId, completed: !task.completed });
   };
 
-  const handleDelete = (task: CarTask) => {
-    deleteTask({ taskId: task.internal_id, car_id: carId });
+  /**
+   * Delete is only reachable from the dialog, so it closes on success — the
+   * form it belongs to is about a task that no longer exists. A failure keeps
+   * the dialog open and says so, rather than closing on a task that's still
+   * there.
+   */
+  const handleDelete = async () => {
+    const task = editingTask;
+    if (!task?.internal_id) return;
+    try {
+      await deleteTask({ taskId: task.internal_id, car_id: carId }).unwrap();
+      closeDialog();
+    } catch {
+      Alert.alert('Could not delete task', 'Please try again.');
+    }
   };
+
+  // Pull to refresh. The list is a shared to-do — a co-owner can tick things
+  // off from their own phone, and nothing pushes that here.
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchTasks(),
+        showArchived ? refetchArchived() : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchTasks, refetchArchived, showArchived]);
 
   if (isLoading) return <Spinner fullScreen />;
 
@@ -786,7 +848,6 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
                 task={item.task}
                 onToggle={() => handleToggle(item.task)}
                 onEdit={() => handleEdit(item.task)}
-                onDelete={() => handleDelete(item.task)}
                 onLongPress={drag}
                 isActive={isActive}
                 isLast={item.isLast}
@@ -824,7 +885,6 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
                     task={item}
                     onToggle={() => handleToggle(item)}
                     onEdit={() => handleEdit(item)}
-                    onDelete={() => handleDelete(item)}
                     isLast={i === done.length - 1}
                   />
                 ))}
@@ -863,7 +923,6 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
                   task={item}
                   onToggle={() => handleToggle(item)}
                   onEdit={() => handleEdit(item)}
-                  onDelete={() => handleDelete(item)}
                   isLast={i === archived.length - 1}
                 />
               ))}
@@ -876,6 +935,16 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
             : null
         }
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.pro}
+            // The spinner would otherwise appear under the blurred header bar
+            // the list scrolls beneath.
+            progressViewOffset={headerH || insets.top + 62}
+          />
+        }
         // Starts the content below the floating header. Until onLayout has
         // measured it, an estimate keeps the first paint from starting hidden.
         contentContainerStyle={[styles.list, { paddingTop: headerH || insets.top + 62 }]}
@@ -932,6 +1001,7 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
         visible={dialogVisible}
         onClose={closeDialog}
         onSave={handleSave}
+        onDelete={handleDelete}
         saving={creating || updating}
         initial={editingTask}
         initialCategory={newTaskCategory}

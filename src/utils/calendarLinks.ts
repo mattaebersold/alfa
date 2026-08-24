@@ -8,6 +8,7 @@
  *
  * Only the occurrence being viewed is exported, not the whole recurrence.
  */
+import { calendarDate } from './calendarDate';
 
 /** "YYYYMMDDTHHMMSS" in local time. */
 const stamp = (date: Date): string => {
@@ -18,9 +19,15 @@ const stamp = (date: Date): string => {
   );
 };
 
-/** Combine an occurrence date with an "HH:MM" time into one Date. */
+/**
+ * Combine an occurrence date with an "HH:MM" time into one Date.
+ *
+ * The day comes through `calendarDate` — read as an instant instead, a
+ * UTC-midnight stamp becomes the previous evening locally and the exported
+ * event lands in the calendar a day early.
+ */
 const at = (date: string | Date, time: string | undefined, fallbackHour: number): Date => {
-  const d = new Date(date);
+  const d = calendarDate(date) ?? new Date(date);
   const [h, m] = (time ?? '').split(':').map(Number);
   d.setHours(Number.isNaN(h) ? fallbackHour : h, Number.isNaN(m) ? 0 : m || 0, 0, 0);
   return d;
