@@ -54,10 +54,15 @@ export const apiService = createApi({
       query: (q) => ({ url: 'api/users/search', params: { q } }),
     }),
 
-    getUsers: builder.query<PaginatedResponse<User>, { page?: number; limit?: number; q?: string } | void>({
+    // `region` is a US region key — see constants/regions. It narrows on the
+    // state in the member's cityState and composes with the search term.
+    getUsers: builder.query<PaginatedResponse<User>, { page?: number; limit?: number; q?: string; region?: string } | void>({
       query: (args = {}) => {
-        const { page = 0, limit = 20, q } = args ?? {};
-        return { url: 'api/users', params: { page, limit, ...(q ? { q } : {}) } };
+        const { page = 0, limit = 20, q, region } = args ?? {};
+        return {
+          url: 'api/users',
+          params: { page, limit, ...(q ? { q } : {}), ...(region ? { region } : {}) },
+        };
       },
     }),
 
@@ -174,8 +179,15 @@ export const apiService = createApi({
       invalidatesTags: ['Comment'],
     }),
 
-    deleteComment: builder.mutation<void, string>({
-      query: (id) => ({ url: `api/comment/delete`, method: 'POST', body: { comment_id: id } }),
+    /**
+     * Deletes your own comment. `removed: true` in the response means it had
+     * replies and was tombstoned in place rather than taken away — see the
+     * server's deleteEntry.
+     */
+    deleteComment: builder.mutation<{ success: boolean; removed: boolean }, string>({
+      // `internal_id` is what the server reads; the old `comment_id` key meant
+      // this silently matched nothing and reported success.
+      query: (id) => ({ url: `api/comment/delete`, method: 'POST', body: { internal_id: id } }),
       invalidatesTags: ['Comment'],
     }),
 
@@ -300,6 +312,18 @@ export const apiService = createApi({
       },
       // Follow a car, or add a mod/gallery to one, and this list is stale.
       providesTags: ['CarFollow', 'Mods', 'CarGallery'],
+    }),
+
+    /**
+     * Anyone's posts that tagged this car — distinct from its records, which
+     * are the owner's own posts filed against it.
+     */
+    getCarTaggedPosts: builder.query<{ entries: Post[]; total: number }, { carId: string; page?: number; limit?: number }>({
+      query: ({ carId, page = 0, limit = 12 }) => ({
+        url: `api/car/${carId}/tagged-posts`,
+        params: { page, limit },
+      }),
+      providesTags: (result, error, { carId }) => [{ type: 'Tags', id: `car-${carId}` }],
     }),
 
     // Cars the logged-in user follows (Dashboard "Followed Cars").
@@ -643,6 +667,15 @@ export const apiService = createApi({
     rejectGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
       query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/reject/${userId}`, method: 'POST' }),
       invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
+    }),
+
+    /**
+     * Remove someone from a group. Admin-only, and the server refuses to let
+     * the last admin remove themselves.
+     */
+    removeGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
+      query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/remove/${userId}`, method: 'DELETE' }),
+      invalidatesTags: ['GroupMembers', 'Group'],
     }),
 
     // ── Invitations ──────────────────────────────────────────────────────
@@ -1248,6 +1281,7 @@ export const {
   useGetCarFollowStatusQuery,
   useGetCarFollowersQuery,
   useGetCarFollowerCountQuery,
+  useGetCarTaggedPostsQuery,
   useGetFollowedCarsQuery,
   useGetFollowedCarActivityQuery,
   useGetCarGalleriesQuery,
@@ -1291,6 +1325,7 @@ export const {
   useGetUserGroupsQuery,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
+  useRemoveGroupMemberMutation,
   useInviteGroupMemberMutation,
   useAcceptGroupInviteMutation,
   useDeclineGroupInviteMutation,

@@ -32,8 +32,9 @@ interface CarCardProps {
   featured?: boolean;
 }
 
-// Murray-style badge colors per car type
-const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+// Murray-style badge colors per car type. Exported so the feed's garage-addition
+// card badges a car the same way its CarCard does.
+export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'daily':        { bg: '#F0D689', text: '#000' },
   'weekend':      { bg: '#35B5FF', text: '#000' },
   'project':      { bg: '#F36943', text: '#000' },
@@ -42,7 +43,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'other':        { bg: '#F0D689', text: '#000' },
 };
 
-const formatLabel = (key?: string) =>
+export const formatLabel = (key?: string) =>
   key ? key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : null;
 
 function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string }) {

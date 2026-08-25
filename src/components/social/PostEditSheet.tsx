@@ -7,6 +7,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
 import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalleryEditor';
+import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from './PostOptionalFields';
+import StickyFormFooter from '../ui/StickyFormFooter';
+import PostToSelector from './PostToSelector';
 import { uploadFile } from '../../utils/upload';
 import {
   useUpdatePostMutation, useSyncPostTagsMutation, useGetPostTagsQuery,
@@ -70,6 +73,9 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const [body, setBody] = useState(post.body ?? '');
   const [type, setType] = useState(post.type ?? 'general');
   const [category, setCategory] = useState(post.category ?? '');
+  // Editing used to drop every one of these: a listing with a price and a VIN
+  // came back from a save with neither, because the form never carried them.
+  const [optional, setOptional] = useState<OptionalFieldValues>(EMPTY_OPTIONAL_FIELDS);
 
   // Readable foreground for anything filled with the brand color — black on the
   // pro gold, white on the default blue.
@@ -102,6 +108,17 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       setBody(post.body ?? '');
       setType(post.type ?? 'general');
       setCategory(post.category ?? '');
+      setOptional({
+        year: post.year ?? '',
+        make: post.make ?? '',
+        model: post.model ?? '',
+        trim: post.trim ?? '',
+        price: post.price ?? '',
+        mileage: post.mileage ?? '',
+        condition: post.condition ?? '',
+        vin: post.vin ?? '',
+        partNumber: post.part_number ?? '',
+      });
       const groups = (post as any).group_ids as string[] | undefined;
       setSelectedGroupIds(Array.isArray(groups) ? groups : []);
       // "Post publicly" defaults to checked on edit (previously it unchecked
@@ -165,6 +182,16 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     fd.append('body', body.trim());
     fd.append('type', type);
     if (category) fd.append('category', category);
+    // Sent even when blank: clearing a field has to be able to clear it.
+    fd.append('year', optional.year.trim());
+    fd.append('make', optional.make.trim());
+    fd.append('model', optional.model.trim());
+    fd.append('trim', optional.trim.trim());
+    fd.append('price', optional.price.trim());
+    fd.append('mileage', optional.mileage.trim());
+    fd.append('condition', optional.condition.trim());
+    fd.append('vin', optional.vin.trim());
+    fd.append('part_number', optional.partNumber.trim());
     fd.append('group_ids', JSON.stringify(selectedGroupIds));
     if (isPublic) fd.append('also_public', 'true');
   };
@@ -262,7 +289,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
               <PostGalleryEditor images={images} onChange={setImages} />
 
               <Text style={[styles.label, { color: colors.grey }]}>Title</Text>
@@ -309,6 +336,14 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 </>
               )}
 
+              {/* ── The details a post can carry — same block the create
+                  form uses, so the two can't offer different fields ── */}
+              <PostOptionalFields
+                values={optional}
+                onChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
+                showPrice={type === 'listing' || type === 'want'}
+              />
+
               {/* ── Tags — one defined row each ── */}
               <Text style={[styles.label, { color: colors.grey }]}>Tag People, Cars & Events</Text>
               <PostTagPicker
@@ -318,34 +353,26 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 onToggle={toggleTag}
               />
 
-              {/* ── Post To ── */}
+              {/* ── Post To — the same tiles the create form uses ── */}
               <Text style={[styles.label, { color: colors.grey }]}>Post To</Text>
-              <TouchableOpacity style={styles.postToRow} onPress={() => setIsPublic((v) => !v)} activeOpacity={0.7}>
-                <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, isPublic && { backgroundColor: colors.primaryAlt }]}>
-                  {isPublic && <Check size={11} color={onAccent} />}
-                </View>
-                <Text style={[styles.postToLabel, { color: colors.fg }]}>Post publicly</Text>
-              </TouchableOpacity>
-              {userGroups.map((group) => {
-                const gid = group.internal_id;
-                const active = selectedGroupIds.includes(gid);
-                return (
-                  <TouchableOpacity key={gid} style={styles.postToRow} onPress={() => toggleGroup(gid)} activeOpacity={0.7}>
-                    <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, active && { backgroundColor: colors.primaryAlt }]}>
-                      {active && <Check size={11} color={onAccent} />}
-                    </View>
-                    <Text style={[styles.postToLabel, { color: colors.fg }]} numberOfLines={1}>{group.title ?? 'Group'}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <PostToSelector
+                isPublic={isPublic}
+                onTogglePublic={() => setIsPublic((v) => !v)}
+                groups={userGroups}
+                selectedGroupIds={selectedGroupIds}
+                onToggleGroup={toggleGroup}
+              />
               {userGroups.length === 0 && (
                 <Text style={[styles.postToEmpty, { color: colors.grey }]}>You're not a member of any groups.</Text>
               )}
 
+            </ScrollView>
+
+            <StickyFormFooter color={colors.card} bottomInset={0}>
               <TouchableOpacity style={[styles.saveBtn, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
                 {isLoading ? <ActivityIndicator color={onAccent} size="small" /> : <Text style={[styles.saveBtnText, { color: onAccent }]}>Save Changes</Text>}
               </TouchableOpacity>
-            </ScrollView>
+            </StickyFormFooter>
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
@@ -358,13 +385,23 @@ const styles = StyleSheet.create({
   overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
   backdrop:    { ...StyleSheet.absoluteFillObject },
   sheetWrap:   { maxHeight: '90%' },
-  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden', paddingBottom: Platform.OS === 'android' ? 60 : 30 },
+  // The sheet has to shrink to the wrapper's cap rather than overflow it. A
+  // content-height box holding a tall ScrollView lays out past the 90% and gets
+  // clipped, which leaves the footer — positioned against the *box's* bottom —
+  // sitting somewhere below the screen. Shrinking both the sheet and its
+  // scroller keeps the laid-out bottom and the visible bottom the same edge.
+  sheet:       {
+    flexShrink: 1,
+    borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden',
+    paddingBottom: Platform.OS === 'android' ? 60 : 30,
+  },
+  scroll:      { flexShrink: 1 },
   header:      {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 17, fontWeight: '700' },
-  form:        { padding: 16, gap: 6, paddingBottom: 32 },
+  form:        { padding: 16, gap: 6, paddingBottom: 120 },
   label:       { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 4 },
   input:       { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
   bodyInput:   { minHeight: 100, textAlignVertical: 'top' },
@@ -388,7 +425,11 @@ const styles = StyleSheet.create({
   postToEmpty: { paddingVertical: 8, fontSize: 13 },
   checkbox:    { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
-  saveBtn:     { backgroundColor: colors.primaryAlt, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
+  saveBtn:     {
+    alignSelf: 'center', minWidth: 180,
+    backgroundColor: colors.primaryAlt, borderRadius: 999,
+    paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center',
+  },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
 });

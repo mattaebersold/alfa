@@ -9,6 +9,8 @@ import { useAppSelector } from '../../store/store';
 import MentionInput from '../ui/MentionInput';
 import Avatar from '../ui/Avatar';
 import CommentRow from './CommentRow';
+import UserSummaryModal from '../members/UserSummaryModal';
+import { type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 
@@ -45,6 +47,8 @@ export default function InlineComments({
   const [commentText, setCommentText] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+  // Tapping a commenter summarises them in place, as it does in the sheet.
+  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
   const { rows, comments, isFetching } = useCommentThread(entryType, documentId, { skip: !documentId });
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
@@ -94,6 +98,13 @@ export default function InlineComments({
             comment={item.comment}
             currentUserId={userInfo?.user_id}
             isReply={item.isReply}
+            // A thread is one card: without these every reply drew its own
+            // outline, so an answer read as a separate comment that happened
+            // to mention someone.
+            isThreadStart={item.isThreadStart}
+            isThreadEnd={item.isThreadEnd}
+            threadId={item.threadId}
+            onOpenUser={(userId, origin) => setUserSummary({ userId, origin })}
             backgroundColor={bg}
             onReply={(commentId, username) => {
               setReplyingTo({ commentId, username });
@@ -104,7 +115,7 @@ export default function InlineComments({
       )}
 
       {replyingTo && (
-        <View style={[styles.replyBanner, { backgroundColor: c.segment }]}>
+        <View style={[styles.replyBanner, { backgroundColor: c.segment, borderColor: c.borderDark }]}>
           <Text style={[styles.replyBannerText, { color: c.grey }]}>
             Replying to <Text style={{ fontWeight: '700', color: c.fg }}>@{replyingTo.username}</Text>
           </Text>
@@ -115,8 +126,13 @@ export default function InlineComments({
       )}
 
       <View style={styles.inputRow}>
-        <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={30} />
-        <View style={styles.inputFlex}>
+        {/* Boxed at a fixed size: in a row whose other child grows, the avatar
+            was picking up the leftover width and drawing as a wide rectangle
+            instead of a circle. */}
+        <View style={styles.avatarBox}>
+          <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={30} />
+        </View>
+        <View style={[styles.inputFlex, { backgroundColor: c.card, borderColor: c.borderDark }]}>
           <MentionInput
             // MentionInput applies no colour of its own, so without this the
             // TextInput falls back to RN's default black — invisible against
@@ -146,6 +162,12 @@ export default function InlineComments({
           <Text style={[styles.sendText, { color: onAccent }]}>Post</Text>
         </TouchableOpacity>
       </View>
+
+      <UserSummaryModal
+        userId={userSummary?.userId ?? null}
+        origin={userSummary?.origin}
+        onClose={() => setUserSummary(null)}
+      />
     </View>
   );
 }
@@ -162,21 +184,30 @@ const styles = StyleSheet.create({
 
   empty:      { fontSize: 13, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
 
+  // Inset and rounded like the comment cards above it — full-bleed, it read as
+  // a bar cutting across the thread rather than as a note on the box below.
   replyBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 8, marginTop: 8,
+    marginHorizontal: 12, marginTop: 8,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 10, borderWidth: StyleSheet.hairlineWidth,
   },
   replyBannerText: { fontSize: 12 },
 
   inputRow:  {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 16,
   },
-  inputFlex: { flex: 1 },
-  // Matches the comment sheet's input metrics; the surrounding row supplies
-  // the spacing, so this stays borderless rather than becoming a pill.
-  input:     { fontSize: 15, maxHeight: 100, paddingVertical: 4 },
-  sendBtn:   { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 },
+  avatarBox: { width: 30, height: 30, flexGrow: 0, flexShrink: 0 },
+  // A field with edges, so the composer reads as somewhere to type rather than
+  // as loose text between an avatar and a button.
+  inputFlex: {
+    flex: 1, minHeight: 38, justifyContent: 'center',
+    borderRadius: 19, borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+  },
+  input:     { fontSize: 15, maxHeight: 100, paddingVertical: 8 },
+  sendBtn:   { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, flexShrink: 0 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:  { fontWeight: '700', fontSize: 13 },
 });

@@ -21,6 +21,9 @@ import ActionSheet from '../../components/ui/ActionSheet';
 import MentionInput from '../../components/ui/MentionInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
+import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
+import StickyFormFooter from '../../components/ui/StickyFormFooter';
+import PostToSelector from '../../components/social/PostToSelector';
 import { colors } from '../../constants/colors';
 import { POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -111,16 +114,9 @@ export default function CreateScreen() {
   // Photos upload one-at-a-time after the post is created — this is the progress.
   const [imageProgress, setImageProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Optional fields
-  const [year, setYear]           = useState('');
-  const [make, setMake]           = useState('');
-  const [model, setModel]         = useState('');
-  const [trim, setTrim]           = useState('');
-  const [price, setPrice]         = useState('');
-  const [mileage, setMileage]     = useState('');
-  const [condition, setCondition] = useState('');
-  const [vin, setVin]             = useState('');
-  const [partNumber, setPartNumber] = useState('');
+  // Optional fields, in one bag — the shared block owns their shape.
+  const [optional, setOptional] = useState<OptionalFieldValues>(EMPTY_OPTIONAL_FIELDS);
+  const { year, make, model, trim, price, mileage, condition, vin, partNumber } = optional;
 
   // Groups
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
@@ -144,7 +140,10 @@ export default function CreateScreen() {
   const currentCategories = POST_CATEGORIES[postType];
 
   const showPrice    = postType === 'listing' || postType === 'want';
-  const showMileage  = postType === 'listing' || postType === 'record';
+  // Mileage is offered on every kind of post, not just listings and records:
+  // a spot, a show photo or a general update is as likely to be worth stamping
+  // with the number on the clock.
+  const showMileage  = true;
 
   const handleTypeChange = (t: PostType) => { setPostType(t); setCategory(''); };
 
@@ -354,8 +353,7 @@ export default function CreateScreen() {
       Alert.alert('Post failed', detail);
     }
   }, [
-    postType, category, title, body, mentionedUserIds, year, make, model, trim, price, mileage,
-    condition, vin, partNumber, selectedGroupIds, isPublic,
+    postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic,
     taggedUsers, taggedCars, taggedEvents, images, video,
     createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav,
   ]);
@@ -369,7 +367,7 @@ export default function CreateScreen() {
         style={styles.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
       >
         {/* Type selector */}
         <View style={[styles.typeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -465,42 +463,14 @@ export default function CreateScreen() {
         </View>
 
         {/* ── Optional fields ── */}
-        <Section label="Optional Fields">
-          <FieldRow label="Year">
-            <TextInput style={inputStyle} value={year} onChangeText={setYear} placeholder="e.g. 2003" placeholderTextColor={colors.grey} keyboardType="numeric" />
-          </FieldRow>
-          <FieldRow label="Make">
-            <TextInput style={inputStyle} value={make} onChangeText={setMake} placeholder="e.g. Porsche" placeholderTextColor={colors.grey} />
-          </FieldRow>
-          <FieldRow label="Model">
-            <TextInput style={inputStyle} value={model} onChangeText={setModel} placeholder="e.g. 911" placeholderTextColor={colors.grey} />
-          </FieldRow>
-          <FieldRow label="Trim">
-            <TextInput style={inputStyle} value={trim} onChangeText={setTrim} placeholder="e.g. Carrera S" placeholderTextColor={colors.grey} />
-          </FieldRow>
-          {showPrice && (
-            <FieldRow label="Price ($)">
-              <TextInput style={inputStyle} value={price} onChangeText={setPrice} placeholder="0" placeholderTextColor={colors.grey} keyboardType="numeric" />
-            </FieldRow>
-          )}
-          {showMileage && (
-            <FieldRow label="Mileage">
-              <TextInput style={inputStyle} value={mileage} onChangeText={setMileage} placeholder="0" placeholderTextColor={colors.grey} keyboardType="numeric" />
-            </FieldRow>
-          )}
-          <FieldRow label="Condition">
-            <TextInput style={inputStyle} value={condition} onChangeText={setCondition} placeholder="e.g. Excellent" placeholderTextColor={colors.grey} />
-          </FieldRow>
-          <FieldRow label="VIN">
-            <TextInput style={inputStyle} value={vin} onChangeText={setVin} placeholder="Vehicle ID" placeholderTextColor={colors.grey} autoCapitalize="characters" />
-          </FieldRow>
-          <FieldRow label="Part #">
-            <TextInput style={inputStyle} value={partNumber} onChangeText={setPartNumber} placeholder="Part number" placeholderTextColor={colors.grey} />
-          </FieldRow>
-        </Section>
+        <PostOptionalFields
+          values={optional}
+          onChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
+          showPrice={showPrice}
+        />
 
         {/* ── Tag people, cars & events — always visible (no accordion) ── */}
-        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+        <View>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionLabel, { color: colors.fg }]}>Tag People, Cars & Events</Text>
           </View>
@@ -513,48 +483,25 @@ export default function CreateScreen() {
         </View>
 
         {/* ── Post to ── */}
-        <Section label="Post To" defaultOpen>
-          {/* Public row — always first, checked by default */}
-          <TouchableOpacity
-            style={[styles.postToRow, { borderBottomColor: colors.border }]}
-            onPress={() => setIsPublic(v => !v)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, isPublic && { backgroundColor: colors.primaryAlt }]}>
-              {isPublic && <Check size={11} color="#FFF" />}
-            </View>
-            <Text style={[styles.postToLabel, { color: colors.fg }]}>Post publicly</Text>
-          </TouchableOpacity>
-
-          {/* One row per group */}
-          {userGroups.map((group) => {
-            const gid = group.internal_id;
-            const active = selectedGroupIds.includes(gid);
-            return (
-              <TouchableOpacity
-                key={gid}
-                style={[styles.postToRow, { borderBottomColor: colors.border }]}
-                onPress={() => toggleGroup(gid)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, { borderColor: colors.primaryAlt }, active && { backgroundColor: colors.primaryAlt }]}>
-                  {active && <Check size={11} color="#FFF" />}
-                </View>
-                <Text style={[styles.postToLabel, { color: colors.fg }]} numberOfLines={1}>
-                  {group.title ?? 'Group'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-
+        <View style={[styles.postToCard, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+          <Text style={[styles.sectionLabel, { color: colors.fg, marginBottom: 12 }]}>Post To</Text>
+          <PostToSelector
+            isPublic={isPublic}
+            onTogglePublic={() => setIsPublic((v) => !v)}
+            groups={userGroups}
+            selectedGroupIds={selectedGroupIds}
+            onToggleGroup={toggleGroup}
+          />
           {userGroups.length === 0 && (
-            <Text style={[styles.postToEmpty, { color: colors.grey }]}>You're not a member of any groups yet.</Text>
+            <Text style={[styles.postToEmpty, { color: colors.grey }]}>
+              You're not a member of any groups yet.
+            </Text>
           )}
-        </Section>
+        </View>
       </ScrollView>
 
       {/* ── Fixed Post button ── */}
-      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Platform.OS === 'android' ? 40 : 20 }]}>
+      <StickyFormFooter color={colors.cream} bottomInset={Platform.OS === 'android' ? 40 : 20}>
         <TouchableOpacity
           style={[styles.submitBtn, (submitting || videoUploading || imageProgress !== null) && styles.submitBtnDisabled]}
           onPress={handleSubmit}
@@ -573,7 +520,7 @@ export default function CreateScreen() {
             <Text style={styles.submitText}>Post</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </StickyFormFooter>
 
       <ActionSheet
         visible={mediaSheet}
@@ -631,9 +578,11 @@ const styles = StyleSheet.create({
   fieldValue:    { flex: 1 },
   input:         { flex: 1, fontSize: 14, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 8 },
 
-  postToRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth },
-  postToLabel:   { flex: 1, fontSize: 15, fontWeight: '600' },
-  postToEmpty:   { paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 },
+  postToCard: {
+    marginHorizontal: 12, marginTop: 12,
+    padding: 14, borderRadius: 14, borderWidth: 1,
+  },
+  postToEmpty: { paddingTop: 12, fontSize: 13 },
 
   // Tags
   selectedTags:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingTop: 10 },
@@ -651,8 +600,14 @@ const styles = StyleSheet.create({
   // Checkbox
   checkbox:        { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
-  footer:          { borderTopWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  submitBtn:       { backgroundColor: colors.primaryAlt, borderRadius: 12, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  // Sized to its word rather than to the screen — a full-bleed bar over the
+  // gradient read as a wall across the form.
+  submitBtn:       {
+    alignSelf: 'center', minWidth: 180,
+    backgroundColor: colors.primaryAlt, borderRadius: 999,
+    paddingVertical: 11, paddingHorizontal: 28,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+  },
   submitBtnDisabled: { opacity: 0.6 },
-  submitText:      { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  submitText:      { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
 });

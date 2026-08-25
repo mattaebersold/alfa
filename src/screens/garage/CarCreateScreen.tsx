@@ -10,7 +10,7 @@ import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { X, Plus } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
-  useGetCarBrandsQuery, useGetCarModelsQuery, useGetCarQuery,
+  useGetCarQuery,
   useGetUserGroupsQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -22,6 +22,7 @@ import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constant
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
+import MakeModelFields from '../../components/cars/MakeModelFields';
 
 // ── Step progress bar ────────────────────────────────────────────────────────
 function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
@@ -108,103 +109,6 @@ const f = StyleSheet.create({
   wrapper: { marginBottom: 16 },
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
   opt:     { fontWeight: '400', fontSize: 12 },
-});
-
-// ── Make/Model autocomplete picker ────────────────────────────────────────────
-function MakeModelPicker({
-  make, model, onMakeChange, onModelChange,
-}: {
-  make: string; model: string;
-  onMakeChange: (v: string) => void; onModelChange: (v: string) => void;
-}) {
-  const colors = useColors();
-  const [makeQuery, setMakeQuery] = useState(make);
-  const [showMakeSuggestions, setShowMakeSuggestions] = useState(false);
-
-  useEffect(() => { setMakeQuery(make); }, [make]);
-
-  const { data: brands = [] } = useGetCarBrandsQuery();
-  const { data: rawModels = [] } = useGetCarModelsQuery(make, { skip: !make });
-  const models = rawModels.map((m) => m.model);
-
-  const filteredBrands = makeQuery.length > 0
-    ? brands.filter((b) => b.toLowerCase().startsWith(makeQuery.toLowerCase())).slice(0, 6)
-    : [];
-
-  const handleMakeSelect = (b: string) => {
-    setMakeQuery(b);
-    onMakeChange(b);
-    onModelChange('');
-    setShowMakeSuggestions(false);
-  };
-
-  return (
-    <View>
-      <View style={mm.wrapper}>
-        <Text style={[mm.label, { color: colors.fg }]}>Make *</Text>
-        <TextInput
-          style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-          value={makeQuery}
-          onChangeText={(v) => { setMakeQuery(v); setShowMakeSuggestions(true); }}
-          onBlur={() => { if (makeQuery !== make) onMakeChange(makeQuery); setShowMakeSuggestions(false); }}
-          placeholder="e.g. Porsche"
-          placeholderTextColor={colors.grey}
-          autoCapitalize="words"
-        />
-        {showMakeSuggestions && filteredBrands.length > 0 && (
-          <View style={[mm.suggestions, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {filteredBrands.map((b) => (
-              <TouchableOpacity key={b} style={[mm.suggestion, { borderBottomColor: colors.border }]} onPress={() => handleMakeSelect(b)}>
-                <Text style={[mm.suggestionText, { color: colors.fg }]}>{b}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
-      <View style={mm.wrapper}>
-        <Text style={[mm.label, { color: colors.fg }]}>Model *</Text>
-        {models.length > 0 ? (
-          <View style={mm.modelChips}>
-            {models.map((m) => (
-              <TouchableOpacity
-                key={m}
-                style={[mm.modelChip, { borderColor: colors.border, backgroundColor: colors.card }, model === m && mm.modelChipActive]}
-                onPress={() => onModelChange(m)}
-              >
-                <Text style={[mm.modelChipText, { color: colors.fg }, model === m && mm.modelChipTextActive]}>{m}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <TextInput
-            style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-            value={model}
-            onChangeText={onModelChange}
-            placeholder="e.g. 911"
-            placeholderTextColor={colors.grey}
-            autoCapitalize="words"
-          />
-        )}
-      </View>
-    </View>
-  );
-}
-const mm = StyleSheet.create({
-  wrapper: { marginBottom: 16, position: 'relative' },
-  label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  suggestions: {
-    position: 'absolute', top: 70, left: 0, right: 0, zIndex: 99,
-    borderRadius: 8, borderWidth: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4,
-  },
-  suggestion: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1 },
-  suggestionText: { fontSize: 15 },
-  modelChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  modelChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
-  modelChipActive: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-  modelChipText: { fontSize: 13, fontWeight: '600' },
-  modelChipTextActive: { color: '#FFFFFF' },
 });
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -442,7 +346,8 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
               <Field label="Title *" value={form.title} onChange={set('title')} placeholder="e.g. Weekend Track Build" />
               <Field label="Year *" value={form.year} onChange={set('year')} placeholder="e.g. 1991" numeric />
 
-              <MakeModelPicker
+              <MakeModelFields
+                required
                 make={form.make}
                 model={form.model}
                 onMakeChange={set('make')}

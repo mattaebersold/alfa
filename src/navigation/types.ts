@@ -27,7 +27,8 @@ export type FeedStackParamList = {
   CarDetail: { carId: string; action?: CarDetailAction };
   // Drawer-linked top-level screens (keep tab bar + AppHeader visible)
   Groups: undefined;
-  Members: undefined;
+  // `region` preselects a US region filter — see constants/regions.
+  Members: { region?: string } | undefined;
   Articles: undefined;
   ArticleDetail: { articleId: string };
   Podcasts: undefined;

@@ -30,6 +30,7 @@ import SharedButton from '../../components/ui/SharedButton';
 import Spinner from '../../components/ui/Spinner';
 import { colors, withAlpha } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { contrastText } from '../../hooks/useBrandColor';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -39,6 +40,7 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteSheet from '../../components/groups/GroupInviteSheet';
+import GroupInviteSearch from '../../components/groups/GroupInviteSearch';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -75,6 +77,8 @@ export default function GroupDetailScreen() {
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
   const [rosterOrigin, setRosterOrigin] = useState<SummaryOrigin | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  /** Invite search revealed inside the roster panel rather than as a sheet. */
+  const [inviteInline, setInviteInline] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The roster arrives in one response, so paging is done here: render a page
@@ -420,7 +424,7 @@ export default function GroupDetailScreen() {
           scroller, and a FlatList inside one is a scroller inside a scroller. */}
       <SummaryModal
         visible={membersOpen}
-        onClose={() => setMembersOpen(false)}
+        onClose={() => { setMembersOpen(false); setInviteInline(false); }}
         origin={rosterOrigin}
         actionLabel="View All Members"
         onAction={() => (navigation as any).navigate('GroupMembers', { groupId })}
@@ -433,19 +437,34 @@ export default function GroupDetailScreen() {
               anyone — the invite endpoint had no way in from the app. */}
           {isAdmin && (
             <TouchableOpacity
-              style={[styles.inviteBtn, { backgroundColor: c.primaryAlt }]}
-              onPress={() => {
-                setMembersOpen(false);
-                requestAnimationFrame(() => setInviteOpen(true));
-              }}
+              style={[
+                styles.inviteBtn,
+                inviteInline
+                  ? { backgroundColor: c.segment, borderColor: c.border, borderWidth: 1 }
+                  : { backgroundColor: c.primaryAlt },
+              ]}
+              // Opens in place. It used to close this panel and open a sheet a
+              // frame later, but SummaryModal's dismissal is a 300ms animation
+              // and a modal presented while another is still going away never
+              // appears at all — which is why the button did nothing.
+              onPress={() => setInviteInline((v) => !v)}
               activeOpacity={0.85}
               accessibilityRole="button"
+              accessibilityState={{ expanded: inviteInline }}
             >
-              <UserPlus size={14} color="#FFFFFF" strokeWidth={2.6} />
-              <Text style={styles.inviteBtnText}>Invite</Text>
+              {inviteInline
+                ? <X size={14} color={c.fg} strokeWidth={2.6} />
+                : <UserPlus size={14} color={contrastText(c.primaryAlt)} strokeWidth={2.6} />}
+              <Text style={[styles.inviteBtnText, { color: inviteInline ? c.fg : contrastText(c.primaryAlt) }]}>
+                {inviteInline ? 'Done' : 'Invite'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
+
+        {inviteInline && (
+          <GroupInviteSearch groupId={groupId} active={inviteInline} compact />
+        )}
 
         {roster.slice(0, memberPage * MEMBER_PAGE_SIZE).map((item) => {
             const isMe = item.user_id === userInfo?.user_id;
@@ -535,13 +554,18 @@ const styles = StyleSheet.create({
 
   rosterHead:    {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10,
+    paddingLeft: 16, paddingTop: 18, paddingBottom: 10,
+    // Clear of the panel's floating close button (38pt, inset 12) — the invite
+    // button sat straight under it.
+    paddingRight: 62,
   },
   inviteBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
   },
-  inviteBtnText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  // Colour comes from the fill: black on the pro gold, white on the default
+  // blue. It was hard-coded white, which on gold is barely there.
+  inviteBtnText: { fontSize: 13, fontWeight: '800' },
   rosterTitle:   { fontSize: 19, fontWeight: '800' },
   rosterMore:    { paddingVertical: 16, alignItems: 'center' },
   rosterMoreText:{ fontSize: 14, fontWeight: '700' },

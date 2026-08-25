@@ -1,10 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { UserMinus } from 'lucide-react-native';
 import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
   useLeaveGroupMutation,
+  useRemoveGroupMemberMutation,
 } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import Spinner from '../ui/Spinner';
 import SharedModal from '../ui/SharedModal';
@@ -33,9 +36,43 @@ export default function GroupSettingsSheet({
   const { data: group, isLoading } = useGetGroupQuery(groupId, { skip: !visible });
   const { data: members = [] } = useGetGroupMembersQuery(groupId, { skip: !visible });
   const [leaveGroup] = useLeaveGroupMutation();
+  const [removeMember] = useRemoveGroupMemberMutation();
+  const { userInfo } = useAppSelector((s) => s.auth);
 
   const pending = members.filter((m) => m.status === 'pending');
   const active  = members.filter((m) => m.status === 'active');
+  const isAdmin = active.some(
+    (m) => m.user_id === userInfo?.user_id && m.member_type === 'admin',
+  );
+
+  /**
+   * Remove someone, once. The server is the authority on whether it's allowed
+   * — it refuses to strip the last admin — so its message is what gets shown
+   * rather than a guess made here.
+   */
+  const handleRemove = (userId: string, username?: string) => {
+    Alert.alert(
+      `Remove @${username ?? 'member'}?`,
+      'They lose access to the group and can ask to join again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeMember({ groupId, userId }).unwrap();
+            } catch (err: any) {
+              Alert.alert(
+                "Couldn't remove",
+                err?.data?.error ?? 'Please try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const handleLeave = () => {
     Alert.alert('Leave group?', 'You can rejoin later.', [
@@ -91,6 +128,45 @@ export default function GroupSettingsSheet({
             </View>
           )}
 
+          {/* Members — admins only. This is where you manage who's in, so it's
+              where removing someone belongs; the roster elsewhere is for
+              reading. */}
+          {isAdmin && active.length > 0 && (
+            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+              <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>
+                Members ({active.length})
+              </Text>
+              {active.map((m) => {
+                const isMe = m.user_id === userInfo?.user_id;
+                return (
+                  <View key={m.user_id} style={[styles.memberRow, { borderTopColor: c.borderDark }]}>
+                    <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={36} />
+                    <View style={styles.memberInfo}>
+                      <Text style={[styles.memberName, { color: c.fg }]}>@{m.user?.username}</Text>
+                      {m.member_type === 'admin' && (
+                        <Text style={[styles.memberRole, { color: c.grey }]}>Admin</Text>
+                      )}
+                    </View>
+                    {/* No remove button against your own row: leaving is the
+                        thing you do to yourself, and it's below. */}
+                    {!isMe && (
+                      <TouchableOpacity
+                        style={[styles.removeBtn, { borderColor: colors.red }]}
+                        onPress={() => handleRemove(m.user_id, m.user?.username)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove @${m.user?.username ?? 'member'}`}
+                      >
+                        <UserMinus size={13} color={colors.red} />
+                        <Text style={styles.removeText}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           {/* Danger zone */}
           <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
             <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Danger Zone</Text>
@@ -114,6 +190,13 @@ const styles = StyleSheet.create({
   memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   memberInfo:  { flex: 1 },
   memberName:  { fontSize: 14, fontWeight: '600' },
+  memberRole:  { fontSize: 11, marginTop: 1 },
+  removeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999, borderWidth: 1,
+  },
+  removeText:  { fontSize: 12, fontWeight: '700', color: colors.red },
   dangerBtn:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
   dangerText:  { fontSize: 15, fontWeight: '600', color: colors.red },
 });

@@ -86,6 +86,11 @@ export default function GroupAttribution({
   }
 
   return (
+    // The margins live on a plain wrapper, and the banner fills it outright.
+    // Carrying both the margins and an aspect ratio on one node left its width
+    // to be resolved from the ratio rather than from the row it sits in, so the
+    // banner came out short of the card's edge.
+    <View style={styles.bannerWrap}>
     <TouchableOpacity
       style={styles.banner}
       onPress={open}
@@ -122,19 +127,21 @@ export default function GroupAttribution({
         </View>
       </View>
     </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   // Inset and rounded like everything else in a feed card, rather than a
-  // full-bleed band cutting across it.
-  banner: {
-    aspectRatio: 3,
-    // Spans the card, less its own margins. `alignSelf` is explicit because a
-    // parent that centres or starts its children would otherwise leave this
-    // sized to its content.
+  // full-bleed band cutting across it. The inset is the wrapper's; the banner
+  // takes the whole of what's left.
+  bannerWrap: {
     alignSelf: 'stretch',
     marginHorizontal: 12, marginTop: 18, marginBottom: 4,
+  },
+  banner: {
+    width: '100%',
+    aspectRatio: 3,
     borderRadius: 12, overflow: 'hidden',
     justifyContent: 'center',
   },

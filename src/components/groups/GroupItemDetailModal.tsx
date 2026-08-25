@@ -202,12 +202,15 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
           ) : rows.length === 0 ? (
             <Text style={styles.empty}>No comments yet. Be the first!</Text>
           ) : (
-            rows.map(({ comment: cm, isReply }) => (
+            rows.map(({ comment: cm, isReply, isThreadStart, isThreadEnd, threadId }) => (
               <CommentRow
                 key={(cm as any).internal_id ?? (cm as any)._id}
                 comment={cm}
                 currentUserId={userInfo?.user_id}
                 isReply={isReply}
+                isThreadStart={isThreadStart}
+                isThreadEnd={isThreadEnd}
+                threadId={threadId}
                 onReply={(commentId, username) => {
                   setReplyingTo({ commentId, username });
                   setCommentText(`@${username} `);

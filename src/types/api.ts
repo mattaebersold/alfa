@@ -9,6 +9,11 @@ export interface User {
   email?: string;
   bio?: string;
   cityState?: string;
+  /**
+   * A rendered map of the general region this member is in, stored once on the
+   * server. Their zip is never exposed — see horacio's userRegionMap.
+   */
+  regionMap?: { filename?: string } | null;
   profilePicture?: string;
   gallery?: GalleryItem[];
   banners?: GalleryItem[];
@@ -186,6 +191,14 @@ export interface Post {
   model?: string;
   year?: string;
   condition?: string;
+  /** Odometer reading, as typed. Shown on the post detail as an odometer. */
+  mileage?: string;
+  // The rest of the optional details a post can carry. The create form has
+  // always sent these; the type only ever declared some of them, which is part
+  // of why the edit form quietly dropped them.
+  trim?: string;
+  vin?: string;
+  part_number?: string;
   // diecast listing fields
   diecast_brand?: string;
   diecast_rarity?: string;

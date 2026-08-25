@@ -17,6 +17,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { stripHtml } from '../../utils/text';
 
 /**
  * Enough of a car to decide whether you want the whole page.
@@ -81,6 +82,7 @@ export default function CarSummaryModal({
   const hero = car
     ? firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null)
     : null;
+  const description = car?.body ? stripHtml(car.body).trim() : '';
 
   // Same list the car page shows, minus the ones already in the title above it.
   const specs = car
@@ -89,7 +91,14 @@ export default function CarSummaryModal({
         { label: 'Engine',    value: car.engine },
         { label: 'HP',        value: car.horsepower },
         { label: 'Torque',    value: car.torque },
-        { label: 'Mileage',   value: car.mileage ? `${Number(car.mileage).toLocaleString()} mi` : undefined },
+        // Guarded on the parse, not on truthiness: a mileage of "unknown" is a
+        // non-empty string that formats as "NaN mi".
+        {
+          label: 'Mileage',
+          value: Number.isFinite(Number(car.mileage)) && Number(car.mileage) > 0
+            ? `${Number(car.mileage).toLocaleString()} mi`
+            : undefined,
+        },
         { label: 'Condition', value: car.condition },
       ].filter((s) => s.value) as { label: string; value: string }[])
     : [];
@@ -210,9 +219,11 @@ export default function CarSummaryModal({
             </View>
           )}
 
-          {car.body ? (
+          {/* Stored as HTML by the web editor — unstripped it arrives as a
+              paragraph of tags. */}
+          {description ? (
             <Text style={[styles.body, { color: colors.muted }]} numberOfLines={6}>
-              {car.body}
+              {description}
             </Text>
           ) : null}
         </View>

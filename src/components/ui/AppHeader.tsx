@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
 import { Warehouse, Menu } from 'lucide-react-native';
@@ -33,6 +34,9 @@ const ROW_PAD_V = 8;     // vertical padding around the button row
 const TOP_OFFSET = Platform.OS === 'ios' ? 0 : ROW_PAD_V;
 
 const ICON = '#000000';
+
+/** How far the scrim carries on past the buttons before it's gone. */
+const SCRIM_FADE = 28;
 
 /**
  * Height the header occupies below the safe-area inset.
@@ -158,6 +162,29 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
 
       {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT }} />}
 
+      {/* A scrim from the very top of the device down past the button row.
+          The bar floats over whatever the screen is showing, and against a
+          photo — which is most of this app — black icons on brand-coloured
+          squares sat on top of the picture with nothing separating them, and
+          the status bar's own clock and battery competed with it. It rides the
+          same offset as the bar, so it leaves with it on scroll. */}
+      <Animated.View
+        style={[
+          styles.scrim,
+          {
+            height: insets.top + APP_HEADER_HEIGHT + SCRIM_FADE,
+            transform: [{ translateY: headerOffset }],
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <LinearGradient
+          colors={['rgba(0,0,0,0.72)', 'rgba(0,0,0,0.45)', 'transparent']}
+          locations={[0, 0.6, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+
       {/* Sits below the status bar, not behind it. Slides up out of view when
           the screen is scrolled down, back in when scrolled up. */}
       <Animated.View
@@ -230,6 +257,15 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
 }
 
 const styles = StyleSheet.create({
+  // Behind the bar, and starting at the physical top of the screen rather than
+  // below the safe-area inset — the status bar is translucent, so the content
+  // runs underneath it too.
+  scrim: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    zIndex: 19,
+  },
+
   bar: {
     position: 'absolute',
     left: 0, right: 0,

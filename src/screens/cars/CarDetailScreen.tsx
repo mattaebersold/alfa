@@ -42,6 +42,8 @@ import InlineComments from '../../components/social/InlineComments';
 import CarCard from '../../components/cards/CarCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
+import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
+import TaggedPostsPane from '../../components/cars/TaggedPostsPane';
 import BottomSheet from '../../components/ui/SharedModal';
 import ActionSheet from '../../components/ui/ActionSheet';
 import { formatDistanceToNow } from 'date-fns';
@@ -76,7 +78,7 @@ const ALBUM_COL_WIDTH = 260;
 const GALLERY_HEIGHT = Math.round(HERO_WIDTH * 3 / 4);
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
-type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | null;
+type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | 'tagged' | null;
 
 // The app's true accent blue (useColors() remaps primaryAlt→gold for pro/admin,
 // so reference the raw token for a consistently-blue Follow button).
@@ -900,10 +902,21 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       ? `Other ${[car.make, car.model].filter(Boolean).join(' ')}`
       : pane === 'otherMake'
       ? `Other ${car.make} cars`
+      : pane === 'tagged'
+      ? 'Tagged in Posts'
       : CAR_TILES.find((t) => t.key === pane)?.label ?? '';
 
   const renderPane = () => {
     switch (pane) {
+      case 'tagged':
+        return (
+          <TaggedPostsPane
+            carId={car.internal_id}
+            // Same route the records list opens, so the pane is closed and
+            // restored on the way back rather than left under the post.
+            onPostPress={(post) => openRecord(post.internal_id)}
+          />
+        );
       case 'specs':
         if (specs.length === 0) return <EmptyState title="No specs added yet" />;
         return (
@@ -1092,7 +1105,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         </View>
 
         {/* ── Title + owners ── */}
-        <View style={[styles.titleSection, { backgroundColor: colors.bgDark }]}>
+        <View style={[styles.titleSection]}>
           <View style={styles.titleRow}>
             <View style={styles.titleLeft}>
               {/* The name is the page heading above; this line carries the
@@ -1103,18 +1116,41 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 </Text>
               ) : null}
             </View>
-            {isOwnerOrCoOwner ? (
-              <View style={styles.titleActions}>
-                <TouchableOpacity onPress={handleAddPress} hitSlop={8} style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}>
-                  <Plus size={20} color={brandTextColor} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleMenuPress} hitSlop={8} style={styles.menuBtn}>
-                  <MoreHorizontal size={22} color={colors.fg} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <ReportButton contentType="car" contentId={carId} size={22} />
-            )}
+            {/* Liking and commenting sit with the car's other controls rather
+                than in a bar of their own below the description — they are two
+                icons, and a full-width rule under a paragraph to hold them read
+                as the end of the page. */}
+            <View style={styles.titleActions}>
+              <LikeButton
+                documentId={car.internal_id}
+                entryType={(car as any).entry_type ?? 'garagecar'}
+                initialCount={(car as any).like_count ?? 0}
+                initialLiked={(car as any).isLiked ?? false}
+                size={20}
+              />
+              <TouchableOpacity
+                style={styles.commentBtn}
+                onPress={() => setCommentsOpen(true)}
+                hitSlop={8}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Comments"
+              >
+                <MessageCircle size={20} color={colors.fg} />
+              </TouchableOpacity>
+              {isOwnerOrCoOwner ? (
+                <>
+                  <TouchableOpacity onPress={handleAddPress} hitSlop={8} style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}>
+                    <Plus size={20} color={brandTextColor} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleMenuPress} hitSlop={8} style={styles.menuBtn}>
+                    <MoreHorizontal size={22} color={colors.fg} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <ReportButton contentType="car" contentId={carId} size={22} />
+              )}
+            </View>
           </View>
 
           {/* Type + Category badges */}
@@ -1179,26 +1215,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             </View>
           ) : null}
 
-          <View style={[styles.likeRow, { borderTopColor: colors.border }]}>
-            <View style={styles.likeRowLeft}>
-              <LikeButton
-                documentId={car.internal_id}
-                entryType={(car as any).entry_type ?? 'garagecar'}
-                initialCount={(car as any).like_count ?? 0}
-                initialLiked={(car as any).isLiked ?? false}
-                size={22}
-              />
-              <TouchableOpacity
-                style={styles.commentBtn}
-                onPress={() => setCommentsOpen(true)}
-                hitSlop={8}
-                activeOpacity={0.7}
-              >
-                <MessageCircle size={22} color={colors.fg} />
-              </TouchableOpacity>
-            </View>
-
-            {!isOwnerOrCoOwner && (
+          {!isOwnerOrCoOwner && (
+            <View style={[styles.followRow, { borderTopColor: colors.border }]}>
               <View style={styles.likeRowRight}>
                 <TouchableOpacity
                   style={[
@@ -1231,8 +1249,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   </TouchableOpacity>
                 )}
               </View>
-            )}
-          </View>
+            </View>
+          )}
 
           {isOwnerOrCoOwner && (
             <>
@@ -1253,7 +1271,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         </View>
 
         {/* ── Section tiles — open panes like the profile page ── */}
-        <View style={[styles.tilesWrap, { backgroundColor: colors.bgDark, borderTopColor: colors.border }]}>
+        <View style={[styles.tilesWrap]}>
           <View style={styles.carTilesGrid}>
             {(isOwnerOrCoOwner ? CAR_TILES.filter((t) => t.key !== 'followers') : CAR_TILES).map((t) => {
               const count =
@@ -1309,11 +1327,17 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           </View>
         </View>
 
+        {/* ── Where this car has turned up in other people's posts ── */}
+        <TaggedPostsRow
+          carId={car.internal_id}
+          onPostPress={(post) => openRecord(post.internal_id)}
+          onViewAll={() => setPane('tagged')}
+        />
+
         {/* ── Comments on this car ── */}
         <InlineComments
           documentId={car.internal_id}
           entryType={(car as any).entry_type ?? 'garagecar'}
-          backgroundColor={colors.bgDark}
           // Comments are the last section, so scrolling to the end puts the
           // input just above the keyboard. Shrinking the viewport alone leaves
           // it off-screen when the page is scrolled up.
@@ -1674,7 +1698,9 @@ const styles = StyleSheet.create({
   lightboxClose:  { padding: 8 },
 
   titleSection:   { padding: 16 },
-  titleRow:       { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  // Centred, not top-aligned: the actions are 34pt tall and the subtitle is one
+  // small line, so flex-start left it hanging off the top of the buttons.
+  titleRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleLeft:      { flex: 1, marginRight: 12 },
   menuBtn:        { padding: 4 },
   titleActions:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1710,8 +1736,7 @@ const styles = StyleSheet.create({
   descWrap:       { marginTop: 12 },
   carDescription: { fontSize: 14, lineHeight: 20 },
   moreLink:       { fontSize: 13, fontWeight: '900', textDecorationLine: 'underline', marginTop: 4 },
-  likeRow:        { marginTop: 12, paddingTop: 12, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  likeRowLeft:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  followRow:      { marginTop: 12, paddingTop: 12, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center' },
   likeRowRight:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
   commentBtn:     { padding: 4 },
   followInlineBtn: {
@@ -1763,7 +1788,7 @@ const styles = StyleSheet.create({
   filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   filterChipText:  { fontSize: 12, fontWeight: '700' },
 
-  tilesWrap:       { padding: 16, borderTopWidth: 1, paddingBottom: 20 },
+  tilesWrap:       { paddingHorizontal: 16, paddingBottom: 20 },
   carTilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   carTile:         {
     flexBasis: '47%', flexGrow: 1,

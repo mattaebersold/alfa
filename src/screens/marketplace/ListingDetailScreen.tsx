@@ -13,7 +13,7 @@ import {
   useCreateCommentMutation,
   useGetPostCountsQuery,
 } from '../../api/apiService';
-import { useCommentThread } from '../../hooks/useCommentThread';
+import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
@@ -171,11 +171,14 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
               </View>
             </View>
           }
-          renderItem={({ item }: { item: { comment: CommentData; isReply: boolean } }) => (
+          renderItem={({ item }: { item: CommentRowItem }) => (
             <CommentRow
               comment={item.comment}
               currentUserId={userInfo?.user_id}
               isReply={item.isReply}
+              isThreadStart={item.isThreadStart}
+              isThreadEnd={item.isThreadEnd}
+              threadId={item.threadId}
               onReply={(commentId, username) => {
                 setReplyingTo({ commentId, username });
                 setCommentText(`@${username} `);

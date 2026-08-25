@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Plus, Mountain } from 'lucide-react-native';
+import { Plus } from 'lucide-react-native';
 import { useGetRoutesQuery } from '../../api/apiService';
 import RouteTrace from '../../components/routes/RouteTrace';
 import VoteButton from '../../components/routes/VoteButton';
@@ -16,7 +16,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText, useIsPro } from '../../hooks/useBrandColor';
 import {
-  formatDistance, formatDuration, formatElevation, curvinessLabel,
+  formatDistance, formatDuration, curvinessLabel,
 } from '../../utils/routeGeometry';
 import type { RoutesStackParamList } from '../../navigation/types';
 import type { DrivingRoute } from '../../types/api';
@@ -52,9 +52,6 @@ function RouteRow({ route, onPress }: { route: DrivingRoute; onPress: () => void
             <View style={styles.metrics}>
               <Metric value={formatDistance(stats.distance_meters)} colors={colors} />
               <Metric value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />
-              {stats.elevation_gain > 0 && (
-                <Metric value={formatElevation(stats.elevation_gain)} colors={colors} Icon={Mountain} />
-              )}
             </View>
             <Text style={[styles.technical, { color: colors.grey }]}>
               {curvinessLabel(stats.curviness)} · {stats.curviness}/100

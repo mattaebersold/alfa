@@ -24,6 +24,8 @@ import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import GroupAttribution from '../groups/GroupAttribution';
+import LikersSheet from '../social/LikersSheet';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 
 type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -86,6 +88,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
   const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
+  // Non-null while the likers panel is open — it doubles as the rect the panel
+  // grows out of.
+  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
   const gallery = post.gallery ?? [];
   const heroImage = firstGalleryUrl(post.gallery);
@@ -276,15 +281,29 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           likes, which belong with the actions they came from. */}
       <GroupAttribution groupId={post.group_ids?.[0] ?? post.group_id} />
 
+      {/* The line opens the full list; the name inside it still goes straight
+          to that person, since a nested Text's own press wins. */}
       {likeCount > 0 && (
-        <LikedByLine
-          likers={likers}
-          total={likeCount}
-          myId={userInfo?.user_id}
-          color={mutedColor}
-          style={styles.likedBy}
-        />
+        <SummaryTouchable
+          onPress={(origin) => setLikersOrigin(origin)}
+          accessibilityLabel={`See everyone who liked this`}
+        >
+          <LikedByLine
+            likers={likers}
+            total={likeCount}
+            myId={userInfo?.user_id}
+            color={mutedColor}
+            style={styles.likedBy}
+          />
+        </SummaryTouchable>
       )}
+
+      <LikersSheet
+        entryId={post.internal_id}
+        visible={likersOrigin !== undefined}
+        origin={likersOrigin}
+        onClose={() => setLikersOrigin(undefined)}
+      />
 
       {/* Actions */}
       <View style={styles.actions}>

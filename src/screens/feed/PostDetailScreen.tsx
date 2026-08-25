@@ -35,6 +35,7 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import GroupAttribution from '../../components/groups/GroupAttribution';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
+import Odometer from '../../components/ui/Odometer';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -363,6 +364,15 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 <Text style={[styles.price, { backgroundColor: bodyBg }]}>${Number(post.price).toLocaleString()}</Text>
               )}
 
+              {/* The number on the clock, drawn as the clock. Detail only — on
+                  a feed card it would be a second thing competing with the
+                  photo. */}
+              {post.mileage ? (
+                <View style={[styles.mileageRow, { backgroundColor: bodyBg }]}>
+                  <Odometer value={post.mileage} />
+                </View>
+              ) : null}
+
               {(post.type === 'listing' || post.type === 'want') && post.user && !isOwner && (
                 <TouchableOpacity
                   style={[styles.messageBtn, { backgroundColor: bodyBg, borderTopColor: colors.border, borderBottomColor: colors.border }]}
@@ -517,6 +527,7 @@ const styles = StyleSheet.create({
   author:          { fontSize: 15, fontWeight: '700' },
   username:        { fontSize: 12 },
   postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 12 },
+  mileageRow:      { paddingHorizontal: 16, paddingVertical: 12 },
   postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 16 },
   singleImage:     { width: '100%', height: 300 },
   videoPlayer:     { width: '100%', aspectRatio: 4 / 5, backgroundColor: '#000' },

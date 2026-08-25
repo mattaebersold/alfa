@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { ChevronUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, MapPin } from 'lucide-react-native';
+import { ChevronUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, MapPin, Maximize2 } from 'lucide-react-native';
 import RouteMap from '../../components/routes/RouteMap';
+import RouteMapFullScreen from '../../components/routes/RouteMapFullScreen';
 import Spinner from '../../components/ui/Spinner';
 import Avatar from '../../components/ui/Avatar';
 import { useGetRouteQuery, useVoteRouteMutation, useUnvoteRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
-  decodePolyline, formatDistance, formatDuration, formatSpeed, formatElevation, curvinessLabel,
+  decodePolyline, formatDistance, formatDuration, formatSpeed, curvinessLabel,
 } from '../../utils/routeGeometry';
 import { openInMaps } from '../../utils/routeDirections';
 import type { RoutesStackParamList } from '../../navigation/types';
@@ -31,6 +32,9 @@ export default function RouteDetailScreen() {
   const refreshControl = useRefreshControl(refetch);
   const [vote] = useVoteRouteMutation();
   const [unvote] = useUnvoteRouteMutation();
+  // Above the loading guard: a hook after an early return runs on some renders
+  // and not others, which is the one thing hooks can't survive.
+  const [fullMap, setFullMap] = useState(false);
 
   if (isLoading || !data) return <Spinner />;
 
@@ -45,16 +49,43 @@ export default function RouteDetailScreen() {
   return (
     <ScrollView refreshControl={refreshControl} style={{ backgroundColor: colors.bg }} contentContainerStyle={styles.content}>
       {path.length >= 2 && (
-        <View style={styles.mapWrap}>
-          <RouteMap
-            path={path}
-            speeds={entry.speed_profile}
-            markers={entry.pit_stops}
-            color={brand}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
+        // The inline map is a thumbnail of the drive — too small to read a
+        // corner on. Tapping it opens the same route full screen, where the
+        // gestures are the map's own rather than the page's.
+        <TouchableOpacity
+          style={styles.mapWrap}
+          onPress={() => setFullMap(true)}
+          activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="Open the route map full screen"
+        >
+          {/* The map is a native view and swallows touches, so the wrapper —
+              not the map — is what refuses them. The whole thumbnail is one
+              button; panning happens full screen. */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <RouteMap
+              path={path}
+              speeds={entry.speed_profile}
+              markers={entry.pit_stops}
+              color={brand}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+          <View style={styles.expandBadge}>
+            <Maximize2 size={15} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
       )}
+
+      <RouteMapFullScreen
+        visible={fullMap}
+        onClose={() => setFullMap(false)}
+        path={path}
+        speeds={entry.speed_profile}
+        markers={entry.pit_stops}
+        color={brand}
+        title={entry.title}
+      />
 
       <View style={styles.body}>
         <Text style={[styles.title, { color: colors.fg }]}>{entry.title || 'Untitled route'}</Text>
@@ -113,7 +144,6 @@ export default function RouteDetailScreen() {
             <GridStat label="Moving time" value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />
             <GridStat label="Avg speed" value={formatSpeed(stats.avg_speed)} colors={colors} />
             <GridStat label="Top speed" value={formatSpeed(stats.max_speed)} colors={colors} />
-            <GridStat label="Climb" value={formatElevation(stats.elevation_gain)} colors={colors} />
             <GridStat
               label="Technical"
               value={`${curvinessLabel(stats.curviness)} (${stats.curviness})`}
@@ -203,7 +233,16 @@ function GridStat({ label, value, colors }: { label: string; value: string; colo
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 60 },
+  // Deep enough that the last section clears the tab bar and the home
+  // indicator with room to spare, rather than ending flush against them.
+  content: { paddingBottom: 140 },
+  // Bottom-right of the thumbnail, out of the way of the trace itself.
+  expandBadge: {
+    position: 'absolute', right: 12, bottom: 12,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   mapWrap: { height: 280, width: '100%' },
   body:    { padding: 16, gap: 12 },
 

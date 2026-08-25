@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon } from 'lucide-react-native';
 import {
   useSearchQuery,
@@ -9,11 +10,22 @@ import {
   useGetPreviouslyTaggedGroupsQuery,
 } from '../../api/apiService';
 import GarageCarStrip from './GarageCarStrip';
+import Avatar from '../ui/Avatar';
+import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 
 export type TagKind = 'user' | 'car' | 'event' | 'group';
-export interface TagItem { id: string; label: string; kind: TagKind }
+export interface TagItem {
+  id: string;
+  label: string;
+  kind: TagKind;
+  /**
+   * A gallery filename for a member (the Avatar resolves it) or a resolved URL
+   * for a car. Optional: a tag is still a tag without a picture.
+   */
+  image?: string | null;
+}
 
 // Small debounce so each row's search only fires when typing settles.
 function useDebounced(value: string, delay = 300) {
@@ -40,6 +52,27 @@ interface RowProps {
   above?: React.ReactNode;
 }
 
+/**
+ * The picture on a suggestion: a member's avatar, a car's photo, or the kind's
+ * own icon where there's nothing to show (events and groups).
+ */
+function TagThumb({ item, accent }: { item: TagItem; accent: string }) {
+  const colors = useColors();
+
+  if (item.kind === 'user') {
+    return <Avatar filename={item.image} name={item.label} size={38} />;
+  }
+  if (item.kind === 'car' && item.image) {
+    return <Image source={{ uri: item.image }} style={styles.thumb} contentFit="cover" />;
+  }
+  const Icon = item.kind === 'car' ? CarIcon : item.kind === 'event' ? Flag : UsersIcon;
+  return (
+    <View style={[styles.thumb, styles.thumbBlank, { backgroundColor: colors.segment }]}>
+      <Icon size={16} color={accent} />
+    </View>
+  );
+}
+
 function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, suggestions, recent, onToggle, above }: RowProps) {
   const colors = useColors();
   const selectedIds = new Set(selected.map((t) => t.id));
@@ -52,8 +85,11 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
   const onAccent = contrastText(accent);
 
   return (
-    <View style={[styles.row, { borderTopColor: colors.border }]}>
-      <View style={styles.rowHeader}>
+    // A card per kind rather than three bands divided by hairlines: tagging a
+    // person and tagging a car are separate jobs, and stacked rules made them
+    // read as one long form you scroll through by accident.
+    <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+      <View style={[styles.rowHeader, { borderBottomColor: accent }]}>
         <Icon size={15} color={accent} />
         <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
         {selected.length > 0 && (
@@ -121,19 +157,29 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
       ) : list.length > 0 ? (
         <>
           <Text style={[styles.recentHeader, { color: colors.grey }]}>Recently tagged</Text>
-          <View style={styles.recentPills}>
+          {/* A face or a car, not just a name: at a glance you're picking the
+              @matt you meant rather than reading usernames. Horizontal, so a
+              long list stays one line instead of wrapping into a wall. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recentRow}
+            keyboardShouldPersistTaps="handled"
+          >
             {list.map((s) => (
               <TouchableOpacity
                 key={s.id}
-                style={[styles.recentPill, { borderColor: accent }]}
+                style={[styles.recentCard, { borderColor: accent, backgroundColor: colors.inputBg }]}
                 onPress={() => onToggle(s)}
                 activeOpacity={0.75}
               >
-                <Text style={[styles.recentPillText, { color: accent }]} numberOfLines={1}>{s.label}</Text>
-                <Plus size={13} color={accent} />
+                <TagThumb item={s} accent={accent} />
+                <Text style={[styles.recentCardText, { color: colors.fg }]} numberOfLines={2}>
+                  {s.label}
+                </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </>
       ) : null}
     </View>
@@ -183,11 +229,13 @@ export default function PostTagPicker({ users, cars, events, groups, showGarage 
     id: u.user_id || u.internal_id,
     label: u.username ? `@${u.username}` : ([u.firstName, u.lastName].filter(Boolean).join(' ') || 'User'),
     kind: 'user',
+    image: u.gallery?.[0]?.filename ?? u.profilePicture ?? null,
   });
   const toCar   = (c: any): TagItem => ({
     id: c.internal_id,
     label: [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car',
     kind: 'car',
+    image: firstGalleryUrl(c.gallery) ?? (c.profile_image ? imageUrl(c.profile_image) : null),
   });
   const toEvent = (e: any): TagItem => ({ id: e.internal_id, label: e.title || 'Event', kind: 'event' });
   const toGroup = (g: any): TagItem => ({ id: g.internal_id, label: g.title || 'Group', kind: 'group' });
@@ -235,8 +283,18 @@ export default function PostTagPicker({ users, cars, events, groups, showGarage 
 }
 
 const styles = StyleSheet.create({
-  row:          { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4, borderTopWidth: StyleSheet.hairlineWidth },
-  rowHeader:    { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8 },
+  row: {
+    marginHorizontal: 12, marginTop: 12,
+    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12,
+    borderRadius: 14, borderWidth: 1,
+  },
+  // A rule in the row's own accent under its title — it's what tells the three
+  // cards apart at a glance.
+  rowHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingBottom: 10, marginBottom: 12,
+    borderBottomWidth: 2,
+  },
   rowTitle:     { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   countPill:    { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
   countText:    { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
@@ -254,9 +312,15 @@ const styles = StyleSheet.create({
   suggestText:  { flex: 1, fontSize: 14, fontWeight: '600', marginRight: 10 },
 
   recentHeader: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 10, marginBottom: 6 },
-  recentPills:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  recentPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  recentPillText: { fontSize: 13, fontWeight: '600', maxWidth: 150 },
+  recentRow:  { flexDirection: 'row', gap: 8, paddingRight: 4, paddingBottom: 2 },
+  recentCard: {
+    width: 96, alignItems: 'center', gap: 6,
+    paddingHorizontal: 8, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1,
+  },
+  recentCardText: { fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
+  thumb:      { width: 38, height: 38, borderRadius: 8 },
+  thumbBlank: { alignItems: 'center', justifyContent: 'center' },
 
   hint:         { fontSize: 13, paddingVertical: 10 },
 });

@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { MoreVertical, Trash2 } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import Avatar from '../ui/Avatar';
 import MentionText from '../ui/MentionText';
 import ReportButton from '../ui/ReportButton';
-import { useGetUserByIdQuery } from '../../api/apiService';
+import ActionSheet from '../ui/ActionSheet';
+import { useGetUserByIdQuery, useDeleteCommentMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
@@ -24,6 +26,11 @@ export interface CommentData {
   user_id: string;
   body?: string;
   created_at?: string;
+  /**
+   * The author deleted it, but replies hang off it — so the row stays and the
+   * words go. See the server's deleteEntry.
+   */
+  removed?: boolean;
 }
 
 interface CommentRowProps {
@@ -61,8 +68,33 @@ export default function CommentRow({
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const { data: user } = useGetUserByIdQuery(comment.user_id, { skip: !comment.user_id });
 
+  const [deleteComment, { isLoading: deleting }] = useDeleteCommentMutation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const commentId = comment.internal_id ?? comment._id ?? '';
   if (hiddenIds.includes(commentId)) return null;
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete comment?',
+      'This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteComment(commentId).unwrap();
+            } catch {
+              Alert.alert("Couldn't delete", 'Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: true },
+    );
+  };
 
   const displayName = user?.username || '…';
   const timeAgo = comment.created_at
@@ -70,6 +102,24 @@ export default function CommentRow({
     : '';
 
   const isOwn = currentUserId && currentUserId === comment.user_id;
+
+  // Kept only so its replies still have something to hang off, so it carries
+  // none of a comment's furniture — no avatar, no name, nothing to press.
+  if (comment.removed) {
+    return (
+      <View style={[
+        styles.container,
+        styles.removed,
+        { backgroundColor: backgroundColor ?? colors.card, borderColor: colors.borderDark },
+        isThreadStart && styles.threadStart,
+        isThreadEnd && styles.threadEnd,
+        isReply && styles.replyContainer,
+      ]}>
+        {isReply && <View style={[styles.replyLine, { backgroundColor: colors.borderDark }]} />}
+        <Text style={[styles.removedText, { color: colors.greyDark }]}>Comment removed</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[
@@ -124,9 +174,31 @@ export default function CommentRow({
           )}
         </View>
       </View>
-      {!isOwn && commentId && (
+      {/* Yours to delete, anyone else's to report — one dim ⋮ either way. */}
+      {commentId && (isOwn ? (
+        <>
+          <TouchableOpacity
+            onPress={() => setMenuOpen(true)}
+            hitSlop={8}
+            style={styles.menuBtn}
+            disabled={deleting}
+            accessibilityRole="button"
+            accessibilityLabel="Comment options"
+          >
+            <MoreVertical size={16} color="rgba(255,255,255,0.34)" />
+          </TouchableOpacity>
+          <ActionSheet
+            visible={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            title="Your comment"
+            options={[
+              { label: 'Delete Comment', Icon: Trash2, destructive: true, onPress: confirmDelete },
+            ]}
+          />
+        </>
+      ) : (
         <ReportButton contentType="comment" contentId={commentId} size={16} />
-      )}
+      ))}
     </View>
   );
 }
@@ -169,6 +241,12 @@ const styles = StyleSheet.create({
     width: 1.5,
     borderRadius: 1,
   },
+  // The tombstone is a single line, so it centres rather than sitting where an
+  // avatar would have put it.
+  removed:     { alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  removedText: { fontSize: 12.5, fontStyle: 'italic' },
+  menuBtn:  { padding: 4 },
+
   body:     { flex: 1 },
   nameRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   // The comment is the thing being read; the name is a label on it and the

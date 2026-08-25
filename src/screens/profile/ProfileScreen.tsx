@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Pressable, TextInput, Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { Image } from 'expo-image';
@@ -31,6 +32,10 @@ import ListCard from '../../components/lists/ListCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
+import SteeringWheel from '../../components/ui/SteeringWheel';
+import RegionTile from '../../components/members/RegionTile';
+import { regionForCityState } from '../../constants/regions';
+import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
@@ -53,6 +58,24 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 // Garage carousel — cards stop short of full width so the next one peeks out.
+/**
+ * Membership badge colours, read from the raw palette rather than useColors():
+ * that hook remaps `primaryAlt` to gold for a pro *viewer*, which would put a
+ * gold badge on every member a pro browses. Gold is the pro mark, blue is
+ * everyone else — and inside the component `colors` is the hook's, not this.
+ */
+const BADGE_PRO = colors.pro;
+const BADGE_MEMBER = colors.primaryAlt;
+
+/**
+ * Wide enough for a five-figure follower count without wrapping, narrow enough
+ * that a third card peeks in and says the row scrolls.
+ */
+const TILE_WIDTH = 118;
+
+/** How many posts the "View all" pane pulls per page. */
+const POSTS_PAGE_SIZE = 12;
+
 const GARAGE_GUTTER = 12;
 const GARAGE_CARD_WIDTH = Dimensions.get('window').width * 0.9 - GARAGE_GUTTER;
 
@@ -250,6 +273,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (activeSection) {
       setRenderedSection(activeSection);
+      if (activeSection === 'posts') { setPostsPage(0); setAllPosts([]); }
       setUserSearch('');
       sheetMounted.current = true;
       sheetY.setValue(600);
@@ -275,12 +299,39 @@ export default function ProfileScreen() {
   const { data: publicUser, isLoading: loadingOther, refetch: refetchOther } = useGetPublicUserByIdQuery(paramUserId!, { skip: isOwnProfile || !paramUserId });
 
   const user = isOwnProfile ? loggedInUser : publicUser;
+  // The *viewed* profile's standing, not the viewer's — `isPro` above gates
+  // what you're allowed to see, this is a badge on someone else.
+  const viewedIsPro = (user as any)?.accountType === 'pro' || (user as any)?.accountType === 'admin';
+  // Null for anyone whose city never resolved — the tile stays unpressable
+  // rather than opening an empty list.
+  const viewedRegion = regionForCityState((user as any)?.cityState);
   const isLoading = isOwnProfile ? loadingOwn : loadingOther;
   const userId = user?.user_id ?? '';
 
   // All sections fetched up front so the tiles can show counts and content is
   // ready the moment a tile opens its modal.
   const { data: postsData, refetch: refetchPosts } = useGetPostsQuery({ user_id: userId, limit: 30 }, { skip: !userId });
+
+  // The Posts pane pages rather than stopping at whatever the strip's query
+  // happened to fetch. Its own query so the strip and the counts aren't
+  // refetched every time someone scrolls the pane.
+  const [postsPage, setPostsPage] = useState(0);
+  const [allPosts, setAllPosts] = useState<Post[]>([]);
+  const { data: postsPageData, isFetching: postsFetching } = useGetPostsQuery(
+    { user_id: userId, page: postsPage, limit: POSTS_PAGE_SIZE },
+    { skip: !userId || renderedSection !== 'posts' },
+  );
+
+  useEffect(() => {
+    if (!postsPageData?.entries) return;
+    if (postsPage === 0) setAllPosts(postsPageData.entries);
+    // Guarded on id: a post added while someone is paging would otherwise
+    // shift the boundary and repeat a row.
+    else setAllPosts((prev) => {
+      const seen = new Set(prev.map((x) => x.internal_id));
+      return [...prev, ...postsPageData.entries.filter((x) => !seen.has(x.internal_id))];
+    });
+  }, [postsPageData, postsPage]);
   const { data: carsData, refetch: refetchCars }  = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
 
   // The profile is the person plus their posts and garage — the three things
@@ -384,19 +435,34 @@ export default function ProfileScreen() {
 
   // ── Section tiles — tap to open a modal with that section's content ───────
   const tilesEl = (
-    <View style={styles.tilesGrid}>
+    // Sideways rather than a wrapping grid: a grid has to give every tile the
+    // same slot and reflows into a ragged last row as tabs come and go — the
+    // Lists tile is pro-only, so that row is two-up for some people and
+    // three-up for others. A strip just runs on, and matches the garage and
+    // posts rows below it.
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.tilesRow}
+      snapToInterval={TILE_WIDTH + 10}
+      snapToAlignment="start"
+      decelerationRate="fast"
+    >
       {visibleTabs.map((t) => (
         <TouchableOpacity
           key={t.key}
           style={[styles.tile, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => setActiveSection(t.key)}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${countFor(t.key)} ${t.label}`}
         >
           <Text style={[styles.tileCount, { color: colors.fg }]}>{countFor(t.key)}</Text>
           <Text style={[styles.tileLabel, { color: colors.grey }]}>{t.label}</Text>
         </TouchableOpacity>
       ))}
-    </View>
+      <RowEndSpacer width={12} />
+    </ScrollView>
   );
 
   // ── Garage — lives on the page rather than behind a tile ──────────────────
@@ -455,27 +521,79 @@ export default function ProfileScreen() {
           style={styles.bannerScrim}
           pointerEvents="none"
         />
-      </View>
-      <View style={styles.avatarRow}>
-        <View style={styles.avatarWrap}>
-          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={104} />
-        </View>
-        {isOwnProfile ? (
-          <View style={styles.headerActions}>
+
+        {/* Your own shortcuts, on the cover rather than in a row of their own —
+            they're navigation, not part of the introduction, and the avatar
+            overlaps only the bottom-left of the banner so this corner is free.
+            Translucent discs so they read over any photo. */}
+        {isOwnProfile && (
+          <View style={styles.bannerActions}>
             <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={styles.bannerIconBtn}
               onPress={() => (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } })}
+              accessibilityRole="button"
+              accessibilityLabel="Your garage"
             >
-              <Warehouse size={20} color={colors.primaryAlt} />
+              <Warehouse size={19} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={styles.bannerIconBtn}
               onPress={() => (navigation as any).navigate('Settings')}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
             >
-              <Settings size={20} color={colors.primaryAlt} />
+              <Settings size={19} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        ) : (
+        )}
+      </View>
+      <View style={styles.avatarRow}>
+        {/* The ring and the badge ride on a box outside the avatar: the avatar
+            itself clips to a circle, so a badge inside it would be cut in half.
+            Same gold ring and wheel a pro member gets in the member list. */}
+        <View style={[styles.avatarBox, viewedIsPro && styles.avatarBoxPro]}>
+          <View style={styles.avatarWrap}>
+            <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={104} />
+          </View>
+          {viewedIsPro && (
+            <View style={styles.proWheel}>
+              <SteeringWheel size={19} color="#000000" strokeWidth={2.5} />
+            </View>
+          )}
+          {/* Membership number, worn on the photo like the pro wheel — opposite
+              corner so the two never sit on top of each other. */}
+          {user.memberNumber ? (
+            // Gold is the pro mark — the wheel beside it says the same thing.
+            <View style={[
+              styles.memberBadge,
+              { backgroundColor: viewedIsPro ? BADGE_PRO : BADGE_MEMBER },
+            ]}>
+              <Text
+                style={[styles.memberBadgeText, { color: viewedIsPro ? '#000000' : '#FFFFFF' }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                {user.memberNumber}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Beside the photo rather than under it — the two are one
+            introduction, and the name had been sitting a block away from the
+            face it belongs to. */}
+        <View style={styles.identity}>
+          <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            @{user.username}
+          </Text>
+        </View>
+      </View>
+
+      {/* Their own row: with the name taking the space beside the avatar,
+          Follow / Message / ⋮ no longer fit alongside it. */}
+      {!isOwnProfile && (
+        <View style={styles.actionsRow}>
           <View style={styles.followRow}>
             <FollowButton username={user.username} />
             <TouchableOpacity
@@ -492,17 +610,10 @@ export default function ProfileScreen() {
               <MoreVertical size={18} color={colors.fg} />
             </TouchableOpacity>
           </View>
-        )}
-      </View>
-      <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: colors.fg }]}>@{user.username}</Text>
-          {user.memberNumber ? (
-            <View style={[styles.memberBadge, { backgroundColor: colors.primaryAlt }]}>
-              <Text style={styles.memberBadgeText}>#{user.memberNumber}</Text>
-            </View>
-          ) : null}
         </View>
+      )}
+
+      <View style={styles.info}>
         {user.bio ? (
           <View style={styles.bioWrap}>
             <Text
@@ -520,6 +631,17 @@ export default function ProfileScreen() {
           </View>
         ) : null}
       </View>
+
+      {/* Renders nothing until the server has one for them. Tapping it asks
+          the obvious follow-up question — who else is around here — which the
+          members list can now actually answer. */}
+      <RegionTile
+        filename={(user as any)?.regionMap?.filename}
+        cityState={(user as any)?.cityState}
+        onPress={viewedRegion
+          ? () => (navigation as any).navigate('Members', { region: viewedRegion.key })
+          : undefined}
+      />
     </View>
   );
 
@@ -529,10 +651,14 @@ export default function ProfileScreen() {
   // ── Modal content per section ─────────────────────────────────────────────
   const renderSectionContent = () => {
     switch (renderedSection) {
-      case 'posts':
+      case 'posts': {
+        const total = postsPageData?.total ?? postsData?.total ?? 0;
+        // Falls back to the strip's own list until the first page lands, so
+        // opening the pane doesn't flash empty.
+        const shown = allPosts.length > 0 ? allPosts : posts;
         return (
           <FlatList
-            data={posts}
+            data={shown}
             keyExtractor={(p: Post) => p.internal_id}
             contentContainerStyle={styles.modalList}
             showsVerticalScrollIndicator={false}
@@ -542,9 +668,19 @@ export default function ProfileScreen() {
                 onPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
               />
             )}
+            onEndReachedThreshold={0.4}
+            onEndReached={() => {
+              if (!postsFetching && shown.length < total) setPostsPage((p) => p + 1);
+            }}
+            ListFooterComponent={
+              postsFetching && shown.length > 0
+                ? <ActivityIndicator style={styles.listFooter} color={colors.primaryAlt} />
+                : null
+            }
             ListEmptyComponent={<EmptyState title="No posts yet" />}
           />
         );
+      }
       case 'followers':
       case 'following': {
         const source = renderedSection === 'followers' ? followers : following;
@@ -629,6 +765,18 @@ export default function ProfileScreen() {
         {profileHeader}
         {tilesEl}
         {garageEl}
+        {/* Their posts, the same shape as the garage above it. "View all"
+            opens the same pane the Posts tile does. */}
+        <PostStrip
+          title="Posts"
+          posts={posts.slice(0, STRIP_PREVIEW_COUNT)}
+          total={postsData?.total ?? posts.length}
+          // Every post here is theirs, so a byline on each card would just be
+          // the same name six times.
+          showByline={false}
+          onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
+          onViewAll={() => setActiveSection('posts')}
+        />
       </ScrollView>
 
       <Modal
@@ -666,12 +814,37 @@ const styles = StyleSheet.create({
   // Taller than a classic cover strip because the floating header sits over its
   // top portion — this keeps a usable amount of image visible beneath it.
   // 10/9 is the old 5/3 with 50% more height.
-  bannerContainer: { width: '100%', aspectRatio: 10 / 9 },
+  bannerContainer: { width: '100%', aspectRatio: 10 / 8 },
   banner:          { width: '100%', height: '100%' },
   // Neutral, not brand-colored — at this height a solid accent block dominates
   // the screen for anyone without a cover image.
   bannerScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '60%' },
-  avatarRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 16, marginTop: -52 },
+  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 16, marginTop: -52 },
+  // Sits on the avatar's baseline, with a little lift so it reads level with
+  // the photo rather than hanging off its bottom edge.
+  identity:        { flex: 1, minWidth: 0, paddingBottom: 10 },
+  actionsRow:      { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 12 },
+  // Clear of the avatar, which overlaps the banner's bottom-left by 52.
+  bannerActions:   { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
+  bannerIconBtn:   {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.28)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarBox:       { position: 'relative' },
+  // Pads out to hold the ring clear of the photo, so the avatar reads at the
+  // same 104 either way.
+  avatarBoxPro:    {
+    padding: 0,
+    borderWidth: 5, borderColor: colors.pro, borderRadius: 60,
+  },
+  proWheel: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: colors.pro,
+    alignItems: 'center', justifyContent: 'center',
+  },
   avatarWrap:      {
     width: 104, height: 104, borderRadius: 52,
     overflow: 'hidden',
@@ -679,35 +852,38 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
-  headerActions: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  headerActions: { flexDirection: 'row', gap: 8 },
   iconBtn:       {
     width: 36, height: 36, borderRadius: 18, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  followRow:  { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  followRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   msgBtn:     { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
   msgBtnText: { fontSize: 14, fontWeight: '600' },
   profileMenuBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
-  info:       { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
-  nameRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  name:       { fontSize: 20, fontWeight: '800' },
+  info:       { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 3 },
+  name:       { fontSize: 22, fontWeight: '800' },
+  // Bottom-left of the photo — the pro wheel owns the bottom-right. A true
+  // circle: fixed on both axes rather than stretched by its padding, so a
+  // three-digit number and a one-digit number are the same shape. Long numbers
+  // scale their text down instead of pulling it into an oval.
   memberBadge: {
-    minWidth: 26, height: 26, borderRadius: 13,
-    paddingHorizontal: 8,
+    position: 'absolute', bottom: -2, left: -2,
+    width: 32, height: 32, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
   },
-  memberBadgeText: { color: '#000000', fontSize: 13, fontWeight: '800' },
+  memberBadgeText: {
+    fontSize: 12, fontWeight: '800',
+    textAlign: 'center', paddingHorizontal: 2,
+  },
   username:   { fontSize: 14, marginTop: 2 },
   bioWrap:    { marginTop: 8 },
   bio:        { fontSize: 14, lineHeight: 20 },
   moreLink:   { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginTop: 4 },
   location:   { fontSize: 13, marginTop: 4 },
-  tilesGrid:  {
-    flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: 12, paddingTop: 4, gap: 10,
-  },
+  tilesRow:   { paddingLeft: 12, paddingTop: 4, gap: 10 },
   tile:       {
-    flexBasis: '48%', flexGrow: 1,
+    width: TILE_WIDTH,
     borderRadius: 12, borderWidth: 1,
     paddingVertical: 16, paddingHorizontal: 14,
     alignItems: 'center', justifyContent: 'center', gap: 2,
@@ -723,6 +899,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
   },
   sheetTitle:    { fontSize: 17, fontWeight: '800' },
+  listFooter:    { paddingVertical: 18 },
   modalList:     { paddingBottom: 32 },
   userSearchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
