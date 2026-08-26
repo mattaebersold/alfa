@@ -42,7 +42,7 @@ function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
   return (
     <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.avatarWrap, isPro && styles.proRing]}>
-        <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={44} />
+        <Avatar user={user} size={44} />
         {isPro && (
           <View style={styles.proWheelBadge}>
             <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />

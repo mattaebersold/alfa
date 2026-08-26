@@ -215,7 +215,7 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={44} />
+      <Avatar user={user} size={44} />
       <Text style={[styles.userRowName, { color: colors.fg, flex: 1 }]}>@{user.username}</Text>
       {isBlocked ? (
         <>
@@ -553,7 +553,7 @@ export default function ProfileScreen() {
             Same gold ring and wheel a pro member gets in the member list. */}
         <View style={[styles.avatarBox, viewedIsPro && styles.avatarBoxPro]}>
           <View style={styles.avatarWrap}>
-            <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={104} />
+            <Avatar user={user} size={104} />
           </View>
           {viewedIsPro && (
             <View style={styles.proWheel}>

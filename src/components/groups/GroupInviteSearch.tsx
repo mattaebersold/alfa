@@ -141,7 +141,7 @@ export default function GroupInviteSearch({
           const busy = pending === user.user_id;
           return (
             <View key={user.user_id} style={[styles.row, { borderBottomColor: c.borderDark }]}>
-              <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={compact ? 32 : 38} />
+              <Avatar user={user} size={compact ? 32 : 38} />
               <View style={styles.rowText}>
                 <Text style={[styles.username, { color: c.fg }]} numberOfLines={1}>
                   @{user.username}

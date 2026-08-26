@@ -32,7 +32,6 @@ function shuffle<T>(arr: T[]): T[] {
 function FeaturedCard({ car, onPress }: { car: any; onPress: () => void }) {
   const { data: owner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id });
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? `${S3}${car.profile_image}` : null);
-  const avatarFilename = owner?.gallery?.[0]?.filename ?? owner?.profilePicture;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
@@ -53,7 +52,7 @@ function FeaturedCard({ car, onPress }: { car: any; onPress: () => void }) {
             </Text>
           </View>
           {owner && (
-            <Avatar filename={avatarFilename} name={owner.username ?? '?'} size={36} />
+            <Avatar user={owner} size={36} />
           )}
         </View>
       </View>

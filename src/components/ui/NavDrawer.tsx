@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LogOut } from 'lucide-react-native';
 import Avatar from './Avatar';
 import { useAppSelector, useAppDispatch } from '../../store/store';
-import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
+import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { CONFIG } from '../../constants/config';
@@ -117,17 +117,12 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const isPro = useIsPro();
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
-  // Same sources as the header's red dot, so the badges always agree with it.
+  // The bell's own count, so the drawer and the header always agree.
   const { data: notifData } = useGetUnreadNotificationCountQuery(undefined, {
     skip: !isLoggedIn,
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
-  const { data: msgData } = useGetUnreadMessageCountQuery(undefined, {
-    skip: !isLoggedIn,
-    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
-  });
   const notifCount = notifData?.count ?? 0;
-  const messageCount = msgData?.count ?? 0;
 
   // Upcoming events you've flagged interest in — the bubble on "Your Events".
   const { data: myEventsData } = useGetMyEventsCountQuery(undefined, { skip: !isLoggedIn });
@@ -230,10 +225,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
             <View style={styles.panelHeader}>
               <Text style={[styles.panelLogo, { color: textHi }]} numberOfLines={1}>Open Road Society</Text>
               <View style={styles.headerActions}>
+                {/* No count. An unread message raises a notice in the
+                    notifications list, which is where you'll have seen it —
+                    a second red bubble here would be the same news told twice,
+                    and the one place it can't be acted on. */}
                 <HeaderIconButton
                   Icon={Mail}
                   label="Messages"
-                  count={messageCount}
                   bg={closeBtnBg}
                   tint={textMid}
                   onPress={() => closeThen(() => navigation.navigate('Messages'))}
@@ -260,8 +258,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 activeOpacity={0.8}
               >
                 <Avatar
-                  filename={userInfo.gallery?.[0]?.filename}
-                  name={userInfo.username ?? '?'}
+                  user={userInfo}
                   size={44}
                 />
                 <View style={styles.userCardText}>

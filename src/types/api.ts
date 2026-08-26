@@ -15,6 +15,12 @@ export interface User {
    */
   regionMap?: { filename?: string } | null;
   profilePicture?: string;
+  /**
+   * The ground this member's initials sit on when they have no photo. Absent on
+   * accounts created before the field existed — Avatar derives the same colour
+   * from user_id in that case. See utils/avatarColor.
+   */
+  avatarColor?: string;
   gallery?: GalleryItem[];
   banners?: GalleryItem[];
   accountType?: 'admin' | 'pro' | 'basic';

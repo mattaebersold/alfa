@@ -30,8 +30,7 @@ function MemberRow({ member, onPress }: {
       activeOpacity={0.7}
     >
       <Avatar
-        filename={member.user?.gallery?.[0]?.filename}
-        name={member.user?.username ?? '?'}
+        user={member.user}
         size={42}
       />
       <View style={styles.info}>

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { ChevronUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, MapPin, Maximize2 } from 'lucide-react-native';
+import { ThumbsUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, MapPin, Maximize2 } from 'lucide-react-native';
 import RouteMap from '../../components/routes/RouteMap';
 import RouteMapFullScreen from '../../components/routes/RouteMapFullScreen';
 import Spinner from '../../components/ui/Spinner';
 import Avatar from '../../components/ui/Avatar';
+import LikersSheet from '../../components/social/LikersSheet';
 import { useGetRouteQuery, useVoteRouteMutation, useUnvoteRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
@@ -35,6 +36,7 @@ export default function RouteDetailScreen() {
   // Above the loading guard: a hook after an early return runs on some renders
   // and not others, which is the one thing hooks can't survive.
   const [fullMap, setFullMap] = useState(false);
+  const [votersOpen, setVotersOpen] = useState(false);
 
   if (isLoading || !data) return <Spinner />;
 
@@ -77,6 +79,14 @@ export default function RouteDetailScreen() {
         </TouchableOpacity>
       )}
 
+      <LikersSheet
+        entryId={entry.internal_id}
+        visible={votersOpen}
+        onClose={() => setVotersOpen(false)}
+        title="Voted by"
+        emptyText="No votes yet. Be the first!"
+      />
+
       <RouteMapFullScreen
         visible={fullMap}
         onClose={() => setFullMap(false)}
@@ -99,8 +109,7 @@ export default function RouteDetailScreen() {
         {user && (
           <View style={styles.author}>
             <Avatar
-              filename={user.gallery?.[0]?.filename ?? user.profilePicture}
-              name={user.username ?? '?'}
+              user={user}
               size={30}
             />
             <Text style={[styles.authorName, { color: colors.fg }]}>@{user.username}</Text>
@@ -108,21 +117,41 @@ export default function RouteDetailScreen() {
         )}
 
         <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={[
-            styles.voteBtn,
-            has_voted
-              ? { backgroundColor: brand, borderColor: brand }
-              : { borderColor: colors.border },
-          ]}
-          onPress={toggleVote}
-          activeOpacity={0.85}
-        >
-          <ChevronUp size={19} color={has_voted ? onBrand : colors.fg} />
-          <Text style={[styles.voteLabel, { color: has_voted ? onBrand : colors.fg }]}>
-            {vote_count} {vote_count === 1 ? 'vote' : 'votes'}
-          </Text>
-        </TouchableOpacity>
+        {/* One pill, two jobs. The thumb is the vote; the count is the list of
+            who else cast one. Splitting them is what lets a tally you can read
+            also be a tally you can open — as one target, seeing the voters
+            would have meant voting for the route first. */}
+        <View style={[
+          styles.votePill,
+          has_voted
+            ? { backgroundColor: brand, borderColor: brand }
+            : { borderColor: colors.border },
+        ]}>
+          <TouchableOpacity
+            style={styles.voteToggle}
+            onPress={toggleVote}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={has_voted ? 'Remove your vote' : 'Vote for this route'}
+          >
+            <ThumbsUp size={18} color={has_voted ? onBrand : colors.fg} strokeWidth={2.4} />
+          </TouchableOpacity>
+          <View style={[
+            styles.voteDivider,
+            { backgroundColor: has_voted ? onBrand : colors.border },
+          ]} />
+          <TouchableOpacity
+            style={styles.voteCount}
+            onPress={() => setVotersOpen(true)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`See who voted — ${vote_count} ${vote_count === 1 ? 'vote' : 'votes'}`}
+          >
+            <Text style={[styles.voteLabel, { color: has_voted ? onBrand : colors.fg }]}>
+              {vote_count} {vote_count === 1 ? 'vote' : 'votes'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Hands the route's corners to a maps app, which then does real
             turn-by-turn along the same roads. */}
@@ -253,9 +282,23 @@ const styles = StyleSheet.create({
   authorName: { fontSize: 14, fontWeight: '700' },
 
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  voteBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    paddingHorizontal: 16, height: 42, borderRadius: 100, borderWidth: 1.5,
+  votePill: {
+    flexDirection: 'row', alignItems: 'center',
+    height: 42, borderRadius: 100, borderWidth: 1.5,
+    // The two halves supply their own padding, so the pill supplies none —
+    // otherwise the divider ends up inset from the tap targets either side.
+    overflow: 'hidden',
+  },
+  voteToggle: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingLeft: 15, paddingRight: 12, height: '100%',
+  },
+  // Hairline rather than a full rule: it separates two halves of one control,
+  // not two controls.
+  voteDivider: { width: StyleSheet.hairlineWidth, height: 18, opacity: 0.5 },
+  voteCount: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingLeft: 12, paddingRight: 15, height: '100%',
   },
   voteLabel: { fontSize: 15, fontWeight: '800' },
   followBtn: {

@@ -108,11 +108,24 @@ export default function RootNavigator() {
    * Older pushes carry no data and simply open where the app left off.
    */
   const navigateFor = (content: Notifications.NotificationContent) => {
-    const data = content.data as { content_type?: string; content_id?: string } | undefined;
-    if (!data?.content_type || !data?.content_id) return;
+    const data = content.data as {
+      type?: string;
+      content_type?: string;
+      content_id?: string;
+      thread_id?: string;
+      sender_id?: string;
+    } | undefined;
+    if (!data) return;
+    // A message push predating the generic pair carries only `thread_id` — the
+    // mapper takes it from the metadata, so hand the whole payload over rather
+    // than bailing on the two fields being absent.
+    if (!data.content_type && !data.type) return;
     const target = notificationTarget({
+      type: data.type,
       content_type: data.content_type,
       content_id: data.content_id,
+      senderUserId: data.sender_id,
+      metadata: data,
     });
     if (target) navigateFromOutside(target.name, target.params);
   };

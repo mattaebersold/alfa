@@ -19,7 +19,7 @@ function LikerRow({ userId, onPress }: { userId: string; onPress: (userId: strin
       accessibilityRole="button"
       accessibilityLabel={`View @${user.username}`}
     >
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={40} />
+      <Avatar user={user} size={40} />
       <View style={styles.rowText}>
         <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
         {[user.firstName, user.lastName].filter(Boolean).length > 0 && (
@@ -48,12 +48,21 @@ export default function LikersSheet({
   visible,
   onClose,
   origin,
+  title = 'Liked by',
+  emptyText = 'No likes yet. Be the first!',
 }: {
   entryId: string;
   visible: boolean;
   onClose: () => void;
   /** The row this grew out of — see SummaryTouchable. */
   origin?: SummaryOrigin | null;
+  /**
+   * What the panel calls the list. A route's votes live in the same Like
+   * collection as a post's hearts, so the same panel answers both questions —
+   * it just shouldn't call an upvote a like.
+   */
+  title?: string;
+  emptyText?: string;
 }) {
   const colors = useColors();
   const nav = useNavigation<any>();
@@ -69,13 +78,13 @@ export default function LikersSheet({
     <SummaryModal visible={visible} onClose={onClose} origin={origin}>
       <View style={styles.body}>
         <Text style={[styles.title, { color: colors.fg }]}>
-          Liked by{data?.total ? ` · ${data.total}` : ''}
+          {title}{data?.total ? ` · ${data.total}` : ''}
         </Text>
 
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primaryAlt} style={styles.loader} />
         ) : userIds.length === 0 ? (
-          <Text style={[styles.empty, { color: colors.grey }]}>No likes yet. Be the first!</Text>
+          <Text style={[styles.empty, { color: colors.grey }]}>{emptyText}</Text>
         ) : (
           // Mapped, not listed: SummaryModal brings its own scroller, and the
           // like count on a post never runs to the length where virtualising

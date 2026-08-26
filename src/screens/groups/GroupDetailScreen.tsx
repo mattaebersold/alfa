@@ -281,7 +281,7 @@ export default function GroupDetailScreen() {
             <View style={styles.avatarRow}>
               {activeMembers.slice(0, AVATAR_PREVIEW).map((m) => (
                 <View key={m.user_id} style={styles.avatarWrap}>
-                  <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={30} />
+                  <Avatar user={m.user} size={30} />
                 </View>
               ))}
               {activeMembers.length > AVATAR_PREVIEW && (
@@ -483,8 +483,7 @@ export default function GroupDetailScreen() {
                 }}
               >
                 <Avatar
-                  filename={item.user?.gallery?.[0]?.filename}
-                  name={item.user?.username ?? '?'}
+                  user={item.user}
                   size={40}
                 />
                 <View style={styles.memberNameWrap}>

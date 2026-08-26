@@ -71,7 +71,7 @@ export default function UserSummaryModal({
       ) : (
         <View style={styles.body}>
           <View style={styles.head}>
-            <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={72} />
+            <Avatar user={user} size={72} />
             <View style={styles.headText}>
               <View style={styles.nameRow}>
                 <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>

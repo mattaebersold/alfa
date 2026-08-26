@@ -42,8 +42,7 @@ function MessageBubble({ message, isMe, otherUser, showTime }: {
     <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
       {!isMe && (
         <Avatar
-          filename={sender?.gallery?.[0]?.filename}
-          name={sender?.username ?? '?'}
+          user={sender}
           size={28}
         />
       )}
@@ -159,8 +158,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       }}
     >
       <Avatar
-        filename={otherUser?.gallery?.[0]?.filename ?? otherUser?.profilePicture}
-        name={otherUser?.username ?? '?'}
+        user={otherUser}
         size={30}
       />
       {otherUser?.username ? (

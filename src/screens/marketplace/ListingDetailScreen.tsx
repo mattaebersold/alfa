@@ -83,8 +83,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
             <View>
               <View style={[styles.postHeader, { backgroundColor: colors.card }]}>
                 <Avatar
-                  filename={post.user?.gallery?.[0]?.filename ?? post.user?.profilePicture}
-                  name={displayName}
+                  user={post.user}
                   size={40}
                 />
                 <View style={styles.postHeaderText}>
@@ -204,8 +203,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
           )}
           <View style={styles.inputRow}>
             <Avatar
-              filename={userInfo?.gallery?.[0]?.filename}
-              name={userInfo?.username ?? '?'}
+              user={userInfo}
               size={32}
             />
             <TextInput

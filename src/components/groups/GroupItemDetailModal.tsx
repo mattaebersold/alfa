@@ -127,7 +127,7 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
           ) : null}
           <Text style={styles.title}>{d.title}</Text>
           <View style={styles.meta}>
-            <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={26} />
+            <Avatar user={d.user} size={26} />
             <Text style={styles.metaText}>@{d.user?.username} · {timeAgo}</Text>
           </View>
           {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}

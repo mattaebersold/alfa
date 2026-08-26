@@ -159,8 +159,7 @@ export default function CarSummaryModal({
               activeOpacity={0.7}
             >
               <Avatar
-                filename={car.user?.gallery?.[0]?.filename}
-                name={car.user?.username ?? '?'}
+                user={car.user}
                 size={34}
               />
               <View style={styles.ownerText}>

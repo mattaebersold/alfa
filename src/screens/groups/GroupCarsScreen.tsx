@@ -33,7 +33,7 @@ function CarRow({ car, onPress }: { car: GarageCar; onPress: (origin: SummaryOri
         </Text>
         {car.user && (
           <View style={styles.ownerRow}>
-            <Avatar filename={car.user.gallery?.[0]?.filename} name={car.user.username ?? '?'} size={18} />
+            <Avatar user={car.user} size={18} />
             <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
               @{car.user.username}
             </Text>

@@ -252,7 +252,7 @@ export default function SettingsScreen() {
         <SectionHeader title="Photos" />
         <View style={[styles.photoRow, { backgroundColor: colors.bgDark, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.photoItem} onPress={() => pickAndUpload('gallery', [1, 1])} disabled={uploadingImage}>
-            <Avatar filename={user?.gallery?.[0]?.filename} name={user?.firstName ?? '?'} size={64} />
+            <Avatar user={user} size={64} />
             <Text style={[styles.photoLabel, { color: colors.grey }]}>Avatar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.photoBanner} onPress={() => pickAndUpload('banners', [3, 1])} disabled={uploadingImage}>

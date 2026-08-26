@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { MoreVertical } from 'lucide-react-native';
-import Avatar from '../ui/Avatar';
+import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { CATEGORY_LABELS } from '../ui/Badge';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { useColors } from '../../hooks/useColors';
@@ -31,8 +31,7 @@ interface Props {
    * posted is part of the answer — a group's feed — and leave it off where
    * everything in the list is by the same person.
    */
-  avatarFilename?: string | null;
-  avatarName?: string | null;
+  avatarUser?: AvatarUser | null;
   category?: string | null;
   onPress?: () => void;
   /** Supply to show the ⋮; omitted means no menu for this viewer. */
@@ -51,7 +50,7 @@ interface Props {
 const THUMB = 108;
 
 export default function RecordRow({
-  title, imageUri, meta, avatarFilename, avatarName, category, onPress, onMenuPress,
+  title, imageUri, meta, avatarUser, category, onPress, onMenuPress,
   fg, border, placeholder,
 }: Props) {
   const c = useColors();
@@ -84,8 +83,8 @@ export default function RecordRow({
         ) : null}
         {meta ? (
           <View style={styles.metaRow}>
-            {avatarFilename !== undefined && (
-              <Avatar filename={avatarFilename ?? undefined} name={avatarName ?? '?'} size={20} />
+            {avatarUser !== undefined && (
+              <Avatar user={avatarUser} size={20} />
             )}
             <Text style={[styles.meta, { color: c.grey }]} numberOfLines={1}>{meta}</Text>
           </View>

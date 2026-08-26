@@ -79,7 +79,7 @@ export default function GarageAdditionCard({ car }: { car: GarageCar }) {
         activeOpacity={0.7}
         disabled={!owner}
       >
-        <Avatar filename={owner?.gallery?.[0]?.filename} name={owner?.username ?? '?'} size={28} />
+        <Avatar user={owner} size={28} />
         <View style={styles.attributionText}>
           <Text style={styles.line} numberOfLines={1}>
             <Text style={styles.name}>@{owner?.username ?? 'Someone'}</Text>

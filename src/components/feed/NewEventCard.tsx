@@ -26,7 +26,7 @@ export default function NewEventCard({ event }: { event: SocietyEvent }) {
         activeOpacity={0.7}
         disabled={!owner}
       >
-        <Avatar filename={owner?.gallery?.[0]?.filename} name={owner?.username ?? '?'} size={30} />
+        <Avatar user={owner} size={30} />
         <Text style={[styles.line, { color: colors.fg }]} numberOfLines={2}>
           <Text style={styles.name}>@{owner?.username ?? 'Someone'}</Text>
           <Text style={{ color: colors.muted }}> added a new event</Text>

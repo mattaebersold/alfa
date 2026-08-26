@@ -33,8 +33,7 @@ function NewsCard({ post }: { post: GroupNewsPost }) {
         )}
         <View style={styles.cardMeta}>
           <Avatar
-            filename={post.user?.gallery?.[0]?.filename}
-            name={post.user?.username ?? '?'}
+            user={post.user}
             size={20}
           />
           <Text style={[styles.metaText, { color: colors.grey }]}>

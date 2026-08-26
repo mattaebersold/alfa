@@ -78,8 +78,7 @@ export default function MentionInput({
               activeOpacity={0.7}
             >
               <Avatar
-                filename={item.gallery?.[0]?.filename ?? item.profilePicture}
-                name={item.username}
+                user={item}
                 size={28}
               />
               <Text style={[styles.username, { color: c.fg }]}>@{item.username}</Text>

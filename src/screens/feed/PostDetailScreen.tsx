@@ -308,8 +308,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   activeOpacity={0.7}
                 >
                   <Avatar
-                    filename={post.user?.gallery?.[0]?.filename ?? post.user?.profilePicture}
-                    name={displayName}
+                    user={post.user}
                     size={40}
                   />
                   <View style={styles.postHeaderText}>
@@ -454,7 +453,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             </View>
           )}
           <View style={styles.inputRow}>
-            <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={32} />
+            <Avatar user={userInfo} size={32} />
             <TextInput
               style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
               value={commentText}

@@ -7,11 +7,13 @@ import { Bell, X } from 'lucide-react-native';
 import NotificationsList, { DeleteAllButton } from '../notifications/NotificationsList';
 import { useGetUnreadNotificationCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { colors } from '../../constants/colors';
 import { CONFIG } from '../../constants/config';
+import { useBrandColor } from '../../hooks/useBrandColor';
 
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 44;
+/** Black, like every other glyph in the header. */
+const ICON = '#000000';
 const BTN_RADIUS = 15;
 /** How much of the screen the opened panel takes. */
 const PANEL_RATIO = 0.9;
@@ -27,7 +29,7 @@ const BADGE_MAX = 10;
  * appears and disappears is one people stop reaching for.
  *
  * Tapping it grows the button itself into the panel rather than pushing a
- * screen, and the gold carries over — the box is still the button for the first
+ * screen, and its fill carries over — the box is still the button for the first
  * part of the move, bleeding to black as it takes the screen, so what you get
  * reads as the thing you pressed rather than as a new surface that replaced it.
  *
@@ -49,7 +51,7 @@ const BADGE_MAX = 10;
  * fades. Nothing re-measures while the box moves.
  *
  * Colour follows from the same split: it can't be interpolated on the native
- * driver, so gold-to-black is a gold layer fading off a black one.
+ * driver, so tint-to-black is a tinted layer fading off a black one.
  *
  * The list that lands inside is the same component the full-screen
  * notifications route renders, so nothing about a notification behaves
@@ -64,6 +66,11 @@ export default function NotificationsBell() {
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
   const count = data?.count ?? 0;
+
+  // The same fill the rest of the header wears — gold on a Pro account, the
+  // accent blue otherwise. It used to be gold for everyone, which left the one
+  // button in a standard header that didn't match the row it sat in.
+  const tint = useBrandColor();
 
   const btnRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
@@ -177,7 +184,7 @@ export default function NotificationsBell() {
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
-      // Straight back in, so the bell and count are over the gold for the whole
+      // Straight back in, so the bell and count are over the fill for the whole
       // collapse instead of turning up once it has already landed.
       Animated.timing(ghost, {
         toValue: 1,
@@ -201,13 +208,13 @@ export default function NotificationsBell() {
     <>
       <TouchableOpacity
         ref={btnRef}
-        style={styles.btn}
+        style={[styles.btn, { backgroundColor: tint }]}
         onPress={openPanel}
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={`Notifications, ${count} unread`}
       >
-        <Bell size={21} color="#000000" strokeWidth={2.4} />
+        <Bell size={21} color={ICON} strokeWidth={2.4} />
         {/* Not while the panel is up: the copy riding the box carries the
             bubble then, and by the tail of the collapse the scrim has faded
             enough to show this one too — two badges, a few pixels apart,
@@ -261,7 +268,8 @@ export default function NotificationsBell() {
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              styles.morphGold,
+              styles.morphTint,
+              { backgroundColor: tint },
               {
                 opacity: box.interpolate({
                   inputRange: [0, 0.6], outputRange: [1, 0], extrapolate: 'clamp',
@@ -274,9 +282,9 @@ export default function NotificationsBell() {
         {/* The button's own face, redrawn inside the modal.
             The real one in the header is behind this whole window, so during
             the grow and the shrink it is simply not visible — the bell and its
-            count would vanish under the gold box the moment you pressed, and
+            count would vanish under the tinted box the moment you pressed, and
             reappear only once the modal was gone. This tracks the box's leading
-            corner at the button's own size, sits above the gold, and fades out
+            corner at the button's own size, sits above the fill, and fades out
             as the box takes the screen. On the way back it fades in over the
             shrinking box and hands off to the real button underneath. */}
         <Animated.View
@@ -296,7 +304,7 @@ export default function NotificationsBell() {
               "Style property 'left' is not supported by native animated module"
               followed by the JS animation refusing to run at all. */}
           <Animated.View style={[styles.ghostFace, { opacity: ghost }]}>
-            <Bell size={21} color="#000000" strokeWidth={2.4} />
+            <Bell size={21} color={ICON} strokeWidth={2.4} />
             {count > 0 && (
               <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
                 <Text style={styles.badgeText}>
@@ -353,7 +361,6 @@ const styles = StyleSheet.create({
     width: BTN, height: BTN,
     borderRadius: BTN_RADIUS,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.pro,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
@@ -391,7 +398,7 @@ const styles = StyleSheet.create({
    * differently. iOS honours tree order and zIndex; Android honours elevation
    * *over* tree order, so a later sibling with no elevation of its own is
    * painted underneath this box's 20 — which is precisely what put the bell and
-   * the count behind the gold while it shrank.
+   * the count behind the fill while it shrank.
    */
   morphBox: {
     position: 'absolute',
@@ -413,8 +420,9 @@ const styles = StyleSheet.create({
   },
   morphBlack: { backgroundColor: '#000000' },
   // Fades off the black beneath it — colour can't be interpolated natively, and
-  // two layers cross-fading is the same picture without the bridge traffic.
-  morphGold: { backgroundColor: colors.pro },
+  // two layers cross-fading is the same picture without the bridge traffic. The
+  // fill itself is passed in, so the box leaves as whatever the button was.
+  morphTint: {},
 
   content: {
     position: 'absolute',

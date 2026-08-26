@@ -109,7 +109,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
   const { data: fetchedUser } = useGetUserByIdQuery(post.user_id, { skip: !post.user_id });
   const user = fetchedUser ?? post.user ?? post.user_objectid;
-  const avatarFilename = user?.gallery?.[0]?.filename ?? user?.profilePicture;
   const displayName = user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';  // for LikeButton API calls
   const badgeType = post.type ?? post.entry_type ?? 'post';  // what the user actually chose
@@ -143,7 +142,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         onPress={() => user?.user_id && navigation.navigate('UserDetail', { userId: user.user_id, username: user.username })}
         activeOpacity={0.7}
       >
-        <Avatar filename={avatarFilename} name={displayName} size={36} />
+        <Avatar user={user} size={36} />
         <View style={styles.headerText}>
           <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
         </View>

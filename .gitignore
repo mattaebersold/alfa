@@ -40,9 +40,13 @@ yarn-error.*
 /ios
 /android
 
-# Google Play service account key (secret — never commit)
+# Service account keys — Google Play submissions and the Firebase Admin SDK
+# (secret — never commit). google-services.json is deliberately NOT here: it
+# carries no secret, it ships inside every APK, and EAS Build honours this file
+# when it uploads the project, so ignoring it means cloud builds can't find it
+# and the google-services Gradle plugin fails.
 open-road-society-*.json
-google-services.json
+*-firebase-adminsdk-*.json
 
 # Local typecheck config (TS6 deprecation shim) — kept out of the repo
 tsconfig.check.json

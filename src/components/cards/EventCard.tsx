@@ -45,7 +45,7 @@ function InterestedStack({ users, total }: { users?: User[]; total: number }) {
     <View style={styles.stack}>
       {users.map((user, i) => (
         <View key={user.user_id} style={i > 0 ? styles.stackOverlap : undefined}>
-          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={30} />
+          <Avatar user={user} size={30} />
         </View>
       ))}
       {extra > 0 && (

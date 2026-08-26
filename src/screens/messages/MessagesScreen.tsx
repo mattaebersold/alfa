@@ -94,8 +94,7 @@ function ConversationRow({
     >
       {hasUnread && <View style={[styles.unreadBar, { backgroundColor: colors.primaryAlt }]} />}
       <Avatar
-        filename={other?.gallery?.[0]?.filename}
-        name={other?.username ?? '?'}
+        user={other}
         size={44}
       />
       <View style={styles.rowContent}>

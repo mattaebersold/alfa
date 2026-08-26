@@ -6,6 +6,12 @@ export interface NotificationRef {
   content_id?: string | null;
   /** Only the in-app list has a populated sender; a push payload does not. */
   senderUserId?: string | null;
+  /**
+   * The notification's own payload. A message notice carries the thread and who
+   * wrote it here, which is what MessageThread needs to open without first
+   * fetching the message to find out.
+   */
+  metadata?: Record<string, unknown> | null;
 }
 
 export type NavTarget = { name: keyof AppStackParamList; params: any };
@@ -20,6 +26,20 @@ export type NavTarget = { name: keyof AppStackParamList; params: any };
  */
 export function notificationTarget(n: NotificationRef): NavTarget | null {
   const id = n.content_id;
+  // A message points at a conversation, not at a record — and it's the only
+  // kind whose target needs a second id, since the thread alone doesn't say who
+  // you're talking to.
+  if (n.type === 'message' || n.content_type === 'message') {
+    const threadId = id ?? (n.metadata?.thread_id as string | undefined);
+    if (!threadId) return null;
+    return {
+      name: 'MessageThread',
+      params: {
+        threadId,
+        recipientId: n.senderUserId ?? (n.metadata?.sender_id as string | undefined),
+      },
+    };
+  }
   if (n.type === 'follow') {
     const uid = n.senderUserId ?? id;
     return uid ? { name: 'UserDetail', params: { userId: uid } } : null;

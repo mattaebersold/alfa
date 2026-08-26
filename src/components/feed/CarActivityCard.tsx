@@ -58,7 +58,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
         activeOpacity={0.7}
         disabled={!owner}
       >
-        <Avatar filename={owner?.gallery?.[0]?.filename} name={owner?.username ?? '?'} size={30} />
+        <Avatar user={owner} size={30} />
         <View style={styles.attributionText}>
           <Text style={[styles.line, { color: colors.fg }]} numberOfLines={2}>
             <Text style={styles.name}>@{owner?.username ?? 'Someone'}</Text>

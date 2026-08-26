@@ -1021,7 +1021,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             onPress={() => { setPane(null); (localNav as any).navigate('UserDetail', { userId: u.user_id, username: u.username }); }}
             activeOpacity={0.7}
           >
-            <Avatar filename={u.gallery?.[0]?.filename} name={u.username ?? '?'} size={40} />
+            <Avatar user={u} size={40} />
             <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '600' }}>@{u.username}</Text>
           </TouchableOpacity>
         ));
@@ -1178,7 +1178,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
                   activeOpacity={0.8}
                 >
-                  <Avatar filename={owner.gallery?.[0]?.filename ?? owner.profilePicture} name={displayName} size={34} />
+                  <Avatar user={owner} size={34} />
                   <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{displayName}</Text>
                 </TouchableOpacity>
               )}
@@ -1188,7 +1188,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   onPress={() => appNav.navigate('UserDetail', { userId: coOwnerData.user_id })}
                   activeOpacity={0.8}
                 >
-                  <Avatar filename={coOwnerData.gallery?.[0]?.filename} name={coOwnerName} size={34} />
+                  <Avatar user={coOwnerData} size={34} />
                   <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{coOwnerName}</Text>
                   <View style={[styles.coOwnerBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
                     <Text style={[styles.coOwnerBadgeText, { color: '#FFFFFF' }]}>co</Text>

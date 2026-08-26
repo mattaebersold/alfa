@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable,
-  Keyboard, Platform, Dimensions,
+  Platform, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
+import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -66,47 +67,12 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
   const insets = useSafeAreaInsets();
 
   /**
-   * Keyboard clearance.
-   *
-   * KeyboardAvoidingView used to do this, but only on iOS — Android was passed
-   * `undefined`, i.e. no avoidance at all, so the keyboard covered the input.
-   * `adjustResize` doesn't rescue it either: this is a `statusBarTranslucent`
-   * Modal in an edge-to-edge app, and neither of those windows gets resized.
-   *
-   * Driving the inset from the keyboard events directly behaves the same on both
-   * platforms, and hands us the system's own animation curve to match.
+   * Keyboard clearance. The sheet sits on the bottom of the screen, which is
+   * exactly what the keyboard covers, so the inset needs no correction — the
+   * whole stack is simply padded up by it. See useKeyboardInset for why this
+   * isn't a KeyboardAvoidingView.
    */
-  const keyboardPad = useRef(new Animated.Value(0)).current;
-  const [keyboardUp, setKeyboardUp] = useState(false);
-
-  useEffect(() => {
-    // iOS reports `will` events ahead of the animation so we can move with it.
-    // Android only fires `did`, after the fact.
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const show = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardUp(true);
-      Animated.timing(keyboardPad, {
-        // The reported height is measured from the bottom of the screen, which
-        // is also where this sheet sits — so it needs no inset correction.
-        toValue: e.endCoordinates.height,
-        duration: e.duration || 220,
-        useNativeDriver: false, // padding isn't a native-driver property
-      }).start();
-    });
-
-    const hide = Keyboard.addListener(hideEvent, (e) => {
-      setKeyboardUp(false);
-      Animated.timing(keyboardPad, {
-        toValue: 0,
-        duration: e?.duration || 220,
-        useNativeDriver: false,
-      }).start();
-    });
-
-    return () => { show.remove(); hide.remove(); };
-  }, [keyboardPad]);
+  const { animated: keyboardPad, visible: keyboardUp } = useKeyboardInset();
 
   useEffect(() => {
     if (visible) {

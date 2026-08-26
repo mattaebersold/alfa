@@ -24,8 +24,7 @@ function ForumRow({ post }: { post: GroupForumPost }) {
   return (
     <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} activeOpacity={0.8}>
       <Avatar
-        filename={post.user?.gallery?.[0]?.filename}
-        name={post.user?.username ?? '?'}
+        user={post.user}
         size={38}
       />
       <View style={styles.rowContent}>

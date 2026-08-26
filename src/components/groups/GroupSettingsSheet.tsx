@@ -119,7 +119,7 @@ export default function GroupSettingsSheet({
               </Text>
               {pending.map((m) => (
                 <View key={m.user_id} style={[styles.memberRow, { borderTopColor: c.borderDark }]}>
-                  <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={36} />
+                  <Avatar user={m.user} size={36} />
                   <View style={styles.memberInfo}>
                     <Text style={[styles.memberName, { color: c.fg }]}>@{m.user?.username}</Text>
                   </View>
@@ -140,7 +140,7 @@ export default function GroupSettingsSheet({
                 const isMe = m.user_id === userInfo?.user_id;
                 return (
                   <View key={m.user_id} style={[styles.memberRow, { borderTopColor: c.borderDark }]}>
-                    <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={36} />
+                    <Avatar user={m.user} size={36} />
                     <View style={styles.memberInfo}>
                       <Text style={[styles.memberName, { color: c.fg }]}>@{m.user?.username}</Text>
                       {m.member_type === 'admin' && (

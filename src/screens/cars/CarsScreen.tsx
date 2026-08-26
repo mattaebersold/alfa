@@ -40,7 +40,7 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
         </Text>
         {owner && (
           <View style={styles.ownerRow}>
-            <Avatar filename={owner.gallery?.[0]?.filename} name={owner.username ?? '?'} size={20} />
+            <Avatar user={owner} size={20} />
             <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
           </View>
         )}

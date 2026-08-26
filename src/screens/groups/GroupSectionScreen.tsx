@@ -535,8 +535,7 @@ export default function GroupSectionScreen() {
             title={d.title ?? (d.body ? stripHtml(d.body) : null)}
             imageUri={hero}
             meta={[user?.username ? `@${user.username}` : null, timeAgo].filter(Boolean).join(' · ')}
-            avatarFilename={user?.gallery?.[0]?.filename ?? user?.profilePicture ?? null}
-            avatarName={user?.username}
+            avatarUser={user ?? null}
             category={d.category}
             onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
           />
@@ -565,7 +564,7 @@ export default function GroupSectionScreen() {
           <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
           <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body ?? '')}</Text>
           <View style={styles.forumByline}>
-            <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={20} />
+            <Avatar user={d.user} size={20} />
             <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
               @{d.user?.username} · {timeAgo}
             </Text>
@@ -586,7 +585,7 @@ export default function GroupSectionScreen() {
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
             {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
             <View style={styles.forumByline}>
-              <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={20} />
+              <Avatar user={d.user} size={20} />
               <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
                 {d.user?.username ? `@${d.user.username} · ` : ''}{timeAgo}
               </Text>
@@ -617,7 +616,7 @@ export default function GroupSectionScreen() {
           <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
           {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
           <View style={styles.forumByline}>
-            <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={20} />
+            <Avatar user={d.user} size={20} />
             <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
               {d.user?.username ? `@${d.user.username} · ` : ''}{timeAgo}
             </Text>
@@ -720,7 +719,7 @@ export default function GroupSectionScreen() {
             ) : null}
             {d.body ? <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={1}>{stripHtml(d.body)}</Text> : null}
             <View style={styles.forumByline}>
-              <Avatar filename={user?.gallery?.[0]?.filename ?? user?.profilePicture} name={user?.username ?? '?'} size={20} />
+              <Avatar user={user} size={20} />
               <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
                 {user?.username ? `@${user.username} · ` : ''}{timeAgo}
               </Text>
@@ -748,7 +747,7 @@ export default function GroupSectionScreen() {
           style={[styles.itemCard, { backgroundColor: c.card, borderColor: c.borderDark }]}
           onPress={(origin) => setUserSummary({ userId: d.user_id, origin })}
         >
-          <Avatar filename={d.user?.gallery?.[0]?.filename} name={d.user?.username ?? '?'} size={42} />
+          <Avatar user={d.user} size={42} />
           <View style={styles.memberNameWrap}>
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>@{d.user?.username}</Text>
             {d.member_type === 'admin' && (

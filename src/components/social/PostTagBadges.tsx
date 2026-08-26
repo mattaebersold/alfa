@@ -72,7 +72,7 @@ function UserTagRow({ id, go }: { id: string; go: Go }) {
       onPress={() => go((n) => n.navigate('UserDetail', { userId: user.user_id, username: user.username }))}
       activeOpacity={0.75}
     >
-      <Avatar filename={user.gallery?.[0]?.filename ?? user.profilePicture} name={user.username ?? '?'} size={28} />
+      <Avatar user={user} size={28} />
       <Text style={[styles.badgeName, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
     </TouchableOpacity>
   );

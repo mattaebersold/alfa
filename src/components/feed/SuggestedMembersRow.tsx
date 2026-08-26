@@ -37,8 +37,7 @@ function MemberCard({ member, onPress }: {
   return (
     <SummaryTouchable style={styles.card} onPress={onPress}>
       <Avatar
-        filename={member.gallery?.[0]?.filename ?? member.profilePicture}
-        name={member.username ?? '?'}
+        user={member}
         size={AVATAR_SIZE}
       />
       <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>

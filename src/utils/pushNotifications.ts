@@ -44,7 +44,21 @@ export async function registerForPushNotifications(): Promise<string | null> {
       projectId ? { projectId } : undefined
     );
     return data;
-  } catch {
+  } catch (err: any) {
+    // This used to swallow the error, which is how Android went a long time
+    // with no push at all and nothing to show for it. The two failures worth
+    // recognising in the log:
+    //
+    //  - "Default FirebaseApp is not initialized" / "FirebaseApp is not
+    //    initialized" — there's no google-services.json in the build. Android
+    //    push rides on FCM, so without it the app has no sender to register
+    //    with and there is nothing wrong with this code to find.
+    //  - "Expo project not found" / an unauthorised projectId — the token
+    //    service can't tie the device to this project.
+    //
+    // Still returns null: a device that can't take pushes shouldn't stop the
+    // app from starting.
+    console.warn('[push] could not get an Expo push token:', err?.message ?? err);
     return null;
   }
 }

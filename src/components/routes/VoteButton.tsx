@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronUp } from 'lucide-react-native';
+import { ThumbsUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useVoteRouteMutation, useUnvoteRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -11,7 +11,13 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
  *
  * Votes reuse the shared Like collection server-side, but they get their own
  * control because an upvote on a road recommendation reads differently from a
- * heart on a photo — and because routes are ranked by it.
+ * heart on a photo — and because routes are ranked by it. A thumbs-up rather
+ * than a chevron: the chevron read as "expand this", which is the one thing the
+ * button doesn't do.
+ *
+ * This compact form is a plain toggle. The detail screen splits the same pill
+ * in two so the count can open the list of who voted — there's room for two
+ * targets there and not here.
  *
  * The count updates optimistically so a tap feels instant, and rolls back if
  * the request fails rather than leaving a number that disagrees with the server.
@@ -69,7 +75,7 @@ export default function VoteButton({
       accessibilityRole="button"
       accessibilityLabel={voted ? 'Remove your vote' : 'Vote for this route'}
     >
-      <ChevronUp size={large ? 19 : 16} color={voted ? onBrand : colors.fg} strokeWidth={2.6} />
+      <ThumbsUp size={large ? 18 : 15} color={voted ? onBrand : colors.fg} strokeWidth={2.4} />
       <Text
         style={[
           large ? styles.labelLarge : styles.label,
@@ -84,7 +90,7 @@ export default function VoteButton({
 
 const styles = StyleSheet.create({
   btn: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 11, height: 32,
     borderRadius: 100, borderWidth: 1.5,
   },

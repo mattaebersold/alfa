@@ -57,7 +57,7 @@ function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string })
     <View style={styles.ownerRow}>
       {owner && (
         <View style={styles.ownerChip}>
-          <Avatar filename={owner.gallery?.[0]?.filename} name={owner.username ?? '?'} size={18} />
+          <Avatar user={owner} size={18} />
           <Text style={[styles.ownerName, { color: colors.muted }]} numberOfLines={1}>
             @{owner.username}
           </Text>
@@ -65,7 +65,7 @@ function OwnerRow({ userId, coownerId }: { userId: string; coownerId?: string })
       )}
       {coowner && (
         <View style={styles.ownerChip}>
-          <Avatar filename={coowner.gallery?.[0]?.filename} name={coowner.username ?? '?'} size={18} />
+          <Avatar user={coowner} size={18} />
           <Text style={[styles.ownerName, { color: colors.muted }]} numberOfLines={1}>
             @{coowner.username}
           </Text>

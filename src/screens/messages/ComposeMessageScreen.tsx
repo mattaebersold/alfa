@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView,
+  Animated, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search } from 'lucide-react-native';
@@ -16,6 +16,7 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 
@@ -25,7 +26,7 @@ function UserResult({ user, onSelect }: { user: User; onSelect: () => void }) {
   const colors = useColors();
   return (
     <TouchableOpacity style={[styles.userRow, { borderBottomColor: colors.border }]} onPress={onSelect} activeOpacity={0.7}>
-      <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={36} />
+      <Avatar user={user} size={36} />
       <Text style={[styles.userName, { color: colors.fg }]}>@{user.username}</Text>
     </TouchableOpacity>
   );
@@ -96,14 +97,21 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
 
   const canSend = !!recipient && !!body.trim() && !sending;
 
-  // keyboardVerticalOffset = nav header (44) + status bar (insets.top)
-  const keyboardOffset = Platform.OS === 'ios' ? insets.top + 44 : 0;
+  /**
+   * Lift the whole screen off the keyboard.
+   *
+   * This was a KeyboardAvoidingView, which needed a `keyboardVerticalOffset`
+   * guessed from the nav header's height on iOS and did nothing at all useful
+   * on Android — `behavior="height"` has no window resize to work with in an
+   * edge-to-edge app, so the keyboard simply covered the message field and the
+   * Send button. Padding by the measured inset needs no guess and behaves the
+   * same on both.
+   */
+  const { animated: keyboardPad, height: keyboardHeight } = useKeyboardInset();
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: colors.cream }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={keyboardOffset}
+    <Animated.View
+      style={[styles.root, { backgroundColor: colors.cream, paddingBottom: keyboardPad }]}
     >
       <ScrollView
         style={styles.scroll}
@@ -175,13 +183,16 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
         </View>
       </ScrollView>
 
-      {/* Send button — always visible above keyboard */}
+      {/* Send button — always visible above the keyboard */}
       <View style={[
         styles.footer,
         {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          paddingBottom: Math.max(insets.bottom, 12),
+          // The home indicator's clearance is only needed while the keyboard is
+          // down; with it up, the root's padding has already lifted the footer
+          // clear and this would just be a gap above the keys.
+          paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12),
         },
       ]}>
         <TouchableOpacity
@@ -196,7 +207,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
           }
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 

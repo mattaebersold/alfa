@@ -105,8 +105,7 @@ export default function PostStrip({
                 {showByline ? (
                   <View style={styles.byline}>
                     <Avatar
-                      filename={post.user?.gallery?.[0]?.filename ?? post.user?.profilePicture}
-                      name={post.user?.username ?? '?'}
+                      user={post.user}
                       size={18}
                     />
                     <Text style={[styles.bylineText, { color: colors.grey }]} numberOfLines={1}>

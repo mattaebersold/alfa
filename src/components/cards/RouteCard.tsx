@@ -43,8 +43,7 @@ export default function RouteCard({ route }: { route: DrivingRoute }) {
     >
       <View style={styles.header}>
         <Avatar
-          filename={user?.gallery?.[0]?.filename ?? user?.profilePicture}
-          name={user?.username ?? '?'}
+          user={user}
           size={34}
         />
         <View style={styles.headerText}>

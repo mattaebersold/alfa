@@ -11,10 +11,9 @@ import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
 import NotificationsBell from './NotificationsBell';
 import { useAppSelector } from '../../store/store';
-import { useGetUnreadMessageCountQuery, useGetUserGarageQuery } from '../../api/apiService';
+import { useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
-import { CONFIG } from '../../constants/config';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 
@@ -59,11 +58,10 @@ export function useHeaderPad(): number {
  * that carry a label.
  */
 function FloatingButton({
-  onPress, children, badge, label, tint, wide,
+  onPress, children, label, tint, wide,
 }: {
   onPress: () => void;
   children: React.ReactNode;
-  badge?: boolean;
   label: string;
   tint: string;
   wide?: boolean;
@@ -80,7 +78,6 @@ function FloatingButton({
       style={[styles.btn, wide && styles.btnWide, { backgroundColor: tint }]}
     >
       <View style={[styles.btnIcon, wide && styles.btnIconWide]}>{children}</View>
-      {badge && <View style={[styles.badge, { borderColor: tint }]} />}
     </TouchableOpacity>
   );
 }
@@ -139,15 +136,6 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   // `headerOffset` is shared across screens, so a screen left mid-scroll would
   // otherwise hand the next one a header that's still slid off-screen.
   useEffect(() => { resetHeader(); }, []);
-
-  const { data: msgData } = useGetUnreadMessageCountQuery(undefined, {
-    skip: !isLoggedIn,
-    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
-  });
-
-  // The notification count is NotificationsBell's business now; the menu's dot
-  // is left carrying messages alone.
-  const messageCount = msgData?.count ?? 0;
 
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
@@ -228,8 +216,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
             onPress={() => go('FeedTab', { screen: 'Profile' })}
           >
             <Avatar
-              filename={userInfo?.gallery?.[0]?.filename}
-              name={userInfo?.username ?? '?'}
+              user={userInfo}
               size={BTN}
               radius={BTN_RADIUS}
             />
@@ -238,12 +225,13 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           {/* Always present; only its count bubble comes and goes. */}
           <NotificationsBell />
 
+          {/* No badge. An unread message raises a notice in the bell next to
+              this button — a red dot on the menu could only say that something
+              somewhere was waiting, and left you to open the drawer and hunt
+              for it. The notice says who wrote and opens the conversation. */}
           <FloatingButton
-            label={messageCount > 0 ? `Menu, ${messageCount} unread` : 'Menu'}
+            label="Menu"
             tint={tint}
-            // Notifications have their own button now, so this dot is left
-            // standing for the one unread thing that doesn't: messages.
-            badge={messageCount > 0}
             onPress={() => setDrawerOpen(true)}
           >
             <Menu size={21} color={ICON} />
@@ -314,10 +302,4 @@ const styles = StyleSheet.create({
 
   logo: { width: 26, height: 26 },
 
-  badge: {
-    position: 'absolute', top: -2, right: -2,
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: '#EC4632',
-    borderWidth: 2,
-  },
 });

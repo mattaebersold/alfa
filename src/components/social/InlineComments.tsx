@@ -130,7 +130,7 @@ export default function InlineComments({
             was picking up the leftover width and drawing as a wide rectangle
             instead of a circle. */}
         <View style={styles.avatarBox}>
-          <Avatar filename={userInfo?.gallery?.[0]?.filename} name={userInfo?.username ?? '?'} size={30} />
+          <Avatar user={userInfo} size={30} />
         </View>
         <View style={[styles.inputFlex, { backgroundColor: c.card, borderColor: c.borderDark }]}>
           <MentionInput

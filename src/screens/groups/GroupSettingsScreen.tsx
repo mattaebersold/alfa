@@ -75,7 +75,7 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
             <Text style={[styles.sectionTitle, { backgroundColor: colors.segment, color: colors.grey }]}>Pending Requests ({pending.length})</Text>
             {pending.map((m) => (
               <View key={m.user_id} style={[styles.memberRow, { borderTopColor: colors.border }]}>
-                <Avatar filename={m.user?.gallery?.[0]?.filename} name={m.user?.username ?? '?'} size={36} />
+                <Avatar user={m.user} size={36} />
                 <View style={styles.memberInfo}>
                   <Text style={[styles.memberName, { color: colors.fg }]}>@{m.user?.username}</Text>
                 </View>

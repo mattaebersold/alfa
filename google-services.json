@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1093627800267",
+    "project_id": "open-road-society-43b3f",
+    "storage_bucket": "open-road-society-43b3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1093627800267:android:1fb8fd37d84389d4c3894e",
+        "android_client_info": {
+          "package_name": "co.openroadsociety.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdTgVi4PF-zoJnE4E8vcf50CsHl5l837Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -145,8 +145,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                 {item.user && (
                   <View style={styles.ownerRow}>
                     <Avatar
-                      filename={item.user.gallery?.[0]?.filename}
-                      name={item.user.username ?? '?'}
+                      user={item.user}
                       size={18}
                     />
                     <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>

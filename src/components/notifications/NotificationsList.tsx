@@ -39,6 +39,7 @@ const targetForNotification = (n: Notification) => notificationTarget({
   content_type: n.content_type,
   content_id: n.content_id,
   senderUserId: n.sender?.user_id,
+  metadata: n.metadata,
 });
 
 /**
@@ -155,8 +156,7 @@ function NotificationRow({
       activeOpacity={0.8}
     >
       <Avatar
-        filename={notification.sender?.gallery?.[0]?.filename}
-        name={username ?? '?'}
+        user={notification.sender}
         size={38}
       />
       <View style={styles.rowContent}>

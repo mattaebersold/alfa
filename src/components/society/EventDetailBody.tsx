@@ -233,7 +233,7 @@ export function EventDetailBody({
                 key={user.user_id}
                 onPress={() => go('UserDetail', { userId: user.user_id, username: user.username })}
               >
-                <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={54} />
+                <Avatar user={user} size={54} />
               </TouchableOpacity>
             ))}
             {(interestedData?.total ?? 0) > 12 && (

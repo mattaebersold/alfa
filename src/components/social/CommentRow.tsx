@@ -142,8 +142,7 @@ export default function CommentRow({
         accessibilityLabel={`View @${displayName}`}
       >
         <Avatar
-          filename={user?.gallery?.[0]?.filename}
-          name={user?.username ?? '?'}
+          user={user}
           size={isReply ? 28 : 32}
         />
       </SummaryTouchable>

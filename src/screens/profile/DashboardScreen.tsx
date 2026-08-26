@@ -101,7 +101,7 @@ function FlaggedRow({
         <View style={flaggedStyles.body}>
           <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={titleLines}>{title}</Text>
           <View style={flaggedStyles.userRow}>
-            {user && <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={16} />}
+            {user && <Avatar user={user} size={16} />}
             <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]} numberOfLines={1}>
               @{user?.username ?? 'unknown'}{reportCount ? ` · ${reportCount} report${reportCount !== 1 ? 's' : ''}` : ''}
             </Text>
@@ -358,7 +358,7 @@ export default function DashboardScreen() {
           onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })}
           activeOpacity={0.8}
         >
-          <Avatar filename={user.gallery?.[0]?.filename} name={user.username ?? '?'} size={56} />
+          <Avatar user={user} size={56} />
           <View style={styles.profileText}>
             <Text style={[styles.profileName, { color: colors.fg }]}>@{displayName}</Text>
             {user.bio ? (
@@ -539,7 +539,7 @@ export default function DashboardScreen() {
           contentContainerStyle={{ paddingBottom: 40 }}
           renderItem={({ item }) => (
             <View style={[blockedStyles.row, { borderBottomColor: colors.border }]}>
-              <Avatar filename={item.gallery?.[0]?.filename} name={item.username ?? '?'} size={40} />
+              <Avatar user={item} size={40} />
               <Text style={[blockedStyles.name, { color: colors.fg, flex: 1 }]}>@{item.username}</Text>
               <TouchableOpacity
                 style={[blockedStyles.unblockBtn, { borderColor: colors.border }]}
@@ -684,7 +684,7 @@ export default function DashboardScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Avatar filename={item.gallery?.[0]?.filename} name={item.username ?? '?'} size={40} />
+              <Avatar user={item} size={40} />
               <Text style={[listStyles.name, { color: '#ECECEC' }]}>@{item.username}</Text>
             </TouchableOpacity>
           )}

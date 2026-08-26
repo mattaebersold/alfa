@@ -92,8 +92,7 @@ function UserPill({ id, onNavigate }: { id: string; onNavigate: ArticleBadgesPro
       )}
       thumb={
         <Avatar
-          filename={user.gallery?.[0]?.filename ?? user.profilePicture}
-          name={user.username ?? '?'}
+          user={user}
           size={22}
         />
       }
@@ -158,8 +157,7 @@ export default function ArticleBadges({ articleId, author, onNavigate }: Article
           )}
           thumb={
             <Avatar
-              filename={author.gallery?.[0]?.filename ?? author.profilePicture}
-              name={author.username}
+              user={author}
               size={22}
             />
           }

@@ -91,8 +91,7 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
         <View style={styles.meta}>
           {article.user && (
             <Avatar
-              filename={article.user.gallery?.[0]?.filename ?? article.user.profilePicture}
-              name={displayName}
+              user={article.user}
               size={24}
             />
           )}
