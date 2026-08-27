@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated,
+} from 'react-native';
 import { useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
-import { ThumbsUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, MapPin, Maximize2 } from 'lucide-react-native';
+import { ThumbsUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2 } from 'lucide-react-native';
 import RouteMap from '../../components/routes/RouteMap';
 import RouteMapFullScreen from '../../components/routes/RouteMapFullScreen';
 import Spinner from '../../components/ui/Spinner';
@@ -16,7 +19,9 @@ import {
 } from '../../utils/routeGeometry';
 import { openInMaps } from '../../utils/routeDirections';
 import type { RoutesStackParamList } from '../../navigation/types';
+import type { RoutePitStop } from '../../types/api';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { ss } from '../../styles/shared';
 
 type DetailRoute = RouteProp<RoutesStackParamList, 'RouteDetail'>;
 
@@ -26,6 +31,11 @@ type DetailRoute = RouteProp<RoutesStackParamList, 'RouteDetail'>;
 export default function RouteDetailScreen() {
   const { params } = useRoute<DetailRoute>();
   const colors = useColors();
+  // The map is the point of this screen, so it gets most of it — the numbers
+  // and the vote read as something you scroll up to, over the top of it.
+  const insets = useSafeAreaInsets();
+  const { height: screenH } = useWindowDimensions();
+  const mapHeight = Math.round(screenH * 0.6);
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
 
@@ -37,6 +47,14 @@ export default function RouteDetailScreen() {
   // and not others, which is the one thing hooks can't survive.
   const [fullMap, setFullMap] = useState(false);
   const [votersOpen, setVotersOpen] = useState(false);
+  /**
+   * The expand control fades out as the body climbs over the map, and stops
+   * taking touches once it's gone. A boolean rather than a scroll offset, so
+   * this re-renders twice a screen rather than sixty times a second — the fade
+   * itself rides an Animated value on the native driver.
+   */
+  const [mapCovered, setMapCovered] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   if (isLoading || !data) return <Spinner />;
 
@@ -48,35 +66,56 @@ export default function RouteDetailScreen() {
     (has_voted ? unvote : vote)(entry.internal_id);
   };
 
+  const hasMap = path.length >= 2;
+
   return (
-    <ScrollView refreshControl={refreshControl} style={{ backgroundColor: colors.bg }} contentContainerStyle={styles.content}>
-      {path.length >= 2 && (
-        // The inline map is a thumbnail of the drive — too small to read a
-        // corner on. Tapping it opens the same route full screen, where the
-        // gestures are the map's own rather than the page's.
-        <TouchableOpacity
-          style={styles.mapWrap}
-          onPress={() => setFullMap(true)}
-          activeOpacity={0.9}
-          accessibilityRole="button"
-          accessibilityLabel="Open the route map full screen"
-        >
-          {/* The map is a native view and swallows touches, so the wrapper —
-              not the map — is what refuses them. The whole thumbnail is one
-              button; panning happens full screen. */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <RouteMap
-              path={path}
-              speeds={entry.speed_profile}
-              markers={entry.pit_stops}
-              color={brand}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-          <View style={styles.expandBadge}>
-            <Maximize2 size={15} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
+    /**
+     * The map is pinned behind the page rather than scrolled with it.
+     *
+     * A route is a shape, and the shape is what you came to look at — so it
+     * holds still while the description, the stats and the itinerary ride up
+     * over it. The scroll view is transparent and opens with a spacer the
+     * height of the map, which is what lets the map show through underneath
+     * before anything has been scrolled.
+     */
+    <View style={[ss.fill, { backgroundColor: colors.bg }]}>
+      {hasMap && (
+        // Behind everything and taking no touches: the scroll view above owns
+        // every gesture in this area, so a drag that starts on the map scrolls
+        // the page instead of fighting it. The expand control is the way in to
+        // a map you can actually pan.
+        <View style={[styles.mapLayer, { height: mapHeight }]} pointerEvents="none">
+          <RouteMap
+            path={path}
+            speeds={entry.speed_profile}
+            markers={entry.pit_stops}
+            color={brand}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      )}
+
+      <Animated.ScrollView
+        refreshControl={refreshControl}
+        style={ss.fill}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          {
+            useNativeDriver: true,
+            listener: (e: any) => {
+              const covered = e.nativeEvent.contentOffset.y > mapHeight * 0.45;
+              setMapCovered((prev) => (prev === covered ? prev : covered));
+            },
+          },
+        )}
+      >
+      {hasMap && (
+        // Nothing in it — it exists so the body starts below the map, and so
+        // the map behind is visible through it.
+        <View style={{ height: mapHeight }} />
       )}
 
       <LikersSheet
@@ -97,7 +136,14 @@ export default function RouteDetailScreen() {
         title={entry.title}
       />
 
-      <View style={styles.body}>
+      {/* Rounded over the map it sits on, and pulled up far enough for the
+          corners to actually show against it — a radius flush with the map's
+          bottom edge would have nothing to round against. */}
+      <View style={[
+        styles.body,
+        hasMap && styles.bodyOverMap,
+        { backgroundColor: colors.bg },
+      ]}>
         <Text style={[styles.title, { color: colors.fg }]}>{entry.title || 'Untitled route'}</Text>
 
         {(entry.start_place || entry.end_place) && (
@@ -181,10 +227,13 @@ export default function RouteDetailScreen() {
           </View>
         )}
 
+        {/* Surface is hidden alongside the picker on the save screen — every
+            route is 'paved' by default, so printing it said nothing. The field
+            is still stored; put the ` · ${entry.surface}` back when there are
+            dirt drives worth telling apart. */}
         {entry.technical_rating ? (
           <Text style={[styles.meta, { color: colors.grey }]}>
             Driver rated it {entry.technical_rating}/5
-            {entry.surface ? ` · ${entry.surface}` : ''}
           </Text>
         ) : null}
 
@@ -192,24 +241,13 @@ export default function RouteDetailScreen() {
           <Text style={[styles.description, { color: colors.fg }]}>{entry.body}</Text>
         ) : null}
 
-        {entry.pit_stops?.length ? (
-          <View style={styles.directions}>
-            <Text style={[styles.sectionTitle, { color: colors.fg }]}>Pit stops</Text>
-            {entry.pit_stops.map((stop, i) => (
-              <View key={i} style={[styles.step, { borderBottomColor: colors.border }]}>
-                <MapPin size={16} color={brand} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.stepRoad, { color: colors.fg, fontWeight: '700' }]}>
-                    {stop.label || 'Pit stop'}
-                  </Text>
-                  {stop.note ? (
-                    <Text style={[styles.stepDistance, { color: colors.grey }]}>{stop.note}</Text>
-                  ) : null}
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
+        <Itinerary
+          startPlace={entry.start_place}
+          endPlace={entry.end_place}
+          stops={entry.pit_stops}
+          colors={colors}
+          brand={brand}
+        />
 
         {/* The roads this drive followed. Resolved once when the route was
             saved and stored with it — reading them costs nothing. */}
@@ -235,7 +273,126 @@ export default function RouteDetailScreen() {
           <Text style={[styles.meta, { color: colors.grey }]}>Working out the roads…</Text>
         ) : null}
       </View>
-    </ScrollView>
+      </Animated.ScrollView>
+
+      {/* Above the scroll view so it stays tappable over the map, and faded out
+          by the time the body has climbed over the thing it expands. */}
+      {hasMap && (
+        <Animated.View
+          style={[
+            styles.expandBadge,
+            {
+              opacity: scrollY.interpolate({
+                inputRange: [0, mapHeight * 0.45],
+                outputRange: [1, 0],
+                extrapolate: 'clamp',
+              }),
+            },
+          ]}
+          pointerEvents={mapCovered ? 'none' : 'auto'}
+        >
+          <TouchableOpacity
+            style={styles.expandHit}
+            onPress={() => setFullMap(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Open the route map full screen"
+          >
+            <Maximize2 size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+interface ItineraryRow {
+  key: string;
+  label: string;
+  place: string;
+  note?: string;
+  kind: 'start' | 'stop' | 'end';
+}
+
+/**
+ * The drive as a list of places: where it started, what it stopped for, where
+ * it ended.
+ *
+ * The pieces were all on the screen already but scattered — the endpoints as a
+ * "A → B" line under the title, the stops as a separate section further down —
+ * so reading the shape of the day meant assembling it yourself. In order, with
+ * a rail connecting the rows, it reads as one journey.
+ *
+ * Distinct from "The route" below it, which is the roads. This is the stops.
+ */
+function Itinerary({ startPlace, endPlace, stops, colors, brand }: {
+  startPlace?: string;
+  endPlace?: string;
+  stops?: RoutePitStop[];
+  colors: any;
+  brand: string;
+}) {
+  const rows: ItineraryRow[] = [];
+
+  if (startPlace?.trim()) {
+    rows.push({ key: 'start', label: 'Start at', place: startPlace.trim(), kind: 'start' });
+  }
+
+  // `t` is milliseconds into the drive, so it's the true order when it's there.
+  // Stops recorded before the field existed fall back to the order they were
+  // saved in, which is the order they were dropped.
+  const ordered = [...(stops ?? [])];
+  if (ordered.length > 1 && ordered.every((st) => typeof st.t === 'number')) {
+    ordered.sort((x, y) => (x.t as number) - (y.t as number));
+  }
+  ordered.forEach((stop, i) => {
+    rows.push({
+      key: `stop-${i}`,
+      label: `Stop ${i + 1}`,
+      place: stop.label?.trim() || 'Pit stop',
+      note: stop.note?.trim() || undefined,
+      kind: 'stop',
+    });
+  });
+
+  if (endPlace?.trim()) {
+    rows.push({ key: 'end', label: 'End at', place: endPlace.trim(), kind: 'end' });
+  }
+
+  // One line isn't an itinerary — the title and the map already say that much.
+  if (rows.length < 2) return null;
+
+  return (
+    <View style={styles.directions}>
+      <Text style={[styles.sectionTitle, { color: colors.fg }]}>Itinerary</Text>
+      <View style={[styles.itinerary, { borderColor: colors.border }]}>
+        {rows.map((row, i) => (
+          <View key={row.key} style={styles.itinRow}>
+            {/* The rail: a dot per stop, joined by a line that stops short of
+                the last one so the list reads as ending rather than continuing. */}
+            <View style={styles.itinRail}>
+              <View style={[
+                styles.itinDot,
+                row.kind === 'stop'
+                  ? { borderColor: brand, backgroundColor: colors.bg }
+                  : { borderColor: brand, backgroundColor: brand },
+              ]} />
+              {i < rows.length - 1 && (
+                <View style={[styles.itinLine, { backgroundColor: colors.border }]} />
+              )}
+            </View>
+
+            <View style={styles.itinBody}>
+              <Text style={[styles.itinLabel, { color: colors.grey }]}>{row.label}</Text>
+              <Text style={[styles.itinPlace, { color: colors.fg }]}>{row.place}</Text>
+              {row.note ? (
+                <Text style={[styles.itinNote, { color: colors.grey }]}>{row.note}</Text>
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -261,19 +418,36 @@ function GridStat({ label, value, colors }: { label: string; value: string; colo
   );
 }
 
+/** How far the body panel laps up over the bottom of the map. */
+const BODY_OVERLAP = 22;
+const BODY_RADIUS = 20;
+
 const styles = StyleSheet.create({
-  // Deep enough that the last section clears the tab bar and the home
-  // indicator with room to spare, rather than ending flush against them.
-  content: { paddingBottom: 140 },
-  // Bottom-right of the thumbnail, out of the way of the trace itself.
+  // The tab bar is hidden on this screen (see navigation/immersiveScreens), so
+  // the only thing left to clear is the home indicator — the old fixed 140 was
+  // sized for a bar that isn't there any more, and left a dead band under the
+  // last section. Applied per-render from the safe-area inset.
+  content: {},
+  // Pinned behind the page, not scrolled with it.
+  mapLayer: { position: 'absolute', top: 0, left: 0, right: 0 },
+  // Top-right rather than bottom-right: the body climbs over the bottom of the
+  // map, so anything down there is the first thing to be buried.
   expandBadge: {
-    position: 'absolute', right: 12, bottom: 12,
-    width: 32, height: 32, borderRadius: 16,
+    position: 'absolute', right: 12, top: 12,
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center', justifyContent: 'center',
   },
-  mapWrap: { height: 280, width: '100%' },
+  expandHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body:    { padding: 16, gap: 12 },
+  // Laps up over the bottom of the spacer, so the map behind shows through the
+  // rounded corners rather than meeting them flush.
+  bodyOverMap: {
+    marginTop: -BODY_OVERLAP,
+    borderTopLeftRadius: BODY_RADIUS,
+    borderTopRightRadius: BODY_RADIUS,
+    // Clears the rounded corners of the map showing through at the very top.
+    paddingTop: 16 + BODY_OVERLAP / 2,
+  },
 
   title: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   place: { fontSize: 14 },
@@ -322,4 +496,17 @@ const styles = StyleSheet.create({
   stepRoad:     { fontSize: 14, lineHeight: 19 },
   stepDistance: { fontSize: 12, marginTop: 1 },
   description: { fontSize: 15, lineHeight: 22, marginTop: 4 },
+
+  itinerary: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
+  itinRow:   { flexDirection: 'row', gap: 12 },
+  // Fixed width so every label starts on the same line, and the dots stack into
+  // a straight rail rather than following the text.
+  itinRail:  { width: 14, alignItems: 'center', paddingTop: 14 },
+  itinDot:   { width: 11, height: 11, borderRadius: 6, borderWidth: 2 },
+  // Fills whatever the row turned out to be — a stop with a note is taller.
+  itinLine:  { flex: 1, width: 2, marginTop: 2, marginBottom: -2 },
+  itinBody:  { flex: 1, paddingVertical: 10 },
+  itinLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  itinPlace: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+  itinNote:  { fontSize: 13, lineHeight: 18, marginTop: 2 },
 });

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
   Alert, ActivityIndicator, Switch, KeyboardAvoidingView, Platform,
@@ -9,7 +9,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RouteMap from '../../components/routes/RouteMap';
 import PostTagPicker, { type TagItem } from '../../components/social/PostTagPicker';
 import { readDraft, clearDraft } from '../../hooks/useRouteRecorder';
-import { useCreateRouteMutation, useSyncPostTagsMutation } from '../../api/apiService';
+import {
+  useCreateRouteMutation,
+  useSyncPostTagsMutation,
+  useGetRouteEndpointNamesQuery,
+} from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { formatDistance, formatDuration, formatSpeed, compactSamples } from '../../utils/routeGeometry';
@@ -18,7 +22,11 @@ import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-const SURFACES = [
+/**
+ * Kept against the surface picker coming back — the model and the route filters
+ * both still understand these, only the input is hidden. See `surface` below.
+ */
+export const SURFACES = [
   { key: 'paved', label: 'Paved' },
   { key: 'mixed', label: 'Mixed' },
   { key: 'dirt', label: 'Dirt' },
@@ -51,13 +59,48 @@ export default function RouteSaveScreen() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [technical, setTechnical] = useState<number | null>(null);
-  const [surface, setSurface] = useState<string>('paved');
+  const [startPlace, setStartPlace] = useState('');
+  const [endPlace, setEndPlace] = useState('');
+  /**
+   * Surface is hidden for now — every route recorded so far is a paved road, and
+   * a three-way choice nobody varies is a field people learn to skip. The value
+   * still goes up so the column keeps its meaning, and the picker is one block
+   * away from coming back when there are dirt drives worth filtering for.
+   */
+  const surface = 'paved';
   const [isPrivate, setIsPrivate] = useState(false);
 
   const [taggedUsers, setTaggedUsers] = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars] = useState<TagItem[]>([]);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
   const [taggedGroups, setTaggedGroups] = useState<TagItem[]>([]);
+
+  /**
+   * Suggested names for the two ends, so the fields open filled in rather than
+   * empty. Only a suggestion — both are editable, and the drive saves fine if
+   * the lookup comes back with nothing.
+   */
+  const firstSample = draft?.samples?.[0];
+  const lastSample = draft?.samples?.[draft.samples.length - 1];
+  const { data: placeNames } = useGetRouteEndpointNamesQuery(
+    {
+      start_lat: firstSample?.lat as number,
+      start_lng: firstSample?.lng as number,
+      end_lat: lastSample?.lat as number,
+      end_lng: lastSample?.lng as number,
+    },
+    { skip: !firstSample || !lastSample },
+  );
+
+  // Prefill once, and never over something already typed — the lookup can land
+  // after the driver has started filling the form in.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !placeNames) return;
+    prefilled.current = true;
+    setStartPlace((v) => v || placeNames.start || '');
+    setEndPlace((v) => v || placeNames.end || '');
+  }, [placeNames]);
 
   const toggleTag = (item: TagItem) => {
     const [list, setList] =
@@ -130,6 +173,8 @@ export default function RouteSaveScreen() {
     if (body.trim()) fd.append('body', body.trim());
     fd.append('samples', JSON.stringify(compactSamples(draft.samples)));
     fd.append('surface', surface);
+    if (startPlace.trim()) fd.append('start_place', startPlace.trim());
+    if (endPlace.trim()) fd.append('end_place', endPlace.trim());
     if (draft.pitStops?.length) fd.append('pit_stops', JSON.stringify(draft.pitStops));
     if (technical) fd.append('technical_rating', String(technical));
     if (isPrivate) fd.append('private', 'true');
@@ -245,6 +290,31 @@ export default function RouteSaveScreen() {
             />
           </Field>
 
+          {/* Where it began and ended. Prefilled from the track, editable —
+              these are what the route's itinerary is built from, and they read
+              better as "Iron Springs" than as a pair of coordinates. */}
+          <Field label="Start">
+            <TextInput
+              style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+              value={startPlace}
+              onChangeText={setStartPlace}
+              placeholder="Where the drive began"
+              placeholderTextColor={colors.grey}
+              maxLength={80}
+            />
+          </Field>
+
+          <Field label="End">
+            <TextInput
+              style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+              value={endPlace}
+              onChangeText={setEndPlace}
+              placeholder="Where it finished"
+              placeholderTextColor={colors.grey}
+              maxLength={80}
+            />
+          </Field>
+
           <Field label="How technical was it?">
             <View style={styles.pillRow}>
               {[1, 2, 3, 4, 5].map((n) => {
@@ -267,27 +337,6 @@ export default function RouteSaveScreen() {
             <Text style={[styles.helper, { color: colors.grey }]}>
               Your rating sits alongside a curviness score we calculate from the GPS track.
             </Text>
-          </Field>
-
-          <Field label="Surface">
-            <View style={styles.pillRow}>
-              {SURFACES.map((s) => {
-                const active = surface === s.key;
-                return (
-                  <TouchableOpacity
-                    key={s.key}
-                    style={[
-                      styles.surfacePill,
-                      { borderColor: colors.border },
-                      active && { backgroundColor: brand, borderColor: brand },
-                    ]}
-                    onPress={() => setSurface(s.key)}
-                  >
-                    <Text style={[styles.pillText, { color: active ? onBrand : colors.fg }]}>{s.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
           </Field>
 
           <View style={[styles.tagSection, { borderTopColor: colors.border }]}>

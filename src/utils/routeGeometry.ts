@@ -227,3 +227,91 @@ export function normalizeSpeeds(speeds: number[]): number[] | null {
 
   return speeds.map((s) => (Number.isFinite(s) ? (s - min) / (max - min) : 0));
 }
+
+// ── Fitting a route to the viewport ──────────────────────────────────────────
+
+/** Web Mercator tile size, in pixels — the unit zoom levels are defined against. */
+const TILE_PX = 256;
+/** Google's own limits. Beyond 20 the camera clamps anyway. */
+const MIN_ZOOM = 2;
+const MAX_ZOOM = 19;
+
+/**
+ * A latitude's position on the Mercator projection, normalised to radians.
+ *
+ * Longitude is linear in Mercator so it needs no conversion, but latitude is
+ * not — a degree near the pole covers far fewer pixels than one at the equator.
+ * Fitting on raw degrees is what makes a north–south route sit half off-screen.
+ */
+function mercatorY(lat: number): number {
+  // Clamped short of the poles: tan(π/2) is infinite, and the projection is
+  // undefined past ~85° in any case.
+  const safe = Math.max(-85.05, Math.min(85.05, lat));
+  const rad = (safe * Math.PI) / 180;
+  return Math.log(Math.tan(Math.PI / 4 + rad / 2));
+}
+
+export interface FittedCamera {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+
+/**
+ * The camera that shows a whole route at once.
+ *
+ * The map was pointed at `path[path.length - 1]` at a fixed zoom 15, which
+ * framed the last few hundred metres of the drive and left the rest of it off
+ * screen — on anything longer than a few blocks you were looking at the finish
+ * line and nothing else.
+ *
+ * This centres on the middle of the route's bounding box and picks the zoom
+ * that makes the box fit, taking whichever of the two axes is the tighter
+ * constraint. `padding` is the share of the viewport left as margin, so the
+ * trace doesn't run into the edges.
+ *
+ * Returns null when there's nothing to fit — the caller keeps whatever camera
+ * it would otherwise have used.
+ */
+export function fitCamera(
+  path: { lat: number; lng: number }[],
+  widthPx: number,
+  heightPx: number,
+  padding = 0.15,
+): FittedCamera | null {
+  if (!path.length || widthPx <= 0 || heightPx <= 0) return null;
+
+  let minLat = Infinity, maxLat = -Infinity;
+  let minLng = Infinity, maxLng = -Infinity;
+  for (const p of path) {
+    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
+    if (p.lat < minLat) minLat = p.lat;
+    if (p.lat > maxLat) maxLat = p.lat;
+    if (p.lng < minLng) minLng = p.lng;
+    if (p.lng > maxLng) maxLng = p.lng;
+  }
+  if (!Number.isFinite(minLat) || !Number.isFinite(minLng)) return null;
+
+  const lat = (minLat + maxLat) / 2;
+  const lng = (minLng + maxLng) / 2;
+
+  // Share of the whole world each axis of the route spans, widened by the
+  // margin we want to keep around it.
+  const grow = 1 + padding * 2;
+  const latFraction = ((mercatorY(maxLat) - mercatorY(minLat)) / (2 * Math.PI)) * grow;
+  const lngFraction = ((maxLng - minLng) / 360) * grow;
+
+  // A route with no extent in one direction constrains nothing in it, so that
+  // axis drops out rather than driving the zoom to infinity.
+  const zoomFor = (px: number, fraction: number) =>
+    fraction > 0 ? Math.log2(px / TILE_PX / fraction) : MAX_ZOOM;
+
+  const zoom = Math.min(zoomFor(heightPx, latFraction), zoomFor(widthPx, lngFraction));
+
+  return {
+    lat,
+    lng,
+    // Floored: a fractional zoom that rounds up would crop the ends off.
+    zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.floor(zoom * 100) / 100)),
+  };
+}

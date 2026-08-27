@@ -14,6 +14,7 @@ import CarsStackNavigator from './CarsStackNavigator';
 import RoutesStackNavigator from './RoutesStackNavigator';
 import { colors } from '../constants/colors';
 import { useBrandColor } from '../hooks/useBrandColor';
+import { isImmersiveScreen, useFocusedRouteName } from './immersiveScreens';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -80,6 +81,10 @@ export default function MainTabNavigator() {
 
   const brandColor = useBrandColor();
 
+  // Some screens take the whole phone — see immersiveScreens. Both the tab bar
+  // and the create button get out of their way.
+  const immersive = isImmersiveScreen(useFocusedRouteName());
+
   return (
     // The navigator is wrapped so the create button can sit above every tab at
     // once, rather than each screen mounting its own copy.
@@ -87,7 +92,7 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
+        tabBarStyle: immersive ? { display: 'none' } : {
           position: 'absolute',
           left: 0, right: 0, bottom: 0,
           backgroundColor: 'transparent',
@@ -192,7 +197,7 @@ export default function MainTabNavigator() {
         })}
       />
     </Tab.Navigator>
-    <CreateFab />
+    {!immersive && <CreateFab />}
     </View>
   );
 }

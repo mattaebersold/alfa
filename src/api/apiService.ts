@@ -562,6 +562,17 @@ export const apiService = createApi({
       query: ({ lat, lng }) => ({ url: 'api/routes/nearby', params: { lat, lng } }),
     }),
 
+    /**
+     * Suggested names for a drive's two ends, for prefilling the save screen.
+     * Reverse geocoding, so it answers with a town rather than a business.
+     */
+    getRouteEndpointNames: builder.query<
+      { start: string | null; end: string | null },
+      { start_lat: number; start_lng: number; end_lat: number; end_lng: number }
+    >({
+      query: (params) => ({ url: 'api/routes/endpoint-names', params }),
+    }),
+
     getRoute: builder.query<DrivingRouteDetail, string>({
       query: (id) => `api/routes/${id}`,
       providesTags: (result, error, id) => [{ type: 'Route', id }],
@@ -637,6 +648,20 @@ export const apiService = createApi({
       transformResponse: (response: any): Group[] =>
         Array.isArray(response) ? response : response?.groups ?? response?.entries ?? [],
       providesTags: ['Group'],
+    }),
+
+    /**
+     * Start a group. Multipart, because a cover photo rides along with it.
+     *
+     * The server makes the creator an admin of the new group in the same call,
+     * so nothing else has to happen for them to be able to run it.
+     */
+    createGroup: builder.mutation<{ _id: string }, FormData>({
+      query: (body) => ({ url: 'api/group/create', method: 'POST', body }),
+      // Both listings on the groups screen change: the new group belongs in
+      // "My Groups" straight away, and it joins the public list too. Both are
+      // provided by 'Group', so the one tag refreshes each of them.
+      invalidatesTags: ['Group', 'GroupMembers'],
     }),
 
     getGroupMembers: builder.query<GroupMember[], string>({
@@ -1323,6 +1348,7 @@ export const {
   useGetGroupsQuery,
   useGetGroupQuery,
   useGetUserGroupsQuery,
+  useCreateGroupMutation,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
   useRemoveGroupMemberMutation,
@@ -1411,6 +1437,7 @@ export const {
   useGetPreviouslyTaggedGroupsQuery,
   useGetRoutesQuery,
   useGetNearbyPlacesQuery,
+  useGetRouteEndpointNamesQuery,
   useGetRouteQuery,
   useCreateRouteMutation,
   useUpdateRouteMutation,

@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, TextInput, Alert, Dimensions,
+  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, TextInput, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,13 +9,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
-import { useBrandTextColor } from '../../hooks/useBrandColor';
+import { useBrandTextColor, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import ScreenHeading from '../../components/ui/ScreenHeading';
+import NewGroupSheet from '../../components/groups/NewGroupSheet';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -90,7 +91,12 @@ export default function GroupsScreen() {
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
 
-  const isAdmin = userInfo?.accountType === 'admin';
+  // Starting a group is a Pro feature — it used to be admin-only, which meant
+  // nobody but the team could make one. The server only asks that you're signed
+  // in, so this is the whole gate.
+  const isPro = useIsPro();
+  const brand = useBrandColor();
+  const [newGroupOpen, setNewGroupOpen] = useState(false);
 
   const { data: rawUserGroups, isLoading: userGroupsLoading } = useGetUserGroupsQuery(
     userInfo?.user_id ?? '',
@@ -151,7 +157,25 @@ export default function GroupsScreen() {
           ListHeaderComponent={
             <View>
               {/* Heading rides in the list so it scrolls away with the content. */}
-              <ScreenHeading title="Groups" />
+              {/* The action sits with the title rather than in a band of its
+                  own below the shelf of groups you're already in — it's the
+                  first thing you'd reach for, so it shouldn't be the last
+                  thing you scroll past. */}
+              <ScreenHeading
+                title="Groups"
+                right={isPro ? (
+                  <TouchableOpacity
+                    style={[styles.newGroupBtn, { backgroundColor: brand }]}
+                    onPress={() => setNewGroupOpen(true)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Create a new group"
+                  >
+                    <Plus size={15} color={brandTextColor} strokeWidth={2.8} />
+                    <Text style={[styles.newGroupText, { color: brandTextColor }]}>New Group</Text>
+                  </TouchableOpacity>
+                ) : undefined}
+              />
               {userGroups.length > 0 && (
                 <View style={styles.myGroupsSection}>
                   <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
@@ -166,19 +190,6 @@ export default function GroupsScreen() {
                       <MyGroupCard key={item.internal_id} group={item} onPress={() => goToGroup(item.internal_id)} />
                     ))}
                   </ScrollView>
-                </View>
-              )}
-
-              {isAdmin && (
-                <View style={styles.createGroupRow}>
-                  <TouchableOpacity
-                    style={[styles.createGroupBtn, { backgroundColor: colors.primaryAlt }]}
-                    onPress={() => Alert.alert('Coming soon', 'Group creation will be available in a future update.')}
-                    activeOpacity={0.8}
-                  >
-                    <Plus size={16} color={brandTextColor} />
-                    <Text style={[styles.createGroupText, { color: brandTextColor }]}>Create Group</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -211,6 +222,14 @@ export default function GroupsScreen() {
           }
         />
       </View>
+
+      <NewGroupSheet
+        visible={newGroupOpen}
+        onClose={() => setNewGroupOpen(false)}
+        // Straight into the group you just made — you're its admin, and there
+        // is nothing to do with it from this list.
+        onCreated={(groupId) => goToGroup(groupId)}
+      />
     </SafeAreaView>
   );
 }
@@ -279,13 +298,11 @@ const styles = StyleSheet.create({
 
   emptyWrap: { paddingTop: 20 },
 
-  createGroupRow: {
-    paddingHorizontal: 12, paddingVertical: 12,
+  // Sits in the heading row beside the title, so it stays small enough not to
+  // compete with it while still reading as the primary action.
+  newGroupBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 13, height: 36, borderRadius: 999,
   },
-  createGroupBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  createGroupText: { fontWeight: '800', fontSize: 15 },
+  newGroupText: { fontWeight: '800', fontSize: 14 },
 });
