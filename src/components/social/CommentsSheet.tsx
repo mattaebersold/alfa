@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, Modal, Animated, Pressable,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  Platform, Alert, ActivityIndicator,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
@@ -13,6 +13,7 @@ import { useAppSelector } from '../../store/store';
 import MentionInput from '../ui/MentionInput';
 import CommentRow, { COMMENT_SURFACE } from './CommentRow';
 import { useColors } from '../../hooks/useColors';
+import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 import { colors } from '../../constants/colors';
 import { ss } from '../../styles/shared';
 import UserSummaryModal from '../members/UserSummaryModal';
@@ -49,6 +50,9 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const { rows, comments, isFetching } = useCommentThread(entryType, postId, { skip: !visible });
 
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
+
+  // Lifts the whole sheet clear of the keyboard — see the note at the shell.
+  const { animated: keyboardPad } = useKeyboardInset();
 
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -103,7 +107,13 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+      {/* The sheet sits on the bottom of the screen, which is exactly what the
+          keyboard covers, so padding the stack by the keyboard's height puts
+          the composer directly on top of it. KeyboardAvoidingView did this on
+          iOS only — Android got `behavior="height"`, which has no window resize
+          to act on in an edge-to-edge app, so the keyboard simply covered the
+          field you were typing in. See useKeyboardInset. */}
+      <Animated.View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: keyboardPad }}>
         <Animated.View
           style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
           pointerEvents="none"
@@ -194,7 +204,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             onClose={() => setUserSummary(null)}
           />
         </Animated.View>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </Modal>
   );
 }

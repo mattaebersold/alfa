@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
+  Animated,
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Dimensions, Linking,
+  TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, MessageCircle, Link as LinkIcon, ExternalLink } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { X, MessageCircle, Link as LinkIcon, ExternalLink, Heart, ChevronRight } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import PostOwnerMenu from '../../components/social/PostOwnerMenu';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +25,7 @@ import Spinner from '../../components/ui/Spinner';
 import { imageUrl } from '../../utils/image';
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 import type { FeedScreenProps, AppStackParamList } from '../../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GalleryItem } from '../../types/api';
@@ -34,10 +37,11 @@ import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import GroupAttribution from '../../components/groups/GroupAttribution';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
-import { type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import Odometer from '../../components/ui/Odometer';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // ── Story video ───────────────────────────────────────────────────────────────
 
@@ -135,9 +139,62 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const { postId } = route.params;
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
+  // Lifts the comment composer onto the keyboard — see the note below.
+  const { animated: keyboardPad } = useKeyboardInset();
   const insets = useSafeAreaInsets();
 
+
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  /**
+   * The screen's own transition.
+   *
+   * Two values, because the two layers move differently: the sheet rises from
+   * the bottom, and the backdrop only fades. Sliding the blur up with the sheet
+   * made it read as part of the panel — a grey rectangle arriving from
+   * off-screen — rather than as the page behind going out of focus, which is
+   * the whole point of it.
+   *
+   * The route is presented with `animation: 'none'` so these are the only
+   * motion, and closing has to run them in reverse before popping — otherwise
+   * the screen would vanish on the frame the button was pressed.
+   */
+  const backdrop = useRef(new Animated.Value(0)).current;
+  const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const closing = useRef(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(backdrop, {
+        toValue: 1, duration: 220, useNativeDriver: true,
+      }),
+      Animated.spring(sheetY, {
+        toValue: 0, tension: 65, friction: 12, useNativeDriver: true,
+      }),
+    ]).start();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Play the exit, then leave — and optionally do something once we're gone. */
+  const close = useCallback((after?: () => void) => {
+    if (closing.current) return;
+    closing.current = true;
+    Animated.parallel([
+      Animated.timing(backdrop, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(sheetY, { toValue: SCREEN_HEIGHT, duration: 240, useNativeDriver: true }),
+    ]).start(() => {
+      navigation.goBack();
+      if (after) requestAnimationFrame(after);
+    });
+  }, [backdrop, sheetY, navigation]);
+
+  // Android's back gesture would otherwise pop the route instantly, skipping
+  // the exit entirely.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      close();
+      return true;
+    });
+    return () => sub.remove();
+  }, [close]);
 
   /**
    * Dismiss this modal, then open the target. Deferred a frame so the pop has
@@ -145,17 +202,27 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
    * beneath the modal that's still animating out.
    */
   const dismissThenNavigate = (go: (nav: any) => void) => {
-    navigation.goBack();
     // Route into the tab stacks so the target keeps the header and bottom nav.
-    requestAnimationFrame(() => go(tabNavProxy(navigation)));
+    close(() => go(tabNavProxy(navigation)));
   };
 
-  // Two related greys: the post body sits a step above the comments, so the
-  // sections read as distinct without needing a hard divider.
-  const bodyBg = '#181818';
-  // The same ground the comments sheet uses — comments should look like
-  // comments wherever you meet them.
-  const commentsBg = COMMENT_SURFACE;
+  /**
+   * One surface for the whole modal.
+   *
+   * This was five near-identical greys — #181818 bands for the post, #0B0B0B
+   * for the comments, plus the card and page colours — stacked edge to edge, so
+   * the screen read as an undifferentiated dark wall whose sections you
+   * couldn't tell apart. Rather than pick better greys, there is now only one:
+   * the comments' own, top to bottom.
+   *
+   * What separates a section from the next one is space, and what marks
+   * something as pressable is a border (see `actionRow` / `outlineBtn`) — both
+   * of which work on a flat ground, which is why the colours weren't needed.
+   */
+  const surfaceBg = COMMENT_SURFACE;
+  const cardBg = surfaceBg;
+  const groundBg = surfaceBg;
+  const commentsBg = surfaceBg;
 
   const { data: postData, isLoading, refetch } = useGetPostQuery(postId);
   const refreshControl = useRefreshControl(refetch);
@@ -169,7 +236,8 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   // Whose summary is open, and the row it grew out of.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
-  const [likersOpen, setLikersOpen] = useState(false);
+  // The row the likers panel grew out of — null until one is tapped.
+  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   const [editOpen, setEditOpen] = useState(false);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
 
@@ -232,39 +300,68 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   };
 
   return (
-    // No 'bottom' edge — the comment bar owns the bottom inset so its own
-    // background reaches the viewport edge instead of leaving a dead strip.
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top']}>
-      {/* Custom modal header */}
-      <View style={[styles.modalHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8} style={styles.modalHeaderBtn}>
-          <X size={22} color={colors.fg} />
-        </TouchableOpacity>
-        <Text style={[styles.modalHeaderTitle, { color: colors.fg }]} numberOfLines={1}>
+    /**
+     * A sheet over a blurred feed, not an opaque screen.
+     *
+     * The route presents transparently (see AppNavigator) so the post can sit
+     * *on* what you were reading rather than replacing it — the strip of
+     * blurred, dimmed content left visible at the top is what says this is a
+     * layer you can dismiss rather than somewhere you navigated to.
+     */
+    <View style={ss.fill}>
+      {/* Fades in place — no Y movement. */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdrop }]} pointerEvents="none">
+        <BlurView tint="dark" intensity={30} style={StyleSheet.absoluteFill} />
+        {/* The blur alone doesn't separate the sheet from a light photo behind
+            it; the grey is what guarantees the contrast. */}
+        <View style={[StyleSheet.absoluteFill, styles.scrim]} />
+      </Animated.View>
+      {/* Tapping the exposed strip closes, like every other sheet in the app. */}
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} />
+
+      <Animated.View style={[
+        styles.sheet,
+        {
+          backgroundColor: surfaceBg,
+          marginTop: insets.top + SHEET_PEEK,
+          transform: [{ translateY: sheetY }],
+        },
+      ]}>
+      {/* Title left, actions right.
+          It reads at the post's own size rather than the 16pt centred label it
+          was before — a title is the first thing you want to read, not a
+          caption for the bar it sits in. Two lines before it truncates, so the
+          header grows to fit a long one instead of cutting it off. No bottom
+          rule: the bar and the post below share one surface, so there was
+          nothing for it to divide. */}
+      <View style={[styles.modalHeader, { backgroundColor: surfaceBg }]}>
+        <Text style={[styles.modalHeaderTitle, { color: colors.fg }]} numberOfLines={2}>
           {post.title || 'Post'}
         </Text>
         {isOwner ? (
-          <View style={styles.modalHeaderBtn}>
-            <PostOwnerMenu
-              postId={postId}
-              size={22}
-              color={colors.fg}
-              onEdit={() => setEditOpen(true)}
-              onDeleted={() => navigation.goBack()}
-            />
-          </View>
+          <PostOwnerMenu
+            postId={postId}
+            size={22}
+            color={colors.fg}
+            onEdit={() => setEditOpen(true)}
+            onDeleted={() => close()}
+          />
         ) : (
-          <View style={styles.modalHeaderBtn}>
-            <ReportButton contentType="post" contentId={postId} size={22} />
-          </View>
+          <ReportButton contentType="post" contentId={postId} size={22} />
         )}
+        <TouchableOpacity onPress={() => close()} hitSlop={8} style={styles.modalHeaderBtn}>
+          <X size={24} color={colors.fg} />
+        </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-        keyboardVerticalOffset={90}
-      >
+      {/* Padded by the keyboard's measured height rather than a
+          KeyboardAvoidingView. That needed a `keyboardVerticalOffset` guessed
+          at 90 on iOS, and gave Android `behavior="height"`, which has no
+          window resize to act on in an edge-to-edge app — so the composer sat
+          under the keyboard exactly when you were typing in it. */}
+      {/* The ground the cards sit on. Without this the gaps between them would
+          show whatever is behind the modal rather than a deliberate colour. */}
+      <Animated.View style={[styles.flex, { backgroundColor: groundBg, paddingBottom: keyboardPad }]}>
         <FlatList
           refreshControl={refreshControl}
           data={commentRows}
@@ -272,7 +369,11 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              {/* Title lives in the modal header, not here. */}
+              {/* Title lives in the header — see the note there. */}
+
+              {/* Full width: prose reads better with the screen's own margins
+                  than inset inside a card that has no background to show for
+                  itself now that everything shares one surface. */}
               {post.body && (
                 // Without a picture the words are the whole post, so they get
                 // the size to match — the same step the feed card takes.
@@ -280,7 +381,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   text={stripHtml(post.body)}
                   style={[
                     hasMedia ? styles.postBody : styles.postBodyAlone,
-                    { color: colors.muted, backgroundColor: bodyBg },
+                    { color: colors.fg },
                   ]}
                 />
               )}
@@ -299,7 +400,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 </View>
               )}
 
-              <View style={[styles.postHeader, { backgroundColor: bodyBg }]}>
+              <View style={[styles.card, styles.postHeader, { backgroundColor: cardBg }]}>
                 <TouchableOpacity
                   style={styles.postHeaderUser}
                   onPress={() => post.user?.user_id && dismissThenNavigate((n) =>
@@ -329,7 +430,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
               {/* Links found in the post body → open in the external browser */}
               {extractLinks(post.body).length > 0 && (
-                <View style={[styles.linkWrap, { backgroundColor: bodyBg }]}>
+                <View style={[styles.card, styles.linkWrap, { backgroundColor: cardBg }]}>
                   {extractLinks(post.body).map((url) => (
                     <TouchableOpacity
                       key={url}
@@ -341,7 +442,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                       <Text style={[styles.linkBtnText, { color: colors.primaryAlt }]} numberOfLines={1}>
                         {linkLabel(url)}
                       </Text>
-                      <ExternalLink size={14} color={colors.grey} />
+                      <ExternalLink size={15} color={colors.primaryAlt} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -360,21 +461,24 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               <PostTagBadges postId={post.internal_id} onNavigate={dismissThenNavigate} />
 
               {post.price && (
-                <Text style={[styles.price, { backgroundColor: bodyBg }]}>${Number(post.price).toLocaleString()}</Text>
+                <View style={[styles.card, styles.priceWrap, { backgroundColor: cardBg }]}>
+                  <Text style={styles.priceLabel}>Asking</Text>
+                  <Text style={styles.price}>${Number(post.price).toLocaleString()}</Text>
+                </View>
               )}
 
               {/* The number on the clock, drawn as the clock. Detail only — on
                   a feed card it would be a second thing competing with the
                   photo. */}
               {post.mileage ? (
-                <View style={[styles.mileageRow, { backgroundColor: bodyBg }]}>
+                <View style={[styles.card, styles.mileageRow, { backgroundColor: cardBg }]}>
                   <Odometer value={post.mileage} />
                 </View>
               ) : null}
 
               {(post.type === 'listing' || post.type === 'want') && post.user && !isOwner && (
                 <TouchableOpacity
-                  style={[styles.messageBtn, { backgroundColor: bodyBg, borderTopColor: colors.border, borderBottomColor: colors.border }]}
+                  style={[styles.card, styles.actionRow, { backgroundColor: cardBg, borderColor: colors.primaryAlt }]}
                   onPress={() => navigation.navigate('ComposeMessage', {
                     userId: post.user!.user_id,
                     username: post.user!.username,
@@ -384,22 +488,27 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   activeOpacity={0.8}
                 >
                   <MessageCircle size={18} color={colors.primaryAlt} />
-                  <Text style={[styles.messageBtnText, { color: colors.primaryAlt }]}>
+                  <Text style={[styles.actionRowText, { color: colors.primaryAlt }]}>
                     Message @{post.user.username} about this
                   </Text>
+                  <ChevronRight size={16} color={colors.primaryAlt} />
                 </TouchableOpacity>
               )}
 
+              {/* SummaryTouchable, so the panel grows out of this row rather
+                  than arriving from nowhere — which is what it did while this
+                  was a plain TouchableOpacity passing no origin. */}
               {(counts?.likes ?? 0) > 0 && (
-                <TouchableOpacity
-                  style={[styles.likedByRow, { backgroundColor: bodyBg }]}
-                  onPress={() => setLikersOpen(true)}
-                  activeOpacity={0.7}
+                <SummaryTouchable
+                  style={[styles.card, styles.outlineBtn, { borderColor: colors.border }]}
+                  onPress={(origin) => setLikersOrigin(origin)}
+                  accessibilityLabel="See everyone who liked this"
                 >
-                  <Text style={[styles.likedByText, { color: colors.muted }]}>
+                  <Heart size={16} color={colors.fg} />
+                  <Text style={[styles.outlineBtnText, { color: colors.fg }]}>
                     Liked by {counts!.likes} {counts!.likes === 1 ? 'person' : 'people'}
                   </Text>
-                </TouchableOpacity>
+                </SummaryTouchable>
               )}
 
               {/* No label — the darker background is enough to mark the section. */}
@@ -434,16 +543,17 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           contentContainerStyle={styles.list}
         />
 
+        {/* No fill and no rule of its own: it's the same surface as the
+            comments it sits under, and the field's own border is what marks
+            where you type. */}
         <View style={{
-          backgroundColor: colors.card,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
+          backgroundColor: surfaceBg,
           // Clear the home indicator / nav bar without double-counting the
           // safe area, which the SafeAreaView no longer applies.
           paddingBottom: Platform.OS === 'android' ? 48 : Math.max(insets.bottom, 12),
         }}>
           {replyingTo && (
-            <View style={[styles.replyBanner, { backgroundColor: colors.segment, borderBottomColor: colors.border }]}>
+            <View style={[styles.replyBanner, { backgroundColor: surfaceBg, borderBottomColor: colors.border }]}>
               <Text style={[styles.replyBannerText, { color: colors.grey }]}>
                 Replying to <Text style={{ fontWeight: '700', color: colors.fg }}>@{replyingTo.username}</Text>
               </Text>
@@ -472,12 +582,13 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </Animated.View>
 
       <LikersSheet
         entryId={postId}
-        visible={likersOpen}
-        onClose={() => setLikersOpen(false)}
+        visible={likersOrigin !== undefined}
+        origin={likersOrigin}
+        onClose={() => setLikersOrigin(undefined)}
       />
       <PostEditSheet
         post={post}
@@ -490,20 +601,80 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         origin={userSummary?.origin}
         onClose={() => setUserSummary(null)}
       />
-    </SafeAreaView>
+      </Animated.View>
+    </View>
   );
 }
 
+/** How much of the blurred feed stays visible above the sheet. */
+const SHEET_PEEK = 14;
+
 const styles = StyleSheet.create({
   flex:             { flex: 1 },
-  modalHeader:      {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 4, paddingVertical: 18, borderBottomWidth: 1,
+  scrim: { backgroundColor: 'rgba(40,40,40,0.55)' },
+  // Fills what's left below the exposed strip, with the corners rounded
+  // against it so the edge reads as the top of a sheet.
+  sheet: {
+    flex: 1,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    overflow: 'hidden',
   },
-  modalHeaderBtn:   { width: 44, alignItems: 'center' },
-  modalHeaderTitle: { fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
+  // Title left, actions right. `alignItems: flex-start` so the icons stay on
+  // the first line when the title wraps to two, rather than drifting to the
+  // vertical middle of a taller bar.
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    gap: 10, paddingLeft: 16, paddingRight: 12,
+    // Roomier at the top: the sheet's rounded edge is right above this, and a
+    // title butted against it reads as clipped.
+    paddingTop: 22, paddingBottom: 14,
+  },
+  // `minWidth: 0` lets a long word shrink the title rather than pushing the
+  // actions off the edge.
+  modalHeaderTitle: {
+    flex: 1, minWidth: 0,
+    fontSize: 22, fontWeight: '800', letterSpacing: -0.3, lineHeight: 27,
+  },
+  modalHeaderBtn:   { alignItems: 'flex-end' },
   list: { paddingBottom: 100 },
-  linkWrap:        { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  /**
+   * The one card treatment every section wears.
+   *
+   * Inset from the screen with a gap above, so sections are separated by the
+   * ground showing through rather than by another shade of grey.
+   */
+  card: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  /**
+   * Anything you can press. A bordered row with an icon in front and a chevron
+   * behind, so it can't be mistaken for the static cards above it — which is
+   * exactly what happened when every row shared one flat background.
+   */
+  actionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 14,
+    borderWidth: 1,
+  },
+  actionRowText:   { flex: 1, fontSize: 15, fontWeight: '700' },
+  /**
+   * An outline button: the full width of a card, no fill, label centred.
+   * Reads as something to press rather than as another row of information —
+   * which is what it looked like sharing the cards' background.
+   */
+  outlineBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  outlineBtnText:  { fontSize: 15, fontWeight: '700' },
+
+  linkWrap:        { padding: 12, gap: 8 },
   linkBtn:         {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 11,
@@ -512,7 +683,7 @@ const styles = StyleSheet.create({
   linkBtnText:     { flex: 1, fontSize: 14, fontWeight: '700' },
   postHeader: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 16, gap: 12,
+    padding: 14, gap: 12,
   },
   postHeaderUser:  { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   postHeaderText:  { flex: 1 },
@@ -525,9 +696,10 @@ const styles = StyleSheet.create({
   badgeText:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   author:          { fontSize: 15, fontWeight: '700' },
   username:        { fontSize: 12 },
-  postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 12 },
-  mileageRow:      { paddingHorizontal: 16, paddingVertical: 12 },
-  postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 16 },
+  // Full-bleed to the screen's own gutters, not inset in a card.
+  postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 10 },
+  mileageRow:      { padding: 14 },
+  postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 12 },
   singleImage:     { width: '100%', height: 300 },
   videoPlayer:     { width: '100%', aspectRatio: 4 / 5, backgroundColor: '#000' },
   dots: {
@@ -547,15 +719,9 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.4, shadowRadius: 2,
   },
-  price:           { fontSize: 24, fontWeight: '800', color: colors.primaryAlt, paddingHorizontal: 16, paddingTop: 12 },
-  messageBtn:      {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderTopWidth: 1, borderBottomWidth: 1, marginTop: 4,
-  },
-  messageBtnText:  { fontSize: 15, fontWeight: '700' },
-  likedByRow:      { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
-  likedByText:     { fontSize: 13 },
+  priceWrap:       { padding: 14, gap: 2 },
+  priceLabel:      { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: colors.grey },
+  price:           { fontSize: 26, fontWeight: '800', color: colors.primaryAlt },
   // Empty spacer that starts the comments section — its background and top
   // border are what set it apart now that the label is gone.
   commentsDivider: {

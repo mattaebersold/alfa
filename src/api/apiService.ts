@@ -938,6 +938,23 @@ export const apiService = createApi({
       providesTags: (result, error, username) => [{ type: 'Following', id: username }],
     }),
 
+    /**
+     * Follow status for many people at once — one request for a whole list,
+     * instead of one per row. Provides the same per-username tags a single
+     * status query does, so following someone refreshes both.
+     */
+    getFollowStatuses: builder.query<{ statuses: Record<string, boolean> }, string[]>({
+      query: (usernames) => ({
+        url: 'api/follow/statuses',
+        method: 'POST',
+        body: { usernames },
+      }),
+      providesTags: (result, error, usernames) => [
+        { type: 'Following' as const, id: 'LIST' },
+        ...usernames.map((u) => ({ type: 'Following' as const, id: u })),
+      ],
+    }),
+
     followUser: builder.mutation<void, string>({
       query: (username) => ({ url: `api/follow/set-following`, method: 'POST', body: { username } }),
       invalidatesTags: (result, error, username) => [{ type: 'Following', id: username }, { type: 'Following', id: 'LIST' }],
@@ -1388,6 +1405,7 @@ export const {
   useGetFollowStatusQuery,
   useFollowUserMutation,
   useUnfollowUserMutation,
+  useGetFollowStatusesQuery,
   useGetUserFollowersQuery,
   useGetUserFollowingQuery,
   useGetTagsByPostQuery,

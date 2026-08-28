@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ScrollView,
 } from 'react-native';
@@ -7,7 +7,9 @@ import { Search, Car, MapPin } from 'lucide-react-native';
 import SteeringWheel from '../../components/ui/SteeringWheel';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useGetUsersQuery, useGetCarsQuery, useGetPostsQuery } from '../../api/apiService';
+import {
+  useGetUsersQuery, useGetCarsQuery, useGetPostsQuery, useGetFollowStatusesQuery,
+} from '../../api/apiService';
 import FollowButton from '../../components/social/FollowButton';
 import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
@@ -29,7 +31,12 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const LIMIT = 20;
 
-function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
+function MemberRow({ user, onPress, isFollowing }: {
+  user: User;
+  onPress: () => void;
+  /** From the page's single bulk lookup; undefined until it lands. */
+  isFollowing?: boolean;
+}) {
   const colors = useColors();
   const { userInfo } = useAppSelector((s: any) => s.auth);
   const { data: carsData } = useGetCarsQuery({ user_id: user.user_id, limit: 1 }, { skip: !user.user_id });
@@ -64,7 +71,7 @@ function MemberRow({ user, onPress }: { user: User; onPress: () => void }) {
         </View>
       </View>
       {user.username && user.user_id !== userInfo?.user_id && (
-        <FollowButton username={user.username} />
+        <FollowButton username={user.username} isFollowing={isFollowing} />
       )}
     </TouchableOpacity>
   );
@@ -96,6 +103,21 @@ export default function MembersScreen() {
       });
     }
   }, [data, page]);
+
+  /**
+   * Follow state for everyone on screen, in one request.
+   *
+   * Each row used to ask for its own, so a page of twenty fired twenty of these
+   * alongside the two per-row queries they already make — sixty requests at
+   * once, and any that failed left their button reading "Follow" for someone
+   * you follow. Refetches as the list grows, and the mutations invalidate it.
+   */
+  const usernames = useMemo(
+    () => allUsers.map((u) => u.username).filter(Boolean) as string[],
+    [allUsers],
+  );
+  const { data: followData } = useGetFollowStatusesQuery(usernames, { skip: usernames.length === 0 });
+  const followStatuses = followData?.statuses;
 
   const handleQueryChange = useCallback((text: string) => {
     setQuery(text);
@@ -185,6 +207,7 @@ export default function MembersScreen() {
         renderItem={({ item }) => (
           <MemberRow
             user={item}
+            isFollowing={item.username ? followStatuses?.[item.username] : undefined}
             onPress={() => navigation.navigate('UserDetail', { userId: item.user_id, username: item.username })}
           />
         )}

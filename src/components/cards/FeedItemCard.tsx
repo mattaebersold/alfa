@@ -131,11 +131,17 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   if (hiddenIds.includes(post.internal_id) || (post.user_id && blockedUserIds.includes(post.user_id))) return null;
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: cardBg }]}
-      onPress={onPress}
-      activeOpacity={0.95}
-    >
+    /**
+     * A plain View, not a TouchableOpacity.
+     *
+     * The card used to be one big press target with the gallery inside it, and
+     * on Android the outer touchable wins the responder negotiation against a
+     * nested horizontal list often enough that swiping between a post's photos
+     * mostly didn't work. Opening the post is now attached to the regions that
+     * are only ever tapped — the words, and the single-image hero — leaving the
+     * gallery's own gesture uncontested.
+     */
+    <View style={[styles.card, { backgroundColor: cardBg }]}>
       {/* Header — avatar/name tap navigates to profile */}
       <TouchableOpacity
         style={styles.header}
@@ -162,26 +168,30 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           style down to each inline segment, and a mention carrying the card's
           horizontal padding would sit in a gap of its own. */}
       {(post.title || bodyText) && (
-        <View style={hasMedia ? styles.titleWrap : styles.titleAloneWrap}>
+        <TouchableOpacity
+          style={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
+          onPress={onPress}
+          activeOpacity={0.95}
+        >
           <MentionText
             text={post.title || bodyText}
             style={[hasMedia ? styles.title : styles.titleAlone, { color: fgColor }]}
             numberOfLines={hasMedia ? 2 : 5}
           />
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* A taste of the body under the title — enough to know whether to open
           it, not enough to be the post. Skipped when the body *is* the line
           above. */}
       {post.title && bodyText ? (
-        <View style={styles.bodyPreviewWrap}>
+        <TouchableOpacity style={styles.bodyPreviewWrap} onPress={onPress} activeOpacity={0.95}>
           <MentionText
             text={bodyText}
             style={[styles.bodyPreview, { color: mutedColor }]}
             numberOfLines={2}
           />
-        </View>
+        </TouchableOpacity>
       ) : null}
 
       {/* Hero image(s) with overlays — swipes through the gallery like the post modal */}
@@ -197,24 +207,38 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
               style={StyleSheet.absoluteFill}
               getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
               renderItem={({ item, index }) => (
-                <Image
-                  source={{ uri: imageUrl(item.filename)! }}
+                // Tap opens the post, swipe pages the gallery. This nesting is
+                // the safe direction: a scroll view claims the responder the
+                // moment a drag starts, so the touchable only ever fires on a
+                // press that didn't move. It was the reverse — the whole card
+                // as one touchable *around* the list — that swallowed swipes.
+                <TouchableOpacity
                   style={{ width: SCREEN_WIDTH, height: '100%' }}
-                  contentFit="cover"
-                  transition={200}
-                  onLoad={index === 0 ? (e) => setImgAspectRatio(e.source.width / e.source.height) : undefined}
-                />
+                  onPress={onPress}
+                  activeOpacity={0.95}
+                >
+                  <Image
+                    source={{ uri: imageUrl(item.filename)! }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    transition={200}
+                    onLoad={index === 0 ? (e) => setImgAspectRatio(e.source.width / e.source.height) : undefined}
+                  />
+                </TouchableOpacity>
               )}
             />
           ) : (
-            <Image
-              source={{ uri: heroImage! }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              transition={300}
-              placeholder={{ blurhash: 'LGFFaXYk^6#M@-5c,1J5@[or[Q6.' }}
-              onLoad={(e) => setImgAspectRatio(e.source.width / e.source.height)}
-            />
+            // One photo has no gesture of its own, so it can carry the tap.
+            <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onPress} activeOpacity={0.95}>
+              <Image
+                source={{ uri: heroImage! }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={300}
+                placeholder={{ blurhash: 'LGFFaXYk^6#M@-5c,1J5@[or[Q6.' }}
+                onLoad={(e) => setImgAspectRatio(e.source.width / e.source.height)}
+              />
+            </TouchableOpacity>
           )}
           {/* Type + category badges — top left, color coded */}
           <View style={styles.imageBadgesLeft}>
@@ -249,7 +273,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
       {/* Video thumbnail (when no gallery image) */}
       {videoThumbnail && (
-        <View style={styles.videoThumb}>
+        <TouchableOpacity style={styles.videoThumb} onPress={onPress} activeOpacity={0.95}>
           <Image
             source={{ uri: videoThumbnail }}
             style={StyleSheet.absoluteFill}
@@ -263,7 +287,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
               </Svg>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* Message the seller about a marketplace listing */}
@@ -314,7 +338,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         />
         <CommentButton count={post.comment_count ?? post.commentCount ?? 0} onPress={onCommentPress} />
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 

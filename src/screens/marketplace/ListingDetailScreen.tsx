@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
+  Animated,
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
+  TouchableOpacity, Platform, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import Spinner from '../../components/ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 import type { MarketScreenProps, AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
@@ -32,6 +34,8 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 export default function ListingDetailScreen({ route }: MarketScreenProps<'ListingDetail'>) {
   const { postId } = route.params;
   const colors = useColors();
+  // Lifts the comment composer onto the keyboard — see the note below.
+  const { animated: keyboardPad } = useKeyboardInset();
   const { userInfo } = useAppSelector((s) => s.auth);
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
@@ -69,11 +73,12 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-        keyboardVerticalOffset={90}
-      >
+      {/* Padded by the keyboard's measured height rather than a
+          KeyboardAvoidingView. That needed a `keyboardVerticalOffset` guessed
+          at 90 on iOS, and gave Android `behavior="height"`, which has no
+          window resize to act on in an edge-to-edge app — so the composer sat
+          under the keyboard exactly when you were typing in it. */}
+      <Animated.View style={[styles.flex, { paddingBottom: keyboardPad }]}>
         <FlatList
           refreshControl={refreshControl}
           data={commentRows as any[]}
@@ -224,7 +229,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </Animated.View>
 
       <LikersSheet
         entryId={postId}

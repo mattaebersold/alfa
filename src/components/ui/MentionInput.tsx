@@ -17,6 +17,14 @@ interface MentionInputProps {
   autoFocus?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  /**
+   * Turn the OS keyboard's corrections and spelling suggestions off.
+   *
+   * On by default: everything typed through this is prose — a comment, a
+   * reply, a message — and prose wants a spell checker. Set this on a field
+   * where a correction would be wrong (a handle, a URL, a part number).
+   */
+  disableSuggestions?: boolean;
 }
 
 export default function MentionInput({
@@ -30,6 +38,7 @@ export default function MentionInput({
   autoFocus,
   onFocus,
   onBlur,
+  disableSuggestions = false,
 }: MentionInputProps) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -99,6 +108,13 @@ export default function MentionInput({
         onFocus={onFocus}
         onBlur={onBlur}
         autoFocus={autoFocus}
+        // Stated rather than left to the defaults. `spellCheck` in particular
+        // only follows `autoCorrect` when neither is given, so anything that
+        // touched one of them silently turned the other off too.
+        autoCorrect={!disableSuggestions}
+        spellCheck={!disableSuggestions}
+        autoCapitalize={disableSuggestions ? 'none' : 'sentences'}
+        keyboardType="default"
       />
     </View>
   );

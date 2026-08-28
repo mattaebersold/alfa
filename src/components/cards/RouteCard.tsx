@@ -57,7 +57,11 @@ export default function RouteCard({ route }: { route: DrivingRoute }) {
       </View>
 
       <View style={styles.traceRow}>
-        <RouteTrace polyline={route.polyline} speeds={route.speed_profile} color={brand} style={styles.trace} />
+        {/* The trace on its own darker ground, so the line reads as a picture
+            of a route rather than as marks floating on the card. */}
+        <View style={styles.traceWell}>
+          <RouteTrace polyline={route.polyline} speeds={route.speed_profile} color={brand} style={styles.trace} />
+        </View>
 
         <View style={styles.info}>
           <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>
@@ -117,8 +121,16 @@ const styles = StyleSheet.create({
   kickerText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
   time:       { fontSize: 11, fontStyle: 'italic' },
 
-  traceRow: { flexDirection: 'row', paddingHorizontal: 12, gap: 14, alignItems: 'center' },
-  trace:    { width: 104, height: 104 },
+  traceRow: { flexDirection: 'row', paddingHorizontal: 12, gap: 12, alignItems: 'center' },
+  // Darker than the card it sits on, and rounded, so the trace is contained.
+  traceWell: {
+    width: 132, height: 132,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  trace:    { width: 124, height: 124 },
   info:     { flex: 1, gap: 5 },
 
   title: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },

@@ -257,6 +257,12 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
           multiline
           maxLength={2000}
           onSubmitEditing={handleSend}
+          // A message is prose — stated explicitly, since `spellCheck` only
+          // inherits from `autoCorrect` when neither is given.
+          autoCorrect
+          spellCheck
+          autoCapitalize="sentences"
+
         />
         <TouchableOpacity
           style={[styles.sendBtn, (!body.trim() || sending) && styles.sendBtnDisabled]}

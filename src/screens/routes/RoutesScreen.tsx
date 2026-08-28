@@ -34,7 +34,10 @@ function RouteRow({ route, onPress }: { route: DrivingRoute; onPress: () => void
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <RouteTrace polyline={route.polyline} speeds={route.speed_profile} color={brand} style={styles.trace} />
+      {/* Same contained treatment as the feed card's. */}
+      <View style={styles.traceWell}>
+        <RouteTrace polyline={route.polyline} speeds={route.speed_profile} color={brand} style={styles.trace} />
+      </View>
 
       <View style={styles.info}>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>
@@ -166,7 +169,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderRadius: 14, padding: 12,
   },
-  trace: { width: 76, height: 76 },
+  traceWell: {
+    width: 104, height: 104,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  trace: { width: 96, height: 96 },
   info:  { flex: 1, gap: 4 },
 
   title: { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },

@@ -255,7 +255,15 @@ export default function AppNavigator() {
       <Stack.Screen
         name="PostDetailModal"
         component={PostDetailScreen as React.ComponentType<object>}
-        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        // transparentModal, not modal: the screen draws its own blurred
+        // backdrop over the feed, which an opaque presentation would have
+        // nothing behind it to show.
+        //
+        // `animation: 'none'` because the screen animates itself — a route-level
+        // slide would carry the backdrop up with the sheet, and a backdrop that
+        // arrives from off-screen reads as part of the panel rather than as the
+        // page behind it going out of focus. The sheet slides, the blur fades.
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
       />
       <Stack.Screen
         name="EventDetailModal"
