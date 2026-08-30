@@ -22,6 +22,7 @@ import CommentRow, { COMMENT_SURFACE } from '../../components/social/CommentRow'
 import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
+import ImageLightbox from '../../components/ui/ImageLightbox';
 import { imageUrl } from '../../utils/image';
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -65,16 +66,39 @@ function StoryVideoPlayer({ videoId }: { videoId: string }) {
 function GallerySwiper({ gallery }: { gallery: GalleryItem[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [ratios, setRatios] = useState<Record<number, number>>({});
+  // Which photo the full-screen viewer is on, if it's open.
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+
+  // The viewer works off plain urls, and a gallery entry with no filename has
+  // nothing to show.
+  const urls = gallery
+    .map((g) => imageUrl(g.filename))
+    .filter((u): u is string => !!u);
+
+  const lightbox = (
+    <ImageLightbox
+      images={urls}
+      initialIndex={zoomIndex ?? 0}
+      visible={zoomIndex !== null}
+      onClose={() => setZoomIndex(null)}
+    />
+  );
 
   if (gallery.length === 1) {
     const ratio = ratios[0] ?? 16 / 9;
     return (
-      <Image
-        source={{ uri: imageUrl(gallery[0].filename)! }}
-        style={{ width: '100%', aspectRatio: ratio }}
-        contentFit="cover"
-        onLoad={(e) => setRatios({ 0: e.source.width / e.source.height })}
-      />
+      <>
+        {/* Tap to open it full-screen, where it can be pinched into. */}
+        <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(0)}>
+          <Image
+            source={{ uri: imageUrl(gallery[0].filename)! }}
+            style={{ width: '100%', aspectRatio: ratio }}
+            contentFit="cover"
+            onLoad={(e) => setRatios({ 0: e.source.width / e.source.height })}
+          />
+        </TouchableOpacity>
+        {lightbox}
+      </>
     );
   }
 
@@ -99,15 +123,24 @@ function GallerySwiper({ gallery }: { gallery: GalleryItem[] }) {
             const ratio = ratios[index] ?? currentRatio;
             return (
               <View style={{ width: SCREEN_WIDTH, height: containerHeight, justifyContent: 'center' }}>
-                <Image
-                  source={{ uri: imageUrl(item.filename)! }}
+                {/* Tap opens the viewer, swipe pages the gallery — the scroll
+                    view claims the responder on any drag, so the touchable only
+                    fires on a press that didn't move. */}
+                <TouchableOpacity
+                  activeOpacity={0.95}
+                  onPress={() => setZoomIndex(index)}
                   style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH / ratio }}
-                  contentFit="cover"
-                  onLoad={(e) => {
-                    const r = e.source.width / e.source.height;
-                    setRatios((prev) => ({ ...prev, [index]: r }));
-                  }}
-                />
+                >
+                  <Image
+                    source={{ uri: imageUrl(item.filename)! }}
+                    style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH / ratio }}
+                    contentFit="cover"
+                    onLoad={(e) => {
+                      const r = e.source.width / e.source.height;
+                      setRatios((prev) => ({ ...prev, [index]: r }));
+                    }}
+                  />
+                </TouchableOpacity>
               </View>
             );
           }}
@@ -129,6 +162,7 @@ function GallerySwiper({ gallery }: { gallery: GalleryItem[] }) {
           </View>
         )}
       </View>
+      {lightbox}
     </View>
   );
 }

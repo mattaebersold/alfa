@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';
 import { Image } from 'expo-image';
+import { Plus, Trash2 } from 'lucide-react-native';
 import {
   useGetLoggedInUserQuery,
   useUpdateUserSettingMutation,
@@ -23,6 +24,8 @@ import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
+import { validateUsername } from '../../utils/username';
+import type { ProfileLink } from '../../types/api';
 import { ss } from '../../styles/shared';
 
 function SectionHeader({ title }: { title: string }) {
@@ -81,6 +84,12 @@ export default function SettingsScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [bio, setBio] = useState('');
+  /**
+   * The links repeater. Held as a whole list because that's how it's saved —
+   * the server rewrites the array on every write rather than patching rows.
+   */
+  const [links, setLinks] = useState<ProfileLink[]>([]);
+  const [savingLinks, setSavingLinks] = useState(false);
   const [cityState, setCityState] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -113,6 +122,7 @@ export default function SettingsScreen() {
       setFirstName(user.firstName ?? '');
       setLastName(user.lastName ?? '');
       setBio(user.bio ?? '');
+      setLinks(user.links ?? []);
       setCityState(user.cityState ?? '');
       setUsername(user.username ?? '');
       setEmail(user.email ?? '');
@@ -139,9 +149,36 @@ export default function SettingsScreen() {
     }
   };
 
+  const setLinkField = (index: number, key: keyof ProfileLink) => (value: string) =>
+    setLinks((prev) => prev.map((link, i) => (i === index ? { ...link, [key]: value } : link)));
+
+  const addLink = () => setLinks((prev) => [...prev, { title: '', url: '' }]);
+  const removeLink = (index: number) => setLinks((prev) => prev.filter((_, i) => i !== index));
+
+  const handleSaveLinks = async () => {
+    setSavingLinks(true);
+    try {
+      // Empty rows are dropped here as well as on the server, so what comes
+      // back and what's on screen agree without a refetch race.
+      const cleaned = links.filter((link) => link.url.trim());
+      const res: any = await updateSetting({ type: 'links', links: cleaned }).unwrap();
+      // The server normalises URLs (adds https://, drops anything unusable), so
+      // the stored list is what goes back into the form.
+      if (Array.isArray(res?.links)) setLinks(res.links);
+      Alert.alert('Saved', 'Your links have been updated.');
+    } catch {
+      Alert.alert('Error', 'Failed to update links.');
+    } finally {
+      setSavingLinks(false);
+    }
+  };
+
   const handleSaveUsername = async () => {
     setUsernameError('');
-    if (!username.trim()) { setUsernameError('Username is required.'); return; }
+    // Same rules as registration — a handle changed here is just as public as
+    // one chosen at sign-up.
+    const problem = validateUsername(username);
+    if (problem) { setUsernameError(problem); return; }
     if (username === user?.username) { Alert.alert('No change', 'That is already your username.'); return; }
     setSavingUsername(true);
     try {
@@ -279,6 +316,64 @@ export default function SettingsScreen() {
             <Field label="City / State" value={cityState} onChangeText={setCityState} placeholder="e.g. Los Angeles, CA" autoCapitalize="words" />
           </View>
           <SaveButton label="Save Profile" onPress={handleSaveProfile} loading={savingProfile} />
+        </View>
+
+        {/* ── Links ────────────────────────────────────────────────── */}
+        <SectionHeader title="Links" />
+        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+          <View style={styles.cardPad}>
+            <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
+              These show as buttons under your bio. Drop the https:// if you like — we'll add it.
+            </Text>
+
+            {links.length === 0 ? (
+              <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
+                No links yet.
+              </Text>
+            ) : (
+              links.map((link, i) => (
+                <View key={i} style={[styles.linkRow, { borderColor: colors.borderDark }]}>
+                  <View style={styles.linkFields}>
+                    <Field
+                      label="Title"
+                      value={link.title}
+                      onChangeText={setLinkField(i, 'title')}
+                      placeholder="e.g. My Shop"
+                      autoCapitalize="words"
+                    />
+                    <Field
+                      label="URL"
+                      value={link.url}
+                      onChangeText={setLinkField(i, 'url')}
+                      placeholder="e.g. instagram.com/yourhandle"
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => removeLink(i)}
+                    hitSlop={8}
+                    style={styles.linkRemove}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove link ${i + 1}`}
+                  >
+                    <Trash2 size={16} color={colors.red} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+
+            {links.length < MAX_PROFILE_LINKS && (
+              <TouchableOpacity
+                onPress={addLink}
+                style={[styles.addLinkBtn, { borderColor: colors.primaryAlt }]}
+                activeOpacity={0.8}
+              >
+                <Plus size={15} color={colors.primaryAlt} />
+                <Text style={[styles.addLinkText, { color: colors.primaryAlt }]}>Add Link</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <SaveButton label="Save Links" onPress={handleSaveLinks} loading={savingLinks} />
         </View>
 
         {/* ── Username ─────────────────────────────────────────────── */}
@@ -420,8 +515,23 @@ function SaveButton({ label, onPress, loading, secondary }: { label: string; onP
   );
 }
 
+/** Mirrors MAX_LINKS in horacio's helpers/profileLinks. */
+const MAX_PROFILE_LINKS = 10;
+
 const styles = StyleSheet.create({
   scroll:       { paddingBottom: 40 },
+  linkRow:      {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    paddingTop: 12, marginBottom: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  linkFields:   { flex: 1 },
+  linkRemove:   { padding: 8, marginTop: 22 },
+  addLinkBtn:   {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 11, borderRadius: 10, borderWidth: 1.5, marginTop: 8,
+  },
+  addLinkText:  { fontSize: 14, fontWeight: '700' },
   card:         { marginBottom: 0 },
   cardPad:      { padding: 16, gap: 4 },
 

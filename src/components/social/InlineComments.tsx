@@ -9,6 +9,8 @@ import { useAppSelector } from '../../store/store';
 import MentionInput from '../ui/MentionInput';
 import Avatar from '../ui/Avatar';
 import CommentRow from './CommentRow';
+import { CommentPhotoButton, CommentPhotoPreview } from './CommentPhotoBar';
+import { useCommentPhoto } from '../../hooks/useCommentPhoto';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
@@ -47,6 +49,7 @@ export default function InlineComments({
   const [commentText, setCommentText] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+  const photo = useCommentPhoto();
   // Tapping a commenter summarises them in place, as it does in the sheet.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
@@ -56,12 +59,16 @@ export default function InlineComments({
   const onAccent = contrastText(c.primaryAlt);
   const bg = backgroundColor ?? c.bg;
 
+  // Words or a photo — a comment doesn't need both.
+  const canSubmit = !!commentText.trim() || photo.hasPhoto;
+
   const handleSubmit = async () => {
-    if (!commentText.trim()) return;
+    if (!canSubmit) return;
     const fd = new FormData();
     fd.append('document_id', documentId);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
+    photo.appendTo(fd);
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
     try {
@@ -69,6 +76,7 @@ export default function InlineComments({
       setCommentText('');
       setMentionedUserIds([]);
       setReplyingTo(null);
+      photo.clear();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }
@@ -125,6 +133,8 @@ export default function InlineComments({
         </View>
       )}
 
+      <CommentPhotoPreview photo={photo} />
+
       <View style={styles.inputRow}>
         {/* Boxed at a fixed size: in a row whose other child grows, the avatar
             was picking up the leftover width and drawing as a wide rectangle
@@ -149,13 +159,14 @@ export default function InlineComments({
             multiline
           />
         </View>
+        <CommentPhotoButton photo={photo} tint={c.grey} />
         <TouchableOpacity
           onPress={handleSubmit}
-          disabled={submitting || !commentText.trim()}
+          disabled={submitting || !canSubmit}
           style={[
             styles.sendBtn,
             { backgroundColor: c.primaryAlt },
-            (!commentText.trim() || submitting) && styles.sendBtnDisabled,
+            (!canSubmit || submitting) && styles.sendBtnDisabled,
           ]}
           activeOpacity={0.85}
         >

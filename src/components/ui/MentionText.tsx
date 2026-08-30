@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../../navigation/types';
 import { useColors } from '../../hooks/useColors';
 import { useLazyGetPublicUserQuery } from '../../api/apiService';
+import { parseMentions } from '../../utils/mentions';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -14,7 +15,7 @@ interface MentionTextProps {
   numberOfLines?: number;
 }
 
-function MentionSegment({ username, textStyle }: { username: string; textStyle?: any }) {
+function UserSegment({ username, textStyle }: { username: string; textStyle?: any }) {
   const c = useColors();
   const navigation = useNavigation<AppNav>();
   const [fetchUser] = useLazyGetPublicUserQuery();
@@ -37,10 +38,28 @@ function MentionSegment({ username, textStyle }: { username: string; textStyle?:
   );
 }
 
-export default function MentionText({ text, style, numberOfLines }: MentionTextProps) {
-  const parts = text.split(/(@\w+)/g);
+/**
+ * A tagged garage car. The id travels in the token, so this needs no lookup —
+ * it goes straight to the car, and two cars sharing a title stay distinct.
+ */
+function CarSegment({ label, carId, textStyle }: { label: string; carId: string; textStyle?: any }) {
+  const c = useColors();
+  const navigation = useNavigation<AppNav>();
 
-  if (parts.length === 1) {
+  return (
+    <Text
+      onPress={() => navigation.navigate('CarDetail', { carId })}
+      style={[textStyle, { color: c.blueLight }]}
+    >
+      @{label}
+    </Text>
+  );
+}
+
+export default function MentionText({ text, style, numberOfLines }: MentionTextProps) {
+  const segments = parseMentions(text);
+
+  if (segments.length <= 1 && segments[0]?.kind !== 'car' && segments[0]?.kind !== 'user') {
     return (
       <Text style={style} numberOfLines={numberOfLines}>
         {text}
@@ -50,12 +69,14 @@ export default function MentionText({ text, style, numberOfLines }: MentionTextP
 
   return (
     <Text style={style} numberOfLines={numberOfLines}>
-      {parts.map((part, i) => {
-        const match = part.match(/^@(\w+)$/);
-        if (match) {
-          return <MentionSegment key={i} username={match[1]} textStyle={style} />;
+      {segments.map((seg, i) => {
+        if (seg.kind === 'user') {
+          return <UserSegment key={i} username={seg.username} textStyle={style} />;
         }
-        return <Text key={i}>{part}</Text>;
+        if (seg.kind === 'car') {
+          return <CarSegment key={i} label={seg.label} carId={seg.carId} textStyle={style} />;
+        }
+        return <Text key={i}>{seg.text}</Text>;
       })}
     </Text>
   );

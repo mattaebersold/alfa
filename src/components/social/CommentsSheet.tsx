@@ -12,6 +12,8 @@ import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThr
 import { useAppSelector } from '../../store/store';
 import MentionInput from '../ui/MentionInput';
 import CommentRow, { COMMENT_SURFACE } from './CommentRow';
+import { CommentPhotoButton, CommentPhotoPreview } from './CommentPhotoBar';
+import { useCommentPhoto } from '../../hooks/useCommentPhoto';
 import { useColors } from '../../hooks/useColors';
 import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 import { colors } from '../../constants/colors';
@@ -44,6 +46,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  const photo = useCommentPhoto();
   // Whose summary is open, and the row it grew out of.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
@@ -79,18 +82,22 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
         setCommentText('');
         setMentionedUserIds([]);
         setReplyingTo(null);
+        photo.clear();
       });
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!rendered) return null;
 
+  const canSubmit = !!commentText.trim() || photo.hasPhoto;
+
   const handleSubmit = async () => {
-    if (!commentText.trim()) return;
+    if (!canSubmit) return;
     const fd = new FormData();
     fd.append('document_id', postId);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
+    photo.appendTo(fd);
     // A reply is a comment whose reply_to is the parent's internal_id. The backend
     // returns these separately (getReplies) and we nest them under the parent.
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
@@ -100,6 +107,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
       setCommentText('');
       setMentionedUserIds([]);
       setReplyingTo(null);
+      photo.clear();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }
@@ -174,7 +182,9 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
                 </TouchableOpacity>
               </View>
             )}
+            <CommentPhotoPreview photo={photo} />
             <View style={styles.inputRow}>
+              <CommentPhotoButton photo={photo} tint={c.grey} />
               <MentionInput
                 containerStyle={styles.inputContainer}
                 style={[ss.chatInput, styles.input, inputFocused && styles.inputFocused, { borderColor: '#2A2A2A', color: '#ECECEC' }]}
@@ -188,8 +198,8 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
               />
               <TouchableOpacity
                 onPress={handleSubmit}
-                disabled={submitting || !commentText.trim()}
-                style={[styles.sendBtn, (!commentText.trim() || submitting) && styles.sendDisabled]}
+                disabled={submitting || !canSubmit}
+                style={[styles.sendBtn, (!canSubmit || submitting) && styles.sendDisabled]}
               >
                 <Text style={styles.sendText}>Post</Text>
               </TouchableOpacity>

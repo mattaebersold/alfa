@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { MoreVertical, Trash2 } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import Avatar from '../ui/Avatar';
@@ -10,6 +11,9 @@ import { useGetUserByIdQuery, useDeleteCommentMutation } from '../../api/apiServ
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import ImageLightbox from '../ui/ImageLightbox';
+import { imageUrl } from '../../utils/image';
+import type { GalleryItem } from '../../types/api';
 
 /**
  * The ground comments sit on, wherever they appear.
@@ -31,6 +35,11 @@ export interface CommentData {
    * words go. See the server's deleteEntry.
    */
   removed?: boolean;
+  /**
+   * Photos attached to the comment. A comment can be words, a photo, or both —
+   * the composer only requires one of the two.
+   */
+  gallery?: GalleryItem[];
 }
 
 interface CommentRowProps {
@@ -70,6 +79,12 @@ export default function CommentRow({
 
   const [deleteComment, { isLoading: deleting }] = useDeleteCommentMutation();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Which attached photo is open full-screen, if any.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const photos = (comment.gallery ?? [])
+    .map((g) => imageUrl(g.filename))
+    .filter((u): u is string => !!u);
 
   const commentId = comment.internal_id ?? comment._id ?? '';
   if (hiddenIds.includes(commentId)) return null;
@@ -158,7 +173,29 @@ export default function CommentRow({
         </View>
         {/* Full white: a comment is something someone said, not a caption
             about it, and at `muted` it sat quieter than the timestamps. */}
-        <MentionText text={comment.body ?? ''} style={[styles.text, { color: colors.fg }]} />
+        {comment.body ? (
+          <MentionText text={comment.body} style={[styles.text, { color: colors.fg }]} />
+        ) : null}
+
+        {/* Fixed 16:9 in the thread so a run of comments keeps an even rhythm
+            whatever shape the photos are; tapping opens it whole. */}
+        {photos.length > 0 && (
+          <View style={styles.photoRow}>
+            {photos.map((uri, i) => (
+              <TouchableOpacity
+                key={uri}
+                style={[styles.photo, { borderColor: colors.borderDark }]}
+                onPress={() => setLightboxIndex(i)}
+                activeOpacity={0.9}
+                accessibilityRole="imagebutton"
+                accessibilityLabel="View photo"
+              >
+                <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <View style={styles.footer}>
           <Text style={[styles.time, { color: colors.greyDark }]}>{timeAgo}</Text>
           {/* Replies can be replied to as well — the answer joins this thread
@@ -198,6 +235,13 @@ export default function CommentRow({
       ) : (
         <ReportButton contentType="comment" contentId={commentId} size={16} />
       ))}
+
+      <ImageLightbox
+        images={photos}
+        initialIndex={lightboxIndex ?? 0}
+        visible={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+      />
     </View>
   );
 }
@@ -252,6 +296,12 @@ const styles = StyleSheet.create({
   // time is a footnote. The weights say so.
   name:     { fontSize: 13, fontWeight: '500' },
   text:     { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  photo:    {
+    width: '100%', aspectRatio: 16 / 9,
+    borderRadius: 10, overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   footer:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   time:     { fontSize: 11, fontStyle: 'italic' },
   replyBtn: { fontSize: 12, fontWeight: '700' },

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Polygon } from 'react-native-svg';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +14,7 @@ import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import ReportButton from '../ui/ReportButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
+import ImageLightbox from '../ui/ImageLightbox';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -116,6 +119,18 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
   const galleryCount = post.gallery?.length ?? 0;
+
+  // Tap still opens the post — that's what a card in a feed is for. A pinch on
+  // the photo opens the full-screen viewer instead, which is the gesture people
+  // already reach for when they want a closer look, and it doesn't compete with
+  // either the tap or the sideways swipe through the gallery.
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+  const galleryUrls = gallery
+    .map((g) => imageUrl(g.filename))
+    .filter((u): u is string => !!u);
+  const zoomGesture = Gesture.Pinch().onStart(() => {
+    runOnJS(setZoomIndex)(0);
+  });
   const isListing = post.type === 'listing' || post.type === 'want';
   const isDiecast = post.category === 'diecast';
   const cardBg = isDiecast ? DIECAST_BLUE : colors.card;
@@ -196,6 +211,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
       {/* Hero image(s) with overlays — swipes through the gallery like the post modal */}
       {gallery.length > 0 && (
+        <GestureDetector gesture={zoomGesture}>
         <View style={[styles.imageWrap, { aspectRatio: imgAspectRatio }]}>
           {gallery.length > 1 ? (
             <FlatList
@@ -269,7 +285,15 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
             )}
           </View>
         </View>
+        </GestureDetector>
       )}
+
+      <ImageLightbox
+        images={galleryUrls}
+        initialIndex={zoomIndex ?? 0}
+        visible={zoomIndex !== null}
+        onClose={() => setZoomIndex(null)}
+      />
 
       {/* Video thumbnail (when no gallery image) */}
       {videoThumbnail && (

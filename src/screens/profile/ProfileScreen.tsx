@@ -34,6 +34,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import SteeringWheel from '../../components/ui/SteeringWheel';
 import RegionTile from '../../components/members/RegionTile';
+import ProfileLinks from '../../components/members/ProfileLinks';
 import { regionForCityState } from '../../constants/regions';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
 import { useColors } from '../../hooks/useColors';
@@ -630,6 +631,9 @@ export default function ProfileScreen() {
             )}
           </View>
         ) : null}
+
+        {/* Their own links, under the bio they belong to. */}
+        <ProfileLinks links={user.links} />
       </View>
 
       {/* Renders nothing until the server has one for them. Tapping it asks

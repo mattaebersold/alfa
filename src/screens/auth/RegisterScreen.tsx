@@ -17,6 +17,7 @@ import TermsModal from '../../components/auth/TermsModal';
 import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
 import { SPLASH_IMAGES } from '../../constants/splash';
 import { toUploadableJpeg } from '../../utils/upload';
+import { validateUsername } from '../../utils/username';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
@@ -49,9 +50,19 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   const handleChange = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  // Shown under the field as it's typed, so someone pasting their email address
+  // is told before they reach the button. Nothing is stripped on the way in —
+  // the `@` has to survive for the address to be recognisable as one.
+  const usernameError = form.username ? validateUsername(form.username) : null;
+
   const handleStep1 = () => {
     if (!form.firstName || !form.lastName || !form.username || !form.email || !form.password) {
       Alert.alert('Error', 'Please fill in all required fields.');
+      return;
+    }
+    const usernameProblem = validateUsername(form.username);
+    if (usernameProblem) {
+      Alert.alert('Choose a different username', usernameProblem);
       return;
     }
     // Basic email format check (must be something@something.tld)
@@ -214,6 +225,15 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                           </TouchableOpacity>
                         )}
                       </View>
+                      {key === 'username' && (
+                        usernameError ? (
+                          <Text style={styles.fieldError}>{usernameError}</Text>
+                        ) : (
+                          <Text style={styles.fieldHint}>
+                            Letters, numbers, and _ - . — this is your public handle.
+                          </Text>
+                        )
+                      )}
                     </View>
                   ))}
 
@@ -329,6 +349,10 @@ const styles = StyleSheet.create({
   errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
   field: { marginBottom: 12 },
   label: { fontSize: 12, fontWeight: '600', marginBottom: 4, color: '#FFFFFF' },
+  // Sits under the username field: the hint while it's fine, the reason when
+  // it isn't. Same slot either way, so the form doesn't jump as you type.
+  fieldHint:  { fontSize: 11, marginTop: 5, lineHeight: 15, color: 'rgba(255,255,255,0.6)' },
+  fieldError: { fontSize: 11, marginTop: 5, lineHeight: 15, color: '#FFB4A8', fontWeight: '600' },
   inputWrap: { position: 'relative' },
   inputWithEye: { paddingRight: 44 },
   eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },

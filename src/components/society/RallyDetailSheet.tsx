@@ -4,18 +4,18 @@ import {
   FlatList, Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { format } from 'date-fns';
 import { MapPin, Clock, Navigation, Users } from 'lucide-react-native';
 import SharedModal from '../ui/SharedModal';
 import { useGetRallyQuery } from '../../api/apiService';
 import RouteMap from '../routes/RouteMap';
 import RallyRegistrationForm from './RallyRegistrationForm';
+import RallyDays from './RallyDays';
+import RallyFaq from './RallyFaq';
 import Spinner from '../ui/Spinner';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { isRallyUpcoming, toRallyFormEmbedUrl } from '../../utils/rally';
+import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange } from '../../utils/rally';
 import { stripHtml } from '../../utils/text';
-import { calendarDate } from '../../utils/calendarDate';
 
 interface Props {
   rallyId: string | null;
@@ -38,8 +38,7 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
 
   const gallery = rally?.gallery ?? [];
   const hero = rally?.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
-  const eventDay = calendarDate(rally?.event_date);
-  const date = eventDay ? format(eventDay, 'EEEE, MMMM d, yyyy') : null;
+  const date = rallyDateRange(rally, { month: 'long' });
   const formUrl = toRallyFormEmbedUrl(rally?.form_id);
   // Registration is embedded below, but only while there's still a rally to
   // register for — a past rally's form is a dead end.
@@ -112,10 +111,17 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
             ) : null}
           </View>
 
-          {/* Registration sits directly under the details, ahead of the map:
-              signing up is the point of an upcoming rally, and it shouldn't be
-              below the thing that tells you how to drive there. */}
+          {/* The itinerary and FAQ are the same components the full screen
+              uses, so the two stay in step. There are no section tabs here —
+              a sheet is a peek, and tabs inside one are furniture. */}
+          <RallyDays days={rally.days} />
+
+          {/* Registration sits under the itinerary, ahead of the map: signing
+              up is the point of an upcoming rally, and it shouldn't be below
+              the thing that tells you how to drive there. */}
           {showRegistration && <RallyRegistrationForm url={formUrl as string} />}
+
+          <RallyFaq faqs={rally.faqs} />
 
           {/* A native map rather than an embedded Google Maps iframe: expo-maps
               is already in the app for driving routes, it renders far better on

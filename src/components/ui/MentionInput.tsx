@@ -2,9 +2,14 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View, TextInput, TouchableOpacity, Text, StyleSheet,
 } from 'react-native';
-import { useSearchUsersQuery } from '../../api/apiService';
+import { Image } from 'expo-image';
+import { Car as CarIcon } from 'lucide-react-native';
+import { useSearchUsersQuery, useGetCarsQuery } from '../../api/apiService';
 import Avatar from './Avatar';
 import { useColors } from '../../hooks/useColors';
+import { buildCarMention, carDisplayName } from '../../utils/mentions';
+import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import type { GarageCar } from '../../types/api';
 
 interface MentionInputProps {
   value: string;
@@ -27,6 +32,10 @@ interface MentionInputProps {
   disableSuggestions?: boolean;
 }
 
+/** How many of each kind the dropdown shows before it stops. */
+const MAX_USERS = 4;
+const MAX_CARS = 4;
+
 export default function MentionInput({
   value,
   onChangeText,
@@ -45,10 +54,21 @@ export default function MentionInput({
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const mentionedIds = useRef<Set<string>>(new Set());
 
-  const { data: searchData } = useSearchUsersQuery(mentionQuery ?? '', {
-    skip: mentionQuery === null || mentionQuery.length < 1,
-  });
-  const results = searchData?.entries ?? [];
+  const skip = mentionQuery === null || mentionQuery.length < 1;
+
+  const { data: searchData } = useSearchUsersQuery(mentionQuery ?? '', { skip });
+  const users = searchData?.entries ?? [];
+
+  // Garage cars answer the same `@`. The server matches the term against a
+  // car's title, make and model, so "@porsche" finds "1998 Porsche 911" even
+  // though a title with spaces can't be typed out after an @.
+  const { data: carData } = useGetCarsQuery(
+    { search: mentionQuery ?? '', limit: MAX_CARS },
+    { skip },
+  );
+  const cars = (carData?.entries ?? []) as GarageCar[];
+
+  const hasResults = users.length > 0 || cars.length > 0;
 
   const handleChangeText = useCallback((text: string) => {
     // Detect if the last word is an @mention
@@ -72,27 +92,66 @@ export default function MentionInput({
     onChangeText(replaced, Array.from(mentionedIds.current));
   }, [value, onChangeText]);
 
+  /**
+   * A car is stored as `@[Title](car:id)` — see utils/mentions. The id has to
+   * travel with it because cars have no unique handle to look up later.
+   */
+  const selectCar = useCallback((car: GarageCar) => {
+    // A function replacer, not a string: a car titled "$1000 Miata" would
+    // otherwise have its `$1` read as the captured query.
+    const token = `${buildCarMention(car)} `;
+    const replaced = value.replace(/@(\w*)$/, () => token);
+    setMentionQuery(null);
+    onChangeText(replaced, Array.from(mentionedIds.current));
+  }, [value, onChangeText]);
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
-      {mentionQuery !== null && results.length > 0 && (
+      {mentionQuery !== null && hasResults && (
         <View style={[styles.dropdown, { backgroundColor: c.card, borderColor: c.border }]}>
           {/* Rendered with map() rather than a FlatList: this input often lives
               inside a ScrollView, and a nested VirtualizedList warns/breaks. The
-              suggestion list is tiny (≤6), so a plain map is the right tool. */}
-          {results.slice(0, 6).map((item: any) => (
+              suggestion list is tiny (≤8), so a plain map is the right tool. */}
+          {users.slice(0, MAX_USERS).map((item: any) => (
             <TouchableOpacity
-              key={item.user_id}
+              key={`u_${item.user_id}`}
               style={[styles.resultRow, { borderBottomColor: c.border }]}
               onPress={() => selectUser(item)}
               activeOpacity={0.7}
             >
-              <Avatar
-                user={item}
-                size={28}
-              />
-              <Text style={[styles.username, { color: c.fg }]}>@{item.username}</Text>
+              <Avatar user={item} size={28} />
+              <Text style={[styles.label, { color: c.fg }]} numberOfLines={1}>@{item.username}</Text>
             </TouchableOpacity>
           ))}
+
+          {/* Only labelled when both kinds are on screen — with one kind
+              showing, a heading is a line of furniture over a list of four. */}
+          {cars.length > 0 && users.length > 0 && (
+            <Text style={[styles.sectionLabel, { color: c.grey, borderTopColor: c.border }]}>CARS</Text>
+          )}
+
+          {cars.slice(0, MAX_CARS).map((car) => {
+            const thumb = imageUrl(car.profile_image) ?? firstGalleryUrl(car.gallery);
+            return (
+              <TouchableOpacity
+                key={`c_${car.internal_id}`}
+                style={[styles.resultRow, { borderBottomColor: c.border }]}
+                onPress={() => selectCar(car)}
+                activeOpacity={0.7}
+              >
+                {thumb ? (
+                  <Image source={{ uri: thumb }} style={styles.carThumb} contentFit="cover" />
+                ) : (
+                  <View style={[styles.carThumb, styles.carThumbEmpty, { backgroundColor: c.segment }]}>
+                    <CarIcon size={14} color={c.grey} />
+                  </View>
+                )}
+                <Text style={[styles.label, { color: c.fg }]} numberOfLines={1}>
+                  {carDisplayName(car)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
       <TextInput
@@ -129,7 +188,7 @@ const styles = StyleSheet.create({
     right: 0,
     borderWidth: 1,
     borderRadius: 8,
-    maxHeight: 220,
+    maxHeight: 280,
     zIndex: 999,
     overflow: 'hidden',
     marginBottom: 4,
@@ -142,5 +201,14 @@ const styles = StyleSheet.create({
     gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  username:   { fontSize: 14, fontWeight: '600' },
+  label:      { fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  sectionLabel: {
+    fontSize: 10, fontWeight: '800', letterSpacing: 0.7,
+    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  // Rectangular, not a circle: it's a car, and a round crop of a car is
+  // mostly bodywork.
+  carThumb:      { width: 34, height: 26, borderRadius: 5 },
+  carThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
 });

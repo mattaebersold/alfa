@@ -18,6 +18,7 @@ import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import MentionInput from '../ui/MentionInput';
+import ImageLightbox from '../ui/ImageLightbox';
 import CommentRow, { type CommentData } from '../social/CommentRow';
 import SharedModal from '../ui/SharedModal';
 import SharedButton from '../ui/SharedButton';
@@ -57,6 +58,8 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
   const [commentText, setCommentText] = useState('');
   const [mentionedIds, setMentionedIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+  // Which photo the full-screen viewer is on, if it's open.
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
 
   const entryType = kind ? ENTRY_TYPE[kind] : '';
   const id = item?.internal_id ?? '';
@@ -91,6 +94,10 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
 
   const d = item;
   const gallery = d.gallery ?? [];
+  const zoomUrls = (gallery.length > 0
+    ? gallery.map((g: any) => imageUrl(g.filename))
+    : [d.image ? imageUrl(d.image) : null]
+  ).filter((u: string | null): u is string => !!u);
   const hero = firstGalleryUrl(gallery) ?? (d.image ? imageUrl(d.image) : null);
   const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
   const kindLabel = kind === 'news' ? 'News' : kind === 'resource' ? 'Resource' : 'Forum';
@@ -111,12 +118,17 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            renderItem={({ item: g }: any) => (
-              <Image source={{ uri: imageUrl(g.filename) ?? undefined }} style={styles.galleryImage} contentFit="cover" />
+            renderItem={({ item: g, index }: any) => (
+              // Tap opens it full-screen, where it can be pinched into.
+              <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(index)}>
+                <Image source={{ uri: imageUrl(g.filename) ?? undefined }} style={styles.galleryImage} contentFit="cover" />
+              </TouchableOpacity>
             )}
           />
         ) : hero ? (
-          <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
+          <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(0)}>
+            <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
+          </TouchableOpacity>
         ) : null}
 
         <View style={styles.body}>
@@ -220,6 +232,13 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
           )}
         </View>
       </ScrollView>
+
+      <ImageLightbox
+        images={zoomUrls}
+        initialIndex={zoomIndex ?? 0}
+        visible={zoomIndex !== null}
+        onClose={() => setZoomIndex(null)}
+      />
     </SharedModal>
   );
 }

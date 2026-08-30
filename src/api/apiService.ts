@@ -195,7 +195,7 @@ export const apiService = createApi({
 
     // `make`/`model` are only honoured alongside `filter: 'related'`, and match
     // against the handle forms (`make_handle`) rather than the display names.
-    getCars: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number; filter?: string; make?: string; model?: string; username?: string; user_id?: string }>({
+    getCars: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number; filter?: string; make?: string; model?: string; username?: string; user_id?: string; search?: string }>({
       query: (params = {}) => ({
         url: 'api/garage',
         params: { page: params.page ?? 0, limit: params.limit ?? 12, ...params },

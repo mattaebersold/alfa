@@ -48,6 +48,8 @@ import BottomSheet from '../../components/ui/SharedModal';
 import ActionSheet from '../../components/ui/ActionSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ZoomableImage } from '../../components/ui/ImageLightbox';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { stripHtml } from '../../utils/text';
 import { colors } from '../../constants/colors';
@@ -112,24 +114,23 @@ const CAR_TILES: { key: Exclude<CarPane, null>; label: string }[] = [
 
 // ── Full-screen lightbox ─────────────────────────────────────────────────────
 
-function LightboxPage({ item, height }: { item: GalleryItem; height: number }) {
+/**
+ * One page of the car lightbox.
+ *
+ * This used to be a ScrollView with `maximumZoomScale`, which is iOS-only —
+ * on Android the photos simply didn't zoom. ZoomableImage does it with
+ * gestures, so pinch, pan and double-tap work on both.
+ */
+function LightboxPage({
+  item, height, onZoomChange,
+}: { item: GalleryItem; height: number; onZoomChange: (zoomed: boolean) => void }) {
   return (
-    <ScrollView
-      style={{ width: SCREEN_WIDTH, height }}
-      contentContainerStyle={{ width: SCREEN_WIDTH, height }}
-      maximumZoomScale={5}
-      minimumZoomScale={1}
-      centerContent
-      showsHorizontalScrollIndicator={false}
-      showsVerticalScrollIndicator={false}
-      scrollEnabled
-    >
-      <Image
-        source={{ uri: imageUrl(item.filename)! }}
-        style={{ width: SCREEN_WIDTH, height }}
-        contentFit="contain"
-      />
-    </ScrollView>
+    <ZoomableImage
+      uri={imageUrl(item.filename)!}
+      width={SCREEN_WIDTH}
+      height={height}
+      onZoomChange={onZoomChange}
+    />
   );
 }
 
@@ -138,8 +139,12 @@ function Lightbox({
 }: { images: GalleryItem[]; initialIndex: number; title?: string; onClose: () => void; onManage?: () => void }) {
   const [index, setIndex] = useState(initialIndex);
   const [listHeight, setListHeight] = useState(SCREEN_HEIGHT - 80);
+  // A zoomed photo owns the horizontal drag, or panning across a detail flicks
+  // to the next one instead.
+  const [zoomed, setZoomed] = useState(false);
   return (
     <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <RNSafeAreaView style={styles.lightboxSafe}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         <View style={styles.lightboxHeader}>
@@ -163,13 +168,17 @@ function Lightbox({
           keyExtractor={(img, i) => img.filename ?? String(i)}
           horizontal
           pagingEnabled
+          scrollEnabled={!zoomed}
           initialScrollIndex={initialIndex}
           showsHorizontalScrollIndicator={false}
           getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
           onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
-          renderItem={({ item }) => <LightboxPage item={item} height={listHeight} />}
+          renderItem={({ item }) => (
+            <LightboxPage item={item} height={listHeight} onZoomChange={setZoomed} />
+          )}
         />
       </RNSafeAreaView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

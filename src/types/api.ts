@@ -1,5 +1,11 @@
 // Core API response types matching Horacio's data models
 
+/** One of the buttons a member puts under their bio. */
+export interface ProfileLink {
+  title: string;
+  url: string;
+}
+
 export interface User {
   _id?: string;
   user_id: string;
@@ -8,6 +14,11 @@ export interface User {
   lastName: string;
   email?: string;
   bio?: string;
+  /**
+   * Member-authored links, rendered as buttons under the bio. Ordered — the
+   * array order is the display order — and rewritten wholesale on save.
+   */
+  links?: ProfileLink[];
   cityState?: string;
   /**
    * A rendered map of the general region this member is in, stored once on the
@@ -350,6 +361,21 @@ export interface Article {
   user?: User;
 }
 
+/** One day of a rally's itinerary. */
+export interface RallyDay {
+  title?: string;
+  subtitle?: string;
+  date?: string | null;
+  description?: string;
+  /** Mirrors a gallery entry's shape rather than being a bare filename. */
+  image?: { filename?: string } | null;
+}
+
+export interface RallyFaqItem {
+  question: string;
+  answer?: string;
+}
+
 export interface Rally {
   _id?: string;
   internal_id: string;
@@ -358,7 +384,18 @@ export interface Rally {
   body?: string;
   gallery?: GalleryItem[];
   hero_image?: string;
+  /**
+   * Route or venue map — one image, shown as its own section. A filename in the
+   * images bucket, same as hero_image.
+   */
+  map_image?: string;
   event_date?: string;
+  /**
+   * The last day of the run; absent on a one-day rally. `event_dates` holds
+   * every day of the span expanded out, which is what the calendars read.
+   */
+  end_date?: string | null;
+  event_dates?: string[];
   event_time?: string;
   location?: string;
   location_url?: string;
@@ -370,6 +407,12 @@ export interface Rally {
   attendee_limit?: number;
   /** An Airtable form URL — the rally's registration form. */
   form_id?: string;
+  /** The itinerary — one entry per day of the run, in order. */
+  days?: RallyDay[];
+  /** Admin-authored FAQ, rendered as accordions. Array order is display order. */
+  faqs?: RallyFaqItem[];
+  /** Populated by the server from `attending_members`. */
+  attending_members_data?: User[];
   /**
    * Rally livery, `#rrggbb`. Paints the rally's calendar tile as a gradient.
    * Either may be absent — see rallyColors() in utils/rally.
