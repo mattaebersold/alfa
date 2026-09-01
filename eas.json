@@ -42,7 +42,7 @@
         "appleTeamId": "TW685M22R4"
       },
       "android": {
-        "serviceAccountKeyPath": "./open-road-society-847c5d9f842f.json",
+        "serviceAccountKeyPath": "./open-road-society-194d5ef4d908.json",
         "track": "production"
       }
     }

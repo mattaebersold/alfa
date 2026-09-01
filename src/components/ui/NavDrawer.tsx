@@ -19,6 +19,7 @@ import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '..
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { CONFIG } from '../../constants/config';
+import { APP_VERSION } from '../../utils/appVersion';
 import { logout } from '../../store/authSlice';
 import { useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
@@ -35,19 +36,20 @@ const TILE_WIDTH = Math.floor((PANEL_WIDTH - 32 - 8) / 2) - 1;
 const SLIDE_DURATION = 220;
 
 /**
- * Dark-glass palette, matched to the web drawer: a translucent panel floating
- * over the blurred, dimmed app rather than a brand-colored slab. The colors are
- * fixed white-on-dark instead of derived from the brand fill.
+ * Dark palette, matched to the web drawer: white-on-dark rather than derived
+ * from the brand fill.
+ *
+ * The panel was once translucent glass over the blurred app. Android never
+ * sold it — expo-blur falls back to a thin scrim there, so the panel read as a
+ * washed-out grey sheet with the feed showing through — and it turned out iOS
+ * didn't either: a real blur behind 6% white still leaves the feed legible
+ * through the menu, so the labels compete with whatever happens to be scrolled
+ * behind them. Both platforms now get the near-solid slab and the heavier
+ * backdrop. The blur stays: it's what keeps the edges of the screen from
+ * reading as a flat black box.
  */
-/**
- * Android's blur is a pale imitation of iOS's — expo-blur falls back to a thin
- * scrim there — so the translucent panel read as a washed-out grey sheet with
- * the feed showing through it. Android gets a near-solid dark slab and a
- * heavier backdrop instead; iOS keeps the glass.
- */
-const IS_ANDROID = Platform.OS === 'android';
-const PANEL_BG  = IS_ANDROID ? 'rgba(18,18,18,0.985)' : 'rgba(255,255,255,0.06)';
-const BACKDROP  = IS_ANDROID ? 'rgba(0,0,0,0.88)' : 'rgba(0,0,0,0.75)';
+const PANEL_BG  = 'rgba(18,18,18,0.985)';
+const BACKDROP  = 'rgba(0,0,0,0.88)';
 const TEXT_HI   = '#FFFFFF';
 const TEXT_MID  = 'rgba(255,255,255,0.6)';
 const TEXT_LO   = 'rgba(255,255,255,0.3)';
@@ -363,6 +365,17 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 </TouchableOpacity>
               </View>
 
+              {/* Above the copyright, on its own line — it's the one piece of
+                  small print anyone actually goes looking for, usually to read
+                  it out when something's wrong. A pill in mono, because that's
+                  a build identifier rather than prose: the fixed widths make
+                  the digits easy to read back over a call, and the chip marks
+                  it as a value rather than a sentence. Tracks app.json, which
+                  is what `npm run bump` rewrites. */}
+              {APP_VERSION ? (
+                <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
+              ) : null}
+
               <View style={styles.footerBottom}>
                 <Text style={styles.footerCopy}>© {new Date().getFullYear()} Open Road Society</Text>
                 <View style={styles.footerLinks}>
@@ -477,4 +490,18 @@ const styles = StyleSheet.create({
   footerLinks:   { flexDirection: 'row', gap: 12 },
   footerLink:    { fontSize: 12, color: TEXT_MID },
   footerCopy:    { fontSize: 12, color: TEXT_FAINT },
+  footerVersion: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    paddingHorizontal: 9, paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: CHIP_BG,
+    // No mono is loaded, and the two platforms don't share a built-in name —
+    // Android resolves anything it doesn't know to its default sans, so naming
+    // one font here would quietly be mono on iOS only.
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+    fontSize: 11,
+    letterSpacing: 0.2,
+    color: TEXT_MID,
+  },
 });

@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   photoLabel:   { fontSize: 12, fontWeight: '600' },
   bannerPreview:{ width: '100%', height: 60, borderRadius: 8 },
   uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.7)',
     alignItems: 'center', justifyContent: 'center',
   },

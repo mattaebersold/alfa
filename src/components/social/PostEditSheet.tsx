@@ -212,7 +212,11 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     const survivors = new Set(
       images.filter((i) => i.kind === 'existing').map((i) => (i as any).filename as string)
     );
-    const removed = originals.filter((o) => o.filename && !survivors.has(o.filename));
+    // Filenames rather than entries: it's all the remove call needs, and a
+    // gallery can now hold videos, which have no filename to remove by.
+    const removed = originals
+      .map((o) => o.filename)
+      .filter((f): f is string => !!f && !survivors.has(f));
     const added = images.filter((i) => i.kind === 'new') as Extract<EditorImage, { kind: 'new' }>[];
 
     const orderChanged = images.some((img, idx) =>
@@ -223,7 +227,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 
     const fd = new FormData();
     baseFields(fd);
-    removed.forEach((img, i) => fd.append(`modifyImage:remove:${i}`, img.filename));
+    removed.forEach((filename, i) => fd.append(`modifyImage:remove:${i}`, filename));
     added.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
 
     const updated: any = await updatePost(fd).unwrap();
@@ -383,7 +387,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 
 const styles = StyleSheet.create({
   overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
-  backdrop:    { ...StyleSheet.absoluteFillObject },
+  backdrop:    { ...StyleSheet.absoluteFill },
   sheetWrap:   { maxHeight: '90%' },
   // The sheet has to shrink to the wrapper's cap rather than overflow it. A
   // content-height box holding a tall ScrollView lays out past the 90% and gets

@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
   },
   overlay:    {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   info:       {
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   carRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
   carCount:   { fontSize: 14, color: 'rgba(255,255,255,0.9)', fontWeight: '700' },
   proBorder:  {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: 5, borderColor: '#CDA96F', borderRadius: 14,
   },
   proWheelBadge: {

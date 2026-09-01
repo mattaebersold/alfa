@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import Svg, { Polygon } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,7 +17,9 @@ import ImageLightbox from '../ui/ImageLightbox';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { imageUrl } from '../../utils/image';
+import { postMediaList, type PostMedia } from '../../utils/postMedia';
+import PostMediaCarousel from '../media/PostMediaCarousel';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
@@ -32,17 +33,12 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 
 type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface FeedItemCardProps {
   post: Post;
   isLiked?: boolean;
   onPress?: () => void;
   onCommentPress?: () => void;
-}
-
-function muxThumbnailUrl(videoId: string) {
-  return `https://image.mux.com/${videoId}/thumbnail.jpg?width=720&fit_mode=smartcrop`;
 }
 
 // "Liked by matt and 3 others" — resolves the username of a representative liker
@@ -90,15 +86,15 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
-  const [imgAspectRatio, setImgAspectRatio] = useState(16 / 9);
   // Non-null while the likers panel is open — it doubles as the rect the panel
   // grows out of.
   const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
-  const gallery = post.gallery ?? [];
-  const heroImage = firstGalleryUrl(post.gallery);
-  const videoThumbnail = !heroImage && post.video_id ? muxThumbnailUrl(post.video_id) : null;
-  const hasMedia = gallery.length > 0 || !!videoThumbnail;
+  // Photos and videos are one ordered list — see utils/postMedia. This also
+  // folds in posts whose video predates typed gallery entries, so the card
+  // doesn't need a separate branch for them any more.
+  const media = postMediaList(post);
+  const hasMedia = media.length > 0;
   const bodyText = post.body ? stripHtml(post.body).trim() : '';
 
   // Live like state — tells us whether *I* liked this (so the heart shows filled and
@@ -118,16 +114,18 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
-  const galleryCount = post.gallery?.length ?? 0;
+  const mediaCount = media.length;
 
   // Tap still opens the post — that's what a card in a feed is for. A pinch on
   // the photo opens the full-screen viewer instead, which is the gesture people
   // already reach for when they want a closer look, and it doesn't compete with
   // either the tap or the sideways swipe through the gallery.
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
-  const galleryUrls = gallery
-    .map((g) => imageUrl(g.filename))
-    .filter((u): u is string => !!u);
+  // The zoom viewer shows photos; a video has its own player and nothing to
+  // pinch into.
+  const galleryUrls = media
+    .filter((m): m is Extract<PostMedia, { kind: 'image' }> => m.kind === 'image')
+    .map((m) => m.url);
   const zoomGesture = Gesture.Pinch().onStart(() => {
     runOnJS(setZoomIndex)(0);
   });
@@ -209,82 +207,51 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         </TouchableOpacity>
       ) : null}
 
-      {/* Hero image(s) with overlays — swipes through the gallery like the post modal */}
-      {gallery.length > 0 && (
+      {/* The post's media — photos and videos in one strip, drawn at one
+          shape so swiping doesn't resize the card. */}
+      {hasMedia && (
         <GestureDetector gesture={zoomGesture}>
-        <View style={[styles.imageWrap, { aspectRatio: imgAspectRatio }]}>
-          {gallery.length > 1 ? (
-            <FlatList
-              data={gallery}
-              keyExtractor={(g, i) => g.filename ?? String(i)}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={StyleSheet.absoluteFill}
-              getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
-              renderItem={({ item, index }) => (
-                // Tap opens the post, swipe pages the gallery. This nesting is
-                // the safe direction: a scroll view claims the responder the
-                // moment a drag starts, so the touchable only ever fires on a
-                // press that didn't move. It was the reverse — the whole card
-                // as one touchable *around* the list — that swallowed swipes.
-                <TouchableOpacity
-                  style={{ width: SCREEN_WIDTH, height: '100%' }}
-                  onPress={onPress}
-                  activeOpacity={0.95}
-                >
-                  <Image
-                    source={{ uri: imageUrl(item.filename)! }}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    transition={200}
-                    onLoad={index === 0 ? (e) => setImgAspectRatio(e.source.width / e.source.height) : undefined}
-                  />
-                </TouchableOpacity>
-              )}
+          <View>
+            <PostMediaCarousel
+              media={media}
+              // A tap on a photo opens the post, which is what a card in a feed
+              // is for. A video's first tap is its own — it starts playback
+              // rather than navigating away from it.
+              onPressItem={onPress}
+              overlay={
+                <>
+                  {/* Type + category badges — top left, color coded */}
+                  <View style={styles.imageBadgesLeft} pointerEvents="none">
+                    <View style={[styles.imgBadge, { backgroundColor: typeBadge.bg }]}>
+                      <Text style={[styles.imgBadgeText, { color: typeBadge.fg }]}>{TYPE_LABELS[badgeType] ?? badgeType}</Text>
+                    </View>
+                    {categoryBadge ? (
+                      <View style={[styles.imgBadge, { backgroundColor: categoryBadge.bg }]}>
+                        <Text style={[styles.imgBadgeText, { color: categoryBadge.fg }]}>{CATEGORY_LABELS[post.category!] ?? post.category}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {/* Price + media count — top right column */}
+                  <View style={styles.imageBadgesRight} pointerEvents="none">
+                    {post.price ? (
+                      <View style={styles.priceBadge}>
+                        <Text style={styles.priceBadgeText}>${Number(post.price).toLocaleString()}</Text>
+                      </View>
+                    ) : null}
+                    {mediaCount > 1 && (
+                      <View style={styles.multiImgBadge}>
+                        <View style={styles.multiImgIcon}>
+                          <View style={[styles.miniImg, styles.miniImgBack]} />
+                          <View style={[styles.miniImg, styles.miniImgFront]} />
+                        </View>
+                        <Text style={styles.multiImgCount}>{mediaCount}</Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+              }
             />
-          ) : (
-            // One photo has no gesture of its own, so it can carry the tap.
-            <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onPress} activeOpacity={0.95}>
-              <Image
-                source={{ uri: heroImage! }}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                transition={300}
-                placeholder={{ blurhash: 'LGFFaXYk^6#M@-5c,1J5@[or[Q6.' }}
-                onLoad={(e) => setImgAspectRatio(e.source.width / e.source.height)}
-              />
-            </TouchableOpacity>
-          )}
-          {/* Type + category badges — top left, color coded */}
-          <View style={styles.imageBadgesLeft}>
-            <View style={[styles.imgBadge, { backgroundColor: typeBadge.bg }]}>
-              <Text style={[styles.imgBadgeText, { color: typeBadge.fg }]}>{TYPE_LABELS[badgeType] ?? badgeType}</Text>
-            </View>
-            {categoryBadge ? (
-              <View style={[styles.imgBadge, { backgroundColor: categoryBadge.bg }]}>
-                <Text style={[styles.imgBadgeText, { color: categoryBadge.fg }]}>{CATEGORY_LABELS[post.category!] ?? post.category}</Text>
-              </View>
-            ) : null}
           </View>
-          {/* Price + multi-image — top right column */}
-          <View style={styles.imageBadgesRight}>
-            {post.price ? (
-              <View style={styles.priceBadge}>
-                <Text style={styles.priceBadgeText}>${Number(post.price).toLocaleString()}</Text>
-              </View>
-            ) : null}
-            {galleryCount > 1 && (
-              <View style={styles.multiImgBadge}>
-                <View style={styles.multiImgIcon}>
-                  <View style={[styles.miniImg, styles.miniImgBack]} />
-                  <View style={[styles.miniImg, styles.miniImgFront]} />
-                </View>
-                <Text style={styles.multiImgCount}>{galleryCount}</Text>
-              </View>
-            )}
-          </View>
-        </View>
         </GestureDetector>
       )}
 
@@ -294,25 +261,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         visible={zoomIndex !== null}
         onClose={() => setZoomIndex(null)}
       />
-
-      {/* Video thumbnail (when no gallery image) */}
-      {videoThumbnail && (
-        <TouchableOpacity style={styles.videoThumb} onPress={onPress} activeOpacity={0.95}>
-          <Image
-            source={{ uri: videoThumbnail }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            transition={300}
-          />
-          <View style={styles.playOverlay}>
-            <View style={styles.playCircle}>
-              <Svg width={20} height={20} viewBox="0 0 20 20">
-                <Polygon points="6,3 18,10 6,17" fill="#fff" />
-              </Svg>
-            </View>
-          </View>
-        </TouchableOpacity>
-      )}
 
       {/* Message the seller about a marketplace listing */}
       {isListing && user?.user_id && userInfo?.user_id !== post.user_id && (
@@ -386,7 +334,6 @@ const styles = StyleSheet.create({
   bodyPreviewWrap:{ paddingHorizontal: 12, paddingBottom: 10, marginTop: -4 },
   bodyPreview:    { fontSize: 13, lineHeight: 18 },
 
-  imageWrap:   { position: 'relative', width: '100%', overflow: 'hidden' },
   image:       { width: '100%' },
 
   imageBadgesLeft: {
@@ -422,18 +369,6 @@ const styles = StyleSheet.create({
   miniImgFront:  { bottom: 0, left: 0, backgroundColor: 'rgba(255,255,255,0.55)' },
   multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 
-  videoThumb:  { width: '100%', aspectRatio: 4 / 5, overflow: 'hidden', position: 'relative' },
-  playOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  playCircle:  {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center', justifyContent: 'center',
-    paddingLeft: 4,
-  },
   messageWrap: { paddingHorizontal: 12, paddingTop: 10 },
   likedBy:     { fontSize: 12, fontWeight: '600', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
   // No rule above the actions: the card already ends here, and a line across

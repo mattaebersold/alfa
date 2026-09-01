@@ -5,7 +5,6 @@ import {
   TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X, MessageCircle, Link as LinkIcon, ExternalLink, Heart, ChevronRight } from 'lucide-react-native';
@@ -23,7 +22,8 @@ import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
 import ImageLightbox from '../../components/ui/ImageLightbox';
-import { imageUrl } from '../../utils/image';
+import { postMediaList, type PostMedia as PostMediaItem } from '../../utils/postMedia';
+import PostMediaCarousel from '../../components/media/PostMediaCarousel';
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
@@ -41,128 +41,50 @@ import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import Odometer from '../../components/ui/Odometer';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // ── Story video ───────────────────────────────────────────────────────────────
 
-function StoryVideoPlayer({ videoId }: { videoId: string }) {
-  const player = useVideoPlayer(`https://stream.mux.com/${videoId}.m3u8`, (p) => {
-    p.loop = true;
-    p.play();
-  });
-  return (
-    <VideoView
-      player={player}
-      style={styles.videoPlayer}
-      contentFit="contain"
-      nativeControls
-    />
-  );
-}
+// ── Post media ────────────────────────────────────────────────────────────────
 
-// ── Gallery swiper ────────────────────────────────────────────────────────────
-
-function GallerySwiper({ gallery }: { gallery: GalleryItem[] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [ratios, setRatios] = useState<Record<number, number>>({});
-  // Which photo the full-screen viewer is on, if it's open.
+/**
+ * The post's media, with the photos openable full-screen.
+ *
+ * The shape and the paging are the carousel's job; what's specific here is that
+ * a tap on a photo opens the zoom viewer rather than doing nothing — on the
+ * detail screen there's nowhere else for a tap to go.
+ */
+function PostMedia({ media }: { media: PostMediaItem[] }) {
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
 
-  // The viewer works off plain urls, and a gallery entry with no filename has
-  // nothing to show.
-  const urls = gallery
-    .map((g) => imageUrl(g.filename))
-    .filter((u): u is string => !!u);
-
-  const lightbox = (
-    <ImageLightbox
-      images={urls}
-      initialIndex={zoomIndex ?? 0}
-      visible={zoomIndex !== null}
-      onClose={() => setZoomIndex(null)}
-    />
+  // The viewer deals in photos. Its indices are its own, so a tap has to be
+  // translated from a position in the media strip to a position among the
+  // photos in it — otherwise tapping the third item of a strip that leads with
+  // a video opens the wrong picture.
+  const photos = media.filter(
+    (m): m is Extract<PostMediaItem, { kind: 'image' }> => m.kind === 'image'
   );
-
-  if (gallery.length === 1) {
-    const ratio = ratios[0] ?? 16 / 9;
-    return (
-      <>
-        {/* Tap to open it full-screen, where it can be pinched into. */}
-        <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(0)}>
-          <Image
-            source={{ uri: imageUrl(gallery[0].filename)! }}
-            style={{ width: '100%', aspectRatio: ratio }}
-            contentFit="cover"
-            onLoad={(e) => setRatios({ 0: e.source.width / e.source.height })}
-          />
-        </TouchableOpacity>
-        {lightbox}
-      </>
-    );
-  }
-
-  const currentRatio = ratios[activeIndex] ?? 16 / 9;
-  const containerHeight = SCREEN_WIDTH / currentRatio;
+  const photoIndexOf = (mediaIndex: number) => {
+    const target = media[mediaIndex];
+    if (!target || target.kind !== 'image') return null;
+    return photos.findIndex((p) => p.key === target.key);
+  };
 
   return (
     <View>
-      <View style={{ height: containerHeight, overflow: 'hidden' }}>
-        <FlatList
-          data={gallery}
-          keyExtractor={(item, i) => item.filename ?? String(i)}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-            setActiveIndex(idx);
-          }}
-          renderItem={({ item, index }) => {
-            const ratio = ratios[index] ?? currentRatio;
-            return (
-              <View style={{ width: SCREEN_WIDTH, height: containerHeight, justifyContent: 'center' }}>
-                {/* Tap opens the viewer, swipe pages the gallery — the scroll
-                    view claims the responder on any drag, so the touchable only
-                    fires on a press that didn't move. */}
-                <TouchableOpacity
-                  activeOpacity={0.95}
-                  onPress={() => setZoomIndex(index)}
-                  style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH / ratio }}
-                >
-                  <Image
-                    source={{ uri: imageUrl(item.filename)! }}
-                    style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH / ratio }}
-                    contentFit="cover"
-                    onLoad={(e) => {
-                      const r = e.source.width / e.source.height;
-                      setRatios((prev) => ({ ...prev, [index]: r }));
-                    }}
-                  />
-                </TouchableOpacity>
-              </View>
-            );
-          }}
-          getItemLayout={(_, index) => ({
-            length: SCREEN_WIDTH,
-            offset: SCREEN_WIDTH * index,
-            index,
-          })}
-        />
-        {/* Dot indicators — float over the bottom of the image */}
-        {gallery.length > 1 && (
-          <View style={styles.dots} pointerEvents="none">
-            {gallery.map((_, i) => (
-              <View
-                key={i}
-                style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-      {lightbox}
+      <PostMediaCarousel
+        media={media}
+        onPressItem={(i) => {
+          const photoIndex = photoIndexOf(i);
+          if (photoIndex !== null && photoIndex >= 0) setZoomIndex(photoIndex);
+        }}
+      />
+      <ImageLightbox
+        images={photos.map((p) => p.url)}
+        initialIndex={zoomIndex ?? 0}
+        visible={zoomIndex !== null}
+        onClose={() => setZoomIndex(null)}
+      />
     </View>
   );
 }
@@ -288,7 +210,6 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   if (isLoading || !post) return <Spinner fullScreen />;
 
   const isOwner = userInfo?.user_id === post.user_id;
-  const gallery = post.gallery ?? [];
   const displayName = post.user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';
   const badgeType = post.type ?? post.entry_type ?? 'post';
@@ -297,7 +218,9 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
     ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
     : null;
 
-  const hasMedia = !!post.video_id || gallery.length > 0;
+  // Photos and videos in one ordered strip, legacy `video_id` posts folded in.
+  const media = postMediaList(post);
+  const hasMedia = media.length > 0;
 
   // Rendered over the media when there is any, otherwise in the author row.
   const badges = (
@@ -422,11 +345,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
               {hasMedia && (
                 <View>
-                  {post.video_id ? (
-                    <StoryVideoPlayer videoId={post.video_id} />
-                  ) : (
-                    <GallerySwiper gallery={gallery} />
-                  )}
+                  <PostMedia media={media} />
                   {/* Type/category badges float over the media, top right. */}
                   <View style={styles.badgeOverlay} pointerEvents="none">
                     {badges}
@@ -734,25 +653,6 @@ const styles = StyleSheet.create({
   postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 10 },
   mileageRow:      { padding: 14 },
   postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 12 },
-  singleImage:     { width: '100%', height: 300 },
-  videoPlayer:     { width: '100%', aspectRatio: 4 / 5, backgroundColor: '#000' },
-  dots: {
-    position: 'absolute', left: 0, right: 0, bottom: 12,
-    flexDirection: 'row', justifyContent: 'center', gap: 7,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  dotActive: {
-    backgroundColor: '#FFFFFF',
-    // Keeps the dots legible over a light photo.
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.4, shadowRadius: 2,
-  },
-  dotInactive: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5, borderColor: '#FFFFFF',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.4, shadowRadius: 2,
-  },
   priceWrap:       { padding: 14, gap: 2 },
   priceLabel:      { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: colors.grey },
   price:           { fontSize: 26, fontWeight: '800', color: colors.primaryAlt },

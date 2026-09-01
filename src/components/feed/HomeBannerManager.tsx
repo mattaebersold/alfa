@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   content:      { padding: 16, paddingBottom: 60, gap: 12 },
   blurb:        { fontSize: 13, lineHeight: 18 },
   preview:      { width: '100%', aspectRatio: 2.2, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
-  previewEmpty: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  previewEmpty: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 8 },
   previewText:  { fontSize: 13, fontWeight: '600' },
   changeRow:    { alignSelf: 'flex-start' },
   changeText:   { fontSize: 14, fontWeight: '700' },

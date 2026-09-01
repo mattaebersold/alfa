@@ -4,13 +4,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '../store/store';
-import { restoreSession } from '../store/authSlice';
+import { restoreSession, logout } from '../store/authSlice';
 import { apiService, useGetLoggedInUserQuery, useRegisterDeviceTokenMutation } from '../api/apiService';
 import { setCredentials } from '../store/authSlice';
 import { registerForPushNotifications } from '../utils/pushNotifications';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
+import SessionRecovery from '../components/auth/SessionRecovery';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
 import { navigationRef, navigateFromOutside } from './navigationRef';
 import { notificationTarget } from '../utils/notificationTarget';
@@ -41,20 +42,49 @@ const linking = {
 };
 
 // ── Auth-aware inner component ────────────────────────────────────────────────
+/**
+ * Decides which of the two apps is on screen.
+ *
+ * The distinction that matters here is between *holding a token* and *having an
+ * account*. `restoreSession` only establishes the first — it reads the stored
+ * token and says nothing about whether the server still honours it — so
+ * `isLoggedIn` alone is not enough to render the app with. The profile fetch
+ * below is what establishes the second, and until it lands there is no
+ * `accountType` to colour the chrome with, no name to draw an avatar from and
+ * no id to act with.
+ *
+ * Rendering `AppNavigator` in that gap is what produced the stuck sessions:
+ * a member sat in a fully-drawn app that was quietly missing its user — blue
+ * where it should have been gold, a '?' for a face, every button dead — and
+ * nothing in it could recover, because the app only ever fetches the profile
+ * once and a failure left `userInfo` null forever. So the gate now waits for
+ * `userInfo` rather than for `isLoggedIn`, and the three ways the fetch can go
+ * each get an answer: still working, show a spinner; token refused, the store's
+ * 401 handling has already signed them out and this renders the login screen;
+ * anything else, offer the retry and the sign-out that the broken app couldn't.
+ */
 function AuthGate() {
   const dispatch = useAppDispatch();
-  const { isLoggedIn } = useAppSelector((s) => s.auth);
+  const { isLoggedIn, userInfo, restoring } = useAppSelector((s) => s.auth);
   const [registerDeviceToken] = useRegisterDeviceTokenMutation();
 
-  const { data: user, isLoading } = useGetLoggedInUserQuery(undefined, {
+  const { data: user, isFetching, refetch } = useGetLoggedInUserQuery(undefined, {
     skip: !isLoggedIn,
     pollingInterval: 900_000,
   });
 
   useEffect(() => {
-    if (user) {
-      dispatch(setCredentials(user));
+    if (!user) return;
+    // A 200 carrying something that isn't an account is the same dead end as a
+    // rejected token — `setCredentials` would fill `userInfo` with an object
+    // that satisfies every null check and answers none of the questions the app
+    // asks of it. Treat it as the session being over rather than seeding the
+    // broken state from a response we technically succeeded in fetching.
+    if (!user.user_id && !user._id) {
+      dispatch(logout({ expired: true }));
+      return;
     }
+    dispatch(setCredentials(user));
   }, [user, dispatch]);
 
   // Register push token when user logs in
@@ -67,8 +97,25 @@ function AuthGate() {
     });
   }, [isLoggedIn]);
 
-  if (isLoading && isLoggedIn) return <Spinner fullScreen />;
-  return isLoggedIn ? <AppNavigator /> : <AuthNavigator />;
+  // Nothing is known until the stored token has been read back.
+  if (restoring) return <Spinner fullScreen />;
+
+  if (!isLoggedIn) return <AuthNavigator />;
+
+  if (!userInfo) {
+    // `isFetching` rather than `isLoading` so a retry spins too — `isLoading` is
+    // only ever true for the first attempt of a query's life.
+    if (isFetching) return <Spinner fullScreen />;
+    return (
+      <SessionRecovery
+        onRetry={refetch}
+        onSignOut={() => dispatch(logout({ expired: true }))}
+        retrying={isFetching}
+      />
+    );
+  }
+
+  return <AppNavigator />;
 }
 
 export default function RootNavigator() {

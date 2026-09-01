@@ -22,9 +22,12 @@ const nextKey = () => `img_${++_seq}_${Date.now()}`;
 
 /** Seed the editor from a post's saved gallery. */
 export function toEditorImages(gallery?: GalleryItem[] | null): EditorImage[] {
+  // A gallery holds videos too now; the editor only deals in photos, and an
+  // entry without a filename is not one.
   return (gallery ?? [])
-    .filter((g) => g?.filename)
-    .map((g) => ({ key: nextKey(), kind: 'existing' as const, filename: g.filename }));
+    .flatMap((g) => (g?.filename
+      ? [{ key: nextKey(), kind: 'existing' as const, filename: g.filename }]
+      : []));
 }
 
 interface Props {

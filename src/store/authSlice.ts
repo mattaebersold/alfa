@@ -12,6 +12,19 @@ interface AuthState {
   isLoggedIn: boolean;
   error: string | null;
   success: boolean;
+  /**
+   * The last logout was forced by the server rejecting our token, not chosen by
+   * the member. The login screen says so, otherwise being dumped back at a
+   * sign-in form reads as the app having lost their session for no reason.
+   */
+  sessionExpired: boolean;
+  /**
+   * The stored token hasn't been read back yet. True from launch until
+   * `restoreSession` settles, because SecureStore is async and until it answers
+   * we genuinely don't know which of the two apps to show — assuming "logged
+   * out" for those frames flashes the login screen at members who are not.
+   */
+  restoring: boolean;
 }
 
 const initialState: AuthState = {
@@ -21,6 +34,8 @@ const initialState: AuthState = {
   isLoggedIn: false,
   error: null,
   success: false,
+  sessionExpired: false,
+  restoring: true,
 };
 
 // ── Async thunks ────────────────────────────────────────────────────────────
@@ -97,11 +112,22 @@ export const resendVerification = createAsyncThunk(
   }
 );
 
-export const logout = createAsyncThunk('auth/logout', async (_, { dispatch }) => {
-  await removeToken();
-  // Clear all cached queries so the next account doesn't see the previous user's data.
-  dispatch(apiService.util.resetApiState());
-});
+/**
+ * Ends the session and clears everything derived from it.
+ *
+ * `expired: true` marks the involuntary case — the token was rejected, or the
+ * account it points at can no longer be loaded. Same teardown either way; the
+ * flag only changes what the login screen says.
+ */
+export const logout = createAsyncThunk(
+  'auth/logout',
+  async (opts: { expired?: boolean } | void, { dispatch }) => {
+    await removeToken();
+    // Clear all cached queries so the next account doesn't see the previous user's data.
+    dispatch(apiService.util.resetApiState());
+    return { expired: !!(opts && opts.expired) };
+  }
+);
 
 export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {
   const token = await getToken();
@@ -116,6 +142,7 @@ const authSlice = createSlice({
   reducers: {
     clearError: (state) => { state.error = null; },
     clearSuccess: (state) => { state.success = false; },
+    clearSessionExpired: (state) => { state.sessionExpired = false; },
     setCredentials: (state, action: PayloadAction<User>) => {
       state.userInfo = action.payload;
       state.isLoggedIn = true;
@@ -134,6 +161,7 @@ const authSlice = createSlice({
         state.userToken = payload.userToken;
         state.isLoggedIn = true;
         state.error = null;
+        state.sessionExpired = false;
       })
       .addCase(userLogin.rejected, (state, { payload }) => {
         state.loading = false;
@@ -181,20 +209,28 @@ const authSlice = createSlice({
         state.error = payload as string;
       })
       // Logout
-      .addCase(logout.fulfilled, (state) => {
+      .addCase(logout.fulfilled, (state, { payload }) => {
         state.loading = false;
         state.userInfo = null;
         state.userToken = null;
         state.isLoggedIn = false;
         state.error = null;
+        state.sessionExpired = payload?.expired ?? false;
       })
       // Restore session
       .addCase(restoreSession.fulfilled, (state, { payload }) => {
         state.userToken = payload;
         state.isLoggedIn = !!payload;
+        state.restoring = false;
+      })
+      // A SecureStore that won't answer leaves us with no token to try, which
+      // is the logged-out case — the alternative is holding the splash forever.
+      .addCase(restoreSession.rejected, (state) => {
+        state.isLoggedIn = false;
+        state.restoring = false;
       });
   },
 });
 
-export const { clearError, clearSuccess, setCredentials } = authSlice.actions;
+export const { clearError, clearSuccess, clearSessionExpired, setCredentials } = authSlice.actions;
 export default authSlice.reducer;

@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
   },
   overlay:    {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   info:       {

@@ -22,7 +22,7 @@ import { ss } from '../../styles/shared';
 
 export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const dispatch = useAppDispatch();
-  const { loading, error } = useAppSelector((s) => s.auth);
+  const { loading, error, sessionExpired } = useAppSelector((s) => s.auth);
   const colors = useColors();
 
   const [email, setEmail] = useState('');
@@ -69,6 +69,18 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             </View>
 
             <BlurView intensity={40} tint="dark" style={styles.form}>
+              {/* Says why they're looking at this screen. Without it, being
+                  returned to a login form mid-session reads as the app having
+                  forgotten them for no reason. A real login error supersedes
+                  it — that's the more recent news. */}
+              {sessionExpired && !error && (
+                <View style={styles.noticeBox}>
+                  <Text style={styles.noticeText}>
+                    Your session expired. Please sign in again.
+                  </Text>
+                </View>
+              )}
+
               {error && (
                 <View style={styles.errorBox}>
                   <Text style={styles.errorText}>{error}</Text>
@@ -196,6 +208,17 @@ const styles = StyleSheet.create({
     padding: 18,
     overflow: 'hidden',
     backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  noticeBox: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  noticeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   errorBox: {
     backgroundColor: '#FEE2E2',

@@ -156,7 +156,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
           {gallery.length > 1 && (
             <FlatList
               data={gallery}
-              keyExtractor={(g) => g.filename}
+              keyExtractor={(g, i) => g.internal_id ?? g.filename ?? String(i)}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.galleryStrip}

@@ -102,5 +102,5 @@ const styles = StyleSheet.create({
   heading: { fontSize: 18, fontWeight: '800' },
   frame:   { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   web:     { flex: 1, backgroundColor: '#FFFFFF' },
-  loading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  loading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
 });

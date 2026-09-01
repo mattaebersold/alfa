@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   container:       { flex: 1, backgroundColor: '#000' },
   noVideo:         { alignItems: 'center', justifyContent: 'center' },
   noVideoText:     { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
-  bufferingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  bufferingOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
 
   // Progress bars
   progressBars: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   closeText:    { color: '#fff', fontSize: 20, fontWeight: '300' },
 
   // Tap zones
-  tapZones:     { ...StyleSheet.absoluteFillObject, flexDirection: 'row', zIndex: 5 },
+  tapZones:     { ...StyleSheet.absoluteFill, flexDirection: 'row', zIndex: 5 },
   tapLeft:      { flex: 1 },
   tapRight:     { flex: 1 },
 

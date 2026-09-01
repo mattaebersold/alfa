@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
   },
   myCardOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   myCardInfo: {

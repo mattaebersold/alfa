@@ -297,7 +297,7 @@ export default function CreateStoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
     alignItems: 'center', justifyContent: 'center',
   },

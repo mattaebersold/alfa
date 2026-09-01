@@ -76,7 +76,7 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
               <View>
                 <FlatList
                   data={gallery}
-                  keyExtractor={(g) => g.filename}
+                  keyExtractor={(g, i) => g.internal_id ?? g.filename ?? String(i)}
                   horizontal
                   pagingEnabled
                   showsHorizontalScrollIndicator={false}

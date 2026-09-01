@@ -82,9 +82,28 @@ export interface EmailSettings {
   mentions?: boolean;
 }
 
+/**
+ * One piece of a post's media — a photo or a video.
+ *
+ * Photos and videos share this list so a post can carry both, in the order the
+ * author arranged them. `type` is optional because entries written before video
+ * lived here don't have it; absent means photo. Read this through
+ * `utils/postMedia`, which resolves the order and the legacy shapes rather than
+ * leaving every screen to guess.
+ */
 export interface GalleryItem {
-  filename: string;
+  filename?: string;
   _id?: string;
+  internal_id?: string;
+  /** Absent on entries predating mixed media — treat as 'image'. */
+  type?: 'image' | 'video';
+  /** Position in the post's media, authored order. */
+  index?: number;
+  /** Mux playback id. Null until the asset finishes encoding. */
+  video_id?: string | null;
+  /** Mux direct-upload id, kept so the playback id can be matched back to it. */
+  upload_id?: string;
+  status?: 'processing' | 'ready' | 'failed';
 }
 
 export interface ListItem {
