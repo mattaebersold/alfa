@@ -109,6 +109,7 @@ export type AppStackParamList = {
   Marketplace: undefined;
   Shop: undefined;
   About: undefined;
+  Support: undefined;
   SocietyEventDetail: { eventId: string; occurrenceDate?: string };
   SocietyEventCreate: { eventId?: string } | undefined;
   Search: undefined;

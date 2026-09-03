@@ -27,7 +27,9 @@ import { ss } from '../../styles/shared';
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const MY_CARD_WIDTH = SCREEN_WIDTH * 0.62;
+// Near enough to full width to read as a row of cards you page through rather
+// than a shelf you scan — the sliver of the next one is what says there is one.
+const MY_CARD_WIDTH = SCREEN_WIDTH * 0.9;
 const MY_CARD_GAP = 10;
 
 const ADMIN_BADGE = { label: 'ADMIN', bg: '#CDA96F', fg: '#000000' };
@@ -178,7 +180,17 @@ export default function GroupsScreen() {
               />
               {userGroups.length > 0 && (
                 <View style={styles.myGroupsSection}>
-                  <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
+                  {/* The count rides in the heading rather than under it —
+                      "how many am I in" is the question the heading raises,
+                      and answering it there costs no vertical space. */}
+                  <View style={styles.myGroupsHeadingRow}>
+                    <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
+                    <View style={[styles.myGroupsCount, { backgroundColor: brand }]}>
+                      <Text style={[styles.myGroupsCountText, { color: brandTextColor }]}>
+                        {userGroups.length}
+                      </Text>
+                    </View>
+                  </View>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -245,10 +257,19 @@ const styles = StyleSheet.create({
   screenTitle: { fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
 
   myGroupsSection: { paddingTop: 14, paddingBottom: 6 },
-  myGroupsHeading: {
-    fontSize: 16, fontWeight: '800', letterSpacing: 0.4,
+  myGroupsHeadingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, marginBottom: 10,
   },
+  myGroupsHeading: {
+    fontSize: 16, fontWeight: '800', letterSpacing: 0.4,
+  },
+  myGroupsCount: {
+    minWidth: 20, height: 20, borderRadius: 10,
+    paddingHorizontal: 5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  myGroupsCountText: { fontSize: 11, fontWeight: '800' },
   myGroupsList: { paddingHorizontal: 12, gap: MY_CARD_GAP },
   myCard: {
     width: MY_CARD_WIDTH,

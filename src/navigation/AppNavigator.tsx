@@ -79,6 +79,7 @@ import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
 import AboutScreen from '../screens/marketing/AboutScreen';
+import SupportScreen from '../screens/support/SupportScreen';
 import SocietyEventDetailScreen from '../screens/society/SocietyEventDetailScreen';
 import SocietyEventCreateScreen from '../screens/society/SocietyEventCreateScreen';
 import GroupMarketplaceScreen from '../screens/groups/GroupMarketplaceScreen';
@@ -217,6 +218,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="About"
         component={AboutScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Support"
+        component={SupportScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

@@ -162,7 +162,7 @@ export default function MessagesScreen() {
     }
 
     const seenUsers = new Set<string>();
-    return messages
+    const summaries = messages
       .filter((m) => {
         const otherId = m.sender_id === myId ? m.recipient_id : m.sender_id;
         if (seenUsers.has(otherId)) return false;
@@ -189,6 +189,26 @@ export default function MessagesScreen() {
           unreadFromOtherIds: unreadFromOther.map((m) => m.internal_id),
         };
       });
+
+    /**
+     * Most recently active conversation first.
+     *
+     * The order used to be whatever order the rows came out of `messages` in —
+     * each conversation landing where its first-seen message happened to sit —
+     * which is only "newest first" for as long as the endpoint returns messages
+     * in that order. It doesn't reliably, and the effect is the one that gets
+     * noticed: a reply arrives and the thread stays wherever it was, so the new
+     * message is somewhere down the list rather than at the top.
+     *
+     * Sorted on `lastMessage`, which is already the newest message across every
+     * thread with that person — the same value the row prints as the preview,
+     * so the list's order and what each row says can't disagree.
+     */
+    return summaries.sort(
+      (a, b) =>
+        new Date(b.lastMessage.created_at ?? 0).getTime() -
+        new Date(a.lastMessage.created_at ?? 0).getTime(),
+    );
   }, [messages, myId]);
 
   const handlePress = useCallback((summary: ConversationSummary) => {

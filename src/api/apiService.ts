@@ -664,6 +664,38 @@ export const apiService = createApi({
       invalidatesTags: ['Group', 'GroupMembers'],
     }),
 
+    /**
+     * Edit a group — its name, its images, whatever the settings sheet offers.
+     *
+     * Multipart, because the same call carries the group's picture and banner.
+     * The server writes every field it names from the body rather than patching
+     * the ones it was given, so the caller has to send the group's current
+     * values alongside whatever it's changing, or the omitted ones are cleared.
+     * Admin-only, enforced server-side.
+     */
+    updateGroup: builder.mutation<Group, FormData>({
+      query: (body) => ({ url: 'api/group/update', method: 'POST', body }),
+      invalidatesTags: ['Group'],
+    }),
+
+    /**
+     * Delete a group outright.
+     *
+     * Admin-only, and the server cascades: memberships, forum threads, news and
+     * resources go with it, posts that lived only here are deleted, and cars,
+     * events and rallies merely lose the association. Irreversible.
+     */
+    deleteGroup: builder.mutation<void, string>({
+      query: (groupId) => ({
+        url: 'api/group/delete',
+        method: 'POST',
+        body: { internal_id: groupId },
+      }),
+      // Everything the group touched can have changed, so the caches that could
+      // still be holding its rows are dropped rather than surgically patched.
+      invalidatesTags: ['Group', 'GroupMembers', 'Post', 'Notifications'],
+    }),
+
     getGroupMembers: builder.query<GroupMember[], string>({
       query: (groupId) => `api/group/${groupId}/members`,
       transformResponse: (response: any): GroupMember[] =>
@@ -692,6 +724,22 @@ export const apiService = createApi({
     rejectGroupMember: builder.mutation<void, { groupId: string; userId: string }>({
       query: ({ groupId, userId }) => ({ url: `api/group/${groupId}/reject/${userId}`, method: 'POST' }),
       invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
+    }),
+
+    /**
+     * Promote a member to admin, or demote one back.
+     *
+     * PATCH rather than POST: it changes one field of a membership that already
+     * exists. The server refuses to strip the group's last admin, which is the
+     * check that matters — a group with no admin can't be administered back.
+     */
+    updateGroupMemberType: builder.mutation<void, { groupId: string; userId: string; memberType: 'admin' | 'basic' }>({
+      query: ({ groupId, userId, memberType }) => ({
+        url: `api/group/${groupId}/member/${userId}`,
+        method: 'PATCH',
+        body: { member_type: memberType },
+      }),
+      invalidatesTags: ['GroupMembers', 'Group'],
     }),
 
     /**
@@ -1366,9 +1414,12 @@ export const {
   useGetGroupQuery,
   useGetUserGroupsQuery,
   useCreateGroupMutation,
+  useUpdateGroupMutation,
+  useDeleteGroupMutation,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
   useRemoveGroupMemberMutation,
+  useUpdateGroupMemberTypeMutation,
   useInviteGroupMemberMutation,
   useAcceptGroupInviteMutation,
   useDeclineGroupInviteMutation,

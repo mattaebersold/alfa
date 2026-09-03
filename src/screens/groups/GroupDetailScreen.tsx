@@ -524,6 +524,9 @@ export default function GroupDetailScreen() {
         groupId={groupId}
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        // Every screen in this stack is a view of the group that just stopped
+        // existing, so popping one would only land on another of them.
+        onDeleted={() => navigation.popToTop()}
       />
 
       <CarSummaryModal

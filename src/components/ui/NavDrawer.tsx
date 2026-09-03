@@ -1,14 +1,14 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
-  Pressable, Linking, Animated, Dimensions, Platform,
+  Pressable, Linking, Animated, Dimensions, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import {
   Car, Users, ShoppingBag, BookOpen,
   Flag, X, ChevronRight, Link, Store, Route, MessageCircle,
-  Search, UserRound, Bell, Info, CalendarCheck, Mail, Package, Home,
+  Search, UserRound, Bell, Info, CalendarCheck, Mail, Package, Home, LifeBuoy,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -202,6 +202,22 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
     handleClose();
   }, [handleClose]);
 
+  /**
+   * Confirmed, because the control is now an icon rather than a labelled
+   * button. A mis-tap next to the close X would otherwise end the session, and
+   * getting back in means finding a password.
+   */
+  const handleLogout = useCallback(() => {
+    Alert.alert('Log out?', "You'll need to sign in again.", [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: () => closeThen(() => dispatch(logout())),
+      },
+    ]);
+  }, [closeThen, dispatch]);
+
   const goFeed = useCallback((screen: 'Feed' | 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace') => {
     closeThen(() => navigation.navigate('MainTabs', {
       screen: 'FeedTab',
@@ -245,6 +261,15 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   label="Notifications"
                   count={notifCount}
                   onPress={() => closeThen(() => navigation.navigate('Notifications'))}
+                />
+                {/* Up here with the other things you do to your account, rather
+                    than in the footer. It was costing the menu a row of its own
+                    plus the gap around it — height the tiles could use — and it
+                    was never navigation, which is what the list below is for. */}
+                <HeaderIconButton
+                  Icon={LogOut}
+                  label="Log out"
+                  onPress={handleLogout}
                 />
                 <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
                   <X size={15} color={TEXT_MID} />
@@ -336,6 +361,11 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => Linking.openURL('https://instagram.com/open.road.society/')} />
                 <NavTile label="Discord" Icon={MessageCircle}
                   onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')} />
+                {/* Beside the other ways of reaching the society rather than
+                    buried in settings — someone looking for help is looking
+                    for a person, and this is where the people are. */}
+                <NavTile label="Support" Icon={LifeBuoy} wide
+                  onPress={() => closeThen(() => navigation.navigate('Support'))} />
               </View>
 
               {/* Dark slab rather than a tile — it's the story of the place, not
@@ -352,19 +382,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
             </ScrollView>
 
             <View style={styles.footer}>
-              {/* Compact, low-emphasis — it shouldn't compete with navigation. */}
-              <View style={styles.footerTop}>
-                <TouchableOpacity
-                  style={styles.logoutBtn}
-                  onPress={() => closeThen(() => dispatch(logout()))}
-                  activeOpacity={0.8}
-                  hitSlop={8}
-                >
-                  <LogOut size={13} color={TEXT_MID} />
-                  <Text style={styles.logoutText}>Log out</Text>
-                </TouchableOpacity>
-              </View>
-
               {/* Above the copyright, on its own line — it's the one piece of
                   small print anyone actually goes looking for, usually to read
                   it out when something's wrong. A pill in mono, because that's
@@ -483,10 +500,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, gap: 12,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: DIVIDER,
   },
-  footerTop:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   footerBottom:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  logoutBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoutText:    { fontSize: 13, color: TEXT_MID },
   footerLinks:   { flexDirection: 'row', gap: 12 },
   footerLink:    { fontSize: 12, color: TEXT_MID },
   footerCopy:    { fontSize: 12, color: TEXT_FAINT },
