@@ -18,8 +18,11 @@ import { useAppSelector, useAppDispatch } from '../../store/store';
 import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
+import { colors } from '../../constants/colors';
 import { CONFIG } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
+import { ProUpsellModal } from '../pro/ProUpsell';
+import SteeringWheel from './SteeringWheel';
 import { logout } from '../../store/authSlice';
 import { useIsPro, useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
@@ -57,6 +60,7 @@ const SLIDE_DURATION = 220;
  * backdrop. The blur stays: it's what keeps the edges of the screen from
  * reading as a flat black box.
  */
+const PRO_GOLD  = colors.pro;
 const PANEL_BG  = 'rgba(18,18,18,0.985)';
 const BACKDROP  = 'rgba(0,0,0,0.88)';
 const TEXT_HI   = '#FFFFFF';
@@ -157,6 +161,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const { data: myEventsData } = useGetMyEventsCountQuery(undefined, { skip: !isLoggedIn });
   const myEventsCount = myEventsData?.count ?? 0;
   const [myEventsOpen, setMyEventsOpen] = useState(false);
+  const [proOpen, setProOpen] = useState(false);
   const { openEventSheet } = useEventSheet();
 
   const translateX = useRef(new Animated.Value(PANEL_WIDTH)).current;
@@ -366,6 +371,31 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 )}
               </View>
 
+              {/* The only gold thing in a white-on-dark menu, so it reads as
+                  the one offer rather than another destination. Above MORE
+                  because it's about the account, not about somewhere to go —
+                  and absent entirely for members who already have it. */}
+              {!isPro && (
+                <TouchableOpacity
+                  style={styles.proCallout}
+                  onPress={() => setProOpen(true)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Upgrade to Pro"
+                >
+                  <View style={styles.proCalloutIcon}>
+                    <SteeringWheel size={16} color="#000000" strokeWidth={2.4} />
+                  </View>
+                  <View style={styles.proCalloutText}>
+                    <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
+                    <Text style={styles.proCalloutSub}>
+                      Unlimited garage, posts and routes
+                    </Text>
+                  </View>
+                  <ChevronRight size={13} color="rgba(0,0,0,0.5)" />
+                </TouchableOpacity>
+              )}
+
               <Text style={styles.sectionLabel}>MORE</Text>
               <View style={styles.grid}>
                 <NavTile label="Instagram" Icon={Link}
@@ -419,6 +449,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
           </View>
         </Animated.View>
       </View>
+
+      <ProUpsellModal
+        visible={proOpen}
+        onClose={() => setProOpen(false)}
+        title="Open Road Society Pro"
+        message="Pro lifts the limits on the parts of the society you use most — your garage, what you post, and the routes you record."
+      />
 
       <MyEventsSheet
         visible={myEventsOpen}
@@ -519,6 +556,22 @@ const styles = StyleSheet.create({
   footerLinks:   { flexDirection: 'row', gap: 12 },
   footerLink:    { fontSize: 12, color: TEXT_MID },
   footerCopy:    { fontSize: 12, color: TEXT_FAINT },
+  proCallout: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    marginTop: 18, marginBottom: 4,
+    paddingHorizontal: 13, paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: PRO_GOLD,
+  },
+  proCalloutIcon: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  proCalloutText:  { flex: 1 },
+  proCalloutTitle: { fontSize: 14, fontWeight: '800', color: '#000000' },
+  proCalloutSub:   { fontSize: 11.5, color: 'rgba(0,0,0,0.65)', marginTop: 1 },
+
   footerVersion: {
     alignSelf: 'flex-start',
     marginBottom: 8,
