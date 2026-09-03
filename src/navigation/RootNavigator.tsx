@@ -20,7 +20,25 @@ import { notificationTarget } from '../utils/notificationTarget';
 const prefix = Linking.createURL('/');
 
 const linking = {
-  prefixes: [prefix, 'openroadsociety://'],
+  /**
+   * The https prefixes are what make a link in an email open the app.
+   *
+   * A custom scheme (`openroadsociety://`) only works once you're already
+   * somewhere that knows to use it — mail clients won't touch it, and there's
+   * nothing for it to fall back to when the app isn't installed. An https link
+   * to the site is a real URL either way: iOS and Android hand it to the app
+   * when it's installed and verified, and to the browser when it isn't, so one
+   * link in one email serves both.
+   *
+   * Verification is the other half, and it lives on the website: see
+   * murray's public/.well-known/apple-app-site-association and assetlinks.json.
+   */
+  prefixes: [
+    prefix,
+    'openroadsociety://',
+    'https://openroadsociety.co',
+    'https://www.openroadsociety.co',
+  ],
   config: {
     screens: {
       MainTabs: {

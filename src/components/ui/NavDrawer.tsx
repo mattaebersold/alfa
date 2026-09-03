@@ -21,12 +21,21 @@ import { useEventSheet } from '../../providers/EventSheetProvider';
 import { CONFIG } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { logout } from '../../store/authSlice';
-import { useIsPro } from '../../hooks/useBrandColor';
+import { useIsPro, useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.85, 320);
+/**
+ * The panel takes most of the screen rather than a column of it.
+ *
+ * At 85%/320 the cap was doing all the work on a modern phone — a 390pt screen
+ * wanted 331 and got 320 — which left the two-up tiles narrow enough that the
+ * longer labels wrapped, and the wrapping is what pushed the menu into a
+ * scroll. The wider panel buys the tiles about 40pt each, which is the
+ * difference between "ORS Rallys" fitting on one line and not.
+ */
+const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.92, 400);
 /**
  * Half the row, minus the 8px gutter — and a pixel of slack for the panel's
  * hairline border, which comes out of the same content box. Without it two
@@ -133,6 +142,8 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const isPro = useIsPro();
+  const brand = useBrandColor();
+  const brandText = useBrandTextColor();
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
   // The bell's own count, so the drawer and the header always agree.
@@ -371,13 +382,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               {/* Dark slab rather than a tile — it's the story of the place, not
                   another destination in the grid. */}
               <TouchableOpacity
-                style={styles.aboutBtn}
+                style={[styles.aboutBtn, { backgroundColor: brand }]}
                 onPress={() => closeThen(() => navigation.navigate('About'))}
                 activeOpacity={0.85}
               >
-                <Info size={16} color={TEXT_HI} />
-                <Text style={styles.aboutBtnText}>About Open Road Society</Text>
-                <ChevronRight size={12} color="rgba(255,255,255,0.5)" />
+                <Info size={16} color={brandText} />
+                <Text style={[styles.aboutBtnText, { color: brandText }]}>About Open Road Society</Text>
+                <ChevronRight size={12} color={brandText} style={styles.aboutChevron} />
               </TouchableOpacity>
             </ScrollView>
 
@@ -465,16 +476,19 @@ const styles = StyleSheet.create({
   userCardSub:  { fontSize: 14, fontWeight: '700', color: TEXT_MID, marginTop: 1 },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   pairRow:  { flexDirection: 'row', gap: 8 },
   navTile:  {
     width: TILE_WIDTH,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 9,
+    // Trimmed from 12: six rows of tiles at three points less each is most of
+    // the overflow gone, and at this size the tile still reads as a target
+    // rather than a list row.
+    paddingHorizontal: 11, paddingVertical: 9, borderRadius: 11,
     backgroundColor: TILE_BG,
   },
   navTileWide:  { width: undefined, flex: 1 },
-  navTileLabel: { fontSize: 13.5, fontWeight: '700', color: TEXT_HI, flexShrink: 1 },
+  navTileLabel: { fontSize: 13, fontWeight: '700', color: TEXT_HI, flexShrink: 1 },
   rowGap:       { marginTop: 8 },
   unreadPill:   {
     marginLeft: 'auto',
@@ -488,9 +502,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginTop: 20,
     paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '700', color: TEXT_HI },
+  aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '700' },
+  // The chevron is the same ink as the label, just quieter.
+  aboutChevron: { opacity: 0.6 },
 
   sectionLabel:  {
     fontSize: 11, fontWeight: '700', color: TEXT_LO,

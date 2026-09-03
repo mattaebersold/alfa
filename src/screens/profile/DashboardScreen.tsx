@@ -19,6 +19,7 @@ import {
   useGetFlaggedContentQuery,
   useRemoveContentMutation,
   useRestoreContentMutation,
+  useGetUsageQuery,
 } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
@@ -39,6 +40,9 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import MemberRow from '../../components/members/MemberRow';
+import UsageMeter from '../../components/pro/UsageMeter';
+import { POST_LIMIT_BASIC } from '../../constants/limits';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'homeBanner' | null;
@@ -205,6 +209,7 @@ export default function DashboardScreen() {
 
   const { data: user, isLoading, refetch: refetchUser } = useGetLoggedInUserQuery();
   const { data: stats, refetch: refetchStats } = useGetUserStatsQuery();
+  const { data: usage } = useGetUsageQuery();
   const { data: garageData, refetch: refetchGarage } = useGetUserGarageQuery();
   const { data: postsData } = useGetPostsQuery(
     { user_id: userInfo?.user_id ?? '', limit: 30 },
@@ -390,6 +395,20 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* What's left of this month's allowance — before it matters, not at
+            the moment it bites. Pro accounts get the count with no bar. */}
+        {usage && (
+          <UsageMeter
+            label="Posts this month"
+            used={usage.posts.used}
+            limit={usage.posts.limit}
+            resetsAt={usage.posts.resets_at}
+            upsellTitle="Unlimited posts with Pro"
+            upsellMessage={`A basic membership includes ${POST_LIMIT_BASIC} posts a month. Pro removes the limit, and unlocks route recording and the rest of the garage tools.`}
+            style={styles.usageMeter}
+          />
+        )}
 
         {/* Quick actions */}
         <View style={[styles.actions, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -676,17 +695,16 @@ export default function DashboardScreen() {
           keyExtractor={(u) => u.user_id}
           contentContainerStyle={{ paddingBottom: 40 }}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[listStyles.row, { borderBottomColor: '#2A2A2A' }]}
+            /* The same row the members list uses. It was an avatar and a handle
+               before — no pro marking, and no way to follow someone back from
+               the one screen that exists to show you who followed you. */
+            <MemberRow
+              user={item}
               onPress={() => {
                 setListModal(null);
                 (navigation as any).navigate('UserDetail', { userId: item.user_id, username: item.username });
               }}
-              activeOpacity={0.7}
-            >
-              <Avatar user={item} size={40} />
-              <Text style={[listStyles.name, { color: '#ECECEC' }]}>@{item.username}</Text>
-            </TouchableOpacity>
+            />
           )}
           ListEmptyComponent={
             <EmptyState title={listModal === 'followers' ? 'No followers yet' : 'Not following anyone yet'} />
@@ -699,6 +717,7 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  usageMeter: { marginHorizontal: 14, marginBottom: 14 },
   content:        { padding: 16, gap: 14, paddingBottom: 160 },
 
   profileCard:    {
@@ -751,14 +770,6 @@ const blockedStyles = StyleSheet.create({
   unblockText: { fontSize: 13, fontWeight: '700' },
 });
 
-const listStyles = StyleSheet.create({
-  row:  {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  name: { flex: 1, fontSize: 15, fontWeight: '600' },
-});
 
 const flaggedStyles = StyleSheet.create({
   sectionHeader: {

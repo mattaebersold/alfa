@@ -18,13 +18,13 @@ import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useIsPro } from '../../hooks/useBrandColor';
+import { useIsPro, useBrandColor } from '../../hooks/useBrandColor';
+import GarageLimitBadge from '../../components/garage/GarageLimitBadge';
 import type { CarsStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<CarsStackParamList>;
 
-const CAR_LIMIT_BASIC = 3;
 
 function CarCardWithTasks({
   car,
@@ -50,6 +50,7 @@ function CarCardWithTasks({
 }
 
 export default function GarageScreen() {
+  const brand = useBrandColor();
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const isPro = useIsPro();
@@ -58,8 +59,6 @@ export default function GarageScreen() {
   const onScroll = useHeaderScroll(headerPad);
   const { data, isLoading, refetch } = useGetUserGarageQuery();
   const cars = data?.entries ?? [];
-
-  const carLimitReached = !isPro && cars.length >= CAR_LIMIT_BASIC;
 
   const goToTasks = useCallback(
     (carId: string, carTitle: string) => (navigation as any).navigate('CarTasks', { carId, carTitle }),
@@ -101,7 +100,7 @@ export default function GarageScreen() {
               count={cars.length}
               right={
                 <TouchableOpacity
-                  style={styles.addBtn}
+                  style={[styles.addBtn, { backgroundColor: brand }]}
                   onPress={() => (navigation as any).navigate('CarCreate', {})}
                 >
                   <Plus size={16} color="#FFFFFF" />
@@ -109,14 +108,13 @@ export default function GarageScreen() {
                 </TouchableOpacity>
               }
             />
-            {/* Upsell only shows once the free tier is full. */}
-            {carLimitReached && (
-              <View style={styles.header}>
-                <TouchableOpacity style={styles.proCtaBtn} onPress={() => {}} activeOpacity={0.8}>
-                  <Text style={styles.proCtaText}>Add more — become Pro (coming soon)</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* The count and the limit, stated before it's reached rather than
+                announced by a button that stops working. Replaces a CTA that
+                only appeared once the garage was already full — and whose
+                onPress did nothing. */}
+            <View style={styles.limitRow}>
+              <GarageLimitBadge count={cars.length} isPro={isPro} />
+            </View>
           </>
         }
         ListEmptyComponent={
@@ -155,19 +153,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.brg,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
   },
   addBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  proCtaBtn: {
-    backgroundColor: colors.pro,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    maxWidth: 240,
-  },
-  // Black on the gold fill, matching the rest of the brand-colored buttons.
-  proCtaText: { color: '#000000', fontWeight: '700', fontSize: 12, textAlign: 'center' },
+  limitRow: { paddingHorizontal: 16, paddingBottom: 10, marginTop: -2 },
 });

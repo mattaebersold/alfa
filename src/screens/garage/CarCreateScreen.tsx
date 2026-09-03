@@ -12,12 +12,15 @@ import {
   useCreateCarMutation, useUpdateCarMutation,
   useGetCarQuery,
   useGetUserGroupsQuery,
+  useGetUserGarageQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
+import { useIsPro } from '../../hooks/useBrandColor';
+import GarageLimitBadge from '../../components/garage/GarageLimitBadge';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS } from '../../constants/carTypes';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -132,6 +135,10 @@ const EMPTY_FORM: FormData = {
 export default function CarCreateScreen({ navigation, route }: AppScreenProps<'CarCreate'>) {
   const colors = useColors();
   const keyboardHeight = useKeyboardHeight();
+  const isPro = useIsPro();
+  // Already cached by the garage screen, so this is free on the common path in.
+  const { data: garageData } = useGetUserGarageQuery();
+  const garageCount = garageData?.entries?.length ?? 0;
   const carId = route.params?.carId;
   const isEditMode = !!carId;
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -341,6 +348,15 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
           {/* ── STEP 1: Required ───────────────────────────────────────── */}
           {step === 1 && (
             <View>
+              {/* Where the slot is actually being spent. Only on a new car —
+                  editing one you already have doesn't consume anything. */}
+              {!carId && (
+                <GarageLimitBadge
+                  count={garageCount}
+                  isPro={isPro}
+                  style={styles.limitBadge}
+                />
+              )}
               <Text style={[styles.stepTitle, { color: colors.fg }]}>Step 1 — The Basics</Text>
 
               <Field label="Title *" value={form.title} onChange={set('title')} placeholder="e.g. Weekend Track Build" />
@@ -527,6 +543,7 @@ export default function CarCreateScreen({ navigation, route }: AppScreenProps<'C
 
 const styles = StyleSheet.create({
   flex:      { flex: 1 },
+  limitBadge: { marginBottom: 14 },
   scroll:    { paddingHorizontal: 16, paddingBottom: 24 },
   stepTitle: { fontSize: 20, fontWeight: '800', marginBottom: 6, marginTop: 4 },
   stepSub:   { fontSize: 14, marginBottom: 20, lineHeight: 20 },

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import {
   TouchableOpacity, Text, ActivityIndicator, StyleSheet,
   StyleProp, ViewStyle, TextStyle,
@@ -39,15 +40,17 @@ export default function SharedButton({
   textStyle,
 }: SharedButtonProps) {
   const isOutline = variant === 'outline';
-  const fg = isOutline ? SHARED_BLUE : '#000000';
+  const brand = useBrandColor();
+  const brandText = useBrandTextColor();
+  const fg = isOutline ? brand : brandText;
 
   return (
     <TouchableOpacity
       style={[
         styles.btn,
         isOutline
-          ? { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: SHARED_BLUE }
-          : { backgroundColor: SHARED_BLUE },
+          ? { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: brand }
+          : { backgroundColor: brand },
         full && styles.full,
         (disabled || loading) && styles.disabled,
         style,

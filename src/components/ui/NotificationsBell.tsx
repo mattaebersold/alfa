@@ -3,12 +3,13 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
   useWindowDimensions,
 } from 'react-native';
-import { Bell, X } from 'lucide-react-native';
+import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList, { DeleteAllButton } from '../notifications/NotificationsList';
-import { useGetUnreadNotificationCountQuery } from '../../api/apiService';
+import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { CONFIG } from '../../constants/config';
-import { useBrandColor } from '../../hooks/useBrandColor';
+import { useNavigation } from '@react-navigation/native';
+import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 44;
@@ -65,12 +66,30 @@ export default function NotificationsBell() {
     skip: !isLoggedIn,
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
-  const count = data?.count ?? 0;
+
+  /**
+   * Unread messages count towards the bell too.
+   *
+   * A message was the one thing that could be waiting for you with nothing on
+   * screen to say so — the bell reported notifications only, and messages sat
+   * behind a separate icon in the drawer that you had to think to open. They're
+   * both "something arrived for you", so they're both on the badge, and the
+   * panel lists them together.
+   */
+  const { data: messageData } = useGetUnreadMessageCountQuery(undefined, {
+    skip: !isLoggedIn,
+    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
+  });
+
+  const notificationCount = data?.count ?? 0;
+  const messageCount = messageData?.count ?? 0;
+  const count = notificationCount + messageCount;
 
   // The same fill the rest of the header wears — gold on a Pro account, the
   // accent blue otherwise. It used to be gold for everyone, which left the one
   // button in a standard header that didn't match the row it sat in.
   const tint = useBrandColor();
+  const navigation = useNavigation<any>();
 
   const btnRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
@@ -349,6 +368,33 @@ export default function NotificationsBell() {
             </View>
           </View>
 
+          {/* Messages first, and only when there are unread ones. A standing
+              "Messages" row on a panel about what's new would be navigation
+              wearing a notification's clothes. */}
+          {messageCount > 0 && (
+            <TouchableOpacity
+              style={styles.messagesRow}
+              onPress={() => {
+                closePanel();
+                navigation.navigate('Messages');
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`${messageCount} unread ${messageCount === 1 ? 'message' : 'messages'}`}
+            >
+              <View style={[styles.messagesIcon, { backgroundColor: tint }]}>
+                <Mail size={16} color={contrastText(tint)} strokeWidth={2.4} />
+              </View>
+              <View style={styles.messagesText}>
+                <Text style={styles.messagesTitle}>
+                  {messageCount} unread {messageCount === 1 ? 'message' : 'messages'}
+                </Text>
+                <Text style={styles.messagesHint}>Open your inbox</Text>
+              </View>
+              <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+          )}
+
           <NotificationsList onDismiss={closePanel} revealStagger showDeleteAll={false} />
         </Animated.View>
       </Modal>
@@ -388,7 +434,25 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
 
-  scrim: { backgroundColor: 'rgba(0,0,0,0.6)' },
+  messagesRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    marginHorizontal: 14, marginBottom: 10,
+    paddingHorizontal: 12, paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  messagesIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  messagesText:  { flex: 1 },
+  messagesTitle: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  messagesHint:  { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
+
+  // Lighter than it was: the panel itself is near-black, and against a
+  // heavy black scrim its edges disappeared into the dim. Grey gives the sheet
+  // something to sit on rather than dissolve into.
+  scrim: { backgroundColor: 'rgba(64,64,64,0.55)' },
 
   /**
    * Stacking inside the modal, bottom to top: scrim, backdrop, this box, the

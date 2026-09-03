@@ -41,6 +41,30 @@ export const apiService = createApi({
       query: (userId) => `api/users/publicUserById/${userId}`,
     }),
 
+    /**
+     * What this member has used of their allowances, for the dashboard meters.
+     *
+     * Its own endpoint because it costs a count query — the profile is polled
+     * constantly and shouldn't carry it. Tagged on 'Post' so publishing one
+     * moves the bar without a manual refetch.
+     */
+    getUsage: builder.query<{
+      posts: {
+        used: number;
+        limit: number | null;
+        remaining: number | null;
+        reached: boolean;
+        resets_at: string | null;
+        isPro: boolean;
+      };
+      cars: { used: number; limit: number | null };
+      routes: { pro_only: boolean; allowed: boolean };
+      isPro: boolean;
+    }, void>({
+      query: () => 'api/users/usage',
+      providesTags: ['User', 'Post'],
+    }),
+
     getUserStats: builder.query<{
       postsCount: number; garageCarsCount: number; followersCount: number;
       followingCount: number; followedCarsCount: number; projectsCount: number;
@@ -1334,6 +1358,7 @@ export const {
   useLazyGetPublicUserQuery,
   useGetPublicUserByIdQuery,
   useGetUserStatsQuery,
+  useGetUsageQuery,
   useSearchUsersQuery,
   useGetUsersQuery,
   useGetFeedQuery,

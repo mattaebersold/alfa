@@ -20,6 +20,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { useBrandColor } from '../../hooks/useBrandColor';
 
 function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }) {
   const colors = useColors();
@@ -50,6 +51,7 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
 }
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
+  const brand = useBrandColor();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
   const headerPad = useHeaderPad();
@@ -109,7 +111,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
             <ScreenHeading title="Cars" />
             <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
             <View style={styles.searchRow}>
-              <TouchableOpacity style={styles.brandsBtn} onPress={() => navigation.navigate('Brands')}>
+              <TouchableOpacity style={[styles.brandsBtn, { backgroundColor: brand }]} onPress={() => navigation.navigate('Brands')}>
                 <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
               </TouchableOpacity>
               <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -177,7 +179,6 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14 },
   brandsBtn: {
-    backgroundColor: colors.primaryAlt,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,

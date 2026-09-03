@@ -14,7 +14,7 @@ import { useAppSelector } from '../../store/store';
 import { useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
-import { useBrandColor } from '../../hooks/useBrandColor';
+import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -132,6 +132,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
 
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
+  const isPro = useIsPro();
 
   // `headerOffset` is shared across screens, so a screen left mid-scroll would
   // otherwise hand the next one a header that's still slid off-screen.
@@ -187,8 +188,11 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
       >
         {/* Left — logo returns to the home feed */}
         <FloatingButton
-          label="Home feed"
+          label={isPro ? 'Home feed, Pro member' : 'Home feed'}
           tint={tint}
+          // Only widened when there's a word to make room for; a basic account
+          // keeps the square button it has always had.
+          wide={isPro}
           onPress={() => go('FeedTab', { screen: 'Feed' })}
         >
           <Image
@@ -196,6 +200,10 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
             style={styles.logo}
             tintColor={ICON}
           />
+          {/* Small and set tight against the mark — it's a qualifier on the
+              logo rather than a second piece of branding, and the gold fill
+              behind it is already doing most of the saying. */}
+          {isPro && <Text style={styles.proMark}>PRO</Text>}
         </FloatingButton>
 
         {/* Right — garage, profile, notifications, menu */}
@@ -301,5 +309,12 @@ const styles = StyleSheet.create({
   thumbMoreText:{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
 
   logo: { width: 26, height: 26 },
+  proMark: {
+    fontSize: 10, fontWeight: '900', color: ICON,
+    letterSpacing: 0.6,
+    // Pulled in tighter than the button's own gap: PRO belongs to the mark,
+    // not beside it.
+    marginLeft: -2,
+  },
 
 });

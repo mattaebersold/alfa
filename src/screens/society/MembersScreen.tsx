@@ -3,14 +3,10 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Car, MapPin } from 'lucide-react-native';
-import SteeringWheel from '../../components/ui/SteeringWheel';
+import {Search, MapPin} from 'lucide-react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  useGetUsersQuery, useGetCarsQuery, useGetPostsQuery, useGetFollowStatusesQuery,
-} from '../../api/apiService';
-import FollowButton from '../../components/social/FollowButton';
+import {useGetUsersQuery, useGetFollowStatusesQuery} from '../../api/apiService';
 import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -26,56 +22,11 @@ import { useAppSelector } from '../../store/store';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 import { ss } from '../../styles/shared';
+import MemberRow from '../../components/members/MemberRow';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const LIMIT = 20;
-
-function MemberRow({ user, onPress, isFollowing }: {
-  user: User;
-  onPress: () => void;
-  /** From the page's single bulk lookup; undefined until it lands. */
-  isFollowing?: boolean;
-}) {
-  const colors = useColors();
-  const { userInfo } = useAppSelector((s: any) => s.auth);
-  const { data: carsData } = useGetCarsQuery({ user_id: user.user_id, limit: 1 }, { skip: !user.user_id });
-  const { data: postsData } = useGetPostsQuery({ user_id: user.user_id, limit: 1 }, { skip: !user.user_id });
-  const carCount = carsData?.total ?? 0;
-  const postCount = postsData?.total ?? 0;
-
-  const isPro = user.accountType === 'pro' || user.accountType === 'admin';
-
-  return (
-    <TouchableOpacity style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.avatarWrap, isPro && styles.proRing]}>
-        <Avatar user={user} size={44} />
-        {isPro && (
-          <View style={styles.proWheelBadge}>
-            <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />
-          </View>
-        )}
-      </View>
-      <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]}>@{user.username}</Text>
-        <View style={styles.statsRow}>
-          {carCount > 0 && (
-            <View style={styles.statChip}>
-              <Car size={12} color={colors.grey} />
-              <Text style={[styles.statText, { color: colors.grey }]}>{carCount} {carCount === 1 ? 'car' : 'cars'}</Text>
-            </View>
-          )}
-          {postCount > 0 && (
-            <Text style={[styles.statText, { color: colors.grey }]}>{postCount} {postCount === 1 ? 'post' : 'posts'}</Text>
-          )}
-        </View>
-      </View>
-      {user.username && user.user_id !== userInfo?.user_id && (
-        <FollowButton username={user.username} isFollowing={isFollowing} />
-      )}
-    </TouchableOpacity>
-  );
-}
 
 export default function MembersScreen() {
   const navigation = useNavigation<NavProp>();
@@ -251,17 +202,4 @@ const styles = StyleSheet.create({
   },
   regionChipText: { fontSize: 13, fontWeight: '700' },
   list:        { paddingBottom: 80, flexGrow: 1 },
-  info:        { flex: 1 },
-  name:        { fontSize: 15, fontWeight: '700' },
-  statsRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
-  statChip:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statText:      { fontSize: 12 },
-  avatarWrap:    { position: 'relative' },
-  proRing:       { borderWidth: 2.5, borderColor: '#CDA96F', borderRadius: 26, padding: 2 },
-  proWheelBadge: {
-    position: 'absolute', bottom: -1, right: -1,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: '#CDA96F',
-    alignItems: 'center', justifyContent: 'center',
-  },
 });

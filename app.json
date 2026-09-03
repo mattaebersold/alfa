@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "co.openroadsociety.app",
+      "associatedDomains": ["applinks:openroadsociety.co", "applinks:www.openroadsociety.co"],
       "entitlements": {
         "aps-environment": "production"
       },
@@ -29,6 +30,17 @@
     },
     "android": {
       "package": "co.openroadsociety.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "openroadsociety.co" },
+            { "scheme": "https", "host": "www.openroadsociety.co" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
