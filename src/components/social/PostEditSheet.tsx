@@ -397,7 +397,6 @@ const styles = StyleSheet.create({
   sheet:       {
     flexShrink: 1,
     borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden',
-    paddingBottom: Platform.OS === 'android' ? 60 : 30,
   },
   scroll:      { flexShrink: 1 },
   header:      {

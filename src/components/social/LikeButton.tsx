@@ -12,6 +12,15 @@ interface LikeButtonProps {
   initialCount?: number;
   showCount?: boolean;
   size?: number;
+  /**
+   * The heart and count when *not* liked. Defaults to the muted grey it has
+   * always used; a caller placing this inside a filled button passes the same
+   * ink as the icons beside it, so the row reads as one set of controls.
+   *
+   * The liked state is deliberately not configurable — the red is what says
+   * "you liked this", and a caller overriding it would be removing the signal.
+   */
+  color?: string;
 }
 
 export default function LikeButton({
@@ -21,8 +30,10 @@ export default function LikeButton({
   initialCount = 0,
   showCount = true,
   size = 18,
+  color,
 }: LikeButtonProps) {
   const colors = useColors();
+  const resting = color ?? colors.grey;
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
 
@@ -56,11 +67,11 @@ export default function LikeButton({
     <TouchableOpacity onPress={handlePress} style={styles.container} activeOpacity={0.7}>
       <Heart
         size={size}
-        color={liked ? '#FF4060' : colors.grey}
+        color={liked ? '#FF4060' : resting}
         fill={liked ? '#FF4060' : 'transparent'}
       />
       {showCount && count > 0 && (
-        <Text style={[styles.count, liked ? styles.likedCount : { color: colors.grey }]}>
+        <Text style={[styles.count, liked ? styles.likedCount : { color: resting }]}>
           {count}
         </Text>
       )}

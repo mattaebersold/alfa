@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Keyboard, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KeyboardEvent } from 'react-native';
 
 /**
@@ -80,6 +81,29 @@ export function useKeyboardInset(): KeyboardInset {
   }, [animated]);
 
   return { height, animated, visible };
+}
+
+/**
+ * How much room to leave under a composer that sits at the bottom of the screen.
+ *
+ * The pattern these sheets use is two layers: the outer stack is pushed up by
+ * the keyboard's height, and the sheet inside it clears the home indicator. The
+ * second half was a hardcoded guess — `Platform.OS === 'android' ? 60 : 30` in
+ * three separate files — which is wrong on every device whose inset isn't that
+ * number. An iPhone SE has no home indicator at all, so its composer floated
+ * 30pt above the bottom of the screen; a gesture-nav Android sat 60pt up.
+ *
+ * The real figure is `insets.bottom`, and it collapses to nothing when the
+ * keyboard is up, because the keyboard is already covering that strip — adding
+ * both is what lifts a composer clear off the top of the keyboard.
+ *
+ * The floor keeps a device that reports zero from putting the field flush
+ * against the edge of the glass.
+ */
+export function useComposerBottomPad(minimum = 12): number {
+  const { visible } = useKeyboardInset();
+  const insets = useSafeAreaInsets();
+  return visible ? 0 : Math.max(insets.bottom, minimum);
 }
 
 /** Just the number, for callers that lay out from state rather than animate. */

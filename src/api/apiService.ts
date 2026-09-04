@@ -720,6 +720,20 @@ export const apiService = createApi({
       invalidatesTags: ['Group', 'GroupMembers', 'Post', 'Notifications'],
     }),
 
+    /**
+     * "Tell me when Pro is available."
+     *
+     * Idempotent on the server — a second tap answers the same 200 with
+     * `alreadyRegistered`, so the button can be pressed twice without the
+     * waiting list gaining a duplicate.
+     */
+    registerProInterest: builder.mutation<{ registered: boolean; alreadyRegistered: boolean }, void>({
+      query: () => ({ url: 'api/billing/pro-interest', method: 'POST' }),
+      // Refetches the profile, which carries `proInterest` — that's what makes
+      // the answer survive closing the sheet and opening it again.
+      invalidatesTags: ['User'],
+    }),
+
     getGroupMembers: builder.query<GroupMember[], string>({
       query: (groupId) => `api/group/${groupId}/members`,
       transformResponse: (response: any): GroupMember[] =>
@@ -1441,6 +1455,7 @@ export const {
   useCreateGroupMutation,
   useUpdateGroupMutation,
   useDeleteGroupMutation,
+  useRegisterProInterestMutation,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
   useRemoveGroupMemberMutation,

@@ -3,7 +3,7 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
-import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { useBrandColor } from '../../hooks/useBrandColor';
 
 const FAB_SIZE = 62;
 const FAB_RIGHT = 18;
@@ -40,7 +40,12 @@ export default function CreateFab() {
       accessibilityRole="button"
       accessibilityLabel="New post"
     >
-      <Plus size={30} color={contrastText(tint)} strokeWidth={3} />
+      {/* Always black, rather than whatever contrasts with the fill.
+          `contrastText` put a white plus on the basic account's blue — correct
+          by contrast, but it made the same button look like two different
+          controls depending on the account. The mark is black on gold and
+          black on blue; both are legible, and it stays one button. */}
+      <Plus size={30} color="#000000" strokeWidth={3} />
     </TouchableOpacity>
   );
 }

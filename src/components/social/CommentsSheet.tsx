@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList,
-  TouchableOpacity, Modal, Animated, Pressable,
-  Platform, Alert, ActivityIndicator,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Pressable, Alert, ActivityIndicator,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
@@ -15,7 +13,8 @@ import CommentRow, { COMMENT_SURFACE } from './CommentRow';
 import { CommentPhotoButton, CommentPhotoPreview } from './CommentPhotoBar';
 import { useCommentPhoto } from '../../hooks/useCommentPhoto';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeyboardInset, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
 import { colors } from '../../constants/colors';
 import { ss } from '../../styles/shared';
 import UserSummaryModal from '../members/UserSummaryModal';
@@ -55,7 +54,30 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
 
   // Lifts the whole sheet clear of the keyboard — see the note at the shell.
-  const { animated: keyboardPad } = useKeyboardInset();
+  const { height: keyboardHeight } = useKeyboardInset();
+  const bottomPad = useComposerBottomPad();
+  const insets = useSafeAreaInsets();
+
+  /**
+   * The sheet is *resized* by the keyboard, not pushed by it.
+   *
+   * It used to sit in a container padded by the keyboard's height, which moves
+   * the whole sheet — header, list and composer together — up the screen as one
+   * block. With a sheet 88% of the screen tall and a keyboard taking 40% of it,
+   * there is nowhere for that block to go: it ends up jammed against the top
+   * with its composer stranded in the middle of the screen, which is exactly
+   * what the keyboard was covering up.
+   *
+   * Resizing instead keeps the bottom edge on top of the keyboard and lets the
+   * comment list absorb the loss, which is what a list is for. The composer
+   * never moves relative to the keyboard, and nothing needs to slide.
+   */
+  const sheetHeight = Math.min(
+    SCREEN_HEIGHT * 0.88,
+    // Never taller than what's left above the keyboard, and never under the
+    // status bar.
+    SCREEN_HEIGHT - keyboardHeight - insets.top - 8,
+  );
 
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -121,7 +143,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
           iOS only — Android got `behavior="height"`, which has no window resize
           to act on in an edge-to-edge app, so the keyboard simply covered the
           field you were typing in. See useKeyboardInset. */}
-      <Animated.View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: keyboardPad }}>
+      <Animated.View style={styles.stack}>
         <Animated.View
           style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
           pointerEvents="none"
@@ -130,7 +152,18 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { backgroundColor: SHEET_BG, transform: [{ translateY: slideY }] }]}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: SHEET_BG,
+              height: sheetHeight,
+              // Sits the sheet directly on top of the keyboard.
+              marginBottom: keyboardHeight,
+              transform: [{ translateY: slideY }],
+            },
+          ]}
+        >
           {/* Header */}
           <View style={[styles.header, { backgroundColor: SHEET_BG }]}>
             <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Comments</Text>
@@ -171,7 +204,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
           )}
 
           {/* Input area */}
-          <View style={[styles.inputWrap, { backgroundColor: SHEET_BG }]}>
+          <View style={[styles.inputWrap, { backgroundColor: SHEET_BG, paddingBottom: bottomPad }]}>
             {replyingTo && (
               <View style={[styles.replyBanner, { backgroundColor: '#1E1E1E', borderBottomColor: '#000000' }]}>
                 <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
@@ -222,14 +255,15 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
 const styles = StyleSheet.create({
   // Comments are a place you settle into, not a peek — it opens near
   // full-height rather than growing into it as the thread gets long.
-  sheet:       { height: SCREEN_HEIGHT * 0.88, maxHeight: '90%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  stack:       { flex: 1, justifyContent: 'flex-end' },
+  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
   // No rules against the list: header, comments and composer are one surface,
   // and a line across it made them read as separate panels again.
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   headerTitle: { fontSize: 17, fontWeight: '700' },
   list:        { paddingTop: 4, paddingBottom: 16 },
   empty:       { textAlign: 'center', padding: 32, fontSize: 14 },
-  inputWrap:   { paddingBottom: Platform.OS === 'android' ? 60 : 30 },
+  inputWrap:   {},
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1 },
   replyText:   { fontSize: 13 },
   inputRow:      { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },

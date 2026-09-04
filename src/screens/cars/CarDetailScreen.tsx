@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, MoreHorizontal, MoreVertical, Plus, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle, MessageSquarePlus, Wrench } from 'lucide-react-native';
+import { X, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle, MessageSquarePlus, Wrench } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -80,7 +80,7 @@ const ALBUM_COL_WIDTH = 260;
 const GALLERY_HEIGHT = Math.round(HERO_WIDTH * 3 / 4);
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
-type CarPane = 'specs' | 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | 'tagged' | null;
+type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | 'tagged' | null;
 
 // The app's true accent blue (useColors() remaps primaryAlt→gold for pro/admin,
 // so reference the raw token for a consistently-blue Follow button).
@@ -103,13 +103,18 @@ const CAR_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'other':        { bg: '#F0D689', text: '#000' },
 };
 
-const CAR_TILES: { key: Exclude<CarPane, null>; label: string }[] = [
-  { key: 'specs',      label: 'Specs' },
-  { key: 'posts',      label: 'Records' },
-  { key: 'mods',       label: 'Mods' },
-  { key: 'galleries',  label: 'Galleries' },
-  { key: 'followers',  label: 'Followers' },
-  { key: 'groups',     label: 'Groups' },
+const CAR_TILES: {
+  key: Exclude<CarPane, null>;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  /** Singular and plural, so a row of one doesn't say "1 records". */
+  noun: [string, string];
+}[] = [
+  { key: 'posts',      label: 'Records',   Icon: FileText,   noun: ['record', 'records'] },
+  { key: 'mods',       label: 'Mods',      Icon: Wrench,     noun: ['mod', 'mods'] },
+  { key: 'galleries',  label: 'Galleries', Icon: Images,     noun: ['album', 'albums'] },
+  { key: 'followers',  label: 'Followers', Icon: Users,      noun: ['follower', 'followers'] },
+  { key: 'groups',     label: 'Groups',    Icon: UsersRound, noun: ['group', 'groups'] },
 ];
 
 // ── Full-screen lightbox ─────────────────────────────────────────────────────
@@ -489,11 +494,10 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   // Pro owners get the to-do list promoted above the gallery; everyone else
   // who can edit sees it in the action row below.
-  const showTodosAboveGallery = isOwnerOrCoOwner && isPro;
 
   const todosButton = (
     <TouchableOpacity
-      style={[styles.tasksBtn, { backgroundColor: colors.primaryAlt }]}
+      style={[styles.tasksBtn, { backgroundColor: colors.inputBg, borderColor: colors.pro }]}
       onPress={() => appNav.navigate('CarTasks', {
         carId,
         carTitle: car?.title || [car?.year, car?.make, car?.model].filter(Boolean).join(' '),
@@ -503,22 +507,22 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       {/* Both sides reserve the same width so the label sits on the button's
           centre line, not on the centre of whatever space is left over. */}
       <View style={styles.tasksBtnSide}>
-        <CheckSquare size={18} color={brandTextColor} />
+        <CheckSquare size={18} color={colors.pro} />
       </View>
 
-      <Text style={[styles.tasksBtnText, styles.tasksBtnLabel, { color: brandTextColor }]}>
+      <Text style={[styles.tasksBtnText, styles.tasksBtnLabel, { color: colors.pro }]}>
         To-dos
       </Text>
 
       <View style={[styles.tasksBtnSide, styles.tasksBtnSideEnd]}>
         {taskTotal > 0 && (
           <>
-            <View style={[styles.taskCount, { backgroundColor: brandTextColor }]}>
-              <Text style={[styles.taskCountText, { color: colors.primaryAlt }]}>
+            <View style={[styles.taskCount, { backgroundColor: colors.pro }]}>
+              <Text style={[styles.taskCountText, { color: '#14110B' }]}>
                 {tasksOpen}
               </Text>
             </View>
-            <TaskProgressPie completed={tasksDone} total={taskTotal} size={18} color={brandTextColor} />
+            <TaskProgressPie completed={tasksDone} total={taskTotal} size={18} color={colors.pro} />
           </>
         )}
       </View>
@@ -903,8 +907,33 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     { label: 'Condition', value: car.condition },
   ].filter((s) => s.value);
 
-  const specPairs: (typeof specs)[] = [];
-  for (let i = 0; i < specs.length; i += 2) specPairs.push(specs.slice(i, i + 2));
+  // Three to a row. Named for what it is rather than `specPairs`, which stopped
+  // being true the moment the table gained a column.
+  const SPEC_COLUMNS = 3;
+  const specRows: (typeof specs)[] = [];
+  for (let i = 0; i < specs.length; i += SPEC_COLUMNS) {
+    specRows.push(specs.slice(i, i + SPEC_COLUMNS));
+  }
+
+  /**
+   * The sections this car actually has something in.
+   *
+   * An empty section is a row that opens onto "nothing here yet" — better not
+   * offered than proved with a tap. Derived here rather than inline so the
+   * wrapper can be dropped too when every one of them is empty, instead of
+   * leaving a padded gap where the tiles used to be.
+   */
+  const visibleTiles = (isOwnerOrCoOwner ? CAR_TILES.filter((t) => t.key !== 'followers') : CAR_TILES)
+    .map((t) => ({
+      ...t,
+      count:
+        t.key === 'posts'      ? (postsData?.total ?? posts.length) :
+        t.key === 'mods'       ? ((modsData as any)?.total ?? mods.length) :
+        t.key === 'galleries'  ? paneAlbums.length :
+        t.key === 'followers'  ? (carFollowersData?.total ?? carFollowers.length) :
+        /* groups */             (carGroupsData?.total ?? carGroups.length),
+    }))
+    .filter((t) => t.count > 0);
 
   const paneTitle =
     pane === 'otherModel'
@@ -925,18 +954,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             // restored on the way back rather than left under the post.
             onPostPress={(post) => openRecord(post.internal_id)}
           />
-        );
-      case 'specs':
-        if (specs.length === 0) return <EmptyState title="No specs added yet" />;
-        return (
-          <View style={styles.paneSpecsWrap}>
-            {specs.map((spec) => (
-              <View key={spec.label} style={[styles.paneSpecRow, { borderBottomColor: SHEET_BORDER }]}>
-                <Text style={[styles.paneSpecLabel, { color: colors.grey }]}>{spec.label}</Text>
-                <Text style={[styles.paneSpecValue, { color: SHEET_FG }]}>{spec.value}</Text>
-              </View>
-            ))}
-          </View>
         );
       case 'posts': {
         if (posts.length === 0) return <EmptyState title="No records yet" />;
@@ -1092,15 +1109,67 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* Car title leads the page and scrolls away with the content. */}
+        {/* Car title leads the page and scrolls away with the content. The
+            spec and the type/category chips sit under it, close to the name
+            they describe — the chips used to live below the gallery, a screen
+            away from the thing they were labelling. */}
         <ScreenHeading
+          dense
           title={car.title || [car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
-        />
+          // Top right, where an overflow menu is looked for — it used to sit in
+          // the action row under the gallery, mixed in with like and comment,
+          // which are things you do to the car rather than to the page.
+          right={
+            isOwnerOrCoOwner ? (
+              <TouchableOpacity
+                onPress={handleMenuPress}
+                hitSlop={8}
+                style={styles.headerMenuBtn}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Car options"
+              >
+                {/* Pure white rather than `colors.fg` (#E0E0E0) — on a small
+                    glyph inside a grey circle the dimmed ink reads as disabled. */}
+                <Ellipsis size={20} color={colors.grey} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.headerMenuBtn}>
+                <ReportButton contentType="car" contentId={carId} size={18} />
+              </View>
+            )
+          }
+          meta={
+            <>
+              {/* Spec on the left, what kind of car it is on the right. The
+                  spec only appears when the name isn't already the spec. */}
+              <View style={styles.metaLeft}>
+              {car.title ? (
+                <View style={[styles.specChip, { backgroundColor: colors.segment, borderColor: colors.borderDark }]}>
+                  {/* One line: the chip shrinks with the row, and a long trim
+                      should trail off rather than grow the chip to two lines. */}
+                  <Text style={[styles.specChipText, { color: colors.grey }]} numberOfLines={1}>
+                    {[car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
+                  </Text>
+                </View>
+              ) : null}
+              </View>
 
-        {/* Pro owners get their to-do list up front, ahead of the gallery. */}
-        {showTodosAboveGallery && (
-          <View style={styles.todosAbove}>{todosButton}</View>
-        )}
+              <View style={styles.metaRight}>
+              {car.type ? (
+                <View style={[styles.carBadge, { backgroundColor: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).bg }]}>
+                  <Text style={[styles.carBadgeText, { color: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).text }]}>{carTypeLabel(car.type)}</Text>
+                </View>
+              ) : null}
+              {car.category ? (
+                <View style={[styles.carBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
+                  <Text style={[styles.carBadgeText, { color: '#FFFFFF' }]}>{carCategoryLabel(car.category)}</Text>
+                </View>
+              ) : null}
+              </View>
+            </>
+          }
+        />
 
         {/* ── Gallery strip ── */}
         <View style={styles.galleryWrap}>
@@ -1116,95 +1185,91 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         {/* ── Title + owners ── */}
         <View style={[styles.titleSection]}>
           <View style={styles.titleRow}>
+            {/* Who owns the car, opposite what you can do to it. This used to
+                sit on its own line below; in the row it fills the left side the
+                actions were being pushed away from, and the two read as one
+                band rather than two half-empty ones. */}
             <View style={styles.titleLeft}>
-              {/* The name is the page heading above; this line carries the
-                  year/make/model detail, and only when it adds something. */}
-              {car.title ? (
-                <Text style={[styles.carSubtitle, { color: colors.grey }]}>
-                  {[car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
-                </Text>
-              ) : null}
+              {(owner || coOwnerData) && (
+                <View style={styles.ownersRow}>
+                  {owner && (
+                    <TouchableOpacity
+                      style={styles.ownerChip}
+                      onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
+                      activeOpacity={0.8}
+                    >
+                      <Avatar user={owner} size={30} />
+                      <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{displayName}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {coOwnerData && (
+                    <TouchableOpacity
+                      style={styles.ownerChip}
+                      onPress={() => appNav.navigate('UserDetail', { userId: coOwnerData.user_id })}
+                      activeOpacity={0.8}
+                    >
+                      <Avatar user={coOwnerData} size={30} />
+                      <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{coOwnerName}</Text>
+                      <View style={[styles.coOwnerBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
+                        <Text style={[styles.coOwnerBadgeText, { color: '#FFFFFF' }]}>co</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </View>
             {/* Liking and commenting sit with the car's other controls rather
                 than in a bar of their own below the description — they are two
                 icons, and a full-width rule under a paragraph to hold them read
                 as the end of the page. */}
             <View style={styles.titleActions}>
-              <LikeButton
-                documentId={car.internal_id}
-                entryType={(car as any).entry_type ?? 'garagecar'}
-                initialCount={(car as any).like_count ?? 0}
-                initialLiked={(car as any).isLiked ?? false}
-                size={20}
-              />
+              {/* One shape and one ink for both. They were a bare grey heart
+                  with a count beside a bare, brighter comment icon — same job,
+                  two different-looking controls. */}
+              <View style={[styles.actionBtn, { backgroundColor: colors.secondary }]}>
+                <LikeButton
+                  documentId={car.internal_id}
+                  entryType={(car as any).entry_type ?? 'garagecar'}
+                  initialCount={(car as any).like_count ?? 0}
+                  initialLiked={(car as any).isLiked ?? false}
+                  size={18}
+                  color={colors.fg}
+                />
+              </View>
               <TouchableOpacity
-                style={styles.commentBtn}
+                style={[styles.actionBtn, styles.commentBtn, { backgroundColor: colors.secondary }]}
                 onPress={() => setCommentsOpen(true)}
                 hitSlop={8}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel="Comments"
               >
-                <MessageCircle size={20} color={colors.fg} />
+                <MessageCircle size={18} color={colors.fg} />
               </TouchableOpacity>
-              {isOwnerOrCoOwner ? (
-                <>
-                  <TouchableOpacity onPress={handleAddPress} hitSlop={8} style={[styles.addBtn, { backgroundColor: colors.primaryAlt }]}>
-                    <Plus size={20} color={brandTextColor} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleMenuPress} hitSlop={8} style={styles.menuBtn}>
-                    <MoreHorizontal size={22} color={colors.fg} />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <ReportButton contentType="car" contentId={carId} size={22} />
-              )}
             </View>
           </View>
 
-          {/* Type + Category badges */}
-          {(car.type || car.category) && (
-            <View style={styles.badgeRow}>
-              {car.type && (
-                <View style={[styles.carBadge, { backgroundColor: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).bg }]}>
-                  <Text style={[styles.carBadgeText, { color: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).text }]}>{carTypeLabel(car.type)}</Text>
-                </View>
-              )}
-              {car.category && (
-                <View style={[styles.carBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-                  <Text style={[styles.carBadgeText, { color: '#FFFFFF' }]}>{carCategoryLabel(car.category)}</Text>
-                </View>
-              )}
-            </View>
+          {/* Adding to the car earns a row of its own. As an icon among like
+              and comment it read as a fourth reaction, when it's the one thing
+              on this page only the owner can do. */}
+          {isOwnerOrCoOwner && (
+            <TouchableOpacity
+              style={[styles.addContentBtn, { backgroundColor: colors.primaryAlt }]}
+              onPress={handleAddPress}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Add content to this car"
+            >
+              <Plus size={17} color={brandTextColor} strokeWidth={2.6} />
+              <Text style={[styles.addContentText, { color: brandTextColor }]}>Add Content</Text>
+            </TouchableOpacity>
           )}
 
-          {/* Owners — avatar + username chips */}
-          {(owner || coOwnerData) && (
-            <View style={styles.ownersRow}>
-              {owner && (
-                <TouchableOpacity
-                  style={styles.ownerChip}
-                  onPress={() => (localNav as any).navigate('UserDetail', { userId: owner.user_id })}
-                  activeOpacity={0.8}
-                >
-                  <Avatar user={owner} size={34} />
-                  <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{displayName}</Text>
-                </TouchableOpacity>
-              )}
-              {coOwnerData && (
-                <TouchableOpacity
-                  style={styles.ownerChip}
-                  onPress={() => appNav.navigate('UserDetail', { userId: coOwnerData.user_id })}
-                  activeOpacity={0.8}
-                >
-                  <Avatar user={coOwnerData} size={34} />
-                  <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{coOwnerName}</Text>
-                  <View style={[styles.coOwnerBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-                    <Text style={[styles.coOwnerBadgeText, { color: '#FFFFFF' }]}>co</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+          {/* The to-do list sits with the car's own story rather than down among
+              the section tiles — for an owner it's the thing most likely to be
+              the reason they opened the page. */}
+          {isOwnerOrCoOwner && isPro && (
+            <View style={styles.todosAboveDesc}>{todosButton}</View>
           )}
 
           {car.body ? (
@@ -1225,7 +1290,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           ) : null}
 
           {!isOwnerOrCoOwner && (
-            <View style={[styles.followRow, { borderTopColor: colors.border }]}>
+            <View style={styles.followRow}>
               <View style={styles.likeRowRight}>
                 <TouchableOpacity
                   style={[
@@ -1263,8 +1328,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
           {isOwnerOrCoOwner && (
             <>
-              {/* Pro owners get this above the gallery instead — see todosButton. */}
-              {!showTodosAboveGallery && todosButton}
               <TouchableOpacity
                 style={[styles.followersBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
                 onPress={() => setPane('followers')}
@@ -1279,58 +1342,116 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           )}
         </View>
 
+        {/* ── Specs ──
+            On the page rather than behind a tile. Specs are what someone came
+            to read about a car; a tap and a full-screen sheet to reach ten
+            short facts was a lot of ceremony for the shortest list here.
+            `specRows` chunks them three at a time — it was already being built
+            as pairs and never used. */}
+        {specs.length > 0 && (
+          <View style={styles.specsTable}>
+            {specRows.map((row, i) => (
+              <View
+                key={row.map((sp) => sp.label).join('-')}
+                style={styles.specsRow}
+              >
+                {row.map((spec) => (
+                  <View
+                    key={spec.label}
+                    style={[styles.specsCell, { borderColor: colors.borderDark, backgroundColor: colors.inputBg }]}
+                  >
+                    <Text style={[styles.specsLabel, { color: colors.grey }]} numberOfLines={1}>{spec.label}</Text>
+                    <Text style={[styles.specsValue, { color: colors.fg }]} numberOfLines={1}>
+                      {spec.value}
+                    </Text>
+                  </View>
+                ))}
+                {/* A short last row would otherwise let its cells stretch to
+                    fill the width, and the columns would stop lining up. These
+                    hold the space without drawing a box around nothing. */}
+                {Array.from({ length: SPEC_COLUMNS - row.length }).map((_, k) => (
+                  <View key={`pad${k}`} style={styles.specsSpacer} />
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* ── Section tiles — open panes like the profile page ── */}
         <View style={[styles.tilesWrap]}>
+          {visibleTiles.length > 0 && (
           <View style={styles.carTilesGrid}>
-            {(isOwnerOrCoOwner ? CAR_TILES.filter((t) => t.key !== 'followers') : CAR_TILES).map((t) => {
-              const count =
-                t.key === 'specs'      ? specs.length :
-                t.key === 'posts'      ? (postsData?.total ?? posts.length) :
-                t.key === 'mods'       ? (modsData?.total ?? mods.length) :
-                t.key === 'galleries'  ? paneAlbums.length :
-                t.key === 'followers'  ? (carFollowersData?.total ?? carFollowers.length) :
-                /* groups */             (carGroupsData?.total ?? carGroups.length);
-              return (
+            {visibleTiles.map((t) => (
                 <TouchableOpacity
                   key={t.key}
-                  style={[styles.carTile, { backgroundColor: '#2C2C2C', borderColor: colors.borderDark }]}
+                  style={[styles.carTile, { backgroundColor: colors.inputBg, borderColor: colors.borderDark }]}
                   onPress={() => setPane(t.key)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                 >
-                  <View style={styles.carTileText}>
-                    <Text style={[styles.carTileLabel, { color: colors.fgDark }]}>{t.label}</Text>
-                    <Text style={[styles.carTileCount, { color: colors.primaryAlt }]}>{count}</Text>
+                  <View style={styles.carTileIcon}>
+                    <t.Icon size={20} color={colors.fg} strokeWidth={2} />
                   </View>
-                  <ChevronRight size={16} color={colors.grey} />
+                  <View style={styles.carTileText}>
+                    <Text style={[styles.carTileLabel, { color: colors.fg }]} numberOfLines={1}>{t.label}</Text>
+                    <Text style={[styles.carTileCount, { color: colors.grey }]} numberOfLines={1}>
+                      {t.count} {t.count === 1 ? t.noun[0] : t.noun[1]}
+                    </Text>
+                  </View>
+                  <View style={[styles.carTileGo, { backgroundColor: colors.secondary }]}>
+                    <ChevronRight size={16} color={colors.fg} />
+                  </View>
                 </TouchableOpacity>
-              );
-            })}
+            ))}
           </View>
+          )}
 
           {/* ── Discovery tiles — related cars ── */}
+          {/* Same row as the sections above — these are another way to leave
+              this page, so making them a different shape only implied they
+              behaved differently. */}
           <View style={styles.discoverTilesRow}>
             {car.make ? (
               <TouchableOpacity
-                style={[styles.discoverTile, { backgroundColor: '#2C2C2C', borderColor: colors.borderDark }]}
+                style={[styles.carTile, { backgroundColor: colors.inputBg, borderColor: colors.borderDark }]}
                 onPress={() => setPane('otherMake')}
                 activeOpacity={0.75}
               >
-                <Car size={32} color={colors.primaryAlt} />
-                <Text style={[styles.discoverTileLabel, { color: colors.fgDark }]} numberOfLines={2}>
-                  Other {car.make}s
-                </Text>
+                <View style={styles.carTileIcon}>
+                  <Car size={20} color={colors.fg} strokeWidth={2} />
+                </View>
+                <View style={styles.carTileText}>
+                  <Text style={[styles.carTileLabel, { color: colors.fg }]} numberOfLines={1}>
+                    Other {car.make}s
+                  </Text>
+                  <Text style={[styles.carTileCount, { color: colors.grey }]} numberOfLines={1}>
+                    Browse the make
+                  </Text>
+                </View>
+                <View style={[styles.carTileGo, { backgroundColor: colors.secondary }]}>
+                  <ChevronRight size={16} color={colors.fg} />
+                </View>
               </TouchableOpacity>
             ) : null}
             {car.model ? (
               <TouchableOpacity
-                style={[styles.discoverTile, { backgroundColor: '#2C2C2C', borderColor: colors.borderDark }]}
+                style={[styles.carTile, { backgroundColor: colors.inputBg, borderColor: colors.borderDark }]}
                 onPress={() => setPane('otherModel')}
                 activeOpacity={0.75}
               >
-                <Car size={32} color={colors.primaryAlt} />
-                <Text style={[styles.discoverTileLabel, { color: colors.fgDark }]} numberOfLines={2}>
-                  Other {car.make} {car.model}s
-                </Text>
+                <View style={styles.carTileIcon}>
+                  <Car size={20} color={colors.fg} strokeWidth={2} />
+                </View>
+                <View style={styles.carTileText}>
+                  <Text style={[styles.carTileLabel, { color: colors.fg }]} numberOfLines={1}>
+                    Other {car.make} {car.model}s
+                  </Text>
+                  <Text style={[styles.carTileCount, { color: colors.grey }]} numberOfLines={1}>
+                    Browse the model
+                  </Text>
+                </View>
+                <View style={[styles.carTileGo, { backgroundColor: colors.secondary }]}>
+                  <ChevronRight size={16} color={colors.fg} />
+                </View>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1660,9 +1781,21 @@ const styles = StyleSheet.create({
   galleryWrap:    { height: GALLERY_HEIGHT + 24, backgroundColor: '#000' },
   galleryStrip:   { paddingVertical: 12, paddingLeft: 12, gap: 10, alignItems: 'flex-start' },
   heroSlide:      { width: HERO_WIDTH, height: GALLERY_HEIGHT, borderRadius: 12, overflow: 'hidden' },
-  fullHero:       { width: SCREEN_WIDTH, height: GALLERY_HEIGHT + 24 },
+  // A lone photo is inset and rounded rather than run to the edges: with no
+  // second card beside it there's no strip to be part of, so full-bleed made it
+  // read as a banner rather than as the car's one picture. `overflow: hidden`
+  // is what actually clips the image to the corners — the radius alone does
+  // nothing to a child on absolute fill.
+  fullHero: {
+    width: SCREEN_WIDTH - 24,
+    marginHorizontal: 12,
+    height: GALLERY_HEIGHT + 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   addGalleryOverlay: {
-    position: 'absolute', top: 12, right: 12,
+    // 12 to clear the photo's own inset, plus 12 inside it.
+    position: 'absolute', top: 12, right: 24,
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
@@ -1706,18 +1839,30 @@ const styles = StyleSheet.create({
   lightboxCount:  { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 },
   lightboxClose:  { padding: 8 },
 
-  titleSection:   { padding: 16 },
+  titleSection: {
+    paddingHorizontal: 16,
+    // Tight to the gallery above it — the owner row belongs to the photo, not
+    // to the block of controls under it.
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
   // Centred, not top-aligned: the actions are 34pt tall and the subtitle is one
   // small line, so flex-start left it hanging off the top of the buttons.
   titleRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleLeft:      { flex: 1, marginRight: 12 },
-  menuBtn:        { padding: 4 },
-  titleActions:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addBtn:         { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  tasksBtn:       {
+  // No circle behind it. The width stays so the glyph keeps a real tap target
+  // and the heading's right edge doesn't shift with it.
+  headerMenuBtn: {
+    width: 30, height: 30,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  titleActions:   { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
+  tasksBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginTop: 12, marginBottom: 18,
-    paddingVertical: 17, paddingHorizontal: 16, borderRadius: 14,
+    // No margins of its own — `todosAboveDesc` places it, and carrying both
+    // stacked the two into a gap neither of them asked for.
+    paddingVertical: 14, paddingHorizontal: 16,
+    borderRadius: 10, borderWidth: 1,
   },
   tasksBtnText:   { fontSize: 16, fontWeight: '800' },
   tasksBtnLabel:  { flex: 1, textAlign: 'center' },
@@ -1732,24 +1877,50 @@ const styles = StyleSheet.create({
   taskCountText:  { fontSize: 12, fontWeight: '800' },
   // Above-gallery placement supplies its own gutters; the in-row copy inherits
   // the action row's padding.
-  todosAbove:     { paddingHorizontal: 16, marginBottom: 4 },
   followersBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginTop: 10, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5,
   },
   followersBtnText: { fontSize: 15, fontWeight: '800' },
-  carSubtitle:    { fontSize: 14, marginTop: 3, fontWeight: '500' },
-  badgeRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  carBadge:       { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6 },
-  carBadgeText:   { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
+  // `flexShrink` on the left group only: a long spec truncates before it can
+  // push the type and category chips off the row.
+  metaLeft:       { flexShrink: 1, minWidth: 0 },
+  metaRight:      { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
+  specChip: {
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 5, borderWidth: StyleSheet.hairlineWidth,
+  },
+  specChipText:   { fontSize: 11, fontWeight: '700' },
+  carBadge:       { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  carBadgeText:   { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   descWrap:       { marginTop: 12 },
+  todosAboveDesc: { marginTop: 8 },
+  addContentBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    marginTop: 16, paddingVertical: 12, borderRadius: 10,
+  },
+  addContentText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
   carDescription: { fontSize: 14, lineHeight: 20 },
   moreLink:       { fontSize: 13, fontWeight: '900', textDecorationLine: 'underline', marginTop: 4 },
-  followRow:      { marginTop: 12, paddingTop: 12, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center' },
-  likeRowRight:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  commentBtn:     { padding: 4 },
+  // No rule across the top: the row already reads as its own thing, and the
+  // line under a description looked like the end of the page rather than the
+  // start of a control.
+  followRow:      { marginTop: 14 },
+  likeRowRight:   { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
+  actionBtn: {
+    height: 34, minWidth: 34, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    // The like button brings its own padding; the comment icon has none, so it
+    // gets the horizontal room here instead.
+    paddingHorizontal: 6,
+  },
+  commentBtn:     { paddingHorizontal: 8 },
   followInlineBtn: {
-    paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10,
+    // Takes the row. `flex: 1` rather than `width: '100%'` so the follow-options
+    // button that appears once you're following shares the line instead of
+    // being pushed off the end of it.
+    flex: 1,
+    paddingHorizontal: 18, paddingVertical: 11, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center'
   },
   followInlineText: { fontSize: 14, fontWeight: '800' },
@@ -1759,9 +1930,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  ownersRow:       { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 12 },
-  ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ownerChipName:   { fontSize: 14, fontWeight: '700', maxWidth: 160 },
+  ownersRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
+  ownerChipName:   { fontSize: 14, fontWeight: '700', flexShrink: 1 },
   coOwnerAvatarWrap: { marginLeft: -8 },
   ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, borderRadius: 10 },
   coOwnerCard:     { marginTop: 8, borderTopWidth: 1 },
@@ -1797,30 +1968,54 @@ const styles = StyleSheet.create({
   filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   filterChipText:  { fontSize: 12, fontWeight: '700' },
 
-  tilesWrap:       { paddingHorizontal: 16, paddingBottom: 20 },
-  carTilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  carTile:         {
-    flexBasis: '47%', flexGrow: 1,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: 12, borderWidth: 1,
-    paddingVertical: 14, paddingHorizontal: 14,
+  // No box of its own — the cells are the boxes, and a border around a set of
+  // bordered cells was a frame around a frame. This just holds the margins and
+  // the spacing between rows.
+  specsTable: {
+    marginHorizontal: 12, marginTop: 4, marginBottom: 14,
+    gap: 8,
   },
-  carTileText:     { gap: 1 },
-  carTileLabel:    { fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
-  carTileCount:    { fontSize: 18, fontWeight: '800' },
-  discoverTilesRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
-  discoverTile:    {
-    flex: 1, borderRadius: 12, borderWidth: 1,
-    paddingVertical: 16, paddingHorizontal: 12,
-    alignItems: 'center', justifyContent: 'center', gap: 6,
+  specsRow:    { flexDirection: 'row', gap: 8 },
+  // Equal thirds, and `minWidth: 0` so a long value truncates inside its own
+  // box instead of widening it and pushing the others out of line.
+  specsCell: {
+    flex: 1, minWidth: 0,
+    paddingVertical: 8, paddingHorizontal: 9, gap: 2,
+    borderWidth: 1, borderRadius: 9,
   },
-  discoverTileLabel: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  specsSpacer: { flex: 1, minWidth: 0 },
+  // A shade smaller than at two columns — a third of a phone is not much room.
+  specsLabel:  { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  specsValue:  { fontSize: 14, fontWeight: '700' },
+  // 12, to line the tiles up with the specs table and the heading above them —
+  // they were the one block on the page still inset at 16.
+  tilesWrap:       { paddingHorizontal: 12, paddingBottom: 20 },
+  // Full-width rows rather than a two-up grid. Half-width tiles had to shorten
+  // their label to fit and had nowhere to say what the number counted — "12"
+  // over "Records" instead of "12 records".
+  carTilesGrid:    { gap: 8 },
+  carTile: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 10, borderWidth: 1,
+    paddingVertical: 10, paddingHorizontal: 10,
+  },
+  // No chip behind it — but a fixed width all the same, so the labels start on
+  // the same line down the column whatever shape the glyph is.
+  carTileIcon: {
+    width: 34, height: 34,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  // Takes the middle, so the chevron stays pinned right whatever the label.
+  carTileText:     { flex: 1, minWidth: 0, gap: 1 },
+  carTileLabel:    { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
+  carTileCount:    { fontSize: 12.5, fontWeight: '600' },
+  carTileGo: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  discoverTilesRow: { gap: 8, marginTop: 8 },
   paneAlbumGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 12 },
   paneAlbumCell:   { width: '47%' },
-  paneSpecsWrap:   { paddingHorizontal: 4 },
-  paneSpecRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  paneSpecLabel:   { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
-  paneSpecValue:   { fontSize: 15, fontWeight: '700' },
 
   specsSection:    { padding: 16 },
   postsSection:    { paddingBottom: 32, borderTopWidth: 1 },

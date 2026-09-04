@@ -4,12 +4,14 @@ import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
-import { Warehouse, Menu } from 'lucide-react-native';
+import { Menu, Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
+import SearchOverlay from '../search/SearchOverlay';
 import NotificationsBell from './NotificationsBell';
+import GarageDoor from './GarageDoor';
 import { useAppSelector } from '../../store/store';
 import { useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -19,8 +21,8 @@ import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-const BTN = 44;          // floating button edge length
-const BTN_RADIUS = 15;   // squircle-ish corner
+const BTN = 42;          // floating button edge length
+const BTN_RADIUS = 14;   // squircle-ish corner
 const ROW_PAD_V = 8;     // vertical padding around the button row
 
 /**
@@ -33,6 +35,9 @@ const ROW_PAD_V = 8;     // vertical padding around the button row
 const TOP_OFFSET = Platform.OS === 'ios' ? 0 : ROW_PAD_V;
 
 const ICON = '#000000';
+
+/** Length of the vertical PRO mark, along the word. */
+const PRO_LEN = 25;
 
 /** How far the scrim carries on past the buttons before it's gone. */
 const SCRIM_FADE = 28;
@@ -84,12 +89,13 @@ function FloatingButton({
 
 /**
  * Up to `max` overlapping car photos from the user's garage, followed by a
- * "+N" chip when the garage holds more than that.
+ * "+N" chip when the garage holds more than that. Renders nothing for an empty
+ * garage — the button's door icon already stands on its own.
  */
 function GarageThumbs({ cars, max = 2 }: { cars: GarageCar[]; max?: number }) {
   const shown = cars.slice(0, max);
   const overflow = cars.length - shown.length;
-  if (shown.length === 0) return <Warehouse size={19} color={ICON} />;
+  if (shown.length === 0) return null;
 
   return (
     <View style={styles.thumbRow}>
@@ -129,6 +135,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   const insets = useSafeAreaInsets();
   const { isLoggedIn, userInfo } = useAppSelector((s) => s.auth);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
@@ -200,22 +207,41 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
             style={styles.logo}
             tintColor={ICON}
           />
-          {/* Small and set tight against the mark — it's a qualifier on the
-              logo rather than a second piece of branding, and the gold fill
-              behind it is already doing most of the saying. */}
-          {isPro && <Text style={styles.proMark}>PRO</Text>}
+          {/* Turned on its side and set tight against the mark — it's a
+              qualifier on the logo rather than a second piece of branding, the
+              gold fill behind it is already doing most of the saying, and
+              upright it was the widest thing in the button. */}
+          {isPro && (
+            <View style={styles.proMark}>
+              <Text style={styles.proMarkText}>PRO</Text>
+            </View>
+          )}
         </FloatingButton>
 
-        {/* Right — garage, profile, notifications, menu */}
+        {/* Right — search, garage, profile, notifications, menu */}
         <View style={styles.rightActions}>
+          {/* Out of the drawer and into the row. Searching is something you do
+              *while* looking at something, and a menu you have to open first is
+              the wrong place for it. */}
+          <FloatingButton
+            label="Search"
+            tint={tint}
+            onPress={() => setSearchOpen(true)}
+          >
+            <Search size={18} color={ICON} strokeWidth={2.4} />
+          </FloatingButton>
+
+          {/* A garage-door icon in place of the word: the row has five buttons
+              to fit and the label was the widest thing in it. Only widened
+              when there are thumbs to sit beside the icon. */}
           <FloatingButton
             label="Garage"
             tint={tint}
-            wide
+            wide={garageCars.length > 0}
             onPress={() => go('CarsTab', { screen: 'Garage' })}
           >
+            <GarageDoor size={21} color={ICON} strokeWidth={2.4} />
             <GarageThumbs cars={garageCars} />
-            <Text style={styles.btnLabel}>Garage</Text>
           </FloatingButton>
 
           <FloatingButton
@@ -242,10 +268,12 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
             tint={tint}
             onPress={() => setDrawerOpen(true)}
           >
-            <Menu size={21} color={ICON} />
+            <Menu size={20} color={ICON} />
           </FloatingButton>
         </View>
       </Animated.View>
+
+      <SearchOverlay visible={searchOpen} onClose={() => setSearchOpen(false)} />
 
       <NavDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
@@ -269,10 +297,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
   },
 
-  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
 
   btn: {
     width: BTN, height: BTN,
@@ -295,26 +323,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   // Labelled buttons size to their content instead of the fixed square.
-  btnWide:     { width: undefined, paddingHorizontal: 12 },
+  btnWide:     { width: undefined, paddingHorizontal: 11 },
   btnIconWide: {
-    width: undefined, flexDirection: 'row', alignItems: 'center', gap: 7,
+    width: undefined, flexDirection: 'row', alignItems: 'center', gap: 6.5,
     overflow: 'visible',
   },
-  btnLabel: { fontSize: 11, fontWeight: '800', color: ICON, letterSpacing: -0.1 },
 
   thumbRow:     { flexDirection: 'row', alignItems: 'center' },
-  thumb:        { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
-  thumbOverlap: { marginLeft: -9 },
+  thumb:        { width: 23, height: 23, borderRadius: 11.5, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
+  thumbOverlap: { marginLeft: -8.5 },
   thumbMore:    { backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
-  thumbMoreText:{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+  thumbMoreText:{ fontSize: 9.5, fontWeight: '800', color: '#FFFFFF' },
 
-  logo: { width: 26, height: 26 },
+  logo: { width: 25, height: 25 },
+  // A box the size of the *rotated* word, so the row lays out around what you
+  // actually see. Pulled in tighter than the button's own gap: PRO belongs to
+  // the mark, not beside it.
   proMark: {
-    fontSize: 10, fontWeight: '900', color: ICON,
-    letterSpacing: 0.6,
-    // Pulled in tighter than the button's own gap: PRO belongs to the mark,
-    // not beside it.
-    marginLeft: -2,
+    width: 11, height: PRO_LEN,
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: -1,
+  },
+  proMarkText: {
+    fontSize: 9.5, fontWeight: '900', color: ICON,
+    letterSpacing: 0.8,
+    // Reads top-to-bottom. The width is the word's own length, overflowing the
+    // box before the rotation swings it onto the short axis; both are centred
+    // on the same point, so it lands centred.
+    width: PRO_LEN, textAlign: 'center',
+    transform: [{ rotate: '90deg' }],
   },
 
 });

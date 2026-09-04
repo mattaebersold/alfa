@@ -35,6 +35,11 @@ export interface User {
   gallery?: GalleryItem[];
   banners?: GalleryItem[];
   accountType?: 'admin' | 'pro' | 'basic';
+  /**
+   * They've asked to be told when Pro opens. Set once and never cleared, so the
+   * upsell can stop offering a button they've already pressed.
+   */
+  proInterest?: boolean;
   standing?: string;
   displayMode?: 'light' | 'dark';
   followersCount?: number;

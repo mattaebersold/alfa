@@ -1,12 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Modal, Linking, Alert,
+  ActivityIndicator, TextInput, Modal, Linking, Alert, Animated, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronLeft, ChevronDown, ChevronUp, Search, X, MoreVertical, Plus } from 'lucide-react-native';
@@ -48,7 +48,7 @@ import { calendarDate } from '../../utils/calendarDate';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
-import GroupInviteSheet from '../../components/groups/GroupInviteSheet';
+import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -119,6 +119,28 @@ const GROUP_RADIUS = 14;
 /** Leading pad of the tab row — subtracted so a scrolled-to pill sits flush. */
 const TAB_ROW_PAD = 12;
 /**
+ * Collapsing header metrics.
+ *
+ * The banner is a sibling *above* the list rather than its header row — the tab
+ * bar has to stay stuck to the top, and a scrolled-away banner would take the
+ * back button with it. So it collapses in place instead: the cover shrinks to a
+ * band and the two lines of type fade out, leaving the back circle where it
+ * already was. `HEADER_RATIO` is the `aspectRatio: 2 / .9` the full banner used,
+ * as a plain multiplier on the screen width.
+ */
+const HEADER_RATIO = 0.45;
+/** Height of the collapsed band, below the status bar: back circle + its pad. */
+const HEADER_COMPACT = 56;
+/** How far you scroll to take the header all the way down. */
+const HEADER_COLLAPSE_DISTANCE = 130;
+/**
+ * Height of the two lines of type, so they can be animated to nothing without
+ * being measured first. Both are `numberOfLines={1}` with an explicit
+ * lineHeight, so this is exact rather than a guess: 6 of lead-in, 17 for the
+ * group name, the 6 between them, and 32 for the section title.
+ */
+const HEADER_TITLES_H = 61;
+/**
  * Extra slack left to the active pill's left, so the tail of the previous tab
  * stays visible — otherwise the row reads as if it starts at the active tab.
  */
@@ -143,6 +165,8 @@ export default function GroupSectionScreen() {
   const { groupId, groupTitle, initialTab } = route.params;
   const navigation = useNavigation<AppNav>();
   const c = useColors();
+  const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
   const { userInfo } = useAppSelector((s) => s.auth);
 
   const [tab, setTab] = useState<ActiveTab>((initialTab as ActiveTab) ?? 'posts');
@@ -158,6 +182,14 @@ export default function GroupSectionScreen() {
   const [detailItem, setDetailItem] = useState<any>(null);
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
+
+  // Drives the collapsing banner. Height is a layout property, so this one
+  // can't ride the native driver — it's a single interpolation per frame on a
+  // list that is already doing its own scrolling natively.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const onScroll = useRef(
+    Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }),
+  ).current;
   // A car opens as a summary rather than a page push — see CarSummaryModal.
   const [carSummary, setCarSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -287,8 +319,22 @@ export default function GroupSectionScreen() {
   // section you're in as the page title.
   const sectionLabel = visibleTabs.find((t) => t.key === tab)?.label ?? '';
 
+  // Full cover height, the collapsed band, and the things that move between
+  // them. The band keeps the status bar clear so the back circle doesn't end
+  // up under the clock.
+  const headerFull = screenW * HEADER_RATIO;
+  const headerMin = Math.min(insets.top + HEADER_COMPACT, headerFull);
+  const collapse = (from: number, to: number, distance = HEADER_COLLAPSE_DISTANCE) =>
+    scrollY.interpolate({ inputRange: [0, distance], outputRange: [from, to], extrapolate: 'clamp' });
+
+  const headerHeight  = collapse(headerFull, headerMin);
+  const titlesHeight  = collapse(HEADER_TITLES_H, 0);
+  // Gone before the band has finished closing — type still fading while it is
+  // being clipped reads as a glitch rather than a collapse.
+  const titlesOpacity = collapse(1, 0, HEADER_COLLAPSE_DISTANCE * 0.6);
+
   const compactHeader = (
-    <View style={styles.headerWrap}>
+    <Animated.View style={[styles.headerWrap, { height: headerHeight }]}>
       {banner
         ? <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />
         : <View style={[StyleSheet.absoluteFill, { backgroundColor: c.primaryAlt }]} />}
@@ -318,8 +364,11 @@ export default function GroupSectionScreen() {
         >
           <ChevronLeft size={22} color={c.fg} />
         </TouchableOpacity>
-        <Text style={[styles.groupName, { color: c.grey }]} numberOfLines={1}>{groupTitle}</Text>
-        <Text style={[styles.sectionTitle, { color: c.fg }]} numberOfLines={1}>{sectionLabel}</Text>
+        {/* The back circle stays put; the name and the section close up. */}
+        <Animated.View style={[styles.headerTitles, { height: titlesHeight, opacity: titlesOpacity }]}>
+          <Text style={[styles.groupName, { color: c.grey }]} numberOfLines={1}>{groupTitle}</Text>
+          <Text style={[styles.sectionTitle, { color: c.fg }]} numberOfLines={1}>{sectionLabel}</Text>
+        </Animated.View>
       </View>
 
       {/* Creates whatever section you're in. Hidden on the tabs that have no
@@ -336,7 +385,7 @@ export default function GroupSectionScreen() {
           <Plus size={22} color="#000000" strokeWidth={3} />
         </TouchableOpacity>
       )}
-    </View>
+    </Animated.View>
   );
 
   let rawItems: any[] = [];
@@ -839,7 +888,7 @@ export default function GroupSectionScreen() {
   const contentItems: any[] = isFetchingTab ? [{ _tab: 'loading' }] : taggedItems.length === 0 ? [{ _tab: 'empty' }] : taggedItems;
   const carsCta = (tab === 'cars' && isMember) ? [{ _t: 'carsCta' }] : [];
   // Admins can approve people who ask; this is how they ask someone.
-  const membersCta = (tab === 'members' && isAdmin) ? [{ _t: 'membersCta' }] : [];
+  const membersCta = (tab === 'members' && (isMember || isAdmin)) ? [{ _t: 'membersCta' }] : [];
   const flatData: any[] = [TABBAR_SENTINEL, ...carsCta, ...membersCta, ...contentItems];
 
   const keyExtractor = (item: any, i: number) => {
@@ -874,7 +923,7 @@ export default function GroupSectionScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
       {compactHeader}
-      <FlatList
+      <Animated.FlatList
         refreshControl={refreshControl}
         ref={listRef}
         data={flatData}
@@ -882,6 +931,8 @@ export default function GroupSectionScreen() {
         renderItem={renderItem}
         stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         // Without a flex the list sizes to its content and overflows the
         // banner-plus-list column, so the tail is clipped rather than scrollable.
         style={ss.fill}
@@ -965,7 +1016,7 @@ export default function GroupSectionScreen() {
         onClose={() => setUserSummary(null)}
       />
 
-      <GroupInviteSheet
+      <GroupInviteModal
         groupId={groupId}
         groupTitle={group?.title ?? groupTitle}
         visible={inviteOpen}
@@ -985,7 +1036,9 @@ const styles = StyleSheet.create({
   // tab row has to stay reachable without scrolling.
   // Taller than the visible band suggests: it starts under the status bar now,
   // so the inset eats the top of it.
-  headerWrap:     { width: '100%', aspectRatio: 2 / .9, justifyContent: 'flex-end' },
+  // Height is set inline and animated — see `headerHeight`. Clipped, because
+  // the type inside is taller than the collapsed band.
+  headerWrap:     { width: '100%', justifyContent: 'flex-end', overflow: 'hidden' },
   headerTopScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%' },
   bannerAddBtn:   {
     position: 'absolute', right: 16, bottom: 12,
@@ -994,14 +1047,19 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35, shadowRadius: 6, elevation: 6,
   },
-  headerContent:  { paddingHorizontal: 16, paddingBottom: 12, gap: 6, alignItems: 'flex-start' },
+  headerContent:  { paddingHorizontal: 16, paddingBottom: 12, alignItems: 'flex-start' },
+  // The lead-in pad lives inside the animated box so it closes up with it,
+  // rather than as a row gap that would survive the collapse.
+  headerTitles:   { alignSelf: 'stretch', paddingTop: 6, gap: 6, overflow: 'hidden' },
   backCircle:     {
     width: 36, height: 36, borderRadius: 18, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 2,
   },
-  groupName:      { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
-  sectionTitle:   { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
+  // Explicit lineHeights: HEADER_TITLES_H is derived from them, so a font that
+  // measured differently would leave the box short or slack.
+  groupName:      { fontSize: 13, lineHeight: 17, fontWeight: '700', letterSpacing: 0.3 },
+  sectionTitle:   { fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.4 },
 
   tabRow:         { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
   tabPill:        { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },

@@ -6,9 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import {
-  Car, Users, ShoppingBag, BookOpen,
-  Flag, X, ChevronRight, Link, Store, Route, MessageCircle,
-  Search, UserRound, Bell, Info, CalendarCheck, Mail, Package, Home, LifeBuoy,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Link, Store, Route, MessageCircle, UserRound, Bell, Info, CalendarCheck, Mail, Package, Home, LifeBuoy,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -293,6 +291,31 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               </View>
             </View>
 
+            {/* First thing in the menu, above your own account row. It's the
+                only gold in a white-on-dark drawer, so it reads as the one
+                offer rather than another destination — and it's gone entirely
+                for members who already have it. */}
+            {!isPro && (
+              <TouchableOpacity
+                style={styles.proCallout}
+                onPress={() => setProOpen(true)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Upgrade to Pro"
+              >
+                <View style={styles.proCalloutIcon}>
+                  <SteeringWheel size={16} color="#000000" strokeWidth={2.4} />
+                </View>
+                <View style={styles.proCalloutText}>
+                  <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
+                  <Text style={styles.proCalloutSub}>
+                    Unlimited garage, posts and routes
+                  </Text>
+                </View>
+                <ChevronRight size={13} color="rgba(0,0,0,0.5)" />
+              </TouchableOpacity>
+            )}
+
             {/* User card → Dashboard */}
             {userInfo && (
               <TouchableOpacity
@@ -333,11 +356,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => setMyEventsOpen(true)} />
               </View>
 
-              <View style={[styles.pairRow, styles.rowGap]}>
-                <NavTile label="Search" Icon={Search} wide
-                  onPress={() => goFeed('Search')} />
-              </View>
-
               <Text style={styles.sectionLabel}>BROWSE</Text>
               {/* Two-column grid — half the height of a stacked list, which is
                   what kept the log-out button pushed below the fold. */}
@@ -370,31 +388,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                     onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
                 )}
               </View>
-
-              {/* The only gold thing in a white-on-dark menu, so it reads as
-                  the one offer rather than another destination. Above MORE
-                  because it's about the account, not about somewhere to go —
-                  and absent entirely for members who already have it. */}
-              {!isPro && (
-                <TouchableOpacity
-                  style={styles.proCallout}
-                  onPress={() => setProOpen(true)}
-                  activeOpacity={0.85}
-                  accessibilityRole="button"
-                  accessibilityLabel="Upgrade to Pro"
-                >
-                  <View style={styles.proCalloutIcon}>
-                    <SteeringWheel size={16} color="#000000" strokeWidth={2.4} />
-                  </View>
-                  <View style={styles.proCalloutText}>
-                    <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
-                    <Text style={styles.proCalloutSub}>
-                      Unlimited garage, posts and routes
-                    </Text>
-                  </View>
-                  <ChevronRight size={13} color="rgba(0,0,0,0.5)" />
-                </TouchableOpacity>
-              )}
 
               <Text style={styles.sectionLabel}>MORE</Text>
               <View style={styles.grid}>
@@ -454,7 +447,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
         visible={proOpen}
         onClose={() => setProOpen(false)}
         title="Open Road Society Pro"
-        message="Pro lifts the limits on the parts of the society you use most — your garage, what you post, and the routes you record."
+        message="We're working on a pro-level tier with additional features. If you're interested, then click Get Notified and we'll let you know when it's available."
       />
 
       <MyEventsSheet
@@ -558,7 +551,7 @@ const styles = StyleSheet.create({
   footerCopy:    { fontSize: 12, color: TEXT_FAINT },
   proCallout: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
-    marginTop: 18, marginBottom: 4,
+    marginHorizontal: 16, marginTop: 4, marginBottom: 10,
     paddingHorizontal: 13, paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: PRO_GOLD,

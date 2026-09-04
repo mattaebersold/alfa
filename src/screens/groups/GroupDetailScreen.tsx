@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Pressable, FlatList, Alert,
+  Animated, useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,12 +26,11 @@ import GroupSettingsSheet from '../../components/groups/GroupSettingsSheet';
 import FollowButton from '../../components/social/FollowButton';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
-import AppHeader from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import SharedButton from '../../components/ui/SharedButton';
 import Spinner from '../../components/ui/Spinner';
 import { colors, withAlpha } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { contrastText } from '../../hooks/useBrandColor';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
@@ -39,8 +39,7 @@ import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
-import GroupInviteSheet from '../../components/groups/GroupInviteSheet';
-import GroupInviteSearch from '../../components/groups/GroupInviteSearch';
+import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -48,7 +47,7 @@ type AppNav = NativeStackNavigationProp<AppStackParamList>;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TILE_GAP = 12;
 /** Faces shown in the strip before the rest collapse into a "+N" circle. */
-const AVATAR_PREVIEW = 10;
+const AVATAR_PREVIEW = 9;
 /** Rows added each time the roster list reaches its end. */
 const MEMBER_PAGE_SIZE = 25;
 const TILE_WIDTH = (SCREEN_WIDTH - TILE_GAP * 3) / 2;
@@ -78,13 +77,17 @@ export default function GroupDetailScreen() {
   const [rosterOrigin, setRosterOrigin] = useState<SummaryOrigin | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   /** Invite search revealed inside the roster panel rather than as a sheet. */
-  const [inviteInline, setInviteInline] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // The roster arrives in one response, so paging is done here: render a page
   // at a time and grow as you reach the end, rather than mounting hundreds of
   // rows at once.
   const [memberPage, setMemberPage] = useState(1);
+
+  const headerPad = useHeaderPad();
+  const { width: screenW } = useWindowDimensions();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [backPinned, setBackPinned] = useState(false);
 
   const { data: group, isLoading, refetch: refetchGroup } = useGetGroupQuery(groupId);
   const { data: members = [], refetch: refetchMembers }   = useGetGroupMembersQuery(groupId);
@@ -102,6 +105,33 @@ export default function GroupDetailScreen() {
 
   const groupCars = groupCarsData?.entries ?? [];
   const myCars = garageData?.entries ?? [];
+
+  // ── Back button that survives the scroll ────────────────────────────────
+  // The banner carries the title and the back circle, and both scroll away
+  // with it. A second circle fades in where the banner's has gone, under the
+  // app header rather than behind its logo button, so there is always a way
+  // back without scrolling to the top to find one.
+  const bannerH = screenW * 2 / 3;   // matches styles.banner's 3:2
+  const pinFrom = bannerH * 0.30;
+  const pinTo   = bannerH * 0.55;
+  const pinnedOpacity = scrollY.interpolate({
+    inputRange: [pinFrom, pinTo], outputRange: [0, 1], extrapolate: 'clamp',
+  });
+  const pinnedShift = scrollY.interpolate({
+    inputRange: [pinFrom, pinTo], outputRange: [-8, 0], extrapolate: 'clamp',
+  });
+  // Opacity alone still takes taps, so the button has to be told to stand
+  // down while it's invisible — hence the state alongside the animation.
+  const onScroll = useMemo(
+    () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+      useNativeDriver: true,
+      listener: (e: any) => {
+        const past = e.nativeEvent.contentOffset.y > pinFrom;
+        setBackPinned((was) => (was === past ? was : past));
+      },
+    }),
+    [scrollY, pinFrom],
+  );
 
   if (isLoading || !group) return <Spinner fullScreen />;
 
@@ -177,7 +207,14 @@ export default function GroupDetailScreen() {
       {/* No spacer — the header floats so the banner starts at the very top of
           the viewport, the way the profile screen's cover does. */}
       <AppHeader />
-      <ScrollView refreshControl={refreshControl} style={{ backgroundColor: c.cream }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        refreshControl={refreshControl}
+        style={{ backgroundColor: c.cream }}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
 
         {/* Banner */}
         <View style={styles.bannerWrap}>
@@ -278,18 +315,40 @@ export default function GroupDetailScreen() {
             <Text style={[styles.memberCount, { color: c.grey }]}>
               {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
             </Text>
-            <View style={styles.avatarRow}>
-              {activeMembers.slice(0, AVATAR_PREVIEW).map((m) => (
-                <View key={m.user_id} style={styles.avatarWrap}>
-                  <Avatar user={m.user} size={30} />
-                </View>
-              ))}
-              {activeMembers.length > AVATAR_PREVIEW && (
-                <View style={[styles.avatarWrap, styles.overflowChip, { backgroundColor: c.secondary, borderColor: c.card }]}>
-                  <Text style={[styles.overflowChipText, { color: c.fg }]}>
-                    +{activeMembers.length - AVATAR_PREVIEW}
-                  </Text>
-                </View>
+            <View style={styles.stripRow}>
+              <View style={styles.avatarRow}>
+                {activeMembers.slice(0, AVATAR_PREVIEW).map((m) => (
+                  <View key={m.user_id} style={styles.avatarWrap}>
+                    <Avatar user={m.user} size={30} />
+                  </View>
+                ))}
+                {activeMembers.length > AVATAR_PREVIEW && (
+                  <View style={[styles.avatarWrap, styles.overflowChip, { backgroundColor: c.secondary, borderColor: c.card }]}>
+                    <Text style={[styles.overflowChipText, { color: c.fg }]}>
+                      +{activeMembers.length - AVATAR_PREVIEW}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Anyone in the group can ask someone in — a club grows by its
+                  members knowing people, not by its admins doing the asking.
+                  It sits on the strip rather than inside the roster panel: the
+                  point of the faces is who's here, and the next thought is who
+                  else should be. Its own touchable, so the tap that invites
+                  doesn't also open the roster underneath it. */}
+              {(isMember || isAdmin) && (
+                <TouchableOpacity
+                  style={[styles.stripInvite, { backgroundColor: c.primaryAlt }]}
+                  onPress={() => setInviteOpen(true)}
+                  activeOpacity={0.85}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Invite someone to this group"
+                >
+                  <UserPlus size={14} color="#000000" strokeWidth={2.6} />
+                  <Text style={styles.stripInviteText}>Invite</Text>
+                </TouchableOpacity>
               )}
             </View>
           </SummaryTouchable>
@@ -369,7 +428,24 @@ export default function GroupDetailScreen() {
         </View>
         </>)}
 
-      </ScrollView>
+      </Animated.ScrollView>
+
+      {/* Sits below the app header's row, not in it — the top-left of that row
+          is the logo button. */}
+      <Animated.View
+        style={[styles.backPinned, { top: headerPad + 6, opacity: pinnedOpacity, transform: [{ translateY: pinnedShift }] }]}
+        pointerEvents={backPinned ? 'auto' : 'none'}
+      >
+        <TouchableOpacity
+          style={[styles.backBtn, { borderColor: c.borderDark }]}
+          onPress={() => navigation.goBack()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <ChevronLeft size={22} color={c.fg} />
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Add car modal. Fades rather than slides — the sheet is nearly
           full-height, so a slide reads as a page transition. */}
@@ -424,47 +500,18 @@ export default function GroupDetailScreen() {
           scroller, and a FlatList inside one is a scroller inside a scroller. */}
       <SummaryModal
         visible={membersOpen}
-        onClose={() => { setMembersOpen(false); setInviteInline(false); }}
+        onClose={() => setMembersOpen(false)}
         origin={rosterOrigin}
         actionLabel="View All Members"
         onAction={() => (navigation as any).navigate('GroupMembers', { groupId })}
       >
+        {/* Just the count now — inviting moved out to the members strip, where
+            the faces already are. */}
         <View style={styles.rosterHead}>
           <Text style={[styles.rosterTitle, { color: c.fg }]}>
             {activeMembers.length} member{activeMembers.length !== 1 ? 's' : ''}
           </Text>
-          {/* Admins could approve people who asked, but had no way to ask
-              anyone — the invite endpoint had no way in from the app. */}
-          {isAdmin && (
-            <TouchableOpacity
-              style={[
-                styles.inviteBtn,
-                inviteInline
-                  ? { backgroundColor: c.segment, borderColor: c.border, borderWidth: 1 }
-                  : { backgroundColor: c.primaryAlt },
-              ]}
-              // Opens in place. It used to close this panel and open a sheet a
-              // frame later, but SummaryModal's dismissal is a 300ms animation
-              // and a modal presented while another is still going away never
-              // appears at all — which is why the button did nothing.
-              onPress={() => setInviteInline((v) => !v)}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: inviteInline }}
-            >
-              {inviteInline
-                ? <X size={14} color={c.fg} strokeWidth={2.6} />
-                : <UserPlus size={14} color={contrastText(c.primaryAlt)} strokeWidth={2.6} />}
-              <Text style={[styles.inviteBtnText, { color: inviteInline ? c.fg : contrastText(c.primaryAlt) }]}>
-                {inviteInline ? 'Done' : 'Invite'}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
-
-        {inviteInline && (
-          <GroupInviteSearch groupId={groupId} active={inviteInline} compact />
-        )}
 
         {roster.slice(0, memberPage * MEMBER_PAGE_SIZE).map((item) => {
             const isMe = item.user_id === userInfo?.user_id;
@@ -541,7 +588,7 @@ export default function GroupDetailScreen() {
         onClose={() => setUserSummary(null)}
       />
 
-      <GroupInviteSheet
+      <GroupInviteModal
         groupId={groupId}
         groupTitle={group.title}
         visible={inviteOpen}
@@ -557,17 +604,9 @@ const styles = StyleSheet.create({
   rosterHead:    {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingLeft: 16, paddingTop: 18, paddingBottom: 10,
-    // Clear of the panel's floating close button (38pt, inset 12) — the invite
-    // button sat straight under it.
+    // Clear of the panel's floating close button (38pt, inset 12).
     paddingRight: 62,
   },
-  inviteBtn:     {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-  },
-  // Colour comes from the fill: black on the pro gold, white on the default
-  // blue. It was hard-coded white, which on gold is barely there.
-  inviteBtnText: { fontSize: 13, fontWeight: '800' },
   rosterTitle:   { fontSize: 19, fontWeight: '800' },
   rosterMore:    { paddingVertical: 16, alignItems: 'center' },
   rosterMoreText:{ fontSize: 14, fontWeight: '700' },
@@ -597,6 +636,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
+  backPinned:   {
+    position: 'absolute', left: 12,
+    // Above the floating app header's own 20, so nothing in the row can paint
+    // over it on the frame it fades in.
+    zIndex: 25, elevation: 25,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35, shadowRadius: 6,
+  },
   bannerMenuBtn: {
     position: 'absolute', right: 16, bottom: 14,
     width: 38, height: 38, borderRadius: 19, borderWidth: 1,
@@ -618,7 +665,15 @@ const styles = StyleSheet.create({
   membersStrip: { padding: 14, paddingTop: 0, borderBottomWidth: 1 },
   membersHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   memberCount:  { fontSize: 12, marginBottom: 6, fontWeight: '700' },
-  avatarRow:    { flexDirection: 'row', alignItems: 'center' },
+  // The faces take what they need and the button holds the right edge, so a
+  // group of two doesn't leave it floating in the middle of the strip.
+  stripRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarRow:    { flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap' },
+  stripInvite:  {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+  },
+  stripInviteText: { fontSize: 12, fontWeight: '800', color: '#000000' },
   avatarWrap:   { marginRight: -6 },
   // Reads as one more face in the stack, so it needs the same 30px circle and
   // a ring in the strip's own colour to keep the overlap legible.

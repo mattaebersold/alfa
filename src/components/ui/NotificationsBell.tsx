@@ -12,10 +12,10 @@ import { useNavigation } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 
 /** Matches the other header buttons, so the row stays even. */
-const BTN = 44;
+const BTN = 42;
 /** Black, like every other glyph in the header. */
 const ICON = '#000000';
-const BTN_RADIUS = 15;
+const BTN_RADIUS = 14;
 /** How much of the screen the opened panel takes. */
 const PANEL_RATIO = 0.9;
 const PANEL_RADIUS = 20;
@@ -220,6 +220,21 @@ export default function NotificationsBell() {
 
   if (!isLoggedIn) return null;
 
+  /**
+   * No bell when nothing is waiting.
+   *
+   * The header carries a row of controls and a permanently empty bell is the
+   * one that never has anything to say. `count` is notifications *and* unread
+   * messages, so this only disappears when both are clear — hiding it on
+   * notifications alone would take the only header route to an unread message
+   * with it. Notifications remain reachable from the drawer either way.
+   *
+   * `open` keeps it mounted while the panel is showing: archiving the last
+   * notification takes the count to zero, and without this the panel would be
+   * pulled out from under whoever was reading it.
+   */
+  if (count === 0 && !open) return null;
+
   const grow = (from: number, to: number) =>
     box.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
 
@@ -233,7 +248,7 @@ export default function NotificationsBell() {
         accessibilityRole="button"
         accessibilityLabel={`Notifications, ${count} unread`}
       >
-        <Bell size={21} color={ICON} strokeWidth={2.4} />
+        <Bell size={20} color={ICON} strokeWidth={2.4} />
         {/* Not while the panel is up: the copy riding the box carries the
             bubble then, and by the tail of the collapse the scrim has faded
             enough to show this one too — two badges, a few pixels apart,
@@ -323,7 +338,7 @@ export default function NotificationsBell() {
               "Style property 'left' is not supported by native animated module"
               followed by the JS animation refusing to run at all. */}
           <Animated.View style={[styles.ghostFace, { opacity: ghost }]}>
-            <Bell size={21} color={ICON} strokeWidth={2.4} />
+            <Bell size={20} color={ICON} strokeWidth={2.4} />
             {count > 0 && (
               <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
                 <Text style={styles.badgeText}>
@@ -425,14 +440,14 @@ const styles = StyleSheet.create({
   // Bigger than the plain dot it replaces, because it now has to carry a
   // number.
   badge: {
-    position: 'absolute', top: -7, right: -7,
-    minWidth: 24, height: 24, borderRadius: 12,
+    position: 'absolute', top: -6.5, right: -6.5,
+    minWidth: 23, height: 23, borderRadius: 11.5,
     paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#EC4632',
     zIndex: 10, elevation: 12,
   },
-  badgeText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  badgeText: { fontSize: 11.5, fontWeight: '800', color: '#FFFFFF' },
 
   messagesRow: {
     flexDirection: 'row', alignItems: 'center', gap: 11,

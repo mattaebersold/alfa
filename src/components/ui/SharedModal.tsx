@@ -1,12 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable,
-  Platform, Dimensions,
+  View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
-import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
+import { useKeyboardInset, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -17,7 +16,6 @@ const SHEET_HEADER_BG = '#000000';
 // Android's bottom system UI (gesture bar / nav buttons) overlaps the sheet, so
 // pad the bottom to keep content clear of it. iOS clearance is handled by the
 // safe-area layout, so this is Android-only.
-const SHEET_BOTTOM_PAD = Platform.OS === 'android' ? 60 : 30;
 
 interface SharedModalProps {
   visible: boolean;
@@ -72,7 +70,19 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
    * whole stack is simply padded up by it. See useKeyboardInset for why this
    * isn't a KeyboardAvoidingView.
    */
-  const { animated: keyboardPad, visible: keyboardUp } = useKeyboardInset();
+  const { height: keyboardHeight } = useKeyboardInset();
+  const bottomPad = useComposerBottomPad();
+
+  /**
+   * The room the sheet has to live in, once the keyboard has taken its share.
+   *
+   * The sheet is resized rather than pushed. Padding the stack by the keyboard
+   * moved the whole sheet — header, content and composer as one block — which
+   * for a tall sheet means jamming it against the top of the screen and leaving
+   * the composer stranded in the middle. Capping the height instead keeps the
+   * bottom edge on the keyboard and lets the scrollable middle absorb the loss.
+   */
+  const available = SCREEN_HEIGHT - keyboardHeight - insets.top - 8;
 
   useEffect(() => {
     if (visible) {
@@ -100,7 +110,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: keyboardPad }}>
+      <Animated.View style={styles.stack}>
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]} pointerEvents="none">
           <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
@@ -113,9 +123,18 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               ? [styles.sheetRatio, { height: `${Math.round(heightRatio * 100)}%` as const }]
               : fullHeight ? styles.sheetFull : styles.sheetSized,
             {
-              // With the keyboard up this padding is dead space between the
-              // content and the keyboard, so it collapses out of the way.
-              paddingBottom: keyboardUp ? 0 : SHEET_BOTTOM_PAD,
+              // The real home-indicator inset, and zero while the keyboard is
+              // up — see useComposerBottomPad.
+              paddingBottom: bottomPad,
+              // Never taller than the space above the keyboard, and sitting
+              // directly on top of it.
+              maxHeight: available,
+              // Capped against `available` for the same reason: a minimum
+              // taller than the room left over beats the maximum and undoes it.
+              ...(heightRatio || fullHeight
+                ? null
+                : { minHeight: Math.min(SCREEN_HEIGHT * 0.5, available) }),
+              marginBottom: keyboardHeight,
               transform: [{ translateY: slideY }],
             },
           ]}
@@ -143,13 +162,12 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
 }
 
 const styles = StyleSheet.create({
+  stack: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: SHEET_BG,
     overflow: 'hidden',
   },
   sheetSized: {
-    minHeight: SCREEN_HEIGHT * 0.5,
-    maxHeight: '90%',
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
