@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Pressable,
   FlatList, ActivityIndicator, Keyboard, Platform,
@@ -254,10 +254,30 @@ export default function SearchOverlay({
     return () => clearTimeout(id);
   }, [query]);
 
-  // Cleared on close so reopening starts fresh rather than on last time's answer.
-  useEffect(() => {
-    if (!visible) { setQuery(''); setDebounced(''); setKind(null); }
-  }, [visible]);
+  /**
+   * Back to empty — the query, the debounced copy of it, and the type filter.
+   *
+   * All three, because clearing only the field leaves `debounced` holding the
+   * last search: the results below stay on screen and the chips keep counting
+   * a query that no longer exists.
+   */
+  const clear = useCallback(() => {
+    setQuery('');
+    setDebounced('');
+    setKind(null);
+  }, []);
+
+  /**
+   * Cleared on the way out *and* on the way in.
+   *
+   * Closing is the moment it's asked for, and that's what the prop change
+   * below does. But the overlay never unmounts — it's a `Modal` inside a
+   * header that lives on every screen — so its state outlives any single
+   * close, and any path that gets it back on screen without `visible` having
+   * cycled would reopen on the last search. Clearing on open too makes "fresh
+   * every time" true by construction rather than by covering each route out.
+   */
+  useEffect(() => { clear(); }, [visible, clear]);
 
   const ready = debounced.length >= 2;
   const { data, isFetching } = useSearchQuery(debounced, { skip: !ready });
@@ -300,15 +320,27 @@ export default function SearchOverlay({
 
   const dismiss = (then?: () => void) => {
     Keyboard.dismiss();
+    clear();
     onClose();
     then?.();
   };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => dismiss()}>
-      {/* The screen behind, softened rather than replaced. */}
-      <BlurView intensity={38} tint="dark" style={StyleSheet.absoluteFill} />
-      <Pressable style={[StyleSheet.absoluteFill, styles.scrim]} onPress={() => dismiss()} />
+      {/* The screen behind, softened rather than replaced.
+          `experimentalBlurMethod` is what gives Android a real backdrop blur —
+          without it expo-blur degrades to a flat wash there and the feed stays
+          legible straight through the results. */}
+      <BlurView
+        intensity={38}
+        tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
+      <Pressable
+        style={[StyleSheet.absoluteFill, styles.scrim, Platform.OS === 'android' && styles.scrimAndroid]}
+        onPress={() => dismiss()}
+      />
 
       {/* The sheet stops above the keyboard, so the list scrolls inside a real
           viewport. Padding the list's *content* by the keyboard instead — which
@@ -342,8 +374,6 @@ export default function SearchOverlay({
             style={[styles.input, { color: c.fg }]}
             value={query}
             onChangeText={setQuery}
-            placeholder="Members, cars, posts, events, rallys, groups, routes"
-            placeholderTextColor={c.grey}
             autoFocus
             autoCapitalize="none"
             autoCorrect={false}
@@ -404,7 +434,7 @@ export default function SearchOverlay({
           }
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.row}
+              style={[styles.row, Platform.OS === 'android' && styles.rowAndroid]}
               onPress={() => dismiss(() => item.go(navigation))}
               activeOpacity={0.8}
             >
@@ -412,10 +442,10 @@ export default function SearchOverlay({
                 // Pro members carry their ring and wheel here too — a member is
                 // recognised the same way wherever they turn up.
                 <View style={[styles.avatarWrap, isProUser(item.user) && styles.proRing]}>
-                  <Avatar user={item.user} size={isProUser(item.user) ? 58 : 66} />
+                  <Avatar user={item.user} size={isProUser(item.user) ? 87 : 99} />
                   {isProUser(item.user) && (
                     <View style={styles.proWheel}>
-                      <SteeringWheel size={13} color="#000000" strokeWidth={2.5} />
+                      <SteeringWheel size={16} color="#000000" strokeWidth={2.5} />
                     </View>
                   )}
                 </View>
@@ -469,6 +499,30 @@ const styles = StyleSheet.create({
   // A little extra dark over the blur — a plain blur of a bright feed is still
   // bright, and the field has to sit on something.
   scrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
+  /**
+   * More shade on Android, and grey rather than black.
+   *
+   * Even with the experimental method Android's blur is weaker than the iOS
+   * one, and where it isn't supported it falls back to nothing at all — so the
+   * scrim has to carry the separation on its own. At 0.45 the feed behind was
+   * still reading through the gaps between result rows.
+   *
+   * Near-opaque black made the result rows disappear into it: they sit on
+   * `card`, and a card on pure black at 0.86 has almost no edge left. A light
+   * grey at the same weight keeps the rows reading as objects on a surface,
+   * and still buries whatever was on screen behind it.
+   */
+  scrimAndroid: { backgroundColor: 'rgba(38,38,38,0.88)' },
+  /**
+   * Near-solid rows on Android.
+   *
+   * A 30%-black row works on iOS because there is a real blur under it doing
+   * the separating — the row only has to tint what's already softened. On
+   * Android that blur is weak or absent, so the same row is a faint darkening
+   * over a legible screen, and the title competes with whatever it lands on.
+   * Here the row itself has to be the surface.
+   */
+  rowAndroid: { backgroundColor: 'rgba(12,12,12,0.92)' },
   sheet: { flex: 1, paddingHorizontal: 12 },
   topBar:   { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
   closeBtn: { padding: 4 },
@@ -485,10 +539,14 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
     padding: 9, borderRadius: 12,
-    // Translucent rather than a solid card — the blurred page stays faintly
-    // readable through each row, which is what keeps them looking like they're
-    // floating over it instead of covering it.
-    backgroundColor: 'rgba(0,0,0,0.30)',
+    // Nearly solid. This was 30% black, on the theory that letting the blurred
+    // page read faintly through each row is what made them look like they were
+    // floating over it. In practice the thing that does that is the shadow
+    // below — the translucency just let whatever was behind the row compete
+    // with the title on it. Still short of opaque, so the rows sit on the
+    // backdrop rather than replacing it.
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    // Android needs more again — see `rowAndroid`.
     // Lifted off the blur, so the rows read as floating over the page rather
     // than as part of it.
     ...Platform.select({
@@ -496,14 +554,14 @@ const styles = StyleSheet.create({
       android: { elevation: 5 },
     }),
   },
-  thumb:    { width: 66, height: 66, borderRadius: 10 },
+  thumb:    { width: 99, height: 99, borderRadius: 12 },
   avatarWrap: { position: 'relative' },
   // The avatar shrinks by the ring's own width, so a pro member's row is the
   // same height as everyone else's.
-  proRing:  { borderWidth: 2.5, borderColor: colors.pro, borderRadius: 34, padding: 1.5 },
+  proRing:  { borderWidth: 2.5, borderColor: colors.pro, borderRadius: 50, padding: 1.5 },
   proWheel: {
     position: 'absolute', bottom: -2, right: -2,
-    width: 22, height: 22, borderRadius: 11,
+    width: 27, height: 27, borderRadius: 13.5,
     backgroundColor: colors.pro,
     alignItems: 'center', justifyContent: 'center',
   },
