@@ -23,6 +23,15 @@ import PostMediaCarousel from '../media/PostMediaCarousel';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
+
+/**
+ * The feed card's ground — a step below `colors.card` (#1e1e1e).
+ *
+ * The feed is a column of these against the page's #0A0A0A, and at card grey
+ * they ran together as one continuous slab. Darker gives each card an edge
+ * without needing a rule to draw one.
+ */
+const FEED_CARD_BG = '#161616';
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
@@ -43,17 +52,50 @@ interface FeedItemCardProps {
 
 // "Liked by matt and 3 others" — resolves the username of a representative liker
 // (preferring someone other than the viewer) and appends the remaining count.
-function LikedByLine({ likers, total, myId, color, style }: {
-  likers: string[]; total: number; myId?: string; color: string; style: any;
+function LikedByLine({ likers, total, myId, names, color, style }: {
+  likers: string[]; total: number; myId?: string;
+  /** id -> username, when whatever loaded this post already resolved them. */
+  names?: Record<string, string>;
+  color: string; style: any;
 }) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
-  const featuredId = likers.find((id) => id !== myId) ?? likers[0];
-  const { data: user } = useGetUserByIdQuery(featuredId, { skip: !featuredId });
+
+  /**
+   * Up to three names, other people first.
+   *
+   * Your own like is the one you already know about, so it goes to the back of
+   * the queue — "liked by you and 4 others" tells you nothing you didn't do
+   * yourself a second ago.
+   */
+  const candidates = [
+    ...likers.filter((id) => id !== myId),
+    ...likers.filter((id) => id === myId),
+  ].slice(0, 3);
+
+  // Three fixed lookups rather than a loop: hooks have to be called the same
+  // number of times on every render, and a list of them is how that breaks.
+  // The feed resolves these names server-side and sends them with the post, so
+  // in the feed all three lookups sit out. Cards drawn from endpoints that
+  // don't do that still fetch for themselves.
+  const known = (id?: string) => (id && names?.[id]) || undefined;
+  const q0 = useGetUserByIdQuery(candidates[0] ?? '', { skip: !candidates[0] || !!known(candidates[0]) });
+  const q1 = useGetUserByIdQuery(candidates[1] ?? '', { skip: !candidates[1] || !!known(candidates[1]) });
+  const q2 = useGetUserByIdQuery(candidates[2] ?? '', { skip: !candidates[2] || !!known(candidates[2]) });
+
   if (total <= 0) return null;
 
-  const name = user?.username;
-  if (!name) {
+  const named = candidates
+    .map((id, i) => {
+      const username = known(id);
+      if (username) return { user_id: id, username };
+      return [q0.data, q1.data, q2.data][i];
+    })
+    .filter((u): u is NonNullable<typeof u> => !!u?.username);
+
+  // Nothing resolved yet — the count is still true, and it beats an empty line
+  // that pops into a sentence a moment later.
+  if (named.length === 0) {
     return (
       <Text style={[style, { color }]}>
         {total === 1 ? 'Liked by someone' : `Liked by ${total} people`}
@@ -61,21 +103,42 @@ function LikedByLine({ likers, total, myId, color, style }: {
     );
   }
 
-  // The name is the one part of this line that leads somewhere, so it's the
-  // part you can press. Colour alone says so — it keeps the weight of the
-  // sentence it sits in.
-  const others = total - 1;
+  const others = Math.max(0, total - named.length);
+
+  /**
+   * The separator before a name: nothing, a comma, or "and".
+   *
+   * "and" is only the last joint when nothing follows the names — with others
+   * still to come, the last name takes a comma and "and" belongs to the tail.
+   */
+  const joint = (i: number) => {
+    if (i === 0) return '';
+    if (i === named.length - 1 && others === 0) return ' and ';
+    return ', ';
+  };
+
   return (
     <Text style={[style, { color }]}>
       Liked by{' '}
-      <Text
-        style={{ color: colors.blueLight }}
-        onPress={() => navigation.navigate('UserDetail', { userId: user.user_id, username: name })}
-        suppressHighlighting
-      >
-        {name}
-      </Text>
-      {total > 1 ? ` and ${others} ${others === 1 ? 'other' : 'others'}` : ''}
+      {named.map((u, i) => (
+        <Text key={u.user_id}>
+          {joint(i)}
+          {/* The names are the part of this line that lead somewhere, so they
+              are the part you can press. Colour alone says so — it keeps the
+              weight of the sentence they sit in. */}
+          <Text
+            style={{ color: colors.blueLight }}
+            onPress={() => navigation.navigate('UserDetail', {
+              userId: u.user_id,
+              username: u.username!,
+            })}
+            suppressHighlighting
+          >
+            {u.username}
+          </Text>
+        </Text>
+      ))}
+      {others > 0 ? ` and ${others} ${others === 1 ? 'other' : 'others'}` : ''}
     </Text>
   );
 }
@@ -97,17 +160,34 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const hasMedia = media.length > 0;
   const bodyText = post.body ? stripHtml(post.body).trim() : '';
 
-  // Live like state — tells us whether *I* liked this (so the heart shows filled and
-  // tapping un-likes) and the true like count, rather than trusting a stale flag.
-  const { data: likeData } = useGetLikeUsersQuery(post.internal_id, { skip: !post.internal_id });
-  const likers = likeData?.users ?? [];
+  /**
+   * Like state, from the feed when the feed knows it.
+   *
+   * The feed endpoint now sends `likers`, `isLiked` and the liker names it
+   * batched server-side, so a card being scrolled past asks for nothing. Cards
+   * rendered from endpoints that don't enrich fall through to the query, as
+   * does any card once you've touched its heart — from that point the liked-by
+   * line has to track a change the payload predates.
+   */
+  const [likeTouched, setLikeTouched] = useState(false);
+  const fedLikers: string[] | null = Array.isArray(post.likers) ? post.likers : null;
+  const { data: likeData } = useGetLikeUsersQuery(post.internal_id, {
+    skip: !post.internal_id || (!!fedLikers && !likeTouched),
+  });
+
+  const likers = likeData?.users ?? fedLikers ?? [];
   const likeCount = likeData?.total ?? post.like_count ?? post.likeCount ?? 0;
-  const iLiked = userInfo?.user_id
-    ? likers.includes(userInfo.user_id)
+  const iLiked = likeData
+    // `likers` is capped in the feed payload, so membership only answers the
+    // question once we hold the real list.
+    ? !!userInfo?.user_id && likers.includes(userInfo.user_id)
     : (isLiked ?? post.isLiked ?? false);
 
-  const { data: fetchedUser } = useGetUserByIdQuery(post.user_id, { skip: !post.user_id });
-  const user = fetchedUser ?? post.user ?? post.user_objectid;
+  const fedUser = post.user ?? post.user_objectid;
+  const { data: fetchedUser } = useGetUserByIdQuery(post.user_id, {
+    skip: !post.user_id || !!fedUser?.username,
+  });
+  const user = fetchedUser ?? fedUser;
   const displayName = user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';  // for LikeButton API calls
   const badgeType = post.type ?? post.entry_type ?? 'post';  // what the user actually chose
@@ -129,9 +209,38 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   const zoomGesture = Gesture.Pinch().onStart(() => {
     runOnJS(setZoomIndex)(0);
   });
+
+  /**
+   * Like and comment.
+   *
+   * Over the photo when there is one: they belong to the post, and the photo is
+   * the post — down in the card they were a strip of chrome the eye had to
+   * travel to. Over an unknown image they need their own ground, which is what
+   * the pill is for.
+   */
+  const actionsRow = (
+    <>
+      <LikeButton
+        documentId={post.internal_id}
+        entryType={entryType}
+        initialCount={likeCount}
+        initialLiked={iLiked}
+        // Switches this card off the feed's snapshot and onto the live query,
+        // so the liked-by line below reflects what you just did.
+        onToggle={() => setLikeTouched(true)}
+        color="#FFFFFF"
+      />
+      <CommentButton
+        count={post.comment_count ?? post.commentCount ?? 0}
+        onPress={onCommentPress}
+        color="#FFFFFF"
+      />
+    </>
+  );
+
   const isListing = post.type === 'listing' || post.type === 'want';
   const isDiecast = post.category === 'diecast';
-  const cardBg = isDiecast ? DIECAST_BLUE : colors.card;
+  const cardBg = isDiecast ? DIECAST_BLUE : FEED_CARD_BG;
   const fgColor = isDiecast ? '#FFFFFF' : colors.fg;
   const mutedColor = isDiecast ? 'rgba(255,255,255,0.7)' : colors.muted;
   const timeColor = isDiecast ? 'rgba(255,255,255,0.6)' : colors.grey;
@@ -166,11 +275,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
         </View>
         <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
-        {userInfo?.user_id === post.user_id ? (
-          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? '#FFFFFF' : colors.grey} />
-        ) : (
-          <ReportButton contentType="post" contentId={post.internal_id} size={18} />
-        )}
       </TouchableOpacity>
 
       {/* The title, or the body standing in for it when there isn't one.
@@ -278,20 +382,37 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
       {/* The line opens the full list; the name inside it still goes straight
           to that person, since a nested Text's own press wins. */}
-      {likeCount > 0 && (
-        <SummaryTouchable
-          onPress={(origin) => setLikersOrigin(origin)}
-          accessibilityLabel={`See everyone who liked this`}
-        >
-          <LikedByLine
-            likers={likers}
-            total={likeCount}
-            myId={userInfo?.user_id}
-            color={mutedColor}
-            style={styles.likedBy}
-          />
-        </SummaryTouchable>
-      )}
+      {/* The menu shares this line rather than sitting up in the header beside
+          the author's name — it acts on the post, not on the person, and the
+          row it's on now is the card's own footer. It renders whether or not
+          anyone has liked this, so the control doesn't come and go. */}
+      <View style={styles.footerRow}>
+        {/* The pill keeps the translucent ground and rounded shape it had over
+            the photo; it just shares the line now. */}
+        <View style={styles.actionsPill}>{actionsRow}</View>
+        <View style={styles.footerLeft}>
+          {likeCount > 0 && (
+            <SummaryTouchable
+              onPress={(origin) => setLikersOrigin(origin)}
+              accessibilityLabel={`See everyone who liked this`}
+            >
+              <LikedByLine
+                likers={likers}
+                total={likeCount}
+                myId={userInfo?.user_id}
+                names={likeData ? undefined : post.liker_names}
+                color={mutedColor}
+                style={styles.likedBy}
+              />
+            </SummaryTouchable>
+          )}
+        </View>
+        {userInfo?.user_id === post.user_id ? (
+          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? '#FFFFFF' : colors.grey} />
+        ) : (
+          <ReportButton contentType="post" contentId={post.internal_id} size={18} />
+        )}
+      </View>
 
       <LikersSheet
         entryId={post.internal_id}
@@ -300,16 +421,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
         onClose={() => setLikersOrigin(undefined)}
       />
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        <LikeButton
-          documentId={post.internal_id}
-          entryType={entryType}
-          initialCount={likeCount}
-          initialLiked={iLiked}
-        />
-        <CommentButton count={post.comment_count ?? post.commentCount ?? 0} onPress={onCommentPress} />
-      </View>
     </View>
   );
 }
@@ -322,16 +433,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  header:      { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 10, gap: 10 },
+  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 10, gap: 10 },
   headerText:  { flex: 1 },
   author:      { fontSize: 14, fontWeight: '700' },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
-  titleWrap:      { paddingHorizontal: 12, paddingBottom: 10 },
+  titleWrap:      { paddingHorizontal: 8, paddingBottom: 10 },
   title:          { fontSize: 14, fontWeight: '600', lineHeight: 20 },
-  titleAloneWrap: { paddingHorizontal: 12, paddingTop: 2, paddingBottom: 12 },
+  titleAloneWrap: { paddingHorizontal: 8, paddingTop: 2, paddingBottom: 12 },
   titleAlone:     { fontSize: 18, fontWeight: '700', lineHeight: 24 },
-  bodyPreviewWrap:{ paddingHorizontal: 12, paddingBottom: 10, marginTop: -4 },
+  bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -4 },
   bodyPreview:    { fontSize: 13, lineHeight: 18 },
 
   image:       { width: '100%' },
@@ -369,13 +480,24 @@ const styles = StyleSheet.create({
   miniImgFront:  { bottom: 0, left: 0, backgroundColor: 'rgba(255,255,255,0.55)' },
   multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 
-  messageWrap: { paddingHorizontal: 12, paddingTop: 10 },
-  likedBy:     { fontSize: 12, fontWeight: '600', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
+  messageWrap: { paddingHorizontal: 8, paddingTop: 10 },
+  footerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,
+  },
+  // Takes the row so the menu stays pinned right on a card with no likes.
+  footerLeft:  { flex: 1, minWidth: 0 },
+  likedBy:     { fontSize: 12, fontWeight: '600' },
   // No rule above the actions: the card already ends here, and a line across
   // it read as a divider between two things rather than as the foot of one.
-  actions:     {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 10, paddingTop: 3, paddingBottom: 10,
-    gap: 6, marginTop: 0,
+  // The row is full width so the pill can sit at its left edge; the pill keeps
+  // the shape and ground it had over the photo.
+  actionsPill: {
+    // Never squeezed by a long list of likers — the names truncate, not this.
+    flexShrink: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
 });

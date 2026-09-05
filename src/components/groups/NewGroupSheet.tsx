@@ -13,6 +13,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { uploadFile } from '../../utils/upload';
 import { GROUP_TYPES, groupCategoriesFor } from '../../constants/groupTypes';
+import { REGIONS } from '../../constants/regions';
 
 interface PickedImage { uri: string; name: string; type: string }
 
@@ -220,15 +221,44 @@ export default function NewGroupSheet({
           </>
         )}
 
+        {/* The same five regions members are filed under, not free text.
+            Typed, this produced "PNW", "Pacific NW" and "pacific northwest" as
+            three different regions, none of which matched what the groups list
+            filters by or what a member's own region is derived from. Picking
+            from the set is what makes "groups near me" answerable. */}
         <Label colors={colors}>Region</Label>
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.fg }]}
-          value={region}
-          onChangeText={setRegion}
-          placeholder="e.g. Pacific Northwest"
-          placeholderTextColor={colors.grey}
-          maxLength={60}
-        />
+        <View style={styles.chips}>
+          {/* A group can genuinely have no region — an online club, a marque
+              register — and that's a choice here rather than an empty field. */}
+          <TouchableOpacity
+            onPress={() => setRegion('')}
+            style={[
+              styles.chip,
+              !region ? { backgroundColor: brand, borderColor: brand } : { borderColor: colors.border },
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !region }}
+          >
+            <Text style={[styles.chipText, { color: !region ? onBrand : colors.fg }]}>No region</Text>
+          </TouchableOpacity>
+          {REGIONS.map((r) => {
+            const on = region === r.key;
+            return (
+              <TouchableOpacity
+                key={r.key}
+                onPress={() => setRegion(on ? '' : r.key)}
+                style={[
+                  styles.chip,
+                  on ? { backgroundColor: brand, borderColor: brand } : { borderColor: colors.border },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.chipText, { color: on ? onBrand : colors.fg }]}>{r.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <Label colors={colors}>About</Label>
         <TextInput

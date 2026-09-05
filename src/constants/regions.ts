@@ -27,3 +27,25 @@ export function regionForCityState(cityState?: string | null) {
   const state = match[1].toUpperCase();
   return REGIONS.find((r) => r.states.includes(state)) ?? null;
 }
+
+/**
+ * The region key for a stored value, tolerant of what's already in the data.
+ *
+ * Groups carried a free-text region field before it became a fixed set, so the
+ * database holds "West", "west", "Pacific Northwest" and "" side by side. This
+ * accepts a key or a label, case-insensitively, and returns null for anything
+ * it doesn't recognise — which is also the right answer for a group that
+ * deliberately has no region.
+ */
+export function regionKey(value?: string | null): string | null {
+  const v = value?.trim().toLowerCase();
+  if (!v) return null;
+  return REGIONS.find((r) => r.key === v || r.label.toLowerCase() === v)?.key ?? null;
+}
+
+/** The display label for a stored region value, or the raw value if it's not one of ours. */
+export function regionLabel(value?: string | null): string | null {
+  const key = regionKey(value);
+  if (key) return REGIONS.find((r) => r.key === key)!.label;
+  return value?.trim() || null;
+}

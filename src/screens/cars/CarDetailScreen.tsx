@@ -39,7 +39,7 @@ import LikeButton from '../../components/social/LikeButton';
 import FollowButton from '../../components/social/FollowButton';
 import CommentsSheet from '../../components/social/CommentsSheet';
 import InlineComments from '../../components/social/InlineComments';
-import CarCard from '../../components/cards/CarCard';
+import CarPosterCard from '../../components/cards/CarPosterCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
@@ -93,7 +93,7 @@ const SHEET_FG = '#ECECEC';
 const SHEET_BORDER = '#2A2A2A';
 const SHEET_PLACEHOLDER = '#2A2A2A';
 
-// Car-type badge colors — mirrors CarCard so type badges read the same everywhere.
+// Car-type badge colors — mirrors CarPosterCard so type badges read the same everywhere.
 const CAR_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'daily':        { bg: '#F0D689', text: '#000' },
   'weekend':      { bg: '#35B5FF', text: '#000' },
@@ -1054,12 +1054,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       case 'otherModel':
         if (otherModelCars.length === 0) return <EmptyState title={`No other ${[car.make, car.model].filter(Boolean).join(' ')} on the site yet`} />;
         return otherModelCars.map((c) => (
-          <CarCard key={c.internal_id} car={c} onBeforeNavigate={() => setPane(null)} />
+          <CarPosterCard key={c.internal_id} car={c} showOwner onBeforeNavigate={() => setPane(null)} />
         ));
       case 'otherMake':
         if (otherMakeCars.length === 0) return <EmptyState title={`No other ${car.make} cars on the site yet`} />;
         return otherMakeCars.map((c) => (
-          <CarCard key={c.internal_id} car={c} onBeforeNavigate={() => setPane(null)} />
+          <CarPosterCard key={c.internal_id} car={c} showOwner onBeforeNavigate={() => setPane(null)} />
         ));
       case 'groups':
         if (carGroups.length === 0) return <EmptyState title="Not in any group" />;

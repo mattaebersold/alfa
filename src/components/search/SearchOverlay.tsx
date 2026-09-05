@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Pressable,
-  FlatList, ScrollView, ActivityIndicator, Keyboard, Platform,
+  FlatList, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -148,8 +148,37 @@ const KIND_COLORS: Record<string, { bg: string; fg: string }> = {
 
 const isProUser = (u: any) => u?.accountType === 'pro' || u?.accountType === 'admin';
 
-/** Rows per collection, so one busy type can't crowd out the rest. */
+/** Rows per collection while results are still grouped by type. */
 const PER_SECTION = 4;
+
+/** Below this the query is too short for ranking to mean anything. */
+const RANK_FROM = 3;
+
+/**
+ * How well a row answers what was typed.
+ *
+ * The server returns each collection separately and in its own order, so
+ * without this the list reads by type — every member, then every car — and the
+ * best answer sits wherever its collection happens to fall. Scoring on the
+ * title and re-sorting puts "911" the car above a post that merely mentions it.
+ *
+ * Deliberately crude and title-first. The subtitle is a tiebreak, not evidence:
+ * a body that happens to contain the word is a much weaker match than a name
+ * that starts with it, and weighting them evenly buries the obvious answers.
+ */
+function score(hit: Hit, q: string): number {
+  const title = hit.title.toLowerCase().replace(/^@/, '');
+  const query = q.toLowerCase();
+
+  if (title === query) return 100;
+  if (title.startsWith(query)) return 80;
+  // A match at a word boundary — "carrera" in "911 Carrera" — beats one buried
+  // mid-word, which is usually a coincidence.
+  if (new RegExp(`\\b${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(title)) return 60;
+  if (title.includes(query)) return 40;
+  if (hit.subtitle?.toLowerCase().includes(query)) return 20;
+  return 10;
+}
 
 /**
  * One filter chip, always in its type's colour.
@@ -235,15 +264,28 @@ export default function SearchOverlay({
 
   const hits = useMemo<Hit[]>(() => {
     if (!data) return [];
-    return SECTIONS
+    const all = SECTIONS
       // Narrowed to one type, the cap comes off — the whole point of picking
       // "Cars" is to see more than four of them.
       .filter((section) => !kind || section.kind === kind)
       .flatMap((section) => {
         const rows = Array.isArray(data[section.key]) ? data[section.key] : [];
-        return (kind ? rows : rows.slice(0, PER_SECTION)).map(section.toHit);
+        // Ranked, the per-type cap would throw away good answers before they
+        // could be compared; grouped, it stops one type filling the screen.
+        const ranking = !kind && debounced.length >= RANK_FROM;
+        return (kind || ranking ? rows : rows.slice(0, PER_SECTION)).map(section.toHit);
       });
-  }, [data, kind]);
+
+    if (kind || debounced.length < RANK_FROM) return all;
+
+    return [...all]
+      .map((hit) => ({ hit, s: score(hit, debounced) }))
+      // Ties keep the order they came in, which is the section order — so an
+      // equally good member and post still read people-first.
+      .sort((a, b) => b.s - a.s)
+      .map(({ hit }) => hit)
+      .slice(0, 40);
+  }, [data, kind, debounced]);
 
   /** How many of each type the current search found, for the chip labels. */
   const counts = useMemo<Record<string, number>>(() => {
@@ -268,7 +310,14 @@ export default function SearchOverlay({
       <BlurView intensity={38} tint="dark" style={StyleSheet.absoluteFill} />
       <Pressable style={[StyleSheet.absoluteFill, styles.scrim]} onPress={() => dismiss()} />
 
-      <View style={[styles.sheet, { paddingTop: insets.top + 14 }]} pointerEvents="box-none">
+      {/* The sheet stops above the keyboard, so the list scrolls inside a real
+          viewport. Padding the list's *content* by the keyboard instead — which
+          is what this did — leaves the list itself taller than the screen and
+          shifts its content every time the keyboard moves mid-drag. */}
+      <View
+        style={[styles.sheet, { paddingTop: insets.top + 14, paddingBottom: keyboardHeight }]}
+        pointerEvents="box-none"
+      >
         {/* ── Close ──
             Its own control in the corner, rather than only the ✕ inside the
             field — that one turns into "clear" the moment you've typed
@@ -306,14 +355,15 @@ export default function SearchOverlay({
         {/* ── Filters ──
             Only the types this search actually turned up. A row of chips that
             lead to "nothing found" is a row of dead ends, and which types are
-            even present changes with every query. */}
+            even present changes with every query.
+
+            Wrapped, not scrolled: a horizontal strip cut the last type off at
+            the edge of the screen with nothing to say it was there, and a
+            filter you can't see is a filter you don't know you have. There are
+            at most eight of these and they're short, so two lines shows all
+            of them. */}
         {ready && Object.keys(counts).length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.chips}
-          >
+          <View style={styles.chips}>
             <FilterChip
               label="All"
               active={kind === null}
@@ -329,20 +379,20 @@ export default function SearchOverlay({
                 onPress={() => setKind(kind === sec.kind ? null : sec.kind)}
               />
             ))}
-          </ScrollView>
+          </View>
         )}
 
         {/* ── Results ── */}
         <FlatList
+          // Without this the list sizes to its content and overflows the sheet
+          // rather than scrolling within it — the reason it barely moved.
+          style={styles.listFlex}
           data={hits}
           keyExtractor={(h) => h.id}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: keyboardHeight + insets.bottom + 24 },
-          ]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 24 }]}
           ListEmptyComponent={
             <Text style={styles.empty}>
               {!ready
@@ -430,6 +480,7 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 15, fontWeight: '600', padding: 0 },
 
+  listFlex: { flex: 1 },
   list: { paddingTop: 12, gap: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
@@ -457,8 +508,17 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  chips:     { gap: 8, paddingTop: 14, paddingBottom: 6, paddingRight: 12 },
-  chip:      { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
+  chips: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    // `alignItems` matters here for the same reason it did when this scrolled:
+    // without it the chips stretch to the tallest thing on their line.
+    alignItems: 'center', gap: 8,
+    paddingTop: 14, paddingBottom: 6,
+  },
+  chip: {
+    height: 30, justifyContent: 'center',
+    paddingHorizontal: 12, borderRadius: 999, borderWidth: 1,
+  },
   chipText:  { fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
   rowText:  { flex: 1, minWidth: 0, gap: 3 },
   rowTitle: { fontSize: 14.5, fontWeight: '700' },

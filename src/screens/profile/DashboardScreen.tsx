@@ -31,7 +31,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import HomeBannerManager from '../../components/feed/HomeBannerManager';
-import CarCard from '../../components/cards/CarCard';
+import CarPosterCard from '../../components/cards/CarPosterCard';
 import SharedButton from '../../components/ui/SharedButton';
 import SharedModal from '../../components/ui/SharedModal';
 import { colors } from '../../constants/colors';
@@ -508,7 +508,7 @@ export default function DashboardScreen() {
             />
           }
           renderItem={({ item }) => (
-            <CarCard
+            <CarPosterCard
               car={item}
               onBeforeNavigate={() => setSheet(null)}
               onEditPress={() => { setSheet(null); navigation.navigate('CarCreate', { carId: item.internal_id }); }}
@@ -543,7 +543,7 @@ export default function DashboardScreen() {
           keyExtractor={(c) => c.internal_id}
           contentContainerStyle={{ paddingBottom: 40 }}
           renderItem={({ item }) => (
-            <CarCard car={item} onBeforeNavigate={() => setSheet(null)} />
+            <CarPosterCard car={item} showOwner onBeforeNavigate={() => setSheet(null)} />
           )}
           ListEmptyComponent={<EmptyState title="No followed cars" message="Cars you follow will appear here." />}
           showsVerticalScrollIndicator={false}

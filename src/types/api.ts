@@ -261,6 +261,15 @@ export interface Post {
   likeCount?: number;
   commentCount?: number;
   isLiked?: boolean;
+  /**
+   * Like state batched by the feed endpoint, so cards don't each fetch it.
+   *
+   * `likers` is capped — enough for the "liked by" line, not the full list —
+   * which is why `isLiked` is sent separately rather than inferred from it.
+   * `liker_names` maps the ids that line prints to their usernames.
+   */
+  likers?: string[];
+  liker_names?: Record<string, string>;
   // stories
   seen?: boolean;
 }
@@ -772,4 +781,17 @@ export interface PodcastEpisode {
   published_at?: string;
   status?: string;
   created_at?: string;
+}
+
+/**
+ * A group you were invited to and turned down.
+ *
+ * The membership row survives the decline so nobody can invite you again — see
+ * horacio's GroupMember.status. This is that row, with its group attached, so
+ * the only person allowed to lift it can see it.
+ */
+export interface DeclinedInvite {
+  group_id: string;
+  declined_at?: string;
+  group: Group;
 }

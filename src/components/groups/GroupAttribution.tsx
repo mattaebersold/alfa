@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronRight, Users } from 'lucide-react-native';
 import { useGetGroupQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import { colors } from '../../constants/colors';
 import { firstGalleryUrl } from '../../utils/image';
 
 /**
@@ -78,7 +78,9 @@ export default function GroupAttribution({
             <Users size={12} color={colors.grey} />
           </View>
         )}
-        <Text style={[styles.pillLabel, { color: colors.grey }]}>Posted in</Text>
+        <View style={styles.pillBadge}>
+          <Text style={styles.pillBadgeText}>Group</Text>
+        </View>
         <Text style={[styles.pillName, { color: colors.fg }]} numberOfLines={1}>{name}</Text>
         <ChevronRight size={14} color={colors.grey} />
       </TouchableOpacity>
@@ -104,26 +106,27 @@ export default function GroupAttribution({
         <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.segment }]} />
       )}
 
-      {/* The label sits on the picture, so the scrim has to carry white text
-          over whatever the group happens to use as its banner. It runs left to
-          right and fades out: the words are on the left and need the cover,
-          the right is where the picture gets to be a picture. */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.28)', 'transparent']}
-        locations={[0, 0.45, 1]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
+      {/* An even wash over the whole picture rather than a gradient off one
+          edge. At this height the banner is a footnote to the post above it, and
+          the flat scrim pushes the image back far enough that it reads as a
+          label with a texture behind it rather than as a second photo competing
+          with the post's own. */}
+      <View
+        style={[StyleSheet.absoluteFill, styles.scrim]}
         pointerEvents="none"
       />
 
       <View style={styles.bannerRow}>
-        <View style={styles.bannerText}>
-          <Text style={styles.bannerLabel}>Posted in</Text>
-          <Text style={styles.bannerName} numberOfLines={1}>{name}</Text>
+        {/* A badge rather than the words "Posted in". At a glance the question
+            is what kind of thing this row is, and the type badges elsewhere in
+            the feed already answer that shape of question — this is the same
+            badge a group carries anywhere else. */}
+        <View style={styles.bannerBadge}>
+          <Text style={styles.bannerBadgeText}>Group</Text>
         </View>
+        <Text style={styles.bannerName} numberOfLines={1}>{name}</Text>
         <View style={styles.chevron}>
-          <ChevronRight size={18} color="#FFFFFF" strokeWidth={3} />
+          <ChevronRight size={15} color="rgba(255,255,255,0.85)" strokeWidth={2.5} />
         </View>
       </View>
     </TouchableOpacity>
@@ -137,37 +140,55 @@ const styles = StyleSheet.create({
   // takes the whole of what's left.
   bannerWrap: {
     alignSelf: 'stretch',
-    marginHorizontal: 12, marginTop: 18, marginBottom: 4,
+    marginHorizontal: 8, marginTop: 12, marginBottom: 4,
   },
   banner: {
     width: '100%',
-    aspectRatio: 3,
-    borderRadius: 12, overflow: 'hidden',
+    // A fixed height rather than `aspectRatio: 3`, which grew with the card and
+    // made the group louder than the post on a wide screen. This is a row, and
+    // a row's height doesn't depend on how much room it's given.
+    height: 52,
+    borderRadius: 10, overflow: 'hidden',
     justifyContent: 'center',
   },
+  scrim: { backgroundColor: 'rgba(0,0,0,0.62)' },
   bannerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 9,
+    paddingHorizontal: 12,
   },
-  bannerText:  { flex: 1, minWidth: 0 },
   // Past the end of the scrim, so it gets a disc of its own to sit on.
+  // Squared off rather than a disc, and darker than the scrim it sits on so it
+  // reads as the thing you press rather than as part of the wash.
   chevron: {
-    width: 26, height: 26, borderRadius: 13,
+    width: 26, height: 26, borderRadius: 7,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  bannerLabel: {
-    fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.85)',
-    textTransform: 'uppercase', letterSpacing: 0.6,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+  // The badge colour groups already wear in the feed's type badges.
+  bannerBadge: {
+    paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 4,
+    backgroundColor: colors.badgeGroup,
+    flexShrink: 0,
   },
+  bannerBadgeText: {
+    fontSize: 9, fontWeight: '800', color: '#000000',
+    textTransform: 'uppercase', letterSpacing: 0.6,
+  },
+  // The shadow went with the gradient — an even scrim gives the text a
+  // consistent ground, and a shadow on top of that just muddies it.
   bannerName: {
-    fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginTop: 1,
-    textShadowColor: 'rgba(0,0,0,0.85)',
-    textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+    flex: 1, minWidth: 0,
+    fontSize: 13.5, fontWeight: '700', color: 'rgba(255,255,255,0.95)',
   },
 
+  pillBadge: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3,
+    backgroundColor: colors.badgeGroup,
+  },
+  pillBadgeText: {
+    fontSize: 8.5, fontWeight: '800', color: '#000000',
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     alignSelf: 'flex-start', marginTop: 6,
@@ -176,6 +197,5 @@ const styles = StyleSheet.create({
   },
   pillThumb: { width: 22, height: 22, borderRadius: 5 },
   blank:     { alignItems: 'center', justifyContent: 'center' },
-  pillLabel: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
   pillName:  { fontSize: 12, fontWeight: '800', flexShrink: 1 },
 });

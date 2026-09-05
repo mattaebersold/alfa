@@ -13,6 +13,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { regionLabel } from '../../constants/regions';
 import type { GroupsScreenProps, GroupsStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
@@ -60,7 +61,7 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
           {group?.region && (
             <View style={[styles.infoRow, { borderTopColor: colors.border }]}>
               <Text style={[styles.infoLabel, { color: colors.grey }]}>Region</Text>
-              <Text style={[styles.infoValue, { color: colors.fg }]}>{group.region}</Text>
+              <Text style={[styles.infoValue, { color: colors.fg }]}>{regionLabel(group.region)}</Text>
             </View>
           )}
           <View style={[styles.infoRow, { borderTopColor: colors.border }]}>

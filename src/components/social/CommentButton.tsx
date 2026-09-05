@@ -6,14 +6,19 @@ import { useColors } from '../../hooks/useColors';
 interface CommentButtonProps {
   count?: number;
   onPress?: () => void;
+  /** Ink for the icon and count. Defaults to the muted grey. */
+  color?: string;
 }
 
-export default function CommentButton({ count = 0, onPress }: CommentButtonProps) {
+export default function CommentButton({ count = 0, onPress, color }: CommentButtonProps) {
   const colors = useColors();
+  // Callers placing this over a photo pass white; everywhere else keeps the
+  // muted grey it has always used.
+  const ink = color ?? colors.grey;
   return (
     <TouchableOpacity onPress={onPress} style={styles.container} activeOpacity={0.7}>
-      <MessageCircle size={18} color={colors.grey} />
-      {count > 0 && <Text style={[styles.count, { color: colors.grey }]}>{count}</Text>}
+      <MessageCircle size={18} color={ink} />
+      {count > 0 && <Text style={[styles.count, { color: ink }]}>{count}</Text>}
     </TouchableOpacity>
   );
 }

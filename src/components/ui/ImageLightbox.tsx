@@ -13,9 +13,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Past this, the image is "zoomed" — the pager stops and the pan moves it. */
 const ZOOM_THRESHOLD = 1.01;
-const MAX_SCALE = 5;
+const MIN_SCALE = 1;
+const MAX_SCALE = 6;
 /** How far a downward flick has to travel before it closes. */
 const DISMISS_DISTANCE = 110;
+/** Where a double-tap lands you. */
+const DOUBLE_TAP_SCALE = 2.5;
 
 export interface ZoomableImageProps {
   uri: string;
@@ -36,6 +39,37 @@ export interface ZoomableImageProps {
 /**
  * One pinch-and-pan image.
  *
+ * ## What was wrong with the previous version
+ *
+ * It zoomed, and it technically panned, but looking around a zoomed photo
+ * didn't work — for three reasons that compound:
+ *
+ * 1. **Pinch was anchored to the centre.** Scale was applied about the view's
+ *    midpoint regardless of where your fingers were, so pinching on a detail in
+ *    the corner magnified the middle of the photo and pushed the thing you were
+ *    looking at further off screen.
+ * 2. **Pan was unbounded.** Nothing stopped a drag from flinging the image into
+ *    the void, and once it was out there the only way back was a double-tap
+ *    reset. Combined with (1), the usual experience was zooming in and having
+ *    the picture disappear.
+ * 3. **Pan tracked during the pinch.** A two-finger gesture feeds the Pan
+ *    handler its centroid, so lifting one finger left `savedX/savedY` holding
+ *    the accumulated two-finger travel, and the next one-finger drag jumped.
+ *
+ * ## What it does now
+ *
+ * Pinch is focal: the point under your fingers stays under your fingers, which
+ * is the whole grammar of zooming into a photo. Translation is clamped to the
+ * image's own edges every frame, so the picture can never leave the screen and
+ * a drag simply stops when you reach the edge. And the pan is measured from
+ * where the *last* drag ended rather than accumulating across gestures, so
+ * changing finger count doesn't jump.
+ *
+ * The bounds are computed from the displayed image rect, not the container.
+ * A `contain`-fitted photo is letterboxed — a wide panorama in a tall window
+ * has black above and below it — and clamping to the container would let you
+ * drag the picture until only the letterboxing was on screen.
+ *
  * Zoomed out, a vertical drag throws it away — the standard photo-viewer
  * dismissal. Zoomed in, the same drag moves the image, because at that point
  * you're looking at a detail and every gesture should be about getting to it.
@@ -48,12 +82,48 @@ export function ZoomableImage({
   const requestClose = onRequestClose ?? (() => {});
   const reportDrag = onDragProgress ?? (() => {});
   const dismissable = !!onRequestClose;
+
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const savedX = useSharedValue(0);
   const savedY = useSharedValue(0);
+
+  /**
+   * The photo's displayed size, once `contain` has fitted it.
+   *
+   * Starts as the container and is corrected on load. Until the real
+   * proportions arrive the bounds are merely conservative, never wrong in a way
+   * that loses the picture.
+   */
+  const fitW = useSharedValue(width);
+  const fitH = useSharedValue(height);
+
+  const onLoad = useCallback((e: { source?: { width?: number; height?: number } }) => {
+    const iw = e.source?.width;
+    const ih = e.source?.height;
+    if (!iw || !ih) return;
+    const fit = Math.min(width / iw, height / ih);
+    fitW.value = iw * fit;
+    fitH.value = ih * fit;
+  }, [width, height, fitW, fitH]);
+
+  /** How far the image may travel from centre at the current scale. */
+  const maxOffset = (k: number) => {
+    'worklet';
+    return {
+      x: Math.max(0, (fitW.value * k - width) / 2),
+      y: Math.max(0, (fitH.value * k - height) / 2),
+    };
+  };
+
+  const clampToBounds = (k: number) => {
+    'worklet';
+    const max = maxOffset(k);
+    translateX.value = Math.min(Math.max(translateX.value, -max.x), max.x);
+    translateY.value = Math.min(Math.max(translateY.value, -max.y), max.y);
+  };
 
   const reset = () => {
     'worklet';
@@ -68,25 +138,62 @@ export function ZoomableImage({
   };
 
   const pinch = Gesture.Pinch()
+    .onStart(() => {
+      savedScale.value = scale.value;
+      savedX.value = translateX.value;
+      savedY.value = translateY.value;
+    })
     .onUpdate((e) => {
-      scale.value = Math.min(Math.max(savedScale.value * e.scale, 0.6), MAX_SCALE);
+      const next = Math.min(Math.max(savedScale.value * e.scale, 0.6), MAX_SCALE);
+
+      /**
+       * Keep the point under the fingers under the fingers.
+       *
+       * The focal point arrives in container coordinates; shifted to be
+       * relative to the centre it becomes the fixed point of the scale, and
+       * the translation that holds it still is the old translation scaled
+       * about it.
+       */
+      const focalX = e.focalX - width / 2;
+      const focalY = e.focalY - height / 2;
+      const ratio = next / savedScale.value;
+      translateX.value = focalX - (focalX - savedX.value) * ratio;
+      translateY.value = focalY - (focalY - savedY.value) * ratio;
+
+      scale.value = next;
+      clampToBounds(next);
     })
     .onEnd(() => {
       // Anything at or below 1:1 springs back to fit rather than being left
       // slightly small or slightly off-centre.
-      if (scale.value <= 1) {
+      if (scale.value <= MIN_SCALE) {
         reset();
-      } else {
-        savedScale.value = scale.value;
-        runOnJS(onZoomChange)(true);
+        return;
       }
+      savedScale.value = scale.value;
+      // Settle inside the bounds rather than snapping — an over-pinch that
+      // pushed past an edge eases back to it.
+      const max = maxOffset(scale.value);
+      translateX.value = withSpring(Math.min(Math.max(translateX.value, -max.x), max.x), { damping: 20 });
+      translateY.value = withSpring(Math.min(Math.max(translateY.value, -max.y), max.y), { damping: 20 });
+      savedX.value = translateX.value;
+      savedY.value = translateY.value;
+      runOnJS(onZoomChange)(true);
     });
 
   const pan = Gesture.Pan()
+    // One finger only. During a pinch the Pan handler is fed the two-finger
+    // centroid, and letting that through is what made the next drag jump.
+    .maxPointers(1)
+    .onStart(() => {
+      savedX.value = translateX.value;
+      savedY.value = translateY.value;
+    })
     .onUpdate((e) => {
       if (scale.value > ZOOM_THRESHOLD) {
         translateX.value = savedX.value + e.translationX;
         translateY.value = savedY.value + e.translationY;
+        clampToBounds(scale.value);
       } else {
         // Fit-to-screen: the drag is a dismissal, so it only tracks vertically
         // and the backdrop thins out as it goes.
@@ -110,14 +217,29 @@ export function ZoomableImage({
 
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
-    .onEnd(() => {
+    .onEnd((e) => {
       if (scale.value > ZOOM_THRESHOLD) {
         reset();
-      } else {
-        scale.value = withTiming(2.5);
-        savedScale.value = 2.5;
-        runOnJS(onZoomChange)(true);
+        return;
       }
+      // Zoom toward the tap, for the same reason the pinch is focal: you tap
+      // the thing you want to see, not the middle of the screen.
+      const focalX = e.x - width / 2;
+      const focalY = e.y - height / 2;
+      const tx = -focalX * (DOUBLE_TAP_SCALE - 1);
+      const ty = -focalY * (DOUBLE_TAP_SCALE - 1);
+      const max = maxOffset(DOUBLE_TAP_SCALE);
+
+      const clampedX = Math.min(Math.max(tx, -max.x), max.x);
+      const clampedY = Math.min(Math.max(ty, -max.y), max.y);
+
+      scale.value = withTiming(DOUBLE_TAP_SCALE);
+      translateX.value = withTiming(clampedX);
+      translateY.value = withTiming(clampedY);
+      savedScale.value = DOUBLE_TAP_SCALE;
+      savedX.value = clampedX;
+      savedY.value = clampedY;
+      runOnJS(onZoomChange)(true);
     });
 
   // Pinch and pan run together so you can reframe mid-zoom; the double tap is
@@ -142,6 +264,7 @@ export function ZoomableImage({
           // not cropped to the shape of the card it was tapped from.
           contentFit="contain"
           transition={150}
+          onLoad={onLoad}
         />
       </Animated.View>
     </GestureDetector>

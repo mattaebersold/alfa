@@ -1,20 +1,13 @@
 import React, { useMemo } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
-} from 'react-native';
-import { Image } from 'expo-image';
-import { useGetSiteSettingsQuery, useGetUserByIdQuery } from '../../api/apiService';
-import { firstGalleryUrl } from '../../utils/image';
-import Avatar from '../ui/Avatar';
+import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { useGetSiteSettingsQuery } from '../../api/apiService';
+import CarPosterCard from '../cards/CarPosterCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const H_PAD = 0;
 const CARD_GAP = 10;
 const ROW_PAD = 14; // matches the section heading's inset
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
-const CARD_HEIGHT = 240;
-const S3 = 'https://partstash-ghia-images.s3.us-west-2.amazonaws.com/';
 
 interface Props {
   onCarPress: (carId: string) => void;
@@ -29,38 +22,20 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function FeaturedCard({ car, onPress }: { car: any; onPress: () => void }) {
-  const { data: owner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id });
-  const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? `${S3}${car.profile_image}` : null);
-
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
-      <Image
-        source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-      />
-      <View style={styles.overlay} />
-      <View style={styles.info}>
-        <View style={styles.infoRow}>
-          <View style={styles.infoText}>
-            {car.title && (
-              <Text style={styles.carTitle} numberOfLines={1}>{car.title}</Text>
-            )}
-            <Text style={car.title ? styles.carSubtitle : styles.carTitle} numberOfLines={1}>
-              {[car.year, car.make, car.model, car.trim].filter(Boolean).join(' ')}
-            </Text>
-          </View>
-          {owner && (
-            <Avatar user={owner} size={36} />
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-export default function FeaturedCarsRow({ onCarPress }: Props) {
+/**
+ * The cars the site is showing off, as posters.
+ *
+ * These used to be their own card — a photo behind a flat black bar holding the
+ * name and an avatar. It was the only car card in the app that looked like
+ * that, which made the featured row read as a different kind of object rather
+ * than as the best examples of the same one. It's the shared poster now, at the
+ * full plate size and with the type-coloured glow underneath.
+ *
+ * The row sizes its own cards, so the poster takes a width and drops its
+ * margins rather than using `compact` — that variant scales the name down for
+ * half-width grids, and these are the widest cards on the screen.
+ */
+function FeaturedCarsRow({ onCarPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
   const raw = data?.featured_cars ?? [];
 
@@ -76,15 +51,18 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         snapToInterval={CARD_WIDTH + CARD_GAP}
-        contentOffset={{ x: 0, y: 0 }}
         decelerationRate="fast"
-        pagingEnabled={false}
       >
-        {cars.map((car) => (
-          <FeaturedCard
+        {cars.map((car: any) => (
+          <CarPosterCard
             key={car.internal_id}
             car={car}
-            onPress={() => onCarPress(car.internal_id)}
+            // A featured car belongs to someone, and this row is the one place
+            // you meet it without having come from their profile.
+            showOwner
+            featured
+            onBeforeNavigate={() => onCarPress(car.internal_id)}
+            style={styles.card}
           />
         ))}
         <RowEndSpacer width={ROW_PAD} />
@@ -93,26 +71,16 @@ export default function FeaturedCarsRow({ onCarPress }: Props) {
   );
 }
 
+export default FeaturedCarsRow;
+
 const styles = StyleSheet.create({
-  container:  { backgroundColor: '#000', paddingTop: 14, paddingBottom: 14 },
-  heading:    { fontSize: 16, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF' },
-  scroll:     { gap: CARD_GAP, paddingLeft: ROW_PAD },
-  card:       {
-    width: CARD_WIDTH, height: CARD_HEIGHT,
-    borderRadius: 14, overflow: 'hidden',
-    backgroundColor: '#111',
+  container: { backgroundColor: '#000', paddingTop: 14, paddingBottom: 4 },
+  heading: {
+    fontSize: 16, fontWeight: '800', letterSpacing: 0.4,
+    paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF',
   },
-  overlay:    {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  info:       {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    padding: 14,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  infoRow:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  infoText:   { flex: 1 },
-  carTitle:   { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
-  carSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  // Padding rather than margin on the cards: a horizontal ScrollView clips at
+  // its content bounds, so the glow needs the room to be inside them.
+  scroll: { gap: CARD_GAP, paddingLeft: ROW_PAD, paddingTop: 4, paddingBottom: 18 },
+  card:   { width: CARD_WIDTH, marginHorizontal: 0, marginVertical: 0 },
 });

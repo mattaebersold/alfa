@@ -4,11 +4,11 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Plus, Users } from 'lucide-react-native';
+import { Search, Plus, Users, MapPin, Check, Ban } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
+import { useGetGroupsQuery, useGetUserGroupsQuery, useGetDeclinedInvitesQuery } from '../../api/apiService';
 import { useBrandTextColor, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
@@ -17,11 +17,27 @@ import EmptyState from '../../components/ui/EmptyState';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import NewGroupSheet from '../../components/groups/NewGroupSheet';
+import DeclinedInvitesSheet from '../../components/groups/DeclinedInvitesSheet';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Group } from '../../types/api';
+import { REGIONS, regionKey, regionLabel } from '../../constants/regions';
+import SharedModal from '../../components/ui/SharedModal';
+
+/** What the filter button says once something is chosen. */
+function regionButtonLabel(key: string) {
+  if (key === 'none') return 'No region';
+  return REGIONS.find((r) => r.key === key)?.label ?? key;
+}
+
+/** Every choice the filter offers, in the order it offers them. */
+const REGION_CHOICES: { key: string | null; label: string }[] = [
+  { key: null,   label: 'All regions' },
+  ...REGIONS.map((r) => ({ key: r.key, label: r.label })),
+  { key: 'none', label: 'No region' },
+];
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -47,7 +63,9 @@ function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
       <View style={styles.cardBody}>
         <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
         {group.subtitle && <Text style={[styles.cardSub, { color: colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>}
-        {group.region && <Text style={[styles.cardRegion, { color: colors.grey }]}>{group.region}</Text>}
+        {regionLabel(group.region) && (
+          <Text style={[styles.cardRegion, { color: colors.grey }]}>{regionLabel(group.region)}</Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -59,7 +77,11 @@ function MyGroupCard({ group, onPress }: { group: Group; onPress: () => void }) 
   const isAdmin = group.membership?.member_type === 'admin';
   const badge = isAdmin ? ADMIN_BADGE : MEMBER_BADGE;
   return (
-    <TouchableOpacity style={styles.myCard} onPress={onPress} activeOpacity={0.95}>
+    <TouchableOpacity
+      style={[styles.myCard, { borderColor: badge.bg }]}
+      onPress={onPress}
+      activeOpacity={0.95}
+    >
       {banner
         ? <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />
         : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primaryAlt }]} />
@@ -90,6 +112,19 @@ export default function GroupsScreen() {
   const { userInfo } = useAppSelector((s) => s.auth);
   const brandTextColor = useBrandTextColor();
   const [search, setSearch] = useState('');
+  /**
+   * Region filter. `null` is every region; `'none'` is the groups that
+   * deliberately belong to no region, which is a real answer rather than
+   * missing data — an online-only club has no region on purpose.
+   */
+  const [region, setRegion] = useState<string | null>(null);
+  const [regionOpen, setRegionOpen] = useState(false);
+  const [declinedOpen, setDeclinedOpen] = useState(false);
+
+  // Only surfaced when there's something in it — a permanent row explaining a
+  // state you've never been in is clutter.
+  const { data: declined } = useGetDeclinedInvitesQuery();
+  const declinedCount = declined?.entries?.length ?? 0;
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
 
@@ -126,8 +161,15 @@ export default function GroupsScreen() {
     .filter((g) => !searchLower || (
       (g.title ?? '').toLowerCase().includes(searchLower) ||
       (g.subtitle ?? '').toLowerCase().includes(searchLower) ||
-      (g.region ?? '').toLowerCase().includes(searchLower)
-    ));
+      (regionLabel(g.region) ?? '').toLowerCase().includes(searchLower)
+    ))
+    .filter((g) => {
+      if (!region) return true;
+      // Groups created before regions were a fixed set carry free text, so
+      // this matches the key or its label rather than only the key.
+      const key = regionKey(g.region);
+      return region === 'none' ? !key : key === region;
+    });
 
   const handleRefresh = useCallback(() => { setPage(0); setAllGroups([]); refetch(); }, [refetch]);
   const handleLoadMore = useCallback(() => {
@@ -163,23 +205,34 @@ export default function GroupsScreen() {
                   own below the shelf of groups you're already in — it's the
                   first thing you'd reach for, so it shouldn't be the last
                   thing you scroll past. */}
-              <ScreenHeading
-                title="Groups"
-                right={isPro ? (
-                  <TouchableOpacity
-                    style={[styles.newGroupBtn, { backgroundColor: brand }]}
-                    onPress={() => setNewGroupOpen(true)}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel="Create a new group"
-                  >
-                    <Plus size={15} color={brandTextColor} strokeWidth={2.8} />
-                    <Text style={[styles.newGroupText, { color: brandTextColor }]}>New Group</Text>
-                  </TouchableOpacity>
-                ) : undefined}
-              />
+              {/* ScreenHeading sits at zero — it's shared with eight other
+                  screens that supply their own gutter — so the padding is
+                  here, on the same 12 as everything below it. */}
+              <View style={styles.headingWrap}>
+                <ScreenHeading title="Groups" />
+              </View>
+
+              {/* Full width and beneath the title, matching Add Car and Add
+                  Content: the same kind of button doing the same kind of job,
+                  and as a pill beside the heading it read as a secondary
+                  control on a screen whose whole point it is. */}
+              {isPro && (
+                <TouchableOpacity
+                  style={[styles.newGroupBtn, { backgroundColor: brand }]}
+                  onPress={() => setNewGroupOpen(true)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create a new group"
+                >
+                  <Plus size={17} color={brandTextColor} strokeWidth={2.6} />
+                  <Text style={[styles.newGroupText, { color: brandTextColor }]}>New Group</Text>
+                </TouchableOpacity>
+              )}
               {userGroups.length > 0 && (
-                <View style={styles.myGroupsSection}>
+                <View style={[
+                  styles.myGroupsSection,
+                  { backgroundColor: colors.card, borderBottomColor: colors.borderDark },
+                ]}>
                   {/* The count rides in the heading rather than under it —
                       "how many am I in" is the question the heading raises,
                       and answering it there costs no vertical space. */}
@@ -205,23 +258,70 @@ export default function GroupsScreen() {
                 </View>
               )}
 
-              <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Search size={15} color={colors.grey} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.fg }]}
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Search groups..."
-                  placeholderTextColor={colors.grey}
-                  autoCapitalize="none"
-                  returnKeyType="search"
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-                    <Text style={{ color: colors.grey, fontSize: 14 }}>✕</Text>
-                  </TouchableOpacity>
-                )}
+              <View style={styles.searchRow}>
+                <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Search size={15} color={colors.grey} />
+                  <TextInput
+                    style={[styles.searchInput, { color: colors.fg }]}
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Search groups..."
+                    placeholderTextColor={colors.grey}
+                    autoCapitalize="none"
+                    returnKeyType="search"
+                  />
+                  {search.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                      <Text style={{ color: colors.grey, fontSize: 14 }}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* One button rather than a row of chips: there are six
+                    options and they don't combine, so a row would take a line
+                    of its own next to a search field that already has one.
+                    Selected, it carries the region's name so the filter is
+                    visible without opening anything. */}
+                <TouchableOpacity
+                  style={[
+                    styles.regionBtn,
+                    region
+                      ? { backgroundColor: brand, borderColor: brand }
+                      : { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                  onPress={() => setRegionOpen(true)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={region ? `Region: ${regionButtonLabel(region)}` : 'Filter by region'}
+                >
+                  <MapPin size={14} color={region ? brandTextColor : colors.grey} />
+                  <Text
+                    style={[styles.regionBtnText, { color: region ? brandTextColor : colors.grey }]}
+                    numberOfLines={1}
+                  >
+                    {region ? regionButtonLabel(region) : 'Region'}
+                  </Text>
+                </TouchableOpacity>
               </View>
+
+              {/* The only way back from a decline. It lives here rather than in
+                  settings because it's a fact about groups, and this is the
+                  groups screen — see DeclinedInvitesSheet. */}
+              {declinedCount > 0 && (
+                <TouchableOpacity
+                  style={[styles.declinedRow, { borderColor: colors.border }]}
+                  onPress={() => setDeclinedOpen(true)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Declined invitations"
+                >
+                  <Ban size={14} color={colors.grey} />
+                  <Text style={[styles.declinedText, { color: colors.grey }]}>
+                    {declinedCount} declined invitation{declinedCount !== 1 ? 's' : ''}
+                  </Text>
+                  <Text style={[styles.declinedAction, { color: colors.fg }]}>Manage</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
           renderItem={({ item }) => (
@@ -234,6 +334,35 @@ export default function GroupsScreen() {
           }
         />
       </View>
+
+      <DeclinedInvitesSheet
+        visible={declinedOpen}
+        onClose={() => setDeclinedOpen(false)}
+      />
+
+      <SharedModal
+        visible={regionOpen}
+        onClose={() => setRegionOpen(false)}
+        title="Filter by region"
+      >
+        <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+          {REGION_CHOICES.map((choice) => {
+            const on = region === choice.key;
+            return (
+              <TouchableOpacity
+                key={choice.key ?? 'all'}
+                style={[styles.regionSheetRow, { borderBottomColor: colors.border }]}
+                onPress={() => { setRegion(choice.key); setRegionOpen(false); }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.regionSheetText, { color: '#FFFFFF' }]}>{choice.label}</Text>
+                {on && <Check size={17} color={brand} strokeWidth={3} />}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </SharedModal>
 
       <NewGroupSheet
         visible={newGroupOpen}
@@ -256,13 +385,28 @@ const styles = StyleSheet.create({
   },
   screenTitle: { fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
 
-  myGroupsSection: { paddingTop: 14, paddingBottom: 6 },
+  /**
+   * Your groups sit on their own ground.
+   *
+   * The shelf and the grid below it were the same surface, so "My Groups" was
+   * a heading over an indistinguishable row of cards — the only thing marking
+   * them yours was a badge you had to read. A recessed band with a rule under
+   * it says it before anything is read: this strip is a different kind of
+   * thing from the browse grid beneath.
+   */
+  myGroupsSection: {
+    paddingTop: 14, paddingBottom: 14, marginBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   myGroupsHeadingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14, marginBottom: 10,
+    paddingHorizontal: 12, marginBottom: 10,
   },
+  // Uppercase and small, like a section label rather than a page title — the
+  // page title is "Groups", and two headings at the same weight competed.
   myGroupsHeading: {
-    fontSize: 16, fontWeight: '800', letterSpacing: 0.4,
+    fontSize: 12, fontWeight: '800', letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   myGroupsCount: {
     minWidth: 20, height: 20, borderRadius: 10,
@@ -277,6 +421,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#111',
+    // Edged in the same colour as its role badge — gold for a group you run,
+    // blue for one you're in. Which of your groups is which reads at a glance,
+    // and a browse card has no edge at all.
+    borderWidth: 1.5,
   },
   myCardOverlay: {
     ...StyleSheet.absoluteFill,
@@ -298,13 +446,40 @@ const styles = StyleSheet.create({
   },
   myCardBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
 
-  searchBar: {
+  searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: 12, marginVertical: 10,
+  },
+  searchBar: {
+    flex: 1, minWidth: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 12, paddingVertical: 9,
     borderRadius: 10, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14 },
+  regionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    // Same height as the field beside it, and capped so a long region name
+    // shortens rather than squeezing the search box.
+    maxWidth: 138,
+    paddingHorizontal: 11, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1,
+  },
+  regionBtnText: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  regionSheetRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 18, paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  regionSheetText: { flex: 1, fontSize: 15, fontWeight: '600' },
+  declinedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 12, marginBottom: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1,
+  },
+  declinedText:   { flex: 1, fontSize: 13, fontWeight: '600' },
+  declinedAction: { fontSize: 13, fontWeight: '800' },
 
   cardRow:  { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   card: {
@@ -321,9 +496,13 @@ const styles = StyleSheet.create({
 
   // Sits in the heading row beside the title, so it stays small enough not to
   // compete with it while still reading as the primary action.
+  headingWrap: { paddingHorizontal: 12 },
+  // Squared off at 10 to match Add Car and Add Content — the same button on
+  // three screens should be the same button.
   newGroupBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 13, height: 36, borderRadius: 999,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    marginHorizontal: 12, marginBottom: 14,
+    paddingVertical: 12, borderRadius: 10,
   },
-  newGroupText: { fontWeight: '800', fontSize: 14 },
+  newGroupText: { fontWeight: '800', fontSize: 14, letterSpacing: 0.2 },
 });

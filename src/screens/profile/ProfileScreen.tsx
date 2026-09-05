@@ -26,7 +26,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
-import CarCard from '../../components/cards/CarCard';
+import CarPosterCard from '../../components/cards/CarPosterCard';
 import FollowButton from '../../components/social/FollowButton';
 import ListCard from '../../components/lists/ListCard';
 import Spinner from '../../components/ui/Spinner';
@@ -482,7 +482,7 @@ export default function ProfileScreen() {
         <EmptyState title="No cars yet" />
       ) : (
         <>
-          {featuredCar && <CarCard car={featuredCar} featured />}
+          {featuredCar && <CarPosterCard car={featuredCar} featured />}
           {restCars.length > 0 && (
             <ScrollView
               horizontal
@@ -495,7 +495,10 @@ export default function ProfileScreen() {
             >
               {restCars.map((car: GarageCar) => (
                 <View key={car.internal_id} style={styles.garageCarouselItem}>
-                  <CarCard car={car} compact />
+                  {/* Nearly full-screen width, so it takes the full plate and
+                      just drops its margins — `compact` scales the name down
+                      for half-width grids, which these aren't. */}
+                  <CarPosterCard car={car} style={styles.garageCarouselCard} />
                 </View>
               ))}
               <RowEndSpacer width={GARAGE_GUTTER} />
@@ -927,9 +930,14 @@ const styles = StyleSheet.create({
   garageTitle:   { fontSize: 18, fontWeight: '800' },
   garageCount:   { fontSize: 14, fontWeight: '700' },
   garageCarousel: {
-    gap: GARAGE_GUTTER, paddingLeft: GARAGE_GUTTER, paddingTop: 6,
+    // Vertical padding so the glow under each card has somewhere to fall —
+    // without it the ScrollView clips its content bounds and the shadow stops
+    // dead at the bottom edge of the card.
+    gap: GARAGE_GUTTER, paddingLeft: GARAGE_GUTTER,
+    paddingTop: 10, paddingBottom: 16,
   },
   garageCarouselItem: { width: GARAGE_CARD_WIDTH },
+  garageCarouselCard: { marginHorizontal: 0, marginVertical: 0 },
   newListBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12, marginTop: 12,

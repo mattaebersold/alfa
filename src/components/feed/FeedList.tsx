@@ -7,7 +7,7 @@ import {
   useGetRoutesQuery, useGetFollowedCarActivityQuery,
 } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
-import GarageAdditionCard from './GarageAdditionCard';
+import CarPosterCard from '../cards/CarPosterCard';
 import CarActivityCard from './CarActivityCard';
 import RouteCard from '../cards/RouteCard';
 import CommentsSheet from '../social/CommentsSheet';
@@ -214,7 +214,7 @@ export default function FeedList({
         }
         renderItem={({ item: row }) => (
           row.kind === 'car' ? (
-            <GarageAdditionCard car={row.car} />
+            <CarPosterCard car={row.car} attribution />
           ) : row.kind === 'carActivity' ? (
             <CarActivityCard item={row.item} />
           ) : row.kind === 'route' ? (

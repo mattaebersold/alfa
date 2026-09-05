@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator, Keyboard, Platform,
+  ActivityIndicator, Keyboard, Platform, Animated,
 } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import { Send } from 'lucide-react-native';
@@ -23,6 +23,7 @@ import type { AppScreenProps } from '../../navigation/types';
 import type { Message, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
 
 function MessageBubble({ message, isMe, otherUser, showTime }: {
   message: Message;
@@ -76,6 +77,17 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   const [body, setBody] = useState('');
   const listRef = useRef<FlatList>(null);
 
+  /**
+   * The reply bar keeps itself above the keyboard.
+   *
+   * It measures its own position against the keyboard's top edge rather than
+   * trusting the sheet's arithmetic — see useKeyboardOverlap for why the
+   * arithmetic can't be trusted on Android. It only ever adds what's missing,
+   * so on iOS, where the sheet already resizes correctly, this is zero.
+   */
+  const replyRef = useRef<View>(null);
+  const { lift, animated: replyLift, onLayout: onReplyLayout } = useKeyboardOverlap(replyRef);
+
   // An open thread polls so replies land without reopening the app. A push
   // arriving invalidates the cache too (see RootNavigator), which is the fast
   // path — this is the fallback for when notifications are declined or dropped.
@@ -117,6 +129,12 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     });
     return () => sub.remove();
   }, []);
+
+  // The lift lands a frame or two after the keyboard event, and it shortens the
+  // list again — so the scroll has to follow it, not just the keyboard.
+  useEffect(() => {
+    if (lift > 0) requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }, [lift]);
 
   // Derive the other participant's ID from messages if not provided in route
   const recipientId = routeRecipientId ?? messages.find((m) => m.sender_id !== myId)?.sender_id;
@@ -240,14 +258,24 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
 
       {/* Reply bar. Clearance for the home indicator / gesture bar is the
           sheet's own bottom padding, which collapses when the keyboard is up —
-          adding the safe-area inset here too would double it. */}
-      <View style={[
-        styles.replyBar,
-        {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-        },
-      ]}>
+          adding the safe-area inset here too would double it.
+
+          The lift is a margin rather than a transform on purpose: the list
+          above is `flex: 1`, so margin here shrinks the list and the newest
+          message stays visible. A transform would slide the bar over the list
+          and hide the very message you're replying to. */}
+      <Animated.View
+        ref={replyRef}
+        onLayout={onReplyLayout}
+        style={[
+          styles.replyBar,
+          {
+            backgroundColor: colors.card,
+            borderTopColor: colors.border,
+            marginBottom: replyLift,
+          },
+        ]}
+      >
         <TextInput
           style={[ss.chatInput, { backgroundColor: colors.cream, borderColor: colors.border, color: colors.fg, flex: 1 }]}
           value={body}
@@ -274,7 +302,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
             : <Send size={18} color="#FFFFFF" />
           }
         </TouchableOpacity>
-      </View>
+      </Animated.View>
       </View>
       )}
     </SharedModal>

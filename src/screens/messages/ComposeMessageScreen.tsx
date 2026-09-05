@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   Animated, ActivityIndicator, Alert, ScrollView,
@@ -16,7 +16,7 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
+import { useKeyboardInset, useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 
@@ -109,6 +109,17 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
    */
   const { animated: keyboardPad, height: keyboardHeight } = useKeyboardInset();
 
+  /**
+   * And a measured correction on top of it.
+   *
+   * The padding above is computed from the reported keyboard height, which is
+   * right on iOS and can be short by a navigation bar on Android. This measures
+   * the footer against the keyboard's actual top edge and makes up whatever is
+   * missing — zero, wherever the arithmetic was already right.
+   */
+  const footerRef = useRef<View>(null);
+  const { animated: footerLift, onLayout: onFooterLayout } = useKeyboardOverlap(footerRef);
+
   return (
     <Animated.View
       style={[styles.root, { backgroundColor: colors.cream, paddingBottom: keyboardPad }]}
@@ -184,7 +195,10 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
       </ScrollView>
 
       {/* Send button — always visible above the keyboard */}
-      <View style={[
+      <Animated.View
+        ref={footerRef}
+        onLayout={onFooterLayout}
+        style={[
         styles.footer,
         {
           backgroundColor: colors.card,
@@ -193,6 +207,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
           // down; with it up, the root's padding has already lifted the footer
           // clear and this would just be a gap above the keys.
           paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12),
+          marginBottom: footerLift,
         },
       ]}>
         <TouchableOpacity
@@ -206,7 +221,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
             : <Text style={styles.sendBtnText}>Send Message</Text>
           }
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 }

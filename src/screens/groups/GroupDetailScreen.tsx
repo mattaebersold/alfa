@@ -45,6 +45,18 @@ import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../compon
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+/**
+ * The header band's own surface — a shade under the app's card colour.
+ *
+ * The banner, the title card and the members strip read as one masthead rather
+ * than as three stacked cards, and dropping them below `card` (#1e1e1e) sets
+ * that whole block back from the content beneath it. The banner's bottom fade
+ * has to land on exactly this value or the seam it exists to hide comes back.
+ */
+const HERO_SURFACE = '#141414';
+/** Controls sitting on the banner — one step up, so they read as raised. */
+const HERO_CONTROL = '#1F1F1F';
 const TILE_GAP = 12;
 /** Faces shown in the strip before the rest collapse into a "+N" circle. */
 const AVATAR_PREVIEW = 9;
@@ -225,12 +237,12 @@ export default function GroupDetailScreen() {
           {/* A flat wash over the whole image, so the photo sits back and
               anything laid over it reads regardless of how bright it is. */}
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(c.card, 0.3) }]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(HERO_SURFACE, 0.34) }]}
             pointerEvents="none"
           />
           {/* Darkens the top so the floating header reads over the image. */}
           <LinearGradient
-            colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)']}
+            colors={['rgba(0,0,0,0.62)', 'rgba(0,0,0,0)']}
             style={styles.bannerTopScrim}
             pointerEvents="none"
           />
@@ -241,7 +253,7 @@ export default function GroupDetailScreen() {
               Three stops rather than two, since a straight linear ramp reads as
               a band starting mid-image where an eased one doesn't. */}
           <LinearGradient
-            colors={[withAlpha(c.card, 0), withAlpha(c.card, 0.72), c.card]}
+            colors={[withAlpha(HERO_SURFACE, 0), withAlpha(HERO_SURFACE, 0.72), HERO_SURFACE]}
             locations={[0, 0.55, 1]}
             style={styles.bannerFade}
             pointerEvents="none"
@@ -260,7 +272,7 @@ export default function GroupDetailScreen() {
             </TouchableOpacity>
             <Text style={[styles.groupTitle, { color: c.fg }]} numberOfLines={2}>{group.title}</Text>
             {group.subtitle ? (
-              <View style={[styles.taglinePill, { backgroundColor: c.secondary, borderColor: c.borderDark }]}>
+              <View style={[styles.taglinePill, { backgroundColor: HERO_CONTROL, borderColor: c.borderDark }]}>
                 <Text style={[styles.taglineText, { color: c.fg }]} numberOfLines={1}>{group.subtitle}</Text>
               </View>
             ) : null}
@@ -268,7 +280,7 @@ export default function GroupDetailScreen() {
 
           {hasMenuOptions && (
             <TouchableOpacity
-              style={[styles.bannerMenuBtn, { backgroundColor: c.secondary, borderColor: c.borderDark }]}
+              style={[styles.bannerMenuBtn, { backgroundColor: HERO_CONTROL, borderColor: c.borderDark }]}
               onPress={openGroupMenu}
               hitSlop={10}
               accessibilityRole="button"
@@ -283,7 +295,7 @@ export default function GroupDetailScreen() {
             the region gone and Leave moved to the ⋮ menu, a member would
             otherwise get an empty padded card under the banner. */}
         {!isMember && (
-          <View style={[styles.titleCard, { backgroundColor: c.card, borderBottomColor: c.border }]}>
+          <View style={[styles.titleCard, { backgroundColor: HERO_SURFACE, borderBottomColor: c.border }]}>
             <View style={styles.titleRow}>
               <View style={{ flex: 1 }} />
               {isPending ? (
@@ -303,7 +315,7 @@ export default function GroupDetailScreen() {
           <SummaryTouchable
             // `borderDark`, not `border` — at #202020 against a #1e1e1e card the
             // rule between this and the description below was invisible.
-            style={[styles.membersStrip, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}
+            style={[styles.membersStrip, { backgroundColor: HERO_SURFACE, borderBottomColor: c.borderDark }]}
             onPress={(origin) => {
               setMemberPage(1);
               setRosterOrigin(origin);
@@ -323,7 +335,7 @@ export default function GroupDetailScreen() {
                   </View>
                 ))}
                 {activeMembers.length > AVATAR_PREVIEW && (
-                  <View style={[styles.avatarWrap, styles.overflowChip, { backgroundColor: c.secondary, borderColor: c.card }]}>
+                  <View style={[styles.avatarWrap, styles.overflowChip, { backgroundColor: HERO_CONTROL, borderColor: HERO_SURFACE }]}>
                     <Text style={[styles.overflowChipText, { color: c.fg }]}>
                       +{activeMembers.length - AVATAR_PREVIEW}
                     </Text>

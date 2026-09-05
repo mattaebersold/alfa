@@ -6,6 +6,7 @@ import type {
   Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
   FeedPreferences, HomeBanner, CarActivityItem,
+  DeclinedInvite,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -18,7 +19,7 @@ export const apiService = createApi({
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
-    'Block', 'FlaggedContent', 'Route', 'SiteSettings',
+    'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites',
   ],
   endpoints: (builder) => ({
 
@@ -806,7 +807,25 @@ export const apiService = createApi({
 
     declineGroupInvite: builder.mutation<void, string>({
       query: (groupId) => ({ url: `api/group/${groupId}/decline-invite`, method: 'POST' }),
-      invalidatesTags: ['GroupMembers', 'Group', 'Notifications'],
+      invalidatesTags: ['GroupMembers', 'Group', 'Notifications', 'DeclinedInvites'],
+    }),
+
+    /**
+     * Groups you turned down.
+     *
+     * A decline is now a standing "no" the group can't invite past, so it needs
+     * somewhere to be seen and undone — otherwise it's a decision with no way
+     * back.
+     */
+    getDeclinedInvites: builder.query<{ entries: DeclinedInvite[] }, void>({
+      query: () => 'api/group/invitations/declined',
+      providesTags: ['DeclinedInvites'],
+    }),
+
+    /** Lift a decline, so the group can ask again. Does not rejoin you. */
+    allowGroupInvites: builder.mutation<void, string>({
+      query: (groupId) => ({ url: `api/group/${groupId}/decline-invite`, method: 'DELETE' }),
+      invalidatesTags: ['DeclinedInvites', 'GroupMembers'],
     }),
 
     // ── Rallys ───────────────────────────────────────────────────────────────
@@ -1463,6 +1482,8 @@ export const {
   useInviteGroupMemberMutation,
   useAcceptGroupInviteMutation,
   useDeclineGroupInviteMutation,
+  useGetDeclinedInvitesQuery,
+  useAllowGroupInvitesMutation,
   useLeaveGroupMutation,
   useApproveGroupMemberMutation,
   useRejectGroupMemberMutation,

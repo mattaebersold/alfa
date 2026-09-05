@@ -23,6 +23,7 @@ import { ProUpsellModal } from '../pro/ProUpsell';
 import SteeringWheel from './SteeringWheel';
 import { logout } from '../../store/authSlice';
 import { useIsPro, useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
+import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -97,8 +98,10 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
       onPress={onPress}
       activeOpacity={0.75}
     >
-      <Icon size={15} color={TEXT_MID} />
+      <Icon size={19} color={TEXT_MID} />
       <Text style={styles.navTileLabel} numberOfLines={1}>{label}</Text>
+      {/* Pinned to the corner rather than trailing the label — stacked, there
+          is no end of the line for it to sit at. */}
       {count != null && count > 0 && (
         <View style={styles.unreadPill}>
           <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
@@ -141,6 +144,10 @@ interface NavDrawerProps {
 export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
+  // Measured rather than assumed: the header carries the status-bar inset and a
+  // row of icon buttons, and the list has to start below whatever that adds up
+  // to on this device.
+  const [headerH, setHeaderH] = useState(72);
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const isPro = useIsPro();
@@ -256,90 +263,66 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]}>
-          <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
-            {/* Header */}
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelLogo} numberOfLines={1}>Open Road Society</Text>
-              <View style={styles.headerActions}>
-                {/* No count. An unread message raises a notice in the
-                    notifications list, which is where you'll have seen it —
-                    a second red bubble here would be the same news told twice,
-                    and the one place it can't be acted on. */}
-                <HeaderIconButton
-                  Icon={Mail}
-                  label="Messages"
-                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
-                />
-                <HeaderIconButton
-                  Icon={Bell}
-                  label="Notifications"
-                  count={notifCount}
-                  onPress={() => closeThen(() => navigation.navigate('Notifications'))}
-                />
-                {/* Up here with the other things you do to your account, rather
-                    than in the footer. It was costing the menu a row of its own
-                    plus the gap around it — height the tiles could use — and it
-                    was never navigation, which is what the list below is for. */}
-                <HeaderIconButton
-                  Icon={LogOut}
-                  label="Log out"
-                  onPress={handleLogout}
-                />
-                <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
-                  <X size={15} color={TEXT_MID} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* First thing in the menu, above your own account row. It's the
-                only gold in a white-on-dark drawer, so it reads as the one
-                offer rather than another destination — and it's gone entirely
-                for members who already have it. */}
-            {!isPro && (
-              <TouchableOpacity
-                style={styles.proCallout}
-                onPress={() => setProOpen(true)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel="Upgrade to Pro"
-              >
-                <View style={styles.proCalloutIcon}>
-                  <SteeringWheel size={16} color="#000000" strokeWidth={2.4} />
-                </View>
-                <View style={styles.proCalloutText}>
-                  <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
-                  <Text style={styles.proCalloutSub}>
-                    Unlimited garage, posts and routes
-                  </Text>
-                </View>
-                <ChevronRight size={13} color="rgba(0,0,0,0.5)" />
-              </TouchableOpacity>
-            )}
-
-            {/* User card → Dashboard */}
-            {userInfo && (
-              <TouchableOpacity
-                style={styles.userCard}
-                onPress={() => goFeed('Dashboard')}
-                activeOpacity={0.8}
-              >
-                <Avatar
-                  user={userInfo}
-                  size={44}
-                />
-                <View style={styles.userCardText}>
-                  <Text style={styles.userCardName}>@{displayName}</Text>
-                  <Text style={styles.userCardSub}>Your Dashboard</Text>
-                </View>
-                <ChevronRight size={14} color={TEXT_HI} />
-              </TouchableOpacity>
-            )}
+          {/* No insets on the wrapper any more — they belong to the scroll
+              content, so the list runs the full height of the panel and pads
+              itself clear of the notch and the home indicator. */}
+          <View style={ss.fill}>
 
             <ScrollView
               style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingTop: headerH + 10, paddingBottom: insets.bottom + 24 },
+              ]}
               showsVerticalScrollIndicator={false}
             >
+              {/* First thing in the menu, above your own account row. It's the
+                  only gold in a white-on-dark drawer, so it reads as the one
+                  offer rather than another destination — and it's gone entirely
+                  for members who already have it. */}
+              {!isPro && (
+                <TouchableOpacity
+                  style={styles.proCallout}
+                  onPress={() => setProOpen(true)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Upgrade to Pro"
+                >
+                  <View style={styles.proCalloutIcon}>
+                    <SteeringWheel size={16} color="#000000" strokeWidth={2.4} />
+                  </View>
+                  <View style={styles.proCalloutText}>
+                    <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
+                    <Text style={styles.proCalloutSub}>
+                      Unlimited garage, posts and routes
+                    </Text>
+                  </View>
+                  <ChevronRight size={13} color="rgba(0,0,0,0.5)" />
+                </TouchableOpacity>
+              )}
+
+              {/* Your own account, at the head of the list rather than pinned
+                  above it. Pinned, it and the footer were eating fixed height
+                  at both ends and squeezing the tiles into the band left over;
+                  in the list it just scrolls away like everything else. */}
+              {userInfo && (
+                <TouchableOpacity
+                  style={styles.userCard}
+                  onPress={() => goFeed('Dashboard')}
+                  activeOpacity={0.8}
+                >
+                  <Avatar
+                    user={userInfo}
+                    size={44}
+                  />
+                  <View style={styles.userCardText}>
+                    <Text style={styles.userCardName}>@{displayName}</Text>
+                    <Text style={styles.userCardSub}>Your Dashboard</Text>
+                  </View>
+                  <ChevronRight size={14} color={TEXT_HI} />
+                </TouchableOpacity>
+              )}
+
               {/* The feed left the tab bar, so this is its way back. It shares
                   a row with Your Events — both are places you go rather than
                   things you browse, and full-width each they pushed the grid
@@ -413,32 +396,83 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 <Text style={[styles.aboutBtnText, { color: brandText }]}>About Open Road Society</Text>
                 <ChevronRight size={12} color={brandText} style={styles.aboutChevron} />
               </TouchableOpacity>
-            </ScrollView>
 
-            <View style={styles.footer}>
-              {/* Above the copyright, on its own line — it's the one piece of
-                  small print anyone actually goes looking for, usually to read
-                  it out when something's wrong. A pill in mono, because that's
-                  a build identifier rather than prose: the fixed widths make
-                  the digits easy to read back over a call, and the chip marks
-                  it as a value rather than a sentence. Tracks app.json, which
-                  is what `npm run bump` rewrites. */}
-              {APP_VERSION ? (
-                <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
-              ) : null}
+              <View style={styles.footer}>
+                {/* Above the copyright, on its own line — it's the one piece of
+                    small print anyone actually goes looking for, usually to read
+                    it out when something's wrong. A pill in mono, because that's
+                    a build identifier rather than prose: the fixed widths make
+                    the digits easy to read back over a call, and the chip marks
+                    it as a value rather than a sentence. Tracks app.json, which
+                    is what `npm run bump` rewrites. */}
+                {APP_VERSION ? (
+                  <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
+                ) : null}
 
-              <View style={styles.footerBottom}>
-                <Text style={styles.footerCopy}>© {new Date().getFullYear()} Open Road Society</Text>
-                <View style={styles.footerLinks}>
-                  <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')} hitSlop={8}>
-                    <Text style={styles.footerLink}>Privacy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')} hitSlop={8}>
-                    <Text style={styles.footerLink}>Terms</Text>
-                  </TouchableOpacity>
+                <View style={styles.footerBottom}>
+                  <Text style={styles.footerCopy}>© {new Date().getFullYear()} Open Road Society</Text>
+                  <View style={styles.footerLinks}>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')} hitSlop={8}>
+                      <Text style={styles.footerLink}>Privacy</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')} hitSlop={8}>
+                      <Text style={styles.footerLink}>Terms</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
+            </ScrollView>
+
+            {/* Header. Rendered after the list so it paints on top of it: an
+                iOS blur samples whatever is beneath it in the hierarchy, which
+                is what lets the tiles show through as they pass under. */}
+            <View
+              style={[styles.panelHeader, { paddingTop: insets.top + 14 }]}
+              onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
+            >
+              <BlurView
+                tint="dark"
+                intensity={55}
+                // Android has no real backdrop blur without this; without it
+                // expo-blur degrades to a flat scrim and nothing shows through.
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Enough tint to keep the logo and icons legible over whatever
+                  tile happens to be sliding under them, and no more. */}
+              <View style={[StyleSheet.absoluteFill, styles.panelHeaderTint]} />
+              <Text style={styles.panelLogo} numberOfLines={1}>Open Road Society</Text>
+              <View style={styles.headerActions}>
+                {/* No count. An unread message raises a notice in the
+                    notifications list, which is where you'll have seen it —
+                    a second red bubble here would be the same news told twice,
+                    and the one place it can't be acted on. */}
+                <HeaderIconButton
+                  Icon={Mail}
+                  label="Messages"
+                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
+                />
+                <HeaderIconButton
+                  Icon={Bell}
+                  label="Notifications"
+                  count={notifCount}
+                  onPress={() => closeThen(() => navigation.navigate('Notifications'))}
+                />
+                {/* Up here with the other things you do to your account, rather
+                    than in the footer. It was costing the menu a row of its own
+                    plus the gap around it — height the tiles could use — and it
+                    was never navigation, which is what the list below is for. */}
+                <HeaderIconButton
+                  Icon={LogOut}
+                  label="Log out"
+                  onPress={handleLogout}
+                />
+                <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
+                  <X size={15} color={TEXT_MID} />
+                </TouchableOpacity>
+              </View>
             </View>
+
           </View>
         </Animated.View>
       </View>
@@ -474,9 +508,15 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20,
   },
   panelHeader: {
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 16,
+    paddingHorizontal: 16, paddingBottom: 14,
+    // Clips the blur to the bar, and gives the list a visible edge to pass
+    // beneath rather than fading into nothing.
+    overflow: 'hidden',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DIVIDER,
   },
+  panelHeaderTint: { backgroundColor: 'rgba(18,18,18,0.62)' },
   panelLogo:  { fontSize: 15, fontWeight: '800', letterSpacing: 0.3, color: TEXT_HI, flexShrink: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerIconBtn: {
@@ -498,30 +538,36 @@ const styles = StyleSheet.create({
   },
   userCard:   {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 16, marginBottom: 4, paddingHorizontal: 16, paddingVertical: 12,
+    // No horizontal margin any more — the scroll content supplies the gutter
+    // now that this sits inside it.
+    marginBottom: 10, paddingHorizontal: 16, paddingVertical: 12,
     borderRadius: 16, backgroundColor: TILE_BG,
   },
   userCardText: { flex: 1 },
   userCardName: { fontSize: 15, fontWeight: '600', color: TEXT_HI },
   userCardSub:  { fontSize: 14, fontWeight: '700', color: TEXT_MID, marginTop: 1 },
   scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 },
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
+  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pairRow:  { flexDirection: 'row', gap: 8 },
   navTile:  {
     width: TILE_WIDTH,
-    flexDirection: 'row', alignItems: 'center', gap: 9,
-    // Trimmed from 12: six rows of tiles at three points less each is most of
-    // the overflow gone, and at this size the tile still reads as a target
-    // rather than a list row.
-    paddingHorizontal: 11, paddingVertical: 9, borderRadius: 11,
+    // Stacked, not inline. An icon beside a label is a list row wearing a
+    // background; an icon over a label is a card. The height that costs is the
+    // point of it — these were squeezed flat to keep the menu off a scroll,
+    // and the menu scrolls now, which is the cheaper thing to give up.
+    alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingHorizontal: 10, paddingVertical: 16, borderRadius: 12,
     backgroundColor: TILE_BG,
   },
   navTileWide:  { width: undefined, flex: 1 },
-  navTileLabel: { fontSize: 13, fontWeight: '700', color: TEXT_HI, flexShrink: 1 },
+  navTileLabel: {
+    fontSize: 12.5, fontWeight: '700', color: TEXT_HI,
+    textAlign: 'center', flexShrink: 1,
+  },
   rowGap:       { marginTop: 8 },
   unreadPill:   {
-    marginLeft: 'auto',
+    position: 'absolute', top: 7, right: 7,
     minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6,
     backgroundColor: BRASS,
     alignItems: 'center', justifyContent: 'center',
@@ -542,7 +588,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.9, paddingTop: 20, paddingBottom: 4,
   },
   footer:        {
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, gap: 12,
+    // Last thing in the list rather than a band pinned under it. The rule
+    // still marks it off as small print — it just arrives when you reach the
+    // end instead of holding a strip of the panel the whole time.
+    marginTop: 20, paddingTop: 16, gap: 12,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: DIVIDER,
   },
   footerBottom:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

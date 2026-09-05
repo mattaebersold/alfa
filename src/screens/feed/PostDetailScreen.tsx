@@ -353,6 +353,16 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 </View>
               )}
 
+              {/* Where this came from, directly under the picture — the photo
+                  is the post, and "which group is this?" is the question that
+                  follows seeing it, not one that waits until the end. Closes
+                  the modal on the way out, so the group replaces it rather than
+                  opening behind it. */}
+              <GroupAttribution
+                groupId={post.group_ids?.[0] ?? post.group_id}
+                onNavigate={dismissThenNavigate}
+              />
+
               <View style={[styles.card, styles.postHeader, { backgroundColor: cardBg }]}>
                 <TouchableOpacity
                   style={styles.postHeaderUser}
@@ -400,14 +410,6 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   ))}
                 </View>
               )}
-
-              {/* Where this came from, when it came from somewhere. Closes the
-                  modal on the way out, so the group replaces it rather than
-                  opening behind it. */}
-              <GroupAttribution
-                groupId={post.group_ids?.[0] ?? post.group_id}
-                onNavigate={dismissThenNavigate}
-              />
 
               {/* Tagged people, cars & events. Opening one closes this modal
                   first so the target replaces it instead of stacking on top. */}

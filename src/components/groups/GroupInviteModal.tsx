@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, FlatList,
 } from 'react-native';
-import { Search, X, Check, UserPlus } from 'lucide-react-native';
+import { Search, X, Check, UserPlus, Clock, Ban } from 'lucide-react-native';
 import {
   useGetUsersQuery,
   useGetGroupMembersQuery,
@@ -40,11 +40,20 @@ const AUTO_PAGE_LIMIT = 5;
  * neighbour rather than something behind a settings screen: browse everyone,
  * search when you know who you're after, invite from the row.
  *
- * People already in the group — and people already invited — are filtered out.
- * The list is what you can *do* something with; the roster is where you go to
- * see who's in. The exception is anyone invited during this sitting, who stays
- * put with the button turned into a receipt: a row that vanishes under the
- * finger reads as a mis-tap.
+ * Only people already *in* the group are filtered out — the roster is where
+ * you go to see who's in. Everyone else stays on the list wearing their state:
+ *
+ *   Pending   — someone already invited them, nobody needs to again
+ *   Requested — they asked to join; approve them rather than invite them
+ *   Declined  — they were invited and said no, and only they can lift that
+ *
+ * Hiding the invited ones was worse than it looked. Two admins working the
+ * same list at the same time would both see an invitable row and both tap it,
+ * and the second got an error for something the screen had told them to do.
+ * Showing the state means the answer is on the row before the tap.
+ *
+ * Anyone invited during this sitting also stays put with their button turned
+ * into a receipt: a row that vanishes under the finger reads as a mis-tap.
  */
 export default function GroupInviteModal({
   groupId, groupTitle, visible, onClose,
@@ -109,8 +118,8 @@ export default function GroupInviteModal({
   const rows = useMemo(() => users.filter((u) => {
     if (u.user_id === userInfo?.user_id) return false;
     if (invited.includes(u.user_id)) return true;
-    const status = existing.get(u.user_id);
-    return status !== 'active' && status !== 'invited';
+    // Members are the only people with nothing to say here.
+    return existing.get(u.user_id) !== 'active';
   }), [users, existing, invited, userInfo?.user_id]);
 
   const total = data?.total ?? 0;
@@ -143,12 +152,24 @@ export default function GroupInviteModal({
   };
 
   const renderRow = ({ item: user }: { item: User }) => {
-    const done = invited.includes(user.user_id);
+    const status = existing.get(user.user_id);
+    // Invited in this sitting, or invited by someone else before it — the row
+    // reads the same either way, because the answer is the same.
+    const done = invited.includes(user.user_id) || status === 'invited';
     // Someone who asked to join is answered by approving the request, not by
     // inviting them to something they're already at the door of.
-    const requested = existing.get(user.user_id) === 'pending';
+    const requested = status === 'pending';
+    const declined = status === 'declined';
     const busy = pending === user.user_id;
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+
+    const state = done
+      ? { label: 'Pending', Icon: Clock }
+      : requested
+        ? { label: 'Requested', Icon: Check }
+        : declined
+          ? { label: 'Declined', Icon: Ban }
+          : null;
 
     return (
       <View style={[styles.row, { borderBottomColor: c.borderDark }]}>
@@ -162,12 +183,10 @@ export default function GroupInviteModal({
           )}
         </View>
 
-        {done || requested ? (
+        {state ? (
           <View style={[styles.statusPill, { backgroundColor: c.segment }]}>
-            <Check size={12} color={c.grey} strokeWidth={3} />
-            <Text style={[styles.statusText, { color: c.grey }]}>
-              {done ? 'Invited' : 'Requested'}
-            </Text>
+            <state.Icon size={12} color={c.grey} strokeWidth={2.6} />
+            <Text style={[styles.statusText, { color: c.grey }]}>{state.label}</Text>
           </View>
         ) : (
           <TouchableOpacity

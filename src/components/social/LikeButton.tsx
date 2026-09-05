@@ -21,6 +21,14 @@ interface LikeButtonProps {
    * "you liked this", and a caller overriding it would be removing the signal.
    */
   color?: string;
+  /**
+   * Fired when this viewer likes or unlikes, before the request settles.
+   *
+   * A caller that renders like state from a batched payload rather than from
+   * the live query uses this to switch over — the payload was assembled before
+   * the tap, and nothing else tells it that.
+   */
+  onToggle?: (liked: boolean) => void;
 }
 
 export default function LikeButton({
@@ -31,6 +39,7 @@ export default function LikeButton({
   showCount = true,
   size = 18,
   color,
+  onToggle,
 }: LikeButtonProps) {
   const colors = useColors();
   const resting = color ?? colors.grey;
@@ -49,6 +58,7 @@ export default function LikeButton({
     const wasLiked = liked;
     setLiked(!wasLiked);
     setCount((c) => (wasLiked ? c - 1 : c + 1));
+    onToggle?.(!wasLiked);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
