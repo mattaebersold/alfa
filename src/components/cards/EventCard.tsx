@@ -170,7 +170,6 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 11, fontWeight: '800',
-    textTransform: 'uppercase', letterSpacing: 0.5,
   },
 
   orsBadge: {
@@ -179,7 +178,6 @@ const styles = StyleSheet.create({
   },
   orsBadgeText: {
     fontSize: 10, fontWeight: '800', color: '#000000',
-    textTransform: 'uppercase', letterSpacing: 0.5,
   },
 
   interested: { position: 'absolute', bottom: 8, right: 8 },

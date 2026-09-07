@@ -13,6 +13,13 @@ interface MentionTextProps {
   text: string;
   style?: any;
   numberOfLines?: number;
+  /**
+   * Passed straight through to the underlying `Text`.
+   *
+   * A caller that clamps this needs to know whether the clamp actually cut
+   * anything off, and the line count is the only honest answer to that.
+   */
+  onTextLayout?: (e: any) => void;
 }
 
 function UserSegment({ username, textStyle }: { username: string; textStyle?: any }) {
@@ -56,19 +63,19 @@ function CarSegment({ label, carId, textStyle }: { label: string; carId: string;
   );
 }
 
-export default function MentionText({ text, style, numberOfLines }: MentionTextProps) {
+export default function MentionText({ text, style, numberOfLines, onTextLayout }: MentionTextProps) {
   const segments = parseMentions(text);
 
   if (segments.length <= 1 && segments[0]?.kind !== 'car' && segments[0]?.kind !== 'user') {
     return (
-      <Text style={style} numberOfLines={numberOfLines}>
+      <Text style={style} numberOfLines={numberOfLines} onTextLayout={onTextLayout}>
         {text}
       </Text>
     );
   }
 
   return (
-    <Text style={style} numberOfLines={numberOfLines}>
+    <Text style={style} numberOfLines={numberOfLines} onTextLayout={onTextLayout}>
       {segments.map((seg, i) => {
         if (seg.kind === 'user') {
           return <UserSegment key={i} username={seg.username} textStyle={style} />;

@@ -71,7 +71,7 @@ import EventCreateScreen from '../screens/society/EventCreateScreen';
 import MoreScreen from '../screens/MoreScreen';
 // Group detail screens (tab bar hidden — acceptable for detail drill-down)
 import GroupDetailScreen from '../screens/groups/GroupDetailScreen';
-import GroupForumScreen from '../screens/groups/GroupForumScreen';
+import GroupDiscussionScreen from '../screens/groups/GroupDiscussionScreen';
 import GroupNewsScreen from '../screens/groups/GroupNewsScreen';
 import GroupCarsScreen from '../screens/groups/GroupCarsScreen';
 import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
@@ -317,9 +317,9 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="GroupForum"
-        component={GroupForumScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Forum' }}
+        name="GroupDiscussion"
+        component={GroupDiscussionScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Discussion' }}
       />
       <Stack.Screen
         name="GroupNews"

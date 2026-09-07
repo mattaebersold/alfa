@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
 import { Mountain, Route as RouteIcon } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
+import UserSummaryModal from '../members/UserSummaryModal';
 import RouteTrace from '../routes/RouteTrace';
 import VoteButton from '../routes/VoteButton';
 import { useGetUserByIdQuery } from '../../api/apiService';
@@ -27,6 +28,7 @@ export default function RouteCard({ route }: { route: DrivingRoute }) {
   const navigation = useNavigation<any>();
 
   const { data: user } = useGetUserByIdQuery(route.user_id, { skip: !route.user_id });
+  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
   const stats = route.stats;
 
   const timeAgo = route.created_at
@@ -36,12 +38,22 @@ export default function RouteCard({ route }: { route: DrivingRoute }) {
   const open = () => navigation.navigate('RouteDetailModal', { routeId: route.internal_id });
 
   return (
+    <>
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.card }]}
       onPress={open}
       activeOpacity={0.95}
     >
       <View style={styles.header}>
+        {/* The byline opens a summary rather than the card's own destination —
+            same as every other feed card. Its own touchable, so tapping the
+            person doesn't also open the route. */}
+        <TouchableOpacity
+          style={styles.headerWho}
+          onPress={() => user?.user_id && setSummaryUserId(user.user_id)}
+          disabled={!user?.user_id}
+          activeOpacity={0.7}
+        >
         <Avatar
           user={user}
           size={34}
@@ -53,6 +65,7 @@ export default function RouteCard({ route }: { route: DrivingRoute }) {
             <Text style={[styles.kickerText, { color: brand }]}>drove a route</Text>
           </View>
         </View>
+        </TouchableOpacity>
         <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
       </View>
 
@@ -99,6 +112,12 @@ export default function RouteCard({ route }: { route: DrivingRoute }) {
         <VoteButton routeId={route.internal_id} initialCount={route.vote_count ?? 0} />
       </View>
     </TouchableOpacity>
+
+      <UserSummaryModal
+        userId={summaryUserId}
+        onClose={() => setSummaryUserId(null)}
+      />
+    </>
   );
 }
 
@@ -115,6 +134,7 @@ const styles = StyleSheet.create({
   card: { marginVertical: 6, paddingBottom: 4 },
 
   header:     { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 8, gap: 10 },
+  headerWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerText: { flex: 1 },
   author:     { fontSize: 14, fontWeight: '700' },
   kicker:     { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },

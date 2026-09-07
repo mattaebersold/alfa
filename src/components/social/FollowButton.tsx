@@ -12,6 +12,15 @@ interface FollowButtonProps {
    * `undefined` means "I don't know, go and find out"; a boolean is trusted.
    */
   isFollowing?: boolean;
+  /**
+   * Force one appearance for both states, instead of the brand fill for
+   * "Follow" and a grey for "Following".
+   *
+   * For places where this sits beside another button and the pair should read
+   * as a set — a summary panel's Follow and Message, say. The label still
+   * carries the state, which is the part that has to be legible.
+   */
+  variant?: 'dark' | 'secondary';
 }
 
 /**
@@ -30,7 +39,7 @@ interface FollowButtonProps {
  * It doesn't swallow failures. The press used to be a bare await with no catch,
  * so a rejected follow looked exactly like a successful one.
  */
-export default function FollowButton({ username, isFollowing: known }: FollowButtonProps) {
+export default function FollowButton({ username, isFollowing: known, variant }: FollowButtonProps) {
   // A caller that already has the answer doesn't need us to ask again.
   const skip = known !== undefined;
   const { data, isLoading, isError, refetch } = useGetFollowStatusQuery(username, { skip });
@@ -84,7 +93,7 @@ export default function FollowButton({ username, isFollowing: known }: FollowBut
     <Button
       label={isFollowing ? 'Following' : 'Follow'}
       onPress={handlePress}
-      variant={isFollowing ? 'secondary' : 'dark'}
+      variant={variant ?? (isFollowing ? 'secondary' : 'dark')}
       size="sm"
       loading={busy}
     />

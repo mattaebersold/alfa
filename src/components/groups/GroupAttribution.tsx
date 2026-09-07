@@ -172,7 +172,6 @@ const styles = StyleSheet.create({
   },
   bannerBadgeText: {
     fontSize: 9, fontWeight: '800', color: '#000000',
-    textTransform: 'uppercase', letterSpacing: 0.6,
   },
   // The shadow went with the gradient — an even scrim gives the text a
   // consistent ground, and a shadow on top of that just muddies it.
@@ -187,7 +186,6 @@ const styles = StyleSheet.create({
   },
   pillBadgeText: {
     fontSize: 8.5, fontWeight: '800', color: '#000000',
-    textTransform: 'uppercase', letterSpacing: 0.5,
   },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 7,

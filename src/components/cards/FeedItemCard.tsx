@@ -14,6 +14,8 @@ import CommentButton from '../social/CommentButton';
 import ReportButton from '../ui/ReportButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
 import ImageLightbox from '../ui/ImageLightbox';
+import UserSummaryModal from '../members/UserSummaryModal';
+import { Images } from 'lucide-react-native';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -28,15 +30,19 @@ import { DIECAST_BLUE } from '../../constants/diecast';
  * The feed card's ground — a step below `colors.card` (#1e1e1e).
  *
  * The feed is a column of these against the page's #0A0A0A, and at card grey
- * they ran together as one continuous slab. Darker gives each card an edge
- * without needing a rule to draw one.
+ * they ran together as one continuous slab. Staying under it gives each card an
+ * edge without needing a rule to draw one — the gap between the two is doing
+ * the work, so this can lift a little without losing it.
  */
-const FEED_CARD_BG = '#161616';
+const FEED_CARD_BG = '#202020';
+
+/** Lines of description a card shows before it offers "more". */
+const BODY_LINES = 2;
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
-import GroupAttribution from '../groups/GroupAttribution';
+import PostContextRow from '../social/PostContextRow';
 import LikersSheet from '../social/LikersSheet';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 
@@ -46,20 +52,40 @@ type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 interface FeedItemCardProps {
   post: Post;
   isLiked?: boolean;
+  /**
+   * Where tapping the card goes, when its host has somewhere to send it.
+   *
+   * The feed doesn't: everything a post has to say is on the card now — the
+   * whole body opens in place, the comment button raises the thread, the
+   * likers open a summary panel — so pushing a detail screen would land you on
+   * the same content one screen deeper. Left undefined there, and a tap
+   * expands the description instead.
+   *
+   * Surfaces with their own destination still pass one. A car's records open
+   * that car's record pane, which is not this post on another screen.
+   */
   onPress?: () => void;
   onCommentPress?: () => void;
 }
 
 // "Liked by matt and 3 others" — resolves the username of a representative liker
 // (preferring someone other than the viewer) and appends the remaining count.
-function LikedByLine({ likers, total, myId, names, color, style }: {
+function LikedByLine({ likers, total, myId, names, onPressUser, color, style }: {
   likers: string[]; total: number; myId?: string;
   /** id -> username, when whatever loaded this post already resolved them. */
   names?: Record<string, string>;
+  /**
+   * A name was tapped.
+   *
+   * The line doesn't navigate any more — pushing a whole profile screen to
+   * answer "who is that" meant leaving the feed and scrolling back to where you
+   * were. The card opens a summary panel over the feed instead, and this is how
+   * it hears which person.
+   */
+  onPressUser: (userId: string) => void;
   color: string; style: any;
 }) {
   const colors = useColors();
-  const navigation = useNavigation<NavProp>();
 
   /**
    * Up to three names, other people first.
@@ -128,10 +154,7 @@ function LikedByLine({ likers, total, myId, names, color, style }: {
               weight of the sentence they sit in. */}
           <Text
             style={{ color: colors.blueLight }}
-            onPress={() => navigation.navigate('UserDetail', {
-              userId: u.user_id,
-              username: u.username!,
-            })}
+            onPress={() => onPressUser(u.user_id)}
             suppressHighlighting
           >
             {u.username}
@@ -201,6 +224,29 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
   // already reach for when they want a closer look, and it doesn't compete with
   // either the tap or the sideways swipe through the gallery.
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+
+  /**
+   * The description, clamped until asked otherwise.
+   *
+   * `bodyLines` is null until the first layout reports how many lines the text
+   * wants; that measurement is what decides whether "more" has anything to
+   * reveal. It never resets — a card doesn't re-collapse once opened, because
+   * collapsing under the finger that expanded it is the wrong surprise.
+   */
+  /** Whose summary panel is open, if any. */
+  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
+  const [bodyExpanded, setBodyExpanded] = useState(false);
+  const [bodyLines, setBodyLines] = useState<number | null>(null);
+  const bodyTruncated = !bodyExpanded && bodyLines !== null && bodyLines > BODY_LINES;
+
+  /**
+   * Tapping the words.
+   *
+   * A host with a destination wins — that's what `onPress` is for. Otherwise
+   * the tap does what the "more" link does, so the whole card is the target
+   * rather than one small underlined word.
+   */
+  const handleBodyPress = onPress ?? (bodyTruncated ? () => setBodyExpanded(true) : undefined);
   // The zoom viewer shows photos; a video has its own player and nothing to
   // pinch into.
   const galleryUrls = media
@@ -265,17 +311,30 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
      */
     <View style={[styles.card, { backgroundColor: cardBg }]}>
       {/* Header — avatar/name tap navigates to profile */}
-      <TouchableOpacity
-        style={styles.header}
-        onPress={() => user?.user_id && navigation.navigate('UserDetail', { userId: user.user_id, username: user.username })}
-        activeOpacity={0.7}
-      >
-        <Avatar user={user} size={36} />
-        <View style={styles.headerText}>
-          <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
-        </View>
+      <View style={styles.header}>
+        {/* The author half is the link; the menu is not. Its own touchable, so
+            tapping ⋯ doesn't also navigate to whoever posted. */}
+        <TouchableOpacity
+          style={styles.headerAuthor}
+          // A summary over the feed, not a push to the profile. "Who is that"
+          // is a glance, and answering it with a whole screen cost you the
+          // scroll position you were reading from. The panel carries its own
+          // View Profile for when the glance isn't enough.
+          onPress={() => user?.user_id && setSummaryUserId(user.user_id)}
+          activeOpacity={0.7}
+        >
+          <Avatar user={user} size={36} />
+          <View style={styles.headerText}>
+            <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
+          </View>
+        </TouchableOpacity>
         <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
-      </TouchableOpacity>
+        {userInfo?.user_id === post.user_id ? (
+          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? '#FFFFFF' : colors.grey} />
+        ) : (
+          <ReportButton contentType="post" contentId={post.internal_id} size={18} />
+        )}
+      </View>
 
       {/* The title, or the body standing in for it when there isn't one.
           Without a picture the words are the whole card, and at the size that
@@ -287,7 +346,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       {(post.title || bodyText) && (
         <TouchableOpacity
           style={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
-          onPress={onPress}
+          onPress={handleBodyPress}
           activeOpacity={0.95}
         >
           <MentionText
@@ -302,12 +361,54 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           it, not enough to be the post. Skipped when the body *is* the line
           above. */}
       {post.title && bodyText ? (
-        <TouchableOpacity style={styles.bodyPreviewWrap} onPress={onPress} activeOpacity={0.95}>
+        <TouchableOpacity
+          style={styles.bodyPreviewWrap}
+          onPress={handleBodyPress}
+          activeOpacity={0.95}
+          disabled={!handleBodyPress}
+        >
           <MentionText
             text={bodyText}
             style={[styles.bodyPreview, { color: mutedColor }]}
-            numberOfLines={2}
+            numberOfLines={bodyExpanded ? undefined : BODY_LINES}
           />
+
+          {/**
+            * An invisible copy, purely to count lines.
+            *
+            * `onTextLayout` reports the lines it actually drew, so asking the
+            * clamped copy how long the text is always answers "two" — there is
+            * no way to tell a post that happens to fit from one that was cut
+            * off, which is why "more" never appeared. Measuring the visible
+            * copy unclamped for one frame would work but flashes the whole
+            * body before collapsing it.
+            *
+            * So the measurement happens on a twin: same text, same style, same
+            * width (absolute with both edges pinned), no line limit, zero
+            * opacity, out of the layout flow so it displaces nothing. It
+            * unmounts the moment it has answered, so this costs one extra text
+            * layout per card and nothing after that.
+            */}
+          {bodyLines === null && (
+            <View style={styles.bodyMeasure} pointerEvents="none" aria-hidden>
+              <MentionText
+                text={bodyText}
+                style={[styles.bodyPreview, { color: mutedColor }]}
+                onTextLayout={(e) => setBodyLines(e.nativeEvent?.lines?.length ?? 0)}
+              />
+            </View>
+          )}
+          {/* Only when the clamp is hiding something. A "more" that opens
+              nothing is worse than no affordance at all. */}
+          {bodyTruncated && (
+            <Text
+              style={[styles.moreLink, { color: mutedColor }]}
+              onPress={() => setBodyExpanded(true)}
+              accessibilityRole="button"
+            >
+              more
+            </Text>
+          )}
         </TouchableOpacity>
       ) : null}
 
@@ -318,10 +419,14 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           <View>
             <PostMediaCarousel
               media={media}
-              // A tap on a photo opens the post, which is what a card in a feed
-              // is for. A video's first tap is its own — it starts playback
-              // rather than navigating away from it.
-              onPressItem={onPress}
+              // The count badge above already says how many there are, and it's
+              // the thing you can act on — a row of dots underneath was saying
+              // the same thing again, less precisely.
+              showPageIndicator={false}
+              // With no destination to go to, a tap on a photo opens the photo
+              // — the same viewer the gallery badge opens. A video's first tap
+              // is still its own: it starts playback.
+              onPressItem={onPress ?? (() => setZoomIndex(0))}
               overlay={
                 <>
                   {/* Type + category badges — top left, color coded */}
@@ -335,21 +440,33 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
                       </View>
                     ) : null}
                   </View>
-                  {/* Price + media count — top right column */}
-                  <View style={styles.imageBadgesRight} pointerEvents="none">
+                  {/* Price + media count — top right column.
+                      `box-none` rather than `none`: the gallery count is a
+                      button now, so the column has to let touches reach it
+                      while still passing everything else through to the
+                      carousel underneath. */}
+                  <View style={styles.imageBadgesRight} pointerEvents="box-none">
                     {post.price ? (
-                      <View style={styles.priceBadge}>
+                      <View style={styles.priceBadge} pointerEvents="none">
                         <Text style={styles.priceBadgeText}>${Number(post.price).toLocaleString()}</Text>
                       </View>
                     ) : null}
                     {mediaCount > 1 && (
-                      <View style={styles.multiImgBadge}>
-                        <View style={styles.multiImgIcon}>
-                          <View style={[styles.miniImg, styles.miniImgBack]} />
-                          <View style={[styles.miniImg, styles.miniImgFront]} />
-                        </View>
+                      /* The count was a label saying there were more photos,
+                         with no way to get to them but a pinch nobody guesses.
+                         It opens the viewer now — a badge that states a number
+                         you can act on should be the thing you act on. */
+                      <TouchableOpacity
+                        style={styles.multiImgBadge}
+                        onPress={() => setZoomIndex(0)}
+                        activeOpacity={0.85}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View all ${mediaCount} photos`}
+                      >
+                        <Images size={16} color="#FFFFFF" strokeWidth={2} />
                         <Text style={styles.multiImgCount}>{mediaCount}</Text>
-                      </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </>
@@ -374,18 +491,15 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       )}
 
       {/* Liked-by row */}
-      {/* Where this came from, when it came from somewhere. Below the post
-          rather than above it: the post is what you came to read, and this
-          lands where "and where was this?" actually occurs to you. Above the
-          likes, which belong with the actions they came from. */}
-      <GroupAttribution groupId={post.group_ids?.[0] ?? post.group_id} />
+      {/* What this post is attached to — its group, and whoever and whatever
+          is tagged in it. Below the post rather than above it: the post is
+          what you came to read, and this lands where "and where was this?"
+          actually occurs to you. Above the likes, which belong with the
+          actions they came from. */}
+      <PostContextRow post={post} />
 
       {/* The line opens the full list; the name inside it still goes straight
           to that person, since a nested Text's own press wins. */}
-      {/* The menu shares this line rather than sitting up in the header beside
-          the author's name — it acts on the post, not on the person, and the
-          row it's on now is the card's own footer. It renders whether or not
-          anyone has liked this, so the control doesn't come and go. */}
       <View style={styles.footerRow}>
         {/* The pill keeps the translucent ground and rounded shape it had over
             the photo; it just shares the line now. */}
@@ -401,18 +515,19 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
                 total={likeCount}
                 myId={userInfo?.user_id}
                 names={likeData ? undefined : post.liker_names}
+                onPressUser={setSummaryUserId}
                 color={mutedColor}
                 style={styles.likedBy}
               />
             </SummaryTouchable>
           )}
         </View>
-        {userInfo?.user_id === post.user_id ? (
-          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? '#FFFFFF' : colors.grey} />
-        ) : (
-          <ReportButton contentType="post" contentId={post.internal_id} size={18} />
-        )}
       </View>
+
+      <UserSummaryModal
+        userId={summaryUserId}
+        onClose={() => setSummaryUserId(null)}
+      />
 
       <LikersSheet
         entryId={post.internal_id}
@@ -427,14 +542,18 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
 
 const styles = StyleSheet.create({
   card: {
-    // borderRadius: 12,
-    // marginHorizontal: 12,
+    // The card is full-bleed, so this rounds against the page rather than
+    // inside a gutter — enough to read as a card, short of the point where a
+    // tile cropped by the screen edge starts to look like a mistake.
+    borderRadius: 20,
     marginVertical: 6,
     overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 10, gap: 10 },
-  headerText:  { flex: 1 },
+  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 10, gap: 8 },
+  // Takes the row, so the timestamp and the menu stay pinned right.
+  headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerText:  { flex: 1, minWidth: 0 },
   author:      { fontSize: 14, fontWeight: '700' },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
@@ -444,6 +563,25 @@ const styles = StyleSheet.create({
   titleAlone:     { fontSize: 18, fontWeight: '700', lineHeight: 24 },
   bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -4 },
   bodyPreview:    { fontSize: 13, lineHeight: 18 },
+  /**
+   * Same width as the real one, invisible, out of flow.
+   *
+   * Zero rather than the wrapper's own 8: Yoga positions an absolute child
+   * from the parent's *padding* edge, so 0 here is exactly the box the visible
+   * text lays out in. Insetting by 8 again would measure a narrower column,
+   * over-count the lines, and offer "more" on posts that already fit.
+   */
+  bodyMeasure: {
+    position: 'absolute', left: 0, right: 0, top: 0,
+    opacity: 0,
+  },
+  // Underlined and on its own line: inline it would have to sit inside the
+  // clamped Text, where it'd be the first thing the clamp cut off.
+  moreLink: {
+    fontSize: 13, lineHeight: 18, fontWeight: '700',
+    textDecorationLine: 'underline',
+    alignSelf: 'flex-start', marginTop: 1,
+  },
 
   image:       { width: '100%' },
 
@@ -467,18 +605,15 @@ const styles = StyleSheet.create({
   priceBadgeText: { fontSize: 13, fontWeight: '800', color: '#000' },
   multiImgBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 11, paddingVertical: 7,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    // Roomier than it was — it's a target, not a label, and at 11×7 around a
+    // two-character count it was a very small thing to hit. `hitSlop` widens
+    // the touch area again beyond what's drawn.
+    paddingHorizontal: 13, paddingVertical: 9,
+    borderRadius: 10,
   },
-  multiImgIcon:  { width: 22, height: 18, position: 'relative' },
-  miniImg:       {
-    position: 'absolute', width: 15, height: 13,
-    borderRadius: 3, borderWidth: 2, borderColor: '#FFFFFF',
-  },
-  miniImgBack:   { top: 0, left: 6, backgroundColor: 'rgba(255,255,255,0.25)' },
-  miniImgFront:  { bottom: 0, left: 0, backgroundColor: 'rgba(255,255,255,0.55)' },
-  multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  // Not bold: at 800 the count read as loudly as the post's own title.
+  multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
   messageWrap: { paddingHorizontal: 8, paddingTop: 10 },
   footerRow: {

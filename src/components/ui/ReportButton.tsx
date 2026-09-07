@@ -5,9 +5,10 @@ import { useCreateReportMutation } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { hideContent } from '../../store/moderationSlice';
 import { useColors } from '../../hooks/useColors';
+import type { ReportableType } from '../../types/api';
 
 interface ReportButtonProps {
-  contentType: 'post' | 'car' | 'comment' | 'user';
+  contentType: ReportableType;
   contentId: string;
   size?: number;
   color?: string;

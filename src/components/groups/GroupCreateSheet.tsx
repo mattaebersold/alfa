@@ -9,7 +9,7 @@ import { X } from 'lucide-react-native';
 import {
   useCreatePostMutation,
   useAddPostImageMutation,
-  useCreateGroupForumPostMutation,
+  useCreateGroupDiscussionPostMutation,
   useCreateGroupNewsPostMutation,
   useCreateGroupResourceMutation,
 } from '../../api/apiService';
@@ -31,11 +31,11 @@ import { uploadFile, normalizePickedAssets } from '../../utils/upload';
  * nothing to navigate back from.
  */
 
-export type CreateKind = 'posts' | 'forum' | 'news' | 'resources';
+export type CreateKind = 'posts' | 'discussion' | 'news' | 'resources';
 
 const KIND_TITLE: Record<CreateKind, string> = {
   posts:     'New Post',
-  forum:     'New Forum Post',
+  discussion:     'New Discussion Post',
   news:      'New News Item',
   resources: 'New Resource',
 };
@@ -77,10 +77,10 @@ export default function GroupCreateSheet({
 
   const [createPost, { isLoading: postingPost }] = useCreatePostMutation();
   const [addPostImage] = useAddPostImageMutation();
-  const [createForum, { isLoading: postingForum }] = useCreateGroupForumPostMutation();
+  const [createDiscussion, { isLoading: postingDiscussion }] = useCreateGroupDiscussionPostMutation();
   const [createNews, { isLoading: postingNews }] = useCreateGroupNewsPostMutation();
   const [createResource, { isLoading: postingResource }] = useCreateGroupResourceMutation();
-  const saving = postingPost || postingForum || postingNews || postingResource;
+  const saving = postingPost || postingDiscussion || postingNews || postingResource;
 
   // Reset on open, not on close — clearing while it animates out is visible.
   useEffect(() => {
@@ -96,8 +96,8 @@ export default function GroupCreateSheet({
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const showCategory = kind === 'posts' || kind === 'forum' || kind === 'resources';
-  // A post's categories follow its type; a forum thread's or a resource's come
+  const showCategory = kind === 'posts' || kind === 'discussion' || kind === 'resources';
+  // A post's categories follow its type; a discussion thread's or a resource's come
   // from the group's own list.
   const categoryOptions = kind === 'posts' ? POST_CATEGORIES[postType] : categories;
 
@@ -166,8 +166,8 @@ export default function GroupCreateSheet({
           }
           setImageProgress(null);
         }
-      } else if (kind === 'forum') {
-        await createForum({ group_id: groupId, title: title.trim(), body: body.trim(), category }).unwrap();
+      } else if (kind === 'discussion') {
+        await createDiscussion({ group_id: groupId, title: title.trim(), body: body.trim(), category }).unwrap();
       } else if (kind === 'news') {
         await createNews({ group_id: groupId, title: title.trim(), body: body.trim(), url: url.trim() || undefined }).unwrap();
       } else {
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999,
     paddingHorizontal: 12, paddingVertical: 6, marginBottom: 4,
   },
-  groupChipLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  groupChipLabel: { fontSize: 11, fontWeight: '700' },
   groupChipName:  { fontSize: 13, fontWeight: '700' },
   label:       { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 6 },
   input:       { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },

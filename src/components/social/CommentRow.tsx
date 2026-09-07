@@ -178,19 +178,27 @@ export default function CommentRow({
         ) : null}
 
         {/* Fixed 16:9 in the thread so a run of comments keeps an even rhythm
-            whatever shape the photos are; tapping opens it whole. */}
+            whatever shape the photos are; tapping opens it whole.
+
+            The ratio is on the image, not on the frame around it. With it on
+            the frame the image was `absoluteFill` inside a box whose own
+            height came from the ratio — so the image's size depended on a
+            parent that had no size of its own to give, and it laid out at
+            nothing while the frame still drew its border at the right height.
+            That's the empty bordered rectangle. Sizing the image directly and
+            letting the frame take its height leaves nothing to resolve twice. */}
         {photos.length > 0 && (
           <View style={styles.photoRow}>
             {photos.map((uri, i) => (
               <TouchableOpacity
-                key={uri}
-                style={[styles.photo, { borderColor: colors.borderDark }]}
+                key={`${uri}_${i}`}
+                style={[styles.photoFrame, { borderColor: colors.borderDark }]}
                 onPress={() => setLightboxIndex(i)}
                 activeOpacity={0.9}
                 accessibilityRole="imagebutton"
                 accessibilityLabel="View photo"
               >
-                <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+                <Image source={{ uri }} style={styles.photo} contentFit="cover" transition={150} />
               </TouchableOpacity>
             ))}
           </View>
@@ -296,12 +304,18 @@ const styles = StyleSheet.create({
   // time is a footnote. The weights say so.
   name:     { fontSize: 13, fontWeight: '500' },
   text:     { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  photo:    {
-    width: '100%', aspectRatio: 16 / 9,
+  // `alignItems: flex-start` so the row doesn't stretch its children on the
+  // cross axis, which is the default and fights an aspect ratio.
+  photoRow: {
+    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start',
+    gap: 6, marginTop: 8,
+  },
+  photoFrame: {
+    width: '100%',
     borderRadius: 10, overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
   },
+  photo: { width: '100%', aspectRatio: 16 / 9 },
   footer:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   time:     { fontSize: 11, fontStyle: 'italic' },
   replyBtn: { fontSize: 12, fontWeight: '700' },

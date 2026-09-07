@@ -310,7 +310,7 @@ export default function GroupSettingsSheet({
    * Delete the group.
    *
    * Guarded by typing the name rather than by a confirm dialog. This takes the
-   * group's posts, its forum, its news and its resources with it and can't be
+   * group's posts, its discussions, its news and its resources with it and can't be
    * undone — a destructive button and an "Are you sure?" is the same two taps
    * as any harmless action, and this isn't one.
    */
@@ -513,7 +513,7 @@ export default function GroupSettingsSheet({
               <View style={[styles.dangerBlock, { borderTopColor: c.borderDark }]}>
                 <Text style={[styles.dangerHeading, { color: colors.red }]}>Delete this group</Text>
                 <Text style={[styles.dangerBody, { color: c.grey }]}>
-                  Permanently removes the group, its members, its forum, news and
+                  Permanently removes the group, its members, its discussions, news and
                   resources, and any post made only to this group. Cars, events
                   and rallies are kept — they just stop being linked here.
                 </Text>

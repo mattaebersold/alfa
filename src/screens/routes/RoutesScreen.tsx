@@ -103,21 +103,29 @@ export default function RoutesScreen() {
 
       <View style={[styles.header, { paddingTop: headerPad }]}>
         <Text style={[styles.heading, { color: colors.fg }]}>Routes</Text>
-        {/* Recording is pro-only, so the entry point simply isn't there for
-            everyone else — same rule the API enforces. */}
-        {isPro && (
-          <TouchableOpacity
-            style={[styles.newBtn, { backgroundColor: brand }]}
-            onPress={() => (navigation as any).navigate('RouteRecord')}
-            activeOpacity={0.85}
-          >
-            <Plus size={16} color={onBrand} strokeWidth={2.8} />
-            <Text style={[styles.newLabel, { color: onBrand }]}>New Route</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       <RouteFilters value={filters} onChange={setFilters} />
+
+      {/* Under the filters, full width, in the same shape Add Car and New
+          Group use. Beside the title it was a pill competing with the heading
+          on a screen whose one action it is — and it sat above the filters,
+          which is the wrong order: you narrow the list, then you add to it.
+
+          Recording is pro-only, so the entry point simply isn't there for
+          everyone else — same rule the API enforces. */}
+      {isPro && (
+        <TouchableOpacity
+          style={[styles.newBtn, { backgroundColor: brand }]}
+          onPress={() => (navigation as any).navigate('RouteRecord')}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Record a new route"
+        >
+          <Plus size={17} color={onBrand} strokeWidth={2.6} />
+          <Text style={[styles.newLabel, { color: onBrand }]}>New Route</Text>
+        </TouchableOpacity>
+      )}
 
       {isLoading ? (
         <Spinner />
@@ -157,11 +165,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingBottom: 12,
   },
   heading: { fontSize: 26, fontWeight: '800', letterSpacing: -0.6 },
+  // Matched to Add Car, Add Content and New Group — same radius, padding,
+  // gutter and type. One kind of button doing one kind of job.
   newBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, height: 36, borderRadius: 100,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    marginHorizontal: 12, marginTop: 10, marginBottom: 4,
+    paddingVertical: 12, borderRadius: 10,
   },
-  newLabel: { fontSize: 13, fontWeight: '800' },
+  newLabel: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
 
   list: { padding: 14, paddingBottom: 100, gap: 12 },
 

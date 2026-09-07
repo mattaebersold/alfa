@@ -167,7 +167,6 @@ const styles = StyleSheet.create({
   rallyPill:        { flexShrink: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   rallyPillText:    {
     fontSize: 11, fontWeight: '800', color: '#000000',
-    textTransform: 'uppercase', letterSpacing: 0.5,
   },
   rallyBody: {
     position: 'absolute', left: 0, right: 0, bottom: 0,

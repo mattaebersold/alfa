@@ -170,6 +170,14 @@ export interface GarageCar {
   // populated
   user?: User;
   coowner?: User;
+  /**
+   * Engagement on the car itself, batched by the endpoints that list cars.
+   * The same document the car's own page counts, so a like in the feed shows
+   * on the car and the other way round.
+   */
+  like_count?: number;
+  isLiked?: boolean;
+  comment_count?: number;
 }
 
 /**
@@ -179,12 +187,23 @@ export interface GarageCar {
 export interface CarActivityItem {
   kind: 'mod' | 'gallery';
   internal_id: string;
+  /**
+   * The stored type — "mod" or "cargallery" — which is what likes and comments
+   * are keyed by. Distinct from `kind`, which is this endpoint's own shorthand
+   * for the client; keying interactions off `kind` would file a gallery's
+   * likes against a document nothing else refers to.
+   */
+  entry_type?: string;
   title?: string | null;
   body?: string | null;
   type?: string | null;
   gallery?: GalleryItem[];
   created_at?: string;
   car: GarageCar;
+  /** Batched by the endpoint — see horacio's getFollowedCarActivity. */
+  like_count?: number;
+  isLiked?: boolean;
+  comment_count?: number;
 }
 
 export interface DiecastAnalysis {
@@ -270,6 +289,8 @@ export interface Post {
    */
   likers?: string[];
   liker_names?: Record<string, string>;
+  /** Who and what is tagged in this post — batched by the feed endpoint. */
+  tags?: Tag[];
   // stories
   seen?: boolean;
 }
@@ -367,6 +388,8 @@ export interface Group {
   created_at?: string;
   membership?: { member_type: 'basic' | 'admin'; status: string };
   member_count?: number;
+  /** Hidden from the public list — members join by invitation. */
+  private?: boolean;
 }
 
 export interface GroupMember {
@@ -374,8 +397,9 @@ export interface GroupMember {
   user_id: string;
   group_id: string;
   member_type: 'basic' | 'admin';
-  status: 'active' | 'pending' | 'invited';
+  status: 'active' | 'pending' | 'invited' | 'declined';
   created_at?: string;
+  declined_at?: string;
   user?: User;
 }
 
@@ -460,7 +484,7 @@ export interface Rally {
   user?: User;
 }
 
-export interface GroupForumPost {
+export interface GroupDiscussionPost {
   _id?: string;
   internal_id: string;
   user_id: string;
@@ -518,6 +542,10 @@ export interface CarGalleryAlbum {
   type?: string;
   gallery?: GalleryItem[];
   created_at?: string;
+  /** Batched by the car's mods/galleries endpoints — see withEngagement. */
+  like_count?: number;
+  isLiked?: boolean;
+  comment_count?: number;
 }
 
 export interface CarTask {
@@ -527,7 +555,7 @@ export interface CarTask {
   user_id?: string;
   title?: string;
   body?: string;
-  /** Optional reference — a parts listing, a forum thread, a how-to. */
+  /** Optional reference — a parts listing, a discussion thread, a how-to. */
   link?: string;
   status?: string;
   completed?: boolean;
@@ -549,6 +577,10 @@ export interface Mod {
   gallery?: GalleryItem[];
   status?: string;
   created_at?: string;
+  /** Batched by the car's mods/galleries endpoints — see withEngagement. */
+  like_count?: number;
+  isLiked?: boolean;
+  comment_count?: number;
 }
 
 export interface Message {
@@ -795,3 +827,14 @@ export interface DeclinedInvite {
   declined_at?: string;
   group: Group;
 }
+
+/**
+ * What can be reported.
+ *
+ * Mirrors the keys in horacio's `reportController.MODEL_MAP` — anything not on
+ * that map comes back a 400 from a button that looked like it worked.
+ */
+export type ReportableType =
+  | 'post' | 'car' | 'garagecar' | 'comment' | 'user'
+  | 'mod' | 'cargallery' | 'event' | 'project'
+  | 'groupdiscussion' | 'groupresource';

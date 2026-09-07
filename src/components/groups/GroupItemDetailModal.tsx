@@ -10,8 +10,8 @@ import { Linking } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import {
   useCreateCommentMutation,
-  useUpvoteGroupForumPostMutation,
-  useDownvoteGroupForumPostMutation,
+  useUpvoteGroupDiscussionPostMutation,
+  useDownvoteGroupDiscussionPostMutation,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useCommentThread } from '../../hooks/useCommentThread';
@@ -28,10 +28,10 @@ import { ss } from '../../styles/shared';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-type Kind = 'news' | 'forum' | 'resource';
+type Kind = 'news' | 'discussion' | 'resource';
 const ENTRY_TYPE: Record<Kind, string> = {
   news: 'groupnews',
-  forum: 'groupforum',
+  discussion: 'groupdiscussion',
   resource: 'groupresource',
 };
 
@@ -52,8 +52,8 @@ interface Props {
 export default function GroupItemDetailModal({ item, kind, categoryLabel, visible, onClose }: Props) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
-  const [upvote, { isLoading: upvoting }] = useUpvoteGroupForumPostMutation();
-  const [downvote, { isLoading: downvoting }] = useDownvoteGroupForumPostMutation();
+  const [upvote, { isLoading: upvoting }] = useUpvoteGroupDiscussionPostMutation();
+  const [downvote, { isLoading: downvoting }] = useDownvoteGroupDiscussionPostMutation();
   const voting = upvoting || downvoting;
   const [commentText, setCommentText] = useState('');
   const [mentionedIds, setMentionedIds] = useState<string[]>([]);
@@ -100,7 +100,7 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
   ).filter((u: string | null): u is string => !!u);
   const hero = firstGalleryUrl(gallery) ?? (d.image ? imageUrl(d.image) : null);
   const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-  const kindLabel = kind === 'news' ? 'News' : kind === 'resource' ? 'Resource' : 'Forum';
+  const kindLabel = kind === 'news' ? 'News' : kind === 'resource' ? 'Resource' : 'Discussion';
   const ytId = kind === 'resource' ? youtubeId(d.url) : null;
 
   return (
@@ -146,7 +146,7 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
 
           {/* Voting. Lives here rather than on the list row — it's a response to
               having read the thing, and the row is a link, not a control. */}
-          {kind === 'forum' && (
+          {kind === 'discussion' && (
             <View style={styles.voteRow}>
               <TouchableOpacity
                 style={[styles.voteBtn, { borderColor: colors.borderDark }]}
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   galleryImage: { width: SCREEN_WIDTH, aspectRatio: 16 / 9 },
   body:    { padding: 16 },
   catChip: { alignSelf: 'flex-start', backgroundColor: '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, marginBottom: 8 },
-  catChipText: { color: '#B4B4B4', fontSize: 10, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+  catChipText: { color: '#B4B4B4', fontSize: 10, fontWeight: '800' },
   title:   { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26, marginBottom: 12 },
   meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   metaText:{ fontSize: 12, color: '#B4B4B4' },

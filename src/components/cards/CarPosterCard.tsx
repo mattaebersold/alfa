@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,9 +14,18 @@ import {
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import ActionSheet from '../ui/ActionSheet';
 import Avatar from '../ui/Avatar';
+import UserSummaryModal from '../members/UserSummaryModal';
+import CarSummaryModal from '../cars/CarSummaryModal';
+import ReportButton from '../ui/ReportButton';
+import LikeButton from '../social/LikeButton';
+import CommentButton from '../social/CommentButton';
+import CommentsSheet from '../social/CommentsSheet';
+import { type SummaryOrigin } from '../ui/SummaryModal';
+import { CAR_TYPES, CAR_CATEGORIES } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
 
 // Murray-style badge colors per car type. Exported so anything that badges a car
@@ -30,8 +39,23 @@ export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'other':        { bg: '#F0D689', text: '#000' },
 };
 
-export const formatLabel = (key?: string) =>
-  key ? key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : null;
+/** Every car type and category label, keyed the way they're stored. */
+const LABELS: Record<string, string> = {};
+CAR_TYPES.forEach((t) => { LABELS[t.key] = t.label; });
+Object.values(CAR_CATEGORIES).flat().forEach((c) => { LABELS[c.key] = c.label; });
+
+/**
+ * The written label for a stored type or category key.
+ *
+ * The real label first, and only then a de-kebabbed, title-cased guess. The
+ * guess alone turned `carsAndCoffee` into "Carsandcoffee" and `shibox` into
+ * "Shibox" — the keys are camelCase, and there is no rule that recovers
+ * "Cars & Coffee" from one. The list already has the answer; this asks it.
+ */
+export const formatLabel = (key?: string) => {
+  if (!key) return null;
+  return LABELS[key] ?? key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+};
 
 interface CarPosterCardProps {
   car: GarageCar;
@@ -109,6 +133,22 @@ export default function CarPosterCard({
   // for often.
   const [addSheet, setAddSheet] = useState(false);
   const [manageSheet, setManageSheet] = useState(false);
+  /**
+   * Whose summary is open.
+   *
+   * Tapping the person on a card opens a panel over the feed rather than
+   * pushing their profile — see FeedItemCard for the reasoning; it's the same
+   * question and the same answer wherever a byline appears.
+   */
+  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
+  /** The car's own summary panel, and the card it grows from. */
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryOrigin, setSummaryOrigin] = useState<SummaryOrigin | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const cardRef = useRef<View>(null);
+  // Feed cards take their shape from the photo. Everywhere else the card is
+  // square, because those surfaces are grids and carousels that need one shape.
+  const { ratio, onLoad } = usePosterRatio();
 
   const needOwner = attribution || showOwner;
   const { data: owner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id || !needOwner });
@@ -177,6 +217,22 @@ export default function CarPosterCard({
     (nav as any).navigate('CarDetail', { carId: car.internal_id });
   };
 
+  /**
+   * In the feed, a tap summarises rather than travels.
+   *
+   * Measured off the card first, so the panel grows out of what was pressed.
+   * Everywhere else the card still goes straight to the car — a garage or a
+   * profile is already the place you'd summarise from.
+   */
+  const openSummary = () => {
+    const node = cardRef.current;
+    if (!node) { setSummaryOrigin(null); setSummaryOpen(true); return; }
+    node.measureInWindow((x, y, w, h) => {
+      setSummaryOrigin({ x, y, w, h });
+      setSummaryOpen(true);
+    });
+  };
+
   return (
     /**
      * The glow lives on a wrapper, not on the card.
@@ -190,6 +246,36 @@ export default function CarPosterCard({
      * shadow from the view's outline, and an outline needs a background to
      * exist. The card covers it exactly, so the fill is never seen.
      */
+    <View style={attribution ? styles.feedWrap : undefined}>
+      {/* In the feed the byline sits above the card, not on the photograph —
+          same as a mod or a gallery. The car is what was added; a face and a
+          sentence laid over it were covering the top of it to say something
+          that belongs beside the card. */}
+      {attribution && (
+        <View style={styles.byline}>
+          <TouchableOpacity
+            style={styles.bylineWho}
+            onPress={() => owner && setSummaryUserId(owner.user_id)}
+            activeOpacity={0.7}
+            disabled={!owner}
+          >
+            <Avatar user={owner} size={30} />
+            <View style={styles.bylineText}>
+              <Text style={[styles.bylineName, { color: c.fg }]} numberOfLines={1}>
+                @{owner?.username ?? 'Someone'}
+              </Text>
+              <Text style={[styles.bylineSub, { color: c.grey }]} numberOfLines={1}>
+                added a car to their garage
+              </Text>
+            </View>
+          </TouchableOpacity>
+          {timeAgo ? <Text style={[styles.bylineTime, { color: c.grey }]}>{timeAgo}</Text> : null}
+          {!isOwner && (
+            <ReportButton contentType="garagecar" contentId={car.internal_id} size={18} />
+          )}
+        </View>
+      )}
+
     <View
       style={[
         styles.glow,
@@ -197,27 +283,45 @@ export default function CarPosterCard({
         // Android honours shadowColor from API 28; below that this is a soft
         // neutral shadow rather than a tinted one, which is a fine floor.
         { shadowColor: tint },
+        // The feed card sits in its own wrapper, which owns the margins.
+        attribution && styles.glowInFeed,
         style,
       ]}
     >
       <TouchableOpacity
-        style={[styles.card, { borderColor: typeBadge ? `${typeBadge.bg}80` : c.borderDark }]}
-        onPress={handlePress}
+        ref={cardRef}
+        style={[
+          styles.card,
+          attribution && { aspectRatio: ratio },
+          { borderColor: typeBadge ? `${typeBadge.bg}80` : c.borderDark },
+        ]}
+        onPress={attribution ? openSummary : handlePress}
         activeOpacity={0.92}
       >
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
-          style={styles.image}
+          // Written out rather than spreading `StyleSheet.absoluteFillObject`,
+          // which RN 0.86 removed — spreading it yields {} and the image loses
+          // its position silently.
+          style={attribution ? styles.imageFill : styles.image}
           contentFit="cover"
+          // Centred, so a crop takes from both edges evenly rather than
+          // keeping the top-left corner and dropping the rest.
+          contentPosition="center"
           transition={250}
+          onLoad={attribution ? onLoad : undefined}
         />
 
-        <LinearGradient
-          colors={['rgba(0,0,0,0.78)', 'rgba(0,0,0,0.25)', 'transparent']}
-          locations={[0, 0.55, 1]}
-          style={styles.scrimTop}
-          pointerEvents="none"
-        />
+        {/* Only where something still sits up top. In the feed the byline has
+            moved off the photo, so this would be darkening it for nothing. */}
+        {(!attribution || featured || showControls) && (
+          <LinearGradient
+            colors={['rgba(0,0,0,0.78)', 'rgba(0,0,0,0.25)', 'transparent']}
+            locations={[0, 0.55, 1]}
+            style={styles.scrimTop}
+            pointerEvents="none"
+          />
+        )}
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
           locations={[0, 0.5, 1]}
@@ -234,30 +338,12 @@ export default function CarPosterCard({
             </View>
           )}
 
-          {attribution && (
-            <TouchableOpacity
-              style={styles.attribution}
-              onPress={() => owner && (nav as any).navigate('UserDetail', { userId: owner.user_id, username: owner.username })}
-              activeOpacity={0.7}
-              disabled={!owner}
-            >
-              <Avatar user={owner} size={28} />
-              <View style={styles.attributionText}>
-                <Text style={styles.line} numberOfLines={1}>
-                  <Text style={styles.name}>@{owner?.username ?? 'Someone'}</Text>
-                  <Text style={styles.lineMuted}> added a car to their garage</Text>
-                </Text>
-                {timeAgo ? <Text style={styles.time}>{timeAgo}</Text> : null}
-              </View>
-            </TouchableOpacity>
-          )}
-
           {/* The chip form: enough to say whose car this is, without the sentence
               the feed needs. */}
           {showOwner && !attribution && owner && (
             <TouchableOpacity
               style={styles.ownerChip}
-              onPress={() => (nav as any).navigate('UserDetail', { userId: owner.user_id, username: owner.username })}
+              onPress={() => setSummaryUserId(owner.user_id)}
               activeOpacity={0.7}
             >
               <Avatar user={owner} size={20} />
@@ -305,24 +391,27 @@ export default function CarPosterCard({
         )}
 
         {/* ── The plate ── */}
-        <View style={[styles.plate, compact && styles.plateCompact]} pointerEvents="none">
+        <View
+          style={[styles.plate, compact && styles.plateCompact, attribution && styles.plateLeft]}
+          pointerEvents="none"
+        >
           {!compact && <CarIcon size={38} color="#FFFFFF" strokeWidth={1.6} />}
           <Text
-            style={[styles.title, compact && styles.titleCompact]}
+            style={[styles.title, compact && styles.titleCompact, attribution && styles.textLeft]}
             numberOfLines={2}
           >
             {displayTitle}
           </Text>
           {subtitle ? (
             <Text
-              style={[styles.subtitle, compact && styles.subtitleCompact]}
+              style={[styles.subtitle, compact && styles.subtitleCompact, attribution && styles.textLeft]}
               numberOfLines={1}
             >
               {subtitle}
             </Text>
           ) : null}
           {(typeLabel || categoryLabel || followerCount > 0) && (
-            <View style={styles.badges}>
+            <View style={[styles.badges, attribution && styles.badgesLeft]}>
               {typeLabel && typeBadge && (
                 <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
                   <Text style={[styles.badgeText, { color: typeBadge.text }]}>{typeLabel}</Text>
@@ -409,6 +498,48 @@ export default function CarPosterCard({
         )}
       </TouchableOpacity>
     </View>
+
+      {/* Like and comment on the car itself — the same document the car's own
+          page counts, so a like here shows there and vice versa. */}
+      {attribution && (
+        <View style={styles.footer}>
+          <View style={styles.actionsPill}>
+            <LikeButton
+              documentId={car.internal_id}
+              entryType="garagecar"
+              initialCount={car.like_count ?? 0}
+              initialLiked={car.isLiked ?? false}
+              color="#FFFFFF"
+            />
+            <CommentButton
+              count={car.comment_count ?? 0}
+              onPress={() => setCommentsOpen(true)}
+              color="#FFFFFF"
+            />
+          </View>
+        </View>
+      )}
+
+      {attribution && (
+        <CommentsSheet
+          postId={car.internal_id}
+          entryType="garagecar"
+          visible={commentsOpen}
+          onClose={() => setCommentsOpen(false)}
+        />
+      )}
+
+      <CarSummaryModal
+        carId={summaryOpen ? car.internal_id : null}
+        origin={summaryOrigin}
+        onClose={() => setSummaryOpen(false)}
+      />
+
+      <UserSummaryModal
+        userId={summaryUserId}
+        onClose={() => setSummaryUserId(null)}
+      />
+    </View>
   );
 }
 
@@ -440,7 +571,40 @@ const styles = StyleSheet.create({
     borderWidth: 1.25,
     backgroundColor: '#111111',
   },
+  feedWrap: { marginBottom: 6 },
+  byline: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
+  },
+  bylineWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  bylineText: { flex: 1, minWidth: 0 },
+  bylineName: { fontSize: 14, fontWeight: '700' },
+  bylineSub:  { fontSize: 12, marginTop: 1 },
+  bylineTime: { fontSize: 11, fontStyle: 'italic' },
+
   image: { width: '100%', aspectRatio: 1 },
+  /**
+   * The ratio lives on the card in the feed, not on the image.
+   *
+   * With it on the image, the card's height came from the image's, which came
+   * from a width already reduced by the card's own border — the two roundings
+   * disagreed and the card's background showed through as a hairline. Sizing
+   * the card and letting the image fill it leaves nothing to resolve twice.
+   */
+  imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  glowInFeed: { marginHorizontal: 12, marginVertical: 0 },
+
+  plateLeft: { alignItems: 'flex-start', paddingHorizontal: 14 },
+  textLeft:  { textAlign: 'left' },
+  badgesLeft: { justifyContent: 'flex-start' },
+
+  footer: { paddingHorizontal: 12, paddingTop: 8 },
+  actionsPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 6, borderRadius: 999,
+  },
 
   scrimTop:    { position: 'absolute', left: 0, right: 0, top: 0, height: '34%' },
   scrimBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '62%' },
@@ -452,12 +616,6 @@ const styles = StyleSheet.create({
   },
   topLeftCompact: { right: 0, paddingHorizontal: 10, paddingVertical: 9 },
 
-  attribution: { flexDirection: 'row', alignItems: 'center', gap: 9, alignSelf: 'stretch' },
-  attributionText: { flex: 1 },
-  line:      { fontSize: 13, lineHeight: 17, color: '#FFFFFF' },
-  lineMuted: { color: 'rgba(255,255,255,0.78)' },
-  name:      { fontWeight: '800', color: '#FFFFFF' },
-  time:      { fontSize: 11, marginTop: 1, color: 'rgba(255,255,255,0.6)' },
 
   ownerChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -475,7 +633,6 @@ const styles = StyleSheet.create({
   },
   featuredBadgeText: {
     fontSize: 11, fontWeight: '800', color: '#000',
-    textTransform: 'uppercase', letterSpacing: 0.4,
   },
 
   topRight: {
@@ -522,5 +679,5 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.3)',
   },
   followerBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  badgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  badgeText: { fontSize: 10, fontWeight: '800' },
 });

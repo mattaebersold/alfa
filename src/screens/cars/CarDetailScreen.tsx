@@ -36,6 +36,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import LikeButton from '../../components/social/LikeButton';
+import CommentButton from '../../components/social/CommentButton';
 import FollowButton from '../../components/social/FollowButton';
 import CommentsSheet from '../../components/social/CommentsSheet';
 import InlineComments from '../../components/social/InlineComments';
@@ -218,6 +219,15 @@ function AlbumCard({ album, onPress, onManage }: { album: CarGalleryAlbum; onPre
 
 function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onOpenAlbum }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void; onOpenAlbum: (album: CarGalleryAlbum) => void }) {
   const [lightbox, setLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
+  /**
+   * The lone hero's true ratio, once the image reports it.
+   *
+   * Unclamped, unlike the feed's `usePosterRatio` — a feed is a column that has
+   * to keep an even rhythm, and this is one photograph at the top of its own
+   * screen with nothing to be even with. Starts at the old fixed shape so the
+   * card doesn't jump from nothing.
+   */
+  const [heroRatio, setHeroRatio] = useState(4 / 3);
   const { data: galData } = useGetCarGalleriesQuery(carId);
   const albums = galData?.entries ?? [];
   // Fall back to the first gallery-album photo when the car has no profile/gallery image.
@@ -228,16 +238,35 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
   const albumCols: CarGalleryAlbum[][] = [];
   for (let i = 0; i < albums.length; i += 2) albumCols.push(albums.slice(i, i + 2));
 
-  // Single image with no additional galleries → show it full-bleed instead of a card.
+  /**
+   * Single image with no additional galleries → the photograph itself, at the
+   * shape it was taken.
+   *
+   * It used to be cropped into a fixed landscape box, which on a portrait shot
+   * of a car cut the roof and the wheels off — the two ends of the thing you
+   * came to look at. With one image and nothing to line it up against, there's
+   * no reason to impose a shape on it at all: it's the top of the screen, not
+   * an item in a row.
+   */
   if (albums.length === 0 && heroUrl) {
     return (
       <>
         <TouchableOpacity
-          style={styles.fullHero}
+          style={[styles.fullHero, { aspectRatio: heroRatio }]}
           activeOpacity={0.95}
           onPress={() => effectiveHero && setLightbox({ images: [{ filename: effectiveHero }], index: 0 })}
         >
-          <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Image
+            source={{ uri: heroUrl }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            contentPosition="center"
+            onLoad={(e) => {
+              const w = e.source?.width;
+              const h = e.source?.height;
+              if (w && h) setHeroRatio(w / h);
+            }}
+          />
         </TouchableOpacity>
         {onAddGallery && (
           <TouchableOpacity style={styles.addGalleryOverlay} onPress={onAddGallery} activeOpacity={0.8}>
@@ -323,7 +352,13 @@ function FilterChip({ label, active, onPress, accent }: { label: string; active:
 
 // ── Mod card ─────────────────────────────────────────────────────────────────
 
-function ModCard({ mod, colors, onOptions }: { mod: Mod; colors: ReturnType<typeof useColors>; onOptions?: () => void }) {
+function ModCard({ mod, colors, onOptions, onComments }: {
+  mod: Mod;
+  colors: ReturnType<typeof useColors>;
+  onOptions?: () => void;
+  /** Opens the thread. Hoisted to the screen so one sheet serves the list. */
+  onComments?: () => void;
+}) {
   const thumb = mod.gallery?.[0] ? imageUrl(mod.gallery[0].filename) : null;
   return (
     <View style={[modStyles.card, { backgroundColor: colors.card }]}>
@@ -347,6 +382,25 @@ function ModCard({ mod, colors, onOptions }: { mod: Mod; colors: ReturnType<type
         {mod.body ? (
           <Text style={[modStyles.desc, { color: colors.muted }]} numberOfLines={3}>{stripHtml(mod.body)}</Text>
         ) : null}
+
+        {/* The same like and comment a mod gets in the feed.
+            Without these the car's own page was the one place a mod couldn't
+            be reacted to — and, worse, the one place an existing like didn't
+            show, since the document is the same either way. */}
+        <View style={modStyles.actions}>
+          <LikeButton
+            documentId={mod.internal_id}
+            entryType="mod"
+            initialCount={mod.like_count ?? 0}
+            initialLiked={mod.isLiked ?? false}
+            color={colors.grey}
+          />
+          <CommentButton
+            count={mod.comment_count ?? 0}
+            onPress={() => onComments?.()}
+            color={colors.grey}
+          />
+        </View>
       </View>
     </View>
   );
@@ -354,12 +408,13 @@ function ModCard({ mod, colors, onOptions }: { mod: Mod; colors: ReturnType<type
 
 const modStyles = StyleSheet.create({
   card:      { marginHorizontal: 12, marginBottom: 8, borderRadius: 10, overflow: 'hidden' },
+  actions:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: -6 },
   thumb:     { width: '100%', height: 180 },
   body:      { padding: 12 },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' },
   title:     { flex: 1, fontSize: 15, fontWeight: '700', lineHeight: 20 },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, flexShrink: 0 },
-  typeText:  { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  typeText:  { fontSize: 11, fontWeight: '700' },
   optionsBtn:{ padding: 2, marginLeft: 2 },
   desc:      { fontSize: 13, lineHeight: 18, marginTop: 6 },
 });
@@ -392,6 +447,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [descLines, setDescLines] = useState<number | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  /** A mod or an album whose thread is open, and which document it is. */
+  const [subComments, setSubComments] = useState<{ id: string; type: string } | null>(null);
   // Records pane filter — cleared whenever the pane leaves Records.
   const [recordCategory, setRecordCategory] = useState<string | null>(null);
 
@@ -533,6 +590,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [followCar, { isLoading: followingCar }] = useFollowCarMutation();
   const [unfollowCar, { isLoading: unfollowingCar }] = useUnfollowCarMutation();
   const isFollowingCar = carFollowStatus?.following ?? false;
+  /** Follow / Following take the account's colour — gold for Pro, else blue. */
+  const followFill = isPro ? colors.pro : ACCENT_BLUE;
   const carFollowBusy = followingCar || unfollowingCar;
   const followCarNow = useCallback(async () => {
     if (carFollowBusy || isFollowingCar) return;
@@ -544,7 +603,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     }
   }, [carFollowBusy, isFollowingCar, followCar, carId]);
   const handleCarFollowMenu = useCallback(() => {
-    Alert.alert('Following this car', undefined, [
+    Alert.alert('Unfollow this car?', "You'll stop seeing its mods and photos in your feed.", [
       {
         text: 'Unfollow',
         style: 'destructive',
@@ -1009,7 +1068,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       }
       case 'mods':
         if (mods.length === 0) return <EmptyState title="No mods yet" />;
-        return mods.map((mod) => <ModCard key={mod.internal_id} mod={mod} colors={colors} />);
+        return mods.map((mod) => (
+          <ModCard
+            key={mod.internal_id}
+            mod={mod}
+            colors={colors}
+            onComments={() => setSubComments({ id: mod.internal_id, type: 'mod' })}
+          />
+        ));
       case 'galleries':
         if (paneAlbums.length === 0) return <EmptyState title="No galleries yet" />;
         return paneAlbums.map((album) => {
@@ -1027,6 +1093,22 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               <View style={{ flex: 1 }}>
                 <Text style={{ color: SHEET_FG, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
                 <Text style={{ color: colors.grey, fontSize: 12, marginTop: 2 }}>{album.gallery?.length ?? 0} photos</Text>
+                {/* Same reasoning as ModCard: an album is likeable from the
+                    feed, so it has to show that here too. */}
+                <View style={modStyles.actions}>
+                  <LikeButton
+                    documentId={album.internal_id}
+                    entryType="cargallery"
+                    initialCount={album.like_count ?? 0}
+                    initialLiked={album.isLiked ?? false}
+                    color={colors.grey}
+                  />
+                  <CommentButton
+                    count={album.comment_count ?? 0}
+                    onPress={() => setSubComments({ id: album.internal_id, type: 'cargallery' })}
+                    color={colors.grey}
+                  />
+                </View>
               </View>
               {isOwnerOrCoOwner ? (
                 <TouchableOpacity onPress={() => handleAlbumOptions(album)} hitSlop={8} style={{ padding: 4 }}>
@@ -1223,6 +1305,47 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 icons, and a full-width rule under a paragraph to hold them read
                 as the end of the page. */}
             <View style={styles.titleActions}>
+              {/* Follow, and Following, as one button.
+                  Same shape as like and comment because it belongs to the same
+                  set. The full-width bar this replaces was a second control
+                  for the same thing — two places to change one state, one of
+                  which was the loudest element on the page. Filled when you're
+                  following, plain when you aren't: the state is the fill, and
+                  the word confirms it. */}
+              {!isOwnerOrCoOwner && (
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    styles.followingBtn,
+                    isFollowingCar
+                      ? { backgroundColor: followFill }
+                      : { backgroundColor: colors.secondary },
+                  ]}
+                  onPress={isFollowingCar ? handleCarFollowMenu : followCarNow}
+                  disabled={carFollowBusy}
+                  hitSlop={8}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isFollowingCar }}
+                  accessibilityLabel={isFollowingCar
+                    ? 'Following this car. Tap to unfollow.'
+                    : 'Follow this car'}
+                >
+                  {carFollowBusy ? (
+                    <ActivityIndicator size="small" color={isFollowingCar ? '#000000' : colors.fg} />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.followingBtnText,
+                        { color: isFollowingCar ? '#000000' : colors.fg },
+                      ]}
+                    >
+                      {isFollowingCar ? 'Following' : 'Follow'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
               {/* One shape and one ink for both. They were a bare grey heart
                   with a count beside a bare, brighter comment icon — same job,
                   two different-looking controls. */}
@@ -1288,43 +1411,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               )}
             </View>
           ) : null}
-
-          {!isOwnerOrCoOwner && (
-            <View style={styles.followRow}>
-              <View style={styles.likeRowRight}>
-                <TouchableOpacity
-                  style={[
-                    styles.followInlineBtn,
-                    isFollowingCar
-                      ? { backgroundColor: ACCENT_BLUE, borderColor: colors.border, borderWidth: 1.5 }
-                      : { backgroundColor: ACCENT_BLUE },
-                    carFollowBusy && { opacity: 0.6 },
-                  ]}
-                  onPress={isFollowingCar ? handleCarFollowMenu : followCarNow}
-                  disabled={carFollowBusy}
-                  activeOpacity={0.85}
-                >
-                  {carFollowBusy ? (
-                    <ActivityIndicator size="small" color="#000000" />
-                  ) : (
-                    <Text style={[styles.followInlineText, { color: '#000000' }]}>
-                      {isFollowingCar ? '✓ Following' : 'Follow Car'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-                {isFollowingCar && !carFollowBusy && (
-                  <TouchableOpacity
-                    style={styles.followMenuBlack}
-                    onPress={handleCarFollowMenu}
-                    hitSlop={8}
-                    activeOpacity={0.8}
-                  >
-                    <MoreHorizontal size={20} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
 
           {isOwnerOrCoOwner && (
             <>
@@ -1763,6 +1849,17 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onClose={() => setCommentsOpen(false)}
       />
 
+      {/* One sheet for the car's sub-items — a mod, an album — rather than one
+          per row. `subComments` names which document is being read. */}
+      {subComments && (
+        <CommentsSheet
+          postId={subComments.id}
+          entryType={subComments.type}
+          visible={!!subComments}
+          onClose={() => setSubComments(null)}
+        />
+      )}
+
       {viewer && (
         <Lightbox
           images={viewer.album.gallery ?? []}
@@ -1778,7 +1875,16 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
 const styles = StyleSheet.create({
 
-  galleryWrap:    { height: GALLERY_HEIGHT + 24, backgroundColor: '#000' },
+  /**
+   * Sizes to what's in it.
+   *
+   * It was pinned to `GALLERY_HEIGHT + 24` — the height of the scrolling strip
+   * — which was right while the hero was cropped to that same box. Now that a
+   * lone photo takes its own proportions, a wide one leaves the difference as
+   * a band of black under it. The strip's own children carry explicit heights,
+   * so it still measures correctly without this.
+   */
+  galleryWrap:    { backgroundColor: '#000' },
   galleryStrip:   { paddingVertical: 12, paddingLeft: 12, gap: 10, alignItems: 'flex-start' },
   heroSlide:      { width: HERO_WIDTH, height: GALLERY_HEIGHT, borderRadius: 12, overflow: 'hidden' },
   // A lone photo is inset and rounded rather than run to the edges: with no
@@ -1786,10 +1892,10 @@ const styles = StyleSheet.create({
   // read as a banner rather than as the car's one picture. `overflow: hidden`
   // is what actually clips the image to the corners — the radius alone does
   // nothing to a child on absolute fill.
+  // Height comes from the photo's own ratio — see CarGalleryStrip.
   fullHero: {
     width: SCREEN_WIDTH - 24,
     marginHorizontal: 12,
-    height: GALLERY_HEIGHT + 24,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1905,8 +2011,6 @@ const styles = StyleSheet.create({
   // No rule across the top: the row already reads as its own thing, and the
   // line under a description looked like the end of the page rather than the
   // start of a control.
-  followRow:      { marginTop: 14 },
-  likeRowRight:   { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
   actionBtn: {
     height: 34, minWidth: 34, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
@@ -1915,20 +2019,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   commentBtn:     { paddingHorizontal: 8 },
-  followInlineBtn: {
-    // Takes the row. `flex: 1` rather than `width: '100%'` so the follow-options
-    // button that appears once you're following shares the line instead of
-    // being pushed off the end of it.
-    flex: 1,
-    paddingHorizontal: 18, paddingVertical: 11, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center'
-  },
-  followInlineText: { fontSize: 14, fontWeight: '800' },
-  followMenuBlack: {
-    backgroundColor: '#000000', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 9,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  // Wider than a square icon button: it holds a word, not a glyph.
+  followingBtn:     { paddingHorizontal: 12 },
+  followingBtnText: { fontSize: 13, fontWeight: '700', color: '#000000' },
+
 
   ownersRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },

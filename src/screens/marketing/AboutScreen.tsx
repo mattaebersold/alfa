@@ -267,7 +267,6 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     fontSize: 11, fontWeight: '800', color: '#000000',
-    textTransform: 'uppercase', letterSpacing: 0.5,
   },
   blankCheck: { fontSize: 13 },
   profileLink:     { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: -2 },

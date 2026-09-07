@@ -3,10 +3,10 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  Rally, GroupForumPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
+  Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
   FeedPreferences, HomeBanner, CarActivityItem,
-  DeclinedInvite,
+  DeclinedInvite, ReportableType,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -17,7 +17,7 @@ export const apiService = createApi({
     'SocietyEvent', 'EventInterest',
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
-    'CarFollow', 'Group', 'GroupMembers', 'GroupForum', 'GroupNews',
+    'CarFollow', 'Group', 'GroupMembers', 'GroupDiscussion', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
     'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites',
   ],
@@ -706,7 +706,7 @@ export const apiService = createApi({
     /**
      * Delete a group outright.
      *
-     * Admin-only, and the server cascades: memberships, forum threads, news and
+     * Admin-only, and the server cascades: memberships, discussion threads, news and
      * resources go with it, posts that lived only here are deleted, and cars,
      * events and rallies merely lose the association. Irreversible.
      */
@@ -870,31 +870,31 @@ export const apiService = createApi({
       providesTags: ['Events'],
     }),
 
-    // ── Group Forum ───────────────────────────────────────────────────────────
+    // ── Group Discussion ──────────────────────────────────────────────────────
 
-    getGroupForum: builder.query<{ entries: GroupForumPost[] }, { groupId: string; page?: number; limit?: number }>({
+    getGroupDiscussion: builder.query<{ entries: GroupDiscussionPost[] }, { groupId: string; page?: number; limit?: number }>({
       query: ({ groupId, page = 0, limit = 30 }) => ({
-        url: `api/groupforum/${page}/none/${limit}`,
+        url: `api/groupdiscussion/${page}/none/${limit}`,
         params: { group_id: groupId },
       }),
-      providesTags: (result, error, { groupId }) => [{ type: 'GroupForum', id: groupId }],
+      providesTags: (result, error, { groupId }) => [{ type: 'GroupDiscussion', id: groupId }],
     }),
 
-    createGroupForumPost: builder.mutation<void, { group_id: string; title: string; body: string; category?: string }>({
-      query: (body) => ({ url: 'api/groupforum/create', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupForum', id: group_id }],
+    createGroupDiscussionPost: builder.mutation<void, { group_id: string; title: string; body: string; category?: string }>({
+      query: (body) => ({ url: 'api/groupdiscussion/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
     }),
 
     // Both endpoints toggle: voting the same way twice clears your vote, and
     // voting the other way switches it. `group_id` is only for invalidation.
-    upvoteGroupForumPost: builder.mutation<void, { internal_id: string; group_id: string }>({
-      query: ({ internal_id }) => ({ url: 'api/groupforum/upvote', method: 'POST', body: { internal_id } }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupForum', id: group_id }],
+    upvoteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupdiscussion/upvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
     }),
 
-    downvoteGroupForumPost: builder.mutation<void, { internal_id: string; group_id: string }>({
-      query: ({ internal_id }) => ({ url: 'api/groupforum/downvote', method: 'POST', body: { internal_id } }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupForum', id: group_id }],
+    downvoteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupdiscussion/downvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
     }),
 
     // ── Group News ────────────────────────────────────────────────────────────
@@ -1331,7 +1331,7 @@ export const apiService = createApi({
 
     // ── Reports ─────────────────────────────────────────────────────────────
 
-    createReport: builder.mutation<void, { content_type: 'post' | 'car' | 'comment' | 'user'; content_id: string; reason?: string }>({
+    createReport: builder.mutation<void, { content_type: ReportableType; content_id: string; reason?: string }>({
       query: (body) => ({ url: 'api/reports/create', method: 'POST', body }),
       invalidatesTags: ['FlaggedContent', 'Post', 'Cars', 'Comment'],
     }),
@@ -1511,7 +1511,7 @@ export const {
   useAttendRallyMutation,
   useDeclineRallyMutation,
   useGetCalendarEventsQuery,
-  useGetGroupForumQuery,
+  useGetGroupDiscussionQuery,
   useGetGroupNewsQuery,
   useGetGroupResourcesQuery,
   useGetFollowStatusQuery,
@@ -1534,9 +1534,9 @@ export const {
   useCheckEmailMutation,
   useGetGroupCarsQuery,
   useGetCarGroupsQuery,
-  useCreateGroupForumPostMutation,
-  useUpvoteGroupForumPostMutation,
-  useDownvoteGroupForumPostMutation,
+  useCreateGroupDiscussionPostMutation,
+  useUpvoteGroupDiscussionPostMutation,
+  useDownvoteGroupDiscussionPostMutation,
   useCreateGroupNewsPostMutation,
   useCreateGroupResourceMutation,
   useUpdateCarGroupMutation,

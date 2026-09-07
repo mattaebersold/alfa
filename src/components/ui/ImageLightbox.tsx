@@ -8,7 +8,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import Animated, {
   useAnimatedStyle, useSharedValue, withTiming, withSpring, runOnJS,
 } from 'react-native-reanimated';
-import { X } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Past this, the image is "zoomed" — the pager stops and the pan moves it. */
@@ -89,6 +89,16 @@ export function ZoomableImage({
   const translateY = useSharedValue(0);
   const savedX = useSharedValue(0);
   const savedY = useSharedValue(0);
+  /**
+   * Whether the current zoom is one the viewer chose to stay in.
+   *
+   * A pinch is a *peek* — you hold it to look closer and it springs back to fit
+   * when you let go, which is what the gesture feels like it should do and what
+   * every photo viewer people already use does. A double tap is the deliberate
+   * one: it stays until you tap again. This flag is what tells the pinch's
+   * release which of the two it's ending.
+   */
+  const persistent = useSharedValue(false);
 
   /**
    * The photo's displayed size, once `contain` has fitted it.
@@ -133,8 +143,22 @@ export function ZoomableImage({
     translateY.value = withTiming(0);
     savedX.value = 0;
     savedY.value = 0;
+    persistent.value = false;
     runOnJS(onZoomChange)(false);
     runOnJS(reportDrag)(0);
+  };
+
+  /** Back to fit, on a spring — the release of a peek rather than a reset. */
+  const springBack = () => {
+    'worklet';
+    scale.value = withSpring(1, { damping: 22, stiffness: 190 });
+    translateX.value = withSpring(0, { damping: 22, stiffness: 190 });
+    translateY.value = withSpring(0, { damping: 22, stiffness: 190 });
+    savedScale.value = 1;
+    savedX.value = 0;
+    savedY.value = 0;
+    persistent.value = false;
+    runOnJS(onZoomChange)(false);
   };
 
   const pinch = Gesture.Pinch()
@@ -142,6 +166,26 @@ export function ZoomableImage({
       savedScale.value = scale.value;
       savedX.value = translateX.value;
       savedY.value = translateY.value;
+      // The pager has to be held still for the whole gesture, not just once
+      // it's past the threshold — a peek that starts by flicking to the next
+      // photo isn't a peek.
+      runOnJS(onZoomChange)(true);
+    })
+    /**
+     * Always hand the pager back.
+     *
+     * `onEnd` runs when a gesture finishes cleanly, but not when it's cancelled
+     * or interrupted — and since `onStart` above freezes the pager, a pinch
+     * that died mid-way would leave it frozen with nothing to unfreeze it, and
+     * swiping between photos would simply stop working. `onFinalize` runs in
+     * every case, so it's the one place this can be guaranteed.
+     *
+     * It reports the *actual* state rather than false: after a double tap the
+     * image really is zoomed and the pager really should stay put.
+     */
+    .onFinalize(() => {
+      if (!persistent.value && scale.value !== 1) springBack();
+      runOnJS(onZoomChange)(scale.value > ZOOM_THRESHOLD);
     })
     .onUpdate((e) => {
       const next = Math.min(Math.max(savedScale.value * e.scale, 0.6), MAX_SCALE);
@@ -164,6 +208,18 @@ export function ZoomableImage({
       clampToBounds(next);
     })
     .onEnd(() => {
+      /**
+       * Letting go of a peek returns to fit.
+       *
+       * Only a double tap leaves the image zoomed; a pinch that ended is a look
+       * that finished. Coming back on a spring rather than a snap is what makes
+       * it read as elastic — you stretched the picture and it relaxed.
+       */
+      if (!persistent.value) {
+        springBack();
+        return;
+      }
+
       // Anything at or below 1:1 springs back to fit rather than being left
       // slightly small or slightly off-centre.
       if (scale.value <= MIN_SCALE) {
@@ -236,6 +292,8 @@ export function ZoomableImage({
       scale.value = withTiming(DOUBLE_TAP_SCALE);
       translateX.value = withTiming(clampedX);
       translateY.value = withTiming(clampedY);
+      // This one stays — see `persistent`.
+      persistent.value = true;
       savedScale.value = DOUBLE_TAP_SCALE;
       savedX.value = clampedX;
       savedY.value = clampedY;
@@ -312,6 +370,22 @@ export default function ImageLightbox({
     }
   }, [initialIndex, width]);
 
+  /**
+   * Step to a neighbouring photo.
+   *
+   * `index` is set here rather than waiting for `onMomentumScrollEnd`: an
+   * animated `scrollTo` doesn't reliably raise that event on Android, and the
+   * counter freezing while the photo changed would make the buttons look
+   * broken. The scroll listener still corrects it for swipes.
+   */
+  const step = useCallback((delta: number) => {
+    setIndex((current) => {
+      const next = Math.min(Math.max(current + delta, 0), images.length - 1);
+      if (next !== current) scrollRef.current?.scrollTo({ x: next * width, animated: true });
+      return next;
+    });
+  }, [images.length, width]);
+
   const handleDragProgress = useCallback((progress: number) => {
     backdropOpacity.value = 1 - progress;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -363,9 +437,40 @@ export default function ImageLightbox({
           <X size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
+        {/* Swiping is the fast way through; these are the discoverable one.
+            They flank the counter rather than floating over the middle of the
+            photo, where they'd cover the thing you opened the viewer to see.
+            Dimmed rather than hidden at the ends, so the row doesn't reflow
+            under your thumb as you reach the first or last photo. */}
         {images.length > 1 && (
-          <View style={[styles.counter, { bottom: insets.bottom + 20 }]}>
-            <Text style={styles.counterText}>{index + 1} / {images.length}</Text>
+          <View style={[styles.pager, { bottom: insets.bottom + 20 }]}>
+            <TouchableOpacity
+              style={[styles.arrow, index === 0 && styles.arrowOff]}
+              onPress={() => step(-1)}
+              disabled={index === 0}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Previous photo"
+            >
+              <ChevronLeft size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* White on a translucent black lozenge, so it reads over a light
+                photo as easily as a dark one. */}
+            <View style={styles.counter}>
+              <Text style={styles.counterText}>{index + 1} / {images.length}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.arrow, index === images.length - 1 && styles.arrowOff]}
+              onPress={() => step(1)}
+              disabled={index === images.length - 1}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Next photo"
+            >
+              <ChevronRight size={22} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         )}
       </GestureHandlerRootView>
@@ -385,8 +490,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center', justifyContent: 'center',
   },
-  counter:  {
+  pager: {
     position: 'absolute', alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  arrow: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  arrowOff: { opacity: 0.3 },
+  counter:  {
+    minWidth: 66, alignItems: 'center',
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },

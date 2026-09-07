@@ -20,7 +20,6 @@ import { setBlockedUsers } from '../../store/moderationSlice';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
-import type { Post } from '../../types/api';
 import { ss } from '../../styles/shared';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -87,16 +86,16 @@ export default function FeedScreen() {
     }
   }, [blockedData, dispatch]);
 
-  const handlePostPress = (post: Post) => {
-    navigation.navigate('PostDetailModal', { postId: post.internal_id });
-  };
-
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
+        {/* No `onPostPress`: a tap on a card opens its own text in place rather
+            than pushing the post's own screen. The card carries everything
+            that screen showed — the full body, the comment thread behind the
+            comment button, a summary panel for whoever liked it — so the push
+            only ever arrived at the same content one level deeper. */}
         <FeedList
-          onPostPress={handlePostPress}
           excludeTypes={['story']}
           includeGarageAdditions
           ListHeaderComponent={FeedHeader}

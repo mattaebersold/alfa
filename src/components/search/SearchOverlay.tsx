@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
   kindBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
   // Not bold — it's a label on the row, and at weight 800 it was reading as
   // loudly as the title next to it.
-  kindText:  { fontSize: 10, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  kindText:  { fontSize: 10, fontWeight: '600' },
   rowSub:   { fontSize: 12, flexShrink: 1 },
   go: {
     width: 28, height: 28, borderRadius: 14,

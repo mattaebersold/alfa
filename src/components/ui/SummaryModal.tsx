@@ -6,7 +6,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { useBrandColor } from '../../hooks/useBrandColor';
 
 /** The rectangle a summary grows out of, in window coordinates. */
 export interface SummaryOrigin { x: number; y: number; w: number; h: number }
@@ -293,7 +293,7 @@ export default function SummaryModal({
           accessibilityRole="button"
           accessibilityLabel="Close"
         >
-          <X size={26} color="#FFFFFF" strokeWidth={2.6} />
+          <X size={20} color="#FFFFFF" strokeWidth={2} />
         </TouchableOpacity>
 
         {onAction && (
@@ -307,7 +307,11 @@ export default function SummaryModal({
               activeOpacity={0.85}
               accessibilityRole="button"
             >
-              <Text style={[styles.actionText, { color: contrastText(brand) }]}>{actionLabel}</Text>
+              {/* Black rather than `contrastText(brand)`. Both brand fills are
+                  light — a mid blue and a gold — and the automatic contrast
+                  picked white on the blue, which read as thin against it.
+                  Black is the deliberate answer on both. */}
+              <Text style={[styles.actionText, styles.onBrand]}>{actionLabel}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -350,5 +354,6 @@ const styles = StyleSheet.create({
 
   footer:    { padding: 14, borderTopWidth: StyleSheet.hairlineWidth },
   actionBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  actionText:{ fontSize: 16, fontWeight: '800' },
+  actionText:{ fontSize: 16, fontWeight: '600' },
+  onBrand:   { color: '#000000' },
 });

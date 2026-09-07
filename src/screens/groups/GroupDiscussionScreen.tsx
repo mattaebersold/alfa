@@ -5,18 +5,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
-import { useGetGroupForumQuery } from '../../api/apiService';
+import { useGetGroupDiscussionQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
-import type { GroupForumPost } from '../../types/api';
+import type { GroupDiscussionPost } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 
-function ForumRow({ post }: { post: GroupForumPost }) {
+function DiscussionRow({ post }: { post: GroupDiscussionPost }) {
   const colors = useColors();
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
@@ -44,10 +44,10 @@ function ForumRow({ post }: { post: GroupForumPost }) {
   );
 }
 
-export default function GroupForumScreen({ route }: GroupsScreenProps<'GroupForum'>) {
+export default function GroupDiscussionScreen({ route }: GroupsScreenProps<'GroupDiscussion'>) {
   const { groupId } = route.params;
   const colors = useColors();
-  const { data, isLoading, refetch } = useGetGroupForumQuery({ groupId });
+  const { data, isLoading, refetch } = useGetGroupDiscussionQuery({ groupId });
   const posts = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
@@ -57,8 +57,8 @@ export default function GroupForumScreen({ route }: GroupsScreenProps<'GroupForu
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
-        renderItem={({ item }) => <ForumRow post={item} />}
-        ListEmptyComponent={<EmptyState title="No forum posts yet" />}
+        renderItem={({ item }) => <DiscussionRow post={item} />}
+        ListEmptyComponent={<EmptyState title="No discussion posts yet" />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
         onRefresh={refetch}

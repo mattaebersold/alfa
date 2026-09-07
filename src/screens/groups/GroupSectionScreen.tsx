@@ -14,7 +14,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
-  useGetGroupForumQuery,
+  useGetGroupDiscussionQuery,
   useGetGroupNewsQuery,
   useGetGroupResourcesQuery,
   useGetEventsQuery,
@@ -52,11 +52,11 @@ import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
-type ActiveTab = 'posts' | 'forum' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
+type ActiveTab = 'posts' | 'discussion' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
 
 const TABS: { key: ActiveTab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
-  { key: 'forum',     label: 'Forum' },
+  { key: 'discussion',     label: 'Discussion' },
   { key: 'news',      label: 'News' },
   { key: 'members',   label: 'Members' },
   { key: 'cars',      label: 'Cars' },
@@ -84,7 +84,7 @@ const RESOURCE_CAT_LABEL: Record<string, string> = RESOURCE_CATEGORIES.reduce(
   (acc, cat) => { acc[cat.key] = cat.label; return acc; }, {} as Record<string, string>
 );
 
-const FORUM_CATEGORIES: { key: string; label: string }[] = [
+const DISCUSSION_CATEGORIES: { key: string; label: string }[] = [
   { key: 'general',    label: 'General' },
   { key: 'engine',     label: 'Engine' },
   { key: 'chassis',    label: 'Chassis' },
@@ -106,13 +106,13 @@ const POST_CATEGORIES = Object.entries(CATEGORY_LABELS).map(([key, label]) => ({
 
 const CATEGORY_LISTS: Record<string, { key: string; label: string }[]> = {
   posts: POST_CATEGORIES,
-  forum: FORUM_CATEGORIES,
+  discussion: DISCUSSION_CATEGORIES,
   news: NEWS_CATEGORIES,
   resources: RESOURCE_CATEGORIES,
 };
-const CATEGORIZED_TABS = ['posts', 'forum', 'news', 'resources'];
+const CATEGORIZED_TABS = ['posts', 'discussion', 'news', 'resources'];
 /** Tabs whose rows are collected into a collapsible card per category. */
-const GROUPED_TABS = ['forum', 'resources'];
+const GROUPED_TABS = ['discussion', 'resources'];
 /** How far a category card is held off the screen edges, and its corner radius. */
 const GROUP_INSET = 12;
 const GROUP_RADIUS = 14;
@@ -211,7 +211,7 @@ export default function GroupSectionScreen() {
 
   // Lazy per-tab fetches
   const { data: postsData,     isFetching: postsFetching,     refetch: refetchPosts }     = useGetPostsQuery({ group_id: groupId, limit: 30 }, { skip: tab !== 'posts' });
-  const { data: forumData,     isFetching: forumFetching,     refetch: refetchForum }     = useGetGroupForumQuery({ groupId }, { skip: tab !== 'forum' });
+  const { data: discussionData,     isFetching: discussionFetching,     refetch: refetchDiscussion }     = useGetGroupDiscussionQuery({ groupId }, { skip: tab !== 'discussion' });
   const { data: newsData,      isFetching: newsFetching,      refetch: refetchNews }      = useGetGroupNewsQuery({ groupId }, { skip: tab !== 'news' });
   const { data: resourcesData, isFetching: resourcesFetching, refetch: refetchResources } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
   const { data: eventsData,    isFetching: eventsFetching,    refetch: refetchEvents }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
@@ -225,7 +225,7 @@ export default function GroupSectionScreen() {
   // so the pull refreshes the tab you're looking at and the members list the
   // header and Members tab both read.
   const refetchTab: Record<string, (() => unknown) | undefined> = {
-    posts: refetchPosts, forum: refetchForum, news: refetchNews,
+    posts: refetchPosts, discussion: refetchDiscussion, news: refetchNews,
     resources: refetchResources, events: refetchEvents, cars: refetchCars,
     routes: refetchRoutes, market: refetchMarket,
   };
@@ -298,7 +298,7 @@ export default function GroupSectionScreen() {
 
   const visibleTabs = [...TABS, ...(isAdmin ? [{ key: 'settings', label: 'Settings' }] : [])];
 
-  const SEARCHABLE_TABS: ActiveTab[] = ['posts', 'forum', 'members', 'cars', 'market', 'resources'];
+  const SEARCHABLE_TABS: ActiveTab[] = ['posts', 'discussion', 'members', 'cars', 'market', 'resources'];
   const showSearch = SEARCHABLE_TABS.includes(tab);
 
   /**
@@ -309,7 +309,7 @@ export default function GroupSectionScreen() {
    */
   const createKind: CreateKind | null =
     tab === 'posts' ? 'posts'
-    : tab === 'forum' ? 'forum'
+    : tab === 'discussion' ? 'discussion'
     : tab === 'resources' ? 'resources'
     : tab === 'news' && isAdmin ? 'news'
     : null;
@@ -391,7 +391,7 @@ export default function GroupSectionScreen() {
   let rawItems: any[] = [];
   switch (tab) {
     case 'posts':     rawItems = postsData?.entries ?? [];     break;
-    case 'forum':     rawItems = forumData?.entries ?? [];     break;
+    case 'discussion':     rawItems = discussionData?.entries ?? [];     break;
     case 'news':      rawItems = newsData?.entries ?? [];      break;
     case 'resources': rawItems = resourcesData?.entries ?? []; break;
     case 'events':    rawItems = eventsData?.entries ?? [];    break;
@@ -592,7 +592,7 @@ export default function GroupSectionScreen() {
       );
     }
 
-    if (item._tab === 'forum') {
+    if (item._tab === 'discussion') {
       const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
       return (
         // Avatar demoted to the byline: at 38px leading the row it competed
@@ -607,12 +607,12 @@ export default function GroupSectionScreen() {
             },
             item.isLast && styles.groupedRowLast,
           ]}
-          onPress={() => setDetailItem({ _kind: 'forum', data: d })}
+          onPress={() => setDetailItem({ _kind: 'discussion', data: d })}
           activeOpacity={0.8}
         >
           <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
           <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body ?? '')}</Text>
-          <View style={styles.forumByline}>
+          <View style={styles.discussionByline}>
             <Avatar user={d.user} size={20} />
             <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
               @{d.user?.username} · {timeAgo}
@@ -629,11 +629,11 @@ export default function GroupSectionScreen() {
         <TouchableOpacity style={[styles.newsCard, { backgroundColor: c.card }]} onPress={() => setDetailItem({ _kind: 'news', data: d })} activeOpacity={0.85}>
           {hero && <Image source={{ uri: hero }} style={styles.newsImage} contentFit="cover" />}
           {/* Two-line body and an avatar byline, so news reads the same way as
-              forum and resources do. */}
+              discussion and resources do. */}
           <View style={styles.newsPad}>
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
             {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
-            <View style={styles.forumByline}>
+            <View style={styles.discussionByline}>
               <Avatar user={d.user} size={20} />
               <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
                 {d.user?.username ? `@${d.user.username} · ` : ''}{timeAgo}
@@ -664,7 +664,7 @@ export default function GroupSectionScreen() {
         >
           <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
           {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
-          <View style={styles.forumByline}>
+          <View style={styles.discussionByline}>
             <Avatar user={d.user} size={20} />
             <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
               {d.user?.username ? `@${d.user.username} · ` : ''}{timeAgo}
@@ -767,7 +767,7 @@ export default function GroupSectionScreen() {
               </View>
             ) : null}
             {d.body ? <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={1}>{stripHtml(d.body)}</Text> : null}
-            <View style={styles.forumByline}>
+            <View style={styles.discussionByline}>
               <Avatar user={user} size={20} />
               <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
                 {user?.username ? `@${user.username} · ` : ''}{timeAgo}
@@ -817,7 +817,7 @@ export default function GroupSectionScreen() {
   // ── Build flat list data ─────────────────────────────────────────────────────
   const isFetchingTab = (
     (tab === 'posts' && postsFetching) ||
-    (tab === 'forum' && forumFetching) ||
+    (tab === 'discussion' && discussionFetching) ||
     (tab === 'news' && newsFetching) ||
     (tab === 'resources' && resourcesFetching) ||
     (tab === 'events' && eventsFetching) ||
@@ -831,7 +831,7 @@ export default function GroupSectionScreen() {
     const user = item.user ?? item.user_objectid;
     switch (tab) {
       case 'posts': case 'market': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || user?.username?.toLowerCase().includes(q);
-      case 'forum': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || item.user?.username?.toLowerCase().includes(q);
+      case 'discussion': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || item.user?.username?.toLowerCase().includes(q);
       case 'members': return item.user?.username?.toLowerCase().includes(q);
       case 'cars': return item.make?.toLowerCase().includes(q) || item.model?.toLowerCase().includes(q) || String(item.year ?? '').includes(q) || item.user?.username?.toLowerCase().includes(q);
       case 'resources': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q);
@@ -839,7 +839,7 @@ export default function GroupSectionScreen() {
     }
   }) : rawItems;
 
-  // Forum / News / Resources: filter by category, then sort by category order (newest first within).
+  // Discussion / News / Resources: filter by category, then sort by category order (newest first within).
   let processedItems = filteredItems;
   if (CATEGORIZED_TABS.includes(tab)) {
     if (catFilter) {
@@ -854,7 +854,7 @@ export default function GroupSectionScreen() {
   }
 
   /**
-   * Forum rows, grouped into a card per category — the same shape a car's
+   * Discussion rows, grouped into a card per category — the same shape a car's
    * to-do list uses: a header that caps the group, its rows beneath, and the
    * last one rounding off the bottom.
    *
@@ -974,7 +974,7 @@ export default function GroupSectionScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ── Forum / News / Resource detail ── */}
+      {/* ── Discussion / News / Resource detail ── */}
       <GroupItemDetailModal
         visible={!!detailItem}
         item={detailItem?.data ?? null}
@@ -1103,7 +1103,7 @@ const styles = StyleSheet.create({
 
   groupedRow:     { paddingHorizontal: 14, paddingVertical: 12, gap: 5, marginHorizontal: GROUP_INSET },
   groupedRowLast: { borderBottomLeftRadius: GROUP_RADIUS, borderBottomRightRadius: GROUP_RADIUS },
-  forumByline:    { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 2 },
+  discussionByline:    { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 2 },
 
 
   searchWrap:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
    * Members and marketplace rows, as their own objects.
    *
    * They were full-bleed bands separated by hairlines, which read as one long
-   * surface with lines drawn across it — forum and news already sat as cards,
+   * surface with lines drawn across it — discussion and news already sat as cards,
    * so the same list felt like two different lists depending on the tab.
    */
   itemCard: {
@@ -1140,7 +1140,7 @@ const styles = StyleSheet.create({
 
   newsCard:       { marginHorizontal: 12, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
   newsImage:      { width: '100%', aspectRatio: 16 / 9 },
-  // Gap rather than per-child margins, matching the forum and resource rows.
+  // Gap rather than per-child margins, matching the discussion and resource rows.
   newsPad:        { padding: 12, gap: 5 },
 
 
@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
   toggleCheck:    { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFFFFF' },
 
   detailHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  detailKind:     { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+  detailKind:     { fontSize: 13, fontWeight: '700' },
   detailScroll:   { paddingBottom: 60 },
   detailHero:     { width: '100%', aspectRatio: 16 / 9 },
   detailBody:     { padding: 16 },

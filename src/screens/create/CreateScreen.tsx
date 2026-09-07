@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
   tagSearchRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   tagSearchInput:  { flex: 1, fontSize: 14 },
   tagGroupHeader:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth },
-  tagGroupLabel:   { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  tagGroupLabel:   { fontSize: 11, fontWeight: '700' },
   tagResultRow:    { paddingHorizontal: 14, paddingVertical: 8, gap: 8 },
   tagResultChip:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
   tagResultText:   { fontSize: 13, fontWeight: '600', maxWidth: 160 },

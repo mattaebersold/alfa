@@ -25,6 +25,8 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { Group } from '../../types/api';
 import { REGIONS, regionKey, regionLabel } from '../../constants/regions';
 import SharedModal from '../../components/ui/SharedModal';
+import GroupSummaryModal from '../../components/groups/GroupSummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 /** What the filter button says once something is chosen. */
 function regionButtonLabel(key: string) {
@@ -51,11 +53,29 @@ const MY_CARD_GAP = 10;
 const ADMIN_BADGE = { label: 'ADMIN', bg: '#CDA96F', fg: '#000000' };
 const MEMBER_BADGE = { label: 'MEMBER', bg: '#2F6FED', fg: '#FFFFFF' };
 
-function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
+/**
+ * A group you're not in.
+ *
+ * Opens a summary rather than the group itself. Everything in this grid is
+ * somewhere you haven't joined — the list is filtered to exclude your own — so
+ * the question a card raises is "what is this and do I want in", not "take me
+ * there". Pushing the whole group screen to answer it cost you the browse
+ * position you'd scrolled to, and the panel carries a View Group button for
+ * when the answer is yes.
+ */
+function GroupCard({ group, onPress }: {
+  group: Group;
+  onPress: (origin: SummaryOrigin | null) => void;
+}) {
   const colors = useColors();
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
+    <SummaryTouchable
+      style={[styles.card, { backgroundColor: colors.card }]}
+      onPress={onPress}
+      activeOpacity={0.9}
+      accessibilityLabel={group.title ?? 'Group'}
+    >
       {banner
         ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
         : <View style={[styles.cardBanner, { backgroundColor: colors.primaryAlt + '55' }]} />
@@ -67,7 +87,7 @@ function GroupCard({ group, onPress }: { group: Group; onPress: () => void }) {
           <Text style={[styles.cardRegion, { color: colors.grey }]}>{regionLabel(group.region)}</Text>
         )}
       </View>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
@@ -120,6 +140,8 @@ export default function GroupsScreen() {
   const [region, setRegion] = useState<string | null>(null);
   const [regionOpen, setRegionOpen] = useState(false);
   const [declinedOpen, setDeclinedOpen] = useState(false);
+  /** The group whose summary panel is open, and the card it grew from. */
+  const [summary, setSummary] = useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
 
   // Only surfaced when there's something in it — a permanent row explaining a
   // state you've never been in is clutter.
@@ -325,7 +347,10 @@ export default function GroupsScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <GroupCard group={item} onPress={() => goToGroup(item.internal_id)} />
+            <GroupCard
+              group={item}
+              onPress={(origin) => setSummary({ id: item.internal_id, origin })}
+            />
           )}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
@@ -334,6 +359,12 @@ export default function GroupsScreen() {
           }
         />
       </View>
+
+      <GroupSummaryModal
+        groupId={summary?.id ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
+      />
 
       <DeclinedInvitesSheet
         visible={declinedOpen}

@@ -7,7 +7,9 @@
  * to a meet", which is a region, not a city.
  */
 export const REGIONS: { key: string; label: string; states: string[] }[] = [
-  { key: 'west',      label: 'West',      states: ['WA', 'OR', 'CA', 'NV', 'ID', 'MT', 'WY', 'UT', 'CO', 'AK', 'HI'] },
+  // Northwest was split out of West — see horacio/helpers/usRegions for why.
+  { key: 'northwest', label: 'Northwest', states: ['WA', 'OR', 'ID', 'MT'] },
+  { key: 'west',      label: 'West',      states: ['CA', 'NV', 'WY', 'UT', 'CO', 'AK', 'HI'] },
   { key: 'southwest', label: 'Southwest', states: ['AZ', 'NM', 'TX', 'OK'] },
   { key: 'midwest',   label: 'Midwest',   states: ['ND', 'SD', 'NE', 'KS', 'MN', 'IA', 'MO', 'WI', 'IL', 'MI', 'IN', 'OH'] },
   { key: 'southeast', label: 'Southeast', states: ['AR', 'LA', 'MS', 'AL', 'TN', 'KY', 'WV', 'VA', 'NC', 'SC', 'GA', 'FL'] },

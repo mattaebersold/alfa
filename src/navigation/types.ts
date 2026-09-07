@@ -48,7 +48,7 @@ export type SocietyStackParamList = {
 export type GroupsStackParamList = {
   Groups: undefined;
   GroupDetail: { groupId: string };
-  GroupForum: { groupId: string };
+  GroupDiscussion: { groupId: string };
   GroupNews: { groupId: string };
   GroupCars: { groupId: string };
   GroupMembers: { groupId: string };
@@ -149,7 +149,7 @@ export type AppStackParamList = {
   GroupDetailModal: { groupId: string };
   GroupDetail: { groupId: string };
   GroupSection: { groupId: string; groupTitle: string; initialTab: string };
-  GroupForum: { groupId: string };
+  GroupDiscussion: { groupId: string };
   GroupNews: { groupId: string };
   GroupCars: { groupId: string };
   GroupMembers: { groupId: string };

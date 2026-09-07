@@ -359,7 +359,6 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 10, fontWeight: '800', color: '#000000',
-    textTransform: 'uppercase', letterSpacing: 0.5,
   },
   heroTitle: {
     fontSize: 26, fontWeight: '800',

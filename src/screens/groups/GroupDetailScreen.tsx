@@ -66,7 +66,7 @@ const TILE_WIDTH = (SCREEN_WIDTH - TILE_GAP * 3) / 2;
 
 const SECTIONS = [
   { key: 'posts',     label: 'Posts',     Icon: MessageSquare, color: '#4A90D9' },
-  { key: 'forum',     label: 'Forum',     Icon: MessageCircle, color: '#7B68EE' },
+  { key: 'discussion',     label: 'Discussion', Icon: MessageCircle, color: '#7B68EE' },
   { key: 'news',      label: 'News',      Icon: Newspaper,     color: '#E67E22' },
   { key: 'members',   label: 'Members',   Icon: Users,         color: '#2ECC71' },
   { key: 'cars',      label: 'Cars',      Icon: Car,           color: '#E74C3C' },

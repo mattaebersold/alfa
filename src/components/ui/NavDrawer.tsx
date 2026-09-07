@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Link, Store, Route, MessageCircle, UserRound, Bell, Info, CalendarCheck, Mail, Package, Home, LifeBuoy,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, Info, CalendarCheck, Mail, Package, LifeBuoy,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,34 +18,48 @@ import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '..
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
+import { InstagramIcon, DiscordIcon } from './BrandIcons';
 import { CONFIG } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import SteeringWheel from './SteeringWheel';
 import { logout } from '../../store/authSlice';
-import { useIsPro, useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
+import { useIsPro } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 /**
- * The panel takes most of the screen rather than a column of it.
+ * The panel is the screen.
  *
- * At 85%/320 the cap was doing all the work on a modern phone — a 390pt screen
- * wanted 331 and got 320 — which left the two-up tiles narrow enough that the
- * longer labels wrapped, and the wrapping is what pushed the menu into a
- * scroll. The wider panel buys the tiles about 40pt each, which is the
- * difference between "ORS Rallys" fitting on one line and not.
+ * It went 85% → 92%-capped-at-400 → all of it, each time for the same reason:
+ * the two-up tiles were too narrow and the longer labels wrapped. There is no
+ * width left to find, and a sliver of the feed showing down one edge was never
+ * doing anything except making the menu feel like a drawer you had to hold
+ * open. Full width also means the tiles can be sized from the real screen
+ * rather than from a cap that stopped matching phones years ago.
  */
-const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.92, 400);
+const PANEL_WIDTH = Dimensions.get('window').width;
 /**
- * Half the row, minus the 8px gutter — and a pixel of slack for the panel's
- * hairline border, which comes out of the same content box. Without it two
- * tiles could overflow by a fraction and wrap to one per row.
+ * Half the row, minus the 8px gutter — and a pixel of slack, so a rounding
+ * error can't overflow the row and wrap the tiles to one per line.
  */
 const TILE_WIDTH = Math.floor((PANEL_WIDTH - 32 - 8) / 2) - 1;
 const SLIDE_DURATION = 220;
+
+/**
+ * Your Events is parked, not removed.
+ *
+ * Everything behind it still works — the count query, the sheet, the tap that
+ * opens it — so this is one word away from coming back. Home went for good:
+ * the feed is what closing the menu returns you to, so a tile for it was a
+ * second way to do nothing.
+ */
+const SHOW_YOUR_EVENTS = false;
+
+/** The merch shop, parked the same way and for the same reason. */
+const SHOW_SHOP = false;
 
 /**
  * Dark palette, matched to the web drawer: white-on-dark rather than derived
@@ -64,13 +79,18 @@ const PANEL_BG  = 'rgba(18,18,18,0.985)';
 const BACKDROP  = 'rgba(0,0,0,0.88)';
 const TEXT_HI   = '#FFFFFF';
 const TEXT_MID  = 'rgba(255,255,255,0.6)';
-const TEXT_LO   = 'rgba(255,255,255,0.3)';
 const TEXT_FAINT= 'rgba(255,255,255,0.45)';
 const DIVIDER   = 'rgba(255,255,255,0.1)';
 const TILE_BG   = 'rgba(255,255,255,0.07)';
 const CHIP_BG   = 'rgba(255,255,255,0.1)';
 const BRASS     = '#E5C58E';
-const RED       = '#EC4632';
+/**
+ * The wheel's own off-white, sampled from assets/logo.png.
+ *
+ * The wordmark beside it was pure white, which next to a warm cream read as
+ * two different marks rather than one lockup.
+ */
+const LOGO_CREAM = '#F7F1D9';
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
 function NavTile({ label, Icon, onPress, count, wide, flex }: {
@@ -111,25 +131,27 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
   );
 }
 
-/** Round icon button with an unread bubble — the header's inbox shortcuts. */
-function HeaderIconButton({ Icon, count, onPress, label }: {
+/**
+ * One inbox shortcut.
+ *
+ * Deliberately not a `NavTile`: outlined rather than filled, and horizontal
+ * rather than stacked, so the pair reads as a different kind of thing from the
+ * grid of places underneath them.
+ */
+function InboxPill({ label, Icon, count, onPress }: {
+  label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
+  /** Unread count — a brass pill on the right when above zero. */
   count?: number;
   onPress: () => void;
-  label: string;
 }) {
   return (
-    <TouchableOpacity
-      style={styles.headerIconBtn}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={count ? `${label}, ${count} unread` : label}
-      hitSlop={6}
-    >
+    <TouchableOpacity style={styles.inboxPill} onPress={onPress} activeOpacity={0.75}>
       <Icon size={15} color={TEXT_MID} />
+      <Text style={styles.inboxPillLabel} numberOfLines={1}>{label}</Text>
       {count != null && count > 0 && (
-        <View style={styles.headerBubble}>
-          <Text style={styles.headerBubbleText}>{count > 99 ? '99+' : count}</Text>
+        <View style={styles.unreadPill}>
+          <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -144,15 +166,15 @@ interface NavDrawerProps {
 export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
-  // Measured rather than assumed: the header carries the status-bar inset and a
-  // row of icon buttons, and the list has to start below whatever that adds up
+  // Measured rather than assumed: the header carries the status-bar inset on
+  // top of its own row, and the list has to start below whatever that adds up
   // to on this device.
   const [headerH, setHeaderH] = useState(72);
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const isPro = useIsPro();
-  const brand = useBrandColor();
-  const brandText = useBrandTextColor();
+  /** About and Support take the account's colour — gold for Pro, else blue. */
+  const slabFill = isPro ? colors.pro : colors.primaryAlt;
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
   // The bell's own count, so the drawer and the header always agree.
@@ -289,17 +311,39 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   accessibilityLabel="Upgrade to Pro"
                 >
                   <View style={styles.proCalloutIcon}>
-                    <SteeringWheel size={16} color="#000000" strokeWidth={2.4} />
+                    <SteeringWheel size={26} color="#000000" strokeWidth={2.4} />
                   </View>
                   <View style={styles.proCalloutText}>
                     <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
                     <Text style={styles.proCalloutSub}>
-                      Unlimited garage, posts and routes
+                      Unlimited garage, posts, routes, & more
                     </Text>
                   </View>
-                  <ChevronRight size={13} color="rgba(0,0,0,0.5)" />
+                  <ChevronRight size={16} color="rgba(0,0,0,0.5)" strokeWidth={3} />
                 </TouchableOpacity>
               )}
+
+              {/* Your inbox — pills, not tiles, and above your own account
+                  rather than under it. These are the two things that might be
+                  waiting for you, so they're what the menu opens on; the grid
+                  below is where you go when nothing is.
+
+                  Outlined and inline rather than filled and stacked: drawn
+                  like the tiles they read as two more destinations in the same
+                  list, when they're a different kind of thing. */}
+              <View style={styles.inboxRow}>
+                <InboxPill
+                  label="Messages"
+                  Icon={Mail}
+                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
+                />
+                <InboxPill
+                  label="Notifications"
+                  Icon={Bell}
+                  count={notifCount}
+                  onPress={() => closeThen(() => navigation.navigate('Notifications'))}
+                />
+              </View>
 
               {/* Your own account, at the head of the list rather than pinned
                   above it. Pinned, it and the footer were eating fixed height
@@ -317,31 +361,28 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   />
                   <View style={styles.userCardText}>
                     <Text style={styles.userCardName}>@{displayName}</Text>
-                    <Text style={styles.userCardSub}>Your Dashboard</Text>
+                    <Text style={styles.userCardSub}>Dashboard & Settings</Text>
                   </View>
-                  <ChevronRight size={14} color={TEXT_HI} />
+                  <ChevronRight size={16} color={TEXT_HI} />
                 </TouchableOpacity>
               )}
 
-              {/* The feed left the tab bar, so this is its way back. It shares
-                  a row with Your Events — both are places you go rather than
-                  things you browse, and full-width each they pushed the grid
-                  below the fold. */}
-              {/* A third and two thirds: "Home" is one short word, "Your Events"
-                  carries a count pill as well and wants the room. */}
-              <View style={styles.pairRow}>
-                <NavTile label="Home" Icon={Home}
-                  flex={1}
-                  onPress={() => goFeed('Feed')} />
-                <NavTile label="Your Events" Icon={CalendarCheck}
-                  flex={1}
-                  count={myEventsCount}
-                  onPress={() => setMyEventsOpen(true)} />
-              </View>
+              {SHOW_YOUR_EVENTS && (
+                <View style={styles.pairRow}>
+                  <NavTile label="Your Events" Icon={CalendarCheck}
+                    flex={1}
+                    count={myEventsCount}
+                    onPress={() => setMyEventsOpen(true)} />
+                </View>
+              )}
 
-              <Text style={styles.sectionLabel}>BROWSE</Text>
               {/* Two-column grid — half the height of a stacked list, which is
-                  what kept the log-out button pushed below the fold. */}
+                  what kept the log-out button pushed below the fold.
+
+                  No heading over it: with the inbox pills above reading as
+                  their own kind of thing and the slabs below as theirs, the
+                  grid is already the only run of tiles in the menu, and a
+                  label naming it was saying what the shapes had said. */}
               <View style={styles.grid}>
                 <NavTile label="Events" Icon={Flag}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Events' } } as any))} />
@@ -355,46 +396,57 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => goFeed('Members')} />
                 <NavTile label="Articles" Icon={BookOpen}
                   onPress={() => goFeed('Articles')} />
-              </View>
-
-              <Text style={styles.sectionLabel}>SHOP</Text>
-              <View style={styles.grid}>
+                {/* Marketplace is somewhere you browse, so it browses with
+                    everything else. It had a SHOP heading of its own next to
+                    the merch shop; with that parked, the heading was left
+                    naming a section that no longer had two things in it. */}
                 <NavTile label="Marketplace" Icon={ShoppingBag}
                   onPress={() => goFeed('Marketplace')} />
-                <NavTile label="Shop" Icon={Store}
-                  onPress={() => closeThen(() => navigation.navigate('Shop'))} />
+                {SHOW_SHOP && (
+                  <NavTile label="Shop" Icon={Store}
+                    onPress={() => closeThen(() => navigation.navigate('Shop'))} />
+                )}
                 {/* The header's + used to be the only way to list a diecast; it
                     goes straight to a new post now, so the entry point lives
-                    here beside the other selling surfaces. Pro-only, as before. */}
+                    here beside the marketplace it lists into. Pro-only, as
+                    before — and conditional, which is the other reason it can't
+                    carry a section heading of its own: a basic account would
+                    get the label and an empty grid under it. */}
                 {isPro && (
                   <NavTile label="List a Diecast" Icon={Package}
                     onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
                 )}
               </View>
 
-              <Text style={styles.sectionLabel}>MORE</Text>
-              <View style={styles.grid}>
-                <NavTile label="Instagram" Icon={Link}
-                  onPress={() => Linking.openURL('https://instagram.com/open.road.society/')} />
-                <NavTile label="Discord" Icon={MessageCircle}
-                  onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')} />
-                {/* Beside the other ways of reaching the society rather than
-                    buried in settings — someone looking for help is looking
-                    for a person, and this is where the people are. */}
-                <NavTile label="Support" Icon={LifeBuoy} wide
-                  onPress={() => closeThen(() => navigation.navigate('Support'))} />
-              </View>
+              {/* Two slabs rather than tiles — neither is somewhere you browse
+                  to. One is the story of the place, the other is how you reach
+                  a person in it, and they're the last two things in the menu
+                  for the same reason. The MORE heading went with them: a
+                  section label over a single row was naming a section of one.
 
-              {/* Dark slab rather than a tile — it's the story of the place, not
-                  another destination in the grid. */}
+                  Both the same fill, rather than one filled and one dark:
+                  they're a pair of ways to reach the society, and colouring
+                  them differently implied a hierarchy that isn't there. Gold
+                  for a pro member, blue otherwise — black text reads on both,
+                  so only the ground changes. */}
               <TouchableOpacity
-                style={[styles.aboutBtn, { backgroundColor: brand }]}
+                style={[styles.aboutBtn, { backgroundColor: slabFill }]}
                 onPress={() => closeThen(() => navigation.navigate('About'))}
                 activeOpacity={0.85}
               >
-                <Info size={16} color={brandText} />
-                <Text style={[styles.aboutBtnText, { color: brandText }]}>About Open Road Society</Text>
-                <ChevronRight size={12} color={brandText} style={styles.aboutChevron} />
+                <Info size={20} color="#000000" />
+                <Text style={styles.aboutBtnText}>About Open Road Society</Text>
+                <ChevronRight size={18} color="#000000" style={styles.aboutChevron} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.aboutBtn, styles.supportBtn, { backgroundColor: slabFill }]}
+                onPress={() => closeThen(() => navigation.navigate('Support'))}
+                activeOpacity={0.85}
+              >
+                <LifeBuoy size={20} color="#000000" />
+                <Text style={styles.aboutBtnText}>Support</Text>
+                <ChevronRight size={18} color="#000000" style={styles.aboutChevron} />
               </TouchableOpacity>
 
               <View style={styles.footer}>
@@ -408,6 +460,52 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 {APP_VERSION ? (
                   <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
                 ) : null}
+
+                {/* The society's rooms elsewhere — above the small print,
+                    below everything you can do in the app. As marks rather
+                    than labelled tiles, since a logo names the place better
+                    than the word does. They were standing in as a generic
+                    chain link and a speech bubble, which said "a link" and "a
+                    chat" without naming either. See BrandIcons. */}
+                <View style={styles.socialRow}>
+                  <TouchableOpacity
+                    style={styles.socialBtn}
+                    onPress={() => Linking.openURL('https://instagram.com/open.road.society/')}
+                    activeOpacity={0.8}
+                    accessibilityRole="link"
+                    accessibilityLabel="Open Road Society on Instagram"
+                  >
+                    <InstagramIcon size={19} color={TEXT_HI} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.socialBtn}
+                    onPress={() => Linking.openURL('https://discord.gg/MBHDngHvx')}
+                    activeOpacity={0.8}
+                    accessibilityRole="link"
+                    accessibilityLabel="Open Road Society on Discord"
+                  >
+                    <DiscordIcon size={19} color={TEXT_HI} />
+                  </TouchableOpacity>
+
+                  {/* Log out, quietly, on the end of this row.
+                      It was a full-width outlined slab of its own, which gave
+                      the least-used control in the menu the most weight in it
+                      — and red made it look like something had gone wrong. As
+                      a text button it's findable without announcing itself,
+                      and the confirm dialog is still what actually protects
+                      the tap. */}
+                  <TouchableOpacity
+                    style={styles.logoutBtn}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Log out"
+                  >
+                    <LogOut size={14} color={TEXT_MID} />
+                    <Text style={styles.logoutText}>Log out</Text>
+                  </TouchableOpacity>
+                </View>
 
                 <View style={styles.footerBottom}>
                   <Text style={styles.footerCopy}>© {new Date().getFullYear()} Open Road Society</Text>
@@ -441,36 +539,46 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               {/* Enough tint to keep the logo and icons legible over whatever
                   tile happens to be sliding under them, and no more. */}
               <View style={[StyleSheet.absoluteFill, styles.panelHeaderTint]} />
-              <Text style={styles.panelLogo} numberOfLines={1}>Open Road Society</Text>
-              <View style={styles.headerActions}>
-                {/* No count. An unread message raises a notice in the
-                    notifications list, which is where you'll have seen it —
-                    a second red bubble here would be the same news told twice,
-                    and the one place it can't be acted on. */}
-                <HeaderIconButton
-                  Icon={Mail}
-                  label="Messages"
-                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
+              {/* Who this is, and the way out — the whole header. Messages,
+                  notifications and log out used to sit under it as three
+                  unlabelled discs; they're rows in the list now, where they
+                  can say what they are. */}
+              <View style={styles.titleRow}>
+                <Image
+                  source={require('../../../assets/logo.png')}
+                  style={styles.titleLogo}
+                  contentFit="contain"
+                  // The mark is a flat cream wheel, so a tint recolours it
+                  // cleanly — no second asset to keep in step with the palette.
+                  tintColor={isPro ? colors.pro : undefined}
                 />
-                <HeaderIconButton
-                  Icon={Bell}
-                  label="Notifications"
-                  count={notifCount}
-                  onPress={() => closeThen(() => navigation.navigate('Notifications'))}
-                />
-                {/* Up here with the other things you do to your account, rather
-                    than in the footer. It was costing the menu a row of its own
-                    plus the gap around it — height the tiles could use — and it
-                    was never navigation, which is what the list below is for. */}
-                <HeaderIconButton
-                  Icon={LogOut}
-                  label="Log out"
-                  onPress={handleLogout}
-                />
-                <TouchableOpacity onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
-                  <X size={15} color={TEXT_MID} />
+                <Text
+                  style={[styles.panelLogo, isPro && { color: colors.pro }]}
+                  numberOfLines={1}
+                >
+                  Open Road Society
+                </Text>
+                {/* A qualifier on the wordmark, not a second badge — hence
+                    tight against it rather than out at the edge, and gold
+                    because that is what Pro is everywhere else in the app.
+                    The header's own PRO mark is turned on its side to fit
+                    beside a small logo; there's room for a pill here. */}
+                {isPro && (
+                  <View style={styles.proPill}>
+                    <Text style={styles.proPillText}>PRO</Text>
+                  </View>
+                )}
+                <View style={styles.titleSpacer} />
+                <TouchableOpacity
+                  onPress={handleClose}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close menu"
+                >
+                  <X size={22} color={TEXT_HI} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
+
             </View>
 
           </View>
@@ -504,12 +612,14 @@ const styles = StyleSheet.create({
   panel:      {
     width: PANEL_WIDTH, height: '100%',
     backgroundColor: PANEL_BG,
-    borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: DIVIDER,
+    // No left border: at full width there's nothing beside it for an edge to
+    // separate it from. The shadow stays — it's what the panel travels on.
     shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20,
   },
   panelHeader: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    // One line: the mark, the wordmark, and the X.
+    justifyContent: 'center',
     paddingHorizontal: 16, paddingBottom: 14,
     // Clips the blur to the bar, and gives the list a visible edge to pass
     // beneath rather than fading into nothing.
@@ -517,24 +627,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DIVIDER,
   },
   panelHeaderTint: { backgroundColor: 'rgba(18,18,18,0.62)' },
-  panelLogo:  { fontSize: 15, fontWeight: '800', letterSpacing: 0.3, color: TEXT_HI, flexShrink: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerIconBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: CHIP_BG,
-    alignItems: 'center', justifyContent: 'center',
+  titleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
   },
-  headerBubble: {
-    position: 'absolute', top: -3, right: -3,
-    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4,
-    backgroundColor: RED,
-    alignItems: 'center', justifyContent: 'center',
+  // Takes whatever the wordmark and the pill leave, so the close X stays on
+  // the edge rather than trailing the text.
+  titleSpacer: { flex: 1 },
+  titleLogo:  { width: 30, height: 30 },
+  // `flex`, not `flexShrink` — it takes the room between the mark and the X,
+  // so the X stays pinned to the edge whatever the wordmark does.
+  // `flexShrink`, not `flex: 1` — with the pill beside it the wordmark takes
+  // the room it needs and gives way first, instead of claiming the whole gap
+  // and pushing the pill against the X.
+  panelLogo:  { flexShrink: 1, fontSize: 19, fontWeight: '600', letterSpacing: 0.3, color: LOGO_CREAM },
+  proPill: {
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: PRO_GOLD,
   },
-  headerBubbleText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
-  closeBtn:   {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: CHIP_BG,
-    alignItems: 'center', justifyContent: 'center',
+  proPillText: {
+    fontSize: 10, fontWeight: '800', color: '#000000',
+    letterSpacing: 0.8,
   },
   userCard:   {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -545,10 +658,27 @@ const styles = StyleSheet.create({
   },
   userCardText: { flex: 1 },
   userCardName: { fontSize: 15, fontWeight: '600', color: TEXT_HI },
-  userCardSub:  { fontSize: 14, fontWeight: '700', color: TEXT_MID, marginTop: 1 },
+  userCardSub:  { fontSize: 13, fontWeight: '600', color: TEXT_MID, marginTop: 1 },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // No wrap: the two share the row evenly rather than sizing to their labels,
+  // so "Messages" and "Notifications" come out the same width despite one
+  // being half again as long.
+  inboxRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  inboxPill: {
+    flex: 1, minWidth: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: DIVIDER,
+  },
+  // Lighter than a tile's label — these sit above the grid and shouldn't
+  // outweigh it.
+  inboxPillLabel: { fontSize: 13, fontWeight: '600', color: TEXT_HI, flexShrink: 1 },
+
+  // `paddingTop` picks up the separation the removed section heading used to
+  // provide between the inbox pills and the tiles.
+  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 12 },
   pairRow:  { flexDirection: 'row', gap: 8 },
   navTile:  {
     width: TILE_WIDTH,
@@ -579,14 +709,25 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12,
   },
-  aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '700' },
+  aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#000000' },
+  supportBtn:   { marginTop: 8 },
   // The chevron is the same ink as the label, just quieter.
   aboutChevron: { opacity: 0.6 },
 
-  sectionLabel:  {
-    fontSize: 11, fontWeight: '700', color: TEXT_LO,
-    letterSpacing: 0.9, paddingTop: 20, paddingBottom: 4,
+  socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  socialBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: CHIP_BG,
+    alignItems: 'center', justifyContent: 'center',
   },
+  // `marginLeft: auto` takes the gap between the marks and this, so the two
+  // sit at opposite ends of the row rather than bunched together.
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginLeft: 'auto',
+    paddingHorizontal: 4, paddingVertical: 8,
+  },
+  logoutText: { fontSize: 13, fontWeight: '600', color: TEXT_MID },
   footer:        {
     // Last thing in the list rather than a band pinned under it. The rule
     // still marks it off as small print — it just arrives when you reach the
@@ -600,13 +741,18 @@ const styles = StyleSheet.create({
   footerCopy:    { fontSize: 12, color: TEXT_FAINT },
   proCallout: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
-    marginHorizontal: 16, marginTop: 4, marginBottom: 10,
+    // No horizontal margin: this moved into the scroll list, whose content
+    // already supplies the gutter, so its own 16 was doubling it and leaving
+    // the callout inset from every tile below it.
+    marginTop: 4, marginBottom: 10,
     paddingHorizontal: 13, paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: PRO_GOLD,
   },
+  // The disc is barely wider than the wheel now — the ground is there to sit
+  // it on, not to frame it.
   proCalloutIcon: {
-    width: 30, height: 30, borderRadius: 15,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
