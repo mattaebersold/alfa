@@ -46,6 +46,7 @@ import MessageThreadScreen from '../screens/messages/MessageThreadScreen';
 import ComposeMessageScreen from '../screens/messages/ComposeMessageScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
+import NotificationSettingsScreen from '../screens/profile/NotificationSettingsScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import CreateScreen from '../screens/create/CreateScreen';
 import DiecastCreateScreen from '../screens/create/DiecastCreateScreen';
@@ -78,6 +79,7 @@ import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
+import ProductCreateScreen from '../screens/shop/ProductCreateScreen';
 import AboutScreen from '../screens/marketing/AboutScreen';
 import SupportScreen from '../screens/support/SupportScreen';
 import SocietyEventDetailScreen from '../screens/society/SocietyEventDetailScreen';
@@ -198,6 +200,11 @@ export default function AppNavigator() {
         component={SettingsScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Settings' }}
       />
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Notifications' }}
+      />
       {/* Presented as a SharedModal bottom sheet, so the route itself must be
           transparent and un-animated — the sheet runs its own animation and
           blurs whatever is behind it. */}
@@ -239,6 +246,11 @@ export default function AppNavigator() {
         name="Shop"
         component={ShopScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ProductCreate"
+        component={ProductCreateScreen}
+        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.productId ? 'Edit Product' : 'New Product', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CarTasks"

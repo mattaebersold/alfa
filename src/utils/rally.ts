@@ -36,6 +36,15 @@ export function rallyColors(rally: Pick<Rally, 'primary_color' | 'secondary_colo
 }
 
 /**
+ * What a rally with no date says instead of a date.
+ *
+ * A rally can be announced before it's scheduled, so the date line has to read
+ * as deliberate rather than missing — a card that simply drops the line looks
+ * like data failed to load. Mirrors murray's RALLY_DATE_TBA.
+ */
+export const RALLY_DATE_TBA = 'Dates TBA';
+
+/**
  * Is this rally still ahead of us?
  *
  * Registration only belongs on a rally you can still join, so this gates the

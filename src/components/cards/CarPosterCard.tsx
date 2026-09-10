@@ -25,37 +25,8 @@ import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import CommentsSheet from '../social/CommentsSheet';
 import { type SummaryOrigin } from '../ui/SummaryModal';
-import { CAR_TYPES, CAR_CATEGORIES } from '../../constants/carTypes';
+import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
-
-// Murray-style badge colors per car type. Exported so anything that badges a car
-// — the feed, the car's own screen — reads the same way this card does.
-export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  'daily':        { bg: '#F0D689', text: '#000' },
-  'weekend':      { bg: '#35B5FF', text: '#000' },
-  'project':      { bg: '#F36943', text: '#000' },
-  'garage-queen': { bg: '#FF479C', text: '#000' },
-  'part-out':     { bg: '#00FF3F', text: '#000' },
-  'other':        { bg: '#F0D689', text: '#000' },
-};
-
-/** Every car type and category label, keyed the way they're stored. */
-const LABELS: Record<string, string> = {};
-CAR_TYPES.forEach((t) => { LABELS[t.key] = t.label; });
-Object.values(CAR_CATEGORIES).flat().forEach((c) => { LABELS[c.key] = c.label; });
-
-/**
- * The written label for a stored type or category key.
- *
- * The real label first, and only then a de-kebabbed, title-cased guess. The
- * guess alone turned `carsAndCoffee` into "Carsandcoffee" and `shibox` into
- * "Shibox" — the keys are camelCase, and there is no rule that recovers
- * "Cars & Coffee" from one. The list already has the answer; this asks it.
- */
-export const formatLabel = (key?: string) => {
-  if (!key) return null;
-  return LABELS[key] ?? key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-};
 
 interface CarPosterCardProps {
   car: GarageCar;

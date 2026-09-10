@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MapPin, Clock, Users, Navigation } from 'lucide-react-native';
+import { MapPin, Clock, Users, Navigation, Trash2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useGetRallyQuery } from '../../api/apiService';
 import RouteMap from '../../components/routes/RouteMap';
@@ -19,11 +19,12 @@ import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange } from '../../utils/rally';
+import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange, RALLY_DATE_TBA } from '../../utils/rally';
 import type { SocietyScreenProps } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useRallyDelete } from '../../hooks/useRallyDelete';
 
 /**
  * Full-screen rally detail — reached from deep links and notifications. The
@@ -42,6 +43,9 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const navigation = useNavigation<any>();
   const { data: rally, isLoading, refetch } = useGetRallyQuery(rallyId);
   const refreshControl = useRefreshControl(refetch);
+  // Deleting leaves nothing to show, so the screen pops back to the list it
+  // was opened from.
+  const { canDelete, confirmDelete, isDeleting } = useRallyDelete(rally, () => navigation.goBack());
 
   const scrollRef = useRef<ScrollView>(null);
   /** Where each section starts, filled in by onLayout as the page is built. */
@@ -76,7 +80,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 
   const gallery = rally.gallery ?? [];
   const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
-  const dateLine = rallyDateRange(rally, { month: 'long' });
+  const dateLine = rallyDateRange(rally, { month: 'long' }) ?? RALLY_DATE_TBA;
   const formUrl = toRallyFormEmbedUrl(rally.form_id);
   // Registration is embedded below, but only while there's still a rally to
   // register for — a past rally's form is a dead end.
@@ -172,7 +176,19 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
         <RallySubNav sections={sections} active={active} onSelect={goToSection} />
 
         <View onLayout={measure('details')} style={styles.body}>
-          <Text style={[styles.title, { color: c.fg }]}>{rally.title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: c.fg }]}>{rally.title}</Text>
+            {canDelete && (
+              <TouchableOpacity
+                onPress={confirmDelete}
+                disabled={isDeleting}
+                hitSlop={10}
+                style={[styles.deleteBtn, { borderColor: c.border, opacity: isDeleting ? 0.5 : 1 }]}
+              >
+                <Trash2 size={18} color={colors.red} />
+              </TouchableOpacity>
+            )}
+          </View>
 
           {dateLine && (
             <View style={styles.metaRow}>
@@ -313,7 +329,12 @@ const styles = StyleSheet.create({
   galleryStrip:    { padding: 8, gap: 6 },
   galleryThumb:    { width: 80, height: 60, borderRadius: 6 },
   body:            { padding: 16 },
-  title:           { fontSize: 22, fontWeight: '800', marginBottom: 12 },
+  titleRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  title:           { fontSize: 22, fontWeight: '800', marginBottom: 12, flex: 1 },
+  deleteBtn:       {
+    width: 36, height: 36, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center', justifyContent: 'center',
+  },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:        { fontSize: 14 },
   metaLink:        { color: colors.primaryAlt, fontWeight: '600' },

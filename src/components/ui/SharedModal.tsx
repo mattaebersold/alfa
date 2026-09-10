@@ -139,13 +139,11 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             },
           ]}
         >
-          <View style={[
-            styles.header,
-            // A full-height sheet reaches the top of the screen, and this Modal
-            // is status-bar-translucent — without this the header sits under the
-            // clock. A sized sheet never gets up there.
-            fullHeight && { paddingTop: insets.top + 14 },
-          ]}>
+          {/* No status-bar padding of its own. `maxHeight: available` already
+              stops every sheet — full-height included — an inset plus 8pt short
+              of the top of the screen, so adding the inset again here counted it
+              twice and opened a band of dead black above the title. */}
+          <View style={styles.header}>
             {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
             <View style={styles.headerRight}>
               {headerRight}

@@ -11,6 +11,7 @@ import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { Rally } from '../../types/api';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { calendarDate } from '../../utils/calendarDate';
+import { RALLY_DATE_TBA } from '../../utils/rally';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks, matching the events row.
@@ -45,7 +46,8 @@ export default function RallyCarousel() {
         {rallys.map((rally: Rally) => {
           const hero = rally.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(rally.gallery);
           const eventDay = calendarDate(rally.event_date);
-          const date = eventDay ? format(eventDay, 'MMM d, yyyy') : null;
+          // Never null: an unscheduled rally says so rather than losing the line.
+          const date = eventDay ? format(eventDay, 'MMM d, yyyy') : RALLY_DATE_TBA;
 
           return (
             <TouchableOpacity
@@ -68,7 +70,7 @@ export default function RallyCarousel() {
               />
 
               <View style={styles.body}>
-                {date && <Text style={styles.date}>{date}</Text>}
+                <Text style={styles.date}>{date}</Text>
                 <Text style={styles.title} numberOfLines={2}>{rally.title}</Text>
                 {rally.location ? (
                   <View style={styles.meta}>

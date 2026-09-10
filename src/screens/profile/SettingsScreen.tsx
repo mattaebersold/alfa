@@ -109,13 +109,6 @@ export default function SettingsScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
 
-  // Email prefs
-  const [emailComments, setEmailComments] = useState(false);
-  const [emailLikes, setEmailLikes] = useState(false);
-  const [emailFollowed, setEmailFollowed] = useState(false);
-  const [emailFollowerActivity, setEmailFollowerActivity] = useState(false);
-  const [emailMentions, setEmailMentions] = useState(false);
-  const [savingPrefs, setSavingPrefs] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -126,11 +119,6 @@ export default function SettingsScreen() {
       setCityState(user.cityState ?? '');
       setUsername(user.username ?? '');
       setEmail(user.email ?? '');
-      setEmailComments(user.emailSettings?.userComments ?? false);
-      setEmailLikes(user.emailSettings?.userLikes ?? false);
-      setEmailFollowed(user.emailSettings?.userFollowed ?? false);
-      setEmailFollowerActivity(user.emailSettings?.followerActivity ?? false);
-      setEmailMentions(user.emailSettings?.mentions ?? false);
     }
   }, [user]);
 
@@ -227,26 +215,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleSavePrefs = async () => {
-    setSavingPrefs(true);
-    try {
-      await updateSetting({
-        type: 'emailSettings', userid,
-        emailSettings: JSON.stringify({
-          userComments: emailComments,
-          userLikes: emailLikes,
-          userFollowed: emailFollowed,
-          followerActivity: emailFollowerActivity,
-          mentions: emailMentions,
-        }),
-      }).unwrap();
-      Alert.alert('Saved', 'Email preferences updated.');
-    } catch {
-      Alert.alert('Error', 'Failed to save preferences.');
-    } finally {
-      setSavingPrefs(false);
-    }
-  };
 
   const pickAndUpload = async (type: 'gallery' | 'banners', aspect: [number, number]) => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -433,29 +401,6 @@ export default function SettingsScreen() {
             />
           </View>
           <SaveButton label="Change Password" onPress={handleSavePassword} loading={savingPassword} />
-        </View>
-
-        {/* ── Email Preferences ────────────────────────────────────── */}
-        <SectionHeader title="Email Preferences" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          {[
-            { label: 'Comments on my posts', value: emailComments, setter: setEmailComments },
-            { label: 'Likes on my posts', value: emailLikes, setter: setEmailLikes },
-            { label: 'New followers', value: emailFollowed, setter: setEmailFollowed },
-            { label: 'Follower activity', value: emailFollowerActivity, setter: setEmailFollowerActivity },
-            { label: 'Mentions in posts & comments', value: emailMentions, setter: setEmailMentions },
-          ].map(({ label, value, setter }, i) => (
-            <View key={label} style={[styles.switchRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
-              <Text style={[styles.switchLabel, { color: colors.fg }]}>{label}</Text>
-              <Switch
-                value={value}
-                onValueChange={setter}
-                trackColor={{ false: colors.greyLight, true: colors.primaryAlt }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          ))}
-          <SaveButton label="Save Preferences" onPress={handleSavePrefs} loading={savingPrefs} secondary />
         </View>
 
         {/* ── Content & Safety ─────────────────────────────────────── */}

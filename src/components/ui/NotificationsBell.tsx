@@ -14,7 +14,6 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 42;
 /** Black, like every other glyph in the header. */
-const ICON = '#000000';
 const BTN_RADIUS = 14;
 /** How much of the screen the opened panel takes. */
 const PANEL_RATIO = 0.9;
@@ -242,13 +241,13 @@ export default function NotificationsBell() {
     <>
       <TouchableOpacity
         ref={btnRef}
-        style={[styles.btn, { backgroundColor: tint }]}
+        style={styles.btn}
         onPress={openPanel}
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={`Notifications, ${count} unread`}
       >
-        <Bell size={20} color={ICON} strokeWidth={2.4} />
+        <Bell size={22} color="#FFFFFF" strokeWidth={2.2} />
         {/* Not while the panel is up: the copy riding the box carries the
             bubble then, and by the tail of the collapse the scrim has faded
             enough to show this one too — two badges, a few pixels apart,
@@ -298,19 +297,13 @@ export default function NotificationsBell() {
           ]}
           pointerEvents="none"
         >
+          {/* Black the whole way.
+              This used to open on the brand fill and fade to black, so the
+              growing box matched the brand-filled button it came out of. The
+              button is a bare white glyph now, so there is nothing for a tint
+              to match — starting on it would be a flash of colour that appears
+              for no reason and leaves. */}
           <View style={[StyleSheet.absoluteFill, styles.morphBlack]} />
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              styles.morphTint,
-              { backgroundColor: tint },
-              {
-                opacity: box.interpolate({
-                  inputRange: [0, 0.6], outputRange: [1, 0], extrapolate: 'clamp',
-                }),
-              },
-            ]}
-          />
         </Animated.View>
 
         {/* The button's own face, redrawn inside the modal.
@@ -338,7 +331,7 @@ export default function NotificationsBell() {
               "Style property 'left' is not supported by native animated module"
               followed by the JS animation refusing to run at all. */}
           <Animated.View style={[styles.ghostFace, { opacity: ghost }]}>
-            <Bell size={20} color={ICON} strokeWidth={2.4} />
+            <Bell size={22} color="#FFFFFF" strokeWidth={2.2} />
             {count > 0 && (
               <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
                 <Text style={styles.badgeText}>
@@ -418,9 +411,17 @@ export default function NotificationsBell() {
 }
 
 const styles = StyleSheet.create({
+  /**
+   * No fill, no pill — just the glyph.
+   *
+   * The other four buttons in the row are destinations, and giving this one
+   * the same brand-filled shape made "you have something waiting" read as a
+   * fifth place to go. White on the header's own scrim, with the shadow kept:
+   * the bar floats over content of any brightness, and an unbacked white icon
+   * needs it to stay legible over a pale photo.
+   */
   btn: {
     width: BTN, height: BTN,
-    borderRadius: BTN_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -439,15 +440,23 @@ const styles = StyleSheet.create({
   },
   // Bigger than the plain dot it replaces, because it now has to carry a
   // number.
+  /**
+   * Tucked against the glyph rather than hung off the button's corner.
+   *
+   * The button is a 44pt touch target around a 22pt bell, so a badge pinned to
+   * the button's edge floated in the padding with a visible gap — it read as
+   * belonging to the row, not to the bell. These offsets bring it to the
+   * glyph's own top-right, and it shrinks to suit sitting that close.
+   */
   badge: {
-    position: 'absolute', top: -6.5, right: -6.5,
-    minWidth: 23, height: 23, borderRadius: 11.5,
-    paddingHorizontal: 5,
+    position: 'absolute', top: 2, right: 2,
+    minWidth: 19, height: 19, borderRadius: 9.5,
+    paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#EC4632',
     zIndex: 10, elevation: 12,
   },
-  badgeText: { fontSize: 11.5, fontWeight: '800', color: '#FFFFFF' },
+  badgeText: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF' },
 
   messagesRow: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
@@ -501,7 +510,6 @@ const styles = StyleSheet.create({
   // Fades off the black beneath it — colour can't be interpolated natively, and
   // two layers cross-fading is the same picture without the bridge traffic. The
   // fill itself is passed in, so the box leaves as whatever the button was.
-  morphTint: {},
 
   content: {
     position: 'absolute',

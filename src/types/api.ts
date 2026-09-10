@@ -50,6 +50,8 @@ export interface User {
   memberNumber?: number;
   created_at?: string;
   userToken?: string;
+  /** Per-type push/email preferences — see NotificationSettings. */
+  notificationSettings?: NotificationSettings;
 }
 
 /** Per-user dismissals of the home feed's promotional modules. */
@@ -755,6 +757,53 @@ export interface RouteListParams {
 }
 
 // Paginated response envelope
+/** One buyable option of a product — a size, a colourway. */
+export interface ShopVariant {
+  internal_id?: string;
+  label: string;
+  /** Overrides the product's price when set. Whole currency units, not cents. */
+  price?: number;
+  quantity?: number;
+  sku?: string;
+  available?: boolean;
+  /** Server-derived, from `available` and the stock count. */
+  inStock?: boolean;
+}
+
+/**
+ * A product in the merch shop.
+ *
+ * Prices are whole currency units — that's how horacio stores them, to match
+ * what the Venmo and PayPal links take in a URL.
+ */
+export interface ShopProduct {
+  _id?: string;
+  internal_id: string;
+  /** The URL segment; the web shop is reached at /shop/<handle>. */
+  handle: string;
+  title: string;
+  subtitle?: string;
+  /** HTML from the web editor — strip before rendering. */
+  body?: string;
+  price: number;
+  currency?: string;
+  quantity?: number;
+  /** Off for made-to-order items; the count is then ignored. */
+  track_quantity?: boolean;
+  /** Server-derived across variants and quantity tracking. */
+  inStock?: boolean;
+  variants?: ShopVariant[];
+  gallery?: GalleryItem[];
+  category?: string;
+  shipping_note?: string;
+  /** A draft is admin-only; the public listing returns published ones. */
+  status?: 'draft' | 'published';
+  featured?: boolean;
+  position?: number;
+  user_id?: string;
+  created_at?: string;
+}
+
 export interface PaginatedResponse<T> {
   entries: T[];
   total: number;
@@ -838,3 +887,25 @@ export type ReportableType =
   | 'post' | 'car' | 'garagecar' | 'comment' | 'user'
   | 'mod' | 'cargallery' | 'event' | 'project'
   | 'groupdiscussion' | 'groupresource';
+
+/**
+ * One row of the notification settings table.
+ *
+ * Served by horacio (helpers/notificationPrefs) rather than duplicated here,
+ * so a new notification type appears in both apps without a release. `push`
+ * and `email` are the *defaults* — what a member gets before they've saved
+ * anything.
+ */
+export interface NotificationType {
+  key: string;
+  label: string;
+  /** Section heading the row sits under. Absent on an older server. */
+  group?: string;
+  push: boolean;
+  email: boolean;
+  /** Account and safety notices, which can't be switched off. */
+  locked?: boolean;
+}
+
+/** What a member saved: `{ comment: { push: true, email: false }, … }`. */
+export type NotificationSettings = Record<string, { push: boolean; email: boolean }>;

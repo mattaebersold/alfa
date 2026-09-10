@@ -4,12 +4,11 @@ import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
-import { Menu, Search } from 'lucide-react-native';
+import { Menu } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
-import SearchOverlay from '../search/SearchOverlay';
 import NotificationsBell from './NotificationsBell';
 import GarageDoor from './GarageDoor';
 import { useAppSelector } from '../../store/store';
@@ -63,13 +62,27 @@ export function useHeaderPad(): number {
  * that carry a label.
  */
 function FloatingButton({
-  onPress, children, label, tint, wide,
+  onPress, children, label, tint, wide, bare, outlined,
 }: {
   onPress: () => void;
   children: React.ReactNode;
   label: string;
   tint: string;
   wide?: boolean;
+  /**
+   * No fill — just the glyph, like the notifications bell beside it.
+   *
+   * For the controls that aren't destinations. The shadow stays either way:
+   * the bar floats over content of any brightness, and an unbacked white icon
+   * needs it to stay legible over a pale photo.
+   */
+  bare?: boolean;
+  /**
+   * Outlined instead of filled: a white hairline over a barely-there black
+   * ground. Between `bare` and the brand fill — enough of a surface to read as
+   * a button, without claiming the brand colour.
+   */
+  outlined?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -80,7 +93,13 @@ function FloatingButton({
       // The color lives on the shadowed view itself: iOS won't cast a shadow
       // from a view with no background, and it guarantees the tint fills the
       // button rather than relying on an absolutely-positioned sibling.
-      style={[styles.btn, wide && styles.btnWide, { backgroundColor: tint }]}
+      style={[
+        styles.btn,
+        wide && styles.btnWide,
+        bare ? styles.btnBare
+          : outlined ? styles.btnOutlined
+          : { backgroundColor: tint },
+      ]}
     >
       <View style={[styles.btnIcon, wide && styles.btnIconWide]}>{children}</View>
     </TouchableOpacity>
@@ -135,7 +154,6 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   const insets = useSafeAreaInsets();
   const { isLoggedIn, userInfo } = useAppSelector((s) => s.auth);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
@@ -218,17 +236,32 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           )}
         </FloatingButton>
 
-        {/* Right — search, garage, profile, notifications, menu */}
+        {/* Right — notifications unfilled, then profile, garage and menu.
+            Search moved to the tab bar: it's something you do *while* looking
+            at something, and the bar is on screen at all times where this row
+            scrolls away with the header. */}
         <View style={styles.rightActions}>
-          {/* Out of the drawer and into the row. Searching is something you do
-              *while* looking at something, and a menu you have to open first is
-              the wrong place for it. */}
+          {/* Leads the row, and unfilled. The four buttons after it are places
+              you choose to go; this one is the app telling you something, and
+              a fifth identical pill made that indistinguishable. Always
+              present — only its count bubble comes and goes. */}
+          <NotificationsBell />
+
           <FloatingButton
-            label="Search"
+            label="Your profile"
             tint={tint}
-            onPress={() => setSearchOpen(true)}
+            outlined
+            onPress={() => go('FeedTab', { screen: 'Profile' })}
           >
-            <Search size={18} color={ICON} strokeWidth={2.4} />
+            {/* Sized inside the border rather than under it: the outer view's
+                content box loses 1pt each side to the stroke, and an avatar
+                still asking for the full width would be clipped to a slightly
+                wrong shape at the corners. */}
+            <Avatar
+              user={userInfo}
+              size={BTN - 2}
+              radius={BTN_RADIUS - 1}
+            />
           </FloatingButton>
 
           {/* A garage-door icon in place of the word: the row has five buttons
@@ -237,27 +270,13 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           <FloatingButton
             label="Garage"
             tint={tint}
+            outlined
             wide={garageCars.length > 0}
             onPress={() => go('CarsTab', { screen: 'Garage' })}
           >
-            <GarageDoor size={21} color={ICON} strokeWidth={2.4} />
+            <GarageDoor size={21} color="#FFFFFF" strokeWidth={2.4} />
             <GarageThumbs cars={garageCars} />
           </FloatingButton>
-
-          <FloatingButton
-            label="Your profile"
-            tint={tint}
-            onPress={() => go('FeedTab', { screen: 'Profile' })}
-          >
-            <Avatar
-              user={userInfo}
-              size={BTN}
-              radius={BTN_RADIUS}
-            />
-          </FloatingButton>
-
-          {/* Always present; only its count bubble comes and goes. */}
-          <NotificationsBell />
 
           {/* No badge. An unread message raises a notice in the bell next to
               this button — a red dot on the menu could only say that something
@@ -266,14 +285,13 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           <FloatingButton
             label="Menu"
             tint={tint}
+            outlined
             onPress={() => setDrawerOpen(true)}
           >
-            <Menu size={20} color={ICON} />
+            <Menu size={22} color="#FFFFFF" strokeWidth={2.2} />
           </FloatingButton>
         </View>
       </Animated.View>
-
-      <SearchOverlay visible={searchOpen} onClose={() => setSearchOpen(false)} />
 
       <NavDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
@@ -314,7 +332,9 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   btnIcon: {
-    width: BTN, height: BTN,
+    // Fills whatever the parent leaves — `BTN` on a plain button, two points
+    // less on a bordered one. Fixed at `BTN` it overflowed the stroke.
+    width: '100%', height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     // Clips the avatar to the button's corners. Sits inside the shadowed view
@@ -323,6 +343,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   // Labelled buttons size to their content instead of the fixed square.
+  // Unfilled, and no rounded ground to fill — the radius would only show as a
+  // pressed-state artefact on a button that has no surface.
+  btnBare: { backgroundColor: 'transparent' },
+  btnOutlined: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: 1,
+    // 40% rather than solid: at full white the stroke was the brightest thing
+    // in the bar and read as a focus ring rather than an edge.
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
   btnWide:     { width: undefined, paddingHorizontal: 11 },
   btnIconWide: {
     width: undefined, flexDirection: 'row', alignItems: 'center', gap: 6.5,
@@ -332,7 +362,10 @@ const styles = StyleSheet.create({
   thumbRow:     { flexDirection: 'row', alignItems: 'center' },
   thumb:        { width: 23, height: 23, borderRadius: 11.5, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
   thumbOverlap: { marginLeft: -8.5 },
-  thumbMore:    { backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
+  // Solid dark grey rather than 75% black: the button behind it is now a 10%
+  // black wash, so a translucent chip picked up whatever photo was underneath
+  // and the count sat on a moving ground.
+  thumbMore:    { backgroundColor: '#3A3A3A', alignItems: 'center', justifyContent: 'center' },
   thumbMoreText:{ fontSize: 9.5, fontWeight: '800', color: '#FFFFFF' },
 
   logo: { width: 25, height: 25 },

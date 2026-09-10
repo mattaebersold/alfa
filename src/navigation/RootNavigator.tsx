@@ -13,6 +13,7 @@ import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
 import SessionRecovery from '../components/auth/SessionRecovery';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
+import { SearchProvider } from '../providers/SearchProvider';
 import { navigationRef, navigateFromOutside } from './navigationRef';
 import { notificationTarget } from '../utils/notificationTarget';
 
@@ -222,7 +223,9 @@ export default function RootNavigator() {
       {/* Inside the container: the event sheet it hosts renders navigation-aware
           content, so it needs a navigation context of its own. */}
       <EventSheetProvider>
+      <SearchProvider>
         <AuthGate />
+      </SearchProvider>
       </EventSheetProvider>
     </NavigationContainer>
   );

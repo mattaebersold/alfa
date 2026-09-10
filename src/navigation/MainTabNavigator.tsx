@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Users, Car, Route as RouteIcon } from 'lucide-react-native';
+import { Users, Car, Route as RouteIcon, Search } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CheckeredFlag from '../components/ui/CheckeredFlag';
 import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
+import { useSearch } from '../providers/SearchProvider';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
@@ -67,12 +68,20 @@ function TabIcon({
 }) {
   return (
     <View style={[styles.iconWrap, focused && { backgroundColor: brandColor }]}>
-      <Icon color={focused ? '#000000' : color} size={size - 5} strokeWidth={focused ? 2.7 : 2} />
+      {/* `size - 1` where it was `size - 5`: about 10% larger, and the wrap is
+          still 38pt so the selected pill and the touch target don't move. */}
+      <Icon color={focused ? '#000000' : color} size={size - 1} strokeWidth={focused ? 2.7 : 2} />
     </View>
   );
 }
 
+/** Never rendered — the Search tab prevents navigation before it would be. */
+function NoopScreen() {
+  return null;
+}
+
 export default function MainTabNavigator() {
+  const { openSearch } = useSearch();
   const insets = useSafeAreaInsets();
   // Extra bottom clearance so icons/labels aren't crowded by the system nav —
   // full amount on Android's gesture/nav bar, half on iOS.
@@ -196,6 +205,32 @@ export default function MainTabNavigator() {
           },
         })}
       />
+
+      {/* Search opens an overlay, it doesn't navigate.
+          The screen it points at is never rendered — `tabPress` is prevented
+          before navigation happens — but a Tab.Screen needs a component, and
+          this is the cheapest honest one. The tab never reads as focused
+          either, which is right: search is something you do over wherever you
+          already were, not a place the bar can be showing you.
+
+          The overlay itself lives at the root — see SearchProvider — because
+          the tab bar sits outside the header that used to own it. */}
+      <Tab.Screen
+        name="SearchTab"
+        component={NoopScreen}
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={Search} color={color} size={size} focused={focused} brandColor={brandColor} />
+          ),
+        }}
+        listeners={() => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            openSearch();
+          },
+        })}
+      />
     </Tab.Navigator>
     {!immersive && <CreateFab />}
     </View>
@@ -207,12 +242,22 @@ const styles = StyleSheet.create({
 
   tabBarTint: { backgroundColor: 'rgba(0,0,0,0.6)' },
 
+  /**
+   * No ground when unselected.
+   *
+   * The 5%-white square sat behind every icon, which made five faint tiles
+   * across the bar and left the selected one competing with four near-misses
+   * rather than standing alone. The brand fill still lands here when a tab is
+   * focused — that's the only state that needs a surface.
+   *
+   * The box keeps its size: it's the touch target and the shape the selected
+   * pill takes, and shrinking it to the glyph would move both.
+   */
   iconWrap: {
     width: 38,
     height: 38,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
   },
 });

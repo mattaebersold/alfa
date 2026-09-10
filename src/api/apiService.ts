@@ -6,7 +6,7 @@ import type {
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
   FeedPreferences, HomeBanner, CarActivityItem,
-  DeclinedInvite, ReportableType,
+  DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -19,7 +19,7 @@ export const apiService = createApi({
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
     'CarFollow', 'Group', 'GroupMembers', 'GroupDiscussion', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
-    'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites',
+    'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites', 'Product',
   ],
   endpoints: (builder) => ({
 
@@ -863,6 +863,50 @@ export const apiService = createApi({
       invalidatesTags: ['Rally'],
     }),
 
+    /**
+     * Admins (and the organiser who created it) only — horacio 403s anyone
+     * else, so the screens gate the control on `accountType` for looks and let
+     * the server be the one that decides.
+     */
+    deleteRally: builder.mutation<void, string>({
+      query: (internal_id) => ({ url: 'api/rally/delete', method: 'POST', body: { internal_id } }),
+      invalidatesTags: ['Rally'],
+    }),
+
+    // ── Shop ─────────────────────────────────────────────────────────────────
+    // Reads are open — a product link is something you send someone, and the
+    // server serves it without a token. Writes are admin-only and enforced
+    // there; the screen only decides whether to offer them.
+
+    getProducts: builder.query<{ entries: ShopProduct[]; total: number }, { limit?: number; category?: string } | void>({
+      query: ({ limit = 100, category } = {}) => ({
+        url: 'api/product',
+        params: { limit, ...(category ? { category } : {}) },
+      }),
+      providesTags: ['Product'],
+    }),
+
+    /** Drafts included. 403s for anyone who isn't an admin, so skip it for them. */
+    getAdminProducts: builder.query<{ entries: ShopProduct[]; total: number }, void>({
+      query: () => 'api/product/admin/all',
+      providesTags: ['Product'],
+    }),
+
+    createProduct: builder.mutation<{ entry: ShopProduct }, FormData>({
+      query: (body) => ({ url: 'api/product/create', method: 'POST', body }),
+      invalidatesTags: ['Product'],
+    }),
+
+    updateProduct: builder.mutation<{ entry: ShopProduct }, FormData>({
+      query: (body) => ({ url: 'api/product/update', method: 'POST', body }),
+      invalidatesTags: ['Product'],
+    }),
+
+    deleteProduct: builder.mutation<void, string>({
+      query: (internal_id) => ({ url: 'api/product/delete', method: 'POST', body: { internal_id } }),
+      invalidatesTags: ['Product'],
+    }),
+
     // ── Calendar ──────────────────────────────────────────────────────────────
 
     getCalendarEvents: builder.query<{ entries: Event[]; total: number }, { year: number; month: number; group_id?: string }>({
@@ -1132,6 +1176,30 @@ export const apiService = createApi({
     }),
 
     // ── User settings ─────────────────────────────────────────────────────────
+
+    /**
+     * The rows the notification table renders.
+     *
+     * Served rather than hardcoded, so adding a notification type is one entry
+     * in horacio's helpers/notificationPrefs and both apps pick it up without
+     * a release.
+     */
+    getNotificationTypes: builder.query<{ types: NotificationType[] }, void>({
+      query: () => 'api/users/settings/notification-types',
+    }),
+
+    /** Per-type push/email preferences. Writes to the authenticated user. */
+    updateNotificationSettings: builder.mutation<
+      { success: boolean; notificationSettings: NotificationSettings },
+      NotificationSettings
+    >({
+      query: (notificationSettings) => ({
+        url: 'api/users/settings/update/notifications',
+        method: 'POST',
+        body: { notificationSettings: JSON.stringify(notificationSettings) },
+      }),
+      invalidatesTags: ['User'],
+    }),
 
     updateUserSetting: builder.mutation<{ success: boolean; message?: string }, { type: string; [key: string]: any }>({
       query: ({ type, ...body }) => ({
@@ -1506,10 +1574,16 @@ export const {
   useDeleteMessageMutation,
   useDeleteMessageThreadMutation,
   useSearchMessageUsersQuery,
+  useGetProductsQuery,
+  useGetAdminProductsQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
   useGetRallysQuery,
   useGetRallyQuery,
   useAttendRallyMutation,
   useDeclineRallyMutation,
+  useDeleteRallyMutation,
   useGetCalendarEventsQuery,
   useGetGroupDiscussionQuery,
   useGetGroupNewsQuery,
@@ -1528,6 +1602,8 @@ export const {
   useGetPostTagsQuery,
   useSearchQuery,
   useUpdateUserSettingMutation,
+  useGetNotificationTypesQuery,
+  useUpdateNotificationSettingsMutation,
   useUpdateUserSettingImageMutation,
   useUpdateFeedPreferencesMutation,
   useCheckUsernameMutation,

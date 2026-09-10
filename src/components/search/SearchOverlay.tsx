@@ -328,13 +328,13 @@ export default function SearchOverlay({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => dismiss()}>
       {/* The screen behind, softened rather than replaced.
-          `experimentalBlurMethod` is what gives Android a real backdrop blur —
-          without it expo-blur degrades to a flat wash there and the feed stays
-          legible straight through the results. */}
+          `blurMethod` is what gives Android a real backdrop blur — without it
+          expo-blur degrades to a flat wash there and the feed stays legible
+          straight through the results. */}
       <BlurView
         intensity={38}
         tint="dark"
-        experimentalBlurMethod="dimezisBlurView"
+        blurMethod="dimezisBlurView"
         style={StyleSheet.absoluteFill}
       />
       <Pressable

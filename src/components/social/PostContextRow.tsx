@@ -284,11 +284,11 @@ export default function PostContextRow({ post }: { post: Post }) {
   const scrolls = items.length > 2;
 
   const tiles = items.map((item) => {
-    const props = { key: item.key, id: item.id, width, onOpen: openFor(item.kind, item.id) };
-    if (item.kind === 'group') return <GroupTile {...props} />;
-    if (item.kind === 'user')  return <UserTile {...props} />;
-    if (item.kind === 'car')   return <CarTile {...props} />;
-    return <EventTile {...props} />;
+    const props = { id: item.id, width, onOpen: openFor(item.kind, item.id) };
+    if (item.kind === 'group') return <GroupTile key={item.key} {...props} />;
+    if (item.kind === 'user')  return <UserTile key={item.key} {...props} />;
+    if (item.kind === 'car')   return <CarTile key={item.key} {...props} />;
+    return <EventTile key={item.key} {...props} />;
   });
 
   const close = () => setOpen(null);

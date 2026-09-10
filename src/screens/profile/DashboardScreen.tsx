@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon } from 'lucide-react-native';
+import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -427,6 +427,14 @@ export default function DashboardScreen() {
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
             <UserCheck size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Its own row rather than a section inside Account Settings. What
+              reaches your phone is a different question from your password and
+              your handle, and it's the one people come back to change. */}
+          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('NotificationSettings')} activeOpacity={0.7}>
+            <Bell size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Notification Settings</Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('followedCars')} activeOpacity={0.7}>

@@ -212,7 +212,11 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     try {
       await sendMessage({
         recipient_id: recipientId,
-        subject,
+        // The route param is optional — a thread reached from anywhere but the
+        // inbox list arrives without it — so fall back to the thread's own
+        // first message, which is where the subject lives. The server derives
+        // it from the parent too; this just stops us sending nothing.
+        subject: subject ?? sorted[0]?.subject ?? '',
         body: trimmed,
         parent_message_id: parentMessageId,
       }).unwrap();
@@ -221,7 +225,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     } catch {
       setBody(trimmed); // restore on failure
     }
-  }, [body, recipientId, sendMessage, subject, parentMessageId, refetch]);
+  }, [body, recipientId, sendMessage, subject, sorted, parentMessageId, refetch]);
 
   return (
     <SharedModal

@@ -1,21 +1,26 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Linking,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { MapPin, Clock, Navigation, Users } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { MapPin, Clock, Navigation, Users, Trash2 } from 'lucide-react-native';
 import SharedModal from '../ui/SharedModal';
 import { useGetRallyQuery } from '../../api/apiService';
 import RouteMap from '../routes/RouteMap';
 import RallyRegistrationForm from './RallyRegistrationForm';
 import RallyDays from './RallyDays';
 import RallyFaq from './RallyFaq';
+import Avatar from '../ui/Avatar';
+import ImageLightbox from '../ui/ImageLightbox';
 import Spinner from '../ui/Spinner';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange } from '../../utils/rally';
+import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange, RALLY_DATE_TBA } from '../../utils/rally';
 import { stripHtml } from '../../utils/text';
+import { colors as palette } from '../../constants/colors';
+import { useRallyDelete } from '../../hooks/useRallyDelete';
 
 interface Props {
   rallyId: string | null;
@@ -25,7 +30,12 @@ interface Props {
 /** Shared rally-detail modal — used from the Society feed and the Rallys list. */
 export default function RallyDetailSheet({ rallyId, onClose }: Props) {
   const colors = useColors();
+  const nav = useNavigation<any>();
   const { data: rally, isLoading } = useGetRallyQuery(rallyId!, { skip: !rallyId });
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+  // The rally is gone once this resolves, so the sheet closes rather than
+  // sitting on a stale copy of it.
+  const { canDelete, confirmDelete, isDeleting } = useRallyDelete(rally, onClose);
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
@@ -36,14 +46,38 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
     }
   }, [rally]);
 
+  // A member chip leaves the sheet behind: the profile is a screen, and
+  // stacking it under an open modal leaves the sheet floating over it.
+  const goToUser = useCallback((userId: string, username?: string) => {
+    onClose();
+    requestAnimationFrame(() => nav.navigate('UserDetail', { userId, username }));
+  }, [nav, onClose]);
+
   const gallery = rally?.gallery ?? [];
   const hero = rally?.hero_image ? imageUrl(rally.hero_image) : firstGalleryUrl(gallery);
-  const date = rallyDateRange(rally, { month: 'long' });
+  const date = rally ? rallyDateRange(rally, { month: 'long' }) ?? RALLY_DATE_TBA : null;
   const formUrl = toRallyFormEmbedUrl(rally?.form_id);
   // Registration is embedded below, but only while there's still a rally to
   // register for — a past rally's form is a dead end.
   const showRegistration = !!formUrl && isRallyUpcoming(rally);
   const hasCoords = Number.isFinite(rally?.location_lat) && Number.isFinite(rally?.location_lng);
+  const mapImage = rally?.map_image ? imageUrl(rally.map_image) : null;
+  const attending = rally?.attending_members_data ?? [];
+
+  // One viewer for every photo in the sheet, in the order they appear: the hero
+  // (when it's its own image rather than the first gallery shot), the gallery,
+  // then the route map. The offsets below index into this.
+  const galleryUrls = gallery
+    .map((g) => imageUrl(g.filename))
+    .filter((u): u is string => !!u);
+  const heroIsOwnImage = !!rally?.hero_image && !!hero;
+  const viewerImages = [
+    ...(heroIsOwnImage ? [hero as string] : []),
+    ...galleryUrls,
+    ...(mapImage ? [mapImage] : []),
+  ];
+  const galleryOffset = heroIsOwnImage ? 1 : 0;
+  const mapOffset = galleryOffset + galleryUrls.length;
 
   return (
     <SharedModal
@@ -59,7 +93,11 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           {hero
-            ? <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
+            ? (
+              <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(0)}>
+                <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
+              </TouchableOpacity>
+            )
             : <View style={[styles.hero, { backgroundColor: colors.primaryAlt }]} />
           }
 
@@ -70,14 +108,28 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.galleryStrip}
-              renderItem={({ item }) => (
-                <Image source={{ uri: imageUrl(item.filename) ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
+              renderItem={({ item, index }) => (
+                <TouchableOpacity activeOpacity={0.9} onPress={() => setZoomIndex(galleryOffset + index)}>
+                  <Image source={{ uri: imageUrl(item.filename) ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
+                </TouchableOpacity>
               )}
             />
           )}
 
           <View style={styles.body}>
-            <Text style={[styles.title, { color: colors.fg }]}>{rally.title}</Text>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: colors.fg }]}>{rally.title}</Text>
+              {canDelete && (
+                <TouchableOpacity
+                  onPress={confirmDelete}
+                  disabled={isDeleting}
+                  hitSlop={10}
+                  style={[styles.deleteBtn, { borderColor: colors.border, opacity: isDeleting ? 0.5 : 1 }]}
+                >
+                  <Trash2 size={18} color={palette.red} />
+                </TouchableOpacity>
+              )}
+            </View>
 
             {date && (
               <View style={styles.metaRow}>
@@ -115,6 +167,44 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
               uses, so the two stay in step. There are no section tabs here —
               a sheet is a peek, and tabs inside one are furniture. */}
           <RallyDays days={rally.days} />
+
+          {/* Route map. Full width and contained — a route is only useful
+              uncropped — and tappable, so it opens in the viewer, which a
+              printed-detail map usually needs. */}
+          {mapImage && (
+            <View style={styles.section}>
+              <Text style={[styles.heading, { color: colors.fg }]}>Route Map</Text>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setZoomIndex(mapOffset)}
+                style={[styles.mapImageWrap, { backgroundColor: colors.segment }]}
+              >
+                <Image source={{ uri: mapImage }} style={styles.mapImage} contentFit="contain" />
+              </TouchableOpacity>
+              <Text style={[styles.hint, { color: colors.grey }]}>Tap the map to open it full size.</Text>
+            </View>
+          )}
+
+          {attending.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.heading, { color: colors.fg }]}>Attending Members</Text>
+              <View style={styles.memberWrap}>
+                {attending.map((member) => (
+                  <TouchableOpacity
+                    key={member.user_id}
+                    style={[styles.memberChip, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    activeOpacity={0.8}
+                    onPress={() => goToUser(member.user_id, member.username)}
+                  >
+                    <Avatar user={member} size={26} />
+                    <Text style={[styles.memberName, { color: colors.fg }]} numberOfLines={1}>
+                      {member.username}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Registration sits under the itinerary, ahead of the map: signing
               up is the point of an upcoming rally, and it shouldn't be below
@@ -154,6 +244,13 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
           )}
         </ScrollView>
       )}
+
+      <ImageLightbox
+        images={viewerImages}
+        initialIndex={zoomIndex ?? 0}
+        visible={zoomIndex !== null}
+        onClose={() => setZoomIndex(null)}
+      />
     </SharedModal>
   );
 }
@@ -164,11 +261,31 @@ const styles = StyleSheet.create({
   galleryStrip: { padding: 8, gap: 6 },
   galleryThumb: { width: 80, height: 60, borderRadius: 6 },
   body:    { padding: 16 },
-  title:   { fontSize: 22, fontWeight: '800', marginBottom: 12 },
+  titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  title:   { fontSize: 22, fontWeight: '800', marginBottom: 12, flex: 1 },
+  deleteBtn: {
+    width: 36, height: 36, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center', justifyContent: 'center',
+  },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:{ fontSize: 14 },
   slots:   { fontSize: 13, fontWeight: '700', marginBottom: 12 },
   description: { fontSize: 15, lineHeight: 22 },
+
+  // Shared shape with RallyDays/RallyFaq, so the sheet reads as one rhythm.
+  section:  { paddingHorizontal: 16, paddingTop: 28 },
+  heading:  { fontSize: 20, fontWeight: '800', marginBottom: 12 },
+  hint:     { fontSize: 12, marginTop: 8 },
+  mapImageWrap: { borderRadius: 12, overflow: 'hidden' },
+  mapImage: { width: '100%', aspectRatio: 4 / 3 },
+
+  memberWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  memberChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingLeft: 6, paddingRight: 12, paddingVertical: 6,
+    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, maxWidth: '100%',
+  },
+  memberName: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
 
   mapSection: { paddingHorizontal: 16, gap: 10 },
   // The map is a picture of where this is, not something to pan around inside a

@@ -18,7 +18,7 @@ import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '..
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
-import { InstagramIcon, DiscordIcon } from './BrandIcons';
+import { InstagramIcon, DiscordIcon, YouTubeIcon } from './BrandIcons';
 import { CONFIG } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
@@ -58,8 +58,13 @@ const SLIDE_DURATION = 220;
  */
 const SHOW_YOUR_EVENTS = false;
 
-/** The merch shop, parked the same way and for the same reason. */
-const SHOW_SHOP = false;
+/**
+ * The merch shop.
+ *
+ * Back on now that it has products of its own to sell — it lists from
+ * horacio's /api/product and hands the buyer to the web to pay.
+ */
+const SHOW_SHOP = true;
 
 /**
  * Dark palette, matched to the web drawer: white-on-dark rather than derived
@@ -402,10 +407,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                     naming a section that no longer had two things in it. */}
                 <NavTile label="Marketplace" Icon={ShoppingBag}
                   onPress={() => goFeed('Marketplace')} />
-                {SHOW_SHOP && (
-                  <NavTile label="Shop" Icon={Store}
-                    onPress={() => closeThen(() => navigation.navigate('Shop'))} />
-                )}
                 {/* The header's + used to be the only way to list a diecast; it
                     goes straight to a new post now, so the entry point lives
                     here beside the marketplace it lists into. Pro-only, as
@@ -417,6 +418,24 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                     onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
                 )}
               </View>
+
+              {/* The shop leads the three slabs at the foot of the menu.
+                  It sits out of the tile grid for the same reason About and
+                  Support do — none of them is somewhere you browse to — and
+                  now wears the same size and fill as the two below it. Its own
+                  brass and larger type made it the loudest thing in the drawer,
+                  which is a lot of emphasis for a shop with a few shirts. */}
+              {SHOW_SHOP && (
+                <TouchableOpacity
+                  style={[styles.aboutBtn, { backgroundColor: slabFill }]}
+                  onPress={() => closeThen(() => navigation.navigate('Shop'))}
+                  activeOpacity={0.85}
+                >
+                  <Store size={20} color="#000000" />
+                  <Text style={styles.aboutBtnText}>Shop</Text>
+                  <ChevronRight size={18} color="#000000" />
+                </TouchableOpacity>
+              )}
 
               {/* Two slabs rather than tiles — neither is somewhere you browse
                   to. One is the story of the place, the other is how you reach
@@ -430,13 +449,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   for a pro member, blue otherwise — black text reads on both,
                   so only the ground changes. */}
               <TouchableOpacity
-                style={[styles.aboutBtn, { backgroundColor: slabFill }]}
+                style={[styles.aboutBtn, SHOW_SHOP && styles.supportBtn, { backgroundColor: slabFill }]}
                 onPress={() => closeThen(() => navigation.navigate('About'))}
                 activeOpacity={0.85}
               >
                 <Info size={20} color="#000000" />
                 <Text style={styles.aboutBtnText}>About Open Road Society</Text>
-                <ChevronRight size={18} color="#000000" style={styles.aboutChevron} />
+                <ChevronRight size={18} color="#000000" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -446,7 +465,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               >
                 <LifeBuoy size={20} color="#000000" />
                 <Text style={styles.aboutBtnText}>Support</Text>
-                <ChevronRight size={18} color="#000000" style={styles.aboutChevron} />
+                <ChevronRight size={18} color="#000000" />
               </TouchableOpacity>
 
               <View style={styles.footer}>
@@ -485,6 +504,15 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                     accessibilityLabel="Open Road Society on Discord"
                   >
                     <DiscordIcon size={19} color={TEXT_HI} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.socialBtn}
+                    onPress={() => Linking.openURL('https://www.youtube.com/@openroadsocietyco')}
+                    activeOpacity={0.8}
+                    accessibilityRole="link"
+                    accessibilityLabel="Open Road Society on YouTube"
+                  >
+                    <YouTubeIcon size={19} color={TEXT_HI} />
                   </TouchableOpacity>
 
                   {/* Log out, quietly, on the end of this row.
@@ -533,7 +561,7 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 intensity={55}
                 // Android has no real backdrop blur without this; without it
                 // expo-blur degrades to a flat scrim and nothing shows through.
-                experimentalBlurMethod="dimezisBlurView"
+                blurMethod="dimezisBlurView"
                 style={StyleSheet.absoluteFill}
               />
               {/* Enough tint to keep the logo and icons legible over whatever
@@ -711,8 +739,6 @@ const styles = StyleSheet.create({
   },
   aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#000000' },
   supportBtn:   { marginTop: 8 },
-  // The chevron is the same ink as the label, just quieter.
-  aboutChevron: { opacity: 0.6 },
 
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   socialBtn: {

@@ -56,3 +56,33 @@ export const CONDITIONS = [
   { key: 'poor',      label: 'Poor' },
   { key: 'project',   label: 'Project' },
 ];
+
+// Murray-style badge colors per car type. Here rather than on the card that
+// draws them: the summary modal badges a car the same way, and the card
+// already renders that modal — owning the palette too closed a require cycle.
+export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  'daily':        { bg: '#F0D689', text: '#000' },
+  'weekend':      { bg: '#35B5FF', text: '#000' },
+  'project':      { bg: '#F36943', text: '#000' },
+  'garage-queen': { bg: '#FF479C', text: '#000' },
+  'part-out':     { bg: '#00FF3F', text: '#000' },
+  'other':        { bg: '#F0D689', text: '#000' },
+};
+
+/** Every car type and category label, keyed the way they're stored. */
+const LABELS: Record<string, string> = {};
+CAR_TYPES.forEach((t) => { LABELS[t.key] = t.label; });
+Object.values(CAR_CATEGORIES).flat().forEach((c) => { LABELS[c.key] = c.label; });
+
+/**
+ * The written label for a stored type or category key.
+ *
+ * The real label first, and only then a de-kebabbed, title-cased guess. The
+ * guess alone turned `carsAndCoffee` into "Carsandcoffee" and `shibox` into
+ * "Shibox" — the keys are camelCase, and there is no rule that recovers
+ * "Cars & Coffee" from one. The list already has the answer; this asks it.
+ */
+export const formatLabel = (key?: string) => {
+  if (!key) return null;
+  return LABELS[key] ?? key.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+};

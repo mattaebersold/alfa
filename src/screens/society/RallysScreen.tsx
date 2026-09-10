@@ -16,6 +16,7 @@ import { useColors } from '../../hooks/useColors';
 import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate, calendarTime } from '../../utils/calendarDate';
+import { RALLY_DATE_TBA } from '../../utils/rally';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** A past rally in the scroller — wide enough to read, narrow enough that the
@@ -46,7 +47,8 @@ function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => vo
   // photographs, and a fixed frame cut the tops off them.
   const [ratio, setRatio] = useState(16 / 9);
   const eventDay = calendarDate(rally.event_date);
-  const date = eventDay ? format(eventDay, 'MMM d, yyyy') : null;
+  // Never null: an unscheduled rally says so rather than losing the line.
+  const date = eventDay ? format(eventDay, 'MMM d, yyyy') : RALLY_DATE_TBA;
 
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
@@ -65,7 +67,7 @@ function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => vo
         : <View style={[styles.cardImage, styles.cardFallbackRatio, styles.cardPlaceholder]} />
       }
       <View style={styles.cardBody}>
-        {date && <Text style={styles.date}>{date}</Text>}
+        <Text style={styles.date}>{date}</Text>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
         {rally.location && <Text style={[styles.location, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>}
         {rally.slots_available != null && (

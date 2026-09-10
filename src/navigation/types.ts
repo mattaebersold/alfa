@@ -89,6 +89,12 @@ export type MainTabParamList = {
   RoutesTab: NavigatorScreenParams<RoutesStackParamList> | undefined;
   GroupsTab: NavigatorScreenParams<GroupsStackParamList> | undefined;
   CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
+  /**
+   * A button, not a destination — its press opens the search overlay and is
+   * prevented before it can navigate. Declared so the tab is typed like its
+   * neighbours; nothing should ever navigate to it.
+   */
+  SearchTab: undefined;
 };
 
 // ── App Stack (top-level, wraps tabs + modals) ───────────────────────────────
@@ -104,10 +110,13 @@ export type AppStackParamList = {
   ComposeMessage: { userId?: string; username?: string; initialBody?: string; subject?: string };
   UserDetail: { userId: string; username?: string };
   Settings: undefined;
+  NotificationSettings: undefined;
   Articles: undefined;
   ArticleDetail: { articleId: string };
   Marketplace: undefined;
   Shop: undefined;
+  /** Admin-only. With an id it edits that product, without it creates one. */
+  ProductCreate: { productId?: string } | undefined;
   About: undefined;
   Support: undefined;
   SocietyEventDetail: { eventId: string; occurrenceDate?: string };

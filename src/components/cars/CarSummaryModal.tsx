@@ -20,7 +20,7 @@ import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { TYPE_COLORS, formatLabel } from '../cards/CarPosterCard';
+import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
 
 /**
  * One person on the car — the owner, or the second name on a shared one.
