@@ -527,17 +527,30 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   // member and it matches the group's make/model, which never sets that field.
   const { data: carGroupsData } = useGetCarGroupsQuery(carId, { skip: !car });
   const carGroups = carGroupsData?.entries ?? [];
-  // The backend filters on make_handle/model_handle (slugs), not display values.
-  const makeHandle = car?.make_handle ?? car?.make?.toLowerCase();
-  const modelHandle = car?.model_handle ?? car?.model?.toLowerCase().replace(/ /g, '-');
+  /**
+   * The display values, not a slug built here.
+   *
+   * This used to send `make_handle` with a hand-rolled fallback —
+   * `make.toLowerCase()` for the make and a dashed version for the model. The
+   * two didn't agree with each other or with what the server had stored, so
+   * every make containing a space ("Alfa Romeo", "Land Rover") asked for a
+   * handle no row had and came back with nothing. Single-word makes worked,
+   * which is why it looked intermittent rather than broken.
+   *
+   * The server normalises whatever it is given and also matches the display
+   * field case-insensitively, so the right thing to send is simply the value as
+   * it appears on the car.
+   */
+  const makeQuery = car?.make ?? car?.make_handle;
+  const modelQuery = car?.model ?? car?.model_handle;
   const { data: otherModelData } = useGetCarsQuery(
-    { make: makeHandle, model: modelHandle, limit: 24 },
-    { skip: !makeHandle || !modelHandle },
+    { make: makeQuery, model: modelQuery, limit: 24 },
+    { skip: !makeQuery || !modelQuery },
   );
   const otherModelCars = (otherModelData?.entries ?? []).filter((c) => c.internal_id !== carId);
   const { data: otherMakeData } = useGetCarsQuery(
-    { make: makeHandle, limit: 24 },
-    { skip: !makeHandle },
+    { make: makeQuery, limit: 24 },
+    { skip: !makeQuery },
   );
   const otherMakeCars = (otherMakeData?.entries ?? []).filter((c) => c.internal_id !== carId);
 

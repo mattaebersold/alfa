@@ -25,6 +25,9 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
  * common make; the recent pool is the newest cars generally, which doubles as
  * the fallback and as a source of matches for the *other* makes you own — one
  * query per make isn't possible when the make list is dynamic and hooks aren't.
+ *
+ * If a member's invite brought you here, their garage is a third pool, and it
+ * goes ahead of both.
  */
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -96,6 +99,14 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
   );
   const { data: recentData } = useGetCarsQuery({ limit: RECENT_POOL });
 
+  // The garage of whoever invited you — they lead the shelf, ahead of any
+  // make or model match, because you already know whose cars they are.
+  const invitedBy = userInfo?.invited_by ?? '';
+  const { data: inviterData } = useGetCarsQuery(
+    { user_id: invitedBy, limit: MAX_SUGGESTIONS },
+    { skip: !invitedBy },
+  );
+
   const suggestions = useMemo<GarageCar[]>(() => {
     // Your own cars and the ones you already follow are never suggestions.
     const excluded = new Set<string>([
@@ -104,6 +115,17 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     ]);
 
     const seen = new Set<string>();
+
+    // In the garage's own order rather than shuffled — it's one person's cars,
+    // and they already chose how to show them.
+    const lead: GarageCar[] = [];
+    for (const car of inviterData?.entries ?? []) {
+      if (!car?.internal_id || seen.has(car.internal_id)) continue;
+      if (excluded.has(car.internal_id) || car.user_id === myId) continue;
+      seen.add(car.internal_id);
+      lead.push(car);
+    }
+
     const pool: GarageCar[] = [];
     for (const car of [...(relatedData?.entries ?? []), ...(recentData?.entries ?? [])]) {
       if (!car?.internal_id || seen.has(car.internal_id)) continue;
@@ -131,9 +153,9 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     // Empty garage, or nothing in the pools matched it — show cars you don't
     // already follow instead of showing nothing. Nothing ranks these, so the
     // whole fallback pool shuffles.
-    if (!matches.length) return shuffle(pool).slice(0, FALLBACK_COUNT);
-    return matches.slice(0, MAX_SUGGESTIONS);
-  }, [relatedData, recentData, myCars, followedCars, myId]);
+    const others = matches.length ? matches : shuffle(pool).slice(0, FALLBACK_COUNT);
+    return [...lead, ...others].slice(0, MAX_SUGGESTIONS);
+  }, [inviterData, relatedData, recentData, myCars, followedCars, myId]);
 
   if (!suggestions.length) return null;
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Pressable, Alert, ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
@@ -126,10 +127,10 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
     try {
       await createComment(fd).unwrap();
-      setCommentText('');
-      setMentionedUserIds([]);
-      setReplyingTo(null);
-      photo.clear();
+      // Posting is the end of the visit: keyboard and sheet go together. The
+      // composer state is cleared by the close animation above.
+      Keyboard.dismiss();
+      onClose();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }

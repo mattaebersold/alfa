@@ -52,6 +52,11 @@ export interface User {
   userToken?: string;
   /** Per-type push/email preferences — see NotificationSettings. */
   notificationSettings?: NotificationSettings;
+  /**
+   * The user_id of the member whose invite brought them in. Only on your own
+   * profile; the home feed's suggestions put that member and their cars first.
+   */
+  invited_by?: string | null;
 }
 
 /** Per-user dismissals of the home feed's promotional modules. */
@@ -421,6 +426,104 @@ export interface Article {
 }
 
 /** One day of a rally's itinerary. */
+/**
+ * A post from one of your groups, as the home feed sees it.
+ *
+ * Three collections flattened into one shape by the server — `kind` is the only
+ * thing that says which, and it decides both the card's label and which section
+ * of the group "view more" opens.
+ */
+export interface GroupActivityItem {
+  internal_id: string;
+  kind: 'discussion' | 'news' | 'resource';
+  group_id: string;
+  user_id: string;
+  title?: string;
+  body?: string;
+  category?: string;
+  url?: string;
+  gallery?: GalleryItem[];
+  upvotes?: number;
+  downvotes?: number;
+  created_at?: string;
+  user?: {
+    user_id: string;
+    username?: string;
+    profile?: string[];
+    gallery?: GalleryItem[];
+    accountType?: string;
+  } | null;
+  group?: { internal_id: string; title?: string; gallery?: GalleryItem[] } | null;
+}
+
+/**
+ * One row in an address field's suggestion list.
+ *
+ * `primary` and `secondary` arrive already split — the venue name and the
+ * address under it — rather than as one string to re-split on a comma, which
+ * gets it wrong for any place whose name contains one.
+ */
+export interface PlacePrediction {
+  place_id: string;
+  primary: string;
+  secondary: string | null;
+  description: string;
+}
+
+/** A chosen prediction, resolved to somewhere a pin can go. */
+export interface PlaceDetail {
+  place_id: string;
+  name: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+/**
+ * A place worth photographing a car, pinned to the map.
+ *
+ * The coordinate is the point of it — a spot is "this corner of this parking
+ * structure", which no address says. Everything else hangs off that.
+ */
+export interface PhotoSpot {
+  internal_id: string;
+  user_id: string;
+  lat: number;
+  lng: number;
+  title?: string;
+  body?: string;
+  /** A human name for the place. Descriptive only; the coordinate is identity. */
+  location?: string;
+  /** What the place is — drives the pin colour. See constants/photoSpots. */
+  type?: string | null;
+  /** What you'd shoot there. */
+  category?: string | null;
+  gallery?: GalleryItem[];
+  /** Free text, because the useful version of this is always a sentence. */
+  access_note?: string;
+  best_time?: string;
+  private?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  /** Attached by the server — a narrow projection, not the whole user. */
+  user?: {
+    user_id: string;
+    username?: string;
+    profile?: string[];
+    gallery?: GalleryItem[];
+    accountType?: string;
+  } | null;
+}
+
+/** Where a member stands against the pin limit. `limit: null` means unlimited. */
+export interface PhotoSpotUsage {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  reached: boolean;
+  isPro: boolean;
+}
+
 export interface RallyDay {
   title?: string;
   subtitle?: string;

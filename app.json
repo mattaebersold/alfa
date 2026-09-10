@@ -25,7 +25,7 @@
         "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
         "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Open Road Society records the roads you drive so you can save and share them as routes."
+        "NSLocationWhenInUseUsageDescription": "Open Road Society uses your location to record the roads you drive and to drop a pin where you're standing when you add a photography spot."
       }
     },
     "android": {
@@ -96,7 +96,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Open Road Society uses your location to record the roads you drive, so you can save and share them as routes."
+          "locationWhenInUsePermission": "Open Road Society uses your location to record the roads you drive and to place a photography spot at where you are."
         }
       ],
       "@react-native-community/datetimepicker"

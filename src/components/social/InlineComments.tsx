@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Keyboard,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useCreateCommentMutation } from '../../api/apiService';
@@ -77,6 +77,9 @@ export default function InlineComments({
       setMentionedUserIds([]);
       setReplyingTo(null);
       photo.clear();
+      // Inline, so there's no pane to close — just clear the keyboard off the
+      // comment you just posted.
+      Keyboard.dismiss();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }

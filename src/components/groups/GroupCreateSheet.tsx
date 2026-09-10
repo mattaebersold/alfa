@@ -12,6 +12,8 @@ import {
   useCreateGroupDiscussionPostMutation,
   useCreateGroupNewsPostMutation,
   useCreateGroupResourceMutation,
+  useUpdateGroupDiscussionPostMutation,
+  useUpdateGroupResourceMutation,
 } from '../../api/apiService';
 import SharedModal from '../ui/SharedModal';
 import ActionSheet from '../ui/ActionSheet';
@@ -40,6 +42,20 @@ const KIND_TITLE: Record<CreateKind, string> = {
   resources: 'New Resource',
 };
 
+const EDIT_TITLE: Partial<Record<CreateKind, string>> = {
+  discussion: 'Edit Discussion Post',
+  resources:  'Edit Resource',
+};
+
+/** An existing discussion post or resource to edit in place of creating one. */
+export interface EditableGroupItem {
+  internal_id: string;
+  title?: string;
+  body?: string;
+  url?: string;
+  category?: string;
+}
+
 interface Props {
   kind: CreateKind;
   groupId: string;
@@ -48,12 +64,17 @@ interface Props {
   categories: { key: string; label: string }[];
   /** Preselected when opened from a category header; still changeable here. */
   initialCategory?: string;
+  /**
+   * Edits this item instead of creating a new one. Discussion and resources
+   * only — the fields are prefilled and Post becomes Save.
+   */
+  editing?: EditableGroupItem | null;
   visible: boolean;
   onClose: () => void;
 }
 
 export default function GroupCreateSheet({
-  kind, groupId, groupTitle, categories, initialCategory, visible, onClose,
+  kind, groupId, groupTitle, categories, initialCategory, editing, visible, onClose,
 }: Props) {
   const c = useColors();
 
@@ -80,15 +101,18 @@ export default function GroupCreateSheet({
   const [createDiscussion, { isLoading: postingDiscussion }] = useCreateGroupDiscussionPostMutation();
   const [createNews, { isLoading: postingNews }] = useCreateGroupNewsPostMutation();
   const [createResource, { isLoading: postingResource }] = useCreateGroupResourceMutation();
-  const saving = postingPost || postingDiscussion || postingNews || postingResource;
+  const [updateDiscussion, { isLoading: updatingDiscussion }] = useUpdateGroupDiscussionPostMutation();
+  const [updateResource, { isLoading: updatingResource }] = useUpdateGroupResourceMutation();
+  const saving = postingPost || postingDiscussion || postingNews || postingResource
+    || updatingDiscussion || updatingResource;
 
   // Reset on open, not on close — clearing while it animates out is visible.
   useEffect(() => {
     if (visible) {
-      setTitle('');
-      setBody('');
-      setUrl('');
-      setCategory(initialCategory ?? categories[0]?.key ?? 'general');
+      setTitle(editing?.title ?? '');
+      setBody(editing?.body ?? '');
+      setUrl(editing?.url ?? '');
+      setCategory(editing?.category ?? initialCategory ?? categories[0]?.key ?? 'general');
       setPostType('general');
       setImages([]);
       setImageProgress(null);
@@ -137,7 +161,17 @@ export default function GroupCreateSheet({
     }
 
     try {
-      if (kind === 'posts') {
+      if (editing && kind === 'discussion') {
+        await updateDiscussion({
+          internal_id: editing.internal_id, group_id: groupId,
+          title: title.trim(), body: body.trim(), category,
+        }).unwrap();
+      } else if (editing && kind === 'resources') {
+        await updateResource({
+          internal_id: editing.internal_id, group_id: groupId,
+          title: title.trim(), body: body.trim(), url: url.trim(), category,
+        }).unwrap();
+      } else if (kind === 'posts') {
         const fd = new FormData();
         fd.append('title', title.trim());
         fd.append('body', body.trim());
@@ -183,7 +217,12 @@ export default function GroupCreateSheet({
   };
 
   return (
-    <SharedModal visible={visible} onClose={onClose} title={KIND_TITLE[kind]} heightRatio={0.85}>
+    <SharedModal
+      visible={visible}
+      onClose={onClose}
+      title={(editing && EDIT_TITLE[kind]) || KIND_TITLE[kind]}
+      heightRatio={0.85}
+    >
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {groupTitle ? (
           <View style={[styles.groupChip, { backgroundColor: c.secondary, borderColor: c.borderDark }]}>
@@ -354,7 +393,7 @@ export default function GroupCreateSheet({
                 )}
               </View>
             )
-            : <Text style={styles.submitText}>Post</Text>}
+            : <Text style={styles.submitText}>{editing ? 'Save' : 'Post'}</Text>}
         </TouchableOpacity>
       </ScrollView>
 

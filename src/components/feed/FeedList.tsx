@@ -4,18 +4,21 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery,
-  useGetRoutesQuery, useGetFollowedCarActivityQuery,
+  useGetRoutesQuery, useGetFollowedCarActivityQuery, useGetGroupActivityQuery,
 } from '../../api/apiService';
 import FeedItemCard from '../cards/FeedItemCard';
 import CarPosterCard from '../cards/CarPosterCard';
 import CarActivityCard from './CarActivityCard';
+import GroupActivityCard from './GroupActivityCard';
+import GroupItemDetailModal from '../groups/GroupItemDetailModal';
 import RouteCard from '../cards/RouteCard';
 import CommentsSheet from '../social/CommentsSheet';
+import { useNavigation } from '@react-navigation/native';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
-import type { Post, GarageCar, DrivingRoute, CarActivityItem } from '../../types/api';
+import type { Post, GarageCar, DrivingRoute, CarActivityItem, GroupActivityItem } from '../../types/api';
 
 interface FeedListProps {
   filter?: string;
@@ -41,11 +44,28 @@ const PAGE_SIZE = 12;
 const GARAGE_ADDITIONS_LIMIT = 20;
 /** Same idea for mods/galleries on cars you follow. */
 const CAR_ACTIVITY_LIMIT = 20;
+/** Same order as the car activity above — enough to interleave, not to flood. */
+const GROUP_ACTIVITY_LIMIT = 20;
+
+/**
+ * Which group screen each kind of post lives on.
+ *
+ * The item's own id opens nothing — these screens take a group and show its
+ * section — so "view more" lands you in the right list rather than on the
+ * item itself. Mirrors the same mapping in utils/notificationTarget, which
+ * routes a group notification to the same place.
+ */
+const GROUP_SECTION_SCREEN: Record<GroupActivityItem['kind'], string> = {
+  discussion: 'GroupDiscussion',
+  news:       'GroupNews',
+  resource:   'GroupResources',
+};
 
 type FeedRow =
   | { kind: 'post'; post: Post; time: number }
   | { kind: 'car'; car: GarageCar; time: number }
   | { kind: 'carActivity'; item: CarActivityItem; time: number }
+  | { kind: 'groupActivity'; item: GroupActivityItem; time: number }
   | { kind: 'route'; route: DrivingRoute; time: number };
 
 const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
@@ -68,7 +88,10 @@ export default function FeedList({
   const [page, setPage] = useState(0);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation<any>();
   const [commentPost, setCommentPost] = useState<Post | null>(null);
+  /** Which group post is open in its summary, if any. */
+  const [groupItem, setGroupItem] = useState<GroupActivityItem | null>(null);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const refreshingRef = useRef(false);
   const [getBatchLikes] = useGetBatchLikesMutation();
@@ -100,6 +123,14 @@ export default function FeedList({
   );
   const carActivity = useMemo(() => carActivityData?.entries ?? [], [carActivityData]);
 
+  // Discussions, news and resources from the groups you're in. Same scoping
+  // argument as the two above: your groups, not a discovery feed.
+  const { data: groupActivityData } = useGetGroupActivityQuery(
+    { limit: GROUP_ACTIVITY_LIMIT },
+    { skip: !includeGarageAdditions },
+  );
+  const groupActivity = useMemo(() => groupActivityData?.entries ?? [], [groupActivityData]);
+
   const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
     page,
     limit: PAGE_SIZE,
@@ -107,6 +138,10 @@ export default function FeedList({
     user_id: userId,
     car_id: carId,
     type,
+    // Listings and want ads shared only to your groups belong in your home
+    // feed too — otherwise they're only seen by whoever opens the group. The
+    // card's context row already names the group they came from.
+    ...(includeGarageAdditions ? { include_groups: true } : {}),
   });
 
   useEffect(() => {
@@ -174,7 +209,8 @@ export default function FeedList({
   const rows = useMemo<FeedRow[]>(() => {
     const postRows: FeedRow[] = allPosts.map((post) => ({ kind: 'post', post, time: timeOf(post.created_at) }));
     if (!includeGarageAdditions
-      || (garageCars.length === 0 && newRoutes.length === 0 && carActivity.length === 0)) return postRows;
+      || (garageCars.length === 0 && newRoutes.length === 0
+          && carActivity.length === 0 && groupActivity.length === 0)) return postRows;
 
     const oldestPost = postRows.length ? Math.min(...postRows.map((r) => r.time)) : 0;
     const inWindow = (created?: string) => !hasMorePosts || timeOf(created) >= oldestPost;
@@ -191,8 +227,13 @@ export default function FeedList({
       .filter((item) => inWindow(item.created_at))
       .map((item) => ({ kind: 'carActivity', item, time: timeOf(item.created_at) }));
 
-    return [...postRows, ...carRows, ...routeRows, ...activityRows].sort((a, b) => b.time - a.time);
-  }, [allPosts, garageCars, newRoutes, carActivity, includeGarageAdditions, hasMorePosts]);
+    const groupRows: FeedRow[] = groupActivity
+      .filter((item) => inWindow(item.created_at))
+      .map((item) => ({ kind: 'groupActivity', item, time: timeOf(item.created_at) }));
+
+    return [...postRows, ...carRows, ...routeRows, ...activityRows, ...groupRows]
+      .sort((a, b) => b.time - a.time);
+  }, [allPosts, garageCars, newRoutes, carActivity, groupActivity, includeGarageAdditions, hasMorePosts]);
 
   if (isLoading && page === 0) {
     return (
@@ -210,6 +251,7 @@ export default function FeedList({
           row.kind === 'post' ? `post-${row.post.internal_id}`
             : row.kind === 'car' ? `car-${row.car.internal_id}`
             : row.kind === 'carActivity' ? `${row.item.kind}-${row.item.internal_id}`
+            : row.kind === 'groupActivity' ? `group-${row.item.kind}-${row.item.internal_id}`
             : `route-${row.route.internal_id}`
         }
         renderItem={({ item: row }) => (
@@ -217,6 +259,8 @@ export default function FeedList({
             <CarPosterCard car={row.car} attribution />
           ) : row.kind === 'carActivity' ? (
             <CarActivityCard item={row.item} />
+          ) : row.kind === 'groupActivity' ? (
+            <GroupActivityCard item={row.item} onPress={() => setGroupItem(row.item)} />
           ) : row.kind === 'route' ? (
             <RouteCard route={row.route} />
           ) : (
@@ -253,10 +297,26 @@ export default function FeedList({
         scrollEventThrottle={16}
         contentContainerStyle={[styles.list, { paddingTop, paddingBottom: tabBarHeight }]}
       />
+      {/* A group post opens as a summary, not a screen: it's a detour from the
+          feed, and most of them are answered by reading the first paragraph.
+          "View in group" is there for the ones that aren't. */}
+      <GroupItemDetailModal
+        item={groupItem}
+        kind={groupItem?.kind ?? null}
+        visible={!!groupItem}
+        onClose={() => setGroupItem(null)}
+        onViewMore={groupItem ? () => {
+          const screen = GROUP_SECTION_SCREEN[groupItem.kind];
+          if (screen && groupItem.group_id) {
+            navigation.navigate(screen as never, { groupId: groupItem.group_id } as never);
+          }
+        } : undefined}
+      />
+
       {commentPost && (
         <CommentsSheet
           postId={commentPost.internal_id}
-          entryType={commentPost.entry_type ?? commentPost.type ?? 'post'}
+          entryType={commentPost.entry_type ?? 'post'}
           visible={!!commentPost}
           onClose={() => setCommentPost(null)}
         />

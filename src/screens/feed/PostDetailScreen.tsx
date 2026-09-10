@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Animated,
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler,
+  TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -211,7 +211,18 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
   const isOwner = userInfo?.user_id === post.user_id;
   const displayName = post.user?.username || 'Unknown';
-  const entryType = post.entry_type ?? post.type ?? 'post';
+  /**
+   * What comments and likes on this post are filed under.
+   *
+   * `entry_type` only — never `type`. The two mean different things: `entry_type`
+   * says *what kind of record this is* ("post"), while `type` says what kind of
+   * post it is ("diecast", "note", "listing"). This value is the key comments
+   * are written and read under, and the read above already uses
+   * `entry_type ?? 'post'`. Falling back to `type` here meant a comment on a
+   * diecast post was written under "diecast" and read back under "post" — the
+   * comment saved, then vanished.
+   */
+  const entryType = post.entry_type ?? 'post';
   const badgeType = post.type ?? post.entry_type ?? 'post';
   const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
   const categoryBadge = post.category
@@ -251,6 +262,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
       await createComment(fd).unwrap();
       setCommentText('');
       setReplyingTo(null);
+      Keyboard.dismiss();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }

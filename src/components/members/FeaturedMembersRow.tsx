@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
@@ -13,15 +13,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.40;
 const CARD_GAP = 10;
 const ROW_PAD = 14; // matches the section heading's inset
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 interface Props {
   onMemberPress: (userId: string, username: string) => void;
@@ -62,8 +53,9 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
 
 export default function FeaturedMembersRow({ onMemberPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
-  const raw = data?.featured_users ?? [];
-  const members = useMemo(() => shuffle(raw), [raw.length]);
+  // In the order an admin set on the Dashboard — it used to be shuffled, which
+  // made that order meaningless.
+  const members = data?.featured_users ?? [];
 
   if (!members.length) return null;
 

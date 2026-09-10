@@ -104,8 +104,20 @@ export function EventDetailBody({
   // Server returns these newest-first; a slider only wants the recent handful.
   const taggedPosts = (taggedData?.entries ?? []).slice(0, 10);
   const headerPad = topInset;
-  const isOwner =
-    !!userInfo && (userInfo.user_id === event.user_id || userInfo.accountType === 'admin');
+  /**
+   * Who gets the options menu, and what's in it.
+   *
+   * Mirrors horacio exactly, so nothing is offered that would come back 403:
+   * `updateEntry` accepts the owner or the co-owner, `deleteEntry` accepts the
+   * owner alone.
+   *
+   * The admin bypass that used to be here is gone. It's the reason an admin saw
+   * an edit button on every event on the site — the server still honours it, so
+   * moderation is unaffected, but it isn't something to put in front of someone
+   * browsing the calendar.
+   */
+  const isOwner = !!userInfo && userInfo.user_id === event.user_id;
+  const canEdit = isOwner || (!!userInfo && userInfo.user_id === (event as any).coowner_id);
 
   const handleOptions = () => {
     Alert.alert(event.title ?? 'Event', undefined, [
@@ -116,9 +128,11 @@ export function EventDetailBody({
           (nav as any).navigate('SocietyEventCreate', { eventId });
         },
       },
-      {
+      // Deleting is the owner's alone — a co-owner who can edit still can't
+      // remove somebody else's event out from under them.
+      ...(isOwner ? [{
         text: 'Delete event',
-        style: 'destructive',
+        style: 'destructive' as const,
         onPress: () => Alert.alert('Delete event', "This can't be undone.", [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -134,7 +148,7 @@ export function EventDetailBody({
             },
           },
         ]),
-      },
+      }] : []),
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -168,7 +182,7 @@ export function EventDetailBody({
           <Text style={styles.categoryText}>{category.label}</Text>
         </View>
 
-        {isOwner && (
+        {canEdit && (
           <TouchableOpacity
             style={[styles.optionsBtn, { top: headerPad }]}
             onPress={handleOptions}

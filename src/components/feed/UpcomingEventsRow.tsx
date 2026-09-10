@@ -11,7 +11,7 @@ import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { useGetUpcomingEventsQuery, useGetRallysQuery } from '../../api/apiService';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
-import { calendarTime } from '../../utils/calendarDate';
+import { mergeUpcoming } from '../../utils/rally';
 import { ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import type { SocietyEvent, Rally } from '../../types/api';
 
@@ -29,7 +29,11 @@ const CARD_RATIO = 16 / 9;
 /** How far ahead the row looks — matches the Events screen's own carousel. */
 const UPCOMING_DAYS = 30;
 const MAX_CARDS = 12;
-/** Enough upcoming rallys to pick the soonest from whatever order they arrive in. */
+/**
+ * Rallys aren't windowed the way events are: every upcoming one goes in the
+ * row, however far out it is — a rally months away is still what you plan
+ * around. The cap is a runaway guard, not a shelf size.
+ */
 const RALLY_FETCH = 12;
 
 /**
@@ -94,27 +98,26 @@ function RallyRowCard({ rally, onPress }: { rally: Rally; onPress: () => void })
  * the same cards the Events screen uses, so an event reads the same wherever
  * you meet it.
  *
- * The soonest ORS rally takes the first slot, as it does on murray: a rally is
- * the one date the club puts its own name on, and buried eighth in a scroller
- * it was the thing least likely to be seen.
+ * Rallys sit among the events in date order, as they do on murray: the row is
+ * a schedule, and a rally months out ahead of a meet this Saturday stopped it
+ * reading as one. They keep their own card treatment, so they still stand out
+ * where they fall.
  *
  * Renders nothing when the window is empty: an empty state at the top of the
  * feed is worse than the feed simply starting where it always did.
  */
 export default function UpcomingEventsRow() {
   const { openEventSheet } = useEventSheet();
-  const [rallyOpen, setRallyOpen] = useState(false);
+  const [openRallyId, setOpenRallyId] = useState<string | null>(null);
   const { data } = useGetUpcomingEventsQuery({ days: UPCOMING_DAYS, limit: MAX_CARDS });
   const { data: rallyData } = useGetRallysQuery({ page: 0, limit: RALLY_FETCH, time_filter: 'upcoming' });
 
-  const upcoming = data?.entries ?? [];
-  // The endpoint's own order is by creation, not by date, so the soonest one is
-  // picked here rather than trusted to arrive first.
-  const nextRally = [...(rallyData?.entries ?? [])]
-    .filter((r) => !!r.event_date)
-    .sort((a, b) => calendarTime(a.event_date, Infinity) - calendarTime(b.event_date, Infinity))[0] ?? null;
+  // Neither endpoint returns anything in date order — events come back by
+  // occurrence within the window, rallys by creation — so the row is ordered
+  // here, across both.
+  const items = mergeUpcoming(rallyData?.entries ?? [], data?.entries ?? []);
 
-  if (!upcoming.length && !nextRally) return null;
+  if (!items.length) return null;
 
   const open = (event: SocietyEvent) =>
     openEventSheet({ eventId: event.internal_id, occurrenceDate: event.occurrence_date });
@@ -129,28 +132,32 @@ export default function UpcomingEventsRow() {
         snapToAlignment="start"
         decelerationRate="fast"
       >
-        {nextRally && (
-          <RallyRowCard rally={nextRally} onPress={() => setRallyOpen(true)} />
+        {items.map((entry, i) =>
+          entry.kind === 'rally' ? (
+            <RallyRowCard
+              key={`rally-${entry.item.internal_id}`}
+              rally={entry.item}
+              onPress={() => setOpenRallyId(entry.item.internal_id)}
+            />
+          ) : (
+            // A repeating event can appear on several dates in the window, so
+            // the occurrence's day is part of the key.
+            <EventCard
+              key={`${entry.item.internal_id}-${entry.item.day}-${i}`}
+              event={entry.item}
+              width={CARD_WIDTH}
+              ratio={CARD_RATIO}
+              showInterested={false}
+              onPress={open}
+            />
+          )
         )}
-        {upcoming.map((event, i) => (
-          // A repeating event can appear on several dates in the window, so the
-          // occurrence's day is part of the key.
-          <EventCard
-            key={`${event.internal_id}-${event.day}-${i}`}
-            event={event}
-            width={CARD_WIDTH}
-            ratio={CARD_RATIO}
-            showInterested={false}
-            onPress={open}
-          />
-        ))}
         <RowEndSpacer width={SUGGESTION_CARD_PAD} />
       </ScrollView>
 
-      <RallyDetailSheet
-        rallyId={rallyOpen && nextRally ? nextRally.internal_id : null}
-        onClose={() => setRallyOpen(false)}
-      />
+      {/* One sheet for the row, told which rally to show — the row can hold
+          several now, and a sheet per card would mount them all. */}
+      <RallyDetailSheet rallyId={openRallyId} onClose={() => setOpenRallyId(null)} />
     </SuggestionCard>
   );
 }

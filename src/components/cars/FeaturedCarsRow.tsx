@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import CarPosterCard from '../cards/CarPosterCard';
@@ -11,15 +11,6 @@ const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 
 interface Props {
   onCarPress: (carId: string) => void;
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 /**
@@ -37,9 +28,9 @@ function shuffle<T>(arr: T[]): T[] {
  */
 function FeaturedCarsRow({ onCarPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
-  const raw = data?.featured_cars ?? [];
-
-  const cars = useMemo(() => shuffle(raw), [raw.length]);
+  // In the order an admin set on the Dashboard — it used to be shuffled, which
+  // made that order meaningless.
+  const cars = data?.featured_cars ?? [];
 
   if (!cars.length) return null;
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Users, Car, Route as RouteIcon, Search } from 'lucide-react-native';
+import { Users, Car, Route as RouteIcon, Search, Camera } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CheckeredFlag from '../components/ui/CheckeredFlag';
 import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
@@ -13,6 +13,7 @@ import SocietyStackNavigator from './SocietyStackNavigator';
 import GroupsStackNavigator from './GroupsStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
 import RoutesStackNavigator from './RoutesStackNavigator';
+import PhotographyScreen from '../screens/photography/PhotographyScreen';
 import { colors } from '../constants/colors';
 import { useBrandColor } from '../hooks/useBrandColor';
 import { isImmersiveScreen, useFocusedRouteName } from './immersiveScreens';
@@ -204,6 +205,29 @@ export default function MainTabNavigator() {
             navigation.navigate('CarsTab', { screen: 'Cars' });
           },
         })}
+      />
+
+      {/* The photo spot map — registered, but its button is hidden for now.
+          Same arrangement as FeedTab above: the route stays so the drawer's
+          Photography tile (and anything else that navigates by name) keeps
+          working and the screen keeps its place in the tab state. Restoring it
+          to the bar is deleting the two `tabBar*` lines below.
+
+          It was labelled "Photos" rather than "Photography" because the bar
+          shares its width between its tabs, and the full word sets about half
+          again as wide as the space one tab gets — it would arrive truncated.
+          Worth keeping in mind if it comes back. */}
+      <Tab.Screen
+        name="PhotographyTab"
+        component={PhotographyScreen}
+        options={{
+          title: 'Photos',
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabIcon Icon={Camera} color={color} size={size} focused={focused} brandColor={brandColor} />
+          ),
+        }}
       />
 
       {/* Search opens an overlay, it doesn't navigate.

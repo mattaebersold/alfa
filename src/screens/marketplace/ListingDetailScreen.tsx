@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Animated,
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, Platform, Alert,
+  TouchableOpacity, Platform, Alert, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,7 +53,9 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
 
   const heroImage = firstGalleryUrl(post.gallery);
   const displayName = post.user?.username || 'Unknown';
-  const entryType = post.entry_type ?? post.type ?? 'listing';
+  // `entry_type`, matching the read above — see PostDetailScreen for why the
+  // `type` fallback had to go.
+  const entryType = post.entry_type ?? 'post';
 
   const handleSubmit = async () => {
     if (!commentText.trim()) return;
@@ -66,6 +68,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
       await createComment(fd).unwrap();
       setCommentText('');
       setReplyingTo(null);
+      Keyboard.dismiss();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
     }

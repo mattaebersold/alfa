@@ -89,6 +89,8 @@ export type MainTabParamList = {
   RoutesTab: NavigatorScreenParams<RoutesStackParamList> | undefined;
   GroupsTab: NavigatorScreenParams<GroupsStackParamList> | undefined;
   CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
+  /** The photo spot map. A real destination, unlike SearchTab below. */
+  PhotographyTab: undefined;
   /**
    * A button, not a destination — its press opens the search overlay and is
    * prevented before it can navigate. Declared so the tab is typed like its
@@ -115,6 +117,11 @@ export type AppStackParamList = {
   ArticleDetail: { articleId: string };
   Marketplace: undefined;
   Shop: undefined;
+  /**
+   * Pinning a spot. The map itself is a tab (`PhotographyTab`), but creating is
+   * a modal over it, the way every other create flow in the app works.
+   */
+  PhotoSpotCreate: undefined;
   /** Admin-only. With an id it edits that product, without it creates one. */
   ProductCreate: { productId?: string } | undefined;
   About: undefined;

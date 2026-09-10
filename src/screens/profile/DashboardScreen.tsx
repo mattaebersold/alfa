@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell } from 'lucide-react-native';
+import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +31,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import HomeBannerManager from '../../components/feed/HomeBannerManager';
+import FeaturedManager from '../../components/admin/FeaturedManager';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import SharedButton from '../../components/ui/SharedButton';
 import SharedModal from '../../components/ui/SharedModal';
@@ -45,7 +46,7 @@ import UsageMeter from '../../components/pro/UsageMeter';
 import { POST_LIMIT_BASIC } from '../../constants/limits';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'homeBanner' | null;
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'homeBanner' | 'featured' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -487,6 +488,16 @@ export default function DashboardScreen() {
                 ADMIN: Home Feature Banner
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+              onPress={() => setSheet('featured')}
+              activeOpacity={0.75}
+            >
+              <Star size={15} color="#e07b39" />
+              <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+                ADMIN: Featured Members & Cars
+              </Text>
+            </TouchableOpacity>
           </>
         )}
 
@@ -586,6 +597,13 @@ export default function DashboardScreen() {
       {isAdmin && (
         <SheetModal visible={sheet === 'homeBanner'} title="Home Feature Banner" onClose={() => setSheet(null)} colors={colors}>
           <HomeBannerManager />
+        </SheetModal>
+      )}
+
+      {/* Admin: featured members & cars sheet */}
+      {isAdmin && (
+        <SheetModal visible={sheet === 'featured'} title="Featured Members & Cars" onClose={() => setSheet(null)} colors={colors}>
+          <FeaturedManager />
         </SheetModal>
       )}
 

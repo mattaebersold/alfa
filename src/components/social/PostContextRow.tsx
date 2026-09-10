@@ -216,7 +216,18 @@ function kindFromEntryType(t?: string): Exclude<Kind, 'group'> | null {
  * resolves its own subject, which is cached, so a feed full of posts tagging
  * the same car costs one request for it.
  */
-export default function PostContextRow({ post }: { post: Post }) {
+/**
+ * The minimum a thing needs to have a context row.
+ *
+ * Narrower than `Post` on purpose: the row only ever reads an id, the groups
+ * and the tags, and typing it that way is what lets a photo spot — which is not
+ * a post and never will be — use the same row against the same generic Tag
+ * records. See `components/photography/SpotContextRow`.
+ */
+export type ContextSubject = Pick<Post, 'internal_id'> &
+  Partial<Pick<Post, 'group_ids' | 'group_id' | 'tags'>>;
+
+export default function PostContextRow({ post }: { post: ContextSubject }) {
   const { openEventSheet } = useEventSheet();
 
   /**

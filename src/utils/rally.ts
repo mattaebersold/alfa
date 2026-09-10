@@ -9,8 +9,8 @@
  * needs it for its iframe. Non-Airtable URLs pass through untouched — the field
  * is just "a registration form", and nothing here assumes a provider.
  */
-import type { Rally } from '../types/api';
-import { calendarDate } from './calendarDate';
+import type { Rally, SocietyEvent } from '../types/api';
+import { calendarDate, calendarTime } from './calendarDate';
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -61,6 +61,44 @@ export function isRallyUpcoming(rally?: Pick<Rally, 'event_date' | 'end_date'> |
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return date.getTime() >= today.getTime();
+}
+
+/** A rally or an event, tagged, with the calendar time it sorts on. */
+export type UpcomingItem =
+  | { kind: 'rally'; item: Rally; at: number }
+  | { kind: 'event'; item: SocietyEvent; at: number };
+
+/**
+ * Rallys and events in one row, ordered by when they happen.
+ *
+ * The rally used to take the first slot outright, on the grounds that it's the
+ * date the club puts its own name on and buried eighth in a scroller it went
+ * unseen. But a row of upcoming things whose order isn't chronological doesn't
+ * read as a schedule: a rally three months out sat ahead of a meet this
+ * Saturday, and the thing you could still get to was the thing pushed off the
+ * end.
+ *
+ * The two feeds date their entries differently — an event carries the
+ * `occurrence_date` of the instance being shown (a repeating event appears
+ * once per date in the window), a rally carries its first day — so each is read
+ * with its own key and compared as a calendar date.
+ *
+ * Undated rallys sort last: a rally announced before it's scheduled can't be
+ * placed on a timeline, and the end of the row is where it intrudes least.
+ *
+ * Tagged rather than a bare list, because the two render as different cards and
+ * nothing about the objects themselves says which is which. Mirrors murray's
+ * mergeUpcoming.
+ */
+export function mergeUpcoming(rallys: Rally[] = [], events: SocietyEvent[] = []): UpcomingItem[] {
+  return [
+    ...rallys.map((item): UpcomingItem => ({
+      kind: 'rally', item, at: calendarTime(item?.event_date, Infinity),
+    })),
+    ...events.map((item): UpcomingItem => ({
+      kind: 'event', item, at: calendarTime(item?.occurrence_date ?? item?.day, Infinity),
+    })),
+  ].sort((a, b) => a.at - b.at);
 }
 
 export function toRallyFormEmbedUrl(url?: string | null): string | null {

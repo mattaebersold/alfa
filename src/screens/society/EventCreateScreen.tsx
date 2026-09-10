@@ -16,6 +16,8 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import AddressField from '../../components/ui/AddressField';
+import type { PlaceDetail } from '../../types/api';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -54,6 +56,13 @@ export default function EventCreateScreen() {
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
   const [location, setLocation] = useState('');
+  /**
+   * The coordinate behind the location, when one was picked from the list.
+   *
+   * Null when the address was typed by hand, which stays perfectly valid — the
+   * event just has no position, exactly as every event before this did.
+   */
+  const [place, setPlace] = useState<PlaceDetail | null>(null);
   const [type, setType] = useState('meetup');
   const [category, setCategory] = useState('');
   const [images, setImages] = useState<{ uri: string; name: string; type: string }[]>([]);
@@ -103,6 +112,11 @@ export default function EventCreateScreen() {
     if (eventDate.trim()) fd.append('event_date', eventDate.trim());
     if (eventTime.trim()) fd.append('event_time', eventTime.trim());
     if (location.trim()) fd.append('location', location.trim());
+    if (place?.lat != null && place?.lng != null) {
+      fd.append('location_lat', String(place.lat));
+      fd.append('location_lng', String(place.lng));
+      if (place.place_id) fd.append('location_place_id', place.place_id);
+    }
 
     images.forEach((img) => {
       fd.append('gallery', uploadFile(img.uri));
@@ -114,7 +128,7 @@ export default function EventCreateScreen() {
     } catch {
       Alert.alert('Error', 'Could not create event. Please try again.');
     }
-  }, [title, type, category, body, eventDate, eventTime, location, images, createEvent, nav]);
+  }, [title, type, category, body, eventDate, eventTime, location, place, images, createEvent, nav]);
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
@@ -195,12 +209,16 @@ export default function EventCreateScreen() {
         {/* Location */}
         <View style={[styles.fieldSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <SectionLabel text="LOCATION" />
-          <TextInput
-            style={[styles.locationInput, { color: colors.fg }]}
+          {/* The coordinate that comes back is kept alongside the text: the
+              event model has carried location_lat/lng/place_id all along, and
+              a typed-in address never filled them, so events have had no
+              position to put on a map or hand to a directions app. */}
+          <AddressField
             value={location}
             onChangeText={setLocation}
+            onPlacePicked={setPlace}
             placeholder="Address or venue name"
-            placeholderTextColor={colors.grey}
+            inputStyle={[styles.locationInput, { color: colors.fg }]}
           />
         </View>
 

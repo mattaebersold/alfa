@@ -79,6 +79,7 @@ import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
+import PhotoSpotCreateScreen from '../screens/photography/PhotoSpotCreateScreen';
 import ProductCreateScreen from '../screens/shop/ProductCreateScreen';
 import AboutScreen from '../screens/marketing/AboutScreen';
 import SupportScreen from '../screens/support/SupportScreen';
@@ -246,6 +247,11 @@ export default function AppNavigator() {
         name="Shop"
         component={ShopScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PhotoSpotCreate"
+        component={PhotoSpotCreateScreen}
+        options={({ navigation }) => ({ headerShown: true, title: 'Pin a Spot', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="ProductCreate"

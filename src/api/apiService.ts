@@ -7,6 +7,7 @@ import type {
   DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
   FeedPreferences, HomeBanner, CarActivityItem,
   DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
+  PhotoSpot, PhotoSpotUsage, PlacePrediction, PlaceDetail, GroupActivityItem,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -20,6 +21,7 @@ export const apiService = createApi({
     'CarFollow', 'Group', 'GroupMembers', 'GroupDiscussion', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
     'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites', 'Product',
+    'PhotoSpot',
   ],
   endpoints: (builder) => ({
 
@@ -75,6 +77,14 @@ export const apiService = createApi({
       providesTags: ['User'],
     }),
 
+    /**
+     * Emails a friend a link to sign up. The server records the invite against
+     * you, so their account can be connected to yours when they register.
+     */
+    inviteFriend: builder.mutation<{ success: boolean; email: string; resent: boolean }, { email: string }>({
+      query: (body) => ({ url: 'api/users/invite', method: 'POST', body }),
+    }),
+
     searchUsers: builder.query<PaginatedResponse<User>, string>({
       query: (q) => ({ url: 'api/users/search', params: { q } }),
     }),
@@ -106,6 +116,11 @@ export const apiService = createApi({
       username?: string; user_id?: string; make?: string; model?: string;
       car_id?: string; event_id?: string; group_id?: string; search?: string;
       filter?: string; sort?: string;
+      /**
+       * Home feed only: also return listings and want ads shared only to groups
+       * you're a member of. The server answers per-viewer when this is set.
+       */
+      include_groups?: boolean;
     }>({
       query: (params = {}) => ({
         url: 'api/post',
@@ -929,6 +944,18 @@ export const apiService = createApi({
       invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
     }),
 
+    // Author or group admin, enforced server-side. `group_id` is only for
+    // invalidation; the gallery is left alone because no `existing_gallery` is sent.
+    updateGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string; title: string; body: string; category?: string }>({
+      query: ({ group_id, ...body }) => ({ url: 'api/groupdiscussion/update', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+    }),
+
+    deleteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupdiscussion/delete', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+    }),
+
     // Both endpoints toggle: voting the same way twice clears your vote, and
     // voting the other way switches it. `group_id` is only for invalidation.
     upvoteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
@@ -969,6 +996,17 @@ export const apiService = createApi({
 
     createGroupResource: builder.mutation<void, { group_id: string; title: string; body: string; url?: string; category?: string }>({
       query: (body) => ({ url: 'api/groupresource/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
+    }),
+
+    // Same rules as the discussion pair. An empty `url` clears the link.
+    updateGroupResource: builder.mutation<void, { internal_id: string; group_id: string; title: string; body: string; url?: string; category?: string }>({
+      query: ({ group_id, ...body }) => ({ url: 'api/groupresource/update', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
+    }),
+
+    deleteGroupResource: builder.mutation<void, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupresource/delete', method: 'POST', body: { internal_id } }),
       invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
     }),
 
@@ -1150,14 +1188,15 @@ export const apiService = createApi({
     }),
 
     // `entity_type` selects which collection the id is looked up in — posts by
-    // default, or 'article' / 'route'. The Tag records themselves are generic.
+    // default, or 'article' / 'route' / 'photospot'. The Tag records themselves
+    // are generic, which is why a photo spot can reuse this untouched.
     syncPostTags: builder.mutation<void, {
       post_id: string;
       tagged_users: string[];
       tagged_cars: string[];
       tagged_events: string[];
       tagged_groups?: string[];
-      entity_type?: 'post' | 'article' | 'route';
+      entity_type?: 'post' | 'article' | 'route' | 'photospot';
     }>({
       query: (body) => ({ url: 'api/tags/sync', method: 'POST', body }),
       invalidatesTags: (result, error, { post_id }) => [{ type: 'Post', id: `tags-${post_id}` }],
@@ -1167,6 +1206,90 @@ export const apiService = createApi({
       query: (postId) => `api/tags/post/${postId}`,
       transformResponse: (r: any) => (Array.isArray(r) ? r : r?.tags ?? []),
       providesTags: (result, error, postId) => [{ type: 'Post', id: `tags-${postId}` }],
+    }),
+
+    /**
+     * Recent posts across every group the member belongs to.
+     *
+     * Feeds the home feed's group row. Tagged 'Group' so posting into a group
+     * refreshes it — the author's own posts are filtered out server-side, but
+     * anyone else's should turn up without a manual pull.
+     */
+    getGroupActivity: builder.query<{ entries: GroupActivityItem[] }, { limit?: number } | void>({
+      query: (params) => ({ url: 'api/group/activity', params: params ?? {} }),
+      providesTags: ['Group'],
+    }),
+
+    // ── Address lookup ────────────────────────────────────────────────────────
+
+    /**
+     * Predictions for a partly-typed address or venue.
+     *
+     * `session` groups a whole typing-then-picking interaction into one billable
+     * Google session — the same token must go out with the `getPlaceDetails`
+     * call that follows, or every keystroke is billed separately. `useAddressSearch`
+     * owns that token; nothing else should call this directly.
+     */
+    searchPlaces: builder.query<{ predictions: PlacePrediction[] }, {
+      q: string; session: string; lat?: number; lng?: number;
+    }>({
+      query: (params) => ({ url: 'api/places/search', params }),
+    }),
+
+    /** The coordinate behind a chosen prediction — a prediction has none. */
+    getPlaceDetails: builder.query<{ place: PlaceDetail | null }, {
+      place_id: string; session: string;
+    }>({
+      query: (params) => ({ url: 'api/places/details', params }),
+    }),
+
+    // ── Photography spots ─────────────────────────────────────────────────────
+
+    /**
+     * The pins inside the map's current viewport.
+     *
+     * Bounds are optional: without them the server returns the most recent
+     * spots, which is what a cold start wants before the map has reported a
+     * camera. Cached per viewport rather than as one list — panning is a new
+     * query, and re-using the previous rectangle's answer would leave pins
+     * hanging off the edge of the screen.
+     */
+    getPhotoSpots: builder.query<{ entries: PhotoSpot[]; total: number }, {
+      north?: number; south?: number; east?: number; west?: number;
+      type?: string; category?: string; user_id?: string; limit?: number;
+    } | void>({
+      query: (params) => ({ url: 'api/photospot', params: params ?? {} }),
+      providesTags: ['PhotoSpot'],
+    }),
+
+    getPhotoSpot: builder.query<PhotoSpot, string>({
+      query: (id) => `api/photospot/detail/${id}`,
+      transformResponse: (r: any) => r?.entry ?? r,
+      providesTags: (result, error, id) => [{ type: 'PhotoSpot', id }],
+    }),
+
+    /** Drawn as a meter on the create screen, and what disables the add button. */
+    getPhotoSpotUsage: builder.query<PhotoSpotUsage, void>({
+      query: () => 'api/photospot/usage',
+      providesTags: [{ type: 'PhotoSpot', id: 'usage' }],
+    }),
+
+    createPhotoSpot: builder.mutation<{ entry: PhotoSpot }, FormData>({
+      // FormData: a spot carries the photos taken there alongside its fields.
+      query: (body) => ({ url: 'api/photospot/create', method: 'POST', body }),
+      invalidatesTags: ['PhotoSpot'],
+    }),
+
+    updatePhotoSpot: builder.mutation<{ entry: PhotoSpot }, FormData>({
+      query: (body) => ({ url: 'api/photospot/update', method: 'POST', body }),
+      invalidatesTags: ['PhotoSpot'],
+    }),
+
+    deletePhotoSpot: builder.mutation<{ success: boolean; usage: PhotoSpotUsage }, string>({
+      query: (internal_id) => ({
+        url: 'api/photospot/delete', method: 'POST', body: { internal_id },
+      }),
+      invalidatesTags: ['PhotoSpot'],
     }),
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -1343,6 +1466,21 @@ export const apiService = createApi({
       invalidatesTags: ['SiteSettings'],
     }),
 
+    /**
+     * Admin: the featured rows on the Members and Cars screens. Each saves its
+     * whole list — array order is display order — so adding, removing and
+     * reordering are all this one call.
+     */
+    updateFeaturedUsers: builder.mutation<{ success: boolean; featured_users: string[] }, string[]>({
+      query: (user_ids) => ({ url: 'api/site-settings/featured-users', method: 'POST', body: { user_ids } }),
+      invalidatesTags: ['SiteSettings'],
+    }),
+
+    updateFeaturedCars: builder.mutation<{ success: boolean; featured_cars: string[] }, string[]>({
+      query: (car_ids) => ({ url: 'api/site-settings/featured-cars', method: 'POST', body: { car_ids } }),
+      invalidatesTags: ['SiteSettings'],
+    }),
+
     // ── Podcasts ─────────────────────────────────────────────────────────────
 
     getPodcasts: builder.query<import('../types/api').Podcast[], void>({
@@ -1460,6 +1598,7 @@ export const {
   useGetPublicUserByIdQuery,
   useGetUserStatsQuery,
   useGetUsageQuery,
+  useInviteFriendMutation,
   useSearchUsersQuery,
   useGetUsersQuery,
   useGetFeedQuery,
@@ -1600,6 +1739,15 @@ export const {
   useGetPreviouslyTaggedEventsQuery,
   useSyncPostTagsMutation,
   useGetPostTagsQuery,
+  useGetGroupActivityQuery,
+  useLazySearchPlacesQuery,
+  useLazyGetPlaceDetailsQuery,
+  useGetPhotoSpotsQuery,
+  useGetPhotoSpotQuery,
+  useGetPhotoSpotUsageQuery,
+  useCreatePhotoSpotMutation,
+  useUpdatePhotoSpotMutation,
+  useDeletePhotoSpotMutation,
   useSearchQuery,
   useUpdateUserSettingMutation,
   useGetNotificationTypesQuery,
@@ -1611,10 +1759,14 @@ export const {
   useGetGroupCarsQuery,
   useGetCarGroupsQuery,
   useCreateGroupDiscussionPostMutation,
+  useUpdateGroupDiscussionPostMutation,
+  useDeleteGroupDiscussionPostMutation,
   useUpvoteGroupDiscussionPostMutation,
   useDownvoteGroupDiscussionPostMutation,
   useCreateGroupNewsPostMutation,
   useCreateGroupResourceMutation,
+  useUpdateGroupResourceMutation,
+  useDeleteGroupResourceMutation,
   useUpdateCarGroupMutation,
   useDeleteAccountMutation,
   useRegisterDeviceTokenMutation,
@@ -1623,6 +1775,8 @@ export const {
   useGetSiteSettingsQuery,
   useUpdateHomeBannerMutation,
   useDeleteHomeBannerMutation,
+  useUpdateFeaturedUsersMutation,
+  useUpdateFeaturedCarsMutation,
   useGetPodcastsQuery,
   useGetPodcastQuery,
   useGetListsQuery,

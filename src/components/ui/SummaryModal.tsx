@@ -7,6 +7,7 @@ import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
 
 /** The rectangle a summary grows out of, in window coordinates. */
 export interface SummaryOrigin { x: number; y: number; w: number; h: number }
@@ -139,6 +140,17 @@ export default function SummaryModal({
 
   const progress = useRef(new Animated.Value(0)).current;
 
+  /**
+   * How far the panel has to rise to clear the keyboard.
+   *
+   * Only a summary with a field in it (the invite) ever raises one; for every
+   * other summary this stays at zero. Applied to a wrapper rather than to the
+   * panel itself, because the panel's transform is on the native driver and
+   * this one can't be.
+   */
+  const panelRef = useRef<View>(null);
+  const { animated: keyboardLift, onLayout: onPanelLayout } = useKeyboardOverlap(panelRef, 16);
+
   const panelW = screenW * WIDTH_RATIO;
   const panelX = (screenW - panelW) / 2;
   const maxH = screenH * MAX_HEIGHT_RATIO;
@@ -253,8 +265,14 @@ export default function SummaryModal({
         accessibilityLabel="Close"
       />
 
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { transform: [{ translateY: Animated.multiply(keyboardLift, -1) }] }]}
+        pointerEvents="box-none"
+      >
       {/* The panel. Laid out once, then only transformed and faded. */}
       <Animated.View
+        ref={panelRef}
+        onLayout={onPanelLayout}
         style={[
           styles.panel,
           { borderColor: colors.border },
@@ -278,6 +296,9 @@ export default function SummaryModal({
         <ScrollView
           style={styles.body}
           showsVerticalScrollIndicator={false}
+          // A button under an open keyboard should take the first tap, not
+          // spend it on dismissing the keyboard.
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={(_w, h) => setScrollH(h)}
         >
           {children}
@@ -315,6 +336,7 @@ export default function SummaryModal({
             </TouchableOpacity>
           </View>
         )}
+      </Animated.View>
       </Animated.View>
     </Modal>
   );

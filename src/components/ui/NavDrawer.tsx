@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, Info, CalendarCheck, Mail, Package, LifeBuoy,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,6 +22,8 @@ import { InstagramIcon, DiscordIcon, YouTubeIcon } from './BrandIcons';
 import { CONFIG } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
+import InviteFriendModal from '../members/InviteFriendModal';
+import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
 import { logout } from '../../store/authSlice';
 import { useIsPro } from '../../hooks/useBrandColor';
@@ -194,6 +196,8 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const myEventsCount = myEventsData?.count ?? 0;
   const [myEventsOpen, setMyEventsOpen] = useState(false);
   const [proOpen, setProOpen] = useState(false);
+  /** Open when non-null; the origin is the row the panel grows out of. */
+  const [invite, setInvite] = useState<{ origin: SummaryOrigin | null } | null>(null);
   const { openEventSheet } = useEventSheet();
 
   const translateX = useRef(new Animated.Value(PANEL_WIDTH)).current;
@@ -401,6 +405,10 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => goFeed('Members')} />
                 <NavTile label="Articles" Icon={BookOpen}
                   onPress={() => goFeed('Articles')} />
+                {/* Photography sits with the places you go rather than with the
+                    things you read: a photo spot is somewhere to drive to. */}
+                <NavTile label="Photography" Icon={Camera}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'PhotographyTab' } as any))} />
                 {/* Marketplace is somewhere you browse, so it browses with
                     everything else. It had a SHOP heading of its own next to
                     the merch shop; with that parked, the heading was left
@@ -467,6 +475,20 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 <Text style={styles.aboutBtnText}>Support</Text>
                 <ChevronRight size={18} color="#000000" />
               </TouchableOpacity>
+
+              {/* Last of the slabs — another way into the society, only for
+                  someone who isn't in it yet. Opens over the menu rather than
+                  closing it, since it's one field and you're coming straight
+                  back. */}
+              <SummaryTouchable
+                style={[styles.aboutBtn, styles.supportBtn, { backgroundColor: slabFill }]}
+                onPress={(origin) => setInvite({ origin })}
+                accessibilityLabel="Invite a friend"
+              >
+                <UserPlus size={20} color="#000000" />
+                <Text style={styles.aboutBtnText}>Invite a Friend</Text>
+                <ChevronRight size={18} color="#000000" />
+              </SummaryTouchable>
 
               <View style={styles.footer}>
                 {/* Above the copyright, on its own line — it's the one piece of
@@ -618,6 +640,12 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
         onClose={() => setProOpen(false)}
         title="Open Road Society Pro"
         message="We're working on a pro-level tier with additional features. If you're interested, then click Get Notified and we'll let you know when it's available."
+      />
+
+      <InviteFriendModal
+        visible={!!invite}
+        origin={invite?.origin}
+        onClose={() => setInvite(null)}
       />
 
       <MyEventsSheet

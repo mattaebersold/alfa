@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { Search, X as XIcon } from 'lucide-react-native';
-import { useGetUsersQuery, useGetUserFollowingQuery } from '../../api/apiService';
+import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import Avatar from '../ui/Avatar';
@@ -95,17 +95,25 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
     { skip: !myId },
   );
 
+  // Whoever invited you, if anyone — the one member here you already know.
+  const invitedBy = userInfo?.invited_by ?? '';
+  const { data: inviter } = useGetUserByIdQuery(invitedBy, { skip: !invitedBy });
+
   // Shuffled, not sliced off the top: the pool is newest-first and three times
   // the size of the shelf, so without this the same ten recent joiners would be
   // the only members ever suggested. Memoised on the source data so it settles
   // once per fetch rather than reordering under a scrolling finger.
+  //
+  // The inviter sits in front of the shuffle, until you follow them.
   const suggestions = useMemo(() => {
     const pool = usersData?.entries ?? [];
     const followed = new Set((followingData?.entries ?? []).map((u) => u.user_id));
-    return shuffle(
-      pool.filter((u) => u.user_id && u.user_id !== myId && !followed.has(u.user_id)),
-    ).slice(0, MAX_SUGGESTIONS);
-  }, [usersData, followingData, myId]);
+    const eligible = (u: { user_id?: string }) =>
+      !!u.user_id && u.user_id !== myId && !followed.has(u.user_id);
+    const lead = inviter && eligible(inviter) ? [inviter] : [];
+    const rest = shuffle(pool.filter((u) => eligible(u) && u.user_id !== inviter?.user_id));
+    return [...lead, ...rest].slice(0, MAX_SUGGESTIONS);
+  }, [usersData, followingData, myId, inviter]);
 
   // A search shows what it found, including people you already follow — you're
   // looking for someone specific, not for a recommendation.

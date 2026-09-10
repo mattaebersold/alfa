@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, Dimensions, ActivityIndicator,
-  TouchableOpacity,
+  TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
-import { ExternalLink, ThumbsUp, ThumbsDown } from 'lucide-react-native';
+import { ExternalLink, ThumbsUp, ThumbsDown, Pencil, Trash2, ChevronRight } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import {
   useCreateCommentMutation,
   useUpvoteGroupDiscussionPostMutation,
   useDownvoteGroupDiscussionPostMutation,
+  useDeleteGroupDiscussionPostMutation,
+  useDeleteGroupResourceMutation,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useCommentThread } from '../../hooks/useCommentThread';
@@ -22,6 +24,7 @@ import ImageLightbox from '../ui/ImageLightbox';
 import CommentRow, { type CommentData } from '../social/CommentRow';
 import SharedModal from '../ui/SharedModal';
 import SharedButton from '../ui/SharedButton';
+import GroupCreateSheet from './GroupCreateSheet';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
@@ -45,16 +48,36 @@ interface Props {
   item: any | null;
   kind: Kind | null;
   categoryLabel?: string | null;
+  /**
+   * The section's category list, offered again when the author edits. Without
+   * it the edit form keeps the item's category and hides the picker.
+   */
+  categories?: { key: string; label: string }[];
+  groupTitle?: string;
   visible: boolean;
   onClose: () => void;
+  /**
+   * "View in group". Opt-in, and only supplied from the home feed.
+   *
+   * Opened from inside the group this button would point at the screen it's
+   * already on; opened from the feed it's the whole reason the summary is a
+   * summary — read it here, go there if it's worth it.
+   */
+  onViewMore?: () => void;
 }
 
-export default function GroupItemDetailModal({ item, kind, categoryLabel, visible, onClose }: Props) {
+export default function GroupItemDetailModal({
+  item, kind, categoryLabel, categories = [], groupTitle, visible, onClose, onViewMore,
+}: Props) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
   const [upvote, { isLoading: upvoting }] = useUpvoteGroupDiscussionPostMutation();
   const [downvote, { isLoading: downvoting }] = useDownvoteGroupDiscussionPostMutation();
   const voting = upvoting || downvoting;
+  const [deleteDiscussion, { isLoading: deletingDiscussion }] = useDeleteGroupDiscussionPostMutation();
+  const [deleteResource, { isLoading: deletingResource }] = useDeleteGroupResourceMutation();
+  const deleting = deletingDiscussion || deletingResource;
+  const [editOpen, setEditOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [mentionedIds, setMentionedIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
@@ -83,6 +106,9 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
       setCommentText('');
       setMentionedIds([]);
       setReplyingTo(null);
+      // The composer is inline here, so there's no pane to close — just get
+      // the keyboard out of the way of the comment you just posted.
+      Keyboard.dismiss();
     } catch {
       // no-op
     }
@@ -102,6 +128,31 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
   const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
   const kindLabel = kind === 'news' ? 'News' : kind === 'resource' ? 'Resource' : 'Discussion';
   const ytId = kind === 'resource' ? youtubeId(d.url) : null;
+
+  // Authors manage their own discussion posts and resources. The server also
+  // lets group admins in, but only the author is offered the controls here.
+  const isAuthor = !!userInfo?.user_id && (d.user_id ?? d.user?.user_id) === userInfo.user_id;
+  const canManage = isAuthor && (kind === 'discussion' || kind === 'resource');
+
+  const confirmDelete = () => {
+    const noun = kind === 'resource' ? 'resource' : 'discussion post';
+    Alert.alert(`Delete this ${noun}?`, "This can't be undone.", [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const args = { internal_id: d.internal_id, group_id: d.group_id };
+          try {
+            await (kind === 'resource' ? deleteResource(args) : deleteDiscussion(args)).unwrap();
+            onClose();
+          } catch {
+            Alert.alert('Could not delete', 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <SharedModal visible={visible} onClose={onClose} title={kindLabel}>
@@ -140,7 +191,31 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
           <Text style={styles.title}>{d.title}</Text>
           <View style={styles.meta}>
             <Avatar user={d.user} size={26} />
-            <Text style={styles.metaText}>@{d.user?.username} · {timeAgo}</Text>
+            <Text style={styles.metaText} numberOfLines={1}>@{d.user?.username} · {timeAgo}</Text>
+            {canManage && (
+              <View style={styles.ownerActions}>
+                <TouchableOpacity
+                  style={[styles.ownerBtn, { borderColor: colors.borderDark }]}
+                  onPress={() => setEditOpen(true)}
+                  disabled={deleting}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${kindLabel.toLowerCase()}`}
+                >
+                  <Pencil size={13} color={colors.fg} />
+                  <Text style={[styles.ownerBtnText, { color: colors.fg }]}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.ownerBtn, { borderColor: colors.borderDark }, deleting && { opacity: 0.4 }]}
+                  onPress={confirmDelete}
+                  disabled={deleting}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${kindLabel.toLowerCase()}`}
+                >
+                  <Trash2 size={13} color={colors.red} />
+                  <Text style={[styles.ownerBtnText, { color: colors.red }]}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
           {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}
 
@@ -233,17 +308,61 @@ export default function GroupItemDetailModal({ item, kind, categoryLabel, visibl
         </View>
       </ScrollView>
 
+      {onViewMore && (
+        /* Below the scroller, not in it: it's the way out of this summary, and
+           somewhere in the middle of a long discussion is not where you look
+           for one. Closing first — the navigation happens on the other side of
+           the dismissal, because iOS won't present over a modal that is still
+           going away. */
+        <TouchableOpacity
+          style={[styles.viewMore, { borderTopColor: colors.border }]}
+          onPress={() => { onClose(); onViewMore(); }}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.viewMoreText, { color: colors.primaryAlt }]}>View in group</Text>
+          <ChevronRight size={15} color={colors.primaryAlt} />
+        </TouchableOpacity>
+      )}
+
       <ImageLightbox
         images={zoomUrls}
         initialIndex={zoomIndex ?? 0}
         visible={zoomIndex !== null}
         onClose={() => setZoomIndex(null)}
       />
+
+      {/* Inside this modal's tree, so it presents over it rather than needing
+          the detail closed first. */}
+      {canManage && (
+        <GroupCreateSheet
+          kind={kind === 'resource' ? 'resources' : 'discussion'}
+          groupId={d.group_id}
+          groupTitle={groupTitle}
+          categories={categories}
+          editing={{
+            internal_id: d.internal_id,
+            title: d.title,
+            // Entries written on the web can carry markup; ones from here are
+            // plain text, whose line breaks stripHtml would flatten.
+            body: /<[a-z][^>]*>/i.test(d.body ?? '') ? stripHtml(d.body) : d.body,
+            url: d.url,
+            category: d.category,
+          }}
+          visible={editOpen}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
     </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
+  viewMore: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 15, borderTopWidth: 1,
+  },
+  viewMoreText: { fontSize: 15, fontWeight: '800' },
+
   scroll:  { paddingBottom: 40 },
   ytWrap:  { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
   ytPlayer:{ flex: 1, backgroundColor: '#000' },
@@ -254,7 +373,14 @@ const styles = StyleSheet.create({
   catChipText: { color: '#B4B4B4', fontSize: 10, fontWeight: '800' },
   title:   { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26, marginBottom: 12 },
   meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  metaText:{ fontSize: 12, color: '#B4B4B4' },
+  metaText:{ fontSize: 12, color: '#B4B4B4', flexShrink: 1 },
+  ownerActions: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
+  ownerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999, borderWidth: 1,
+  },
+  ownerBtnText: { fontSize: 12, fontWeight: '700' },
   voteRow:  { flexDirection: 'row', gap: 10, marginTop: 18 },
   voteBtn:  {
     flexDirection: 'row', alignItems: 'center', gap: 7,

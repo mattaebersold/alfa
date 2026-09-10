@@ -885,6 +885,18 @@ export default function GroupSectionScreen() {
         }, [])
       : processedItems.map((item) => ({ _tab: tab, data: item }));
 
+  /**
+   * The open detail, read back off the list rather than the row that was tapped.
+   *
+   * The row is a snapshot, so an edit or a vote made in the detail would
+   * otherwise not show there until it was closed and reopened — the list
+   * refetches on invalidation, and this picks that up.
+   */
+  const detailTab = detailItem?._kind === 'resource' ? 'resources' : detailItem?._kind;
+  const detailData = detailItem
+    ? rawItems.find((r: any) => r.internal_id === detailItem.data?.internal_id) ?? detailItem.data
+    : null;
+
   const contentItems: any[] = isFetchingTab ? [{ _tab: 'loading' }] : taggedItems.length === 0 ? [{ _tab: 'empty' }] : taggedItems;
   const carsCta = (tab === 'cars' && isMember) ? [{ _t: 'carsCta' }] : [];
   // Admins can approve people who ask; this is how they ask someone.
@@ -977,9 +989,11 @@ export default function GroupSectionScreen() {
       {/* ── Discussion / News / Resource detail ── */}
       <GroupItemDetailModal
         visible={!!detailItem}
-        item={detailItem?.data ?? null}
+        item={detailData}
         kind={detailItem?._kind ?? null}
-        categoryLabel={detailItem ? catLabel(detailItem._kind === 'resource' ? 'resources' : detailItem._kind, detailItem.data?.category) : null}
+        categoryLabel={detailItem ? catLabel(detailTab, detailData?.category) : null}
+        categories={detailItem ? catList(detailTab) : []}
+        groupTitle={group?.title ?? groupTitle}
         onClose={() => setDetailItem(null)}
       />
 

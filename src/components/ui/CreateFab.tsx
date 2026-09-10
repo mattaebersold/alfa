@@ -5,7 +5,15 @@ import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
 import { useBrandColor } from '../../hooks/useBrandColor';
 
-const FAB_SIZE = 62;
+/**
+ * 50, down from 62.
+ *
+ * It reserves a lane on the right of the tab bar (see FAB_LANE) and every point
+ * it takes comes off the width the tabs share. At 62 it was sized for a bar
+ * that had fewer tabs in it than it does now, and the smaller circle is still a
+ * comfortable target while giving the labels beside it room to set.
+ */
+const FAB_SIZE = 50;
 const FAB_RIGHT = 18;
 /**
  * Width the tab bar keeps clear on its right for this button.
@@ -45,7 +53,7 @@ export default function CreateFab() {
           by contrast, but it made the same button look like two different
           controls depending on the account. The mark is black on gold and
           black on blue; both are legible, and it stays one button. */}
-      <Plus size={30} color="#000000" strokeWidth={3} />
+      <Plus size={24} color="#000000" strokeWidth={3} />
     </TouchableOpacity>
   );
 }
@@ -59,9 +67,9 @@ const styles = StyleSheet.create({
     // Heavier than the header buttons carried: it has to read as sitting on top
     // of the feed rather than in it.
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 10,
     zIndex: 30,
   },
