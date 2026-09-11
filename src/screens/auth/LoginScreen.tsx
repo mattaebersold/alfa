@@ -19,10 +19,14 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
+import AppleSignInButton from '../../components/auth/AppleSignInButton';
 
 export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const dispatch = useAppDispatch();
   const { loading, error, sessionExpired } = useAppSelector((s) => s.auth);
+  /** Google's own failures, which never reach the auth slice's `error`. */
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const colors = useColors();
 
   const [email, setEmail] = useState('');
@@ -81,9 +85,9 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
                 </View>
               )}
 
-              {error && (
+              {(error || googleError) && (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{error || googleError}</Text>
                 </View>
               )}
 
@@ -162,6 +166,22 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
                   variant="dark"
                 />
               </View>
+
+              {/* Google sits below the form rather than above it. The email
+                  field is what returning members reach for, and a provider
+                  button at the top of a login screen reads as the primary path
+                  when it is the alternative one. */}
+              <View style={styles.altRow}>
+                <View style={styles.altLine} />
+                <Text style={styles.altLabel}>or</Text>
+                <View style={styles.altLine} />
+              </View>
+
+              <GoogleSignInButton
+                label="Sign in with Google"
+                onError={setGoogleError}
+              />
+              <AppleSignInButton onError={setGoogleError} />
             </BlurView>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -220,6 +240,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  altRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18, marginBottom: 14 },
+  altLine:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  altLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
   errorBox: {
     backgroundColor: '#FEE2E2',
     borderRadius: 8,

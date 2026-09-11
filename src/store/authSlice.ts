@@ -59,6 +59,71 @@ export const userLogin = createAsyncThunk(
   }
 );
 
+/**
+ * Sign in (or sign up) with a Google ID token.
+ *
+ * One thunk for both, because Google's endpoint is one endpoint: horacio looks
+ * the account up by Google id, falls back to matching the address, and creates
+ * one only if neither hits. There is no "register with Google" distinct from
+ * "log in with Google" — the member taps the same button either way, and which
+ * of the three happened is the server's business.
+ *
+ * The token goes straight through to the same session storage `userLogin` uses,
+ * so everything downstream — the axios interceptor, the session-expiry check —
+ * behaves identically to an email sign-in.
+ */
+export const googleSignIn = createAsyncThunk(
+  'auth/googleSignIn',
+  async (idToken: string, { rejectWithValue }) => {
+    try {
+      const { data } = await axios.post<LoginResponse>(
+        `${CONFIG.API_BASE_URL}/api/users/google-auth`,
+        { idToken },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      await storeToken(data.userToken);
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || error.response?.data?.message || 'Google sign-in failed'
+      );
+    }
+  }
+);
+
+/**
+ * Sign in (or sign up) with Apple.
+ *
+ * `fullName` rides alongside the token because Apple puts the name in the
+ * credential it hands the app and never in the JWT — and, like the email, only
+ * on the very first authorization. Sending it on every call is harmless: the
+ * server only reads it when creating an account.
+ */
+export const appleSignIn = createAsyncThunk(
+  'auth/appleSignIn',
+  async (
+    { identityToken, fullName }: {
+      identityToken: string;
+      fullName?: { givenName?: string | null; familyName?: string | null } | null;
+    },
+    { rejectWithValue },
+  ) => {
+    try {
+      const { data } = await axios.post<LoginResponse>(
+        `${CONFIG.API_BASE_URL}/api/users/apple-auth`,
+        { identityToken, fullName },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      await storeToken(data.userToken);
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.error || error.response?.data?.message || 'Apple sign-in failed'
+      );
+    }
+  }
+);
+
 export const registerUser = createAsyncThunk(
   'auth/register',
   async (formData: FormData, { rejectWithValue }) => {
@@ -162,6 +227,39 @@ const authSlice = createSlice({
         state.isLoggedIn = true;
         state.error = null;
         state.sessionExpired = false;
+      })
+      // Identical to userLogin: same payload shape, same session.
+      .addCase(googleSignIn.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(googleSignIn.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        state.userInfo = payload;
+        state.userToken = payload.userToken;
+        state.isLoggedIn = true;
+        state.error = null;
+        state.sessionExpired = false;
+      })
+      .addCase(googleSignIn.rejected, (state, { payload }) => {
+        state.loading = false;
+        state.error = payload as string;
+      })
+      .addCase(appleSignIn.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(appleSignIn.fulfilled, (state, { payload }) => {
+        state.loading = false;
+        state.userInfo = payload;
+        state.userToken = payload.userToken;
+        state.isLoggedIn = true;
+        state.error = null;
+        state.sessionExpired = false;
+      })
+      .addCase(appleSignIn.rejected, (state, { payload }) => {
+        state.loading = false;
+        state.error = payload as string;
       })
       .addCase(userLogin.rejected, (state, { payload }) => {
         state.loading = false;

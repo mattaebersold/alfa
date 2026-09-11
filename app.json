@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Road Society",
     "slug": "alfa",
-    "version": "1.40",
+    "version": "1.41",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -15,7 +15,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "co.openroadsociety.app",
-      "associatedDomains": ["applinks:openroadsociety.co", "applinks:www.openroadsociety.co"],
+      "associatedDomains": [
+        "applinks:openroadsociety.co",
+        "applinks:www.openroadsociety.co"
+      ],
       "entitlements": {
         "aps-environment": "production"
       },
@@ -26,7 +29,8 @@
         "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Open Road Society uses your location to record the roads you drive and to drop a pin where you're standing when you add a photography spot."
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "co.openroadsociety.app",
@@ -35,10 +39,19 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "openroadsociety.co" },
-            { "scheme": "https", "host": "www.openroadsociety.co" }
+            {
+              "scheme": "https",
+              "host": "openroadsociety.co"
+            },
+            {
+              "scheme": "https",
+              "host": "www.openroadsociety.co"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "googleServicesFile": "./google-services.json",
@@ -99,7 +112,14 @@
           "locationWhenInUsePermission": "Open Road Society uses your location to record the roads you drive and to place a photography spot at where you are."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.102801063030-muebpoen038tgise15bm7t4crbe2o9kl"
+        }
+      ],
+      "expo-apple-authentication"
     ],
     "scheme": "openroadsociety",
     "extra": {

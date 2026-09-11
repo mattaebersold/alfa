@@ -63,6 +63,7 @@ import PostEditSheet from '../../components/social/PostEditSheet';
 import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { handleize } from '../../utils/handleize';
 
 const ALL_CATEGORIES = Object.values(CAR_CATEGORIES).flat();
 function carTypeLabel(key?: string) {
@@ -528,21 +529,22 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const { data: carGroupsData } = useGetCarGroupsQuery(carId, { skip: !car });
   const carGroups = carGroupsData?.entries ?? [];
   /**
-   * The display values, not a slug built here.
+   * The slug the listing filters on — the car's own when it has one, otherwise
+   * derived the same way the server derives it.
    *
-   * This used to send `make_handle` with a hand-rolled fallback —
-   * `make.toLowerCase()` for the make and a dashed version for the model. The
-   * two didn't agree with each other or with what the server had stored, so
-   * every make containing a space ("Alfa Romeo", "Land Rover") asked for a
-   * handle no row had and came back with nothing. Single-word makes worked,
-   * which is why it looked intermittent rather than broken.
+   * It has to be a *handle*, not the display value. The deployed API matches
+   * `make_handle` exactly, so sending "Porsche" finds nothing where "porsche"
+   * finds 22. (The updated API also matches the display field
+   * case-insensitively, so a handle works against both — which is the point of
+   * sending one.)
    *
-   * The server normalises whatever it is given and also matches the display
-   * field case-insensitively, so the right thing to send is simply the value as
-   * it appears on the car.
+   * The previous fallbacks were hand-rolled and disagreed with each other:
+   * `make.toLowerCase()` never turned spaces into dashes, so "Alfa Romeo" asked
+   * for "alfa romeo" against a stored "alfa-romeo". `handleize` mirrors the
+   * server's own rules, so both halves finally agree.
    */
-  const makeQuery = car?.make ?? car?.make_handle;
-  const modelQuery = car?.model ?? car?.model_handle;
+  const makeQuery = car?.make_handle ?? (car?.make ? handleize(car.make) : undefined);
+  const modelQuery = car?.model_handle ?? (car?.model ? handleize(car.model) : undefined);
   const { data: otherModelData } = useGetCarsQuery(
     { make: makeQuery, model: modelQuery, limit: 24 },
     { skip: !makeQuery || !modelQuery },

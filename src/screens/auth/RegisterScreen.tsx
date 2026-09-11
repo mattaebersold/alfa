@@ -22,6 +22,8 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
+import AppleSignInButton from '../../components/auth/AppleSignInButton';
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
@@ -44,6 +46,8 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   const [showPasswords, setShowPasswords] = useState<Partial<Record<keyof typeof form, boolean>>>({});
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
+  /** Google's own failures, which never reach the auth slice's `error`. */
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const toggleShow = (key: keyof typeof form) =>
     setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -192,10 +196,30 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                 {step === 1 ? 'Create Account' : 'Profile Photo'}
               </Text>
 
-              {error && (
+              {(error || googleError) && (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{error || googleError}</Text>
                 </View>
+              )}
+
+              {/* Only on step 1. Step 2 is the profile photo, by which point the
+                  account already exists — offering Google there would start a
+                  second, competing signup half way through the first.
+
+                  There is no separate "register with Google": horacio matches on
+                  Google id, then email, and creates an account only if neither
+                  exists. The same button on the login screen does the same three
+                  things. */}
+              {step === 1 && (
+                <>
+                  <GoogleSignInButton label="Sign up with Google" onError={setGoogleError} />
+                  <AppleSignInButton onError={setGoogleError} />
+                  <View style={styles.altRow}>
+                    <View style={styles.altLine} />
+                    <Text style={styles.altLabel}>or sign up with email</Text>
+                    <View style={styles.altLine} />
+                  </View>
+                </>
               )}
 
               {step === 1 ? (
@@ -345,6 +369,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 16 },
+  altRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
+  altLine:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  altLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
   errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
   errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
   field: { marginBottom: 12 },
