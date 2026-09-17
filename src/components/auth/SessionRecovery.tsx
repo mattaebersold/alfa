@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Shown when we hold a token but can't turn it into an account.
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
   message: { fontSize: 14, lineHeight: 21, textAlign: 'center', marginBottom: 28 },
   primaryBtn: {
     backgroundColor: colors.primaryAlt,
-    paddingHorizontal: 32, paddingVertical: 14, borderRadius: 999,
+    paddingHorizontal: 32, paddingVertical: 14, borderRadius: COMMON_RADIUS,
     minWidth: 200, minHeight: 48, alignItems: 'center', justifyContent: 'center',
   },
   btnBusy:  { opacity: 0.7 },

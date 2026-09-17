@@ -18,12 +18,14 @@ import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
 import { SPLASH_IMAGES } from '../../constants/splash';
 import { toUploadableJpeg } from '../../utils/upload';
 import { validateUsername } from '../../utils/username';
+import { validateZip, sanitizeZip } from '../../utils/zip';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import AppleSignInButton from '../../components/auth/AppleSignInButton';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
@@ -52,18 +54,34 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleChange = (key: keyof typeof form) => (value: string) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      // Spaces can never be part of a username, so they're dropped as they're
+      // typed rather than rejected at the button. Everything else survives —
+      // an "@" has to reach `validateUsername` for a pasted email address to
+      // be recognised as one and named in the message.
+      [key]: key === 'username' ? value.replace(/\s+/g, '')
+        : key === 'zip' ? sanitizeZip(value)
+        : value,
+    }));
 
   // Shown under the field as it's typed, so someone pasting their email address
   // is told before they reach the button. Nothing is stripped on the way in —
   // the `@` has to survive for the address to be recognisable as one.
   const usernameError = form.username ? validateUsername(form.username) : null;
+  const zipError = form.zip ? validateZip(form.zip) : null;
 
   const handleStep1 = () => {
     if (!form.firstName || !form.lastName || !form.username || !form.email || !form.password) {
       Alert.alert('Error', 'Please fill in all required fields.');
       return;
     }
+    const zipProblem = validateZip(form.zip);
+    if (zipProblem) {
+      Alert.alert('Check your zip code', zipProblem);
+      return;
+    }
+
     const usernameProblem = validateUsername(form.username);
     if (usernameProblem) {
       Alert.alert('Choose a different username', usernameProblem);
@@ -258,6 +276,15 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                           </Text>
                         )
                       )}
+                      {key === 'zip' && (
+                        zipError ? (
+                          <Text style={styles.fieldError}>{zipError}</Text>
+                        ) : (
+                          <Text style={styles.fieldHint}>
+                            Five digits. Sets your region and what "near me" shows you — it stays private.
+                          </Text>
+                        )
+                      )}
                     </View>
                   ))}
 
@@ -416,7 +443,7 @@ const styles = StyleSheet.create({
   photoBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: COMMON_RADIUS,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.35)',
     backgroundColor: 'rgba(255,255,255,0.1)',

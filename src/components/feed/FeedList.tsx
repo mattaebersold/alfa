@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery,
@@ -37,6 +37,8 @@ interface FeedListProps {
   paddingTop?: number;
   /** Scroll handler, e.g. the auto-hiding header's. */
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** The underlying FlatList, for a screen that needs to scroll it (e.g. back-to-top). */
+  listRef?: React.Ref<FlatList<any>>;
 }
 
 const PAGE_SIZE = 12;
@@ -70,6 +72,16 @@ type FeedRow =
 
 const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
 
+/**
+ * How much of a post has to be on screen to count as being watched.
+ *
+ * 60% rather than a token sliver: a video half off the top of the screen is
+ * something you've scrolled past, not something you're watching. `minimumView
+ * Time` keeps a fast flick through the feed from starting and stopping players
+ * on every row it passes.
+ */
+const VIEWABILITY = { itemVisiblePercentThreshold: 60, minimumViewTime: 150 };
+
 export default function FeedList({
   filter,
   userId,
@@ -81,6 +93,7 @@ export default function FeedList({
   ListHeaderComponent,
   paddingTop = 0,
   onScroll,
+  listRef,
 }: FeedListProps) {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
@@ -206,6 +219,26 @@ export default function FeedList({
   // Merge garage additions into the post stream by date. Cars older than the
   // oldest loaded post are held back until the posts around them arrive —
   // otherwise they'd sit at the bottom and jump on the next page.
+  /**
+   * Which posts are on screen, so a video that scrolls away stops playing.
+   *
+   * Playback is tap-to-play, so this only ever pauses something the viewer
+   * started — but a video that keeps going after it leaves the screen is
+   * audible from nowhere, and holds a decoder open while you scroll.
+   *
+   * The handler is held in a ref because RN treats `onViewableItemsChanged` as
+   * fixed for the life of the list and throws if its identity changes.
+   */
+  const [visibleIds, setVisibleIds] = useState<string[]>([]);
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    setVisibleIds(
+      viewableItems
+        .map((v) => (v.item as FeedRow))
+        .filter((row): row is Extract<FeedRow, { kind: 'post' }> => row?.kind === 'post')
+        .map((row) => row.post.internal_id),
+    );
+  });
+
   const rows = useMemo<FeedRow[]>(() => {
     const postRows: FeedRow[] = allPosts.map((post) => ({ kind: 'post', post, time: timeOf(post.created_at) }));
     if (!includeGarageAdditions
@@ -246,7 +279,10 @@ export default function FeedList({
   return (
     <>
       <FlatList
+        ref={listRef}
         data={rows}
+        viewabilityConfig={VIEWABILITY}
+        onViewableItemsChanged={onViewableItemsChanged.current}
         keyExtractor={(row) =>
           row.kind === 'post' ? `post-${row.post.internal_id}`
             : row.kind === 'car' ? `car-${row.car.internal_id}`
@@ -269,6 +305,7 @@ export default function FeedList({
               isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
               onPress={() => onPostPress?.(row.post)}
               onCommentPress={() => setCommentPost(row.post)}
+              visible={visibleIds.includes(row.post.internal_id)}
             />
           )
         )}

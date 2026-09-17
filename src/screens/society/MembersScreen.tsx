@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ScrollView,
 } from 'react-native';
@@ -10,12 +10,16 @@ import {useGetUsersQuery, useGetFollowStatusesQuery} from '../../api/apiService'
 import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { REGIONS } from '../../constants/regions';
+import { useLocationFilter } from '../../hooks/useLocationFilter';
+import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
+import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
@@ -23,12 +27,17 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import MemberRow from '../../components/members/MemberRow';
+import UserSummaryModal from '../../components/members/UserSummaryModal';
+import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const LIMIT = 20;
 
 export default function MembersScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const headerPad = useHeaderPad();
@@ -36,14 +45,40 @@ export default function MembersScreen() {
   const route = useRoute<RouteProp<{ Members: { region?: string } }, 'Members'>>();
   const onAccent = contrastText(colors.primaryAlt);
   const [query, setQuery] = useState('');
-  // Arrives preset when opened from a member's region tile.
-  const [region, setRegion] = useState<string | null>(route?.params?.region ?? null);
+  // Near me by default — measured from the zip on your profile. A region tile
+  // on a member's profile opens this preset to that region instead.
+  const location = useLocationFilter(route?.params?.region ?? 'near');
   const [page, setPage] = useState(0);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [summary, setSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
   const { data, isLoading, isFetching } = useGetUsersQuery({
-    page, limit: LIMIT, q: query || undefined, region: region ?? undefined,
+    page, limit: LIMIT, q: query || undefined, ...location.params,
   });
+
+  // Near me with no zip to measure from falls back to everyone, saying why.
+  const { fallBack } = location;
+  useEffect(() => {
+    if (data?.near_unavailable) fallBack();
+  }, [data?.near_unavailable, fallBack]);
+
+  /**
+   * Any filter change starts the list again — page 2 of the old filter isn't
+   * page 2 of the new one.
+   *
+   * Only a *change*, though. Apply with nothing different would clear the list
+   * and ask for a page the cache already holds, and with the same data coming
+   * back the effect that refills the list never runs — an empty screen.
+   */
+  const applyLocation = useCallback((next: { choice: string; radius: number }) => {
+    const choiceChanged = next.choice !== location.choice;
+    const radiusChanged = next.radius !== location.radius;
+    if (!choiceChanged && !radiusChanged) return;
+    if (choiceChanged) location.choose(next.choice);
+    if (radiusChanged) location.setRadius(next.radius);
+    setPage(0);
+    setAllUsers([]);
+  }, [location]);
 
   React.useEffect(() => {
     if (data?.entries) {
@@ -76,14 +111,6 @@ export default function MembersScreen() {
     setAllUsers([]);
   }, []);
 
-  // Tapping the region you're already on clears it — the chips are a filter,
-  // not a required choice, and there's no other way back to everyone.
-  const handleRegionPress = useCallback((key: string) => {
-    setRegion((prev) => (prev === key ? null : key));
-    setPage(0);
-    setAllUsers([]);
-  }, []);
-
   const handleLoadMore = useCallback(() => {
     if (!isFetching && data && allUsers.length < data.total) setPage((p) => p + 1);
   }, [isFetching, data, allUsers.length]);
@@ -112,38 +139,28 @@ export default function MembersScreen() {
         />
       </View>
 
-      {/* Region — members carry a city and state, so this is the one bit of
-          "near me" the data can actually answer. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.regionRow}
-        keyboardShouldPersistTaps="handled"
+      {/* Folded into one row that opens a panel, as on events — the chips
+          took a line and a half above the list for a choice made once. */}
+      <FilterSummaryRow
+        value={{ choice: location.choice, radius: location.radius }}
+        onApply={applyLocation}
+        pills={[locationPill(location.choice, location.radius)]}
+        style={styles.filterRow}
       >
-        {REGIONS.map((r) => {
-          const active = region === r.key;
-          return (
-            <TouchableOpacity
-              key={r.key}
-              style={[
-                styles.regionChip,
-                { backgroundColor: colors.card, borderColor: colors.border },
-                active && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-              ]}
-              onPress={() => handleRegionPress(r.key)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <MapPin size={12} color={active ? onAccent : colors.grey} />
-              <Text style={[styles.regionChipText, { color: active ? onAccent : colors.grey }]}>
-                {r.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-        <RowEndSpacer />
-      </ScrollView>
+        {(draft, setDraft) => (
+          <LocationFilterRow
+            choice={draft.choice}
+            onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
+            radius={draft.radius}
+            onRadius={(radius) => setDraft((d) => ({ ...d, radius }))}
+          />
+        )}
+      </FilterSummaryRow>
+      {/* Stays on the screen rather than in the panel: it explains the list
+          you're looking at, not an option you're choosing. */}
+      {location.fellBack && (
+        <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
+      )}
     </>
   );
 
@@ -152,6 +169,7 @@ export default function MembersScreen() {
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
+        ref={scrollRef}
         data={allUsers}
         keyExtractor={(u) => u.user_id}
         ListHeaderComponent={ListHeader}
@@ -159,14 +177,16 @@ export default function MembersScreen() {
           <MemberRow
             user={item}
             isFollowing={item.username ? followStatuses?.[item.username] : undefined}
-            onPress={() => navigation.navigate('UserDetail', { userId: item.user_id, username: item.username })}
+            // A summary first, as the home feed's suggestions do — the
+            // profile is one button inside the panel.
+            onPress={(origin) => setSummary({ userId: item.user_id, origin: origin ?? null })}
           />
         )}
         ListEmptyComponent={
           isLoading ? <Spinner fullScreen /> : (
             <EmptyState
-              title={region
-                ? `No members in the ${REGIONS.find((r) => r.key === region)?.label}`
+              title={location.choice !== 'all'
+                ? `No members ${location.choice === 'near' ? `within ${location.radius} miles` : `in the ${REGIONS.find((r) => r.key === location.choice)?.label}`}`
                 : 'No members found'}
             />
           )
@@ -181,6 +201,12 @@ export default function MembersScreen() {
         refreshing={false}
       />
       </View>
+
+      <UserSummaryModal
+        userId={summary?.userId ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -193,6 +219,9 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 15 },
+  // The search bar above already leaves 12 under itself.
+  filterRow:   { marginTop: 0, marginBottom: 10 },
+  note:        { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginBottom: 10 },
 
   regionRow:  { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
   regionChip: {

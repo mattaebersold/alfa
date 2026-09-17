@@ -9,8 +9,12 @@ export const colors = {
   brgLight:  '#202020',
 
   // Accent
-  primaryAlt:'rgb(37, 162, 211)',
-  primaryPro: 'rgb(196, 160, 92)',
+  // Hex, not `rgb()`. A dozen places tint these by appending an alpha pair —
+  // `primaryAlt + '22'` — which is valid on a hex string and nonsense on an
+  // `rgb(...)` one, so every one of those tints was silently rendering as a
+  // solid fill. Same colours, in the notation the rest of the app assumes.
+  primaryAlt: '#25A2D3',
+  primaryPro: '#C4A05C',
   pro:       '#CDA96F',
   guards:    '#D00000',
   tangerine: '#FA7921',

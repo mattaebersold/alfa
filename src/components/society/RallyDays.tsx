@@ -5,6 +5,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { rallyDayDate } from '../../utils/rally';
 import type { RallyDay } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * The rally's itinerary: each day a self-contained card in one column.
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
   section:  { paddingHorizontal: 16, paddingTop: 28 },
   heading:  { fontSize: 20, fontWeight: '800', marginBottom: 12 },
   list:     { gap: 12 },
-  card:     { borderRadius: 14, padding: 16, borderWidth: StyleSheet.hairlineWidth },
+  card:     { borderRadius: COMMON_RADIUS, padding: 16, borderWidth: StyleSheet.hairlineWidth },
   dayLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   title:    { fontSize: 20, fontWeight: '800', marginTop: 4 },
   subtitle: { fontSize: 15, fontWeight: '700', marginTop: 3 },

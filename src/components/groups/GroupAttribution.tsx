@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { useNavigation } from '@react-navigation/native';
 import { ChevronRight, Users } from 'lucide-react-native';
 import { useGetGroupQuery } from '../../api/apiService';
+import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { firstGalleryUrl } from '../../utils/image';
+import { PILL_RADIUS } from '../../constants/radius';
 
 /**
  * "Posted in <group>", as a way into the group.
@@ -45,7 +46,7 @@ export default function GroupAttribution({
   compact?: boolean;
 }) {
   const colors = useColors();
-  const nav = useNavigation<any>();
+  const { openGroup } = useGroupSummary();
   const { data: group } = useGetGroupQuery(groupId ?? '', { skip: !groupId });
 
   if (!groupId || !group) return null;
@@ -55,11 +56,14 @@ export default function GroupAttribution({
   const image = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   const name = group.title ?? 'Group';
 
+  // The page if you're a member, the summary with Join if you're not — see
+  // GroupSummaryProvider. Still handed to the host when it asks, so a post in a
+  // modal can get out of the way first.
   const open = () => {
-    const go = (n: any) => n.navigate('GroupDetail', { groupId });
+    const go = () => openGroup(groupId);
     if (onNavigate) return onNavigate(go);
     onBeforeNavigate?.();
-    go(nav);
+    go();
   };
 
   if (compact) {
@@ -166,7 +170,7 @@ const styles = StyleSheet.create({
   },
   // The badge colour groups already wear in the feed's type badges.
   bannerBadge: {
-    paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 4,
+    paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: PILL_RADIUS,
     backgroundColor: colors.badgeGroup,
     flexShrink: 0,
   },
@@ -181,7 +185,7 @@ const styles = StyleSheet.create({
   },
 
   pillBadge: {
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: PILL_RADIUS,
     backgroundColor: colors.badgeGroup,
   },
   pillBadgeText: {
@@ -191,9 +195,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 7,
     alignSelf: 'flex-start', marginTop: 6,
     paddingHorizontal: 9, paddingVertical: 6,
-    borderRadius: 10, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
   },
-  pillThumb: { width: 22, height: 22, borderRadius: 5 },
+  pillThumb: { width: 22, height: 22, borderRadius: PILL_RADIUS },
   blank:     { alignItems: 'center', justifyContent: 'center' },
   pillName:  { fontSize: 12, fontWeight: '800', flexShrink: 1 },
 });

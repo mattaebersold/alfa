@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
   Platform, useWindowDimensions, type StyleProp, type ViewStyle,
@@ -8,9 +8,52 @@ import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** The rectangle a summary grows out of, in window coordinates. */
 export interface SummaryOrigin { x: number; y: number; w: number; h: number }
+
+/**
+ * Measures a view and hands its rect on — or `null` when there's nothing
+ * mounted to measure, which opens the panel from the centre instead.
+ *
+ * Split out of SummaryTouchable for rows whose tap target isn't the row itself
+ * (a "View" button inside it), but whose panel should still grow out of the row.
+ */
+export function measureOrigin(
+  node: View | null,
+  then: (origin: SummaryOrigin | null) => void,
+) {
+  if (!node) return then(null);
+  node.measureInWindow((x, y, w, h) => then({ x, y, w, h }));
+}
+
+/**
+ * What a summary's contents — and any summary stacked on it — can ask of the
+ * panel they're in.
+ */
+export interface SummaryPanelHandle {
+  /**
+   * Close this panel, then run `run` once it has gone.
+   *
+   * When this panel is itself stacked on another, the whole stack closes before
+   * `run` does: whatever `run` navigates to would otherwise open *under* the
+   * panel that's still up, and on iOS a screen can't be presented over a modal
+   * at all.
+   */
+  closeThen: (run?: () => void) => void;
+}
+
+const SummaryPanelContext = createContext<SummaryPanelHandle | null>(null);
+
+/**
+ * The panel the caller is inside, or `null` outside one.
+ *
+ * Called from a summary's *contents*, it's that summary's panel. Called from a
+ * component that renders a SummaryModal of its own, it's the panel *that* one
+ * is stacked on — which is how a stacked summary knows to close its parent.
+ */
+export const useSummaryPanel = () => useContext(SummaryPanelContext);
 
 /**
  * A row or card that hands its own position to its press handler, so the
@@ -45,11 +88,7 @@ export function SummaryTouchable({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      onPress={() => {
-        const node = ref.current;
-        if (!node) return onPress(null);
-        node.measureInWindow((x, y, w, h) => onPress({ x, y, w, h }));
-      }}
+      onPress={() => measureOrigin(ref.current, onPress)}
     >
       {children}
     </TouchableOpacity>
@@ -57,6 +96,9 @@ export function SummaryTouchable({
 }
 
 const WIDTH_RATIO = 0.9;
+/** The close button's edge, and so how far above the panel it sits. */
+const CLOSE_SIZE = 38;
+
 /** A ceiling, not a size — a short summary gets a short panel. */
 const MAX_HEIGHT_RATIO = 0.9;
 const PANEL_RADIUS = 20;
@@ -104,6 +146,25 @@ const START_SCALE = 0.42;
  * horizontally — which turns square corners into ellipses. A uniform scale
  * gives a small box proportionally small corners, which is how a small box
  * should look.
+ *
+ * ## Stacking
+ *
+ * A summary can open another over itself — a group's member, a post's liker —
+ * through `stacked`. That node is rendered *inside* this panel's Modal, not
+ * beside it, and that placement is the whole trick:
+ *
+ * - iOS presents a Modal from the nearest view controller up its view tree.
+ *   Inside this panel, that's this panel's own controller, so the second one
+ *   presents over it. As a sibling it would try to present from the root
+ *   controller, which is already presenting this panel — and UIKit refuses
+ *   that with a console warning and nothing on screen.
+ * - Android gives every Modal its own Dialog window, and a newer one sits over
+ *   an older one wherever it was rendered, so either placement works there.
+ *   Back closes the top one first, because the top Dialog takes the key.
+ *
+ * Any action in a stacked summary — its bottom button, or anything its
+ * contents run through `useSummaryPanel().closeThen` — closes the whole stack
+ * before it runs. See SummaryPanelHandle.
  */
 export default function SummaryModal({
   visible,
@@ -111,6 +172,7 @@ export default function SummaryModal({
   origin,
   actionLabel = 'View more',
   onAction,
+  stacked,
   children,
 }: {
   visible: boolean;
@@ -125,8 +187,14 @@ export default function SummaryModal({
    * navigation.
    */
   onAction?: () => void;
+  /**
+   * A second summary to present over this one — see "Stacking" above. Render
+   * it here rather than next to this panel, or it won't appear on iOS.
+   */
+  stacked?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const parentPanel = useSummaryPanel();
   const colors = useColors();
   const brand = useBrandColor();
   const { width: screenW, height: screenH } = useWindowDimensions();
@@ -218,10 +286,24 @@ export default function SummaryModal({
     });
   }, [visible, progress]);
 
-  const runAction = useCallback(() => {
-    if (onAction) pendingAction.current = onAction;
-    onClose();
-  }, [onAction, onClose]);
+  // Through refs, because a stacked panel calls `closeThen` from its own close
+  // animation's callback — a closure from a render 300ms ago, whose `onClose`
+  // may since have been replaced.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const parentRef = useRef(parentPanel);
+  parentRef.current = parentPanel;
+
+  const closeThen = useCallback((run?: () => void) => {
+    const parent = parentRef.current;
+    // Up the stack before running: the parent closes (and so on up), and only
+    // the last one to go runs `run`.
+    pendingAction.current = run ? (parent ? () => parent.closeThen(run) : run) : null;
+    onCloseRef.current();
+  }, []);
+  const panelHandle = useMemo<SummaryPanelHandle>(() => ({ closeThen }), [closeThen]);
+
+  const runAction = useCallback(() => closeThen(onAction), [closeThen, onAction]);
 
   if (!rendered) return null;
 
@@ -235,6 +317,7 @@ export default function SummaryModal({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <SummaryPanelContext.Provider value={panelHandle}>
       {/* Blur plus a tint, not a tint alone: the panel sits over a list of the
           very things it is summarising, and the blur is what stops the row
           behind it competing with it.
@@ -304,19 +387,6 @@ export default function SummaryModal({
           {children}
         </ScrollView>
 
-        {/* Floated over the content rather than in a header bar of its own —
-            the summary is mostly a picture, and a bar would cost more room than
-            the control needs. */}
-        <TouchableOpacity
-          style={styles.close}
-          onPress={onClose}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        >
-          <X size={20} color="#FFFFFF" strokeWidth={2} />
-        </TouchableOpacity>
-
         {onAction && (
           <View
             style={[styles.footer, { borderTopColor: colors.border }]}
@@ -337,7 +407,37 @@ export default function SummaryModal({
           </View>
         )}
       </Animated.View>
+
+      {/* Outside the panel, above its top-right corner — over the content it
+          sat on the photo every summary opens with, and on a pale one it had
+          to carry its own dark disc to stay visible. Out here it's on the
+          dimmed backdrop, where white reads on its own. Clamped so a tall
+          panel on a short screen can't push it off the top. */}
+      <Animated.View
+        style={[
+          styles.close,
+          { left: panelX + panelW - CLOSE_SIZE, top: Math.max(10, panelY - CLOSE_SIZE - 10) },
+          { opacity: progress },
+        ]}
+        pointerEvents={expanded ? 'auto' : 'none'}
+      >
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={onClose}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+        </TouchableOpacity>
       </Animated.View>
+      </Animated.View>
+
+      {/* Last, and inside this Modal — see "Stacking" above. A Modal takes no
+          room in the layout it's written in, so where in here it sits doesn't
+          matter; that it's in here at all is what lets iOS present it. */}
+      {stacked}
+      </SummaryPanelContext.Provider>
     </Modal>
   );
 }
@@ -367,15 +467,17 @@ const styles = StyleSheet.create({
   // is the bounded box it scrolls inside.
   body: { flexShrink: 1 },
 
-  close: {
-    position: 'absolute', top: 12, right: 12,
-    width: 38, height: 38, borderRadius: 19,
+  close: { position: 'absolute', width: CLOSE_SIZE, height: CLOSE_SIZE, zIndex: 30, elevation: 24 },
+  closeBtn: {
+    width: CLOSE_SIZE, height: CLOSE_SIZE, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    // Faint disc rather than none: the backdrop is a blurred photograph as
+    // often as not, and a bare glyph disappears into a bright one.
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
 
   footer:    { padding: 14, borderTopWidth: StyleSheet.hairlineWidth },
-  actionBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  actionBtn: { borderRadius: COMMON_RADIUS, paddingVertical: 14, alignItems: 'center' },
   actionText:{ fontSize: 16, fontWeight: '600' },
   onBrand:   { color: '#000000' },
 });

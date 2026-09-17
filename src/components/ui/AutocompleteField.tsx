@@ -6,11 +6,12 @@ import { useColors } from '../../hooks/useColors';
 const MAX_SUGGESTIONS = 8;
 
 /**
- * A text field that offers what's already known, without insisting on it.
+ * A text field that offers what's already known.
  *
- * Free text either way — you can type a make nobody has entered before — but
- * the ones already in the database are one tap away, which is what stops the
- * same car arriving as "Porsche", "porsche" and "Posrche".
+ * On its own it doesn't insist: whatever is typed is the value, and the known
+ * ones are one tap away. A caller that must only ever hold a listed value (the
+ * make and model fields) keeps the typed text apart from the value it commits,
+ * and uses `message` to say when the two disagree — see MakeModelFields.
  *
  * The list renders *below* the field in the flow rather than floating over it.
  * An absolutely-positioned dropdown inside a scrolling form gets clipped by
@@ -27,6 +28,10 @@ export default function AutocompleteField({
   autoCapitalize = 'words',
   style,
   inputStyle,
+  onBlur,
+  editable = true,
+  message,
+  invalid = false,
 }: {
   label?: string;
   value: string;
@@ -38,6 +43,13 @@ export default function AutocompleteField({
   autoCapitalize?: 'none' | 'words' | 'sentences' | 'characters';
   style?: StyleProp<ViewStyle>;
   inputStyle?: any;
+  /** Called on blur, as it happens — before a tapped suggestion lands. */
+  onBlur?: () => void;
+  editable?: boolean;
+  /** A line under the field: a hint, or with `invalid`, what's wrong. */
+  message?: string;
+  /** Outlines the field in red and colours `message` to match. */
+  invalid?: boolean;
 }) {
   const colors = useColors();
   const [focused, setFocused] = useState(false);
@@ -57,31 +69,43 @@ export default function AutocompleteField({
   }, [suggestions, value]);
 
   const pick = (v: string) => {
+    if (!editable) return;
     (onSelect ?? onChangeText)(v);
     setFocused(false);
   };
 
   return (
     <View style={style}>
-      {label ? <Text style={[styles.label, { color: colors.grey }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: colors.fg }]}>{label}</Text> : null}
       <TextInput
-        style={inputStyle ?? [styles.input, {
-          color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg,
-        }]}
+        style={[
+          inputStyle ?? [styles.input, {
+            // `card`, not `inputBg`: the plain text fields these sit among use the
+            // lighter ground, and side by side the darker one read as a disabled
+            // field rather than a different component.
+            color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.card,
+          }],
+          invalid && { borderColor: colors.red },
+          !editable && styles.inputOff,
+        ]}
         value={value}
         onChangeText={onChangeText}
+        editable={editable}
         onFocus={() => setFocused(true)}
         // Deferred: a tap on a suggestion blurs the field first, and closing on
         // blur would unmount the row out from under the finger.
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        onBlur={() => {
+          onBlur?.();
+          setTimeout(() => setFocused(false), 150);
+        }}
         placeholder={placeholder}
         placeholderTextColor={colors.grey}
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
       />
 
-      {focused && matches.length > 0 && (
-        <View style={[styles.list, { borderColor: colors.inputBorder, backgroundColor: colors.card }]}>
+      {focused && editable && matches.length > 0 && (
+        <View style={[styles.list, { borderColor: colors.inputBorder, backgroundColor: colors.segment }]}>
           {matches.map((s, i) => (
             <TouchableOpacity
               key={s}
@@ -94,13 +118,29 @@ export default function AutocompleteField({
           ))}
         </View>
       )}
+
+      {/* After the list, not between it and the field: a message that appears
+          on blur would otherwise shove the rows down under a finger that is
+          already on its way to one. */}
+      {message ? (
+        <Text style={[styles.message, { color: invalid ? colors.red : colors.grey }]}>{message}</Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-  input: { height: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
+  // Matched to the plain text fields these sit among — they were a smaller
+  // uppercase label over a taller, tighter-cornered box, so Make and Model
+  // read as a different kind of field from every other one on the form.
+  label: { fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  input: {
+    borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 15,
+  },
+  inputOff: { opacity: 0.5 },
+  message: { fontSize: 12, fontWeight: '600', marginTop: 6, lineHeight: 16 },
   list:  { marginTop: 6, borderWidth: 1, borderRadius: 10, overflow: 'hidden' },
   row:   { paddingHorizontal: 12, paddingVertical: 11 },
   rowText: { fontSize: 14, fontWeight: '600' },

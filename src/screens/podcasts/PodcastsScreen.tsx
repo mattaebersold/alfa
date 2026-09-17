@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
@@ -10,6 +10,7 @@ import { useGetPodcastsQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
@@ -20,6 +21,7 @@ import type { Podcast } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -58,6 +60,9 @@ function PodcastCard({ podcast, onPress }: { podcast: Podcast; onPress: () => vo
 }
 
 export default function PodcastsScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const colors = useColors();
   const appNav = useNavigation<AppNav>();
   const headerPad = useHeaderPad();
@@ -71,6 +76,7 @@ export default function PodcastsScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
+        ref={scrollRef}
         refreshControl={refreshControl}
         style={{ flex: 1, backgroundColor: colors.cream }}
         data={podcasts}
@@ -99,7 +105,7 @@ const styles = StyleSheet.create({
   list:               { paddingBottom: 24, paddingTop: 8, paddingHorizontal: 8 },
   row:                { gap: 8 },
   card:               {
-    flex: 1, borderRadius: 12, margin: 4, overflow: 'hidden',
+    flex: 1, borderRadius: COMMON_RADIUS, margin: 4, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   artwork:            { width: '100%', aspectRatio: 1 },

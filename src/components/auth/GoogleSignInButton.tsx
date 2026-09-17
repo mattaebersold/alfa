@@ -9,6 +9,7 @@ import { googleSignIn } from '../../store/authSlice';
 import { useColors } from '../../hooks/useColors';
 import { CONFIG } from '../../constants/config';
 import GoogleGlyph from './GoogleGlyph';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * "Continue with Google", natively.
@@ -120,7 +121,7 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onE
 
 const styles = StyleSheet.create({
   button: {
-    height: 48, borderRadius: 10, borderWidth: 1,
+    height: 48, borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   inner: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -72,6 +72,46 @@ export const formatEventDate = (
   });
 };
 
+/**
+ * A multi-day event's dates, or null for a one-day one: "Sep 19 – 21" within a
+ * month, "Sep 30 – Oct 2" across one. Short on purpose — it sits on one line
+ * of a card, and the day of the week is the first thing to go.
+ */
+export const formatEventRange = (event?: {
+  frequency?: string;
+  date?: string;
+  end_date?: string | null;
+} | null): string | null => {
+  if (event?.frequency !== 'single' || !event.end_date) return null;
+  const first = calendarDate(event.date);
+  const last = calendarDate(event.end_date);
+  if (!first || !last || last <= first) return null;
+  const month = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+  return first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear()
+    ? `${month(first)} ${first.getDate()} – ${last.getDate()}`
+    : `${month(first)} ${first.getDate()} – ${month(last)} ${last.getDate()}`;
+};
+
+/**
+ * One entry per multi-day event, on the first of its days in the list.
+ *
+ * A calendar wants a weekend show on all three days; a carousel wants it
+ * once, saying "Sep 19 – 21". The server already collapses its upcoming list
+ * this way — this keeps any list that's fed occurrences from showing the same
+ * event three cards in a row regardless.
+ */
+export function collapseMultiDay<T extends { internal_id: string; frequency?: string; end_date?: string | null }>(
+  entries: T[],
+): T[] {
+  const seen = new Set<string>();
+  return entries.filter((e) => {
+    if (e.frequency !== 'single' || !e.end_date) return true;
+    if (seen.has(e.internal_id)) return false;
+    seen.add(e.internal_id);
+    return true;
+  });
+}
+
 /** The date a card should show: this occurrence, else the event's next one. */
 export const occurrenceDate = (event?: {
   occurrence_date?: string;

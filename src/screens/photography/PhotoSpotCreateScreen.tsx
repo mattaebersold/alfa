@@ -18,6 +18,7 @@ import {
 import {
   PHOTO_SPOT_TYPES, PHOTO_SPOT_CATEGORIES, spotTypeColor,
 } from '../../constants/photoSpots';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Pinning a spot.
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
   mapWrap: { height: 260, borderRadius: 12, overflow: 'hidden', marginBottom: 12 },
   locateBtn: {
     position: 'absolute', top: 10, right: 10,
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center', justifyContent: 'center',
   },

@@ -17,6 +17,7 @@ import { useGetPhotoSpotsQuery } from '../../api/apiService';
 import { boundsFor, type MapBounds } from '../../utils/routeGeometry';
 import { PHOTO_SPOT_TYPES, spotTypeColor } from '../../constants/photoSpots';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 /**
  * Photography — a map of places worth shooting a car.
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, height: 32, borderRadius: 999, borderWidth: 1,
   },
-  chipDot:  { width: 8, height: 8, borderRadius: 4 },
+  chipDot:  { width: 8, height: 8, borderRadius: PILL_RADIUS },
   chipText: { fontSize: 13, fontWeight: '700' },
 
   mapWrap: { flex: 1, overflow: 'hidden' },
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute', right: 16, bottom: 28,
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999,
+    paddingHorizontal: 16, paddingVertical: 12, borderRadius: COMMON_RADIUS,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25, shadowRadius: 6, elevation: 4,
   },

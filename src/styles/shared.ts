@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { COMMON_RADIUS } from '../constants/radius';
 
 export const ss = StyleSheet.create({
   // Layout
@@ -8,7 +9,7 @@ export const ss = StyleSheet.create({
   center:    { alignItems: 'center', justifyContent: 'center' },
 
   // Cards
-  card:   { borderRadius: 16, borderWidth: 1 },
+  card:   { borderRadius: COMMON_RADIUS, borderWidth: 1 },
   shadow: {
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,

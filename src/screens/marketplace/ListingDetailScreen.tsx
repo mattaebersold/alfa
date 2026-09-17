@@ -30,6 +30,7 @@ import type { MarketScreenProps, AppStackParamList } from '../../navigation/type
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 export default function ListingDetailScreen({ route }: MarketScreenProps<'ListingDetail'>) {
   const { postId } = route.params;
@@ -166,6 +167,7 @@ export default function ListingDetailScreen({ route }: MarketScreenProps<'Listin
                 <LikeButton
                   documentId={post.internal_id}
                   entryType={entryType}
+                  ownerId={post.user_id}
                   initialCount={counts?.likes ?? post.like_count ?? 0}
                   initialLiked={post.isLiked ?? false}
                 />
@@ -263,14 +265,14 @@ const styles = StyleSheet.create({
   },
   heroImage:       { width: '100%', height: 280 },
   priceRow:        { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
-  pricePill:       { backgroundColor: '#16A34A', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  pricePill:       { backgroundColor: '#16A34A', paddingHorizontal: 14, paddingVertical: 8, borderRadius: PILL_RADIUS, alignSelf: 'flex-start' },
   priceText:       { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
-  soldPill:        { backgroundColor: '#EF4444', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  soldPill:        { backgroundColor: '#EF4444', paddingHorizontal: 14, paddingVertical: 8, borderRadius: PILL_RADIUS, alignSelf: 'flex-start' },
   soldText:        { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
   messageBtn:      {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 16, marginTop: 10, marginBottom: 4,
-    padding: 14, borderRadius: 12, borderWidth: 1,
+    padding: 14, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   messageBtnText:  { fontSize: 15, fontWeight: '600', flex: 1 },
   specRow:         {
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end',
     paddingHorizontal: 12, paddingVertical: 10, gap: 10,
   },
-  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

@@ -1,34 +1,32 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import Avatar from '../ui/Avatar';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
+import SummaryUserRow from '../members/SummaryUserRow';
+import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { useGetLikeUsersQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 
-function LikerRow({ userId, onPress }: { userId: string; onPress: (userId: string) => void }) {
+/**
+ * One liker. Handle only — see SummaryUserRow. The like list is ids, so each
+ * row looks its person up; RTK Query shares those lookups with every other
+ * place that shows the same people.
+ */
+function LikerRow({ userId, onOpen }: {
+  userId: string;
+  onOpen: (userId: string, origin: SummaryOrigin | null) => void;
+}) {
   const colors = useColors();
   const { data: user } = useGetUserByIdQuery(userId, { skip: !userId });
   if (!user) return null;
 
   return (
-    <TouchableOpacity
+    <SummaryUserRow
+      userId={userId}
+      user={user}
+      onOpen={onOpen}
+      avatarSize={40}
       style={[styles.row, { borderBottomColor: colors.border }]}
-      onPress={() => onPress(userId)}
-      activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`View @${user.username}`}
-    >
-      <Avatar user={user} size={40} />
-      <View style={styles.rowText}>
-        <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
-        {[user.firstName, user.lastName].filter(Boolean).length > 0 && (
-          <Text style={[styles.fullName, { color: colors.grey }]} numberOfLines={1}>
-            {[user.firstName, user.lastName].filter(Boolean).join(' ')}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
+    />
   );
 }
 
@@ -40,8 +38,11 @@ function LikerRow({ userId, onPress }: { userId: string; onPress: (userId: strin
  * meant the same question got a different answer depending on whether you
  * asked it from a feed card or from the post.
  *
- * Rows lead to profiles, and they close the panel on the way: a screen pushed
- * from under an open modal ends up behind it.
+ * A row opens that person's summary over this one (see useStackedUserSummary),
+ * rather than jumping straight to their profile: the list is a set of people
+ * to look through, and leaving it for each one meant finding your way back.
+ * The profile is the stacked summary's own button, which closes both panels
+ * before it goes.
  */
 export default function LikersSheet({
   entryId,
@@ -65,17 +66,12 @@ export default function LikersSheet({
   emptyText?: string;
 }) {
   const colors = useColors();
-  const nav = useNavigation<any>();
   const { data, isLoading } = useGetLikeUsersQuery(entryId, { skip: !visible || !entryId });
   const userIds = data?.users ?? [];
-
-  const openProfile = (userId: string) => {
-    onClose();
-    requestAnimationFrame(() => nav.navigate('UserDetail', { userId }));
-  };
+  const { openUser, stacked } = useStackedUserSummary(visible);
 
   return (
-    <SummaryModal visible={visible} onClose={onClose} origin={origin}>
+    <SummaryModal visible={visible} onClose={onClose} origin={origin} stacked={stacked}>
       <View style={styles.body}>
         <Text style={[styles.title, { color: colors.fg }]}>
           {title}{data?.total ? ` · ${data.total}` : ''}
@@ -89,7 +85,7 @@ export default function LikersSheet({
           // Mapped, not listed: SummaryModal brings its own scroller, and the
           // like count on a post never runs to the length where virtualising
           // would earn its keep.
-          userIds.map((id) => <LikerRow key={id} userId={id} onPress={openProfile} />)
+          userIds.map((id) => <LikerRow key={id} userId={id} onOpen={openUser} />)
         )}
       </View>
     </SummaryModal>
@@ -102,11 +98,5 @@ const styles = StyleSheet.create({
   loader: { marginTop: 30 },
   empty:  { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
 
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowText:  { flex: 1, minWidth: 0 },
-  name:     { fontSize: 15, fontWeight: '700' },
-  fullName: { fontSize: 12, marginTop: 1 },
+  row:    { gap: 12, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth },
 });

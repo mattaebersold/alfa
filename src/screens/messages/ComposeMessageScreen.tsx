@@ -19,6 +19,7 @@ import { useColors } from '../../hooks/useColors';
 import { useKeyboardInset, useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
 
   recipientPill: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: PILL_RADIUS, paddingHorizontal: 10, paddingVertical: 6,
     alignSelf: 'flex-start', gap: 8,
   },
   recipientName: { fontSize: 14, fontWeight: '600' },
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   sendBtn:         {
-    backgroundColor: colors.primaryAlt, borderRadius: 10,
+    backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
     paddingVertical: 15, alignItems: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },

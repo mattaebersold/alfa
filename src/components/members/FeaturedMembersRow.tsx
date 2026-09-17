@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Car } from 'lucide-react-native';
 import SteeringWheel from '../ui/SteeringWheel';
+import RegionBadge from '../ui/RegionBadge';
+import { shuffle } from '../../utils/array';
+import { regionForCityState } from '../../constants/regions';
 import { useGetSiteSettingsQuery, useGetCarsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.40;
@@ -32,8 +36,15 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#222' }]} />
       )}
       <View style={styles.overlay} />
-      {isPro && <View style={styles.proBorder} pointerEvents="none" />}
+      {/* Where in the country they are — the same map the member rows and
+          summary panels use. Top right, clear of the pro wheel and the name
+          along the bottom. */}
+      <View style={styles.regionBadge}>
+        <RegionBadge region={regionForCityState(member.cityState)?.key} size={32} />
+      </View>
       <View style={styles.info}>
+        {/* The one pro marker on the card: a thick gold frame around the photo
+            read as a selection state and fought with the map badge. */}
         {isPro && (
           <View style={styles.proWheelBadge}>
             <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />
@@ -53,9 +64,10 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
 
 export default function FeaturedMembersRow({ onMemberPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
-  // In the order an admin set on the Dashboard — it used to be shuffled, which
-  // made that order meaningless.
-  const members = data?.featured_users ?? [];
+  // Shuffled per mount, for the same reason as the featured cars row — see
+  // FeaturedCarsRow. Memoised on the data so it holds still while you scroll.
+  const featured = data?.featured_users;
+  const members = useMemo(() => shuffle(featured ?? []), [featured]);
 
   if (!members.length) return null;
 
@@ -90,7 +102,7 @@ const styles = StyleSheet.create({
   card:       {
     width: CARD_WIDTH,
     aspectRatio: 1,
-    borderRadius: 14,
+    borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
     backgroundColor: '#111',
   },
@@ -98,6 +110,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
+  regionBadge: { position: 'absolute', top: 8, right: 8 },
   info:       {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -107,10 +120,6 @@ const styles = StyleSheet.create({
   username:   { flex: 1, fontSize: 12, fontWeight: '700', color: '#fff' },
   carRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
   carCount:   { fontSize: 14, color: 'rgba(255,255,255,0.9)', fontWeight: '700' },
-  proBorder:  {
-    ...StyleSheet.absoluteFill,
-    borderWidth: 5, borderColor: '#CDA96F', borderRadius: 14,
-  },
   proWheelBadge: {
     width: 22, height: 22, borderRadius: 11,
     backgroundColor: '#CDA96F',

@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { RallyFaqItem } from '../../types/api';
-
-// LayoutAnimation is opt-in on Android's old architecture; harmless where it's
-// already on.
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 /**
  * The rally's FAQ as expandable rows, in the order the admin arranged them.

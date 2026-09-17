@@ -139,3 +139,20 @@ export function clampMediaRatio(ratio: number): number {
   if (!Number.isFinite(ratio) || ratio <= 0) return DEFAULT_MEDIA_RATIO;
   return Math.min(MAX_MEDIA_RATIO, Math.max(MIN_MEDIA_RATIO, ratio));
 }
+
+/**
+ * One still for a post, for surfaces too small to play anything.
+ *
+ * A list row's 108px square is a thumbnail, not a player — a video there
+ * would be controls with no room to use them. But `firstGalleryUrl` reads a
+ * video's gallery entry as a photo with no filename and returns nothing, so a
+ * video post drew as a text-only row. This hands back the lead item's picture
+ * either way: the photo, or the video's poster frame, flagged so the row can
+ * say it's a video.
+ */
+export function postThumb(post: Pick<Post, 'gallery' | 'video_id'>): { url: string | null; isVideo: boolean } {
+  const lead = postMediaList(post)[0];
+  if (!lead) return { url: null, isVideo: false };
+  if (lead.kind === 'image') return { url: lead.url, isVideo: false };
+  return { url: lead.poster, isVideo: true };
+}

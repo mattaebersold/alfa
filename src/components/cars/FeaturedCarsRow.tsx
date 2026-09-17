@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import CarPosterCard from '../cards/CarPosterCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import { shuffle } from '../../utils/array';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 10;
@@ -28,9 +29,12 @@ interface Props {
  */
 function FeaturedCarsRow({ onCarPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
-  // In the order an admin set on the Dashboard — it used to be shuffled, which
-  // made that order meaningless.
-  const cars = data?.featured_cars ?? [];
+  // Shuffled per mount: the featured list is longer than the row shows at a
+  // glance, so a fixed order means the same two or three cars are the only ones
+  // anyone ever sees. Memoised on the data — an unmemoised shuffle reorders on
+  // every re-render, which turns a scroll into a slot machine.
+  const featured = data?.featured_cars;
+  const cars = useMemo(() => shuffle(featured ?? []), [featured]);
 
   if (!cars.length) return null;
 

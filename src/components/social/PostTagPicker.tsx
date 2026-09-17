@@ -14,6 +14,7 @@ import Avatar from '../ui/Avatar';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 export type TagKind = 'user' | 'car' | 'event' | 'group';
 export interface TagItem {
@@ -296,11 +297,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
   },
   rowTitle:     { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  countPill:    { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  countPill:    { minWidth: 18, height: 18, borderRadius: PILL_RADIUS, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
   countText:    { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 
   chips:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  chip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  chip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: PILL_RADIUS },
   chipText:     { color: '#FFFFFF', fontSize: 12, fontWeight: '700', maxWidth: 150 },
 
   inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1.5, borderRadius: 10 },
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   recentCard: {
     width: 96, alignItems: 'center', gap: 6,
     paddingHorizontal: 8, paddingVertical: 10,
-    borderRadius: 12, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   recentCardText: { fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
   thumb:      { width: 38, height: 38, borderRadius: 8 },

@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { connectionLost, connectionRestored, offlineNoticeDismissed } from '../../store/connectivitySlice';
 import { probeInternet } from '../../utils/connectivity';
 import { colors } from '../../constants/colors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** How often to check back while the device has no network. */
 const RETRY_INTERVAL_MS = 8000;
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginBottom: 22,
   },
   retryBtn: {
-    backgroundColor: colors.pro, borderRadius: 999,
+    backgroundColor: colors.pro, borderRadius: COMMON_RADIUS,
     paddingHorizontal: 28, paddingVertical: 12,
     justifyContent: 'center', marginBottom: 14,
   },

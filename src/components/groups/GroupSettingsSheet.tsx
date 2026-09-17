@@ -22,6 +22,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { uploadFile } from '../../utils/upload';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type PickedImage = { uri: string; name: string; type: string };
 
@@ -583,7 +584,7 @@ const styles = StyleSheet.create({
   },
 
   saveWrap:    { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  saveBtn:     { paddingVertical: 12, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  saveBtn:     { paddingVertical: 12, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.45 },
   saveText:    { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
 
@@ -594,19 +595,19 @@ const styles = StyleSheet.create({
   roleBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   roleText:    { fontSize: 12, fontWeight: '700' },
   removeBtn: {
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 9, paddingVertical: 6,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   dangerBlock:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
   dangerHeading: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
   dangerBody:    { fontSize: 13, lineHeight: 19 },
   deleteBtn: {
-    marginTop: 14, paddingVertical: 12, borderRadius: 999,
+    marginTop: 14, paddingVertical: 12, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.red,
   },

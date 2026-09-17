@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
 } from 'react-native';
@@ -11,6 +11,7 @@ import { useSearchQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import AppHeader from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -62,6 +63,9 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
 }
 
 export default function SearchScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const [query, setQuery] = useState('');
@@ -115,7 +119,7 @@ export default function SearchScreen() {
           <Text style={[styles.hintText, { color: colors.grey }]}>No results for "{debouncedQuery}"</Text>
         </View>
       ) : (
-        <ScrollView refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+        <ScrollView ref={scrollRef} refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {users.length > 0 && (
             <View>
               <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>

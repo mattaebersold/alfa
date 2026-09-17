@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 interface EmptyStateProps {
   title?: string;
@@ -34,7 +35,7 @@ const styles = StyleSheet.create({
   message:   { fontSize: 14, textAlign: 'center', marginBottom: 20 },
   btn:       {
     backgroundColor: colors.primaryAlt, paddingHorizontal: 24, paddingVertical: 12,
-    borderRadius: 999,
+    borderRadius: COMMON_RADIUS,
   },
   btnText:   { color: '#FFFFFF', opacity: 0.5, fontSize: 14, fontWeight: '700' },
 });

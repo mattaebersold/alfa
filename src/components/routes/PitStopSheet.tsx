@@ -9,6 +9,7 @@ import { MapPin } from 'lucide-react-native';
 import { useGetNearbyPlacesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 /**
  * Names a pit stop.
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, marginTop: -6 },
 
   chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 4 },
-  chip:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 100, borderWidth: 1.5 },
+  chip:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1.5 },
   chipText: { fontSize: 13, fontWeight: '700' },
 
   nearby:      { gap: 2, maxHeight: 210 },
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
   note:  { minHeight: 70 },
 
   actions:    { flexDirection: 'row', gap: 10, marginTop: 6 },
-  btn:        { height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
+  btn:        { height: 50, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   cancel:     { borderWidth: 1.5 },
   cancelText: { fontSize: 15, fontWeight: '700' },
   submitText: { fontSize: 15, fontWeight: '800' },

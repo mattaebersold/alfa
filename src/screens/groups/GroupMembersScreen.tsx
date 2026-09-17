@@ -16,6 +16,7 @@ import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { PILL_RADIUS } from '../../constants/radius';
 
 function MemberRow({ member, onPress }: {
   member: GroupMember;
@@ -119,6 +120,6 @@ const styles = StyleSheet.create({
   info:        { flex: 1 },
   name:        { fontSize: 15, fontWeight: '600' },
   username:    { fontSize: 13, marginTop: 1 },
-  adminBadge:  { backgroundColor: colors.primaryAlt, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  adminBadge:  { backgroundColor: colors.primaryAlt, borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3 },
   adminText:   { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
 });

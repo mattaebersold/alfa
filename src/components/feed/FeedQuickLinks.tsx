@@ -3,6 +3,7 @@ import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Warehouse, Users, Calendar, Route, Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string }>;
 
@@ -65,10 +66,12 @@ export default function FeedQuickLinks() {
 
 const styles = StyleSheet.create({
   row:      { paddingHorizontal: 8, paddingVertical: 10, gap: 8 },
+  // Named a pill, but these are buttons that take you somewhere — they carry
+  // the app's corner, not a badge's fully-rounded end.
   pill:     {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   pillText: { fontSize: 13, fontWeight: '600' },
 });

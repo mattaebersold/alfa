@@ -22,10 +22,13 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
+import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { calendarDate } from '../../utils/calendarDate';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useViewableIds } from '../../hooks/useViewableIds';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
@@ -43,6 +46,8 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
   const refreshControl = useRefreshControl(refetch);
   const [attendEvent, { isLoading: attending }] = useAttendEventMutation();
   const [declineEvent, { isLoading: declining }] = useDeclineEventMutation();
+  // So a post's video stops when its card scrolls off the Posts tab.
+  const { listProps: viewability, isVisible } = useViewableIds<Post>((p) => p.internal_id);
   const { data: postsData } = useGetPostsQuery(
     { event_id: eventId, limit: 20 },
     { skip: tab !== 'posts' }
@@ -174,10 +179,12 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
           data={posts}
           keyExtractor={(p) => p.internal_id}
           ListHeaderComponent={header}
+          {...viewability}
           renderItem={({ item }) => (
             <FeedItemCard
               post={item}
               onPress={() => appNav.navigate('PostDetailModal', { postId: item.internal_id })}
+              visible={isVisible(item.internal_id)}
             />
           )}
           ListEmptyComponent={<EmptyState title="No posts yet" />}
@@ -209,7 +216,7 @@ const styles = StyleSheet.create({
   metaText:        { fontSize: 14 },
   metaLink:        { color: colors.primaryAlt, fontWeight: '600' },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginTop: 14 },
-  rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
+  rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: COMMON_RADIUS },
   rsvpAttend:      { backgroundColor: colors.primaryAlt },
   rsvpBtnText:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   tabItemActive:   { borderBottomColor: colors.primaryAlt },

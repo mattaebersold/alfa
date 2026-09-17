@@ -21,6 +21,7 @@ import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * One person on the car — the owner, or the second name on a shared one.
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     flexShrink: 0,
     paddingHorizontal: 13, paddingVertical: 7,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   followBtnBusy: { opacity: 0.6 },
   followText: { fontSize: 13, fontWeight: '600' },

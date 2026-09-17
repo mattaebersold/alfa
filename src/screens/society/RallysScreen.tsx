@@ -17,6 +17,7 @@ import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate, calendarTime } from '../../utils/calendarDate';
 import { RALLY_DATE_TBA } from '../../utils/rally';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** A past rally in the scroller — wide enough to read, narrow enough that the
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
 
   card:         {
     marginHorizontal: 12, marginTop: 12,
-    borderRadius: 12, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   // No ratio here — the card measures the photo and supplies its own. The
@@ -223,7 +224,7 @@ const styles = StyleSheet.create({
 
   pastSection:  { marginTop: 6 },
   pastScroll:   { paddingHorizontal: 12, paddingTop: 10, gap: 10 },
-  pastCard:     { width: PAST_CARD_WIDTH, borderRadius: 10, overflow: 'hidden' },
+  pastCard:     { width: PAST_CARD_WIDTH, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   pastImage:    { width: '100%', aspectRatio: 16 / 9 },
   pastBody:     { padding: 10 },
   pastDate:     { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },

@@ -19,6 +19,12 @@ export const CAR_LIMIT_BASIC = 5;
  */
 export const POST_LIMIT_BASIC = 20;
 
+/**
+ * Events a basic member may create per calendar month. Enforced by horacio
+ * exactly like posts, and resets on the same 1st of the month.
+ */
+export const EVENT_LIMIT_BASIC = 3;
+
 /** How many cars this member may keep. Pro is unlimited. */
 export function carLimitFor(isPro: boolean): number | null {
   return isPro ? null : CAR_LIMIT_BASIC;

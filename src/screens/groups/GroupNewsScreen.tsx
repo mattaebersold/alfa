@@ -16,6 +16,7 @@ import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupNewsPost } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 function NewsCard({ post }: { post: GroupNewsPost }) {
   const colors = useColors();
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
   list:      { paddingBottom: 24 },
   card:      {
     marginHorizontal: 12, marginTop: 12,
-    borderRadius: 12, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImage: { width: '100%', aspectRatio: 16 / 9 },

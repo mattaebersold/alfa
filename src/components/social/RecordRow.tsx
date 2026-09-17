@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
-import { MoreVertical } from 'lucide-react-native';
+import { MoreVertical, Play } from 'lucide-react-native';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { CATEGORY_LABELS } from '../ui/Badge';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { useColors } from '../../hooks/useColors';
+import { PILL_RADIUS } from '../../constants/radius';
 
 /**
  * One row of a record-style list: photo, title, a line of meta, a category pill.
@@ -24,6 +25,12 @@ interface Props {
    * nothing except that there was no picture.
    */
   imageUri?: string | null;
+  /**
+   * The image is a video's poster frame. Marked with a play glyph so the row
+   * doesn't pass a video off as a photo — the row is too small to play it in,
+   * so the tap still opens the post, where it plays.
+   */
+  isVideo?: boolean;
   /** One line under the title — a timestamp, or "@author · timestamp". */
   meta?: string | null;
   /**
@@ -50,7 +57,7 @@ interface Props {
 const THUMB = 108;
 
 export default function RecordRow({
-  title, imageUri, meta, avatarUser, category, onPress, onMenuPress,
+  title, imageUri, isVideo, meta, avatarUser, category, onPress, onMenuPress,
   fg, border, placeholder,
 }: Props) {
   const c = useColors();
@@ -66,7 +73,14 @@ export default function RecordRow({
       activeOpacity={0.75}
     >
       {hasImage && (
-        <Image source={{ uri: imageUri! }} style={styles.thumb} contentFit="cover" />
+        <View>
+          <Image source={{ uri: imageUri! }} style={styles.thumb} contentFit="cover" />
+          {isVideo && (
+            <View style={styles.playBadge} pointerEvents="none">
+              <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+            </View>
+          )}
+        </View>
       )}
 
       <View style={styles.content}>
@@ -120,6 +134,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   thumb:    { width: THUMB, height: THUMB, borderRadius: 10 },
+  // Same disc the create form puts on a video's tile.
+  playBadge: {
+    position: 'absolute', top: '50%', left: '50%', marginTop: -16, marginLeft: -16,
+    width: 32, height: 32, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   content:  { flex: 1, minWidth: 0, gap: 6 },
   title:    { fontSize: 16, fontWeight: '600', lineHeight: 21 },
   // The picture-less variant: larger, and given a little more room to run.

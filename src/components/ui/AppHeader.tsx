@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Platform } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
-import { Menu } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { goBackToTop } from '../../hooks/useScrollTopOnBack';
+import { ChevronLeft, Menu } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
@@ -16,12 +17,16 @@ import { useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const BTN = 42;          // floating button edge length
-const BTN_RADIUS = 14;   // squircle-ish corner
+// The app's shared corner — the sheen overlay reads this too, so the two
+// can't drift apart.
+const BTN_RADIUS = COMMON_RADIUS;
 const ROW_PAD_V = 8;     // vertical padding around the button row
 
 /**
@@ -34,6 +39,21 @@ const ROW_PAD_V = 8;     // vertical padding around the button row
 const TOP_OFFSET = Platform.OS === 'ios' ? 0 : ROW_PAD_V;
 
 const ICON = '#000000';
+
+/** The back button is narrower than the others — a chevron, not a destination. */
+const BACK_W = 30;
+/** Space between the back button and the logo, same as the right-hand row. */
+const BACK_GAP = 7;
+
+/** The bar's side padding — the back button's travel has to clear it too. */
+const BAR_PAD_H = 11;
+/**
+ * Where the back button starts: fully past the left edge of the screen, with
+ * room for its shadow, so it arrives from outside rather than fading up in
+ * place. Always further out than the space opening beside the logo grows, so
+ * it never passes over the logo on the way in.
+ */
+const BACK_ENTER_FROM = -(BAR_PAD_H + BACK_W + 8);
 
 /** Length of the vertical PRO mark, along the word. */
 const PRO_LEN = 25;
@@ -62,7 +82,7 @@ export function useHeaderPad(): number {
  * that carry a label.
  */
 function FloatingButton({
-  onPress, children, label, tint, wide, bare, outlined,
+  onPress, children, label, tint, wide, bare, outlined, sheen,
 }: {
   onPress: () => void;
   children: React.ReactNode;
@@ -83,6 +103,8 @@ function FloatingButton({
    * a button, without claiming the brand colour.
    */
   outlined?: boolean;
+  /** An oil-slick film over the fill — the home button's. See OilSheen. */
+  sheen?: SheenTone;
 }) {
   return (
     <TouchableOpacity
@@ -101,6 +123,7 @@ function FloatingButton({
           : { backgroundColor: tint },
       ]}
     >
+      {sheen && !bare && !outlined && <OilSheen tone={sheen} radius={BTN_RADIUS} />}
       <View style={[styles.btnIcon, wide && styles.btnIconWide]}>{children}</View>
     </TouchableOpacity>
   );
@@ -158,10 +181,36 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
   const isPro = useIsPro();
+  const sheenTone = useSheenTone();
 
   // `headerOffset` is shared across screens, so a screen left mid-scroll would
   // otherwise hand the next one a header that's still slid off-screen.
   useEffect(() => { resetHeader(); }, []);
+
+  // Any screen with somewhere to return to gets a back button ahead of the
+  // logo. `canGoBack` isn't reactive, so it's re-read whenever this screen comes
+  // into focus — tab screens stay mounted, and the tab history behind them can
+  // change while they're out of view.
+  const [canGoBack, setCanGoBack] = useState(() => navigation.canGoBack());
+  useFocusEffect(useCallback(() => { setCanGoBack(navigation.canGoBack()); }, [navigation]));
+
+  // Starts collapsed so arriving on a screen pushes the button in from the edge
+  // and eases the logo over to make room, rather than the logo simply being
+  // there.
+  // Width can't run on the native driver, and neither can anything sharing
+  // this value with it.
+  const backProgress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(backProgress, {
+      toValue: canGoBack ? 1 : 0,
+      duration: canGoBack ? 700 : 340,
+      // In: ease-out-back — it runs past its spot, shoving the logo a little
+      // further than it needs to, then rubber-bands back. Out: a plain ease,
+      // since overshooting below zero would ask for a negative width.
+      easing: canGoBack ? Easing.out(Easing.back(2.2)) : Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [canGoBack, backProgress]);
 
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
@@ -211,13 +260,42 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
         ]}
         pointerEvents="box-none"
       >
-        {/* Left — logo returns to the home feed */}
+        <View style={styles.leftActions}>
+        {/* Back — collapses to nothing on a screen with no history. */}
+        <Animated.View
+          style={{ width: backProgress.interpolate({ inputRange: [0, 1], outputRange: [0, BACK_W + BACK_GAP], extrapolateLeft: 'clamp' }) }}
+          pointerEvents={canGoBack ? 'box-none' : 'none'}
+          accessibilityElementsHidden={!canGoBack}
+          importantForAccessibility={canGoBack ? 'auto' : 'no-hide-descendants'}
+        >
+          <Animated.View
+            style={{
+              transform: [{ translateX: backProgress.interpolate({ inputRange: [0, 1], outputRange: [BACK_ENTER_FROM, 0] }) }],
+            }}
+          >
+            <TouchableOpacity
+              // Lands the screen it returns to at the top, header showing — see
+              // useScrollTopOnBack. Swipe/hardware back keep their place.
+              onPress={() => goBackToTop(navigation)}
+              activeOpacity={0.75}
+              hitSlop={{ top: 6, bottom: 6, left: 10, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              style={[styles.btn, styles.btnOutlined, styles.backBtn]}
+            >
+              <ChevronLeft size={22} color="#FFFFFF" strokeWidth={2.4} />
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+
+        {/* Logo returns to the home feed */}
         <FloatingButton
           label={isPro ? 'Home feed, Pro member' : 'Home feed'}
           tint={tint}
           // Only widened when there's a word to make room for; a basic account
           // keeps the square button it has always had.
           wide={isPro}
+          sheen={sheenTone}
           onPress={() => go('FeedTab', { screen: 'Feed' })}
         >
           <Image
@@ -235,6 +313,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
             </View>
           )}
         </FloatingButton>
+        </View>
 
         {/* Right — notifications unfilled, then profile, garage and menu.
             Search moved to the tab bar: it's something you do *while* looking
@@ -315,9 +394,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 11,
+    paddingHorizontal: BAR_PAD_H,
   },
 
+  leftActions:  { flexDirection: 'row', alignItems: 'center' },
   rightActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
 
   btn: {
@@ -353,6 +433,7 @@ const styles = StyleSheet.create({
     // in the bar and read as a focus ring rather than an edge.
     borderColor: 'rgba(255,255,255,0.4)',
   },
+  backBtn:     { width: BACK_W },
   btnWide:     { width: undefined, paddingHorizontal: 11 },
   btnIconWide: {
     width: undefined, flexDirection: 'row', alignItems: 'center', gap: 6.5,

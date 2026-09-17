@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-
 import { ExternalLink } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { ProfileLink } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * A member's own links, as buttons under their bio.
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     maxWidth: '100%',
   },
   label:  { fontSize: 13, fontWeight: '700', flexShrink: 1 },

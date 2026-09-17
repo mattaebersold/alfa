@@ -3,23 +3,25 @@ import {
   View, Text, Modal, Pressable, TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { useColors } from '../../hooks/useColors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Asked when someone closes a suggestion row: gone for a month, or gone for
  * good?
  *
- * Both answers apply to the suggestion rows as a set rather than to the one row
- * that was closed. Closing "Suggested Cars" is a statement about being shown
- * suggestions, not about cars, and hiding one of two near-identical shelves
- * while leaving the other would read as a bug.
+ * Applies to the one row that was closed. Someone happy to be shown members
+ * may still not want cars, and closing both from either ✕ took away the one
+ * they were keeping.
  */
 interface Props {
   visible: boolean;
+  /** The row being closed, as its heading reads — "Suggested Cars". */
+  rowTitle: string;
   onClose: () => void;
   onChoose: (mode: 'temporary' | 'permanent') => void;
 }
 
-export default function HideSuggestionsDialog({ visible, onClose, onChoose }: Props) {
+export default function HideSuggestionsDialog({ visible, rowTitle, onClose, onChoose }: Props) {
   const colors = useColors();
 
   const choose = (mode: 'temporary' | 'permanent') => {
@@ -32,9 +34,9 @@ export default function HideSuggestionsDialog({ visible, onClose, onChoose }: Pr
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
-          <Text style={[styles.heading, { color: colors.fg }]}>Hide suggestions</Text>
+          <Text style={[styles.heading, { color: colors.fg }]}>Hide {rowTitle}</Text>
           <Text style={[styles.blurb, { color: colors.grey }]}>
-            Suggested Members and Suggested Cars will stop showing on your feed.
+            {rowTitle} will stop showing on your feed.
           </Text>
 
           <TouchableOpacity
@@ -52,7 +54,7 @@ export default function HideSuggestionsDialog({ visible, onClose, onChoose }: Pr
             activeOpacity={0.75}
           >
             <Text style={[styles.optionTitle, { color: colors.fg }]}>Hide permanently</Text>
-            <Text style={[styles.optionSub, { color: colors.grey }]}>Never show these again.</Text>
+            <Text style={[styles.optionSub, { color: colors.grey }]}>Never show this again.</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancel} onPress={onClose} activeOpacity={0.7}>
@@ -69,7 +71,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)', padding: 24,
   },
-  card:        { width: '100%', maxWidth: 400, borderRadius: 16, borderWidth: 1, padding: 18 },
+  card:        { width: '100%', maxWidth: 400, borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 18 },
   heading:     { fontSize: 17, fontWeight: '800' },
   blurb:       { fontSize: 13, lineHeight: 18, marginTop: 6, marginBottom: 16 },
   option:      { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10 },

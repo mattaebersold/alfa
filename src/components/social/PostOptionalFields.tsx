@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** Every optional field a post can carry. */
 export interface OptionalFieldValues {
@@ -128,7 +129,7 @@ export default function PostOptionalFields({
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 12, marginTop: 12,
-    borderRadius: 14, borderWidth: 1, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

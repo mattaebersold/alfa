@@ -25,6 +25,7 @@ import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useRallyDelete } from '../../hooks/useRallyDelete';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Full-screen rally detail — reached from deep links and notifications. The
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
   titleRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   title:           { fontSize: 22, fontWeight: '800', marginBottom: 12, flex: 1 },
   deleteBtn:       {
-    width: 36, height: 36, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth,
+    width: 36, height: 36, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center', justifyContent: 'center',
   },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
@@ -363,7 +364,7 @@ const styles = StyleSheet.create({
   mapWrap:         { height: 180, borderRadius: 12, overflow: 'hidden' },
   directionsBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 10, borderWidth: 1,
+    paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   directionsText:  { fontSize: 14, fontWeight: '700' },
 });

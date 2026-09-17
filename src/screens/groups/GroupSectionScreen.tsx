@@ -38,6 +38,7 @@ import RecordRow from '../../components/social/RecordRow';
 import { colors, withAlpha } from '../../constants/colors';
 import FollowButton from '../../components/social/FollowButton';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { postThumb } from '../../utils/postMedia';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
@@ -50,6 +51,7 @@ import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type ActiveTab = 'posts' | 'discussion' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
@@ -216,8 +218,8 @@ export default function GroupSectionScreen() {
   const { data: resourcesData, isFetching: resourcesFetching, refetch: refetchResources } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
   const { data: eventsData,    isFetching: eventsFetching,    refetch: refetchEvents }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
   const { data: carsData,      isFetching: carsFetching,      refetch: refetchCars }      = useGetGroupCarsQuery(groupId, { skip: tab !== 'cars' });
-  // Routes tagged with this group. The association lives in the shared Tag
-  // collection, so the API resolves it rather than the route carrying a group_id.
+  // Routes shared into this group — `group_ids` on the route, as on a post, plus
+  // the earliest routes that were attached by a group tag. The API reads both.
   const { data: routesData,    isFetching: routesFetching,    refetch: refetchRoutes }    = useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: 30 }, { skip: tab !== 'routes' });
   const { data: marketData,    isFetching: marketFetching,    refetch: refetchMarket }    = useGetPostsQuery({ group_id: groupId, type: 'listing', limit: 30 }, { skip: tab !== 'market' });
 
@@ -573,7 +575,8 @@ export default function GroupSectionScreen() {
     const d = item.data;
 
     if (item._tab === 'posts') {
-      const hero = firstGalleryUrl(d.gallery);
+      // Photo or video poster — a video post otherwise drew as text only.
+      const hero = postThumb(d);
       const user = d.user ?? d.user_objectid;
       const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
       return (
@@ -582,7 +585,8 @@ export default function GroupSectionScreen() {
         <View style={{ backgroundColor: c.card }}>
           <RecordRow
             title={d.title ?? (d.body ? stripHtml(d.body) : null)}
-            imageUri={hero}
+            imageUri={hero.url}
+            isVideo={hero.isVideo}
             meta={[user?.username ? `@${user.username}` : null, timeAgo].filter(Boolean).join(' · ')}
             avatarUser={user ?? null}
             category={d.category}
@@ -688,7 +692,9 @@ export default function GroupSectionScreen() {
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title || 'Untitled route'}</Text>
             {stats && (
               <Text style={[styles.metaText, { color: c.grey }]}>
-                {formatDistance(stats.distance_meters)} · {curvinessLabel(stats.curviness)} · {d.vote_count ?? 0} votes
+                {formatDistance(stats.distance_meters)} · {curvinessLabel(stats.curviness)} · score {d.vote_count ?? 0}
+                {d.like_count ? ` · ${d.like_count} ${d.like_count === 1 ? 'like' : 'likes'}` : ''}
+                {d.comment_count ? ` · ${d.comment_count} ${d.comment_count === 1 ? 'comment' : 'comments'}` : ''}
               </Text>
             )}
           </View>
@@ -1056,7 +1062,7 @@ const styles = StyleSheet.create({
   headerTopScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%' },
   bannerAddBtn:   {
     position: 'absolute', right: 16, bottom: 12,
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35, shadowRadius: 6, elevation: 6,
@@ -1110,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   catCountText:   { fontSize: 11, fontWeight: '800' },
   catAdd:         {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
+    width: 22, height: 22, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
   catCaret:       { padding: 2 },
@@ -1142,17 +1148,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 12, marginTop: 10,
     paddingHorizontal: 12, paddingVertical: 12,
-    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
   },
 
   // Two to a row: a car is mostly its photo, so it gets one.
   carGridRow:    { flexDirection: 'row', gap: 10, marginHorizontal: 12, marginTop: 10 },
-  carGridCard:   { flex: 1, borderRadius: 14, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  carGridCard:   { flex: 1, borderRadius: COMMON_RADIUS, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   carGridImage:  { width: '100%', aspectRatio: 4 / 3 },
   carGridInfo:   { padding: 10, gap: 2 },
   carGridSpacer: { flex: 1 },
 
-  newsCard:       { marginHorizontal: 12, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
+  newsCard:       { marginHorizontal: 12, marginTop: 12, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   newsImage:      { width: '100%', aspectRatio: 16 / 9 },
   // Gap rather than per-child margins, matching the discussion and resource rows.
   newsPad:        { padding: 12, gap: 5 },
@@ -1167,12 +1173,12 @@ const styles = StyleSheet.create({
 
   ytWrap:         { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
   ytPlayer:       { flex: 1, backgroundColor: '#000' },
-  linkBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 13, borderRadius: 12 },
+  linkBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 13, borderRadius: COMMON_RADIUS },
   linkBtnText:    { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  adminBadge:     { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  adminBadge:     { borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3 },
   adminText:      { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
 
-  carsCta:        { margin: 12, marginBottom: 0, padding: 14, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
+  carsCta:        { margin: 12, marginBottom: 0, padding: 14, borderRadius: COMMON_RADIUS, borderWidth: 1.5, alignItems: 'center' },
   carsCtaText:    { fontSize: 14, fontWeight: '700' },
 
   modalHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },

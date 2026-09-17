@@ -11,6 +11,7 @@ import { imageUrl } from '../../utils/image';
 import LikeButton from '../../components/social/LikeButton';
 import type { AppScreenProps } from '../../navigation/types';
 import type { StoryGroup, Post } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type Props = AppScreenProps<'StoryViewer'>;
 
@@ -240,6 +241,7 @@ export default function StoryViewerScreen({ route }: Props) {
             <LikeButton
               documentId={story.internal_id}
               entryType="post"
+              ownerId={(story as any).user_id}
               initialLiked={story.isLiked ?? false}
               initialCount={story.likeCount ?? 0}
               showCount
@@ -317,7 +319,7 @@ const styles = StyleSheet.create({
   },
   navBtn:         {
     paddingVertical: 8, paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: COMMON_RADIUS,
   },
   navBtnDisabled: { opacity: 0.3 },
   navText:        { color: '#fff', fontSize: 14, fontWeight: '600' },

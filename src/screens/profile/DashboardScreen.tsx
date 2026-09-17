@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star } from 'lucide-react-native';
+import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,6 +14,11 @@ import {
   useGetBlockedUsersQuery,
   useUnblockUserMutation,
   useGetFollowedCarsQuery,
+  useGetArchivedGarageQuery,
+  useGetPendingCarTransfersQuery,
+  useRestoreCarMutation,
+  useAcceptCarTransferMutation,
+  useDeclineCarTransferMutation,
   useGetUserFollowersQuery,
   useGetUserFollowingQuery,
   useGetFlaggedContentQuery,
@@ -29,6 +34,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import HomeBannerManager from '../../components/feed/HomeBannerManager';
 import FeaturedManager from '../../components/admin/FeaturedManager';
@@ -37,16 +43,21 @@ import SharedButton from '../../components/ui/SharedButton';
 import SharedModal from '../../components/ui/SharedModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useIsPro } from '../../hooks/useBrandColor';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import type { GarageCar } from '../../types/api';
+import { CAR_LIMIT_BASIC } from '../../constants/limits';
+import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useViewableIds } from '../../hooks/useViewableIds';
 import MemberRow from '../../components/members/MemberRow';
-import UsageMeter from '../../components/pro/UsageMeter';
-import { POST_LIMIT_BASIC } from '../../constants/limits';
+import UsagePanel from '../../components/pro/UsagePanel';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'homeBanner' | 'featured' | null;
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -74,6 +85,128 @@ function SheetModal({
     </Modal>
   );
 }
+
+/**
+ * One car in the archived list.
+ *
+ * Three states share this row, and they want different buttons:
+ *   archived        — Restore puts it back on the profile
+ *   offered by you  — nothing to restore until the offer is answered; Cancel
+ *   offered to you  — Accept takes it, Decline sends it back
+ */
+function ArchivedCarRow({ car, incoming, colors, onOpen }: {
+  car: GarageCar;
+  /** This car was offered *to* the viewer, rather than put away by them. */
+  incoming: boolean;
+  colors: ReturnType<typeof useColors>;
+  onOpen: () => void;
+}) {
+  const [restoreCar, { isLoading: restoring }] = useRestoreCarMutation();
+  const [acceptTransfer, { isLoading: accepting }] = useAcceptCarTransferMutation();
+  const [declineTransfer, { isLoading: declining }] = useDeclineCarTransferMutation();
+  const busy = restoring || accepting || declining;
+
+  const name = [car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car';
+  const thumb = firstGalleryUrl(car.gallery)
+    ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  const pending = !!car.transfer_to_id;
+
+  const run = async (fn: () => Promise<unknown>, failure: string) => {
+    try { await fn(); } catch (err: any) { Alert.alert('Error', err?.data?.error || failure); }
+  };
+
+  return (
+    <View style={[archivedStyles.row, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      <TouchableOpacity style={archivedStyles.main} onPress={onOpen} activeOpacity={0.75}>
+        <Image
+          source={thumb ? { uri: thumb } : require('../../../assets/car-placeholder.jpg')}
+          style={archivedStyles.thumb}
+          contentFit="cover"
+        />
+        <View style={archivedStyles.text}>
+          <Text style={[archivedStyles.name, { color: colors.fg }]} numberOfLines={1}>{name}</Text>
+          {pending && (
+            <View style={archivedStyles.pendingRow}>
+              <ArrowRightLeft size={11} color={colors.primaryAlt} />
+              <Text style={[archivedStyles.pending, { color: colors.primaryAlt }]} numberOfLines={1}>
+                {incoming ? 'Offered to you' : 'Pending transfer'}
+              </Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      <View style={archivedStyles.actions}>
+        {incoming ? (
+          <>
+            <TouchableOpacity
+              style={[archivedStyles.btn, { backgroundColor: colors.primaryAlt }]}
+              onPress={() => run(() => acceptTransfer({ internal_id: car.internal_id }).unwrap(),
+                "Couldn't accept that car.")}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Text style={archivedStyles.btnText}>Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[archivedStyles.btnGhost, { borderColor: colors.borderDark }]}
+              onPress={() => run(() => declineTransfer({ internal_id: car.internal_id }).unwrap(),
+                "Couldn't decline that car.")}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Text style={[archivedStyles.btnGhostText, { color: colors.grey }]}>Decline</Text>
+            </TouchableOpacity>
+          </>
+        ) : pending ? (
+          // Restoring underneath a live offer would put the car in two places,
+          // so the only move here is to call the offer off.
+          <TouchableOpacity
+            style={[archivedStyles.btnGhost, { borderColor: colors.borderDark }]}
+            onPress={() => run(() => declineTransfer({ internal_id: car.internal_id }).unwrap(),
+              "Couldn't cancel that transfer.")}
+            disabled={busy}
+            activeOpacity={0.8}
+          >
+            <Text style={[archivedStyles.btnGhostText, { color: colors.grey }]}>Cancel</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[archivedStyles.btn, { backgroundColor: colors.primaryAlt }]}
+            onPress={() => run(() => restoreCar({ internal_id: car.internal_id }).unwrap(),
+              "Couldn't restore that car.")}
+            disabled={busy}
+            activeOpacity={0.8}
+          >
+            <RotateCcw size={13} color="#000000" />
+            <Text style={archivedStyles.btnText}>Restore</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const archivedStyles = StyleSheet.create({
+  row: { borderWidth: 1, borderRadius: 12, padding: 10, gap: 10 },
+  main: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  thumb: { width: 56, height: 42, borderRadius: 7 },
+  text: { flex: 1 },
+  name: { fontSize: 14, fontWeight: '700' },
+  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  pending: { fontSize: 11, fontWeight: '600' },
+  actions: { flexDirection: 'row', gap: 8 },
+  btn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 9, borderRadius: COMMON_RADIUS,
+  },
+  btnText: { fontSize: 13, fontWeight: '800', color: '#000000' },
+  btnGhost: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, borderRadius: COMMON_RADIUS, borderWidth: 1,
+  },
+  btnGhostText: { fontSize: 13, fontWeight: '700' },
+});
 
 function FlaggedRow({
   colors, thumb, thumbRound, title, titleLines = 1, user, reportCount,
@@ -150,17 +283,24 @@ const sheetStyles = StyleSheet.create({
   addCarBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginHorizontal: 16, marginVertical: 14,
-    paddingVertical: 13, borderRadius: 12,
+    paddingVertical: 13, borderRadius: COMMON_RADIUS,
   },
   addCarBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });
 
 export default function DashboardScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const dispatch = useAppDispatch();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [sheet, setSheet] = useState<SheetType>(null);
+  // The My Posts sheet's cards play video inline; this stops one that's
+  // scrolled out of the sheet.
+  const { listProps: postViewability, isVisible: isPostVisible } =
+    useViewableIds<{ internal_id: string }>((p) => p.internal_id);
   const [listModal, setListModal] = useState<'followers' | 'following' | null>(null);
   const [deleteAccount] = useDeleteAccountMutation();
   const { data: followersData } = useGetUserFollowersQuery(
@@ -210,7 +350,9 @@ export default function DashboardScreen() {
 
   const { data: user, isLoading, refetch: refetchUser } = useGetLoggedInUserQuery();
   const { data: stats, refetch: refetchStats } = useGetUserStatsQuery();
-  const { data: usage } = useGetUsageQuery();
+  const isPro = useIsPro();
+  // Only the basic card reads this, so Pro doesn't pay for the count queries.
+  const { data: usage } = useGetUsageQuery(undefined, { skip: isPro });
   const { data: garageData, refetch: refetchGarage } = useGetUserGarageQuery();
   const { data: postsData } = useGetPostsQuery(
     { user_id: userInfo?.user_id ?? '', limit: 30 },
@@ -218,6 +360,9 @@ export default function DashboardScreen() {
   );
   const { data: blockedData } = useGetBlockedUsersQuery();
   const { data: followedCarsData } = useGetFollowedCarsQuery();
+  // Cars put away rather than deleted, plus any offered to this member.
+  const { data: archivedData } = useGetArchivedGarageQuery();
+  const { data: pendingData } = useGetPendingCarTransfersQuery();
   const [unblockUser] = useUnblockUserMutation();
   // The stat grid is the page — the sheets behind it read the same cache.
   const refreshControl = useRefreshControl(() =>
@@ -232,9 +377,24 @@ export default function DashboardScreen() {
 
   const displayName = user.username;
   const cars = garageData?.entries ?? [];
+  const atCarLimit = !isPro && cars.length >= CAR_LIMIT_BASIC;
+  const [upsell, setUpsell] = useState(false);
   const posts = postsData?.entries ?? [];
   const blockedUsers = blockedData?.entries ?? [];
   const followedCars = followedCarsData?.entries ?? [];
+  const archivedCars = archivedData?.entries ?? [];
+  /**
+   * The archived list, with cars other people have offered you at the top.
+   *
+   * An incoming offer isn't in your archive — the car still belongs to the
+   * sender — so it's merged in here rather than fetched as part of it, and
+   * de-duped in case a car is somehow in both.
+   */
+  const archivedRows = useMemo(() => {
+    const incoming = pendingData?.entries ?? [];
+    const seen = new Set(incoming.map((c) => c.internal_id));
+    return [...incoming, ...archivedCars.filter((c) => !seen.has(c.internal_id))];
+  }, [pendingData, archivedCars]);
   const flaggedPosts = flaggedData?.posts ?? [];
   const flaggedCars = flaggedData?.cars ?? [];
   const flaggedComments = flaggedData?.comments ?? [];
@@ -357,7 +517,7 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader spacer />
-      <ScrollView refreshControl={refreshControl} style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} refreshControl={refreshControl} style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
         <TouchableOpacity
           style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -397,33 +557,15 @@ export default function DashboardScreen() {
           ))}
         </View>
 
-        {/* What's left of this month's allowance — before it matters, not at
-            the moment it bites. Pro accounts get the count with no bar. */}
-        {usage && (
-          <UsageMeter
-            label="Posts this month"
-            used={usage.posts.used}
-            limit={usage.posts.limit}
-            resetsAt={usage.posts.resets_at}
-            upsellTitle="Unlimited posts with Pro"
-            upsellMessage={`A basic membership includes ${POST_LIMIT_BASIC} posts a month. Pro removes the limit, and unlocks route recording and the rest of the garage tools.`}
-            style={styles.usageMeter}
-          />
+        {/* What the membership allows and how much is spent — full width, in
+            the member's own colour. Basic accounts only: Pro has no limits, so
+            the card was a list of counts with nothing to measure them against. */}
+        {!isPro && usage && (
+          <UsagePanel cars={usage.cars} posts={usage.posts} events={usage.events} />
         )}
 
         {/* Quick actions */}
         <View style={[styles.actions, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } } as any)} activeOpacity={0.7}>
-            <Car size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>My Garage</Text>
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Adding a car used to mean opening the cars sheet first, or finding
-              it in the header's create menu — which no longer offers it. */}
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('CarCreate', {})} activeOpacity={0.7}>
-            <CarFront size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Add a Car</Text>
-          </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
             <UserCheck size={16} color={colors.primaryAlt} />
@@ -444,6 +586,16 @@ export default function DashboardScreen() {
             {followedCars.length > 0 && (
               <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
                 <Text style={[styles.countBadgeText, { color: colors.grey }]}>{followedCars.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('archivedCars')} activeOpacity={0.7}>
+            <Archive size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Archived Cars</Text>
+            {archivedCars.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{archivedCars.length}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -522,7 +674,14 @@ export default function DashboardScreen() {
             <SharedButton
               label="Add New Car"
               Icon={Car}
-              onPress={() => { setSheet(null); navigation.navigate('CarCreate', {}); }}
+              // At the basic limit this can't open the form — the server would
+              // refuse the save anyway. The garage screen's button has always
+              // worked this way; this one navigated straight through.
+              onPress={() => {
+                setSheet(null);
+                if (atCarLimit) setUpsell(true);
+                else navigation.navigate('CarCreate', {});
+              }}
               style={{ marginHorizontal: 16, marginVertical: 14 }}
             />
           }
@@ -544,10 +703,12 @@ export default function DashboardScreen() {
           data={posts}
           keyExtractor={(p) => p.internal_id}
           contentContainerStyle={{ paddingBottom: 40 }}
+          {...postViewability}
           renderItem={({ item }) => (
             <FeedItemCard
               post={item}
               onPress={() => { setSheet(null); navigation.navigate('PostDetailModal', { postId: item.internal_id }); }}
+              visible={isPostVisible(item.internal_id)}
             />
           )}
           ListEmptyComponent={<EmptyState title="No posts yet" />}
@@ -565,6 +726,38 @@ export default function DashboardScreen() {
             <CarPosterCard car={item} showOwner onBeforeNavigate={() => setSheet(null)} />
           )}
           ListEmptyComponent={<EmptyState title="No followed cars" message="Cars you follow will appear here." />}
+          showsVerticalScrollIndicator={false}
+        />
+      </SheetModal>
+
+      <ProUpsellModal
+        visible={upsell}
+        onClose={() => setUpsell(false)}
+        title="Unlimited garage with Pro"
+        message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+      />
+
+      {/* Archived cars sheet — where a car goes instead of being deleted, and
+          where one offered to you waits to be accepted. */}
+      <SheetModal visible={sheet === 'archivedCars'} title="Archived Cars" onClose={() => setSheet(null)} colors={colors}>
+        <FlatList
+          data={archivedRows}
+          keyExtractor={(c) => c.internal_id}
+          contentContainerStyle={{ paddingBottom: 40, gap: 10 }}
+          renderItem={({ item }) => (
+            <ArchivedCarRow
+              car={item}
+              incoming={item.transfer_to_id === userInfo?.user_id}
+              colors={colors}
+              onOpen={() => { setSheet(null); navigation.navigate('CarDetail', { carId: item.internal_id }); }}
+            />
+          )}
+          ListEmptyComponent={(
+            <EmptyState
+              title="Nothing archived"
+              message="Cars you archive instead of deleting show up here, and you can restore them any time."
+            />
+          )}
           showsVerticalScrollIndicator={false}
         />
       </SheetModal>
@@ -743,12 +936,11 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  usageMeter: { marginHorizontal: 14, marginBottom: 14 },
   content:        { padding: 16, gap: 14, paddingBottom: 160 },
 
   profileCard:    {
     flexDirection: 'row', alignItems: 'flex-start', gap: 14,
-    padding: 16, borderRadius: 16, borderWidth: 1,
+    padding: 16, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   profileText:    { flex: 1 },
   profileName:    { fontSize: 18, fontWeight: '800' },
@@ -758,7 +950,7 @@ const styles = StyleSheet.create({
 
   grid:           { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard:       {
-    width: '48%', padding: 16, borderRadius: 16, borderWidth: 1, gap: 8,
+    width: '48%', padding: 16, borderRadius: COMMON_RADIUS, borderWidth: 1, gap: 8,
     flexGrow: 0,
   },
   statIcon:       {
@@ -782,7 +974,7 @@ const styles = StyleSheet.create({
     padding: 14, borderRadius: 12, borderWidth: 1,
   },
   flaggedLabel:   { fontSize: 14, fontWeight: '600' },
-  countBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  countBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: PILL_RADIUS },
   countBadgeText: { fontSize: 12, fontWeight: '700' },
 });
 
@@ -792,7 +984,7 @@ const blockedStyles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
   },
   name:        { fontSize: 15, fontWeight: '600' },
-  unblockBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  unblockBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1 },
   unblockText: { fontSize: 13, fontWeight: '700' },
 });
 
@@ -816,7 +1008,7 @@ const flaggedStyles = StyleSheet.create({
   actionBtn: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    paddingVertical: 10, borderRadius: 8,
+    paddingVertical: 10, borderRadius: COMMON_RADIUS,
   },
   actionBtnText: { fontSize: 12, fontWeight: '700' },
 });

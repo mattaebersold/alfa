@@ -16,6 +16,8 @@ import {
   useApproveGroupMemberMutation,
   useRejectGroupMemberMutation,
   useAcceptGroupInviteMutation,
+  useAcceptCarTransferMutation,
+  useDeclineCarTransferMutation,
   useDeclineGroupInviteMutation,
 } from '../../api/apiService';
 import Avatar from '../ui/Avatar';
@@ -28,6 +30,7 @@ import { notificationTarget } from '../../utils/notificationTarget';
 import type { Notification } from '../../types/api';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -72,6 +75,17 @@ const INVITATION: DecisionCopy = {
   settled: { accepted: 'Invitation accepted', declined: 'Invitation declined' },
 };
 
+const CAR_TRANSFER: DecisionCopy = {
+  yes: 'Accept', no: 'Decline',
+  yesResolution: 'accepted', noResolution: 'declined',
+  settled: {
+    accepted: 'Car accepted',
+    declined: 'Transfer declined',
+    // The owner can call the offer off from their end — see declineCarTransfer.
+    cancelled: 'Transfer cancelled',
+  },
+};
+
 /** The group and member a join request refers to, or a failure the admin can read. */
 const joinRequestIds = (n: Notification) => {
   const groupId = n.content_id;
@@ -80,6 +94,15 @@ const joinRequestIds = (n: Notification) => {
     throw new Error("This request doesn't say which group or member it's for, so it can't be handled from here.");
   }
   return { groupId, userId };
+};
+
+/** The car a transfer offer is for, or a failure the member can read. */
+const transferCarId = (n: Notification) => {
+  const carId = n.content_id ?? (n.metadata?.car_id as string | undefined);
+  if (!carId) {
+    throw new Error("This transfer doesn't say which car it's for, so it can't be answered from here.");
+  }
+  return carId;
 };
 
 /** The group an invitation is for, or a failure the member can read. */
@@ -97,16 +120,20 @@ function NotificationRow({
   onDelete,
   onApprove,
   onDeny,
+  onMessageAdmin,
 }: {
   notification: Notification;
   onRead: () => void;
   onDelete: () => void;
   onApprove: () => Promise<void>;
   onDeny: () => Promise<void>;
+  /** Only passed for a refused join request that says who refused it. */
+  onMessageAdmin?: () => void;
 }) {
   const decision =
     notification.type === 'group_join_request' ? JOIN_REQUEST
     : notification.type === 'group_invitation' ? INVITATION
+    : notification.type === 'car_transfer' ? CAR_TRANSFER
     : null;
   const colors = useColors();
 
@@ -217,6 +244,23 @@ function NotificationRow({
             </TouchableOpacity>
           </View>
         ))}
+        {/* A refusal has nothing to decide, but it usually leaves a question —
+            why, or what would change the answer — and the admin is the one
+            person who can say. Same button shape as the decisions above so the
+            row reads as something you can act on, not just a record. */}
+        {onMessageAdmin && (
+          <View style={styles.joinReqActions}>
+            <TouchableOpacity
+              style={styles.approveBtn}
+              onPress={onMessageAdmin}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Message the group admin"
+            >
+              <Text style={styles.approveText}>Message admin</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
       {/* Delete is the only per-row action left. At #666 it read as disabled,
           which for the one control on the row is the wrong impression.
@@ -247,7 +291,13 @@ function NotificationRow({
  * confirmation even though a single delete no longer has one: the scope is
  * every notification you have, and there is no undo.
  */
-export function DeleteAllButton() {
+export function DeleteAllButton({
+  /**
+   * Ink for the icon, label and outline. Red by default; the panel passes
+   * white so it sits quietly beside the close button.
+   */
+  color = colors.red,
+}: { color?: string } = {}) {
   const [deleteAll] = useDeleteAllNotificationsMutation();
 
   const confirm = () => {
@@ -259,15 +309,16 @@ export function DeleteAllButton() {
 
   return (
     <TouchableOpacity
-      style={styles.deleteAllBtn}
+      // The outline is the ink at a little under half strength.
+      style={[styles.deleteAllBtn, { borderColor: `${color}73` }]}
       onPress={confirm}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       activeOpacity={0.75}
       accessibilityRole="button"
       accessibilityLabel="Delete all notifications"
     >
-      <Trash2 size={12} color={colors.red} strokeWidth={2.4} />
-      <Text style={styles.deleteAllText}>Delete all</Text>
+      <Trash2 size={12} color={color} strokeWidth={2.4} />
+      <Text style={[styles.deleteAllText, { color }]}>Delete all</Text>
     </TouchableOpacity>
   );
 }
@@ -286,7 +337,7 @@ const ROW_STAGGER_MS = 50;
  * Tuned against NotificationsBell's opening spring — the rows should start
  * arriving as it settles, not while the box is still visibly moving.
  */
-const ROW_STAGGER_DELAY_MS = 240;
+const ROW_STAGGER_DELAY_MS = 360;
 /** Roughly a screenful — rows past this arrive without ceremony. */
 const MAX_STAGGERED_ROWS = 9;
 
@@ -356,10 +407,18 @@ export default function NotificationsList({
    * header to put it in — the panel does.
    */
   showDeleteAll = true,
+  /**
+   * The rows' natural height, for a host that sizes itself to the list rather
+   * than giving it a fixed frame — the panel does. Passing it also stops the
+   * rows stretching to fill the frame, which would otherwise feed the frame's
+   * own height back in as the content's.
+   */
+  onContentHeight,
 }: {
   onDismiss: DismissHandler;
   revealStagger?: boolean;
   showDeleteAll?: boolean;
+  onContentHeight?: (height: number) => void;
 }) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
@@ -380,6 +439,8 @@ export default function NotificationsList({
   const [approveMember] = useApproveGroupMemberMutation();
   const [rejectMember] = useRejectGroupMemberMutation();
   const [acceptInvite] = useAcceptGroupInviteMutation();
+  const [acceptCarTransfer] = useAcceptCarTransferMutation();
+  const [declineCarTransfer] = useDeclineCarTransferMutation();
   const [declineInvite] = useDeclineGroupInviteMutation();
 
   /**
@@ -391,7 +452,9 @@ export default function NotificationsList({
    * press that quietly does nothing.
    */
   const handleApprove = useCallback(async (n: Notification) => {
-    if (n.type === 'group_invitation') {
+    if (n.type === 'car_transfer') {
+      await acceptCarTransfer({ internal_id: transferCarId(n) }).unwrap();
+    } else if (n.type === 'group_invitation') {
       // An invitation's "yes" is a join — the server takes an invited member
       // straight to active.
       await acceptInvite(invitationGroupId(n)).unwrap();
@@ -399,16 +462,44 @@ export default function NotificationsList({
       await approveMember(joinRequestIds(n)).unwrap();
     }
     markRead(n.internal_id);
-  }, [approveMember, acceptInvite, markRead]);
+  }, [approveMember, acceptInvite, acceptCarTransfer, markRead]);
 
   const handleDeny = useCallback(async (n: Notification) => {
-    if (n.type === 'group_invitation') {
+    if (n.type === 'car_transfer') {
+      await declineCarTransfer({ internal_id: transferCarId(n) }).unwrap();
+    } else if (n.type === 'group_invitation') {
       await declineInvite(invitationGroupId(n)).unwrap();
     } else {
       await rejectMember(joinRequestIds(n)).unwrap();
     }
     markRead(n.internal_id);
-  }, [rejectMember, declineInvite, markRead]);
+  }, [rejectMember, declineInvite, declineCarTransfer, markRead]);
+
+  /**
+   * Who to write to about a refused join request, if the notification says.
+   *
+   * The metadata is the server's explicit answer; the populated sender is the
+   * same person and covers a row whose metadata is missing the id.
+   */
+  const refusingAdmin = (n: Notification) => {
+    if (n.type !== 'group_join_denied') return null;
+    const userId = n.metadata?.admin_user_id ?? n.sender?.user_id;
+    if (!userId) return null;
+    return { userId, username: n.metadata?.admin_username ?? n.sender?.username };
+  };
+
+  /**
+   * "Message admin": read, close, then compose. Same order as a row tap — the
+   * host closes its surface before the navigation runs (see handlePress).
+   * ComposeMessage picks up an existing thread with the admin if there is one.
+   */
+  const handleMessageAdmin = useCallback((n: Notification, admin: { userId: string; username?: string }) => {
+    if (!n.read_status) markRead(n.internal_id);
+    onDismiss(() => navigation.navigate('ComposeMessage', {
+      userId: admin.userId,
+      username: admin.username,
+    }));
+  }, [markRead, navigation, onDismiss]);
 
   const notifications = data?.notifications ?? [];
 
@@ -428,22 +519,27 @@ export default function NotificationsList({
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.internal_id}
-        renderItem={({ item, index }) => (
-          <RowReveal index={index} enabled={revealStagger}>
-            <NotificationRow
-              notification={item}
-              onRead={() => handlePress(item)}
-              onDelete={() => deleteNotif(item.internal_id)}
-              onApprove={() => handleApprove(item)}
-              onDeny={() => handleDeny(item)}
-            />
-          </RowReveal>
-        )}
+        renderItem={({ item, index }) => {
+          const admin = refusingAdmin(item);
+          return (
+            <RowReveal index={index} enabled={revealStagger}>
+              <NotificationRow
+                notification={item}
+                onRead={() => handlePress(item)}
+                onDelete={() => deleteNotif(item.internal_id)}
+                onApprove={() => handleApprove(item)}
+                onDeny={() => handleDeny(item)}
+                onMessageAdmin={admin ? () => handleMessageAdmin(item, admin) : undefined}
+              />
+            </RowReveal>
+          );
+        }}
         ListEmptyComponent={
           <EmptyState title="No notifications" message="You're all caught up." />
         }
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={onContentHeight ? styles.listFit : styles.list}
+        onContentSizeChange={onContentHeight ? (_w, h) => onContentHeight(h) : undefined}
         refreshControl={refreshControl}
       />
     </View>
@@ -455,10 +551,11 @@ const styles = StyleSheet.create({
   deleteAllBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 999, borderWidth: 1, borderColor: 'rgba(236,70,50,0.45)',
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  deleteAllText: { fontSize: 12, fontWeight: '700', color: colors.red },
+  deleteAllText: { fontSize: 12, fontWeight: '700' },
   list:        { flexGrow: 1, paddingTop: 8, paddingBottom: 24 },
+  listFit:     { paddingTop: 8, paddingBottom: 16 },
 
   /**
    * Each notification is its own card.
@@ -473,7 +570,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 14, paddingVertical: 12,
     marginHorizontal: 12, marginVertical: 5,
-    borderRadius: 14,
+    borderRadius: COMMON_RADIUS,
     // Clips the unread bar to the card's own corners.
     overflow: 'hidden',
   },
@@ -496,9 +593,9 @@ const styles = StyleSheet.create({
   time:        { fontSize: 11, marginTop: 3, color: '#888' },
   rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   joinReqActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  approveBtn:  { backgroundColor: 'rgb(37, 162, 211)', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
+  approveBtn:  { backgroundColor: 'rgb(37, 162, 211)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
   approveText: { color: '#000000', fontSize: 13, fontWeight: '800' },
-  denyBtn:     { backgroundColor: '#2A2A2A', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
+  denyBtn:     { backgroundColor: '#2A2A2A', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
   denyText:    { color: '#ECECEC', fontSize: 13, fontWeight: '700' },
   btnDisabled: { opacity: 0.55 },
   labelHidden: { opacity: 0 },

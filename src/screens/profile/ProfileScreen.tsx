@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
-import { Settings, Warehouse, Plus, MoreVertical, X, Search } from 'lucide-react-native';
+import { Settings, Warehouse, Plus, MoreVertical, X, Search, Camera } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -15,6 +15,7 @@ import {
   useGetPublicUserByIdQuery,
   useGetPostsQuery,
   useGetCarsQuery,
+  useGetRoutesQuery,
   useGetListsQuery,
   useGetUserFollowersQuery,
   useGetUserFollowingQuery,
@@ -26,8 +27,10 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import FollowButton from '../../components/social/FollowButton';
+import { BannerSheet } from '../../components/members/ProfileSetupSheets';
 import ListCard from '../../components/lists/ListCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -37,19 +40,27 @@ import RegionTile from '../../components/members/RegionTile';
 import ProfileLinks from '../../components/members/ProfileLinks';
 import { regionForCityState } from '../../constants/regions';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
+import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
+import RoutesPane from '../../components/routes/RoutesPane';
 import { useColors } from '../../hooks/useColors';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { imageUrl } from '../../utils/image';
+import { postMediaList } from '../../utils/postMedia';
+import PostMediaCarousel from '../../components/media/PostMediaCarousel';
+import { useViewableIds } from '../../hooks/useViewableIds';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
-import type { GarageCar, Post, User } from '../../types/api';
+import type { GarageCar, Post, RouteListParams, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import GroupAttribution from '../../components/groups/GroupAttribution';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-// Cars live on the page itself (see the garage section), so they get no tile.
-type Tab = 'posts' | 'followers' | 'following' | 'lists';
+// Cars and routes live on the page itself (see the garage section and the
+// routes shelf), so they get no tile — but their "View all" opens a pane keyed
+// the same way a tile's is.
+type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
@@ -57,6 +68,19 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'following', label: 'Following' },
   { key: 'lists',     label: 'Lists' },
 ];
+
+/**
+ * What the pane's header calls each section. TABS covers the tiled ones; this
+ * covers every section there is, tiled or not, so a pane opened from a shelf
+ * isn't left with a blank title.
+ */
+const SECTION_LABELS: Record<Tab, string> = {
+  posts:     'Posts',
+  followers: 'Followers',
+  following: 'Following',
+  lists:     'Lists',
+  routes:    'Routes',
+};
 
 // Garage carousel — cards stop short of full width so the next one peeks out.
 /**
@@ -77,12 +101,23 @@ const TILE_WIDTH = 118;
 /** How many posts the "View all" pane pulls per page. */
 const POSTS_PAGE_SIZE = 12;
 
+/** The Posts pane's media shape — one for every card, whatever the photo. */
+const POST_CARD_RATIO = 16 / 10;
+
 const GARAGE_GUTTER = 12;
 const GARAGE_CARD_WIDTH = Dimensions.get('window').width * 0.9 - GARAGE_GUTTER;
 
-function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
+function PostRow({ post, onPress, visible }: {
+  post: Post;
+  onPress: () => void;
+  /** Whether the row is on screen, so its video stops when scrolled away. */
+  visible?: boolean;
+}) {
   const colors = useColors();
-  const thumb = firstGalleryUrl(post.gallery);
+  // Photos and videos in the author's order — the same list the feed card
+  // draws, so a video post shows its video here rather than a blank card.
+  const media = postMediaList(post);
+  const hasMedia = media.length > 0;
   const title = post.title ?? (post.body ? stripHtml(post.body) : null);
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
@@ -90,19 +125,27 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
   return (
     // A card with the picture on top rather than a row with a stamp beside it:
     // a post is mostly its photo, and at 58px it was a thumbnail of one.
-    <TouchableOpacity
-      style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      {thumb ? (
-        <Image source={{ uri: thumb }} style={styles.postCardImage} contentFit="cover" />
+    //
+    // A View, not one card-wide touchable: the media is the feed's carousel,
+    // which swipes between photos and plays a video where it sits, and a
+    // touchable wrapped around it would take the first tap on a video and
+    // leave for the post instead. A photo still opens the post, as do the words.
+    <View style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {hasMedia ? (
+        <PostMediaCarousel
+          media={media}
+          // The card's old fixed shape, so the pane's rows keep one rhythm
+          // rather than each taking its photo's height.
+          ratio={POST_CARD_RATIO}
+          visible={visible}
+          onPressItem={onPress}
+        />
       ) : null}
-      <View style={styles.postCardBody}>
+      <TouchableOpacity style={styles.postCardBody} onPress={onPress} activeOpacity={0.85}>
         {title ? (
           <Text
-            style={{ color: colors.fg, fontSize: thumb ? 15 : 17, fontWeight: '700', lineHeight: thumb ? 20 : 23 }}
-            numberOfLines={thumb ? 2 : 4}
+            style={{ color: colors.fg, fontSize: hasMedia ? 15 : 17, fontWeight: '700', lineHeight: hasMedia ? 20 : 23 }}
+            numberOfLines={hasMedia ? 2 : 4}
           >
             {title}
           </Text>
@@ -110,8 +153,8 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
         <Text style={{ color: colors.muted, fontSize: 12 }}>{timeAgo}</Text>
         {/* Same link the feed card carries, sized for a list. */}
         <GroupAttribution groupId={post.group_ids?.[0] ?? post.group_id} compact />
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -251,6 +294,9 @@ export default function ProfileScreen() {
   const route = useRoute<any>();
   const paramUserId = route.params?.userId as string | undefined;
   const paramInitialTab = route.params?.initialTab as Tab | undefined;
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
 
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
@@ -262,7 +308,13 @@ export default function ProfileScreen() {
   const [renderedSection, setRenderedSection] = useState<Tab | null>(paramInitialTab ?? null);
   const [userSearch, setUserSearch] = useState('');
   const [bioExpanded, setBioExpanded] = useState(false);
+  /** The cover-photo sheet, opened from the camera button on an empty banner. */
+  const [bannerSheet, setBannerSheet] = useState(false);
   const [bioLines, setBioLines] = useState<number | null>(null);
+  // Which cards in the Posts pane are on screen, so a video stops when its
+  // card scrolls out of the pane.
+  const { listProps: postViewability, isVisible: isPostVisible } =
+    useViewableIds<Post>((p) => p.internal_id);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const [blockProfileUser] = useBlockUserMutation();
@@ -335,13 +387,37 @@ export default function ProfileScreen() {
   }, [postsPageData, postsPage]);
   const { data: carsData, refetch: refetchCars }  = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
 
-  // The profile is the person plus their posts and garage — the three things
+  /**
+   * The routes this person recorded.
+   *
+   * On your own profile the list is asked for with `scope=protected`, which is
+   * the only way the API will part with a route you marked private or shared
+   * into groups alone — your own page is the one place those belong, and
+   * without them a drive you saved would simply be missing from your profile
+   * with nothing to say why. The card marks each one Private so it's never
+   * mistaken for something other people can see. Anyone else's profile gets
+   * the plain list, which the server has already reduced to what reaches the
+   * public — a private or group-only route is not in it to be filtered.
+   *
+   * One params object, shared with the pane, so the shelf and the full list
+   * can't disagree about whose routes these are.
+   */
+  const routeParams: RouteListParams = isOwnProfile
+    ? { scope: 'protected' }
+    : { user_id: userId };
+  const { data: routesData, refetch: refetchRoutes } = useGetRoutesQuery(
+    { ...routeParams, limit: ROUTE_STRIP_PREVIEW_COUNT },
+    { skip: !userId },
+  );
+
+  // The profile is the person plus their posts, garage and routes — the things
   // the page actually shows. The rest are counts behind tiles and come back
   // with the tags these invalidate.
   const refreshControl = useRefreshControl(() => Promise.all([
     isOwnProfile ? refetchOwn() : refetchOther(),
     refetchPosts(),
     refetchCars(),
+    refetchRoutes(),
   ]));
   const { data: listsData }     = useGetListsQuery({ user_id: userId, limit: 50 }, { skip: !userId || !isPro });
   const { data: followersData } = useGetUserFollowersQuery({ userId, limit: 50 }, { skip: !userId });
@@ -408,6 +484,7 @@ export default function ProfileScreen() {
   const bannerUri = user.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
   const posts     = postsData?.entries ?? [];
   const cars      = carsData?.entries ?? [];
+  const routes    = routesData?.entries ?? [];
   const lists     = listsData?.entries ?? [];
   const followers = followersData?.entries ?? [];
   const following = followingData?.entries ?? [];
@@ -426,6 +503,9 @@ export default function ProfileScreen() {
       case 'followers': return followersData?.total ?? followers.length;
       case 'following': return followingData?.total ?? following.length;
       case 'lists':     return listsData?.total ?? lists.length;
+      // No tile of its own — the shelf below is the routes section — but the
+      // switch answers for every section so it can't fall through.
+      case 'routes':    return routesData?.total ?? routes.length;
     }
   };
 
@@ -483,7 +563,12 @@ export default function ProfileScreen() {
       ) : (
         <>
           {featuredCar && <CarPosterCard car={featuredCar} featured />}
-          {restCars.length > 0 && (
+          {/* A lone card gets the full width. In the carousel it stopped short
+              to hint at a next card that doesn't exist, and the row it sat in
+              had nowhere to scroll to. Covers a featured car plus one other,
+              too — that carousel would hold the same single card. */}
+          {restCars.length === 1 && <CarPosterCard car={restCars[0]} />}
+          {restCars.length > 1 && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -512,7 +597,10 @@ export default function ProfileScreen() {
   // ── Profile header ────────────────────────────────────────────────────────
   const profileHeader = (
     <View>
-      <View style={styles.bannerContainer}>
+      {/* Shorter without a cover photo: the tall banner exists to show a
+          photograph, and given over to the stand-in it was a large grey slab
+          above every profile that hasn't set one. */}
+      <View style={[styles.bannerContainer, !bannerUri && styles.bannerContainerBare]}>
         {/* Same stand-in a car uses when it has no photo. */}
         <Image
           source={bannerUri ? { uri: bannerUri } : require('../../../assets/car-placeholder.jpg')}
@@ -532,6 +620,18 @@ export default function ProfileScreen() {
             Translucent discs so they read over any photo. */}
         {isOwnProfile && (
           <View style={styles.bannerActions}>
+            {/* Only while there's nothing there — once a cover is set, the
+                photo is the thing, and changing it lives in Settings. */}
+            {!bannerUri && (
+              <TouchableOpacity
+                style={styles.bannerIconBtn}
+                onPress={() => setBannerSheet(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Add a cover photo"
+              >
+                <Camera size={19} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.bannerIconBtn}
               onPress={() => (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } })}
@@ -599,7 +699,9 @@ export default function ProfileScreen() {
       {!isOwnProfile && (
         <View style={styles.actionsRow}>
           <View style={styles.followRow}>
-            <FollowButton username={user.username} />
+            {/* Squared off to match Message and the ⋮ beside it — a pill next
+                to two 8pt corners read as a different kind of control. */}
+            <FollowButton username={user.username} radius={8} />
             <TouchableOpacity
               style={[styles.msgBtn, { borderColor: colors.border }]}
               onPress={() => navigation.navigate('ComposeMessage', { userId: user.user_id, username: user.username })}
@@ -669,9 +771,11 @@ export default function ProfileScreen() {
             keyExtractor={(p: Post) => p.internal_id}
             contentContainerStyle={styles.modalList}
             showsVerticalScrollIndicator={false}
+            {...postViewability}
             renderItem={({ item }) => (
               <PostRow
                 post={item}
+                visible={isPostVisible(item.internal_id)}
                 onPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
               />
             )}
@@ -688,6 +792,21 @@ export default function ProfileScreen() {
           />
         );
       }
+      case 'routes':
+        // Its own scroller, unlike the FlatList panes either side of it —
+        // RoutesPane pages by a button and leaves scrolling to its host.
+        return (
+          <ScrollView contentContainerStyle={styles.modalList} showsVerticalScrollIndicator={false}>
+            <RoutesPane
+              params={routeParams}
+              emptyTitle="No routes yet"
+              // The detail is a native-stack modal and this pane is an RN
+              // <Modal>; iOS won't present one over the other, so the pane
+              // closes on the way out.
+              onRoutePress={(r) => openAndClose(() => (navigation as any).navigate('RouteDetailModal', { routeId: r.internal_id }))}
+            />
+          </ScrollView>
+        );
       case 'followers':
       case 'following': {
         const source = renderedSection === 'followers' ? followers : following;
@@ -758,12 +877,13 @@ export default function ProfileScreen() {
     }
   };
 
-  const activeLabel = TABS.find((t) => t.key === renderedSection)?.label ?? '';
+  const activeLabel = renderedSection ? SECTION_LABELS[renderedSection] : '';
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: safeBg }]} edges={safeEdges}>
       {topBar}
       <ScrollView
+        ref={scrollRef}
         refreshControl={refreshControl}
         style={{ backgroundColor: colors.cream }}
         contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance + 24 }]}
@@ -783,6 +903,15 @@ export default function ProfileScreen() {
           showByline={false}
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
+        />
+        {/* The drives they've recorded, the same shape as the posts shelf
+            above it. Renders nothing at all when there are none — see
+            RouteStrip. */}
+        <RouteStrip
+          title="Routes"
+          routes={routes}
+          total={routesData?.total ?? routes.length}
+          onViewAll={() => setActiveSection('routes')}
         />
       </ScrollView>
 
@@ -812,6 +941,10 @@ export default function ProfileScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Saving invalidates the profile, so the banner fills and goes back to
+          full height on its own — nothing here has to refresh it by hand. */}
+      <BannerSheet visible={bannerSheet} onClose={() => setBannerSheet(false)} />
     </SafeAreaView>
   );
 }
@@ -822,6 +955,9 @@ const styles = StyleSheet.create({
   // top portion — this keeps a usable amount of image visible beneath it.
   // 10/9 is the old 5/3 with 50% more height.
   bannerContainer: { width: '100%', aspectRatio: 10 / 8 },
+  // Still deep enough for the floating header to sit over, and for the avatar
+  // to overlap by its usual 52 — just not a photo's worth of height.
+  bannerContainerBare: { aspectRatio: 10 / 4 },
   banner:          { width: '100%', height: '100%' },
   // Neutral, not brand-colored — at this height a solid accent block dominates
   // the screen for anyone without a cover image.
@@ -834,7 +970,7 @@ const styles = StyleSheet.create({
   // Clear of the avatar, which overlaps the banner's bottom-left by 52.
   bannerActions:   { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
   bannerIconBtn:   {
-    width: 38, height: 38, borderRadius: 19,
+    width: 38, height: 38, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.28)',
     alignItems: 'center', justifyContent: 'center',
@@ -861,13 +997,13 @@ const styles = StyleSheet.create({
   },
   headerActions: { flexDirection: 'row', gap: 8 },
   iconBtn:       {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1,
+    width: 36, height: 36, borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   followRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  msgBtn:     { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
+  msgBtn:     { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 14, paddingVertical: 6 },
   msgBtnText: { fontSize: 14, fontWeight: '600' },
-  profileMenuBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  profileMenuBtn: { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   info:       { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 3 },
   name:       { fontSize: 22, fontWeight: '800' },
   // Bottom-left of the photo — the pro wheel owns the bottom-right. A true
@@ -876,7 +1012,7 @@ const styles = StyleSheet.create({
   // scale their text down instead of pulling it into an oval.
   memberBadge: {
     position: 'absolute', bottom: -2, left: -2,
-    width: 32, height: 32, borderRadius: 16,
+    width: 32, height: 32, borderRadius: PILL_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
   memberBadgeText: {
@@ -917,9 +1053,8 @@ const styles = StyleSheet.create({
 
   postCard: {
     marginHorizontal: 12, marginTop: 10,
-    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
   },
-  postCardImage: { width: '100%', aspectRatio: 16 / 10 },
   postCardBody:  { padding: 12, gap: 4 },
 
   garageSection: { marginTop: 18 },
@@ -941,15 +1076,15 @@ const styles = StyleSheet.create({
   newListBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12, marginTop: 12,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS,
   },
   newListBtnText:  { color: '#fff', fontSize: 14, fontWeight: '600' },
   userRowText:     { flex: 1 },
   userRowName:     { fontSize: 15, fontWeight: '600' },
   userRowUsername: { fontSize: 13, marginTop: 1 },
   moreBtn:         { padding: 4, marginLeft: 4 },
-  blockedPill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  blockedPill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS },
   blockedPillText: { fontSize: 12, fontWeight: '700' },
-  unblockBtn:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, marginLeft: 8 },
+  unblockBtn:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1, marginLeft: 8 },
   unblockBtnText:  { fontSize: 13, fontWeight: '700' },
 });

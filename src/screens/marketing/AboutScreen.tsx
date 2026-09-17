@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, FlatList,
   StatusBar, SafeAreaView as RNSafeAreaView, type ImageSourcePropType,
@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { X, ChevronRight } from 'lucide-react-native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetPublicUserQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -186,6 +187,9 @@ function HistoryMosaic({ onOpen }: { onOpen: (index: number) => void }) {
 /* ─── Screen ─── */
 
 export default function AboutScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
   const colors = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
@@ -195,6 +199,7 @@ export default function AboutScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         onScroll={onScroll}

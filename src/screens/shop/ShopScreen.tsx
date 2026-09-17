@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, RefreshControl,
 } from 'react-native';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ExternalLink, Plus, Pencil } from 'lucide-react-native';
 import AppHeader from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
@@ -16,6 +17,7 @@ import { useGetProductsQuery, useGetAdminProductsQuery } from '../../api/apiServ
 import { ss } from '../../styles/shared';
 import { firstGalleryUrl } from '../../utils/image';
 import type { ShopProduct } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 /**
  * Where a product is bought.
@@ -89,6 +91,9 @@ function ProductCard({ product, onPress, onEdit }: {
 }
 
 export default function ShopScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const colors = useColors();
   const brand = useBrandColor();
   const nav = useNavigation<any>();
@@ -124,6 +129,7 @@ export default function ShopScreen() {
       <AppHeader spacer />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
+          ref={scrollRef}
           data={products}
           keyExtractor={(p) => p.internal_id}
           contentContainerStyle={styles.list}
@@ -182,24 +188,24 @@ const styles = StyleSheet.create({
     // One product per row: at full width the photo is the pitch, so the grid's
     // two-up crop was costing the merch more than the density was worth.
     width: '100%', marginBottom: 12,
-    borderRadius: 12, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImg:   { width: '100%', aspectRatio: 4 / 3 },
   badge:     {
     position: 'absolute', top: 8, left: 8,
-    backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,
   },
   badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   editBtn:   {
     position: 'absolute', top: 6, right: 6,
-    width: 26, height: 26, borderRadius: 13,
+    width: 26, height: 26, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center', justifyContent: 'center',
   },
   addBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: COMMON_RADIUS,
   },
   addBtnText:{ fontSize: 13, fontWeight: '800', color: '#000000' },
   cardBody:  { padding: 14, gap: 6 },

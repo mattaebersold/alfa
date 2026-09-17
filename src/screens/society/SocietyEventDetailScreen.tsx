@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { EventDetailBody, EventInterestBar } from '../../components/society/EventDetailBody';
 import { useGetSocietyEventQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -18,6 +19,9 @@ export default function SocietyEventDetailScreen({
   route: { params: { eventId: string; occurrenceDate?: string } };
 }) {
   const { eventId, occurrenceDate } = route.params;
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const headerPad = useHeaderPad();
@@ -29,6 +33,7 @@ export default function SocietyEventDetailScreen({
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <ScrollView
+        ref={scrollRef}
         refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 + insets.bottom }}

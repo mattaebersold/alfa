@@ -4,9 +4,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
-import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import { useGetGroupDiscussionQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
+import GroupVoteButtons from '../../components/groups/GroupVoteButtons';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -32,12 +32,17 @@ function DiscussionRow({ post }: { post: GroupDiscussionPost }) {
         <Text style={[styles.rowBody, { color: colors.muted }]} numberOfLines={2}>{stripHtml(post.body ?? '')}</Text>
         <View style={styles.rowMeta}>
           <Text style={[styles.rowTime, { color: colors.grey }]}>{timeAgo}</Text>
-          <View style={styles.votes}>
-            <ThumbsUp size={13} color={colors.grey} />
-            <Text style={[styles.voteNum, { color: colors.grey }]}>{post.upvotes ?? 0}</Text>
-            <ThumbsDown size={13} color={colors.grey} />
-            <Text style={[styles.voteNum, { color: colors.grey }]}>{post.downvotes ?? 0}</Text>
-          </View>
+          {/* Real buttons. These used to be bare icons with no handler, inside
+              a row that also had none, so nothing on this card did anything. */}
+          <GroupVoteButtons
+            kind="discussion"
+            internal_id={post.internal_id}
+            group_id={post.group_id}
+            upvotes={post.upvotes}
+            downvotes={post.downvotes}
+            votes={post.votes}
+            size={13}
+          />
         </View>
       </View>
     </TouchableOpacity>
@@ -76,5 +81,4 @@ const styles = StyleSheet.create({
   rowMeta:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   rowTime:     { fontSize: 12 },
   votes:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  voteNum:     { fontSize: 12 },
 });

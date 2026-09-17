@@ -7,6 +7,7 @@ import SteeringWheel from '../ui/SteeringWheel';
 import { useRegisterProInterestMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * What Pro includes — the same list murray's membership page shows.
@@ -19,19 +20,21 @@ import { colors } from '../../constants/colors';
 export const PRO_BENEFITS = [
   'Unlimited cars in your garage',
   'Unlimited posts — no monthly cap',
+  'Create Unlimited events — no monthly cap',
   'Create groups',
-  'Create events',
   'Create driving routes',
   'Task lists on every car',
   'User lists',
   'Automated diecast marketplace listings',
   'Yearly invite-only PRO rally',
+  'Access to the Pro channels on Discord',
   'And more as it lands',
 ];
 
 /** Ink for everything sitting on the gold. */
 const ON_GOLD = '#14110B';
 const ON_GOLD_MUTED = 'rgba(20,17,11,0.62)';
+const ON_GOLD_RULE = 'rgba(20,17,11,0.22)';
 
 /**
  * The way in. Gold whoever is looking at it — this button is about Pro, and on
@@ -132,13 +135,12 @@ export function ProUpsellModal({
               the action off the bottom of the card. */}
           <ScrollView
             style={styles.listScroll}
-            contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
           >
-            {PRO_BENEFITS.map((line) => (
-              <View key={line} style={styles.listRow}>
+            {PRO_BENEFITS.map((line, i) => (
+              <View key={line} style={[styles.listRow, i > 0 && styles.listRowRule]}>
                 <View style={styles.tick}>
-                  <Check size={11} color={colors.pro} strokeWidth={3.5} />
+                  <Check size={9} color={colors.pro} strokeWidth={3.5} />
                 </View>
                 <Text style={styles.listText}>{line}</Text>
               </View>
@@ -208,7 +210,8 @@ const styles = StyleSheet.create({
   getProBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 11, paddingVertical: 5,
-    borderRadius: 999,
+    // Matches the garage's Add Car button, which it sits directly above.
+    borderRadius: COMMON_RADIUS,
     backgroundColor: colors.pro,
   },
   getProText: { fontSize: 12, fontWeight: '800', color: '#000000', letterSpacing: 0.2 },
@@ -219,7 +222,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%', maxWidth: 380, maxHeight: '86%',
-    borderRadius: 20, padding: 22,
+    borderRadius: COMMON_RADIUS, padding: 22,
     backgroundColor: colors.pro,
   },
   close: { position: 'absolute', top: 14, right: 14, padding: 4, zIndex: 1 },
@@ -238,15 +241,19 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800', color: ON_GOLD, letterSpacing: -0.3, paddingRight: 20 },
   body:  { fontSize: 14, lineHeight: 20, color: ON_GOLD_MUTED, marginTop: 7 },
 
-  listScroll: { marginTop: 16, marginBottom: 4 },
-  list:     { gap: 9, paddingBottom: 4 },
-  listRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  listScroll: {
+    marginTop: 16, marginBottom: 4,
+    borderRadius: 12, overflow: 'hidden',
+    borderWidth: 1, borderColor: ON_GOLD_RULE,
+  },
+  listRow:     { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 8, paddingHorizontal: 11 },
+  listRowRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: ON_GOLD_RULE },
   tick: {
-    width: 18, height: 18, borderRadius: 9,
+    width: 15, height: 15, borderRadius: 7.5,
     backgroundColor: ON_GOLD,
     alignItems: 'center', justifyContent: 'center',
   },
-  listText: { flex: 1, fontSize: 14, fontWeight: '600', color: ON_GOLD },
+  listText: { flex: 1, fontSize: 12, fontWeight: '600', color: ON_GOLD },
 
   cta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

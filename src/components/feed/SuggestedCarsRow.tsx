@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { useNavigation } from '@react-navigation/native';
 import {
   useGetCarsQuery, useGetUserGarageQuery, useGetFollowedCarsQuery,
 } from '../../api/apiService';
@@ -31,8 +32,8 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
  */
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH * 0.44;
-const CARD_GAP = 10;
+const CARD_WIDTH = SCREEN_WIDTH * 0.25;
+const CARD_GAP = 8;
 const ROW_PAD = SUGGESTION_CARD_PAD;
 const RELATED_POOL = 24;
 const RECENT_POOL = 30;
@@ -56,7 +57,7 @@ function CarCardMini({ car, onPress }: {
           contentFit="cover"
         />
       </View>
-      <Text style={[styles.carName, { color: colors.fg }]} numberOfLines={1}>
+      <Text style={[styles.carName, { color: colors.grey }]} numberOfLines={1}>
         {[car.year, car.make, car.model].filter(Boolean).join(' ')}
       </Text>
     </SummaryTouchable>
@@ -64,11 +65,12 @@ function CarCardMini({ car, onPress }: {
 }
 
 interface Props {
-  /** Opens the shared hide dialog. Omit and no close button is drawn. */
+  /** Opens the hide dialog for this row. Omit and no close button is drawn. */
   onRequestHide?: () => void;
 }
 
 export default function SuggestedCarsRow({ onRequestHide }: Props) {
+  const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
   const myId = userInfo?.user_id ?? '';
@@ -160,7 +162,15 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
   if (!suggestions.length) return null;
 
   return (
-    <SuggestionCard title="Suggested Cars" onClose={onRequestHide}>
+    <SuggestionCard
+      title="Suggested Cars"
+      bare
+      action={{
+        label: 'View all',
+        onPress: () => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } }),
+      }}
+      onClose={onRequestHide}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -191,10 +201,10 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
 
 const styles = StyleSheet.create({
   scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
-  card:      { width: CARD_WIDTH, gap: 6 },
+  card:      { width: CARD_WIDTH, gap: 5 },
   thumb:     {
     width: CARD_WIDTH, height: CARD_WIDTH * 0.62,
-    borderRadius: 10, overflow: 'hidden', backgroundColor: '#111',
+    borderRadius: 8, overflow: 'hidden', backgroundColor: '#111',
   },
-  carName:   { fontSize: 12, fontWeight: '600' },
+  carName:   { fontSize: 10.5, fontWeight: '600' },
 });

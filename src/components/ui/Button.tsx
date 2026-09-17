@@ -13,6 +13,12 @@ interface ButtonProps {
   size?: Size;
   loading?: boolean;
   disabled?: boolean;
+  /**
+   * Corner radius, when a pill is the wrong shape for its neighbours — the
+   * profile's Follow sits beside a squared-off Message button. Default is the
+   * pill every other button in the app wears.
+   */
+  radius?: number;
 }
 
 const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = {
@@ -23,7 +29,7 @@ const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = 
 };
 
 export default function Button({
-  label, onPress, variant = 'primary', size = 'default', loading = false, disabled = false,
+  label, onPress, variant = 'primary', size = 'default', loading = false, disabled = false, radius,
 }: ButtonProps) {
   const s = SIZE_STYLES[size];
   // The brand fill, which is gold for pro members and blue for everyone else.
@@ -58,6 +64,7 @@ export default function Button({
           paddingVertical: s.py,
           paddingHorizontal: s.px,
           width: size === 'full' ? '100%' : undefined,
+          ...(radius != null && { borderRadius: radius }),
           borderWidth: isOutline ? 1.5 : 0,
           borderColor: isOutline ? (v.border ?? brand) : 'transparent',
           opacity: disabled ? 0.5 : 1,

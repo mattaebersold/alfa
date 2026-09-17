@@ -6,6 +6,7 @@ import { useColors } from '../../hooks/useColors';
 import { colors as palette } from '../../constants/colors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GroupActivityItem } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Something posted in a group you're in, on the home feed.
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 12, marginBottom: 10,
-    borderRadius: 14, borderWidth: 1, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
   stripe: { width: 4, alignSelf: 'stretch' },
   body:   { flex: 1, paddingVertical: 12, paddingLeft: 12, gap: 6 },

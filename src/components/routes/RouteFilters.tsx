@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import type { RouteSort } from '../../types/api';
+import { PILL_RADIUS } from '../../constants/radius';
 
 /**
  * Filter controls for the Routes list.
@@ -198,6 +199,6 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   rowPills: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
 
-  pill:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100, borderWidth: 1.5 },
+  pill:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1.5 },
   pillText: { fontSize: 13, fontWeight: '700' },
 });

@@ -31,6 +31,7 @@ import { useColors } from '../../hooks/useColors';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -465,18 +466,18 @@ export default function CreateScreen() {
    * away was to guess that dragging the form would do it.
    *
    * The scroll gets the keyboard's height added to its tail so everything below
-   * the caret can still be scrolled into view, and the footer rises to sit just
-   * above the keys. `insets.bottom` comes off that: the footer is positioned
-   * inside a bottom-inset SafeAreaView, so it already starts above the home
-   * indicator, while the keyboard's height is measured from the screen edge and
-   * counts that strip. Adding both would float it a home indicator too high.
+   * the caret — the Post button included, now that it ends the form — can still
+   * be scrolled into view, and the Done footer rises to sit just above the keys.
+   * `insets.bottom` comes off that: the footer is positioned inside a
+   * bottom-inset SafeAreaView, so it already starts above the home indicator,
+   * while the keyboard's height is measured from the screen edge and counts
+   * that strip. Adding both would float it a home indicator too high.
    */
   const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
   const keyboardUp = keyboardHeight > 0;
-  const footerInset = keyboardUp
-    ? Math.max(0, keyboardHeight - insets.bottom) + 10
-    : Platform.OS === 'android' ? 40 : 20;
+  const footerInset = Math.max(0, keyboardHeight - insets.bottom) + 10;
+  const busy = submitting || videoUploading || imageProgress !== null;
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
@@ -485,7 +486,9 @@ export default function CreateScreen() {
         style={styles.scroll}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ paddingBottom: 140 + keyboardHeight }}
+        // With the keyboard up the tail also clears the floating Done button,
+        // so the Post button can scroll out from under it.
+        contentContainerStyle={{ paddingBottom: keyboardUp ? keyboardHeight + 70 : Platform.OS === 'android' ? 40 : 20 }}
       >
         {/* Type selector */}
         <View style={[styles.typeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -612,31 +615,19 @@ export default function CreateScreen() {
             </Text>
           )}
         </View>
-      </ScrollView>
 
-      {/* ── Fixed Post button ── */}
-      <StickyFormFooter color={colors.cream} bottomInset={footerInset}>
-        <View style={styles.footerRow}>
-        {/* The body field is multiline, so its return key inserts a newline and
-            can't double as a dismiss. Without this the only way out of the
-            keyboard is to know that dragging the form closes it. */}
-        {keyboardUp && (
-          <TouchableOpacity
-            style={[styles.doneBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
-            onPress={() => Keyboard.dismiss()}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss keyboard"
-          >
-            <Text style={[styles.doneText, { color: colors.fg }]}>Done</Text>
-          </TouchableOpacity>
-        )}
+        {/* ── Post button ──
+            Ends the form, full width, rather than floating over it: posting is
+            the last thing you do here, after the fields above it, and pinned
+            over the scroll it sat on top of whatever was being filled in. */}
         <TouchableOpacity
-          style={[styles.submitBtn, (submitting || videoUploading || imageProgress !== null) && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, busy && styles.submitBtnDisabled]}
           onPress={handleSubmit}
-          disabled={submitting || videoUploading || imageProgress !== null}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Create post"
         >
-          {submitting || videoUploading || imageProgress !== null ? (
+          {busy ? (
             <>
               <ActivityIndicator color="#FFFFFF" size="small" />
               {videoUploading ? (
@@ -649,8 +640,27 @@ export default function CreateScreen() {
             <Text style={styles.submitText}>Post</Text>
           )}
         </TouchableOpacity>
-        </View>
-      </StickyFormFooter>
+      </ScrollView>
+
+      {/* The body field is multiline, so its return key inserts a newline and
+          can't double as a dismiss. Without this the only way out of the
+          keyboard is to know that dragging the form closes it. Only while the
+          keyboard is up — the Post button no longer lives down here. */}
+      {keyboardUp && (
+        <StickyFormFooter color={colors.cream} bottomInset={footerInset}>
+          <View style={styles.footerRow}>
+            <TouchableOpacity
+              style={[styles.doneBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+              onPress={() => Keyboard.dismiss()}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss keyboard"
+            >
+              <Text style={[styles.doneText, { color: colors.fg }]}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </StickyFormFooter>
+      )}
 
       <ActionSheet
         visible={mediaSheet}
@@ -671,11 +681,11 @@ const styles = StyleSheet.create({
   scroll:       { flex: 1 },
 
   typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12, borderBottomWidth: 1 },
-  typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
+  typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS, borderWidth: 1.5 },
   typeLabel:    { fontSize: 12, fontWeight: '700' },
 
   catRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1 },
-  catChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1.5 },
+  catChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1.5 },
   catLabel:     { fontSize: 12, fontWeight: '600' },
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
@@ -690,7 +700,7 @@ const styles = StyleSheet.create({
   thumbPlaceholder: { backgroundColor: '#2A2A2A' },
   videoPlayBadge: {
     position: 'absolute', top: '50%', left: '50%', marginTop: -16, marginLeft: -16,
-    width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 32, height: 32, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center', justifyContent: 'center',
   },
   thumbRemove:  {
@@ -708,38 +718,38 @@ const styles = StyleSheet.create({
 
   postToCard: {
     marginHorizontal: 12, marginTop: 12,
-    padding: 14, borderRadius: 14, borderWidth: 1,
+    padding: 14, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   postToEmpty: { paddingTop: 12, fontSize: 13 },
 
   // Tags
   selectedTags:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingTop: 10 },
-  tagChip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  tagChip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS, borderWidth: 1 },
   tagChipText:     { fontSize: 12, fontWeight: '600', maxWidth: 120 },
   tagSearchRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   tagSearchInput:  { flex: 1, fontSize: 14 },
   tagGroupHeader:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth },
   tagGroupLabel:   { fontSize: 11, fontWeight: '700' },
   tagResultRow:    { paddingHorizontal: 14, paddingVertical: 8, gap: 8 },
-  tagResultChip:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  tagResultChip:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
   tagResultText:   { fontSize: 13, fontWeight: '600', maxWidth: 160 },
   tagEmpty:        { paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 },
 
   // Checkbox
   checkbox:        { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
-  // Sized to its word rather than to the screen — a full-bleed bar over the
-  // gradient read as a wall across the form.
   footerRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   doneBtn:         {
     paddingVertical: 11, paddingHorizontal: 18,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   doneText:        { fontSize: 15, fontWeight: '700' },
+  // Full width at the end of the scroll. The old "sized to its word" rule was
+  // about a bar floating over the form; in the flow it's the form's last row.
   submitBtn:       {
-    minWidth: 180,
-    backgroundColor: colors.primaryAlt, borderRadius: 999,
-    paddingVertical: 11, paddingHorizontal: 28,
+    marginHorizontal: 12, marginTop: 20,
+    backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
+    paddingVertical: 14, paddingHorizontal: 28,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   },
   submitBtnDisabled: { opacity: 0.6 },

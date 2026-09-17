@@ -24,6 +24,7 @@ import type { Message, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 function MessageBubble({ message, isMe, otherUser, showTime }: {
   message: Message;
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   sendBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 40, height: 40, borderRadius: COMMON_RADIUS,
     backgroundColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,

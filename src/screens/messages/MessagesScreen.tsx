@@ -25,6 +25,7 @@ import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Message } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
   unreadBar:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
-    width: 56, height: 56, borderRadius: 28,
+    width: 56, height: 56, borderRadius: COMMON_RADIUS,
     backgroundColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 },

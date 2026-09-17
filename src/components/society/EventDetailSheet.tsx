@@ -17,6 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { calendarDate } from '../../utils/calendarDate';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   metaText:{ fontSize: 14 },
   rsvpRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  rsvpBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
+  rsvpBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: COMMON_RADIUS },
   rsvpBtnText: { fontSize: 15, fontWeight: '700' },
   bodyBlock: { padding: 16 },
   body:    { fontSize: 15, lineHeight: 22 },

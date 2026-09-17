@@ -19,6 +19,7 @@ import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate } from '../../utils/calendarDate';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
   rallyFlag:       { marginTop: 1, opacity: 0.9 },
 
   rallyCards:      { paddingHorizontal: 12, paddingTop: 12, gap: 8 },
-  rallyCard:       { borderRadius: 12, overflow: 'hidden' },
+  rallyCard:       { borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   rallyCardFill:   { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
   rallyCardLabel:  { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, opacity: 0.85 },
   rallyCardTitle:  { fontSize: 15, fontWeight: '800', marginTop: 2 },

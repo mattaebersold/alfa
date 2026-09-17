@@ -12,6 +12,7 @@ import { ImagePlus, X } from 'lucide-react-native';
 import { useCreateListMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 export default function CreateListScreen() {
   const navigation = useNavigation();
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
   toggleLabel: { fontSize: 15, fontWeight: '600' },
   toggleSub: { fontSize: 12, marginTop: 2 },
   submitBtn: {
-    paddingVertical: 15, borderRadius: 12, alignItems: 'center',
+    paddingVertical: 15, borderRadius: COMMON_RADIUS, alignItems: 'center',
   },
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

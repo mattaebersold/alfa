@@ -35,6 +35,9 @@ export type FeedStackParamList = {
   Search: undefined;
   Dashboard: undefined;
   Profile: undefined;
+  // Also reachable from the drawer while on the feed tab, so it's registered
+  // here as well as in MarketStackParamList.
+  Marketplace: undefined;
 };
 
 // ── Society Stack ───────────────────────────────────────────────────────────
@@ -137,7 +140,11 @@ export type AppStackParamList = {
   DiecastCreate: undefined;
   // Routes — recording is a full-screen flow, so it lives outside the tabs.
   RouteRecord: undefined;
-  RouteSave: { draftId: string };
+  /**
+   * Saves a finished drive (`draftId`), or edits a saved route (`routeId`) —
+   * one form for both, as the post form is. Exactly one of the two is given.
+   */
+  RouteSave: { draftId: string; routeId?: undefined } | { routeId: string; draftId?: undefined };
   RouteDetailModal: { routeId: string };
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)

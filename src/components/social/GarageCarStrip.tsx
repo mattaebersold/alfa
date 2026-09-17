@@ -7,6 +7,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import type { TagItem } from './PostTagPicker';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const CARD_WIDTH = 104;
 
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
   wrap:    { marginBottom: 12 },
   heading: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 },
   row:     { gap: 8, paddingRight: 4 },
-  card:    { width: CARD_WIDTH, borderRadius: 10, borderWidth: 1.5, overflow: 'hidden', paddingBottom: 6 },
+  card:    { width: CARD_WIDTH, borderRadius: COMMON_RADIUS, borderWidth: 1.5, overflow: 'hidden', paddingBottom: 6 },
   image:   { width: '100%', height: 62 },
   check:   {
     position: 'absolute', top: 5, right: 5,

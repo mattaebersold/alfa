@@ -21,6 +21,7 @@ import { imageUrl } from '../../utils/image';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import EmptyState from '../../components/ui/EmptyState';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** A variant as it's being typed. Everything is text until submit. */
 interface DraftVariant {
@@ -422,14 +423,14 @@ const styles = StyleSheet.create({
   sectionHint:  { fontSize: 13, lineHeight: 18, marginTop: 4 },
 
   variantCard: {
-    borderRadius: 12, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     padding: 12, marginTop: 12, gap: 10,
   },
   variantHead:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   variantLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   addVariant: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 44, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', marginTop: 12,
+    height: 44, borderRadius: COMMON_RADIUS, borderWidth: 1, borderStyle: 'dashed', marginTop: 12,
   },
   addVariantText: { fontSize: 14, fontWeight: '700' },
 
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
   toggleHint:  { fontSize: 12.5, lineHeight: 17, marginTop: 2 },
 
   submit: {
-    height: 52, borderRadius: 12, marginTop: 28,
+    height: 52, borderRadius: COMMON_RADIUS, marginTop: 28,
     alignItems: 'center', justifyContent: 'center',
   },
   submitText: { fontSize: 16, fontWeight: '800', color: '#000000' },

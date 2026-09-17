@@ -8,6 +8,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import { categoryFor, occurrenceDate, ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import { contrastText } from '../../hooks/useBrandColor';
 import type { SocietyEvent, User } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * The card follows its photo's own shape, but a panorama or a very tall crop
@@ -58,8 +59,9 @@ function InterestedStack({ users, total }: { users?: User[]; total: number }) {
 }
 
 /**
- * The society event card — upcoming carousel, day sheet, Your Events and the
- * feed all use it, so an event reads the same wherever it appears.
+ * The society event card — the day sheet, Your Events and the feed's new-event
+ * posts use it, so an event reads the same wherever it appears. The upcoming
+ * carousels use the smaller UpcomingCard instead.
  *
  * A category-coloured bar caps the card — "Event" on the left, the category on
  * the right — over a photo carrying the date badge and title along the bottom
@@ -153,7 +155,7 @@ export default function EventCard({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 12, overflow: 'hidden', backgroundColor: '#1A1A1A' },
+  card: { borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: '#1A1A1A' },
 
   accent: { height: 3 },
 

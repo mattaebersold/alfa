@@ -24,6 +24,7 @@ import type { ListItem } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type RouteType = RouteProp<AppStackParamList, 'ListDetail'>;
 type NavProp = NavigationProp<AppStackParamList>;
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
   header: { padding: 16 },
   description: { fontSize: 14, marginBottom: 8, lineHeight: 20 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, borderWidth: 1 },
   badgeText: { fontSize: 12, textTransform: 'capitalize' },
   itemCount: { fontSize: 13 },
   reorderHint: { fontSize: 12, fontStyle: 'italic' },
@@ -310,13 +311,13 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: COMMON_RADIUS,
   },
   addBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   saveOrderBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: COMMON_RADIUS,
   },
   saveOrderBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   headerBtn: { marginRight: 4, padding: 4 },
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 17, fontWeight: '700', marginBottom: 12 },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   sheetBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 10,
+    flex: 1, paddingVertical: 12, borderRadius: COMMON_RADIUS,
     borderWidth: 1, alignItems: 'center',
   },
   sheetBtnPrimary: { backgroundColor: '#1C3738', borderColor: '#1C3738' },

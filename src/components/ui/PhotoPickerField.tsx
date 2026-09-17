@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyl
 import { Camera, ImagePlus } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * "Add a photo", as something you can actually see.
@@ -19,7 +20,7 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 export default function PhotoPickerField({
   onPress,
   title = 'Add Photos',
-  hint = 'Take one now or choose from your library',
+  hint = 'Take one now or\nchoose from your library',
   /** A slim bar instead of the full well — for when photos are already added. */
   compact = false,
   style,
@@ -36,7 +37,8 @@ export default function PhotoPickerField({
   if (compact) {
     return (
       <TouchableOpacity
-        style={[styles.compact, { borderColor: brand, backgroundColor: colors.card }, style]}
+        // Transparent, like the full well — the dashed border is the shape.
+        style={[styles.compact, { borderColor: brand }, style]}
         onPress={onPress}
         activeOpacity={0.8}
         accessibilityRole="button"
@@ -50,17 +52,22 @@ export default function PhotoPickerField({
 
   return (
     <TouchableOpacity
-      style={[styles.well, { borderColor: brand, backgroundColor: colors.card }, style]}
+      // Transparent: the dashed border already draws the well, and a filled one
+      // read as a card sitting on the form rather than a gap in it.
+      style={[styles.well, { borderColor: brand }, style]}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityHint={hint}
     >
-      <View style={[styles.icon, { backgroundColor: brand + '22', borderColor: brand }]}>
+      {/* Outlined, not filled — the camera is the thing to see, and it carries
+          the brand colour itself. */}
+      <View style={[styles.icon, { borderColor: brand }]}>
         <Camera size={22} color={brand} />
       </View>
-      <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
+      {/* No title: the camera and the hint below already say what this is, and
+          the label repeated the button's own accessibility name. */}
       <Text style={[styles.hint, { color: colors.grey }]}>{hint}</Text>
     </TouchableOpacity>
   );
@@ -68,26 +75,31 @@ export default function PhotoPickerField({
 
 const styles = StyleSheet.create({
   well: {
+    // Narrower than the form and centred on it: a full-width dashed box read as
+    // a section of the page, where this is one thing to tap.
+    alignSelf: 'center', maxWidth: 300,
+    marginTop: 18,
     alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 22, paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: 38, paddingHorizontal: 28,
+    borderRadius: COMMON_RADIUS,
     // Dashed, so it reads as a place to put something rather than as a button
     // that has already done something.
     borderWidth: 1.5, borderStyle: 'dashed',
     gap: 4,
   },
   icon: {
-    width: 46, height: 46, borderRadius: 23, borderWidth: 1,
+    // Square-with-a-corner, like every other button in the app — it was the
+    // one circle left here, and unfilled on both tiers now.
+    width: 46, height: 46, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 22,
   },
-  title: { fontSize: 15, fontWeight: '800' },
-  hint:  { fontSize: 12, textAlign: 'center' },
+  hint:  { fontSize: 11, fontWeight: '600', lineHeight: 15, textAlign: 'center' },
 
   compact: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, paddingHorizontal: 16,
-    borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed',
+    borderRadius: COMMON_RADIUS, borderWidth: 1.5, borderStyle: 'dashed',
   },
-  compactText: { fontSize: 14, fontWeight: '800' },
+  compactText: { fontSize: 14, fontWeight: '600' },
 });

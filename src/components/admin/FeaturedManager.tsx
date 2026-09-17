@@ -19,6 +19,7 @@ import { colors as palette } from '../../constants/colors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { User, GarageCar } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Admin: who and what is featured on the Members and Cars screens.
@@ -367,12 +368,12 @@ const styles = StyleSheet.create({
   name:       { fontSize: 15, fontWeight: '600' },
   sub:        { fontSize: 12, marginTop: 1 },
   iconBtn:    {
-    width: 32, height: 32, borderRadius: 16, borderWidth: 1,
+    width: 32, height: 32, borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   addBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   addText:    { fontSize: 12, fontWeight: '700' },
   empty:      { marginTop: 40 },

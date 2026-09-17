@@ -100,6 +100,10 @@ export default function MainTabNavigator() {
     // once, rather than each screen mounting its own copy.
     <View style={styles.root}>
     <Tab.Navigator
+      // Back retraces the tabs you actually visited. The default returns to the
+      // first tab from anywhere, which made the header's back button (and
+      // Android's) skip straight past the page you'd just come from.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarStyle: immersive ? { display: 'none' } : {

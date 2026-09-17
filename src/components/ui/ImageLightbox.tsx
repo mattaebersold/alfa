@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** Past this, the image is "zoomed" — the pager stops and the pan moves it. */
 const ZOOM_THRESHOLD = 1.01;
@@ -486,7 +487,7 @@ const styles = StyleSheet.create({
   page:     { alignItems: 'center', justifyContent: 'center' },
   closeBtn: {
     position: 'absolute', right: 14,
-    width: 38, height: 38, borderRadius: 19,
+    width: 38, height: 38, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center', justifyContent: 'center',
   },

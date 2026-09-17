@@ -20,6 +20,7 @@ import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import CommentsSheet from '../social/CommentsSheet';
 import type { CarActivityItem } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Feed row for something added to a car you follow — a mod, or a set of photos.
@@ -230,12 +231,15 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           <LikeButton
             documentId={item.internal_id}
             entryType={entryType}
+            // A mod or an album belongs to whoever owns the car.
+            ownerId={car?.user_id}
             initialCount={item.like_count ?? 0}
             initialLiked={item.isLiked ?? false}
             color="#FFFFFF"
           />
           <CommentButton
             count={item.comment_count ?? 0}
+            documentId={item.internal_id}
             onPress={() => setCommentsOpen(true)}
             color="#FFFFFF"
           />
@@ -253,6 +257,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           gallery: item.gallery,
           carId: car.internal_id,
           carName,
+          ownerId: car.user_id,
           like_count: item.like_count,
           isLiked: item.isLiked,
           comment_count: item.comment_count,
@@ -304,7 +309,7 @@ const styles = StyleSheet.create({
   card: {
     position: 'relative',
     marginHorizontal: 12,
-    borderRadius: 16, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden',
     borderWidth: 1,
     backgroundColor: '#111111',
   },

@@ -148,7 +148,9 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CarCreate"
         component={CarCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Add Car', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        // transparentModal, not modal: the screen draws its own sheet and needs
+        // the backdrop behind it to show through and take taps.
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
       />
       <Stack.Screen
         name="ModCreate"

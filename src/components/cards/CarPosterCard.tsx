@@ -6,10 +6,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import {
   Car as CarIcon, Wrench, Settings, Users, Star, Plus,
-  PenSquare, Trash2, MessageSquarePlus, Images,
+  PenSquare, Trash2, MessageSquarePlus, Images, ArrowRightLeft,
 } from 'lucide-react-native';
 import {
-  useGetUserByIdQuery, useDeleteCarMutation, useGetCarFollowerCountQuery,
+  useGetUserByIdQuery, useGetCarFollowerCountQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
@@ -17,9 +17,12 @@ import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import ActionSheet from '../ui/ActionSheet';
+import CarDeleteOptionsModal from '../cars/CarDeleteOptionsModal';
 import Avatar from '../ui/Avatar';
 import UserSummaryModal from '../members/UserSummaryModal';
 import CarSummaryModal from '../cars/CarSummaryModal';
+import RegionBadge from '../ui/RegionBadge';
+import { regionForCityState } from '../../constants/regions';
 import ReportButton from '../ui/ReportButton';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
@@ -27,6 +30,7 @@ import CommentsSheet from '../social/CommentsSheet';
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 interface CarPosterCardProps {
   car: GarageCar;
@@ -98,12 +102,19 @@ export default function CarPosterCard({
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
-  const [deleteCar] = useDeleteCarMutation();
   // Two sheets rather than one with every option in it: adding to a car and
   // administering it are different errands, and the + is the one people reach
   // for often.
   const [addSheet, setAddSheet] = useState(false);
   const [manageSheet, setManageSheet] = useState(false);
+  /**
+   * Which step of the remove sheet is open, or null for closed.
+   *
+   * One instance rather than one per entry point: this card renders once per
+   * car in a grid, and every mounted SharedModal carries its own animations
+   * and keyboard listeners whether or not it's visible.
+   */
+  const [removeStep, setRemoveStep] = useState<'choose' | 'transfer' | null>(null);
   /**
    * Whose summary is open.
    *
@@ -163,25 +174,6 @@ export default function CarPosterCard({
   // Controls belong to the owner, and a carousel card is too small to hold them.
   const showControls = isOwner && !compact;
 
-  const confirmDelete = () => {
-    Alert.alert(
-      'Delete Car',
-      `Remove ${displayName} from your garage? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive', onPress: async () => {
-            try {
-              await deleteCar({ internal_id: car.internal_id }).unwrap();
-            } catch {
-              Alert.alert('Error', 'Could not delete car. Please try again.');
-            }
-          },
-        },
-      ],
-      { cancelable: true },
-    );
-  };
 
   const handlePress = () => {
     onBeforeNavigate?.();
@@ -326,6 +318,10 @@ export default function CarPosterCard({
         {/* ── Top right: what the owner can do to it ── */}
         {(showControls || (onTasksPress && taskCount > 0)) && (
           <View style={styles.topRight}>
+            {/* Where its owner is, on the cards that show an owner at all —
+                the featured row, and any list of other people's cars. A car
+                in your own garage needs no map to say where it is. */}
+            {needOwner && <RegionBadge region={car.owner_region ?? regionForCityState(owner?.cityState)?.key} size={32} />}
             {onTasksPress && taskCount > 0 && (
               <TouchableOpacity style={styles.taskBadge} onPress={onTasksPress} hitSlop={4}>
                 <Wrench size={10} color="#000" />
@@ -462,8 +458,29 @@ export default function CarPosterCard({
                     (nav as any).navigate('CarCreate', { carId: car.internal_id });
                   },
                 },
-                { label: 'Delete Car', Icon: Trash2, destructive: true, onPress: confirmDelete },
+                // Handing a car over is something you set out to do, so it's
+                // its own row rather than something to find inside "Remove".
+                {
+                  label: 'Transfer Car',
+                  Icon: ArrowRightLeft,
+                  onPress: () => { setManageSheet(false); setRemoveStep('transfer'); },
+                },
+                // Not a confirm any more: archiving, transferring and erasing
+                // are three different answers, and the sheet asks which.
+                {
+                  label: 'Remove Car',
+                  Icon: Trash2,
+                  destructive: true,
+                  onPress: () => { setManageSheet(false); setRemoveStep('choose'); },
+                },
               ]}
+            />
+
+            <CarDeleteOptionsModal
+              visible={removeStep !== null}
+              car={car}
+              initialStep={removeStep ?? 'choose'}
+              onClose={() => setRemoveStep(null)}
             />
           </>
         )}
@@ -478,12 +495,14 @@ export default function CarPosterCard({
             <LikeButton
               documentId={car.internal_id}
               entryType="garagecar"
+              ownerId={car.user_id}
               initialCount={car.like_count ?? 0}
               initialLiked={car.isLiked ?? false}
               color="#FFFFFF"
             />
             <CommentButton
               count={car.comment_count ?? 0}
+              documentId={car.internal_id}
               onPress={() => setCommentsOpen(true)}
               color="#FFFFFF"
             />
@@ -538,7 +557,7 @@ const styles = StyleSheet.create({
   },
   card: {
     position: 'relative',
-    borderRadius: 16, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden',
     borderWidth: 1.25,
     backgroundColor: '#111111',
   },
@@ -611,12 +630,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
   circleBtn: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 28, height: 28, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center', justifyContent: 'center',
   },
   taskBadge: {
-    backgroundColor: colors.pro, borderRadius: 12,
+    backgroundColor: colors.pro, borderRadius: PILL_RADIUS,
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 4, gap: 3,
   },

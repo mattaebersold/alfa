@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
 import { calendarDate } from '../../utils/calendarDate';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -161,9 +162,29 @@ interface PostTagBadgesProps {
    * top of it. Defaults to navigating straight away.
    */
   onNavigate?: (go: (nav: Nav) => void) => void;
+  /**
+   * Section headings, for a host whose tags mean something more particular
+   * than "tagged" — on a route, the people are who drove it and the car is the
+   * one it was driven in. Posts leave these alone.
+   */
+  labels?: { creator?: string; cars?: string; users?: string; events?: string };
+  /**
+   * The author, as a badge of its own ahead of the tags. A route shows who
+   * recorded it in the same row style as who drove it, rather than as a
+   * different kind of byline beside a list of people.
+   */
+  creatorId?: string;
+  /**
+   * Cars that belong with the entry whether or not they were tagged — a
+   * route's own `car_id`, which routes saved before car tagging carry alone.
+   * Merged with the tagged cars, so one car is never listed twice.
+   */
+  extraCarIds?: string[];
 }
 
-export default function PostTagBadges({ postId, onNavigate }: PostTagBadgesProps) {
+export default function PostTagBadges({
+  postId, onNavigate, labels, creatorId, extraCarIds,
+}: PostTagBadgesProps) {
   const nav = useNavigation<Nav>();
   const go = (fn: (n: Nav) => void) => (onNavigate ? onNavigate(fn) : fn(nav));
   const { data: tags } = useGetPostTagsQuery(postId, { skip: !postId });
@@ -179,43 +200,52 @@ export default function PostTagBadges({ postId, onNavigate }: PostTagBadgesProps
     else if (kind === 'event') eventIds.push(t.tag_internal_id);
   });
 
-  const cars = uniq(carIds);
+  const cars = uniq([...carIds, ...(extraCarIds ?? []).filter(Boolean)]);
   const users = uniq(userIds);
   const events = uniq(eventIds);
 
-  if (cars.length + users.length + events.length === 0) return null;
+  const carsLabel = labels?.cars ?? 'Tagged Cars';
+  const usersLabel = labels?.users ?? 'Tagged People';
+  const eventsLabel = labels?.events ?? 'Tagged Events';
+
+  if (!creatorId && cars.length + users.length + events.length === 0) return null;
 
   return (
     <>
+      {creatorId ? (
+        <TagSection label={labels?.creator ?? 'Created By'}>
+          <UserTagRow id={creatorId} go={go} />
+        </TagSection>
+      ) : null}
       {/* Cars on the left, people on the right — but only when there are both.
           One of them alone in a half-width column would leave the other half
           empty, so a lone section takes the full width and lays its own items
           out two across instead. */}
       {cars.length > 0 && users.length > 0 ? (
         <View style={styles.columns}>
-          <TagSection label="Tagged Cars" stacked>
+          <TagSection label={carsLabel} stacked>
             {cars.map((id, i) => <CarTagRow key={`c-${id}-${i}`} id={id} go={go} stacked />)}
           </TagSection>
-          <TagSection label="Tagged People" stacked>
+          <TagSection label={usersLabel} stacked>
             {users.map((id, i) => <UserTagRow key={`u-${id}-${i}`} id={id} go={go} stacked />)}
           </TagSection>
         </View>
       ) : (
         <>
           {cars.length > 0 && (
-            <TagSection label="Tagged Cars">
+            <TagSection label={carsLabel}>
               {cars.map((id, i) => <CarTagRow key={`c-${id}-${i}`} id={id} go={go} />)}
             </TagSection>
           )}
           {users.length > 0 && (
-            <TagSection label="Tagged People">
+            <TagSection label={usersLabel}>
               {users.map((id, i) => <UserTagRow key={`u-${id}-${i}`} id={id} go={go} />)}
             </TagSection>
           )}
         </>
       )}
       {events.length > 0 && (
-        <TagSection label="Tagged Events">
+        <TagSection label={eventsLabel}>
           {events.map((id, i) => <EventTagRow key={`e-${id}-${i}`} id={id} onOpen={setSelectedEvent} />)}
         </TagSection>
       )}
@@ -267,8 +297,8 @@ const styles = StyleSheet.create({
   stack:        { gap: 8 },
 
   // Fills whichever container it lands in — half of `grid`, all of `stack`.
-  badge:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingLeft: 7, paddingRight: 10, borderRadius: 10, borderWidth: 1 },
-  badgeThumb:   { width: 28, height: 28, borderRadius: 14 },
+  badge:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingLeft: 7, paddingRight: 10, borderRadius: PILL_RADIUS, borderWidth: 1 },
+  badgeThumb:   { width: 28, height: 28, borderRadius: PILL_RADIUS },
   badgeThumbFallback: { alignItems: 'center', justifyContent: 'center' },
   badgeName:    { flex: 1, fontSize: 13, fontWeight: '600' },
 
@@ -276,6 +306,6 @@ const styles = StyleSheet.create({
   eventRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   eventRowText: { flex: 1, fontSize: 14, fontWeight: '600' },
   eventBody:    { fontSize: 14, lineHeight: 21, marginTop: 4, marginBottom: 16 },
-  viewBtn:      { paddingVertical: 13, borderRadius: 10, alignItems: 'center', marginTop: 4 },
+  viewBtn:      { paddingVertical: 13, borderRadius: COMMON_RADIUS, alignItems: 'center', marginTop: 4 },
   viewBtnText:  { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

@@ -18,6 +18,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import AddressField from '../../components/ui/AddressField';
 import type { PlaceDetail } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -269,12 +270,12 @@ const styles = StyleSheet.create({
   },
   typeBtn: {
     paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5,
+    borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
   typeBtnText: { fontSize: 12, fontWeight: '700' },
   catChip: {
     paddingHorizontal: 11, paddingVertical: 5,
-    borderRadius: 20, borderWidth: 1,
+    borderRadius: PILL_RADIUS, borderWidth: 1,
   },
   catChipText: { fontSize: 12, fontWeight: '600' },
 
@@ -317,7 +318,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
   },
   submitBtn: {
-    backgroundColor: colors.primaryAlt, borderRadius: 12,
+    backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
     paddingVertical: 14, alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.6 },

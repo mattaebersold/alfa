@@ -1,26 +1,40 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
   Alert, ActivityIndicator, Switch, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RouteMap from '../../components/routes/RouteMap';
 import PostTagPicker, { type TagItem } from '../../components/social/PostTagPicker';
+import PostToSelector from '../../components/social/PostToSelector';
+import Spinner from '../../components/ui/Spinner';
 import { readDraft, clearDraft } from '../../hooks/useRouteRecorder';
 import {
   useCreateRouteMutation,
+  useUpdateRouteMutation,
+  useGetRouteQuery,
+  useGetPostTagsQuery,
   useSyncPostTagsMutation,
   useGetRouteEndpointNamesQuery,
+  useGetUserGroupsQuery,
+  useGetPreviouslyTaggedUsersQuery,
+  useGetPreviouslyTaggedCarsQuery,
+  useGetPreviouslyTaggedEventsQuery,
 } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { formatDistance, formatDuration, formatSpeed, compactSamples } from '../../utils/routeGeometry';
+import {
+  formatDistance, formatDuration, formatSpeed, compactSamples, decodePolyline,
+} from '../../utils/routeGeometry';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
+type SaveRoute = RouteProp<AppStackParamList, 'RouteSave'>;
 
 /**
  * Kept against the surface picker coming back — the model and the route filters
@@ -33,9 +47,16 @@ export const SURFACES = [
 ] as const;
 
 /**
- * Save-or-discard, shown once a drive is finished.
+ * Save-or-discard, shown once a drive is finished — and the edit form for a
+ * route already saved.
  *
- * The track is read back from the on-disk draft rather than passed through
+ * One screen for both, the way the post form is, so tagging and sharing to
+ * groups can't drift apart between creating a route and fixing one. The
+ * difference is where the shape comes from: a new drive reads its track back
+ * from the on-disk draft, an edit draws the saved route's polyline. The track
+ * itself is never editable — a route's numbers are the ones its drive produced.
+ *
+ * For a new drive the track is read from disk rather than passed through
  * navigation params — it's thousands of points, far too much to put in a
  * route param, and reading from disk is also what makes recovery-after-crash
  * work with the same code path.
@@ -46,15 +67,28 @@ export const SURFACES = [
  */
 export default function RouteSaveScreen() {
   const navigation = useNavigation<NavProp>();
+  const { params } = useRoute<SaveRoute>();
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
 
-  const [createRoute, { isLoading }] = useCreateRouteMutation();
-  const [syncTags] = useSyncPostTagsMutation();
+  const editId = params?.routeId;
+  const isEdit = !!editId;
 
-  const draft = useMemo(() => readDraft(), []);
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: isEdit ? 'Edit Route' : 'Save Route' });
+  }, [navigation, isEdit]);
+
+  const [createRoute, { isLoading: creating }] = useCreateRouteMutation();
+  const [updateRoute, { isLoading: updating }] = useUpdateRouteMutation();
+  const [syncTags, { isLoading: syncing }] = useSyncPostTagsMutation();
+  const isLoading = creating || updating || syncing;
+
+  const draft = useMemo(() => (isEdit ? null : readDraft()), [isEdit]);
+  const { data: existing, isLoading: loadingExisting } = useGetRouteQuery(editId ?? '', { skip: !isEdit });
+  const { data: existingTags } = useGetPostTagsQuery(editId ?? '', { skip: !isEdit });
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -73,7 +107,110 @@ export default function RouteSaveScreen() {
   const [taggedUsers, setTaggedUsers] = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars] = useState<TagItem[]>([]);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
-  const [taggedGroups, setTaggedGroups] = useState<TagItem[]>([]);
+
+  /**
+   * Where the route goes, chosen exactly as a post's is: publicly, into groups,
+   * or both. Groups used to be a row in the tag picker, which tagged the group
+   * rather than posting into it — the route turned up in the group's list but
+   * couldn't be kept out of the public one. The server now stores these the
+   * way it stores a post's.
+   */
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState(true);
+  const { data: myGroups } = useGetUserGroupsQuery(myId ?? '', { skip: !myId });
+  const userGroups = (myGroups ?? []).filter((g) => (g.membership?.status ?? 'active') === 'active');
+
+  /**
+   * Groups the route is already in that the list above doesn't have — one you
+   * have since left, or someone else's group when an admin is editing. Offered
+   * as tiles too, so saving doesn't quietly drop them.
+   */
+  const selectorGroups = useMemo(() => {
+    const known = new Set(userGroups.map((g) => g.internal_id));
+    const extra = selectedGroupIds
+      .filter((id) => !known.has(id))
+      .map((id) => ({ internal_id: id, title: 'Group' }));
+    return [...userGroups, ...extra];
+  }, [userGroups, selectedGroupIds]);
+
+  // ── Edit: prefill once the saved route arrives ──────────────────────────────
+
+  const prefilledEdit = useRef(false);
+  useEffect(() => {
+    if (!isEdit || !existing || prefilledEdit.current) return;
+    prefilledEdit.current = true;
+    const e = existing.entry;
+    setTitle(e.title ?? '');
+    setBody(e.body ?? '');
+    setTechnical(e.technical_rating ?? null);
+    setStartPlace(e.start_place ?? '');
+    setEndPlace(e.end_place ?? '');
+    setIsPrivate(!!e.private);
+    setSelectedGroupIds(e.group_ids ?? []);
+    // No groups means public; with groups, public is its own choice.
+    setIsPublic(e.group_ids?.length ? !!e.also_public : true);
+  }, [isEdit, existing]);
+
+  /**
+   * Readable names for the tags already on the route. The tag records carry
+   * ids only, so the names come from the previously-tagged pools — which include
+   * this member's routes — the same way the post editor resolves them. Anything
+   * not in a pool keeps a plain placeholder; the tag itself is intact either way.
+   */
+  const { data: prevUsers } = useGetPreviouslyTaggedUsersQuery(undefined, { skip: !isEdit });
+  const { data: prevCars } = useGetPreviouslyTaggedCarsQuery(undefined, { skip: !isEdit });
+  const { data: prevEvents } = useGetPreviouslyTaggedEventsQuery(undefined, { skip: !isEdit });
+  const labels = useMemo(() => {
+    const map: Record<string, string> = {};
+    (prevUsers?.users ?? []).forEach((u: any) => {
+      const id = u.user_id || u.internal_id;
+      if (id && u.username) map[id] = `@${u.username}`;
+    });
+    (prevCars?.cars ?? []).forEach((c: any) => {
+      if (c.internal_id) map[c.internal_id] = [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car';
+    });
+    (prevEvents?.events ?? []).forEach((ev: any) => {
+      if (ev.internal_id) map[ev.internal_id] = ev.title || 'Event';
+    });
+    return map;
+  }, [prevUsers, prevCars, prevEvents]);
+
+  const prefilledTags = useRef(false);
+  useEffect(() => {
+    if (!isEdit || !existingTags || !existing || prefilledTags.current) return;
+    prefilledTags.current = true;
+    const users: TagItem[] = [];
+    const cars: TagItem[] = [];
+    const events: TagItem[] = [];
+    existingTags.forEach((t) => {
+      const id = t.tag_internal_id;
+      if (t.tag_entry_type === 'user') users.push({ id, kind: 'user', label: labels[id] ?? 'Tagged member' });
+      else if (t.tag_entry_type === 'garagecar' || t.tag_entry_type === 'car') cars.push({ id, kind: 'car', label: labels[id] ?? 'Tagged car' });
+      else if (t.tag_entry_type === 'event') events.push({ id, kind: 'event', label: labels[id] ?? 'Tagged event' });
+    });
+    // A route from before car tagging has its car on `car_id` alone. Putting
+    // it first keeps it "the car I drove" when the form is saved.
+    const carId = existing.entry.car_id;
+    if (carId && !cars.some((c) => c.id === carId)) {
+      cars.unshift({ id: carId, kind: 'car', label: labels[carId] ?? 'Tagged car' });
+    }
+    setTaggedUsers(users);
+    setTaggedCars(cars);
+    setTaggedEvents(events);
+  }, [isEdit, existingTags, existing, labels]);
+
+  // Names land after the tags do; swap them in without touching the selection.
+  useEffect(() => {
+    const relabel = (list: TagItem[]) =>
+      list.some((t) => labels[t.id] && labels[t.id] !== t.label)
+        ? list.map((t) => (labels[t.id] ? { ...t, label: labels[t.id] } : t))
+        : list;
+    setTaggedUsers(relabel);
+    setTaggedCars(relabel);
+    setTaggedEvents(relabel);
+  }, [labels]);
+
+  // ── New drive: suggested endpoint names ─────────────────────────────────────
 
   /**
    * Suggested names for the two ends, so the fields open filled in rather than
@@ -103,27 +240,45 @@ export default function RouteSaveScreen() {
   }, [placeNames]);
 
   const toggleTag = (item: TagItem) => {
+    // Groups are chosen under "Post To", not tagged — the picker isn't given a
+    // groups row here, so it never emits one.
+    if (item.kind === 'group') return;
     const [list, setList] =
       item.kind === 'user' ? [taggedUsers, setTaggedUsers] as const
       : item.kind === 'car' ? [taggedCars, setTaggedCars] as const
-      : item.kind === 'group' ? [taggedGroups, setTaggedGroups] as const
       : [taggedEvents, setTaggedEvents] as const;
     setList(list.some((t) => t.id === item.id)
       ? list.filter((t) => t.id !== item.id)
       : [...list, item]);
   };
 
-  const path = useMemo(
-    () => (draft?.samples ?? []).map((s) => ({ lat: s.lat, lng: s.lng })),
-    [draft],
-  );
-  const pathSpeeds = useMemo(
-    () => (draft?.samples ?? []).map((s) => Math.max(0, s.speed)),
-    [draft],
-  );
+  const toggleGroup = (groupId: string) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]);
+  };
+
+  // ── The shape and its numbers ───────────────────────────────────────────────
+
+  const path = useMemo(() => {
+    if (isEdit) return existing?.entry.polyline ? decodePolyline(existing.entry.polyline) : [];
+    return (draft?.samples ?? []).map((s) => ({ lat: s.lat, lng: s.lng }));
+  }, [isEdit, existing, draft]);
+  const pathSpeeds = useMemo(() => {
+    if (isEdit) return existing?.entry.speed_profile ?? [];
+    return (draft?.samples ?? []).map((s) => Math.max(0, s.speed));
+  }, [isEdit, existing, draft]);
+
+  const pitStops = isEdit ? existing?.entry.pit_stops : draft?.pitStops;
 
   // Rough preview numbers, good enough to confirm the right drive was captured.
+  // An edit shows the stored ones, which are the real thing.
   const preview = useMemo(() => {
+    if (isEdit) {
+      const stats = existing?.entry.stats;
+      return stats
+        ? { distance: stats.distance_meters, duration: stats.moving_ms || stats.duration_ms, maxSpeed: stats.max_speed }
+        : null;
+    }
     if (!draft?.samples?.length) return null;
     const first = draft.samples[0];
     const last = draft.samples[draft.samples.length - 1];
@@ -142,9 +297,13 @@ export default function RouteSaveScreen() {
       }
     }
     return { distance, duration: last.t - first.t, maxSpeed };
-  }, [draft]);
+  }, [isEdit, existing, draft]);
 
   const discard = () => {
+    if (isEdit) {
+      navigation.goBack();
+      return;
+    }
     Alert.alert('Discard route?', 'This drive will be deleted.', [
       { text: 'Keep', style: 'cancel' },
       {
@@ -158,9 +317,74 @@ export default function RouteSaveScreen() {
     ]);
   };
 
+  /** Group fields, shared by create and update. A private route goes nowhere. */
+  const appendGroups = (fd: FormData) => {
+    const groups = isPrivate ? [] : selectedGroupIds;
+    // Always sent on an edit — an empty list is how groups get removed.
+    if (groups.length || isEdit) fd.append('group_ids', JSON.stringify(groups));
+    fd.append('also_public', groups.length && !isPublic ? 'false' : 'true');
+  };
+
+  /**
+   * Tags are a separate write, and a failure there shouldn't lose the route —
+   * so it's reported, not rolled back.
+   *
+   * `tagged_groups` is sent empty on purpose. Groups travel with the route
+   * itself now (`group_ids`); the sync clearing any old group tags is what
+   * finishes moving an early route over, once its groups are in `group_ids`.
+   */
+  const applyTags = async (routeId: string) => {
+    const any = taggedUsers.length || taggedCars.length || taggedEvents.length;
+    if (!isEdit && !any) return true;
+    try {
+      await syncTags({
+        post_id: routeId,
+        entity_type: 'route',
+        tagged_users: taggedUsers.map((t) => t.id),
+        tagged_cars: taggedCars.map((t) => t.id),
+        tagged_events: taggedEvents.map((t) => t.id),
+        tagged_groups: [],
+      }).unwrap();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editId) return;
+    const fd = new FormData();
+    fd.append('internal_id', editId);
+    fd.append('title', title.trim());
+    fd.append('body', body.trim());
+    fd.append('start_place', startPlace.trim());
+    fd.append('end_place', endPlace.trim());
+    fd.append('technical_rating', technical ? String(technical) : '');
+    fd.append('private', isPrivate ? 'true' : 'false');
+    // The first tagged car is "the car I drove", as on a new route.
+    fd.append('car_id', taggedCars[0]?.id ?? '');
+    appendGroups(fd);
+
+    try {
+      await updateRoute(fd).unwrap();
+    } catch (e: any) {
+      Alert.alert('Save failed', e?.data?.error ?? 'Could not save your changes. Please try again.');
+      return;
+    }
+
+    if (!(await applyTags(editId))) {
+      Alert.alert('Route saved', 'Your changes were saved, but the tags could not be updated.');
+    }
+    navigation.goBack();
+  };
+
   const save = async () => {
     if (!title.trim()) {
       Alert.alert('Name this route', 'Give the route a title so people can find it.');
+      return;
+    }
+    if (isEdit) {
+      await saveEdit();
       return;
     }
     if (!draft?.samples?.length) {
@@ -181,26 +405,13 @@ export default function RouteSaveScreen() {
     // The first tagged car doubles as "the car I drove" — the route's own
     // association — while still being recorded as a tag like the others.
     if (taggedCars[0]) fd.append('car_id', taggedCars[0].id);
+    appendGroups(fd);
 
     try {
       const created = await createRoute(fd).unwrap();
 
-      // Tags are a separate write, and a failure there shouldn't lose the
-      // route the person just drove — so it's reported, not rolled back.
-      if (created?.internal_id
-        && (taggedUsers.length || taggedCars.length || taggedEvents.length || taggedGroups.length)) {
-        try {
-          await syncTags({
-            post_id: created.internal_id,
-            entity_type: 'route',
-            tagged_users: taggedUsers.map((t) => t.id),
-            tagged_cars: taggedCars.map((t) => t.id),
-            tagged_events: taggedEvents.map((t) => t.id),
-            tagged_groups: taggedGroups.map((t) => t.id),
-          }).unwrap();
-        } catch {
-          Alert.alert('Route saved', 'The route was saved, but its tags could not be applied.');
-        }
+      if (created?.internal_id && !(await applyTags(created.internal_id))) {
+        Alert.alert('Route saved', 'The route was saved, but its tags could not be applied.');
       }
 
       clearDraft();
@@ -224,12 +435,18 @@ export default function RouteSaveScreen() {
     }
   };
 
-  if (!draft) {
+  if (isEdit && loadingExisting) return <Spinner />;
+
+  if (isEdit ? !existing : !draft) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <Text style={[styles.emptyTitle, { color: colors.fg }]}>No recording found</Text>
+        <Text style={[styles.emptyTitle, { color: colors.fg }]}>
+          {isEdit ? 'Route not found' : 'No recording found'}
+        </Text>
         <Text style={[styles.emptyBody, { color: colors.grey }]}>
-          The drive could not be read back from storage.
+          {isEdit
+            ? 'This route could not be loaded. It may have been deleted.'
+            : 'The drive could not be read back from storage.'}
         </Text>
         <TouchableOpacity
           style={[styles.primaryBtn, { backgroundColor: brand, marginTop: 20 }]}
@@ -251,10 +468,10 @@ export default function RouteSaveScreen() {
           <RouteMap path={path} speeds={pathSpeeds} color={brand} style={StyleSheet.absoluteFill} />
         </View>
 
-        {draft.pitStops?.length ? (
+        {pitStops?.length ? (
           <Text style={[styles.pitSummary, { color: colors.grey }]}>
-            {draft.pitStops.length} pit stop{draft.pitStops.length === 1 ? '' : 's'}: {' '}
-            {draft.pitStops.map((p) => p.label).filter(Boolean).join(' · ')}
+            {pitStops.length} pit stop{pitStops.length === 1 ? '' : 's'}: {' '}
+            {pitStops.map((p) => p.label).filter(Boolean).join(' · ')}
           </Text>
         ) : null}
 
@@ -339,13 +556,15 @@ export default function RouteSaveScreen() {
             </Text>
           </Field>
 
+          {/* The same picker a post uses. On a route the people are who drove
+              it and the first car is the one it was driven in, which is how the
+              route's page labels them. */}
           <View style={[styles.tagSection, { borderTopColor: colors.border }]}>
-            <Text style={[styles.fieldLabel, { color: colors.fg }]}>Tag People, Cars, Events & Groups</Text>
+            <Text style={[styles.fieldLabel, { color: colors.fg }]}>Tag Drivers, Cars & Events</Text>
             <PostTagPicker
               users={taggedUsers}
               cars={taggedCars}
               events={taggedEvents}
-              groups={taggedGroups}
               onToggle={toggleTag}
             />
           </View>
@@ -359,16 +578,42 @@ export default function RouteSaveScreen() {
             </View>
             <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: brand }} />
           </View>
+
+          {/* Hidden while private rather than disabled: a private route can't
+              be anywhere else, so there's no choice here to make. */}
+          {!isPrivate && (
+            <View style={[styles.postToCard, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+              <Text style={[styles.fieldLabel, { color: colors.fg, marginBottom: 12 }]}>Post To</Text>
+              <PostToSelector
+                isPublic={isPublic}
+                onTogglePublic={() => setIsPublic((v) => !v)}
+                groups={selectorGroups}
+                selectedGroupIds={selectedGroupIds}
+                onToggleGroup={toggleGroup}
+              />
+              {selectorGroups.length === 0 ? (
+                <Text style={[styles.helper, { color: colors.grey, marginTop: 10 }]}>
+                  You're not a member of any groups yet.
+                </Text>
+              ) : selectedGroupIds.length > 0 && !isPublic ? (
+                <Text style={[styles.helper, { color: colors.grey, marginTop: 10 }]}>
+                  Only members of the selected groups will see this route.
+                </Text>
+              ) : null}
+            </View>
+          )}
         </View>
       </ScrollView>
 
       <View style={[styles.actions, { backgroundColor: colors.card, paddingBottom: insets.bottom + 12, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.secondaryBtn, { borderColor: palette.red }]}
+          style={[styles.secondaryBtn, { borderColor: isEdit ? colors.border : palette.red }]}
           onPress={discard}
           disabled={isLoading}
         >
-          <Text style={[styles.secondaryLabel, { color: palette.red }]}>Discard</Text>
+          <Text style={[styles.secondaryLabel, { color: isEdit ? colors.fg : palette.red }]}>
+            {isEdit ? 'Cancel' : 'Discard'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.primaryBtn, { backgroundColor: brand, flex: 1 }]}
@@ -377,7 +622,7 @@ export default function RouteSaveScreen() {
         >
           {isLoading
             ? <ActivityIndicator color={onBrand} />
-            : <Text style={[styles.primaryLabel, { color: onBrand }]}>Save Route</Text>}
+            : <Text style={[styles.primaryLabel, { color: onBrand }]}>{isEdit ? 'Save Changes' : 'Save Route'}</Text>}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -424,21 +669,23 @@ const styles = StyleSheet.create({
   helper:     { fontSize: 12, lineHeight: 16 },
 
   pillRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  ratingPill:  { width: 48, height: 44, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  surfacePill: { paddingHorizontal: 18, height: 44, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  ratingPill:  { width: 48, height: 44, borderRadius: PILL_RADIUS, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  surfacePill: { paddingHorizontal: 18, height: 44, borderRadius: PILL_RADIUS, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   pillText:    { fontSize: 15, fontWeight: '700' },
 
   tagSection:  { paddingTop: 18, borderTopWidth: 1, gap: 4, marginHorizontal: -16, paddingHorizontal: 16 },
   switchRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 18, borderTopWidth: 1 },
   switchLabel: { fontSize: 15, fontWeight: '700' },
+  // The same card the post form puts its "Post To" choice in.
+  postToCard:  { borderWidth: 1, borderRadius: COMMON_RADIUS, padding: 14 },
 
   actions: {
     flexDirection: 'row', gap: 12,
     paddingHorizontal: 16, paddingTop: 12,
     borderTopWidth: 1,
   },
-  primaryBtn:     { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  primaryBtn:     { height: 52, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   primaryLabel:   { fontSize: 16, fontWeight: '800' },
-  secondaryBtn:   { height: 52, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
+  secondaryBtn:   { height: 52, borderRadius: COMMON_RADIUS, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   secondaryLabel: { fontSize: 16, fontWeight: '700' },
 });

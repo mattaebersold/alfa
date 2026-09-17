@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity,
@@ -11,6 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetPostsQuery } from '../../api/apiService';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -22,6 +23,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type Tab = 'listing' | 'want';
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -71,6 +73,9 @@ function ListingRow({ post, onPress, onMessage }: { post: Post; onPress: () => v
 }
 
 export default function MarketplaceScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const appNav = useNavigation<AppNav>();
   const colors = useColors();
   const headerPad = useHeaderPad();
@@ -144,6 +149,7 @@ export default function MarketplaceScreen() {
         <Spinner fullScreen />
       ) : (
         <FlatList
+          ref={scrollRef}
           refreshControl={refreshControl}
           data={posts}
           keyExtractor={(p) => p.internal_id}
@@ -203,14 +209,14 @@ const styles = StyleSheet.create({
   rowInfo:        { flex: 1, gap: 4 },
   rowTitle:       { fontSize: 14, fontWeight: '700', lineHeight: 20 },
   rowPriceRow:    { flexDirection: 'row' },
-  pricePill:      { backgroundColor: '#16A34A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' },
+  pricePill:      { backgroundColor: '#16A34A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS, alignSelf: 'flex-start' },
   priceText:      { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   rowMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowTime:        { fontSize: 11 },
   msgBtn:         {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 9, paddingVertical: 6,
-    borderRadius: 8, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignSelf: 'center', marginLeft: 4,
   },
   msgBtnText:     { fontSize: 12, fontWeight: '700' },

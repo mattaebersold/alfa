@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,12 +23,16 @@ import { CONFIG } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import InviteFriendModal from '../members/InviteFriendModal';
+import ProfileSetupCard from '../members/ProfileSetupCard';
+import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
+import WhatsNewButton from './WhatsNew';
 import { logout } from '../../store/authSlice';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -198,6 +202,8 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const [proOpen, setProOpen] = useState(false);
   /** Open when non-null; the origin is the row the panel grows out of. */
   const [invite, setInvite] = useState<{ origin: SummaryOrigin | null } | null>(null);
+  /** The add-a-car form, open over the menu — see the setup card below. */
+  const [carFormOpen, setCarFormOpen] = useState(false);
   const { openEventSheet } = useEventSheet();
 
   const translateX = useRef(new Animated.Value(PANEL_WIDTH)).current;
@@ -307,10 +313,11 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               ]}
               showsVerticalScrollIndicator={false}
             >
-              {/* First thing in the menu, above your own account row. It's the
+              {/* The head of the list, above your own account row. It's the
                   only gold in a white-on-dark drawer, so it reads as the one
                   offer rather than another destination — and it's gone entirely
-                  for members who already have it. */}
+                  for members who already have it, which puts the account row
+                  back on top for everyone who's paid. */}
               {!isPro && (
                 <TouchableOpacity
                   style={styles.proCallout}
@@ -332,10 +339,61 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                 </TouchableOpacity>
               )}
 
-              {/* Your inbox — pills, not tiles, and above your own account
-                  rather than under it. These are the two things that might be
-                  waiting for you, so they're what the menu opens on; the grid
-                  below is where you go when nothing is.
+              {/* Your own account. Dashboard and Settings are where you go to
+                  change anything about yourself, and as a grey tile a third of
+                  the way down it read as one more row among the destinations.
+                  Cream, the wheel's own colour, is the one light surface in a
+                  dark drawer, so it's found early whether or not the gold sits
+                  above it; the cog says "settings" before the label does.
+
+                  In the list rather than pinned above it: pinned, it and the
+                  footer were eating fixed height at both ends and squeezing
+                  the tiles into the band left over. */}
+              {userInfo && (
+                <TouchableOpacity
+                  style={styles.userCard}
+                  onPress={() => goFeed('Dashboard')}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="My Dashboard & Settings"
+                >
+                  <Avatar
+                    user={userInfo}
+                    size={44}
+                  />
+                  <View style={styles.userCardText}>
+                    <Text style={styles.userCardName} numberOfLines={1}>My Dashboard & Settings</Text>
+                    <Text style={styles.userCardSub} numberOfLines={1}>@{displayName}</Text>
+                  </View>
+                  <View style={styles.userCardCog}>
+                    <Settings size={19} color={LOGO_CREAM} strokeWidth={2.2} />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* What's left of setting up a profile — renders nothing once
+                  every step is done or dismissed. Pro members too: an account
+                  can be paid for and still have no photo. */}
+              {userInfo && (
+                <ProfileSetupCard
+                  // Photo and bio are done in sheets inside the card, and the
+                  // car form now opens over the menu too: closing everything
+                  // to push CarCreate dropped you back on whatever screen was
+                  // under the drawer once the car was saved, with the rest of
+                  // the checklist gone. Only a post still leaves — Create is a
+                  // full-screen composer, not a sheet.
+                  onGo={(step) => (
+                    step === 'car'
+                      ? setCarFormOpen(true)
+                      : closeThen(() => navigation.navigate('Create'))
+                  )}
+                />
+              )}
+
+              {/* Your inbox — pills, not tiles, and ahead of the grid. These
+                  are the two things that might be waiting for you, so they
+                  come before the places you browse to; the grid below is where
+                  you go when nothing is.
 
                   Outlined and inline rather than filled and stacked: drawn
                   like the tiles they read as two more destinations in the same
@@ -353,28 +411,6 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   onPress={() => closeThen(() => navigation.navigate('Notifications'))}
                 />
               </View>
-
-              {/* Your own account, at the head of the list rather than pinned
-                  above it. Pinned, it and the footer were eating fixed height
-                  at both ends and squeezing the tiles into the band left over;
-                  in the list it just scrolls away like everything else. */}
-              {userInfo && (
-                <TouchableOpacity
-                  style={styles.userCard}
-                  onPress={() => goFeed('Dashboard')}
-                  activeOpacity={0.8}
-                >
-                  <Avatar
-                    user={userInfo}
-                    size={44}
-                  />
-                  <View style={styles.userCardText}>
-                    <Text style={styles.userCardName}>@{displayName}</Text>
-                    <Text style={styles.userCardSub}>Dashboard & Settings</Text>
-                  </View>
-                  <ChevronRight size={16} color={TEXT_HI} />
-                </TouchableOpacity>
-              )}
 
               {SHOW_YOUR_EVENTS && (
                 <View style={styles.pairRow}>
@@ -491,6 +527,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               </SummaryTouchable>
 
               <View style={styles.footer}>
+                {/* Leads the small print, above the version pill it's about.
+                    Renders nothing when this version has no notes written up —
+                    see src/constants/changelog.ts — so the footer goes back to
+                    what it was rather than offering an empty panel. Its own
+                    modal and its own unread dot live inside it. */}
+                <WhatsNewButton />
+
                 {/* Above the copyright, on its own line — it's the one piece of
                     small print anyone actually goes looking for, usually to read
                     it out when something's wrong. A pill in mono, because that's
@@ -642,6 +685,14 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
         message="We're working on a pro-level tier with additional features. If you're interested, then click Get Notified and we'll let you know when it's available."
       />
 
+      {/* Hosted in the drawer's own Modal rather than pushed as the CarCreate
+          route. The drawer is an RN Modal, and on iOS a native-stack modal
+          presents from beneath it — the form would open behind the menu. A
+          Modal mounted in here stacks on top, the same way the setup card's
+          photo and bio sheets do. Mounted only while open: the sheet runs its
+          own close animation and reports back when it's gone. */}
+      {carFormOpen && <CarCreateSheet onDismissed={() => setCarFormOpen(false)} />}
+
       <InviteFriendModal
         visible={!!invite}
         origin={invite?.origin}
@@ -705,16 +756,24 @@ const styles = StyleSheet.create({
     fontSize: 10, fontWeight: '800', color: '#000000',
     letterSpacing: 0.8,
   },
+  // Light on dark — the one cream surface in the drawer, so it leads the eye.
   userCard:   {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     // No horizontal margin any more — the scroll content supplies the gutter
     // now that this sits inside it.
-    marginBottom: 10, paddingHorizontal: 16, paddingVertical: 12,
-    borderRadius: 16, backgroundColor: TILE_BG,
+    marginBottom: 10, paddingHorizontal: 14, paddingVertical: 12,
+    borderRadius: COMMON_RADIUS, backgroundColor: LOGO_CREAM,
   },
-  userCardText: { flex: 1 },
-  userCardName: { fontSize: 15, fontWeight: '600', color: TEXT_HI },
-  userCardSub:  { fontSize: 13, fontWeight: '600', color: TEXT_MID, marginTop: 1 },
+  userCardText: { flex: 1, minWidth: 0 },
+  userCardName: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  userCardSub:  { fontSize: 13, fontWeight: '600', color: 'rgba(0,0,0,0.6)', marginTop: 1 },
+  // Dark chip, cream cog — the card's colours swapped, so the icon reads as the
+  // button's mark rather than a stray glyph on the cream.
+  userCardCog: {
+    width: 36, height: 36, borderRadius: COMMON_RADIUS,
+    backgroundColor: '#121212',
+    alignItems: 'center', justifyContent: 'center',
+  },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
   // No wrap: the two share the row evenly rather than sizing to their labels,
@@ -754,7 +813,7 @@ const styles = StyleSheet.create({
   rowGap:       { marginTop: 8 },
   unreadPill:   {
     position: 'absolute', top: 7, right: 7,
-    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6,
+    minWidth: 20, height: 20, borderRadius: PILL_RADIUS, paddingHorizontal: 6,
     backgroundColor: BRASS,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -763,14 +822,14 @@ const styles = StyleSheet.create({
   aboutBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginTop: 20,
-    paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14, borderRadius: COMMON_RADIUS,
   },
   aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#000000' },
   supportBtn:   { marginTop: 8 },
 
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   socialBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 40, height: 40, borderRadius: COMMON_RADIUS,
     backgroundColor: CHIP_BG,
     alignItems: 'center', justifyContent: 'center',
   },

@@ -6,6 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
+import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Search as SearchIcon, X, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
+import { PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -30,7 +32,8 @@ type Hit = {
   image?: string | null;
   /** Members get an avatar rather than a photo, initials and all. */
   user?: any;
-  go: (nav: NavProp) => void;
+  /** `openGroup` routes a group by membership — see GroupSummaryProvider. */
+  go: (nav: NavProp, openGroup: (groupId: string) => void) => void;
 };
 
 /**
@@ -103,7 +106,7 @@ const SECTIONS: {
       title: g.title || 'Group',
       subtitle: g.subtitle || g.region || undefined,
       image: firstGalleryUrl(g.gallery),
-      go: (nav) => nav.navigate('GroupDetailModal', { groupId: g.internal_id }),
+      go: (_nav, openGroup) => openGroup(g.internal_id),
     }),
   },
   {
@@ -240,6 +243,7 @@ export default function SearchOverlay({
   const c = useColors();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
+  const { openGroup } = useGroupSummary();
   const keyboardHeight = useKeyboardHeight();
 
   const [query, setQuery] = useState('');
@@ -435,7 +439,7 @@ export default function SearchOverlay({
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.row, Platform.OS === 'android' && styles.rowAndroid]}
-              onPress={() => dismiss(() => item.go(navigation))}
+              onPress={() => dismiss(() => item.go(navigation, openGroup))}
               activeOpacity={0.8}
             >
               {item.user ? (
@@ -582,7 +586,7 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 14.5, fontWeight: '700' },
   // The badge sizes to its word rather than filling the row.
   kindRow:   { flexDirection: 'row' },
-  kindBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
+  kindBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
   // Not bold — it's a label on the row, and at weight 800 it was reading as
   // loudly as the title next to it.
   kindText:  { fontSize: 10, fontWeight: '600' },

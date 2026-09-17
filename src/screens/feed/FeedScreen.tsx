@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, type FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,8 +11,9 @@ import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
 // import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
 import UpcomingEventsRow from '../../components/feed/UpcomingEventsRow';
 import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
-import { useFeedPreferences } from '../../hooks/useFeedPreferences';
+import { useFeedPreferences, type SuggestionRow } from '../../hooks/useFeedPreferences';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
@@ -39,12 +40,12 @@ function PostPrompt() {
 }
 
 function FeedHeader() {
+  const colors = useColors();
   const isPro = useIsPro();
-  const { suggestionsHidden, hideSuggestions } = useFeedPreferences();
-  // One dialog for both rows: the choice it collects applies to suggestions as
-  // a whole, so a per-row copy would be two ways to reach the same switch.
-  const [hideDialog, setHideDialog] = useState(false);
-  const openHideDialog = () => setHideDialog(true);
+  const { isRowHidden, hideRow } = useFeedPreferences();
+  // One dialog, told which row's ✕ opened it — closing a row closes that row
+  // and leaves the other where it is.
+  const [hiding, setHiding] = useState<SuggestionRow | null>(null);
 
   return (
     <View>
@@ -53,24 +54,30 @@ function FeedHeader() {
       {/* Quick links lead: they're where you go, and the feed opens with them
           rather than with a row you have to scroll past to reach them. */}
       <FeedQuickLinks />
-      <UpcomingEventsRow />
       <PostPrompt />
-      {!suggestionsHidden && (
-        <>
-          <SuggestedMembersRow onRequestHide={openHideDialog} />
-          <SuggestedCarsRow onRequestHide={openHideDialog} />
-        </>
+      <UpcomingEventsRow />
+      {!isRowHidden('members') && <SuggestedMembersRow onRequestHide={() => setHiding('members')} />}
+      {/* With no card behind either row, this rule is what keeps them from
+          running together into one long shelf. Only between the two — with
+          one closed there's nothing to separate. */}
+      {!isRowHidden('members') && !isRowHidden('cars') && (
+        <View style={[styles.rowRule, { backgroundColor: colors.borderDark }]} />
       )}
+      {!isRowHidden('cars') && <SuggestedCarsRow onRequestHide={() => setHiding('cars')} />}
       <HideSuggestionsDialog
-        visible={hideDialog}
-        onClose={() => setHideDialog(false)}
-        onChoose={hideSuggestions}
+        visible={hiding !== null}
+        rowTitle={hiding === 'cars' ? 'Suggested Cars' : 'Suggested Members'}
+        onClose={() => setHiding(null)}
+        onChoose={(mode) => hiding && hideRow(hiding, mode)}
       />
     </View>
   );
 }
 
 export default function FeedScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const headerPad = useHeaderPad();
@@ -96,6 +103,7 @@ export default function FeedScreen() {
             comment button, a summary panel for whoever liked it — so the push
             only ever arrived at the same content one level deeper. */}
         <FeedList
+          listRef={scrollRef}
           excludeTypes={['story']}
           includeGarageAdditions
           ListHeaderComponent={FeedHeader}
@@ -109,10 +117,13 @@ export default function FeedScreen() {
 
 const styles = StyleSheet.create({
   content: { flex: 1 },
+  // Inset to the rows' own 12 gutter, so it ends where their headings start.
+  rowRule: { height: StyleSheet.hairlineWidth, marginHorizontal: 12, marginTop: 8 },
   prompt: {
     marginHorizontal: 8,
-    marginTop: 12,
-    marginBottom: 4,
+    // The quick links above already end in 10 of their own padding.
+    marginTop: 2,
+    marginBottom: 0,
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderRadius: 12,

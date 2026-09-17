@@ -1,100 +1,150 @@
-import React, { useState } from 'react';
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ThumbsUp } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { useVoteRouteMutation, useUnvoteRouteMutation } from '../../api/apiService';
+import { useUpvoteRouteMutation, useDownvoteRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { useAppSelector } from '../../store/store';
+import type { RouteVote } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
- * The vote control for a route.
+ * The vote control for a route: thumbs up, the score, thumbs down.
  *
- * Votes reuse the shared Like collection server-side, but they get their own
- * control because an upvote on a road recommendation reads differently from a
- * heart on a photo — and because routes are ranked by it. A thumbs-up rather
- * than a chevron: the chevron read as "expand this", which is the one thing the
- * button doesn't do.
+ * Voting works the way it does on a group discussion post — the same server
+ * helper casts both — so pressing your current side again takes the vote back
+ * and pressing the other side switches it. The score in the middle is upvotes
+ * minus downvotes, which is what the "Top" sort orders by.
  *
- * This compact form is a plain toggle. The detail screen splits the same pill
- * in two so the count can open the list of who voted — there's room for two
- * targets there and not here.
+ * It used to be a single thumbs-up stored as a Like. Routes can be liked for
+ * real now, and a vote that was also a like meant one tap said two things, so
+ * the vote moved onto the route and gained a down side.
  *
- * The count updates optimistically so a tap feels instant, and rolls back if
- * the request fails rather than leaving a number that disagrees with the server.
+ * The press lands optimistically and then settles on the server's numbers —
+ * someone else may have voted between render and tap. On failure it rolls back
+ * rather than leaving a count that disagrees with the server.
  */
 interface VoteButtonProps {
   routeId: string;
-  initialCount: number;
-  initialVoted?: boolean;
+  /** Upvotes minus downvotes. */
+  score: number;
+  userVote?: RouteVote;
   /** Larger presentation for the detail screen. */
   large?: boolean;
 }
 
+/** What one press does to the score, given the vote it was pressed over. */
+function nextState(score: number, mine: RouteVote, direction: 'up' | 'down') {
+  const sign = direction === 'up' ? 1 : -1;
+  if (mine === direction) return { score: score - sign, mine: null };
+  if (mine) return { score: score + 2 * sign, mine: direction };
+  return { score: score + sign, mine: direction };
+}
+
 export default function VoteButton({
   routeId,
-  initialCount,
-  initialVoted = false,
+  score,
+  userVote = null,
   large = false,
 }: VoteButtonProps) {
   const colors = useColors();
-  const brand = useBrandColor();
-  const onBrand = contrastText(brand);
+  const signedIn = useAppSelector((s) => !!s.auth.userInfo?.user_id);
 
-  const [voted, setVoted] = useState(initialVoted);
-  const [count, setCount] = useState(initialCount);
-  const [vote] = useVoteRouteMutation();
-  const [unvote] = useUnvoteRouteMutation();
+  const [state, setState] = useState<{ score: number; mine: RouteVote }>({ score, mine: userVote });
+  const [busy, setBusy] = useState(false);
+  const [upvote] = useUpvoteRouteMutation();
+  const [downvote] = useDownvoteRouteMutation();
 
-  const toggle = async () => {
-    const next = !voted;
-    setVoted(next);
-    setCount((c) => c + (next ? 1 : -1));
+  // A refetch (after a vote elsewhere, or a pull to refresh) is the truth again.
+  useEffect(() => { setState({ score, mine: userVote }); }, [score, userVote]);
+
+  const cast = async (direction: 'up' | 'down') => {
+    if (busy) return;
+    if (!signedIn) {
+      Alert.alert('Sign in to vote', 'Voting on routes needs an account.');
+      return;
+    }
+    const before = state;
+    setState(nextState(before.score, before.mine, direction));
+    setBusy(true);
     Haptics.selectionAsync().catch(() => {});
 
     try {
-      const result = await (next ? vote(routeId) : unvote(routeId)).unwrap();
-      // Trust the server's number over the optimistic one — someone else may
-      // have voted between render and tap.
-      setCount(result.vote_count);
-      setVoted(result.has_voted);
-    } catch {
-      setVoted(!next);
-      setCount((c) => c + (next ? -1 : 1));
+      const result = await (direction === 'up' ? upvote : downvote)(routeId).unwrap();
+      setState({ score: result.score ?? result.vote_count, mine: result.user_vote });
+    } catch (err: any) {
+      setState(before);
+      Alert.alert('Error', err?.data?.error || "Couldn't record that vote. Please try again.");
+    } finally {
+      setBusy(false);
     }
   };
 
+  const iconSize = large ? 18 : 15;
+  const upColor = state.mine === 'up' ? colors.primaryAlt : colors.fg;
+  const downColor = state.mine === 'down' ? colors.red : colors.fg;
+  const scoreColor = state.mine === 'up' ? colors.primaryAlt : state.mine === 'down' ? colors.red : colors.fg;
+
   return (
-    <TouchableOpacity
-      style={[
-        styles.btn,
-        large && styles.btnLarge,
-        voted ? { backgroundColor: brand, borderColor: brand } : { borderColor: colors.border },
-      ]}
-      onPress={toggle}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityLabel={voted ? 'Remove your vote' : 'Vote for this route'}
-    >
-      <ThumbsUp size={large ? 18 : 15} color={voted ? onBrand : colors.fg} strokeWidth={2.4} />
-      <Text
-        style={[
-          large ? styles.labelLarge : styles.label,
-          { color: voted ? onBrand : colors.fg },
-        ]}
+    <View style={[styles.pill, large && styles.pillLarge, { borderColor: colors.border }]}>
+      <TouchableOpacity
+        style={[styles.side, large && styles.sideLarge]}
+        onPress={() => cast('up')}
+        disabled={busy}
+        hitSlop={{ top: 6, bottom: 6 }}
+        activeOpacity={0.6}
+        accessibilityRole="button"
+        accessibilityState={{ selected: state.mine === 'up' }}
+        accessibilityLabel={state.mine === 'up' ? 'Remove your upvote' : 'Upvote this route'}
       >
-        {count}
+        <ThumbsUp
+          size={iconSize}
+          color={upColor}
+          fill={state.mine === 'up' ? colors.primaryAlt : 'transparent'}
+          strokeWidth={2.2}
+        />
+      </TouchableOpacity>
+
+      <Text
+        style={[large ? styles.scoreLarge : styles.score, { color: scoreColor }]}
+        accessibilityLabel={`Score ${state.score}`}
+      >
+        {state.score}
       </Text>
-    </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.side, large && styles.sideLarge]}
+        onPress={() => cast('down')}
+        disabled={busy}
+        hitSlop={{ top: 6, bottom: 6 }}
+        activeOpacity={0.6}
+        accessibilityRole="button"
+        accessibilityState={{ selected: state.mine === 'down' }}
+        accessibilityLabel={state.mine === 'down' ? 'Remove your downvote' : 'Downvote this route'}
+      >
+        <ThumbsDown
+          size={iconSize}
+          color={downColor}
+          fill={state.mine === 'down' ? colors.red : 'transparent'}
+          strokeWidth={2.2}
+        />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  btn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 11, height: 32,
-    borderRadius: 100, borderWidth: 1.5,
+  // One outline around all three, so the score reads as belonging to the
+  // thumbs either side of it rather than as a stray number.
+  pill: {
+    flexDirection: 'row', alignItems: 'center',
+    height: 32, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
-  btnLarge:   { paddingHorizontal: 16, height: 42 },
-  label:      { fontSize: 14, fontWeight: '800' },
-  labelLarge: { fontSize: 16, fontWeight: '800' },
+  pillLarge:  { height: 42 },
+  side:       { height: '100%', paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center' },
+  sideLarge:  { paddingHorizontal: 13 },
+  // A minimum width so the pill doesn't change size as the score gains a digit
+  // or a minus sign under your thumb.
+  score:      { minWidth: 16, textAlign: 'center', fontSize: 14, fontWeight: '800' },
+  scoreLarge: { minWidth: 22, textAlign: 'center', fontSize: 16, fontWeight: '800' },
 });

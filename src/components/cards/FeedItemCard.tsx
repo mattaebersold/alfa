@@ -45,6 +45,7 @@ import { stripHtml } from '../../utils/text';
 import PostContextRow from '../social/PostContextRow';
 import LikersSheet from '../social/LikersSheet';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -66,6 +67,12 @@ interface FeedItemCardProps {
    */
   onPress?: () => void;
   onCommentPress?: () => void;
+  /**
+   * Whether this card is on screen. Forwarded to the media carousel so a
+   * playing video stops when it scrolls away. Undefined means "don't manage
+   * it" — surfaces without a list leave playback alone.
+   */
+  visible?: boolean;
 }
 
 // "Liked by matt and 3 others" — resolves the username of a representative liker
@@ -166,7 +173,7 @@ function LikedByLine({ likers, total, myId, names, onPressUser, color, style }: 
   );
 }
 
-export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }: FeedItemCardProps) {
+export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -269,6 +276,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       <LikeButton
         documentId={post.internal_id}
         entryType={entryType}
+        ownerId={post.user_id}
         initialCount={likeCount}
         initialLiked={iLiked}
         // Switches this card off the feed's snapshot and onto the live query,
@@ -278,6 +286,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
       />
       <CommentButton
         count={post.comment_count ?? post.commentCount ?? 0}
+        documentId={post.internal_id}
         onPress={onCommentPress}
         color="#FFFFFF"
       />
@@ -323,7 +332,10 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           onPress={() => user?.user_id && setSummaryUserId(user.user_id)}
           activeOpacity={0.7}
         >
-          <Avatar user={user} size={36} />
+          {/* Squared to the app's corner rather than a circle — it sits in a
+              card built from the same radius, and a lone circle in that row
+              read as a different kind of object. */}
+          <Avatar user={user} size={36} radius={COMMON_RADIUS} />
           <View style={styles.headerText}>
             <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
           </View>
@@ -419,10 +431,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress }:
           <View>
             <PostMediaCarousel
               media={media}
-              // The count badge above already says how many there are, and it's
-              // the thing you can act on — a row of dots underneath was saying
-              // the same thing again, less precisely.
-              showPageIndicator={false}
+              // Dots at the foot of the photo, back again. The count badge says
+              // how many there are and opens the viewer; it can't say which one
+              // you're on, and without that a swipe gave no sign it had
+              // landed anywhere. The carousel's dots are the same small
+              // white/translucent row this card drew before it had one.
+              showPageIndicator
+              visible={visible}
               // With no destination to go to, a tap on a photo opens the photo
               // — the same viewer the gallery badge opens. A video's first tap
               // is still its own: it starts playback.
@@ -545,7 +560,7 @@ const styles = StyleSheet.create({
     // The card is full-bleed, so this rounds against the page rather than
     // inside a gutter — enough to read as a card, short of the point where a
     // tile cropped by the screen edge starts to look like a mistake.
-    borderRadius: 20,
+    borderRadius: COMMON_RADIUS,
     marginVertical: 6,
     overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
@@ -590,7 +605,7 @@ const styles = StyleSheet.create({
   },
   imgBadge:   {
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5,
+    paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS,
   },
   imgBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
 
@@ -599,7 +614,7 @@ const styles = StyleSheet.create({
   },
   priceBadge:    {
     backgroundColor: '#3a8a3a',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4
   },
   priceBadgeText: { fontSize: 13, fontWeight: '800', color: '#000' },
@@ -610,7 +625,7 @@ const styles = StyleSheet.create({
     // two-character count it was a very small thing to hit. `hitSlop` widens
     // the touch area again beyond what's drawn.
     paddingHorizontal: 13, paddingVertical: 9,
-    borderRadius: 10,
+    borderRadius: PILL_RADIUS,
   },
   // Not bold: at 800 the count read as loudly as the post's own title.
   multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },

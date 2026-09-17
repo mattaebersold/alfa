@@ -27,6 +27,7 @@ import { imageUrl } from '../../utils/image';
 import { validateUsername } from '../../utils/username';
 import type { ProfileLink } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 function SectionHeader({ title }: { title: string }) {
   const colors = useColors();
@@ -43,7 +44,7 @@ function Field({
   label: string; value: string; onChangeText: (v: string) => void;
   placeholder?: string; secureTextEntry?: boolean;
   autoCapitalize?: 'none' | 'words' | 'sentences';
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: 'default' | 'email-address' | 'number-pad';
   error?: string; hint?: string; multiline?: boolean;
 }) {
   const colors = useColors();
@@ -90,6 +91,12 @@ export default function SettingsScreen() {
    */
   const [links, setLinks] = useState<ProfileLink[]>([]);
   const [savingLinks, setSavingLinks] = useState(false);
+  /**
+   * The member's zip — private, and the one location they actually type.
+   * Everything public comes from it: "Bothell, WA" on the profile, the region
+   * every filter sorts by, the map tile, and the point "near me" measures from.
+   */
+  const [zip, setZip] = useState('');
   const [cityState, setCityState] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -117,6 +124,7 @@ export default function SettingsScreen() {
       setBio(user.bio ?? '');
       setLinks(user.links ?? []);
       setCityState(user.cityState ?? '');
+      setZip(user.zip != null ? String(user.zip).padStart(5, '0') : '');
       setUsername(user.username ?? '');
       setEmail(user.email ?? '');
     }
@@ -129,9 +137,22 @@ export default function SettingsScreen() {
     try {
       await updateSetting({ type: 'name', userid, firstName, lastName }).unwrap();
       await updateSetting({ type: 'bio', userid, bio }).unwrap();
+
+      // Only when it changed: the server re-geocodes and re-renders the map
+      // tile, both of which are billed per call.
+      const current = user?.zip != null ? String(user.zip).padStart(5, '0') : '';
+      if (zip.trim() && zip.trim() !== current) {
+        const saved: any = await updateSetting({ type: 'zip', zip: zip.trim() }).unwrap();
+        if (saved?.cityState) setCityState(saved.cityState);
+      }
+
       Alert.alert('Saved', 'Profile updated.');
-    } catch {
-      Alert.alert('Error', 'Failed to save profile.');
+    } catch (err: any) {
+      // A zip the server couldn't find comes back worded — "check the number"
+      // is more use than "failed to save".
+      const message = err?.data?.error;
+      Alert.alert('Error', message || 'Failed to save profile.');
+      return;
     } finally {
       setSavingProfile(false);
     }
@@ -281,7 +302,21 @@ export default function SettingsScreen() {
             <Field label="First Name" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
             <Field label="Last Name" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" />
             <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Tell us about yourself" multiline />
-            <Field label="City / State" value={cityState} onChangeText={setCityState} placeholder="e.g. Los Angeles, CA" autoCapitalize="words" />
+            {/* A zip rather than a typed city: it's what the region, the map
+                and "near me" are all worked out from, and it can't be
+                half-right the way free text can. The city it resolves to is
+                shown back, since that's the part other members see. */}
+            <Field
+              label="Zip code"
+              value={zip}
+              onChangeText={(text) => setZip(text.replace(/[^0-9]/g, '').slice(0, 5))}
+              placeholder="98021"
+              keyboardType="number-pad"
+              hint={cityState
+                ? `Shown on your profile as ${cityState}. Your zip stays private.`
+                : 'Sets your region, your map tile and what "near me" measures from. Your zip stays private.'}
+            />
+
           </View>
           <SaveButton label="Save Profile" onPress={handleSaveProfile} loading={savingProfile} />
         </View>
@@ -351,7 +386,9 @@ export default function SettingsScreen() {
             <Field
               label="Username"
               value={username}
-              onChangeText={(v) => { setUsername(v); setUsernameError(''); }}
+              // Spaces are dropped as they're typed — they can never be part
+              // of a handle, so there's nothing to tell someone about later.
+              onChangeText={(v) => { setUsername(v.replace(/\s+/g, '')); setUsernameError(''); }}
               placeholder="username"
               autoCapitalize="none"
               error={usernameError}
@@ -474,7 +511,7 @@ const styles = StyleSheet.create({
   linkRemove:   { padding: 8, marginTop: 22 },
   addLinkBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingVertical: 11, borderRadius: 10, borderWidth: 1.5, marginTop: 8,
+    paddingVertical: 11, borderRadius: COMMON_RADIUS, borderWidth: 1.5, marginTop: 8,
   },
   addLinkText:  { fontSize: 14, fontWeight: '700' },
   card:         { marginBottom: 0 },
@@ -496,7 +533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  saveBtn:      { margin: 16, marginTop: 4, backgroundColor: colors.primaryAlt, borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
+  saveBtn:      { margin: 16, marginTop: 4, backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingVertical: 13, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText:  { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 

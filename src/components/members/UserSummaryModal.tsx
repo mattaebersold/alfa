@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { Users, UserPlus, Mail, FileText, Car } from 'lucide-react-native';
+import { Users, UserPlus, FileText, Car } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
+import RegionBadge from '../ui/RegionBadge';
+import { regionForCityState } from '../../constants/regions';
 import Spinner from '../ui/Spinner';
 import FollowButton from '../social/FollowButton';
 import {
@@ -19,6 +21,7 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { stripHtml } from '../../utils/text';
 import { imageUrl } from '../../utils/image';
+import SummaryMessageButton from './SummaryMessageButton';
 
 /**
  * Enough of a member to decide whether you want their profile.
@@ -84,12 +87,6 @@ export default function UserSummaryModal({
   const bio = user?.bio ? stripHtml(user.bio) : '';
   const bannerUri = user?.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
 
-  /** Close first: iOS won't present a screen over a modal that's still going. */
-  const go = (run: () => void) => {
-    onClose();
-    requestAnimationFrame(run);
-  };
-
   return (
     <SummaryModal
       visible={!!userId}
@@ -137,6 +134,17 @@ export default function UserSummaryModal({
                 <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>
                   @{user.username}
                 </Text>
+                {/* Where they are, said twice over: the town in words, and
+                    the part of the country as a shape. Neither means much to
+                    a stranger on its own. */}
+                {user.cityState ? (
+                  <View style={styles.placeRow}>
+                    <RegionBadge region={regionForCityState(user.cityState)?.key} size={34} />
+                    <Text style={[styles.place, { color: colors.grey }]} numberOfLines={1}>
+                      {user.cityState}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -163,17 +171,7 @@ export default function UserSummaryModal({
                   can do to this person, not one offer and one afterthought.
                   The label still says which state Follow is in. */}
               {user.username ? <FollowButton username={user.username} variant="secondary" /> : null}
-              <TouchableOpacity
-                style={styles.messageBtn}
-                onPress={() => go(() => nav.navigate('ComposeMessage', {
-                  userId: user.user_id, username: user.username,
-                }))}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-              >
-                <Mail size={14} color="#FFFFFF" />
-                <Text style={styles.messageText}>Message</Text>
-              </TouchableOpacity>
+              <SummaryMessageButton userId={user.user_id} username={user.username} />
             </View>
           )}
           </View>
@@ -194,6 +192,8 @@ const styles = StyleSheet.create({
   head:     { flexDirection: 'row', alignItems: 'center', gap: 14 },
   headText: { flex: 1, alignItems: 'flex-start', gap: 4 },
   username: { fontSize: 19, fontWeight: '800', flexShrink: 1 },
+  placeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  place: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
   // Neutral rather than brand-filled: a member number is a fact about the
   // account, not a status, and in the brand colour it read as loudly as the
   // username beside it.
@@ -218,14 +218,4 @@ const styles = StyleSheet.create({
   bio: { fontSize: 13, lineHeight: 19 },
 
   actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  // Matched to Button's `secondary` at size `sm`, which is what Follow beside
-  // it renders as — same fill, radius, padding, size and weight. Two buttons
-  // that do the same kind of thing shouldn't be two different shapes.
-  messageBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#2A2A2A',
-  },
-  messageText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
 });

@@ -1,17 +1,27 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, Dimensions,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { useKeyboardInset, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // Near-black surfaces — matches the car-detail pane look.
 const SHEET_BG = '#161616';
-const SHEET_HEADER_BG = '#000000';
+// The header used to be pure black against the body's #161616, which read as a
+// separate bar stuck on top of the sheet rather than part of it. One ground,
+// with a hairline to mark the edge.
+const SHEET_HEADER_BG = SHEET_BG;
+
+/** How far down a drag has to go before release dismisses rather than snaps back. */
+const DISMISS_DISTANCE = 90;
+/** Or how fast, so a short flick still closes. */
+const DISMISS_VELOCITY = 0.8;
 
 // Android's bottom system UI (gesture bar / nav buttons) overlaps the sheet, so
 // pad the bottom to keep content clear of it. iOS clearance is handled by the
@@ -48,6 +58,14 @@ interface SharedModalProps {
    * two rows or fifty — a stable height beats one that jumps per open.
    */
   heightRatio?: number;
+  /**
+   * Keep the X in the header.
+   *
+   * Every sheet has a grabber now — tap it or drag it down — so the X is a
+   * second control for the same job. It stays available for sheets that want
+   * the extra affordance.
+   */
+  showClose?: boolean;
   children: React.ReactNode;
 }
 
@@ -57,7 +75,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -106,6 +124,40 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Drag the sheet down to dismiss it, by its grabber.
+   *
+   * The grabber is the affordance people already reach for on a sheet, and it
+   * was missing — the only way out was the X, or a tap on the backdrop nobody
+   * knew was tappable. The pan lives on the header rather than the whole sheet
+   * so it can't fight a scrolling list underneath.
+   *
+   * Built once and held in a ref: PanResponder reads its handlers at creation,
+   * so rebuilding it per render would hand the Modal a new responder mid-drag.
+   */
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        // Downward only — dragging up shouldn't lift the sheet off the bottom.
+        if (g.dy > 0) slideY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        // Far enough, or fast enough. A flick should close even if it's short.
+        if (g.dy > DISMISS_DISTANCE || g.vy > DISMISS_VELOCITY) {
+          onCloseRef.current();
+        } else {
+          Animated.spring(slideY, {
+            toValue: 0, tension: 60, friction: 12, useNativeDriver: true,
+          }).start();
+        }
+      },
+    }),
+  ).current;
+
   if (!rendered) return null;
 
   return (
@@ -143,13 +195,21 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               stops every sheet — full-height included — an inset plus 8pt short
               of the top of the screen, so adding the inset again here counted it
               twice and opened a band of dead black above the title. */}
-          <View style={styles.header}>
-            {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
-            <View style={styles.headerRight}>
-              {headerRight}
-              <TouchableOpacity onPress={onClose} hitSlop={8}>
-                <X size={22} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
+          <View {...panResponder.panHandlers}>
+            {/* Tap it or drag it down — both close. */}
+            <Pressable onPress={onClose} style={styles.grabberHit} hitSlop={6}>
+              <View style={styles.grabber} />
+            </Pressable>
+            <View style={styles.header}>
+              {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
+              <View style={styles.headerRight}>
+                {headerRight}
+                {showClose && (
+                  <TouchableOpacity onPress={onClose} hitSlop={8}>
+                    <X size={22} color="rgba(255,255,255,0.7)" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
           {children}
@@ -166,24 +226,38 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sheetSized: {
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: COMMON_RADIUS,
+    borderTopRightRadius: COMMON_RADIUS,
   },
   // Fills whatever the keyboard leaves, so the sheet shrinks rather than slides
-  // and its own bottom bar stays on screen. No top radius — there's no edge for
-  // it to round against.
-  sheetFull: { flex: 1 },
+  // and its own bottom bar stays on screen. It still caps below the status bar
+  // — `maxHeight: available` keeps it clear of the inset — so it has a top edge
+  // to round like every other sheet.
+  sheetFull: {
+    flex: 1,
+    borderTopLeftRadius: COMMON_RADIUS,
+    borderTopRightRadius: COMMON_RADIUS,
+  },
   // Fixed fraction: keeps the sized sheet's rounded cap, drops its min/max so
   // the explicit height is the only thing driving it.
   sheetRatio: {
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: COMMON_RADIUS,
+    borderTopRightRadius: COMMON_RADIUS,
+  },
+  grabberHit: {
+    alignItems: 'center', paddingTop: 8, paddingBottom: 4,
+    backgroundColor: SHEET_HEADER_BG,
+  },
+  grabber: {
+    width: 38, height: 4, borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.28)',
   },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10,
     backgroundColor: SHEET_HEADER_BG,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#000000',
+    // No rule under it: the header shares the sheet's ground now, so a line
+    // only redraws a seam the colour change already removed.
   },
   title:       { flex: 1, fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },

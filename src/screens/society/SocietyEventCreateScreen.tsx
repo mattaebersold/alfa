@@ -15,14 +15,16 @@ import {
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { EVENT_CATEGORIES, toDayKey } from '../../constants/eventTypes';
+import { EVENT_CATEGORIES, toDayKey, parseDayKey } from '../../constants/eventTypes';
 import { uploadFile } from '../../utils/upload';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { useAppSelector } from '../../store/store';
 import { DateField, TimeField } from '../../components/ui/DateTimeField';
 import OrsSponsoredToggle from '../../components/society/OrsSponsoredToggle';
+import AddressField from '../../components/ui/AddressField';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const FREQUENCIES = [
   { key: 'single',   label: 'Single Day' },
@@ -86,11 +88,21 @@ export default function SocietyEventCreateScreen() {
   const [category, setCategory] = useState('cars-and-coffee');
   const [frequency, setFrequency] = useState('single');
   const [date, setDate] = useState('');            // YYYY-MM-DD
+  /** Single events only: the last day of a multi-day event. Empty = one day. */
+  const [endDate, setEndDate] = useState('');
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [ordinals, setOrdinals] = useState<number[]>([]);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [location, setLocation] = useState('');
+  /**
+   * What autocomplete said about the address, when one was picked. Cleared the
+   * moment the text is typed over, so a hand-edited address never goes out
+   * carrying the coordinates of the place it used to name.
+   */
+  const [place, setPlace] = useState<{ place_id?: string; lat?: number; lng?: number } | null>(null);
+  /** "City, ST" — places the event in a region when no address was picked. */
+  const [cityState, setCityState] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [orsSponsored, setOrsSponsored] = useState(false);
 
@@ -102,11 +114,18 @@ export default function SocietyEventCreateScreen() {
     setCategory(existing.category ?? 'cars-and-coffee');
     setFrequency(existing.frequency ?? 'single');
     setDate(existing.date ? toDayKey(existing.date) : '');
+    setEndDate(existing.end_date ? toDayKey(existing.end_date) : '');
     setWeekdays(existing.weekdays ?? []);
     setOrdinals(existing.week_ordinals ?? []);
     setStartTime(existing.start_time ?? '');
     setEndTime(existing.end_time ?? '');
     setLocation(existing.location ?? '');
+    // Carried through an edit untouched — the server re-resolves the place
+    // from whatever's sent, and sending nothing would wipe the coordinates.
+    setPlace(existing.location_place_id || existing.location_lat != null
+      ? { place_id: existing.location_place_id, lat: existing.location_lat, lng: existing.location_lng }
+      : null);
+    setCityState(existing.location_city_state ?? '');
     setOrsSponsored(!!existing.ors_sponsored);
   }, [existing]);
 
@@ -128,6 +147,9 @@ export default function SocietyEventCreateScreen() {
   const handleSubmit = async () => {
     if (!title.trim()) return Alert.alert('Required', 'Give the event a title.');
     if (needsDate && !date) return Alert.alert('Required', 'Pick a date for this event.');
+    if (frequency === 'single' && endDate && endDate <= date) {
+      return Alert.alert('Check the dates', 'The end date needs to be after the start date — or clear it for a one-day event.');
+    }
     if (needsWeekdays && weekdays.length === 0) {
       return Alert.alert('Required', 'Pick at least one day of the week.');
     }
@@ -138,11 +160,21 @@ export default function SocietyEventCreateScreen() {
     fd.append('category', category);
     fd.append('frequency', frequency);
     if (needsDate) fd.append('date', date);
+    // Always sent for a single event, empty to clear — an edit that removes
+    // the end date has to say so, not just leave it out.
+    if (frequency === 'single') fd.append('end_date', endDate);
     if (needsWeekdays) fd.append('weekdays', JSON.stringify(weekdays));
     if (needsOrdinals && ordinals.length) fd.append('week_ordinals', JSON.stringify(ordinals));
     if (startTime) fd.append('start_time', startTime);
     if (endTime) fd.append('end_time', endTime);
     if (location.trim()) fd.append('location', location.trim());
+    if (place?.place_id) fd.append('location_place_id', place.place_id);
+    if (place?.lat != null && place?.lng != null) {
+      fd.append('location_lat', String(place.lat));
+      fd.append('location_lng', String(place.lng));
+    }
+    // Sent even when empty on an edit, so clearing it takes.
+    if (cityState.trim() || editingId) fd.append('location_city_state', cityState.trim());
     // Only admins can set this; horacio ignores it from anyone else.
     if (isAdmin) fd.append('ors_sponsored', String(orsSponsored));
     if (image) fd.append('gallery', uploadFile(image) as any);
@@ -158,7 +190,15 @@ export default function SocietyEventCreateScreen() {
       const openDetail = () => openEventSheet({ eventId: saved.internal_id ?? editingId! });
       if (Platform.OS === 'ios') setTimeout(openDetail, 350);
       else openDetail();
-    } catch {
+    } catch (err: any) {
+      // The monthly limit is the one refusal worth wording: the server says
+      // when it resets and what Pro changes, where "try again" would just fail
+      // again. The Events button normally catches this first — this is for a
+      // count that went stale while the form was open.
+      if (err?.data?.code === 'event_limit_reached') {
+        Alert.alert('Monthly limit reached', err.data.error);
+        return;
+      }
       Alert.alert('Error', `Could not ${editingId ? 'save' : 'create'} this event. Please try again.`);
     }
   };
@@ -213,9 +253,23 @@ export default function SocietyEventCreateScreen() {
 
         {needsDate && (
           <DateField
-            label={frequency === 'annually' ? 'First date (repeats yearly)' : 'Date'}
+            label={frequency === 'annually' ? 'First date (repeats yearly)' : frequency === 'single' ? 'Start date' : 'Date'}
             value={date}
             onChange={setDate}
+          />
+        )}
+
+        {/* A show over a weekend is one event on three days, not three
+            events. Optional — most events are one day, and leaving this empty
+            is how you say so. */}
+        {frequency === 'single' && (
+          <DateField
+            label="End date (optional, for multi-day events)"
+            value={endDate}
+            onChange={setEndDate}
+            placeholder="One day"
+            clearable
+            minimumDate={date ? parseDayKey(date) ?? undefined : undefined}
           />
         )}
 
@@ -260,13 +314,30 @@ export default function SocietyEventCreateScreen() {
 
         {/* ── Place ────────────────────────────────────────────────────────── */}
         <Text style={[styles.sectionTitle, { color: colors.fg }]}>Where</Text>
+        {/* Autocomplete, so a picked address brings its coordinates — which is
+            what puts the event on a map, in a region, and in "Near me". */}
+        <AddressField
+          value={location}
+          onChangeText={(text) => { setLocation(text); setPlace(null); }}
+          onPlacePicked={(p) => setPlace({ place_id: p.place_id, lat: p.lat ?? undefined, lng: p.lng ?? undefined })}
+          placeholder="Cafe name, address, or meeting point"
+          inputStyle={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+        />
+
+        <Text style={[styles.fieldLabel, { color: colors.grey }]}>City, state (optional)</Text>
         <TextInput
           style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
-          value={location}
-          onChangeText={setLocation}
-          placeholder="Cafe name, address, or meeting point"
+          value={cityState}
+          onChangeText={setCityState}
+          placeholder="Santa Monica, CA"
           placeholderTextColor={colors.grey}
+          autoCapitalize="words"
         />
+        <Text style={[styles.hint, { color: colors.grey }]}>
+          {place
+            ? 'Found from the address above — no need to fill this in.'
+            : "If the address wasn't picked from the list, this is how the event finds its region and shows up near people."}
+        </Text>
 
         {/* ── Image ────────────────────────────────────────────────────────── */}
         <Text style={[styles.fieldLabel, { color: colors.grey }]}>Image</Text>
@@ -304,6 +375,7 @@ export default function SocietyEventCreateScreen() {
 
 const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 16 },
+  hint: { fontSize: 12, lineHeight: 17, marginTop: 6 },
   input: {
     borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 12 : 9,
@@ -334,7 +406,7 @@ const styles = StyleSheet.create({
   imagePickerText: { fontSize: 14, fontWeight: '600' },
 
   submit: {
-    height: 52, borderRadius: 12, marginTop: 28,
+    height: 52, borderRadius: COMMON_RADIUS, marginTop: 28,
     alignItems: 'center', justifyContent: 'center',
   },
   submitText: { fontSize: 16, fontWeight: '800', color: '#000000' },

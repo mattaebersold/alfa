@@ -3,11 +3,13 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
+  GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
-  DrivingRoute, DrivingRouteDetail, RouteListParams, NearbyPlace,
+  DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace,
   FeedPreferences, HomeBanner, CarActivityItem,
   DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
   PhotoSpot, PhotoSpotUsage, PlacePrediction, PlaceDetail, GroupActivityItem,
+  MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -21,7 +23,7 @@ export const apiService = createApi({
     'CarFollow', 'Group', 'GroupMembers', 'GroupDiscussion', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
     'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites', 'Product',
-    'PhotoSpot',
+    'PhotoSpot', 'ArchivedCars',
   ],
   endpoints: (builder) => ({
 
@@ -52,20 +54,15 @@ export const apiService = createApi({
      * moves the bar without a manual refetch.
      */
     getUsage: builder.query<{
-      posts: {
-        used: number;
-        limit: number | null;
-        remaining: number | null;
-        reached: boolean;
-        resets_at: string | null;
-        isPro: boolean;
-      };
+      posts: MonthlyUsage;
+      /** Absent from servers older than the event limit. */
+      events?: MonthlyUsage;
       cars: { used: number; limit: number | null };
       routes: { pro_only: boolean; allowed: boolean };
       isPro: boolean;
     }, void>({
       query: () => 'api/users/usage',
-      providesTags: ['User', 'Post'],
+      providesTags: ['User', 'Post', 'SocietyEvent'],
     }),
 
     getUserStats: builder.query<{
@@ -85,18 +82,32 @@ export const apiService = createApi({
       query: (body) => ({ url: 'api/users/invite', method: 'POST', body }),
     }),
 
+    /**
+     * "My car isn't in the list" — from inside the create form.
+     *
+     * The make/model lists come from a reference table, so a missing marque is
+     * only ours to fix. This mails it in rather than making someone abandon
+     * the car and find support afterwards.
+     */
+    requestCarModel: builder.mutation<{ success: boolean }, { message: string }>({
+      query: (body) => ({ url: 'api/users/car-request', method: 'POST', body }),
+    }),
+
     searchUsers: builder.query<PaginatedResponse<User>, string>({
       query: (q) => ({ url: 'api/users/search', params: { q } }),
     }),
 
     // `region` is a US region key — see constants/regions. It narrows on the
     // state in the member's cityState and composes with the search term.
-    getUsers: builder.query<PaginatedResponse<User>, { page?: number; limit?: number; q?: string; region?: string } | void>({
+    getUsers: builder.query<
+      PaginatedResponse<User>,
+      ({ page?: number; limit?: number; q?: string } & EventLocationParams) | void
+    >({
       query: (args = {}) => {
-        const { page = 0, limit = 20, q, region } = args ?? {};
+        const { page = 0, limit = 20, q, ...location } = args ?? {};
         return {
           url: 'api/users',
-          params: { page, limit, ...(q ? { q } : {}), ...(region ? { region } : {}) },
+          params: { page, limit, ...(q ? { q } : {}), ...location },
         };
       },
     }),
@@ -210,32 +221,98 @@ export const apiService = createApi({
       providesTags: (result, error, { id }) => [{ type: 'Comment', id }],
     }),
 
-    getCommentCount: builder.query<number, { type: string; id: string }>({
-      query: ({ type, id }) => ({ url: 'api/comment/count', params: { type, id } }),
+    /**
+     * How many comments something has, right now.
+     *
+     * Not something cards ask for on their own — the list payloads already
+     * carry `comment_count`, and a request per card in a scrolling feed would
+     * be exactly the cost those payloads exist to avoid. It's fetched by the
+     * create/delete mutations below, for the one document whose count they just
+     * changed, and CommentButton picks the result up from the cache in place of
+     * the payload's snapshot. See CommentButton.
+     *
+     * Keyed on the id alone: a button knows which document it counts but not
+     * always the type its comments were filed under, and ids are unique across
+     * types anyway. The type still goes to the server when the caller has one,
+     * because builds of the API before the count endpoint was loosened reject a
+     * request without it.
+     *
+     * No tags, deliberately. The mutations refetch this explicitly once they've
+     * landed; if it also provided 'Comment', the blanket invalidation they fire
+     * would race that refetch and could drop the entry while no card holds it.
+     */
+    getCommentCount: builder.query<number, { id: string; type?: string }>({
+      query: ({ id, type }) => ({
+        url: 'api/comment/count',
+        params: { entry_id: id, ...(type ? { entry_type: type } : {}) },
+      }),
+      serializeQueryArgs: ({ queryArgs }) => ({ id: queryArgs.id }),
+      transformResponse: (res: { count?: number }) => res?.count ?? 0,
+      // A number per document you've commented on this session — nothing to
+      // economise on, and dropping it after the default minute would put a
+      // card scrolled back into view on its stale payload count again.
+      keepUnusedDataFor: 60 * 60,
     }),
 
     createComment: builder.mutation<any, FormData>({
       query: (body) => ({ url: 'api/comment/create', method: 'POST', body }),
       invalidatesTags: ['Comment'],
+      // The server answers with the comment it saved, which names the document
+      // — easier than reading it back out of a FormData.
+      async onQueryStarted(_body, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          const entry = data?.entry;
+          if (!entry?.document_id) return;
+          dispatch(apiService.endpoints.getCommentCount.initiate(
+            { id: entry.document_id, type: entry.document_entry_type },
+            { subscribe: false, forceRefetch: true },
+          ));
+        } catch { /* the caller reports the failure */ }
+      },
     }),
 
     /**
      * Deletes your own comment. `removed: true` in the response means it had
      * replies and was tombstoned in place rather than taken away — see the
      * server's deleteEntry.
+     *
+     * Pass the object form where you know what the comment was on, so the count
+     * shown on that thing's card can be refreshed; the bare id still works and
+     * just leaves counts alone.
      */
-    deleteComment: builder.mutation<{ success: boolean; removed: boolean }, string>({
+    deleteComment: builder.mutation<
+      { success: boolean; removed: boolean },
+      string | { id: string; documentId?: string; documentType?: string }
+    >({
       // `internal_id` is what the server reads; the old `comment_id` key meant
       // this silently matched nothing and reported success.
-      query: (id) => ({ url: `api/comment/delete`, method: 'POST', body: { internal_id: id } }),
+      query: (arg) => ({
+        url: `api/comment/delete`,
+        method: 'POST',
+        body: { internal_id: typeof arg === 'string' ? arg : arg.id },
+      }),
       invalidatesTags: ['Comment'],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        if (typeof arg === 'string' || !arg.documentId) return;
+        try {
+          await queryFulfilled;
+          dispatch(apiService.endpoints.getCommentCount.initiate(
+            { id: arg.documentId, type: arg.documentType },
+            { subscribe: false, forceRefetch: true },
+          ));
+        } catch { /* the caller reports the failure */ }
+      },
     }),
 
     // ── Cars / Garage ────────────────────────────────────────────────────────
 
     // `make`/`model` are only honoured alongside `filter: 'related'`, and match
     // against the handle forms (`make_handle`) rather than the display names.
-    getCars: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number; filter?: string; make?: string; model?: string; username?: string; user_id?: string; search?: string }>({
+    getCars: builder.query<
+      PaginatedResponse<GarageCar>,
+      { page?: number; limit?: number; filter?: string; make?: string; model?: string; username?: string; user_id?: string; search?: string } & EventLocationParams
+    >({
       query: (params = {}) => ({
         url: 'api/garage',
         params: { page: params.page ?? 0, limit: params.limit ?? 12, ...params },
@@ -290,6 +367,49 @@ export const apiService = createApi({
       invalidatesTags: ['GarageCar', 'Cars'],
     }),
 
+    /**
+     * The gentler answers to "delete this car" — see the car's `archived`
+     * field. Each invalidates both garage lists, since every one of them moves
+     * a car between the two.
+     */
+    getArchivedGarage: builder.query<{ entries: GarageCar[] }, void>({
+      query: () => 'api/protected/archived/garage',
+      providesTags: ['ArchivedCars'],
+    }),
+
+    archiveCar: builder.mutation<{ entry: GarageCar }, { internal_id: string }>({
+      query: (body) => ({ url: 'api/car/archive', method: 'POST', body }),
+      invalidatesTags: ['GarageCar', 'Cars', 'ArchivedCars'],
+    }),
+
+    restoreCar: builder.mutation<{ entry: GarageCar }, { internal_id: string }>({
+      query: (body) => ({ url: 'api/car/restore', method: 'POST', body }),
+      invalidatesTags: ['GarageCar', 'Cars', 'ArchivedCars'],
+    }),
+
+    transferCar: builder.mutation<{ entry: GarageCar }, { internal_id: string; user_id: string }>({
+      query: (body) => ({ url: 'api/car/transfer', method: 'POST', body }),
+      invalidatesTags: ['GarageCar', 'Cars', 'ArchivedCars'],
+    }),
+
+    // Answering an offer settles the notification that carried it, so the
+    // buttons on that card stop being live.
+    acceptCarTransfer: builder.mutation<{ entry: GarageCar }, { internal_id: string }>({
+      query: (body) => ({ url: 'api/car/transfer/accept', method: 'POST', body }),
+      invalidatesTags: ['GarageCar', 'Cars', 'ArchivedCars', 'Notifications'],
+    }),
+
+    // Also the sender's cancel — the server accepts either side.
+    declineCarTransfer: builder.mutation<{ entry: GarageCar }, { internal_id: string }>({
+      query: (body) => ({ url: 'api/car/transfer/decline', method: 'POST', body }),
+      invalidatesTags: ['GarageCar', 'Cars', 'ArchivedCars', 'Notifications'],
+    }),
+
+    getPendingCarTransfers: builder.query<{ entries: GarageCar[] }, void>({
+      query: () => 'api/car/transfers/pending',
+      providesTags: ['ArchivedCars'],
+    }),
+
     getCarBrands: builder.query<string[], void>({
       query: () => 'api/garage/brands/all',
       transformResponse: (response: { brands: { make: string; make_handle: string; qty: number }[] }) =>
@@ -302,6 +422,35 @@ export const apiService = createApi({
       transformResponse: (response: { models: { model: string; model_handle: string; qty?: number }[] }) =>
         response.models.map((m) => ({ model: m.model, model_handle: m.model_handle, qty: m.qty ?? 0 })),
       providesTags: (result, error, brand) => [{ type: 'Models', id: brand }],
+    }),
+
+    /**
+     * Every make on the reference list — what the make field may hold.
+     *
+     * Not `getCarBrands`: that one is the makes members have actually put in
+     * garages, with counts, and it drives the brand pages. A car being created
+     * picks from the full list (the `cars` collection), so the first Luscombe
+     * on the site isn't blocked by nobody having entered one before.
+     *
+     * Fetched whole (about a hundred names) and filtered as you type, so a
+     * keystroke never waits on the network. Held for an hour once unused: the
+     * list changes by hand, rarely.
+     */
+    getCarMakeOptions: builder.query<string[], void>({
+      query: () => 'api/cars/makes',
+      transformResponse: (response: { makes: string[] }) => response.makes ?? [],
+      keepUnusedDataFor: 3600,
+    }),
+
+    /**
+     * The models of one make from the reference list — what the model field may
+     * hold once a make is picked. Whole list per make (Ford's is the longest, at
+     * under two hundred), filtered locally like the makes.
+     */
+    getCarModelOptions: builder.query<string[], string>({
+      query: (make) => ({ url: 'api/cars/models', params: { make } }),
+      transformResponse: (response: { models: string[] }) => response.models ?? [],
+      keepUnusedDataFor: 3600,
     }),
 
     followCar: builder.mutation<void, { car_id: string }>({
@@ -530,13 +679,25 @@ export const apiService = createApi({
     // ── Society events (rebuilt model) ───────────────────────────────────
     // Occurrences are expanded server-side from each event's schedule, so a
     // "first and third Saturday" event arrives with real dates like any other.
-    getUpcomingEvents: builder.query<{ entries: SocietyEvent[]; total: number }, { limit?: number; category?: string; days?: number } | void>({
+    getUpcomingEvents: builder.query<
+      { entries: SocietyEvent[]; total: number; near_unavailable?: boolean },
+      ({ limit?: number; category?: string; days?: number } & EventLocationParams) | void
+    >({
       query: (params) => ({ url: 'api/events/upcoming', params: params ?? {} }),
       providesTags: ['SocietyEvent'],
     }),
 
-    getEventCalendar: builder.query<{ year: number; month: number; days: Record<string, SocietyEvent[]>; total: number }, { year: number; month: number; category?: string }>({
+    getEventCalendar: builder.query<
+      { year: number; month: number; days: Record<string, SocietyEvent[]>; total: number; near_unavailable?: boolean },
+      { year: number; month: number; category?: string } & EventLocationParams
+    >({
       query: (params) => ({ url: 'api/events/calendar', params }),
+      providesTags: ['SocietyEvent'],
+    }),
+
+    /** Regions with something coming up, for the events Location filter. */
+    getEventRegions: builder.query<{ regions: { key: string; label: string; count: number }[] }, void>({
+      query: () => 'api/events/regions',
       providesTags: ['SocietyEvent'],
     }),
 
@@ -633,13 +794,16 @@ export const apiService = createApi({
       invalidatesTags: ['Route', 'UserEntries'],
     }),
 
-    voteRoute: builder.mutation<{ vote_count: number; has_voted: boolean }, string>({
-      query: (internal_id) => ({ url: 'api/routes/vote', method: 'POST', body: { internal_id } }),
+    // Up and down, like a group discussion post: pressing your current side
+    // again removes the vote, pressing the other side switches it. The old
+    // thumbs-up /vote and /unvote still exist server-side for older builds.
+    upvoteRoute: builder.mutation<RouteVoteResult, string>({
+      query: (internal_id) => ({ url: 'api/routes/upvote', method: 'POST', body: { internal_id } }),
       invalidatesTags: (result, error, id) => [{ type: 'Route', id }, 'Route'],
     }),
 
-    unvoteRoute: builder.mutation<{ vote_count: number; has_voted: boolean }, string>({
-      query: (internal_id) => ({ url: 'api/routes/unvote', method: 'POST', body: { internal_id } }),
+    downvoteRoute: builder.mutation<RouteVoteResult, string>({
+      query: (internal_id) => ({ url: 'api/routes/downvote', method: 'POST', body: { internal_id } }),
       invalidatesTags: (result, error, id) => [{ type: 'Route', id }, 'Route'],
     }),
 
@@ -695,8 +859,12 @@ export const apiService = createApi({
      *
      * The server makes the creator an admin of the new group in the same call,
      * so nothing else has to happen for them to be able to run it.
+     *
+     * An optional `invite_user_ids` field (a JSON array) invites those members
+     * once the group is saved; `invited` is how many invitations went out —
+     * anyone already in the group, or an invite that failed, is skipped.
      */
-    createGroup: builder.mutation<{ _id: string }, FormData>({
+    createGroup: builder.mutation<{ _id: string; invited?: number }, FormData>({
       query: (body) => ({ url: 'api/group/create', method: 'POST', body }),
       // Both listings on the groups screen change: the new group belongs in
       // "My Groups" straight away, and it joins the public list too. Both are
@@ -760,9 +928,36 @@ export const apiService = createApi({
     // Every membership change also invalidates 'Group': the group document and
     // the group cards carry a member count and the viewer's own membership, so
     // refreshing only the roster leaves those disagreeing with it.
-    joinGroup: builder.mutation<void, string>({
-      query: (groupId) => ({ url: `api/group/${groupId}/join`, method: 'POST' }),
+    /**
+     * Ask to join a group, optionally bringing a car with you.
+     *
+     * `car_id` is held against the pending membership and applied when an
+     * admin approves — see the server's joinGroup/approveMember.
+     */
+    joinGroup: builder.mutation<void, string | { groupId: string; car_id?: string }>({
+      query: (arg) => {
+        const { groupId, car_id } = typeof arg === 'string' ? { groupId: arg, car_id: undefined } : arg;
+        return {
+          url: `api/group/${groupId}/join`,
+          method: 'POST',
+          body: car_id ? { car_id } : {},
+        };
+      },
       invalidatesTags: ['GroupMembers', 'Group'],
+    }),
+
+    /**
+     * Groups the viewer could join, the ones suiting a car first.
+     *
+     * Excludes every group they already have any standing with, so nothing
+     * here is a dead end.
+     */
+    getJoinableGroups: builder.query<
+      { entries: Group[]; total: number },
+      { make?: string; model?: string; q?: string; limit?: number } | void
+    >({
+      query: (args) => ({ url: 'api/group/joinable', params: args ?? {} }),
+      providesTags: ['Group'],
     }),
 
     leaveGroup: builder.mutation<void, string>({
@@ -958,14 +1153,41 @@ export const apiService = createApi({
 
     // Both endpoints toggle: voting the same way twice clears your vote, and
     // voting the other way switches it. `group_id` is only for invalidation.
-    upvoteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+    /**
+     * Voting on group content.
+     *
+     * `'Group'` is invalidated alongside the section's own tag because the
+     * home feed's group-activity row is tagged that way — without it a vote
+     * cast from the feed left the count on screen unchanged.
+     */
+    upvoteGroupDiscussionPost: builder.mutation<GroupVoteResult, { internal_id: string; group_id: string }>({
       query: ({ internal_id }) => ({ url: 'api/groupdiscussion/upvote', method: 'POST', body: { internal_id } }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+      invalidatesTags: (r, e, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }, 'Group'],
     }),
 
-    downvoteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
+    downvoteGroupDiscussionPost: builder.mutation<GroupVoteResult, { internal_id: string; group_id: string }>({
       query: ({ internal_id }) => ({ url: 'api/groupdiscussion/downvote', method: 'POST', body: { internal_id } }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+      invalidatesTags: (r, e, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }, 'Group'],
+    }),
+
+    upvoteGroupResource: builder.mutation<GroupVoteResult, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupresource/upvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (r, e, { group_id }) => [{ type: 'GroupResources', id: group_id }, 'Group'],
+    }),
+
+    downvoteGroupResource: builder.mutation<GroupVoteResult, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupresource/downvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (r, e, { group_id }) => [{ type: 'GroupResources', id: group_id }, 'Group'],
+    }),
+
+    upvoteGroupNews: builder.mutation<GroupVoteResult, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupnews/upvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (r, e, { group_id }) => [{ type: 'GroupNews', id: group_id }, 'Group'],
+    }),
+
+    downvoteGroupNews: builder.mutation<GroupVoteResult, { internal_id: string; group_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/groupnews/downvote', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (r, e, { group_id }) => [{ type: 'GroupNews', id: group_id }, 'Group'],
     }),
 
     // ── Group News ────────────────────────────────────────────────────────────
@@ -1339,7 +1561,13 @@ export const apiService = createApi({
      */
     updateFeedPreferences: builder.mutation<
       { success: boolean; feedPreferences: FeedPreferences },
-      { hideSuggestions?: 'none' | 'temporary' | 'permanent'; dismissedHomeBannerId?: string | null }
+      {
+        hideSuggestedMembers?: HideMode;
+        hideSuggestedCars?: HideMode;
+        dismissedHomeBannerId?: string | null;
+        /** Adds one step to the dismissed set; the server never removes any. */
+        dismissSetupPrompt?: SetupPrompt;
+      }
     >({
       query: (body) => ({
         url: 'api/users/settings/update/feedPreferences',
@@ -1355,16 +1583,23 @@ export const apiService = createApi({
         const undo = dispatch(
           apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
             draft.feedPreferences = { ...draft.feedPreferences };
-            if (patch.hideSuggestions !== undefined) {
-              draft.feedPreferences.hideSuggestions = patch.hideSuggestions;
+            for (const key of ['hideSuggestedMembers', 'hideSuggestedCars'] as const) {
+              const mode = patch[key];
+              if (mode === undefined) continue;
+              draft.feedPreferences[key] = mode;
               // Mirrors the server's SUGGESTIONS_HIDE_DAYS so the optimistic
-              // state and the confirmed one agree on when the rows come back.
-              draft.feedPreferences.hideSuggestionsUntil = patch.hideSuggestions === 'temporary'
+              // state and the confirmed one agree on when the row comes back.
+              draft.feedPreferences[`${key}Until`] = mode === 'temporary'
                 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
                 : null;
             }
             if (patch.dismissedHomeBannerId !== undefined) {
               draft.feedPreferences.dismissedHomeBannerId = patch.dismissedHomeBannerId;
+            }
+            if (patch.dismissSetupPrompt) {
+              const dismissed = new Set(draft.feedPreferences.dismissedSetupPrompts ?? []);
+              dismissed.add(patch.dismissSetupPrompt);
+              draft.feedPreferences.dismissedSetupPrompts = [...dismissed];
             }
           }),
         );
@@ -1600,6 +1835,7 @@ export const {
   useGetUsageQuery,
   useInviteFriendMutation,
   useSearchUsersQuery,
+  useRequestCarModelMutation,
   useGetUsersQuery,
   useGetFeedQuery,
   useGetPostsQuery,
@@ -1629,8 +1865,17 @@ export const {
   useCreateCarMutation,
   useUpdateCarMutation,
   useDeleteCarMutation,
+  useGetArchivedGarageQuery,
+  useArchiveCarMutation,
+  useRestoreCarMutation,
+  useTransferCarMutation,
+  useAcceptCarTransferMutation,
+  useDeclineCarTransferMutation,
+  useGetPendingCarTransfersQuery,
   useGetCarBrandsQuery,
   useGetCarModelsQuery,
+  useGetCarMakeOptionsQuery,
+  useGetCarModelOptionsQuery,
   useFollowCarMutation,
   useUnfollowCarMutation,
   useGetCarFollowStatusQuery,
@@ -1661,6 +1906,7 @@ export const {
   useGetUpcomingEventsQuery,
   useGetEventCalendarQuery,
   useGetSocietyEventQuery,
+  useGetEventRegionsQuery,
   useGetEventInterestedUsersQuery,
   useGetEventTaggedPostsQuery,
   useGetFollowingEventsQuery,
@@ -1684,6 +1930,7 @@ export const {
   useRegisterProInterestMutation,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
+  useGetJoinableGroupsQuery,
   useRemoveGroupMemberMutation,
   useUpdateGroupMemberTypeMutation,
   useInviteGroupMemberMutation,
@@ -1763,6 +2010,10 @@ export const {
   useDeleteGroupDiscussionPostMutation,
   useUpvoteGroupDiscussionPostMutation,
   useDownvoteGroupDiscussionPostMutation,
+  useUpvoteGroupResourceMutation,
+  useDownvoteGroupResourceMutation,
+  useUpvoteGroupNewsMutation,
+  useDownvoteGroupNewsMutation,
   useCreateGroupNewsPostMutation,
   useCreateGroupResourceMutation,
   useUpdateGroupResourceMutation,
@@ -1802,6 +2053,6 @@ export const {
   useCreateRouteMutation,
   useUpdateRouteMutation,
   useDeleteRouteMutation,
-  useVoteRouteMutation,
-  useUnvoteRouteMutation,
+  useUpvoteRouteMutation,
+  useDownvoteRouteMutation,
 } = apiService;

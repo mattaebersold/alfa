@@ -1,16 +1,17 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl,
+  View, FlatList, StyleSheet, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
+import HeadingActionButton from '../../components/ui/HeadingActionButton';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import TasksSheet from '../../components/cars/TasksSheet';
@@ -18,7 +19,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useIsPro, useBrandColor } from '../../hooks/useBrandColor';
+import { useIsPro } from '../../hooks/useBrandColor';
 import { GetProButton, ProUpsellModal } from '../../components/pro/ProUpsell';
 import { CAR_LIMIT_BASIC } from '../../constants/limits';
 import type { CarsStackParamList } from '../../navigation/types';
@@ -51,7 +52,9 @@ function CarCardWithTasks({
 }
 
 export default function GarageScreen() {
-  const brand = useBrandColor();
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const isPro = useIsPro();
@@ -85,6 +88,7 @@ export default function GarageScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
+        ref={scrollRef}
         style={{ backgroundColor: colors.cream }}
         data={cars}
         keyExtractor={(item) => item.internal_id}
@@ -110,33 +114,25 @@ export default function GarageScreen() {
             <View style={styles.headingWrap}>
               <ScreenHeading
                 title="Garage"
-                count={cars.length}
-                // Nothing to sell a member who already has it.
-                right={!isPro ? <GetProButton onPress={() => setUpsell(true)} /> : undefined}
+                inline
+                // A basic membership is capped, so the count says what's left
+                // as well as what's there. Pro has no cap to count against.
+                count={isPro ? cars.length : `${cars.length}/${CAR_LIMIT_BASIC}`}
+                right={
+                  <View style={styles.headingActions}>
+                    {/* Nothing to sell a member who already has it. */}
+                    {!isPro && <GetProButton onPress={() => setUpsell(true)} />}
+                    <HeadingActionButton label="Add Car" onPress={addCar} accessibilityLabel="Add a car" />
+                  </View>
+                }
               />
             </View>
-            {/* Full width, because adding a car is the only thing this screen
-                asks you to do — as a pill tucked beside the title it read as a
-                secondary control on a screen with no primary one. */}
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: brand }]}
-              onPress={addCar}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Add a car"
-            >
-              <Plus size={17} color="#000000" strokeWidth={2.6} />
-              <Text style={styles.addBtnText}>Add Car</Text>
-            </TouchableOpacity>
           </>
         }
         ListEmptyComponent={
-          <EmptyState
-            title="No cars yet"
-            message="Add your first car to get started."
-            actionLabel="Add New Car"
-            onAction={addCar}
-          />
+          // Just the line. The header's own Add Car button sits directly above
+          // this, so a second one here was the same control twice.
+          <EmptyState title="No cars yet" />
         }
         refreshControl={
           <RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primaryAlt} />
@@ -160,19 +156,5 @@ export default function GarageScreen() {
 const styles = StyleSheet.create({
   list: { flexGrow: 1 },
   headingWrap: { paddingHorizontal: 12 },
-  // Squared off to match "Add Content" on a car's own page — the two are the
-  // same kind of button and were reading as different ones.
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    marginHorizontal: 12,
-    marginBottom: 4,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  // Black on the brand fill, gold or blue — both are light enough that white
-  // would be the unreadable choice.
-  addBtnText: { color: '#000000', fontWeight: '800', fontSize: 14, letterSpacing: 0.2 },
+  headingActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

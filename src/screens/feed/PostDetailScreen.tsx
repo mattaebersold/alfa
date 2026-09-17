@@ -40,6 +40,7 @@ import GroupAttribution from '../../components/groups/GroupAttribution';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import Odometer from '../../components/ui/Odometer';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -398,6 +399,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 <LikeButton
                   documentId={post.internal_id}
                   entryType={entryType}
+                  ownerId={post.user_id}
                   initialCount={counts?.likes ?? post.like_count ?? 0}
                   initialLiked={likeInfo?.hasLiked ?? post.isLiked ?? false}
                 />
@@ -614,7 +616,7 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 12,
     marginTop: 10,
-    borderRadius: 14,
+    borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
   },
   /**
@@ -645,7 +647,7 @@ const styles = StyleSheet.create({
   linkBtn:         {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 11,
-    borderWidth: 1, borderRadius: 10,
+    borderWidth: 1, borderRadius: COMMON_RADIUS,
   },
   linkBtnText:     { flex: 1, fontSize: 14, fontWeight: '700' },
   postHeader: {
@@ -659,7 +661,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   badgeRow:        { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  badge:           { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5 },
+  badge:           { paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS },
   badgeText:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   author:          { fontSize: 15, fontWeight: '700' },
   username:        { fontSize: 12 },
@@ -687,7 +689,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     gap: 10,
   },
-  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 8 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

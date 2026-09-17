@@ -11,6 +11,7 @@ import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
   const colors = useColors();
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
   grid:        { paddingHorizontal: 8, paddingBottom: 120 },
   rowWrap:     { gap: 10, paddingHorizontal: 4 },
   card:        {
-    flex: 1, borderRadius: 14, borderWidth: 1,
+    flex: 1, borderRadius: COMMON_RADIUS, borderWidth: 1,
     paddingVertical: 20, paddingHorizontal: 14,
     alignItems: 'center', gap: 10, marginBottom: 10,
   },

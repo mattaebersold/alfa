@@ -1,9 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Plus } from 'lucide-react-native';
+import { Heart, MessageCircle } from 'lucide-react-native';
 import { useGetRoutesQuery } from '../../api/apiService';
 import RouteTrace from '../../components/routes/RouteTrace';
 import VoteButton from '../../components/routes/VoteButton';
@@ -11,15 +11,19 @@ import RouteFilters, {
   DEFAULT_FILTERS, buildRouteQuery, type RouteFilterState,
 } from '../../components/routes/RouteFilters';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor, contrastText, useIsPro } from '../../hooks/useBrandColor';
+import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import ScreenHeading from '../../components/ui/ScreenHeading';
+import HeadingActionButton from '../../components/ui/HeadingActionButton';
 import {
   formatDistance, formatDuration, curvinessLabel,
 } from '../../utils/routeGeometry';
 import type { RoutesStackParamList } from '../../navigation/types';
 import type { DrivingRoute } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<RoutesStackParamList>;
 
@@ -62,10 +66,18 @@ function RouteRow({ route, onPress }: { route: DrivingRoute; onPress: () => void
             </Text>
           </>
         )}
-      </View>
 
-      <View style={styles.voteCol}>
-        <VoteButton routeId={route.internal_id} initialCount={route.vote_count ?? 0} />
+        {/* The vote is live here — it's what ranks the list you're reading.
+            Likes and comments are counts only; they open on the route. */}
+        <View style={styles.social}>
+          <VoteButton routeId={route.internal_id} score={route.vote_count ?? 0} userVote={route.user_vote ?? null} />
+          {route.like_count ? (
+            <Metric value={String(route.like_count)} colors={colors} Icon={Heart} />
+          ) : null}
+          {route.comment_count ? (
+            <Metric value={String(route.comment_count)} colors={colors} Icon={MessageCircle} />
+          ) : null}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -81,10 +93,12 @@ function Metric({ value, colors, Icon }: { value: string; colors: any; Icon?: an
 }
 
 export default function RoutesScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const brand = useBrandColor();
-  const onBrand = contrastText(brand);
 
   const headerPad = useHeaderPad();
   const isPro = useIsPro();
@@ -102,35 +116,28 @@ export default function RoutesScreen() {
       <AppHeader />
 
       <View style={[styles.header, { paddingTop: headerPad }]}>
-        <Text style={[styles.heading, { color: colors.fg }]}>Routes</Text>
+        <ScreenHeading
+          title="Routes"
+          inline
+          // Recording is pro-only, so the entry point simply isn't there for
+          // everyone else — same rule the API enforces.
+          right={isPro ? (
+            <HeadingActionButton
+              label="New Route"
+              onPress={() => (navigation as any).navigate('RouteRecord')}
+              accessibilityLabel="Record a new route"
+            />
+          ) : undefined}
+        />
       </View>
 
       <RouteFilters value={filters} onChange={setFilters} />
-
-      {/* Under the filters, full width, in the same shape Add Car and New
-          Group use. Beside the title it was a pill competing with the heading
-          on a screen whose one action it is — and it sat above the filters,
-          which is the wrong order: you narrow the list, then you add to it.
-
-          Recording is pro-only, so the entry point simply isn't there for
-          everyone else — same rule the API enforces. */}
-      {isPro && (
-        <TouchableOpacity
-          style={[styles.newBtn, { backgroundColor: brand }]}
-          onPress={() => (navigation as any).navigate('RouteRecord')}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Record a new route"
-        >
-          <Plus size={17} color={onBrand} strokeWidth={2.6} />
-          <Text style={[styles.newLabel, { color: onBrand }]}>New Route</Text>
-        </TouchableOpacity>
-      )}
 
       {isLoading ? (
         <Spinner />
       ) : (
         <FlatList
+          ref={scrollRef}
           data={routes}
           keyExtractor={(r) => r.internal_id}
           renderItem={({ item }) => (
@@ -160,25 +167,15 @@ export default function RoutesScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingBottom: 12,
-  },
-  heading: { fontSize: 26, fontWeight: '800', letterSpacing: -0.6 },
-  // Matched to Add Car, Add Content and New Group — same radius, padding,
-  // gutter and type. One kind of button doing one kind of job.
-  newBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    marginHorizontal: 12, marginTop: 10, marginBottom: 4,
-    paddingVertical: 12, borderRadius: 10,
-  },
-  newLabel: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
+  // ScreenHeading sits at zero; the gutter is here, on the same 12 as the
+  // other list screens.
+  header: { paddingHorizontal: 12, paddingBottom: 2 },
 
   list: { padding: 14, paddingBottom: 100, gap: 12 },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 14, padding: 12,
+    borderRadius: COMMON_RADIUS, padding: 12,
   },
   traceWell: {
     width: 104, height: 104,
@@ -198,5 +195,5 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 13, fontWeight: '700' },
   technical:   { fontSize: 11 },
 
-  voteCol: { justifyContent: 'center' },
+  social: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
 });

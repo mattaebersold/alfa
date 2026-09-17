@@ -24,6 +24,7 @@ import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { CarTask } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 type Priority = typeof PRIORITIES[number];
@@ -392,7 +393,7 @@ const dialog = StyleSheet.create({
   // content stops being centred and pins to the top.
   scroll:        { flexGrow: 0, width: '100%', maxWidth: 400 },
   scrollContent: { flexGrow: 1, justifyContent: 'center' },
-  card:       { width: '100%', maxWidth: 400, borderRadius: 16, borderWidth: 1, padding: 18 },
+  card:       { width: '100%', maxWidth: 400, borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 18 },
   heading:    { fontSize: 17, fontWeight: '800', marginBottom: 14 },
   input:      {
     height: 44, borderWidth: 1, borderRadius: 10,
@@ -418,7 +419,7 @@ const dialog = StyleSheet.create({
   deleteText: { fontSize: 15, fontWeight: '700' },
   cancelBtn:  { paddingHorizontal: 14, paddingVertical: 10 },
   cancelText: { fontSize: 15, fontWeight: '600' },
-  addBtn:     { paddingHorizontal: 22, paddingVertical: 10, borderRadius: 10 },
+  addBtn:     { paddingHorizontal: 22, paddingVertical: 10, borderRadius: COMMON_RADIUS },
   addBtnOff:  { opacity: 0.4 },
   addText:    { fontSize: 15, fontWeight: '800', color: '#000000' },
 });
@@ -1073,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   catCountText: { fontSize: 11, fontWeight: '800' },
   catAdd: {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
+    width: 22, height: 22, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
   // Bare glyph, matching the Completed / Archived bands.
@@ -1081,7 +1082,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     // Smaller button, same-size glyph — the + fills more of it than before.
-    width: 46, height: 46, borderRadius: 23,
+    width: 46, height: 46, borderRadius: COMMON_RADIUS,
     backgroundColor: colors.pro,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,

@@ -12,6 +12,7 @@ import Avatar from '../ui/Avatar';
 import EmptyState from '../ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import type { User } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** Long enough that each keystroke doesn't fire a search, short enough to feel live. */
 const DEBOUNCE_MS = 300;
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
 
   inviteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    minWidth: 92, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999,
+    minWidth: 92, paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS,
   },
   inviteBtnCompact: { minWidth: 0, paddingHorizontal: 11, paddingVertical: 7 },
   inviteBtnBusy: { opacity: 0.7 },

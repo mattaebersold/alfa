@@ -15,6 +15,7 @@ import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 interface InlineCommentsProps {
   /** internal_id of the thing being commented on. */
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 10 },
   heading:    { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
   countBadge: {
-    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    minWidth: 22, height: 22, borderRadius: PILL_RADIUS, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center',
   },
   countText:  { fontSize: 11, fontWeight: '800' },
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   input:     { fontSize: 15, maxHeight: 100, paddingVertical: 8 },
-  sendBtn:   { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, flexShrink: 0 },
+  sendBtn:   { paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS, flexShrink: 0 },
   sendBtnDisabled: { opacity: 0.4 },
   sendText:  { fontWeight: '700', fontSize: 13 },
 });

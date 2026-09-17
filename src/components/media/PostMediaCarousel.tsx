@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable,
   type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
@@ -6,6 +6,7 @@ import {
 import { Image } from 'expo-image';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { NavigationContext } from '@react-navigation/native';
 import Svg, { Polygon } from 'react-native-svg';
 import {
   clampMediaRatio, muxStreamUrl, DEFAULT_MEDIA_RATIO, type PostMedia,
@@ -46,6 +47,9 @@ export default function PostMediaCarousel({
   onPressItem,
   overlay,
   showPageIndicator = true,
+  visible,
+  ratio: fixedRatio,
+  videoOpensItem = false,
 }: {
   media: PostMedia[];
   /**
@@ -56,9 +60,36 @@ export default function PostMediaCarousel({
   /** Badges and counters drawn over the media, in the strip's own box. */
   overlay?: React.ReactNode;
   showPageIndicator?: boolean;
+  /**
+   * Whether the post this belongs to is on screen.
+   *
+   * A video keeps playing after you scroll past it otherwise — audible from
+   * nowhere, and holding a decoder open for a post nobody is looking at.
+   * Undefined means the surface isn't tracking visibility (a detail screen,
+   * say), and playback is left alone.
+   */
+  visible?: boolean;
+  /**
+   * Draw the strip at this shape instead of the lead item's.
+   *
+   * For tiles in a row — a shelf of posts where every card has to be the same
+   * height, so letting each one take its photo's shape would make the row
+   * ragged. Left unset, the strip measures its first item as described above.
+   */
+  ratio?: number;
+  /**
+   * A tap on a video opens the post instead of starting it.
+   *
+   * For a tile too small to watch in — the shelf of posts on a profile, where
+   * a video that started playing in a 168pt card would be showing you the
+   * thing you were trying to open. The poster frame and its play badge still
+   * say there's a video; the post is where you watch it.
+   */
+  videoOpensItem?: boolean;
 }) {
   const [width, setWidth] = useState(0);
-  const [ratio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
+  const [measuredRatio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
+  const ratio = fixedRatio ?? measuredRatio;
   const [active, setActive] = useState(0);
   /** The item currently holding the player. Null when nothing is playing. */
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -94,6 +125,33 @@ export default function PostMediaCarousel({
     player.pause();
     setPlayingKey(null);
   }, [player]);
+
+  // Scrolled out of the feed: stop, and drop back to the poster. Deliberately
+  // a pause rather than a mute — coming back to a video that silently ran on
+  // without you is worse than coming back to where you left it.
+  useEffect(() => {
+    if (visible === false && playingKey) stop();
+  }, [visible, playingKey, stop]);
+
+  /**
+   * Left the screen entirely: same stop.
+   *
+   * Visibility only knows about scrolling. Pushing a screen on top keeps this
+   * one mounted underneath, so a video started here would carry on playing
+   * behind whatever you opened — the post's detail, someone's profile — with
+   * nothing on screen to pause it from.
+   *
+   * Read from the context rather than `useNavigation`, which throws outside a
+   * navigator; a carousel with no screen around it just has nothing to hear.
+   */
+  const navigation = useContext(NavigationContext);
+  useEffect(() => {
+    if (!navigation) return undefined;
+    return navigation.addListener('blur', () => {
+      player.pause();
+      setPlayingKey(null);
+    });
+  }, [navigation, player]);
 
   const playVideo = useCallback((item: Extract<PostMedia, { kind: 'video' }>) => {
     if (!item.videoId) return;
@@ -156,9 +214,16 @@ export default function PostMediaCarousel({
     return (
       <Pressable
         style={slide}
-        onPress={() => (item.status === 'ready' ? playVideo(item) : undefined)}
+        onPress={() => {
+          if (videoOpensItem) return onPressItem?.(index);
+          if (item.status === 'ready') playVideo(item);
+        }}
         accessibilityRole="button"
-        accessibilityLabel={item.status === 'ready' ? 'Play video' : 'Video still processing'}
+        accessibilityLabel={
+          videoOpensItem ? 'Open post'
+          : item.status === 'ready' ? 'Play video'
+          : 'Video still processing'
+        }
       >
         {item.poster ? (
           <Image
@@ -190,7 +255,7 @@ export default function PostMediaCarousel({
         </View>
       </Pressable>
     );
-  }, [width, onPressItem, lockRatio, playingKey, player, playVideo]);
+  }, [width, onPressItem, lockRatio, playingKey, player, playVideo, videoOpensItem]);
 
   const keyExtractor = useCallback((item: PostMedia) => item.key, []);
   const getItemLayout = useCallback(
@@ -227,7 +292,9 @@ export default function PostMediaCarousel({
 
       {overlay}
 
-      {showPageIndicator && media.length > 1 && (
+      {/* Not while a video holds the slide: the player's own controls sit
+          along the bottom edge, and the dots would land on its scrubber. */}
+      {showPageIndicator && media.length > 1 && !playingKey && (
         <View style={styles.dots} pointerEvents="none">
           {dots.map((key, i) => (
             <View key={key} style={[styles.dot, i === active && styles.dotActive]} />

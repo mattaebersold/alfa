@@ -9,6 +9,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { colors as palette } from '../../constants/colors';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
   input:    { marginTop: 6 },
   error:    { fontSize: 13, color: palette.red, marginTop: -2 },
   button:   {
-    marginTop: 6, borderRadius: 12, paddingVertical: 14,
+    marginTop: 6, borderRadius: COMMON_RADIUS, paddingVertical: 14,
     alignItems: 'center', justifyContent: 'center', minHeight: 50,
   },
   buttonDisabled: { opacity: 0.5 },

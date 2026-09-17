@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, MessageCircle, ChevronRight } from 'lucide-react-native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import Avatar from '../../components/ui/Avatar';
 import { useGetPublicUserQuery } from '../../api/apiService';
@@ -12,6 +13,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * Who to write to when something's wrong.
@@ -104,6 +106,9 @@ function ContactCard({ contact }: { contact: (typeof CONTACTS)[number] }) {
 }
 
 export default function SupportScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
   const c = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
@@ -112,6 +117,7 @@ export default function SupportScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
       <AppHeader />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.scroll, { paddingTop: headerPad }]}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -150,7 +156,7 @@ const styles = StyleSheet.create({
   intro:    { fontSize: 14, lineHeight: 20, marginBottom: 18 },
 
   card: {
-    borderRadius: 14, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
     padding: 14, marginBottom: 12,
   },
   cardTop:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -160,14 +166,14 @@ const styles = StyleSheet.create({
   cardBlurb:{ fontSize: 13, lineHeight: 19, marginTop: 12 },
   mailBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 999, marginTop: 14,
+    paddingVertical: 12, borderRadius: COMMON_RADIUS, marginTop: 14,
   },
   mailBtnText: { fontSize: 15, fontWeight: '800' },
   cardEmail: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 
   tipCard: {
     flexDirection: 'row', gap: 10, alignItems: 'flex-start',
-    borderRadius: 14, borderWidth: 1, padding: 14, marginTop: 6,
+    borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 14, marginTop: 6,
   },
   tipText:  { flex: 1, fontSize: 13, lineHeight: 19 },
 

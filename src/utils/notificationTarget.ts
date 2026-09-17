@@ -69,6 +69,19 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
     };
   }
 
+  /**
+   * A refused join request goes nowhere on a tap.
+   *
+   * It's filed under the group, so without this it would fall into the `group`
+   * case and open the group's page — for someone who was just told they can't
+   * be a member of it. The admin's conversation was the other candidate, but a
+   * push tap (or a stray tap on the row) dropping you into a compose screen
+   * addressed to the person who turned you down is presumptuous; writing to
+   * them is a choice, and the row's "Message admin" button is where it's made.
+   * The row already says everything the notification has to say.
+   */
+  if (n.type === 'group_join_denied') return null;
+
   if (n.type === 'follow' && kind !== 'garagecar') {
     const uid = n.senderUserId ?? id;
     return uid ? { name: 'UserDetail', params: { userId: uid } } : null;

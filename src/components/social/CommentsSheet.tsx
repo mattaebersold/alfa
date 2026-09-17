@@ -20,6 +20,7 @@ import { colors } from '../../constants/colors';
 import { ss } from '../../styles/shared';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * One ground for the whole sheet — header, list and composer alike.
@@ -196,6 +197,12 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
                     setReplyingTo({ commentId, username });
                     setCommentText(`@${username} `);
                   }}
+                  // Opening the sheet to delete one comment and being left
+                  // staring at the thread with a gap in it is a second step
+                  // you'd take anyway. The post underneath keeps its count in
+                  // step through the mutation's invalidation, so there's
+                  // nothing behind here that needs the sheet to stay up.
+                  onDeleted={onClose}
                 />
               )}
               ListEmptyComponent={
@@ -272,7 +279,7 @@ const styles = StyleSheet.create({
   input:         { width: '100%', maxHeight: 120 },
   // On focus, open up to ~3 lines so there's room to write.
   inputFocused:  { minHeight: 76 },
-  sendBtn:     { backgroundColor: colors.primaryAlt, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  sendBtn:     { backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 8 },
   sendDisabled:{ opacity: 0.4 },
   sendText:    { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

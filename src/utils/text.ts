@@ -53,3 +53,12 @@ export function linkLabel(url: string): string {
   const stripped = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
   return stripped.split(/[/?#]/)[0] || url;
 }
+
+/**
+ * A like or comment count as it sits beside its icon: exact up to 9, then
+ * "9+". Past that the number is noise at a glance — the likers panel and the
+ * thread itself say how many.
+ */
+export function formatActionCount(count: number): string {
+  return count > 9 ? '9+' : String(count);
+}

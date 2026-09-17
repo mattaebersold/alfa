@@ -7,14 +7,19 @@
  * to a meet", which is a region, not a city.
  */
 export const REGIONS: { key: string; label: string; states: string[] }[] = [
-  // Northwest was split out of West — see horacio/helpers/usRegions for why.
-  { key: 'northwest', label: 'Northwest', states: ['WA', 'OR', 'ID', 'MT'] },
-  { key: 'west',      label: 'West',      states: ['CA', 'NV', 'WY', 'UT', 'CO', 'AK', 'HI'] },
-  { key: 'southwest', label: 'Southwest', states: ['AZ', 'NM', 'TX', 'OK'] },
+  // Mirrors horacio/helpers/usRegions — that file owns the grouping and the
+  // reasoning; this is the labels and keys to ask for.
+  { key: 'northwest', label: 'Northwest', states: ['WA', 'OR', 'ID', 'MT', 'AK'] },
+  { key: 'southwest', label: 'Southwest', states: ['CA', 'NV', 'AZ', 'NM', 'HI'] },
+  { key: 'mountain',  label: 'Mountain',  states: ['UT', 'CO', 'WY'] },
   { key: 'midwest',   label: 'Midwest',   states: ['ND', 'SD', 'NE', 'KS', 'MN', 'IA', 'MO', 'WI', 'IL', 'MI', 'IN', 'OH'] },
-  { key: 'southeast', label: 'Southeast', states: ['AR', 'LA', 'MS', 'AL', 'TN', 'KY', 'WV', 'VA', 'NC', 'SC', 'GA', 'FL'] },
+  { key: 'south',     label: 'South',     states: ['TX', 'OK', 'AR', 'LA', 'MS', 'AL', 'TN', 'KY'] },
+  { key: 'southeast', label: 'Southeast', states: ['FL', 'GA', 'SC', 'NC', 'VA', 'WV'] },
   { key: 'northeast', label: 'Northeast', states: ['PA', 'NY', 'NJ', 'CT', 'RI', 'MA', 'VT', 'NH', 'ME', 'DE', 'MD', 'DC'] },
 ];
+
+/** Regions that no longer exist — see horacio's LEGACY_REGIONS. */
+const LEGACY_REGIONS: Record<string, string> = { west: 'southwest' };
 
 /**
  * The region a "City, ST" string falls in, or null.
@@ -42,7 +47,8 @@ export function regionForCityState(cityState?: string | null) {
 export function regionKey(value?: string | null): string | null {
   const v = value?.trim().toLowerCase();
   if (!v) return null;
-  return REGIONS.find((r) => r.key === v || r.label.toLowerCase() === v)?.key ?? null;
+  const legacy = LEGACY_REGIONS[v];
+  return REGIONS.find((r) => r.key === v || r.key === legacy || r.label.toLowerCase() === v)?.key ?? null;
 }
 
 /** The display label for a stored region value, or the raw value if it's not one of ours. */

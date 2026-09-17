@@ -4,7 +4,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Lock } from 'lucide-react-native';
-import ScreenHeading from '../../components/ui/ScreenHeading';
 import Spinner from '../../components/ui/Spinner';
 import {
   useGetNotificationTypesQuery,
@@ -15,6 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import type { NotificationSettings } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * What you get told about, and how.
@@ -57,9 +57,9 @@ function Box({ on, locked, onPress, brand, colors }: {
       accessibilityState={{ checked: on, disabled: !!locked }}
     >
       {locked
-        ? <Lock size={11} color={colors.grey} />
+        ? <Lock size={10} color={colors.grey} />
         : on
-          ? <Check size={14} color="#000000" strokeWidth={3.5} />
+          ? <Check size={12} color="#000000" strokeWidth={3.5} />
           : null}
     </TouchableOpacity>
   );
@@ -137,12 +137,13 @@ export default function NotificationSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top']}>
+    // Bottom only: the stack's own header already clears the status bar, and
+    // taking the top inset as well opened an empty band beneath it.
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
       {loadingTypes ? (
         <Spinner fullScreen />
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <ScreenHeading title="Notifications" dense />
           <Text style={[styles.intro, { color: colors.grey }]}>
             Everything still appears in your notifications list. These control
             whether it also reaches your phone or your inbox.
@@ -173,7 +174,9 @@ export default function NotificationSettingsScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-          <View style={[styles.table, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          // Drawn like the Pro sheet's list: an outlined table with hairline
+          // rules and compact rows, rather than a filled card of tall rows.
+          <View style={[styles.table, { borderColor: colors.borderDark }]}>
             {/* The header row is what makes the two columns readable — without
                 it they're a pair of unlabelled boxes. */}
             <View style={[styles.headRow, { borderBottomColor: colors.borderDark }]}>
@@ -188,7 +191,7 @@ export default function NotificationSettingsScreen() {
                   <View
                     style={[
                       styles.groupRow,
-                      { backgroundColor: colors.segment, borderColor: colors.border },
+                      { backgroundColor: colors.segment, borderColor: colors.borderDark },
                       si > 0 && styles.groupRowTop,
                     ]}
                   >
@@ -205,7 +208,7 @@ export default function NotificationSettingsScreen() {
                       styles.row,
                       // Only between rows of a section — the group header
                       // already draws the line that opens one.
-                      i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                      i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderDark },
                     ]}
                   >
                     <View style={styles.labelCell}>
@@ -272,8 +275,8 @@ const styles = StyleSheet.create({
   table:   { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   headRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 9, paddingHorizontal: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 7, paddingHorizontal: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headText: {
     width: CELL_W, textAlign: 'center',
@@ -281,7 +284,7 @@ const styles = StyleSheet.create({
   },
 
   groupRow: {
-    paddingVertical: 7, paddingHorizontal: 12,
+    paddingVertical: 6, paddingHorizontal: 11,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   // Every section but the first closes the one above it as well as opening its
@@ -292,18 +295,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.6,
   },
 
+  // The Pro sheet's row: 8 top and bottom, 11 in from the edge.
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, paddingHorizontal: 12,
+    paddingVertical: 8, paddingHorizontal: 11,
   },
   // Takes the row so the two checkbox columns stay a fixed width and line up
   // down the table however long a label runs.
   labelCell: { flex: 1, minWidth: 0, paddingRight: 8 },
-  label:     { fontSize: 14, fontWeight: '500' },
+  label:     { fontSize: 12.5, fontWeight: '600' },
   cell:      { width: CELL_W, alignItems: 'center' },
 
   box: {
-    width: 24, height: 24, borderRadius: 6, borderWidth: 1.5,
+    width: 20, height: 20, borderRadius: 5, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
   boxLocked: { opacity: 0.45 },
@@ -324,7 +328,7 @@ const styles = StyleSheet.create({
   footnote: { fontSize: 12, lineHeight: 17, marginTop: 12, paddingHorizontal: 2 },
 
   save: {
-    marginTop: 20, paddingVertical: 14, borderRadius: 10,
+    marginTop: 20, paddingVertical: 14, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
   saveText: { fontSize: 15, fontWeight: '800', color: '#000000' },

@@ -16,6 +16,7 @@ import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type Props = AppScreenProps<'StoryDetails'>;
 
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   submitBtn:        {
-    borderRadius: 50, paddingVertical: 14, alignItems: 'center',
+    borderRadius: COMMON_RADIUS, paddingVertical: 14, alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.5 },
   submitText:       { color: '#fff', fontWeight: '700', fontSize: 15 },

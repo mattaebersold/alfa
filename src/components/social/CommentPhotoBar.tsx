@@ -5,6 +5,7 @@ import { ImagePlus, X, Camera, Images } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';
 import { useColors } from '../../hooks/useColors';
 import type { useCommentPhoto } from '../../hooks/useCommentPhoto';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type Photo = ReturnType<typeof useCommentPhoto>;
 
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
   },
   removeBtn: {
     position: 'absolute', top: 4, right: 4,
-    width: 22, height: 22, borderRadius: 11,
+    width: 22, height: 22, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center', justifyContent: 'center',
   },

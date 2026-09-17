@@ -28,6 +28,9 @@ export interface CommentData {
   internal_id?: string;
   _id?: string;
   user_id: string;
+  /** What the comment is on — used to refresh that thing's count on delete. */
+  document_id?: string;
+  document_entry_type?: string;
   body?: string;
   created_at?: string;
   /**
@@ -67,11 +70,22 @@ interface CommentRowProps {
   onOpenUser?: (userId: string, origin: SummaryOrigin | null) => void;
   /** Override the row background, e.g. to set comments off from a post body. */
   backgroundColor?: string;
+  /**
+   * Run once the server has confirmed this comment is gone.
+   *
+   * Opt-in, because what should happen next is the host's business: a full
+   * screen of comments stays where it is and simply loses a row, while a sheet
+   * opened to deal with one comment has nothing left to be open for. Not called
+   * when the delete fails, and not called for a comment that isn't yours —
+   * there's no delete on those to begin with.
+   */
+  onDeleted?: () => void;
 }
 
 export default function CommentRow({
   comment, currentUserId, onReply, isReply,
   isThreadStart = true, isThreadEnd = true, threadId, onOpenUser, backgroundColor,
+  onDeleted,
 }: CommentRowProps) {
   const colors = useColors();
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
@@ -100,8 +114,16 @@ export default function CommentRow({
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteComment(commentId).unwrap();
+              await deleteComment({
+                id: commentId,
+                documentId: comment.document_id,
+                documentType: comment.document_entry_type,
+              }).unwrap();
+              onDeleted?.();
             } catch {
+              // Nothing closes on a failure — the comment is still there, and
+              // shutting the sheet would be the one thing that makes it look
+              // like it worked.
               Alert.alert("Couldn't delete", 'Please try again.');
             }
           },

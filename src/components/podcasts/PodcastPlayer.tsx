@@ -7,6 +7,7 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { Podcast, PodcastEpisode } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const SPEED_STEPS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
   iconBtn:          { padding: 4 },
   skipLabel:        { fontSize: 11, fontWeight: '700' },
   playBtn:          {
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
   pauseIcon:        { flexDirection: 'row', gap: 3, alignItems: 'center', justifyContent: 'center' },
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'transparent', borderBottomColor: 'transparent',
     marginLeft: 2,
   },
-  speedBtn:         { borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  speedBtn:         { borderWidth: 1, borderRadius: COMMON_RADIUS, paddingHorizontal: 5, paddingVertical: 2 },
   speedText:        { fontSize: 10, fontWeight: '700' },
   closeBtn:         { padding: 4 },
   closeText:        { fontSize: 16 },

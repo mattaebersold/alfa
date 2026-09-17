@@ -17,6 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { Post } from '../../types/api';
+import { PILL_RADIUS } from '../../constants/radius';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 /** The card's own horizontal inset — tiles line up with everything else on it. */
@@ -366,7 +367,7 @@ const styles = StyleSheet.create({
   // the name under it.
   badge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 3,
+    paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: PILL_RADIUS,
   },
   badgeText: {
     fontSize: 8, fontWeight: '800', color: '#000000',

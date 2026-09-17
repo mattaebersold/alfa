@@ -21,6 +21,8 @@ interface FollowButtonProps {
    * carries the state, which is the part that has to be legible.
    */
   variant?: 'dark' | 'secondary';
+  /** Passed through — see Button. The profile squares this off to match Message. */
+  radius?: number;
 }
 
 /**
@@ -39,7 +41,7 @@ interface FollowButtonProps {
  * It doesn't swallow failures. The press used to be a bare await with no catch,
  * so a rejected follow looked exactly like a successful one.
  */
-export default function FollowButton({ username, isFollowing: known, variant }: FollowButtonProps) {
+export default function FollowButton({ username, isFollowing: known, variant, radius }: FollowButtonProps) {
   // A caller that already has the answer doesn't need us to ask again.
   const skip = known !== undefined;
   const { data, isLoading, isError, refetch } = useGetFollowStatusQuery(username, { skip });
@@ -86,7 +88,7 @@ export default function FollowButton({ username, isFollowing: known, variant }: 
   // than hidden so the row doesn't change shape, and disabled so it can't
   // send a follow whose result we'd have no way to reflect.
   if (!skip && isError && resolved === undefined) {
-    return <Button label="Follow" onPress={() => refetch()} variant="dark" size="sm" disabled />;
+    return <Button label="Follow" onPress={() => refetch()} variant="dark" size="sm" radius={radius} disabled />;
   }
 
   return (
@@ -95,6 +97,7 @@ export default function FollowButton({ username, isFollowing: known, variant }: 
       onPress={handlePress}
       variant={variant ?? (isFollowing ? 'secondary' : 'dark')}
       size="sm"
+      radius={radius}
       loading={busy}
     />
   );

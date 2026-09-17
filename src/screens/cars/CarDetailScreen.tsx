@@ -8,10 +8,11 @@ import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle, MessageSquarePlus, Wrench } from 'lucide-react-native';
+import { X, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2 } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,13 +20,13 @@ import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
   useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery, useGetCarModsQuery,
   useDeletePostMutation,
-  useDeleteCarMutation,
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
   useDeleteCarGalleryMutation,
   useCreateCarGalleryShellMutation, useAddCarGalleryImageMutation,
   useRemoveCarGalleryImagesMutation, useUpdateCarGalleryMetaMutation,
   useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
   useGetCarFollowersQuery, useGetCarGroupsQuery, useGetCarsQuery,
+  useGetRoutesQuery,
   apiService,
 } from '../../api/apiService';
 import { useAppSelector, useAppDispatch } from '../../store/store';
@@ -42,13 +43,17 @@ import CommentsSheet from '../../components/social/CommentsSheet';
 import InlineComments from '../../components/social/InlineComments';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import TasksSheet from '../../components/cars/TasksSheet';
+import CarDeleteOptionsModal from '../../components/cars/CarDeleteOptionsModal';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
 import TaggedPostsPane from '../../components/cars/TaggedPostsPane';
+import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
+import RoutesPane from '../../components/routes/RoutesPane';
 import BottomSheet from '../../components/ui/SharedModal';
 import ActionSheet from '../../components/ui/ActionSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { postThumb } from '../../utils/postMedia';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ZoomableImage } from '../../components/ui/ImageLightbox';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -64,6 +69,8 @@ import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { handleize } from '../../utils/handleize';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 
 const ALL_CATEGORIES = Object.values(CAR_CATEGORIES).flat();
 function carTypeLabel(key?: string) {
@@ -82,7 +89,7 @@ const ALBUM_COL_WIDTH = 260;
 const GALLERY_HEIGHT = Math.round(HERO_WIDTH * 3 / 4);
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
-type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | 'tagged' | null;
+type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | 'tagged' | 'routes' | null;
 
 // The app's true accent blue (useColors() remaps primaryAlt→gold for pro/admin,
 // so reference the raw token for a consistently-blue Follow button).
@@ -149,12 +156,19 @@ function Lightbox({
   // A zoomed photo owns the horizontal drag, or panning across a detail flicks
   // to the next one instead.
   const [zoomed, setZoomed] = useState(false);
+  // RN's SafeAreaView only pads on iOS. On Android the modal is
+  // `statusBarTranslucent`, so the header — close button included — was drawn
+  // under the status bar, where its taps go to the system instead. The app's
+  // insets reach in here through context; `currentHeight` backs them up if
+  // they come through as zero.
+  const insets = useSafeAreaInsets();
+  const androidTop = Platform.OS === 'android' ? Math.max(insets.top, StatusBar.currentHeight ?? 0) : 0;
   return (
     <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <GestureHandlerRootView style={{ flex: 1 }}>
       <RNSafeAreaView style={styles.lightboxSafe}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <View style={styles.lightboxHeader}>
+        <View style={[styles.lightboxHeader, androidTop > 0 && { paddingTop: 12 + androidTop }]}>
           <View style={{ flex: 1 }}>
             {title ? <Text style={styles.lightboxTitle}>{title}</Text> : null}
             <Text style={styles.lightboxCount}>{index + 1} / {images.length}</Text>
@@ -392,12 +406,14 @@ function ModCard({ mod, colors, onOptions, onComments }: {
           <LikeButton
             documentId={mod.internal_id}
             entryType="mod"
+            ownerId={mod.user_id}
             initialCount={mod.like_count ?? 0}
             initialLiked={mod.isLiked ?? false}
             color={colors.grey}
           />
           <CommentButton
             count={mod.comment_count ?? 0}
+            documentId={mod.internal_id}
             onPress={() => onComments?.()}
             color={colors.grey}
           />
@@ -408,13 +424,13 @@ function ModCard({ mod, colors, onOptions, onComments }: {
 }
 
 const modStyles = StyleSheet.create({
-  card:      { marginHorizontal: 12, marginBottom: 8, borderRadius: 10, overflow: 'hidden' },
+  card:      { marginHorizontal: 12, marginBottom: 8, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   actions:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: -6 },
   thumb:     { width: '100%', height: 180 },
   body:      { padding: 12 },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' },
   title:     { flex: 1, fontSize: 15, fontWeight: '700', lineHeight: 20 },
-  typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, flexShrink: 0 },
+  typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, flexShrink: 0 },
   typeText:  { fontSize: 11, fontWeight: '700' },
   optionsBtn:{ padding: 2, marginLeft: 2 },
   desc:      { fontSize: 13, lineHeight: 18, marginTop: 6 },
@@ -440,6 +456,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   // is presented from a root modal route outside the tabs.
   const tabBarClearance = 88 + insets.bottom;
   const scrollRef = useRef<ScrollView>(null);
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  useScrollTopOnBack(scrollRef);
   // A caller can ask for a sheet on arrival — "Add Gallery" from the car's card
   // opens this screen purely to get at the composer that lives on it.
   const [activeSheet, setActiveSheet] = useState<Sheet>(action === 'gallery' ? 'gallery' : null);
@@ -480,13 +498,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const creatingGallery = galleryProgress !== null;
   const updatingGallery = editProgress !== null;
   const dispatch = useAppDispatch();
-  const [deleteCar] = useDeleteCarMutation();
   const [createCarGalleryShell] = useCreateCarGalleryShellMutation();
   const [addCarGalleryImage] = useAddCarGalleryImageMutation();
   const [removeCarGalleryImages] = useRemoveCarGalleryImagesMutation();
   const [updateCarGalleryMeta] = useUpdateCarGalleryMetaMutation();
   const [updateMod, { isLoading: updatingMod }] = useUpdateModMutation();
   const [deleteMod] = useDeleteModMutation();
+  /** Which step of the remove sheet is open, or null for closed. */
+  const [removeStep, setRemoveStep] = useState<'choose' | 'transfer' | null>(null);
   const [deleteCarGallery] = useDeleteCarGalleryMutation();
 
   const { data: car, isLoading, refetch: refetchCar } = useGetCarWithUserQuery(carId);
@@ -513,13 +532,33 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const { data: paneGalData, refetch: refetchGalleries } = useGetCarGalleriesQuery(carId, { skip: !car });
   const paneAlbums = paneGalData?.entries ?? [];
 
+  /**
+   * The drives this car was in.
+   *
+   * `car_id` on the routes list covers both halves of that — a route recorded
+   * against this car, and a route that tagged it ("Driven In") — merged and
+   * de-duplicated server-side, so the shelf and the pane page through one
+   * honest list rather than stitching two together and guessing at a total.
+   *
+   * No `scope` here: this is a page other people read, so it gets the public
+   * list. A route its owner marked private, or shared only into groups the
+   * viewer isn't in, is not in the response to be filtered out — which is also
+   * why the owner's own private drives don't appear on their car's page. Their
+   * profile is where those live.
+   */
+  const { data: carRoutesData, refetch: refetchCarRoutes } = useGetRoutesQuery(
+    { car_id: carId, limit: ROUTE_STRIP_PREVIEW_COUNT },
+    { skip: !car },
+  );
+  const carRoutes = carRoutesData?.entries ?? [];
+
   // The car, and the three lists the page is made of. The mod and gallery
   // queries are skipped until the car loads, so they only join in once there
   // is one.
   const refreshControl = useRefreshControl(() => Promise.all([
     refetchCar(),
     refetchPosts(),
-    ...(car ? [refetchMods(), refetchGalleries()] : []),
+    ...(car ? [refetchMods(), refetchGalleries(), refetchCarRoutes()] : []),
   ]));
   const { data: carFollowersData } = useGetCarFollowersQuery(carId, { skip: !car });
   const carFollowers = carFollowersData?.entries ?? [];
@@ -639,35 +678,15 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [addSheet, setAddSheet] = useState(false);
   const handleAddPress = useCallback(() => setAddSheet(true), []);
 
-  const handleMenuPress = useCallback(() => {
-    if (!car) return;
-    const title = [car.year, car.make, car.model].filter(Boolean).join(' ');
-    Alert.alert(title, undefined, [
-      { text: 'Edit Car',    onPress: () => appNav.navigate('CarCreate', { carId }) },
-      {
-        text: 'Delete Car', style: 'destructive', onPress: () => {
-          Alert.alert(
-            'Delete Car',
-            `Remove ${title} from your garage? This cannot be undone.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                  try {
-                    await deleteCar({ internal_id: car.internal_id }).unwrap();
-                    appNav.goBack();
-                  } catch {
-                    Alert.alert('Error', 'Could not delete car. Please try again.');
-                  }
-                },
-              },
-            ]
-          );
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [car, appNav, carId, deleteCar]);
+  /**
+   * The car's own menu.
+   *
+   * An ActionSheet rather than `Alert.alert`: with Transfer added this is four
+   * choices plus a Cancel, and Android's platform dialog takes three and
+   * silently drops the rest — see ActionSheet's own note.
+   */
+  const [menuSheet, setMenuSheet] = useState(false);
+  const handleMenuPress = useCallback(() => setMenuSheet(true), []);
 
   const pickGalleryImage = () => {
     Alert.alert('Add Photo', 'How would you like to add a photo?', [
@@ -788,10 +807,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     }
   };
 
+  /** A group tapped in the groups pane, opened once the pane has closed. */
+  const pendingGroupRef = useRef<string | null>(null);
+  const { openGroup } = useGroupSummary();
+
   const handlePaneDismissed = () => {
     if (pendingViewerRef.current) {
       setViewer(pendingViewerRef.current);
       pendingViewerRef.current = null;
+    }
+    if (pendingGroupRef.current) {
+      openGroup(pendingGroupRef.current);
+      pendingGroupRef.current = null;
     }
   };
 
@@ -818,6 +845,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     restorePaneRef.current = pane;
     setPane(null);
     appNav.navigate('PostDetailModal', { postId });
+  };
+
+  /** A route detail, leaving the same breadcrumb a record does. */
+  const openRoute = (routeId: string) => {
+    restorePaneRef.current = pane;
+    setPane(null);
+    appNav.navigate('RouteDetailModal', { routeId });
   };
 
   const [deletePost] = useDeletePostMutation();
@@ -1016,6 +1050,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       ? `Other ${car.make} cars`
       : pane === 'tagged'
       ? 'Tagged in Posts'
+      : pane === 'routes'
+      ? 'Routes'
       : CAR_TILES.find((t) => t.key === pane)?.label ?? '';
 
   const renderPane = () => {
@@ -1027,6 +1063,16 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             // Same route the records list opens, so the pane is closed and
             // restored on the way back rather than left under the post.
             onPostPress={(post) => openRecord(post.internal_id)}
+          />
+        );
+      case 'routes':
+        return (
+          <RoutesPane
+            params={{ car_id: car.internal_id }}
+            emptyTitle="No routes for this car yet"
+            // Closed and restored the same way a record is — the detail is a
+            // native-stack modal and this pane is an RN <Modal>.
+            onRoutePress={(r) => openRoute(r.internal_id)}
           />
         );
       case 'posts': {
@@ -1060,14 +1106,17 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             {visiblePosts.length === 0
               ? <EmptyState title="No records match those filters" />
               : visiblePosts.map((item) => {
-                  const thumb = firstGalleryUrl(item.gallery);
+                  // The lead photo or a video's poster — see postThumb. These
+                  // rows are thumbnails, so a video plays once the record opens.
+                  const thumb = postThumb(item);
                   const title = item.title ?? (item.body ? stripHtml(item.body) : null);
                   const timeAgo = item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '';
                   return (
                     <RecordRow
                       key={item.internal_id}
                       title={title}
-                      imageUri={thumb}
+                      imageUri={thumb.url}
+                      isVideo={thumb.isVideo}
                       meta={timeAgo}
                       category={item.category}
                       onPress={() => openRecord(item.internal_id)}
@@ -1114,12 +1163,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   <LikeButton
                     documentId={album.internal_id}
                     entryType="cargallery"
+                    ownerId={album.user_id}
                     initialCount={album.like_count ?? 0}
                     initialLiked={album.isLiked ?? false}
                     color={colors.grey}
                   />
                   <CommentButton
                     count={album.comment_count ?? 0}
+                    documentId={album.internal_id}
                     onPress={() => setSubComments({ id: album.internal_id, type: 'cargallery' })}
                     color={colors.grey}
                   />
@@ -1166,7 +1217,10 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             <TouchableOpacity
               key={g.internal_id}
               style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
-              onPress={() => { setPane(null); (appNav as any).navigate('GroupDetail', { groupId: g.internal_id }); }}
+              // Members to the page, everyone else to the summary — once the pane
+              // has gone, since iOS won't present one modal over another that's
+              // still dismissing.
+              onPress={() => { pendingGroupRef.current = g.internal_id; setPane(null); }}
               activeOpacity={0.7}
             >
               {banner
@@ -1368,6 +1422,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 <LikeButton
                   documentId={car.internal_id}
                   entryType={(car as any).entry_type ?? 'garagecar'}
+                  ownerId={car.user_id}
                   initialCount={(car as any).like_count ?? 0}
                   initialLiked={(car as any).isLiked ?? false}
                   size={18}
@@ -1563,6 +1618,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           carId={car.internal_id}
           onPostPress={(post) => openRecord(post.internal_id)}
           onViewAll={() => setPane('tagged')}
+        />
+
+        {/* ── The roads it's actually driven ── */}
+        {/* Renders nothing when there are none — see RouteStrip. Sits on the
+            page rather than behind a tile, next to the tagged posts, because
+            both answer the same question: where has this car been. */}
+        <RouteStrip
+          title="Routes"
+          routes={carRoutes}
+          total={carRoutesData?.total ?? carRoutes.length}
+          onRoutePress={(r) => openRoute(r.internal_id)}
+          onViewAll={() => setPane('routes')}
         />
 
         {/* ── Comments on this car ── */}
@@ -1884,6 +1951,42 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           onManage={isOwnerOrCoOwner ? () => handleAlbumOptions(viewer.album) : undefined}
         />
       )}
+
+      <ActionSheet
+        visible={menuSheet}
+        onClose={() => setMenuSheet(false)}
+        title={[car?.year, car?.make, car?.model].filter(Boolean).join(' ')}
+        options={[
+          {
+            label: 'Edit Car',
+            Icon: PenSquare,
+            onPress: () => appNav.navigate('CarCreate', { carId }),
+          },
+          // Owner only: the server refuses a transfer from anyone else, and
+          // the co-owner can still reach Archive through Remove.
+          ...(isOwner ? [{
+            label: 'Transfer Car',
+            Icon: ArrowRightLeft,
+            onPress: () => setRemoveStep('transfer'),
+          }] : []),
+          {
+            label: 'Remove Car',
+            Icon: Trash2,
+            destructive: true,
+            onPress: () => setRemoveStep('choose'),
+          },
+        ]}
+      />
+
+      {/* Archive, transfer or erase. Whichever it is, this car is no longer in
+          the garage this screen was opened from, so it goes back. */}
+      <CarDeleteOptionsModal
+        visible={removeStep !== null}
+        car={car}
+        initialStep={removeStep ?? 'choose'}
+        onClose={() => setRemoveStep(null)}
+        onDeleted={() => appNav.goBack()}
+      />
     </SafeAreaView>
   );
 }
@@ -1919,11 +2022,11 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 12, right: 24,
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: COMMON_RADIUS,
   },
   addGalleryOverlayText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700' },
   albumCol:       { gap: 10 },
-  albumCard:      { width: ALBUM_COL_WIDTH, height: (GALLERY_HEIGHT - 10) / 2, borderRadius: 10, overflow: 'hidden' },
+  albumCard:      { width: ALBUM_COL_WIDTH, height: (GALLERY_HEIGHT - 10) / 2, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   albumOverlay:   {
     position: 'absolute', bottom: 0, left: 0, right: 0, padding: 8,
     backgroundColor: 'rgba(0,0,0,0.55)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -1934,14 +2037,14 @@ const styles = StyleSheet.create({
 
   albumManageBtn: {
     position: 'absolute', top: 6, right: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, padding: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: COMMON_RADIUS, padding: 4,
   },
 
-  modTypeChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  modTypeChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
   modTypeChipText: { fontSize: 13, fontWeight: '600' },
 
   addGalleryCard: {
-    width: ALBUM_COL_WIDTH, height: GALLERY_HEIGHT, borderRadius: 10,
+    width: ALBUM_COL_WIDTH, height: GALLERY_HEIGHT, borderRadius: COMMON_RADIUS,
     borderWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
@@ -1983,7 +2086,7 @@ const styles = StyleSheet.create({
     // No margins of its own — `todosAboveDesc` places it, and carrying both
     // stacked the two into a gap neither of them asked for.
     paddingVertical: 14, paddingHorizontal: 16,
-    borderRadius: 10, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   tasksBtnText:   { fontSize: 16, fontWeight: '800' },
   tasksBtnLabel:  { flex: 1, textAlign: 'center' },
@@ -2000,7 +2103,7 @@ const styles = StyleSheet.create({
   // the action row's padding.
   followersBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginTop: 10, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5,
+    marginTop: 10, paddingVertical: 13, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
   followersBtnText: { fontSize: 15, fontWeight: '800' },
   // `flexShrink` on the left group only: a long spec truncates before it can
@@ -2009,16 +2112,16 @@ const styles = StyleSheet.create({
   metaRight:      { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
   specChip: {
     paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 5, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
   },
   specChipText:   { fontSize: 11, fontWeight: '700' },
-  carBadge:       { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  carBadge:       { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
   carBadgeText:   { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
   descWrap:       { marginTop: 12 },
   todosAboveDesc: { marginTop: 8 },
   addContentBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    marginTop: 16, paddingVertical: 12, borderRadius: 10,
+    marginTop: 16, paddingVertical: 12, borderRadius: COMMON_RADIUS,
   },
   addContentText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
   carDescription: { fontSize: 14, lineHeight: 20 },
@@ -2027,7 +2130,7 @@ const styles = StyleSheet.create({
   // line under a description looked like the end of the page rather than the
   // start of a control.
   actionBtn: {
-    height: 34, minWidth: 34, borderRadius: 10,
+    height: 34, minWidth: 34, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     // The like button brings its own padding; the comment icon has none, so it
     // gets the horizontal room here instead.
@@ -2043,13 +2146,13 @@ const styles = StyleSheet.create({
   ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
   ownerChipName:   { fontSize: 14, fontWeight: '700', flexShrink: 1 },
   coOwnerAvatarWrap: { marginLeft: -8 },
-  ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, borderRadius: 10 },
+  ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, borderRadius: COMMON_RADIUS },
   coOwnerCard:     { marginTop: 8, borderTopWidth: 1 },
   ownerInfo:       { flex: 1 },
   ownerName:       { fontSize: 15, fontWeight: '700' },
   ownerUsername:   { fontSize: 12, marginTop: 1 },
   coOwnerLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  coOwnerBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 4 },
+  coOwnerBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
   coOwnerBadgeText: { fontSize: 11, fontWeight: '700' },
 
   modsSection:          { borderTopWidth: 1 },
@@ -2057,7 +2160,7 @@ const styles = StyleSheet.create({
   modsAccordionBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
-    borderRadius: 12, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   modsAccordionBtnText: { fontSize: 16, fontWeight: '700' },
   modsSectionRight:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -2133,7 +2236,7 @@ const styles = StyleSheet.create({
   // `alignSelf` keeps the pill hugging its label now that it's on its own line
   // rather than sharing a row.
   postsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  inlineCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  inlineCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: COMMON_RADIUS },
   inlineCreateBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   sectionTitle:    { fontSize: 15, fontWeight: '700', marginBottom: 12 },
   specGrid:        { borderRadius: 10, overflow: 'hidden' },
@@ -2151,7 +2254,7 @@ const styles = StyleSheet.create({
   sheetTitle:     { fontSize: 17, fontWeight: '700' },
   sheetCreateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, margin: 12, padding: 12, borderRadius: 10,
+    gap: 8, margin: 12, padding: 12, borderRadius: COMMON_RADIUS,
   },
   sheetCreateBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });

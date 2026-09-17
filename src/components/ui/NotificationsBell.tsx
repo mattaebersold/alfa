@@ -1,8 +1,9 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
-  useWindowDimensions,
+  useWindowDimensions, Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList, { DeleteAllButton } from '../notifications/NotificationsList';
 import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
@@ -10,13 +11,16 @@ import { useAppSelector } from '../../store/store';
 import { CONFIG } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { PILL_RADIUS } from '../../constants/radius';
 
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 42;
 /** Black, like every other glyph in the header. */
 const BTN_RADIUS = 14;
-/** How much of the screen the opened panel takes. */
+/** The most of the screen the opened panel takes; it scrolls past this. */
 const PANEL_RATIO = 0.9;
+/** The panel's height before the list has measured — a spinner's worth. */
+const PANEL_LOADING_H = 220;
 const PANEL_RADIUS = 20;
 /** Past this the badge stops counting and starts saying "lots". */
 const BADGE_MAX = 10;
@@ -111,13 +115,48 @@ export default function NotificationsBell() {
   const ghost = useRef(new Animated.Value(1)).current;
 
   const panelW = screenW * PANEL_RATIO;
-  const panelH = screenH * PANEL_RATIO;
+  const maxPanelH = screenH * PANEL_RATIO;
   const panelX = (screenW - panelW) / 2;
-  const panelY = (screenH - panelH) / 2;
+  // Anchored where the full-height panel's top edge would be, so a short panel
+  // hangs from the top of the screen and grows or shrinks at its bottom edge
+  // only, rather than re-centring every time a notification comes or goes.
+  const panelY = (screenH - maxPanelH) / 2;
+
+  /**
+   * As tall as what's in it, up to `maxPanelH`.
+   *
+   * Two notifications used to sit at the top of a panel that took the whole
+   * screen. The header (with the messages row, when there is one) and the
+   * list's rows are measured separately and added up; past the cap the list
+   * scrolls inside the panel.
+   *
+   * Animated rather than set, because it changes while you watch: the rows can
+   * land after the box has started growing, and deleting one shrinks the panel
+   * under your thumb. JS-driven, since it feeds the box's height.
+   */
+  const [chromeH, setChromeH] = useState<number | null>(null);
+  const [listH, setListH] = useState<number | null>(null);
+  const fitH = chromeH != null && listH != null ? Math.min(chromeH + listH, maxPanelH) : null;
+  const fitHRef = useRef(fitH);
+  fitHRef.current = fitH;
+  const panelH = useRef(new Animated.Value(PANEL_LOADING_H)).current;
+
+  useEffect(() => {
+    if (!open || fitH == null) return;
+    Animated.spring(panelH, {
+      toValue: fitH,
+      stiffness: 220,
+      damping: 26,
+      mass: 1,
+      useNativeDriver: false,
+    }).start();
+  }, [open, fitH, panelH]);
 
   const openPanel = useCallback(() => {
     btnRef.current?.measureInWindow((x, y, w, h) => {
       setOrigin({ x, y, w: w || BTN, h: h || BTN });
+      // Last time's height is the best guess until this open's rows measure.
+      panelH.setValue(fitHRef.current ?? Math.min(PANEL_LOADING_H, maxPanelH));
       setOpen(true);
       box.setValue(0);
       reveal.setValue(0);
@@ -132,19 +171,19 @@ export default function NotificationsBell() {
         Animated.parallel([
           Animated.spring(box, {
             toValue: 1,
-            // Stiff enough to reach full size in about a quarter second, loose
-            // enough (damping ratio ~0.6) to overshoot it by a tenth and rock
-            // back — the box arrives, breathes past its mark, and settles. Any
-            // less damping and the overshoot carries it off the bottom of the
-            // screen rather than just past the edge.
-            stiffness: 200,
-            damping: 17,
+            // Stiff enough to reach full size in about four tenths of a second,
+            // loose enough (damping ratio ~0.6) to overshoot it by a tenth and
+            // rock back — the box arrives, breathes past its mark, and settles.
+            // Any less damping and the overshoot carries it off the bottom of
+            // the screen rather than just past the edge.
+            stiffness: 90,
+            damping: 11.4,
             mass: 1,
             useNativeDriver: false,
           }),
           Animated.timing(reveal, {
             toValue: 1,
-            duration: 380,
+            duration: 570,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -152,7 +191,7 @@ export default function NotificationsBell() {
           // reads as it being taken rather than switched off.
           Animated.timing(badgeScale, {
             toValue: 0,
-            duration: 320,
+            duration: 480,
             easing: Easing.in(Easing.elastic(1.4)),
             useNativeDriver: true,
           }),
@@ -160,8 +199,8 @@ export default function NotificationsBell() {
           // any sooner takes the exit with it.
           Animated.timing(ghost, {
             toValue: 0,
-            delay: 260,
-            duration: 140,
+            delay: 390,
+            duration: 210,
             easing: Easing.out(Easing.quad),
             useNativeDriver: true,
           }),
@@ -170,7 +209,7 @@ export default function NotificationsBell() {
         });
       }));
     });
-  }, [box, reveal, badgeScale, ghost]);
+  }, [box, reveal, badgeScale, ghost, panelH, maxPanelH]);
 
   /**
    * Shrink back into the button, then run whatever was waiting on the panel
@@ -189,8 +228,8 @@ export default function NotificationsBell() {
     Animated.parallel([
       Animated.spring(box, {
         toValue: 0,
-        stiffness: 120,
-        damping: 22,
+        stiffness: 53,
+        damping: 14.6,
         mass: 0.85,
         useNativeDriver: false,
       }),
@@ -198,7 +237,7 @@ export default function NotificationsBell() {
       // be gone before the box shrinks out from under it.
       Animated.timing(reveal, {
         toValue: 0,
-        duration: 180,
+        duration: 270,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -206,7 +245,7 @@ export default function NotificationsBell() {
       // collapse instead of turning up once it has already landed.
       Animated.timing(ghost, {
         toValue: 1,
-        duration: 140,
+        duration: 210,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
@@ -272,9 +311,17 @@ export default function NotificationsBell() {
         {/* The ground dims as the panel grows, so the screen behind reads as
             being covered rather than as having gone dark on its own. */}
         <Animated.View
-          style={[StyleSheet.absoluteFill, styles.scrim, { opacity: reveal }]}
+          style={[StyleSheet.absoluteFill, { opacity: reveal }]}
           pointerEvents="none"
-        />
+        >
+          {/* Blurred on iOS; Android keeps the flat shade. The grey stays on
+              top of the blur so the panel's edges still read against a pale
+              screen behind it. */}
+          {Platform.OS === 'ios' && (
+            <BlurView tint="dark" intensity={30} style={StyleSheet.absoluteFill} />
+          )}
+          <View style={[StyleSheet.absoluteFill, styles.scrim]} />
+        </Animated.View>
         {/* Tapping outside closes, matching every other sheet in the app. */}
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
@@ -291,7 +338,11 @@ export default function NotificationsBell() {
               left: grow(origin.x, panelX),
               top: grow(origin.y, panelY),
               width: grow(origin.w, panelW),
-              height: grow(origin.h, panelH),
+              // grow(origin.h, panelH), except the far end moves too.
+              height: Animated.add(
+                origin.h,
+                Animated.multiply(box, Animated.subtract(panelH, origin.h)),
+              ),
               borderRadius: grow(BTN_RADIUS, PANEL_RADIUS),
             },
           ]}
@@ -342,68 +393,80 @@ export default function NotificationsBell() {
           </Animated.View>
         </Animated.View>
 
-        {/* Content, at its final size throughout — it only ever fades. */}
+        {/* Content, at its final size throughout — it only ever fades.
+            Height and opacity on separate views for the same reason as the
+            ghost button: the height is JS-driven, the fade native. */}
         <Animated.View
           style={[
             styles.content,
             { left: panelX, top: panelY, width: panelW, height: panelH },
-            {
-              opacity: reveal.interpolate({
-                inputRange: [0, 0.45, 0.85], outputRange: [0, 0, 1], extrapolate: 'clamp',
-              }),
-            },
           ]}
           // Until the box has arrived this layer is invisible, and an invisible
           // sheet must not be swallowing taps meant for the backdrop.
           pointerEvents={expanded ? 'auto' : 'none'}
         >
-          {/* The bell alone says what this is — a heading spelling out
-              "Notifications" over a list of notifications is a word doing no
-              work. Archive-all sits with the close button because both are
-              things you do to the panel rather than to a notification. */}
-          <View style={styles.panelHeader}>
-            <Bell size={20} color="#FFFFFF" strokeWidth={2.2} />
-            <View style={styles.panelHeaderActions}>
-              <DeleteAllButton />
-              <TouchableOpacity
-                onPress={() => closePanel()}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityRole="button"
-                accessibilityLabel="Close notifications"
-              >
-                <X size={30} color="#FFFFFF" strokeWidth={2.4} />
-              </TouchableOpacity>
+          <Animated.View
+            style={[
+              styles.contentFade,
+              {
+                opacity: reveal.interpolate({
+                  inputRange: [0, 0.45, 0.85], outputRange: [0, 0, 1], extrapolate: 'clamp',
+                }),
+              },
+            ]}
+          >
+            <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
+              {/* No heading and no bell — you just tapped the bell, so the panel
+                  doesn't need to say what it is. Delete-all on the left, close
+                  on the right: both act on the panel rather than on a
+                  notification, and apart they can't be hit one for the other. */}
+              <View style={styles.panelHeader}>
+                <DeleteAllButton color="#FFFFFF" />
+                <TouchableOpacity
+                  onPress={() => closePanel()}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close notifications"
+                >
+                  <X size={30} color="#FFFFFF" strokeWidth={2.4} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Messages first, and only when there are unread ones. A standing
+                  "Messages" row on a panel about what's new would be navigation
+                  wearing a notification's clothes. */}
+              {messageCount > 0 && (
+                <TouchableOpacity
+                  style={styles.messagesRow}
+                  onPress={() => {
+                    closePanel();
+                    navigation.navigate('Messages');
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${messageCount} unread ${messageCount === 1 ? 'message' : 'messages'}`}
+                >
+                  <View style={[styles.messagesIcon, { backgroundColor: tint }]}>
+                    <Mail size={16} color={contrastText(tint)} strokeWidth={2.4} />
+                  </View>
+                  <View style={styles.messagesText}>
+                    <Text style={styles.messagesTitle}>
+                      {messageCount} unread {messageCount === 1 ? 'message' : 'messages'}
+                    </Text>
+                    <Text style={styles.messagesHint}>Open your inbox</Text>
+                  </View>
+                  <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
 
-          {/* Messages first, and only when there are unread ones. A standing
-              "Messages" row on a panel about what's new would be navigation
-              wearing a notification's clothes. */}
-          {messageCount > 0 && (
-            <TouchableOpacity
-              style={styles.messagesRow}
-              onPress={() => {
-                closePanel();
-                navigation.navigate('Messages');
-              }}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`${messageCount} unread ${messageCount === 1 ? 'message' : 'messages'}`}
-            >
-              <View style={[styles.messagesIcon, { backgroundColor: tint }]}>
-                <Mail size={16} color={contrastText(tint)} strokeWidth={2.4} />
-              </View>
-              <View style={styles.messagesText}>
-                <Text style={styles.messagesTitle}>
-                  {messageCount} unread {messageCount === 1 ? 'message' : 'messages'}
-                </Text>
-                <Text style={styles.messagesHint}>Open your inbox</Text>
-              </View>
-              <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          )}
-
-          <NotificationsList onDismiss={closePanel} revealStagger showDeleteAll={false} />
+            <NotificationsList
+              onDismiss={closePanel}
+              revealStagger
+              showDeleteAll={false}
+              onContentHeight={setListH}
+            />
+          </Animated.View>
         </Animated.View>
       </Modal>
     </>
@@ -450,7 +513,7 @@ const styles = StyleSheet.create({
    */
   badge: {
     position: 'absolute', top: 2, right: 2,
-    minWidth: 19, height: 19, borderRadius: 9.5,
+    minWidth: 19, height: 19, borderRadius: PILL_RADIUS,
     paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#EC4632',
@@ -517,9 +580,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     zIndex: 20, elevation: 22,
   },
+  contentFade: { flex: 1 },
   panelHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14,
   },
-  panelHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
 });

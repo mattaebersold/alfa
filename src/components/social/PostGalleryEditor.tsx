@@ -8,6 +8,7 @@ import { imageUrl } from '../../utils/image';
 import { normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import type { GalleryItem } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * One slot in the editor. `existing` images are already on the server and are
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   // clipped by the row's bounds or the neighbouring thumbnail.
   removeBtn: {
     position: 'absolute', top: 6, right: 6,
-    width: 30, height: 30, borderRadius: 15,
+    width: 30, height: 30, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.7)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingVertical: 11, borderRadius: 10, borderWidth: 1, marginTop: 10,
+    paddingVertical: 11, borderRadius: COMMON_RADIUS, borderWidth: 1, marginTop: 10,
   },
   addBtnText: { fontSize: 14, fontWeight: '700' },
 });

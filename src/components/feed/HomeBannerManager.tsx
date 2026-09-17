@@ -18,6 +18,7 @@ import {
   BANNER_DESTINATIONS, bannerDestination,
 } from '../../constants/bannerDestinations';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** The order destination groups appear in the picker. */
 const GROUPS = ['Society', 'Cars', 'Community', 'Content', 'Other'] as const;
@@ -283,12 +284,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
   destLabel:    { fontSize: 14, fontWeight: '600' },
-  saveBtn:      { paddingVertical: 13, borderRadius: 12, alignItems: 'center', marginTop: 6 },
+  saveBtn:      { paddingVertical: 13, borderRadius: COMMON_RADIUS, alignItems: 'center', marginTop: 6 },
   saveText:     { color: '#000000', fontSize: 15, fontWeight: '800' },
   btnOff:       { opacity: 0.5 },
   removeBtn:    {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 12, borderWidth: 1,
+    paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   removeText:   { fontSize: 14, fontWeight: '700' },
 });

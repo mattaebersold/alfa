@@ -14,6 +14,7 @@ import Spinner from '../ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import type { DeclinedInvite } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * The groups you said no to, and the way to change your mind.
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5,
     minWidth: 78, justifyContent: 'center',
     paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   undoText: { fontSize: 13, fontWeight: '700' },
 });

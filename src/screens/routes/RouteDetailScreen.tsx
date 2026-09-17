@@ -2,16 +2,23 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
-import { ThumbsUp, Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2 } from 'lucide-react-native';
+import { Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2 } from 'lucide-react-native';
 import RouteMap from '../../components/routes/RouteMap';
 import RouteMapFullScreen from '../../components/routes/RouteMapFullScreen';
+import VoteButton from '../../components/routes/VoteButton';
+import RouteOwnerMenu from '../../components/routes/RouteOwnerMenu';
 import Spinner from '../../components/ui/Spinner';
-import Avatar from '../../components/ui/Avatar';
-import LikersSheet from '../../components/social/LikersSheet';
-import { useGetRouteQuery, useVoteRouteMutation, useUnvoteRouteMutation } from '../../api/apiService';
+import EmptyState from '../../components/ui/EmptyState';
+import LikeButton from '../../components/social/LikeButton';
+import CommentButton from '../../components/social/CommentButton';
+import CommentsSheet from '../../components/social/CommentsSheet';
+import PostTagBadges from '../../components/social/PostTagBadges';
+import GroupAttribution from '../../components/groups/GroupAttribution';
+import { useGetRouteQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
@@ -22,14 +29,20 @@ import type { RoutesStackParamList } from '../../navigation/types';
 import type { RoutePitStop } from '../../types/api';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type DetailRoute = RouteProp<RoutesStackParamList, 'RouteDetail'>;
 
 /**
- * A single route: its shape on a map, the numbers behind it, and the vote.
+ * A single route: its shape on a map, the numbers behind it, who drove it and
+ * in what, and what people made of it — the vote, likes and comments.
  */
 export default function RouteDetailScreen() {
   const { params } = useRoute<DetailRoute>();
+  // Reached from the Routes tab and as a modal from anywhere else, so the
+  // navigator isn't one known stack; RouteSave lives on the app stack above both.
+  const navigation = useNavigation<any>();
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
   const colors = useColors();
   // The map is the point of this screen, so it gets most of it — the numbers
   // and the vote read as something you scroll up to, over the top of it.
@@ -39,14 +52,12 @@ export default function RouteDetailScreen() {
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
 
-  const { data, isLoading, refetch } = useGetRouteQuery(params.routeId);
+  const { data, isLoading, isError, refetch } = useGetRouteQuery(params.routeId);
   const refreshControl = useRefreshControl(refetch);
-  const [vote] = useVoteRouteMutation();
-  const [unvote] = useUnvoteRouteMutation();
   // Above the loading guard: a hook after an early return runs on some renders
   // and not others, which is the one thing hooks can't survive.
   const [fullMap, setFullMap] = useState(false);
-  const [votersOpen, setVotersOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   /**
    * The expand control fades out as the body climbs over the map, and stops
    * taking touches once it's gone. A boolean rather than a scroll offset, so
@@ -56,15 +67,22 @@ export default function RouteDetailScreen() {
   const [mapCovered, setMapCovered] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  if (isLoading || !data) return <Spinner />;
+  if (isLoading) return <Spinner />;
+  // Deleted, private, or never there — the API answers all three with a 404,
+  // and a spinner that never ends is the wrong way to say so.
+  if (isError || !data) {
+    return (
+      <View style={[ss.fill, { backgroundColor: colors.bg, justifyContent: 'center' }]}>
+        <EmptyState title="Route not found" message="It may have been deleted, or made private." />
+      </View>
+    );
+  }
 
-  const { entry, user, vote_count, has_voted } = data;
+  const { entry, user } = data;
   const stats = entry.stats;
   const path = entry.polyline ? decodePolyline(entry.polyline) : [];
-
-  const toggleVote = () => {
-    (has_voted ? unvote : vote)(entry.internal_id);
-  };
+  const isOwner = !!myId && myId === entry.user_id;
+  const groupIds = entry.group_ids ?? [];
 
   const hasMap = path.length >= 2;
 
@@ -118,14 +136,6 @@ export default function RouteDetailScreen() {
         <View style={{ height: mapHeight }} />
       )}
 
-      <LikersSheet
-        entryId={entry.internal_id}
-        visible={votersOpen}
-        onClose={() => setVotersOpen(false)}
-        title="Voted by"
-        emptyText="No votes yet. Be the first!"
-      />
-
       <RouteMapFullScreen
         visible={fullMap}
         onClose={() => setFullMap(false)}
@@ -144,7 +154,18 @@ export default function RouteDetailScreen() {
         hasMap && styles.bodyOverMap,
         { backgroundColor: colors.bg },
       ]}>
-        <Text style={[styles.title, { color: colors.fg }]}>{entry.title || 'Untitled route'}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.fg }]}>{entry.title || 'Untitled route'}</Text>
+          {/* Only the creator gets Edit and Delete; the server checks again. */}
+          {isOwner && (
+            <RouteOwnerMenu
+              routeId={entry.internal_id}
+              color={colors.fg}
+              onEdit={() => navigation.navigate('RouteSave', { routeId: entry.internal_id })}
+              onDeleted={() => navigation.goBack()}
+            />
+          )}
+        </View>
 
         {(entry.start_place || entry.end_place) && (
           <Text style={[styles.place, { color: colors.grey }]}>
@@ -152,51 +173,47 @@ export default function RouteDetailScreen() {
           </Text>
         )}
 
-        {user && (
-          <View style={styles.author}>
-            <Avatar
-              user={user}
-              size={30}
-            />
-            <Text style={[styles.authorName, { color: colors.fg }]}>@{user.username}</Text>
-          </View>
-        )}
+        {/* Who recorded it, who drove it, the car it was driven in and the
+            events it was part of — the post badges, relabelled for a drive.
+            The route's own car_id is folded in for routes saved before cars
+            were tagged. Pulled out to the screen edge, since the badges bring
+            their own inset. */}
+        <View style={styles.tags}>
+          <PostTagBadges
+            postId={entry.internal_id}
+            creatorId={user?.user_id ?? entry.user_id}
+            extraCarIds={entry.car_id ? [entry.car_id] : undefined}
+            labels={{ creator: 'Created By', users: 'Driven By', cars: 'Driven In', events: 'Events' }}
+          />
+        </View>
 
         <View style={styles.actionRow}>
-        {/* One pill, two jobs. The thumb is the vote; the count is the list of
-            who else cast one. Splitting them is what lets a tally you can read
-            also be a tally you can open — as one target, seeing the voters
-            would have meant voting for the route first. */}
-        <View style={[
-          styles.votePill,
-          has_voted
-            ? { backgroundColor: brand, borderColor: brand }
-            : { borderColor: colors.border },
-        ]}>
-          <TouchableOpacity
-            style={styles.voteToggle}
-            onPress={toggleVote}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={has_voted ? 'Remove your vote' : 'Vote for this route'}
-          >
-            <ThumbsUp size={18} color={has_voted ? onBrand : colors.fg} strokeWidth={2.4} />
-          </TouchableOpacity>
-          <View style={[
-            styles.voteDivider,
-            { backgroundColor: has_voted ? onBrand : colors.border },
-          ]} />
-          <TouchableOpacity
-            style={styles.voteCount}
-            onPress={() => setVotersOpen(true)}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={`See who voted — ${vote_count} ${vote_count === 1 ? 'vote' : 'votes'}`}
-          >
-            <Text style={[styles.voteLabel, { color: has_voted ? onBrand : colors.fg }]}>
-              {vote_count} {vote_count === 1 ? 'vote' : 'votes'}
-            </Text>
-          </TouchableOpacity>
+        {/* Up, score, down — cast the way a group discussion vote is. */}
+        <VoteButton
+          routeId={entry.internal_id}
+          score={data.vote_count ?? entry.vote_count ?? 0}
+          userVote={data.user_vote ?? null}
+          large
+        />
+
+        {/* Likes and comments ride the generic collections under the `route`
+            type, which is what lets the server find the route's owner and tell
+            them. */}
+        <View style={[styles.socialPill, { borderColor: colors.border }]}>
+          <LikeButton
+            documentId={entry.internal_id}
+            entryType="route"
+            ownerId={entry.user_id}
+            initialLiked={data.has_liked ?? false}
+            initialCount={data.like_count ?? 0}
+            color={colors.fg}
+            size={19}
+          />
+          <CommentButton
+            count={data.comment_count ?? 0}
+            onPress={() => setCommentsOpen(true)}
+            color={colors.fg}
+          />
         </View>
 
         {/* Hands the route's corners to a maps app, which then does real
@@ -272,8 +289,34 @@ export default function RouteDetailScreen() {
         ) : entry.directions_status === 'pending' ? (
           <Text style={[styles.meta, { color: colors.grey }]}>Working out the roads…</Text>
         ) : null}
+
+        {/* The groups it was shared into. Each is the same "posted in" banner
+            a post carries, and goes through the group summary provider: a
+            member lands on the group, anyone else gets its summary. */}
+        {groupIds.length > 0 && (
+          <View style={styles.groups}>
+            <Text style={[styles.sectionTitle, { color: colors.fg }]}>Shared To</Text>
+            <View style={styles.groupBanners}>
+              {groupIds.map((groupId) => (
+                <GroupAttribution key={groupId} groupId={groupId} />
+              ))}
+            </View>
+          </View>
+        )}
       </View>
       </Animated.ScrollView>
+
+      {/* Outside the scroll view, so the sheet isn't clipped by the body panel.
+          The count on the button is the server's, so it's refreshed on close. */}
+      <CommentsSheet
+        postId={entry.internal_id}
+        entryType="route"
+        visible={commentsOpen}
+        onClose={() => {
+          setCommentsOpen(false);
+          refetch();
+        }}
+      />
 
       {/* Above the scroll view so it stays tappable over the map, and faded out
           by the time the body has climbed over the thing it expands. */}
@@ -434,7 +477,7 @@ const styles = StyleSheet.create({
   // map, so anything down there is the first thing to be buried.
   expandBadge: {
     position: 'absolute', right: 12, top: 12,
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: PILL_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   expandHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -449,35 +492,24 @@ const styles = StyleSheet.create({
     paddingTop: 16 + BODY_OVERLAP / 2,
   },
 
-  title: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  title: { flex: 1, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   place: { fontSize: 14 },
 
-  author:     { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  authorName: { fontSize: 14, fontWeight: '700' },
+  // The badges carry a 12 inset and a 16 top of their own, for sitting in a
+  // full-width card; this cancels both so they line up with the body's gutter.
+  tags: { marginHorizontal: -12, marginTop: -16 },
 
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  votePill: {
-    flexDirection: 'row', alignItems: 'center',
-    height: 42, borderRadius: 100, borderWidth: 1.5,
-    // The two halves supply their own padding, so the pill supplies none —
-    // otherwise the divider ends up inset from the tap targets either side.
-    overflow: 'hidden',
+  // Heart and comment in one outline the height of the vote pill beside it, so
+  // the row reads as a set of controls rather than two icons floating loose.
+  socialPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    height: 42, paddingHorizontal: 10, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
-  voteToggle: {
-    alignItems: 'center', justifyContent: 'center',
-    paddingLeft: 15, paddingRight: 12, height: '100%',
-  },
-  // Hairline rather than a full rule: it separates two halves of one control,
-  // not two controls.
-  voteDivider: { width: StyleSheet.hairlineWidth, height: 18, opacity: 0.5 },
-  voteCount: {
-    alignItems: 'center', justifyContent: 'center',
-    paddingLeft: 12, paddingRight: 15, height: '100%',
-  },
-  voteLabel: { fontSize: 15, fontWeight: '800' },
   followBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingHorizontal: 16, height: 42, borderRadius: 100,
+    paddingHorizontal: 16, height: 42, borderRadius: COMMON_RADIUS,
   },
   followLabel: { fontSize: 15, fontWeight: '800' },
 
@@ -491,6 +523,10 @@ const styles = StyleSheet.create({
 
   meta:        { fontSize: 13 },
   directions:   { marginTop: 8 },
+  groups:       { marginTop: 8 },
+  // The banners inset themselves 8 for a feed card's edge; the body already
+  // has its gutter, so that's cancelled here.
+  groupBanners: { marginHorizontal: -8, marginTop: -12 },
   sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
   step:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   stepRoad:     { fontSize: 14, lineHeight: 19 },

@@ -5,17 +5,16 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
-import { ExternalLink, ThumbsUp, ThumbsDown, Pencil, Trash2, ChevronRight } from 'lucide-react-native';
+import { ExternalLink, Pencil, Trash2, ChevronRight } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
 import {
   useCreateCommentMutation,
-  useUpvoteGroupDiscussionPostMutation,
-  useDownvoteGroupDiscussionPostMutation,
   useDeleteGroupDiscussionPostMutation,
   useDeleteGroupResourceMutation,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import GroupVoteButtons from './GroupVoteButtons';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
@@ -28,6 +27,7 @@ import GroupCreateSheet from './GroupCreateSheet';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -71,9 +71,6 @@ export default function GroupItemDetailModal({
 }: Props) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
-  const [upvote, { isLoading: upvoting }] = useUpvoteGroupDiscussionPostMutation();
-  const [downvote, { isLoading: downvoting }] = useDownvoteGroupDiscussionPostMutation();
-  const voting = upvoting || downvoting;
   const [deleteDiscussion, { isLoading: deletingDiscussion }] = useDeleteGroupDiscussionPostMutation();
   const [deleteResource, { isLoading: deletingResource }] = useDeleteGroupResourceMutation();
   const deleting = deletingDiscussion || deletingResource;
@@ -220,31 +217,20 @@ export default function GroupItemDetailModal({
           {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}
 
           {/* Voting. Lives here rather than on the list row — it's a response to
-              having read the thing, and the row is a link, not a control. */}
-          {kind === 'discussion' && (
-            <View style={styles.voteRow}>
-              <TouchableOpacity
-                style={[styles.voteBtn, { borderColor: colors.borderDark }]}
-                onPress={() => upvote({ internal_id: d.internal_id, group_id: d.group_id })}
-                disabled={voting}
-                accessibilityRole="button"
-                accessibilityLabel="Upvote"
-              >
-                <ThumbsUp size={16} color={colors.fg} />
-                <Text style={[styles.voteCount, { color: colors.fg }]}>{d.upvotes ?? 0}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.voteBtn, { borderColor: colors.borderDark }]}
-                onPress={() => downvote({ internal_id: d.internal_id, group_id: d.group_id })}
-                disabled={voting}
-                accessibilityRole="button"
-                accessibilityLabel="Downvote"
-              >
-                <ThumbsDown size={16} color={colors.fg} />
-                <Text style={[styles.voteCount, { color: colors.fg }]}>{d.downvotes ?? 0}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+              having read the thing, and the row is a link, not a control.
+              All three kinds vote now; resources and news showed nothing at
+              all before, though the endpoints existed. */}
+          <View style={styles.voteRow}>
+            <GroupVoteButtons
+              kind={kind}
+              internal_id={d.internal_id}
+              group_id={d.group_id}
+              upvotes={d.upvotes}
+              downvotes={d.downvotes}
+              votes={d.votes}
+              size={17}
+            />
+          </View>
 
           {/* Resource link */}
           {kind === 'resource' && d.url && !ytId ? (
@@ -369,7 +355,7 @@ const styles = StyleSheet.create({
   hero:    { width: '100%', aspectRatio: 16 / 9 },
   galleryImage: { width: SCREEN_WIDTH, aspectRatio: 16 / 9 },
   body:    { padding: 16 },
-  catChip: { alignSelf: 'flex-start', backgroundColor: '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, marginBottom: 8 },
+  catChip: { alignSelf: 'flex-start', backgroundColor: '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, marginBottom: 8 },
   catChipText: { color: '#B4B4B4', fontSize: 10, fontWeight: '800' },
   title:   { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26, marginBottom: 12 },
   meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
@@ -378,23 +364,17 @@ const styles = StyleSheet.create({
   ownerBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 999, borderWidth: 1,
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   ownerBtnText: { fontSize: 12, fontWeight: '700' },
   voteRow:  { flexDirection: 'row', gap: 10, marginTop: 18 },
-  voteBtn:  {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingHorizontal: 16, paddingVertical: 9,
-    borderRadius: 999, borderWidth: 1,
-  },
-  voteCount:{ fontSize: 14, fontWeight: '700' },
   text:    { fontSize: 15, lineHeight: 24, color: '#ECECEC' },
   commentsHeading: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 24, marginBottom: 12 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },
   replyBannerText: { color: '#8D8D8D', fontSize: 13 },
   replyCancel: { color: 'rgb(37, 162, 211)', fontSize: 13, fontWeight: '700' },
   inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
-  postBtn: { backgroundColor: 'rgb(37, 162, 211)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 9 },
+  postBtn: { backgroundColor: 'rgb(37, 162, 211)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
   postBtnText: { color: '#000000', fontWeight: '700', fontSize: 14 },
   empty:   { color: '#8D8D8D', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
 });

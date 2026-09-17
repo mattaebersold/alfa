@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput,
@@ -8,7 +8,14 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
+import RegionBadge from '../../components/ui/RegionBadge';
+import CarSummaryModal from '../../components/cars/CarSummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
+import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
+import { useLocationFilter } from '../../hooks/useLocationFilter';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery, useGetUserByIdQuery } from '../../api/apiService';
@@ -21,13 +28,17 @@ import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS } from '../../constants/radius';
 
-function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }) {
+function CarGridItem({ item, onPress }: {
+  item: GarageCar;
+  onPress: (origin: SummaryOrigin | null) => void;
+}) {
   const colors = useColors();
   const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
   const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
   return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
+    <SummaryTouchable style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress}>
       <View style={styles.cardImageContainer}>
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
@@ -43,14 +54,20 @@ function CarGridItem({ item, onPress }: { item: GarageCar; onPress: () => void }
           <View style={styles.ownerRow}>
             <Avatar user={owner} size={20} />
             <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
+            {/* Where the owner is, as a map — see RegionBadge. It belongs with
+                the name it describes rather than floating over the car. */}
+            <RegionBadge region={item.owner_region} size={24} />
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const brand = useBrandColor();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
@@ -60,8 +77,32 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
 
-  const { data, isFetching, isLoading } = useGetCarsQuery({ page, limit: 12 });
+  // A car is where its owner is, so this filters on the member behind it —
+  // near me by default, measured from the zip on your profile.
+  const location = useLocationFilter();
+  const { data, isFetching, isLoading } = useGetCarsQuery({ page, limit: 12, ...location.params });
+
+  const { fallBack } = location;
+  useEffect(() => {
+    if (data?.near_unavailable) fallBack();
+  }, [data?.near_unavailable, fallBack]);
+
+  /**
+   * Any filter change starts the list again — but only a change. Apply with
+   * nothing different would empty the list and get the same cached page back,
+   * which never re-runs the effect that fills it.
+   */
+  const applyLocation = useCallback((next: { choice: string; radius: number }) => {
+    const choiceChanged = next.choice !== location.choice;
+    const radiusChanged = next.radius !== location.radius;
+    if (!choiceChanged && !radiusChanged) return;
+    if (choiceChanged) location.choose(next.choice);
+    if (radiusChanged) location.setRadius(next.radius);
+    setPage(0);
+    setAllCars([]);
+  }, [location]);
 
   React.useEffect(() => {
     if (data?.entries) {
@@ -97,6 +138,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
       <AppHeader />
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
+        ref={scrollRef}
         data={filteredCars}
         keyExtractor={(item) => item.internal_id}
         numColumns={2}
@@ -133,12 +175,37 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
               </View>
               
             </View>
+
+            {/* One row that opens a panel, as on events and members, rather
+                than the chips inline above the grid. */}
+            <FilterSummaryRow
+              value={{ choice: location.choice, radius: location.radius }}
+              onApply={applyLocation}
+              pills={[locationPill(location.choice, location.radius)]}
+              style={styles.filterRow}
+            >
+              {(draft, setDraft) => (
+                <LocationFilterRow
+                  choice={draft.choice}
+                  onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
+                  radius={draft.radius}
+                  onRadius={(radius) => setDraft((d) => ({ ...d, radius }))}
+                />
+              )}
+            </FilterSummaryRow>
+            {/* On the screen, not in the panel — it explains the grid below. */}
+            {location.fellBack && (
+              <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
+            )}
           </>
         }
         renderItem={({ item }) => (
           <CarGridItem
             item={item}
-            onPress={() => (navigation as any).navigate('CarDetail', { carId: item.internal_id })}
+            // A summary first, as the home feed's suggestions do: a grid of
+            // cars is a list of things to decide about, and the full page is
+            // one button inside the panel.
+            onPress={(origin) => setSummary({ carId: item.internal_id, origin })}
           />
         )}
         ListEmptyComponent={
@@ -160,6 +227,12 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         onEndReachedThreshold={0.3}
       />
       </View>
+
+      <CarSummaryModal
+        carId={summary?.carId ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -178,8 +251,11 @@ const styles = StyleSheet.create({
     borderRadius: 10, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14 },
+  // On the search row's 6 gutter, tucked under its bottom padding.
+  filterRow: { marginHorizontal: 6, marginTop: 0, marginBottom: 10 },
+  note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 8, marginBottom: 10 },
   brandsBtn: {
-    borderRadius: 8,
+    borderRadius: COMMON_RADIUS,
     paddingVertical: 10,
     paddingHorizontal: 16,
     alignSelf: 'flex-start',
@@ -190,7 +266,7 @@ const styles = StyleSheet.create({
   row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   card: {
     flex: 1,
-    borderRadius: 10,
+    borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },

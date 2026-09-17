@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { List } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 interface Props {
   list: List;
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: COMMON_RADIUS,
     borderWidth: 1,
     marginBottom: 8,
     overflow: 'hidden',
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 20,
+    borderRadius: PILL_RADIUS,
     borderWidth: 1,
   },
   badgeText: {

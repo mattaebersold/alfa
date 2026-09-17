@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BADGE_COLORS } from '../../constants/colors';
+import { PILL_RADIUS } from '../../constants/radius';
 
 interface BadgeProps {
   variant: string;
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: PILL_RADIUS,
     alignSelf: 'flex-start',
   },
   text: {

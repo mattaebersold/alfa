@@ -19,6 +19,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { DiecastAnalysis } from '../../types/api';
 import { uploadFile } from '../../utils/upload';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type Photo = { uri: string; name: string; type: string };
@@ -154,6 +155,9 @@ export default function DiecastCreateScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       if (err?.status === 422) {
         Alert.alert('Not a diecast', err?.data?.error ?? "This doesn't appear to be a die-cast model car. Try another photo.");
+      } else if (err?.data?.code === 'pro_required') {
+        // Diecast listings are Pro; the server says so in words worth showing.
+        Alert.alert('A Pro feature', err.data.error);
       } else {
         Alert.alert('Analysis failed', 'Could not analyze the photo. Please try again.');
       }
@@ -191,9 +195,10 @@ export default function DiecastCreateScreen() {
       await createPost(fd).unwrap();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       appNav.goBack();
-    } catch {
+    } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Could not publish the listing. Please try again.');
+      if (err?.data?.code === 'pro_required') Alert.alert('A Pro feature', err.data.error);
+      else Alert.alert('Error', 'Could not publish the listing. Please try again.');
     }
   }, [form, result, photo, createPost, appNav]);
 
@@ -369,7 +374,7 @@ const styles = StyleSheet.create({
   photoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   photoPlaceholderText: { fontSize: 14, fontWeight: '600' },
 
-  secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1 },
   secondaryBtnText: { fontSize: 14, fontWeight: '700' },
 
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
@@ -388,19 +393,19 @@ const styles = StyleSheet.create({
   rowItem:     { flex: 1 },
 
   chipWrap:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  chip:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
   chipText:    { fontSize: 13, fontWeight: '600' },
 
   checkRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   checkbox:    { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkLabel:  { fontSize: 15, fontWeight: '600' },
 
-  notesCard:   { borderRadius: 10, borderWidth: 1, padding: 12, gap: 5 },
+  notesCard:   { borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 12, gap: 5 },
   notesLabel:  { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   notesText:   { fontSize: 13, lineHeight: 19 },
 
   footer:      { borderTopWidth: 1, paddingHorizontal: 16, paddingVertical: 12 },
-  primaryBtn:  { borderRadius: 12, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
+  primaryBtn:  { borderRadius: COMMON_RADIUS, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   btnDisabled: { opacity: 0.5 },
   analyzingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

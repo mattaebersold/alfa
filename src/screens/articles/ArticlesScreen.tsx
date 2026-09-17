@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
@@ -13,6 +13,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
@@ -23,6 +24,7 @@ import type { Article } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -124,6 +126,9 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
 }
 
 export default function ArticlesScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<FlatList<any>>(null);
+  useScrollTopOnBack(scrollRef);
   const colors = useColors();
   const appNav = useNavigation<AppNav>();
   const headerPad = useHeaderPad();
@@ -138,6 +143,7 @@ export default function ArticlesScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
       <FlatList
+        ref={scrollRef}
         refreshControl={refreshControl}
         style={{ flex: 1, backgroundColor: colors.cream }}
         data={articles}
@@ -163,7 +169,7 @@ export default function ArticlesScreen() {
 const styles = StyleSheet.create({
   list:      { paddingBottom: 24, paddingTop: 8 },
   card:      {
-    borderRadius: 12,
+    borderRadius: COMMON_RADIUS,
     marginHorizontal: 12,
     marginVertical: 6,
     overflow: 'hidden',
@@ -184,7 +190,7 @@ const styles = StyleSheet.create({
   categoryBadge: {
     alignSelf: 'flex-start',
     backgroundColor: colors.primaryAlt,
-    borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3,
   },
   category:  { fontSize: 11, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.8 },
 
@@ -196,7 +202,7 @@ const styles = StyleSheet.create({
   meta:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   metaText:  { fontSize: 12, flexShrink: 1 },
   openBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
   openBtnOnHero: {

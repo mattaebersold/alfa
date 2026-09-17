@@ -14,6 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
   const { brand } = route.params;
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
   list:  { paddingHorizontal: 8, paddingBottom: 120 },
   row:   { gap: 8, marginBottom: 8 },
   card:  {
-    flex: 1, borderRadius: 10, overflow: 'hidden',
+    flex: 1, borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },

@@ -9,6 +9,7 @@ import { useGetCarTasksQuery, useToggleCarTaskMutation } from '../../api/apiServ
 import { useColors } from '../../hooks/useColors';
 import SharedModal from '../ui/SharedModal';
 import type { AppStackParamList } from '../../navigation/types';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 interface TasksSheetProps {
   carId: string;
@@ -109,6 +110,6 @@ const styles = StyleSheet.create({
   priority:    { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   empty:       { alignItems: 'center', paddingTop: 60, gap: 16 },
   emptyText:   { fontSize: 15 },
-  addBtn:      { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  addBtn:      { paddingHorizontal: 20, paddingVertical: 10, borderRadius: COMMON_RADIUS },
   addBtnText:  { color: '#000000', fontWeight: '700', fontSize: 14 },
 });

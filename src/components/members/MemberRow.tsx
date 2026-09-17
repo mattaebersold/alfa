@@ -2,6 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Car } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
+import RegionBadge from '../ui/RegionBadge';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import { regionForCityState } from '../../constants/regions';
 import SteeringWheel from '../ui/SteeringWheel';
 import FollowButton from '../social/FollowButton';
 import { useGetCarsQuery, useGetPostsQuery } from '../../api/apiService';
@@ -25,7 +28,11 @@ import type { User } from '../../types/api';
  */
 export default function MemberRow({ user, onPress, isFollowing, showStats = true }: {
   user: User;
-  onPress: () => void;
+  /**
+   * Handed the row's position on screen, for callers that open a summary
+   * panel growing out of it. Callers that just navigate can ignore it.
+   */
+  onPress: (origin?: SummaryOrigin | null) => void;
   /**
    * From a caller's single bulk lookup. `undefined` means the button should go
    * and find out for itself.
@@ -54,10 +61,9 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
   const isPro = user.accountType === 'pro' || user.accountType === 'admin';
 
   return (
-    <TouchableOpacity
+    <SummaryTouchable
       style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={[styles.avatarWrap, isPro && styles.proRing]}>
         <Avatar user={user} size={44} />
@@ -89,11 +95,15 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
         )}
       </View>
 
+      {/* Where in the country they are, as a map — "Bothell, WA" only places
+          someone if you already know where Bothell is. */}
+      <RegionBadge region={regionForCityState(user.cityState)?.key} size={32} />
+
       {/* No follow button against your own row. */}
       {user.username && user.user_id !== userInfo?.user_id && (
         <FollowButton username={user.username} isFollowing={isFollowing} />
       )}
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 

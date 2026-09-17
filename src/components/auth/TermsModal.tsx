@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type Props = {
   visible: boolean;
@@ -139,6 +140,6 @@ const styles = StyleSheet.create({
   h2:     { fontSize: 15, fontWeight: '700', marginTop: 20, marginBottom: 6 },
   body:   { fontSize: 14, lineHeight: 22 },
   footer: { paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
-  acceptBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  acceptBtn: { borderRadius: COMMON_RADIUS, paddingVertical: 14, alignItems: 'center' },
   acceptBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

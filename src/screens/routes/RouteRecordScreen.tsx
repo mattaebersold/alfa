@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Lin
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Pause, Square, X, MapPin } from 'lucide-react-native';
+import { Play, Pause, Square, X, MapPin, Info } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import RouteMap from '../../components/routes/RouteMap';
@@ -15,6 +15,7 @@ import { formatDistanceToNow } from 'date-fns';
 import PitStopSheet from '../../components/routes/PitStopSheet';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -226,6 +227,18 @@ export default function RouteRecordScreen() {
 
       {/* Stats + controls */}
       <View style={[styles.panel, { backgroundColor: colors.card, paddingBottom: insets.bottom + 20 }]}>
+        {/* Shown before and during a drive, because the moment it matters is
+            the moment someone swipes away to their music or a map. Background
+            recording isn't dependable yet, so this says so plainly rather than
+            letting a drive end silently at the first app switch. */}
+        <View style={[styles.notice, { backgroundColor: colors.segment, borderColor: colors.border }]}>
+          <Info size={15} color={colors.grey} style={styles.noticeIcon} />
+          <Text style={[styles.noticeText, { color: colors.fg }]}>
+            In this version of the app, keep the app open while you drive this route.
+            Recording in the background is coming in a future update.
+          </Text>
+        </View>
+
         <View style={styles.statsRow}>
           <Stat label="Distance" value={formatDistance(stats.distanceMeters)} colors={colors} />
           <Stat label="Time" value={formatDuration(stats.elapsedMs)} colors={colors} />
@@ -301,11 +314,13 @@ export default function RouteRecordScreen() {
           </Text>
         )}
 
-        {isRecording && (
+        {/* "Recording continues if you close the app" used to show here when
+            background access was granted — the notice above now says the
+            opposite, and is the one to trust. The declined case still earns a
+            line, since it also needs the screen kept on. */}
+        {isRecording && !recorder.backgroundActive && (
           <Text style={[styles.hint, { color: colors.grey }]}>
-            {recorder.backgroundActive
-              ? 'Recording continues if you close the app.'
-              : 'Keep the app open and the screen on — background access was declined.'}
+            Keep the screen on too — background location access was declined.
           </Text>
         )}
       </View>
@@ -357,6 +372,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25, shadowRadius: 10, elevation: 12,
   },
 
+  notice: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: COMMON_RADIUS,
+    paddingHorizontal: 12, paddingVertical: 9,
+    marginBottom: 16,
+  },
+  // Nudged down to sit on the first line of text rather than above it.
+  noticeIcon: { marginTop: 1 },
+  noticeText: { flex: 1, fontSize: 12.5, lineHeight: 17 },
+
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
   stat: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
@@ -367,13 +392,13 @@ const styles = StyleSheet.create({
   primaryBtn: {
     flex: 1, flexDirection: 'row', gap: 9,
     alignItems: 'center', justifyContent: 'center',
-    height: 54, borderRadius: 14,
+    height: 54, borderRadius: COMMON_RADIUS,
   },
   primaryLabel: { fontSize: 16, fontWeight: '800' },
   stopBtn: { backgroundColor: palette.red },
 
   iconBtn: {
-    width: 54, height: 54, borderRadius: 14, borderWidth: 1.5,
+    width: 54, height: 54, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
   paused: { fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 12 },

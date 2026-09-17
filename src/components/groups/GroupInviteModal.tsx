@@ -14,6 +14,7 @@ import EmptyState from '../ui/EmptyState';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import type { User } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /** Long enough that each keystroke doesn't fire a request, short enough to feel live. */
 const DEBOUNCE_MS = 300;
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
 
   inviteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    minWidth: 92, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999,
+    minWidth: 92, paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS,
   },
   inviteBtnBusy: { opacity: 0.7 },
   inviteText: { fontSize: 13, fontWeight: '800', color: '#000000' },

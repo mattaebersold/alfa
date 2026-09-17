@@ -1,9 +1,11 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import OilSheen, { useSheenTone } from './OilSheen';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * 50, down from 62.
@@ -15,6 +17,12 @@ import { useBrandColor } from '../../hooks/useBrandColor';
  */
 const FAB_SIZE = 50;
 const FAB_RIGHT = 18;
+/**
+ * Clearance above the safe-area inset. More on Android, where the tab bar keeps
+ * twice iOS's extra padding under its row (see MainTabNavigator) and so sets its
+ * icons higher — at the iOS offset the button sat visibly below them.
+ */
+const FAB_BOTTOM = Platform.OS === 'android' ? 28 : 8;
 /**
  * Width the tab bar keeps clear on its right for this button.
  *
@@ -39,15 +47,20 @@ export default function CreateFab() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const tint = useBrandColor();
+  const sheenTone = useSheenTone();
 
   return (
     <TouchableOpacity
-      style={[styles.fab, { backgroundColor: tint, bottom: insets.bottom + 8 }]}
+      style={[styles.fab, { backgroundColor: tint, bottom: insets.bottom + FAB_BOTTOM }]}
       onPress={() => navigation.navigate('Create')}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel="New post"
     >
+      {/* The same film as the header's home button — the two brand-filled
+          buttons that bookend the screen. Warm on gold, full spectrum on blue. */}
+      {/* Clips to its own radius, so it has to track the button's. */}
+      <OilSheen tone={sheenTone} radius={COMMON_RADIUS} />
       {/* Always black, rather than whatever contrasts with the fill.
           `contrastText` put a white plus on the basic account's blue — correct
           by contrast, but it made the same button look like two different
@@ -62,7 +75,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: FAB_RIGHT,
-    width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_SIZE / 2,
+    width: FAB_SIZE, height: FAB_SIZE, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     // Heavier than the header buttons carried: it has to read as sitting on top
     // of the feed rather than in it.

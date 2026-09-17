@@ -21,6 +21,11 @@ export interface User {
   links?: ProfileLink[];
   cityState?: string;
   /**
+   * Only ever on your own profile — no listing returns another member's. It's
+   * what their city, region, map tile and "near me" point are derived from.
+   */
+  zip?: number | null;
+  /**
    * A rendered map of the general region this member is in, stored once on the
    * server. Their zip is never exposed — see horacio's userRegionMap.
    */
@@ -59,11 +64,23 @@ export interface User {
   invited_by?: string | null;
 }
 
+export type HideMode = 'none' | 'temporary' | 'permanent';
+
+/** The steps of "Finish setting up your profile". Mirrors horacio's SETUP_PROMPTS. */
+export type SetupPrompt = 'photo' | 'bio' | 'car' | 'post';
+
 /** Per-user dismissals of the home feed's promotional modules. */
 export interface FeedPreferences {
-  hideSuggestions?: 'none' | 'temporary' | 'permanent';
+  /** Both suggestion rows at once — what builds before per-row hiding wrote. */
+  hideSuggestions?: HideMode;
   /** Set only for a temporary hide; the rows return once it passes. */
   hideSuggestionsUntil?: string | null;
+  hideSuggestedMembers?: HideMode;
+  hideSuggestedMembersUntil?: string | null;
+  hideSuggestedCars?: HideMode;
+  hideSuggestedCarsUntil?: string | null;
+  /** Steps of the menu's profile setup card this member has dismissed. */
+  dismissedSetupPrompts?: SetupPrompt[];
   /** banner_id of the last home feature banner this user closed. */
   dismissedHomeBannerId?: string | null;
 }
@@ -174,6 +191,21 @@ export interface GarageCar {
   updated_at?: string;
   coowner_id?: string;
   group_id?: string;
+  /**
+   * The region the car's owner is in, attached by the listing — a car has no
+   * location of its own. Feeds the little map on a car card.
+   */
+  owner_region?: string;
+  /**
+   * Put away rather than deleted: off every listing, restorable from the
+   * dashboard. A car offered to someone is archived at the same time, so
+   * "pending transfer" is `archived` plus a `transfer_to_id`.
+   */
+  archived?: boolean;
+  archived_at?: string;
+  transfer_to_id?: string;
+  transfer_from_id?: string;
+  transfer_requested_at?: string;
   // populated
   user?: User;
   coowner?: User;
@@ -345,6 +377,8 @@ export interface SocietyEvent {
 
   frequency?: 'single' | 'weekly' | 'biweekly' | 'monthly' | 'annually';
   date?: string;
+  /** Single events only: the last day of a multi-day event, inclusive. */
+  end_date?: string | null;
   weekdays?: number[];
   week_ordinals?: number[];
   day_of_month?: number;
@@ -367,6 +401,13 @@ export interface SocietyEvent {
   location_lat?: number;
   location_lng?: number;
   location_place_id?: string;
+  /** Typed "City, ST", used to place an event whose address wasn't picked. */
+  location_city_state?: string;
+  /** Resolved by the server from the place — never typed. */
+  location_zip?: string;
+  location_state?: string;
+  /** Key from constants/regions; what the Location filter matches on. */
+  region?: string;
 
   group_id?: string;
   event_organizer?: string;
@@ -515,12 +556,38 @@ export interface PhotoSpot {
   } | null;
 }
 
+/**
+ * The events Location filter, as query params. `near_lat`/`near_lng` is the
+ * device's position; `near: 'me'` asks the server to use the member's saved
+ * zip instead; `region` is a key from constants/regions.
+ */
+export interface EventLocationParams {
+  region?: string;
+  near?: 'me';
+  near_lat?: number;
+  near_lng?: number;
+  radius?: number;
+}
+
 /** Where a member stands against the pin limit. `limit: null` means unlimited. */
 export interface PhotoSpotUsage {
   used: number;
   limit: number | null;
   remaining: number | null;
   reached: boolean;
+  isPro: boolean;
+}
+
+/**
+ * Where a member stands against an allowance that resets on the 1st — posts
+ * and events. `limit` and `resets_at` are null for Pro.
+ */
+export interface MonthlyUsage {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  reached: boolean;
+  resets_at: string | null;
   isPro: boolean;
 }
 
@@ -601,6 +668,14 @@ export interface GroupDiscussionPost {
   category?: string;
   upvotes?: number;
   downvotes?: number;
+  /**
+   * Who voted and which way, so the thumbs can show *your* vote.
+   *
+   * Without it the client couldn't tell an unvoted post from one you'd already
+   * voted on, and since the server toggles, pressing up twice made the count
+   * go down — which read as the feature being broken.
+   */
+  votes?: { user_id: string; vote_type: 'up' | 'down' }[];
   created_at?: string;
   user?: User;
 }
@@ -616,6 +691,16 @@ export interface GroupNewsPost {
   category?: string;
   url?: string;
   image?: string;
+  upvotes?: number;
+  downvotes?: number;
+  /**
+   * Who voted and which way, so the thumbs can show *your* vote.
+   *
+   * Without it the client couldn't tell an unvoted post from one you'd already
+   * voted on, and since the server toggles, pressing up twice made the count
+   * go down — which read as the feature being broken.
+   */
+  votes?: { user_id: string; vote_type: 'up' | 'down' }[];
   created_at?: string;
   user?: User;
 }
@@ -633,6 +718,8 @@ export interface GroupResource {
   url?: string;
   upvotes?: number;
   downvotes?: number;
+  /** See GroupDiscussionPost.votes. */
+  votes?: { user_id: string; vote_type: 'up' | 'down' }[];
   created_at?: string;
   user?: User;
 }
@@ -725,6 +812,14 @@ export interface Notification {
     resolution?: 'approved' | 'denied' | 'accepted' | 'declined';
     resolved_by?: string;
     resolved_at?: string;
+    /**
+     * On `group_join_denied`: the admin who turned the request down, so the
+     * row can offer to message them without relying on the populated sender.
+     */
+    admin_user_id?: string;
+    admin_username?: string;
+    group_id?: string;
+    group_title?: string;
     [key: string]: unknown;
   };
 }
@@ -822,18 +917,55 @@ export interface DrivingRoute {
   start_place?: string;
   end_place?: string;
   car_id?: string;
+
+  /**
+   * Groups the route was shared into, the way a post carries them. With groups
+   * and `also_public` false it lives only in those groups. On the detail
+   * response this also includes groups attached by the older group Tag.
+   */
+  group_ids?: string[];
+  also_public?: boolean;
+
+  /** The score — upvotes minus downvotes — which the "Top" sort orders by. */
   vote_count?: number;
+  upvotes?: number;
+  downvotes?: number;
+  /** The viewer's own vote. Only present when the request was signed in. */
+  user_vote?: RouteVote;
+  like_count?: number;
+  has_liked?: boolean;
+  comment_count?: number;
 
   created_at?: string;
   updated_at?: string;
 }
 
+export type RouteVote = 'up' | 'down' | null;
+
 /** What GET /api/routes/:id returns. */
 export interface DrivingRouteDetail {
   entry: DrivingRoute;
   user?: User;
+  /** The score. */
   vote_count: number;
+  upvotes?: number;
+  downvotes?: number;
+  user_vote?: RouteVote;
+  /** Legacy: whether your vote is an upvote. Prefer `user_vote`. */
   has_voted: boolean;
+  like_count?: number;
+  has_liked?: boolean;
+  comment_count?: number;
+}
+
+/** What POST /api/routes/upvote and /downvote return. */
+export interface RouteVoteResult {
+  action: string;
+  score: number;
+  vote_count: number;
+  upvotes: number;
+  downvotes: number;
+  user_vote: RouteVote;
 }
 
 export type RouteSort = 'recent' | 'votes' | 'distance' | 'curviness' | 'duration';
@@ -850,7 +982,7 @@ export interface RouteListParams {
   scope?: 'protected';
   surface?: string;
   car_id?: string;
-  /** Routes tagged with this group — powers the group's Routes section. */
+  /** Routes shared into this group — powers the group's Routes section. */
   group_id?: string;
   min_distance?: number;
   max_distance?: number;
@@ -912,6 +1044,11 @@ export interface PaginatedResponse<T> {
   total: number;
   index: number;
   limit: number;
+  /**
+   * Set when a listing was asked for "near me" and the viewer has no zip to
+   * measure from — the list comes back unfiltered and the screen says so.
+   */
+  near_unavailable?: boolean;
 }
 
 // Like info
@@ -1012,3 +1149,18 @@ export interface NotificationType {
 
 /** What a member saved: `{ comment: { push: true, email: false }, … }`. */
 export type NotificationSettings = Record<string, { push: boolean; email: boolean }>;
+
+/**
+ * What a vote call answers with.
+ *
+ * The counters come back from the server rather than being guessed at by the
+ * client, and `user_vote` says which way you now stand so the thumbs can
+ * colour themselves without re-deriving it from the votes array.
+ */
+export interface GroupVoteResult {
+  success: boolean;
+  action: string;
+  upvotes: number;
+  downvotes: number;
+  user_vote: 'up' | 'down' | null;
+}

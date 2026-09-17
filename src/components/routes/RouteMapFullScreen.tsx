@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import RouteMap, { type LatLng } from './RouteMap';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * The route's map, filling the screen.
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   closeBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 40, height: 40, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center', justifyContent: 'center',
   },

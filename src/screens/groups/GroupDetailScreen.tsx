@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Pressable, FlatList, Alert,
   Animated, useWindowDimensions,
@@ -11,11 +11,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ChevronLeft, MessageSquare, MessageCircle, Newspaper, Users, MoreVertical,
   Car, Calendar, ShoppingBag, BookOpen, Settings, Plus, Check, X, UserPlus,
+  Route as RouteIcon,
 } from 'lucide-react-native';
 import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
-  useJoinGroupMutation,
   useLeaveGroupMutation,
   useGetGroupCarsQuery,
   useGetUserGarageQuery,
@@ -26,10 +26,11 @@ import GroupSettingsSheet from '../../components/groups/GroupSettingsSheet';
 import FollowButton from '../../components/social/FollowButton';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
+import AvatarStack from '../../components/ui/AvatarStack';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
-import SharedButton from '../../components/ui/SharedButton';
+import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import Spinner from '../../components/ui/Spinner';
-import { colors, withAlpha } from '../../constants/colors';
+import { withAlpha } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -41,6 +42,8 @@ import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { COMMON_RADIUS } from '../../constants/radius';
+import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -58,8 +61,6 @@ const HERO_SURFACE = '#141414';
 /** Controls sitting on the banner — one step up, so they read as raised. */
 const HERO_CONTROL = '#1F1F1F';
 const TILE_GAP = 12;
-/** Faces shown in the strip before the rest collapse into a "+N" circle. */
-const AVATAR_PREVIEW = 9;
 /** Rows added each time the roster list reaches its end. */
 const MEMBER_PAGE_SIZE = 25;
 const TILE_WIDTH = (SCREEN_WIDTH - TILE_GAP * 3) / 2;
@@ -71,11 +72,16 @@ const SECTIONS = [
   { key: 'members',   label: 'Members',   Icon: Users,         color: '#2ECC71' },
   { key: 'cars',      label: 'Cars',      Icon: Car,           color: '#E74C3C' },
   { key: 'events',    label: 'Events',    Icon: Calendar,      color: '#F39C12' },
+  // Drives members shared into the group — GroupSectionScreen's routes tab.
+  { key: 'routes',    label: 'Routes',    Icon: RouteIcon,     color: '#E056A0' },
   { key: 'market',    label: 'Market',    Icon: ShoppingBag,   color: '#1ABC9C' },
   { key: 'resources', label: 'Resources', Icon: BookOpen,      color: '#95A5A6' },
 ];
 
 export default function GroupDetailScreen() {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollTopOnBack(scrollRef);
   const route = useRoute<{ key: string; name: string; params: { groupId: string } }>();
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
@@ -102,7 +108,13 @@ export default function GroupDetailScreen() {
   const [backPinned, setBackPinned] = useState(false);
 
   const { data: group, isLoading, refetch: refetchGroup } = useGetGroupQuery(groupId);
-  const { data: members = [], refetch: refetchMembers }   = useGetGroupMembersQuery(groupId);
+  // Always fetched fresh on arrival: the roster decides whether you may see the
+  // page, and a cached one from before an approval would turn a new member away.
+  const mountedAt = useRef(Date.now()).current;
+  const {
+    data: members = [], fulfilledTimeStamp: membersFetchedAt, refetch: refetchMembers,
+  } = useGetGroupMembersQuery(groupId, { refetchOnMountOrArgChange: true });
+  const membersLoaded = (membersFetchedAt ?? 0) >= mountedAt;
   // Coming back from elsewhere — the notifications list, most often, where a
   // join request gets approved — the roster here has to reflect that decision.
   useRefetchOnFocus(refetchMembers);
@@ -111,9 +123,37 @@ export default function GroupDetailScreen() {
   const refreshControl = useRefreshControl(() =>
     Promise.all([refetchGroup(), refetchMembers(), refetchCars()]));
   const { data: garageData }       = useGetUserGarageQuery(undefined, { skip: !carModalOpen });
-  const [join,  { isLoading: joining }]  = useJoinGroupMutation();
-  const [leave, { isLoading: leaving }]  = useLeaveGroupMutation();
+  const [leave] = useLeaveGroupMutation();
   const [updateCarGroup] = useUpdateCarGroupMutation();
+
+  /**
+   * This page is for members.
+   *
+   * In-app links already go through GroupSummaryProvider, which only sends
+   * members here. What still arrives directly is a route — a tapped
+   * notification, a push, a home banner — and those can't know. So the page
+   * checks once, when the roster first loads: anyone who isn't an active member
+   * is taken back and shown the group's summary, with Join in it, instead.
+   *
+   * Once, not continuously: leaving the group from the ⋮ menu makes you a
+   * non-member too, and that has its own way out.
+   */
+  const { openGroup } = useGroupSummary();
+  const accessChecked = useRef(false);
+  const [redirecting, setRedirecting] = useState(false);
+  useEffect(() => {
+    if (accessChecked.current || !membersLoaded || !userInfo?.user_id) return;
+    accessChecked.current = true;
+    const mine = members.find((m) => m.user_id === userInfo.user_id);
+    if (mine?.status === 'active') return;
+
+    setRedirecting(true);
+    if (navigation.canGoBack()) navigation.goBack();
+    else (navigation as any).navigate('Groups');
+    // After the screen has animated away — the summary is a modal, and iOS won't
+    // present one while a transition is still running.
+    setTimeout(() => openGroup(groupId), 400);
+  }, [membersLoaded, members, userInfo?.user_id, navigation, openGroup, groupId]);
 
   const groupCars = groupCarsData?.entries ?? [];
   const myCars = garageData?.entries ?? [];
@@ -145,7 +185,9 @@ export default function GroupDetailScreen() {
     [scrollY, pinFrom],
   );
 
-  if (isLoading || !group) return <Spinner fullScreen />;
+  // The roster decides whether you can see this page at all, so nothing renders
+  // before it has answered.
+  if (isLoading || !group || !membersLoaded || redirecting) return <Spinner fullScreen />;
 
   const banner   = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   /**
@@ -158,7 +200,6 @@ export default function GroupDetailScreen() {
    */
   const activeMembers = members.filter((m) => m.status === 'active');
   const isMember = members.some((m) => m.user_id === userInfo?.user_id && m.status === 'active');
-  const isPending = members.some((m) => m.user_id === userInfo?.user_id && m.status === 'pending');
   // Active admins only. Without the status check an invited-but-not-joined
   // admin would see Settings before actually being in the group.
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin' && m.status === 'active');
@@ -201,7 +242,14 @@ export default function GroupDetailScreen() {
         style: 'destructive',
         onPress: () => Alert.alert('Leave this group?', `You'll lose access to ${group.title}.`, [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Leave', style: 'destructive', onPress: () => leave(groupId) },
+          // Out of the page as well as the group — it's members-only.
+          {
+            text: 'Leave',
+            style: 'destructive',
+            onPress: () => leave(groupId).unwrap().then(() => navigation.goBack()).catch(() => {
+              Alert.alert("Couldn't leave the group", 'Please try again.');
+            }),
+          },
         ]),
       });
     }
@@ -220,6 +268,7 @@ export default function GroupDetailScreen() {
           the viewport, the way the profile screen's cover does. */}
       <AppHeader />
       <Animated.ScrollView
+        ref={scrollRef}
         refreshControl={refreshControl}
         style={{ backgroundColor: c.cream }}
         contentContainerStyle={styles.scroll}
@@ -291,25 +340,6 @@ export default function GroupDetailScreen() {
           )}
         </View>
 
-        {/* Join / pending. Rendered only when there's something to show — with
-            the region gone and Leave moved to the ⋮ menu, a member would
-            otherwise get an empty padded card under the banner. */}
-        {!isMember && (
-          <View style={[styles.titleCard, { backgroundColor: HERO_SURFACE, borderBottomColor: c.border }]}>
-            <View style={styles.titleRow}>
-              <View style={{ flex: 1 }} />
-              {isPending ? (
-                <View style={styles.pendingWrap}>
-                  <Text style={[styles.pendingLabel, { color: c.grey }]}>Waiting for approval</Text>
-                  <SharedButton label="Cancel" variant="outline" onPress={() => leave(groupId)} loading={leaving} />
-                </View>
-              ) : (
-                <SharedButton label="Join" onPress={() => join(groupId)} loading={joining} />
-              )}
-            </View>
-          </View>
-        )}
-
         {/* Members strip — opens the full roster */}
         {activeMembers.length > 0 && (
           <SummaryTouchable
@@ -329,18 +359,7 @@ export default function GroupDetailScreen() {
             </Text>
             <View style={styles.stripRow}>
               <View style={styles.avatarRow}>
-                {activeMembers.slice(0, AVATAR_PREVIEW).map((m) => (
-                  <View key={m.user_id} style={styles.avatarWrap}>
-                    <Avatar user={m.user} size={30} />
-                  </View>
-                ))}
-                {activeMembers.length > AVATAR_PREVIEW && (
-                  <View style={[styles.avatarWrap, styles.overflowChip, { backgroundColor: HERO_CONTROL, borderColor: HERO_SURFACE }]}>
-                    <Text style={[styles.overflowChipText, { color: c.fg }]}>
-                      +{activeMembers.length - AVATAR_PREVIEW}
-                    </Text>
-                  </View>
-                )}
+                <AvatarStack users={activeMembers.map((m) => m.user)} ringColor={HERO_SURFACE} />
               </View>
 
               {/* Anyone in the group can ask someone in — a club grows by its
@@ -644,7 +663,7 @@ const styles = StyleSheet.create({
   taglineText:  { fontSize: 12, fontWeight: '600' },
   // In flow above the title now, not floating over the top-left of the image.
   backBtn:      {
-    width: 34, height: 34, borderRadius: 17, borderWidth: 1,
+    width: 34, height: 34, borderRadius: COMMON_RADIUS, borderWidth: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -658,21 +677,11 @@ const styles = StyleSheet.create({
   },
   bannerMenuBtn: {
     position: 'absolute', right: 16, bottom: 14,
-    width: 38, height: 38, borderRadius: 19, borderWidth: 1,
+    width: 38, height: 38, borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
 
-  titleCard:    { padding: 16, borderBottomWidth: 1 },
-  titleRow:     { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   groupTitle:   { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
-  groupRegion:  { fontSize: 13 },
-  joinBtn:      {
-    paddingHorizontal: 18, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: colors.primaryAlt, alignSelf: 'flex-start', flexShrink: 0,
-  },
-  joinBtnText:  { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  pendingWrap:  { alignItems: 'flex-end', gap: 6 },
-  pendingLabel: { fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
 
   membersStrip: { padding: 14, paddingTop: 0, borderBottomWidth: 1 },
   membersHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
@@ -686,14 +695,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
   },
   stripInviteText: { fontSize: 12, fontWeight: '800', color: '#000000' },
-  avatarWrap:   { marginRight: -6 },
-  // Reads as one more face in the stack, so it needs the same 30px circle and
-  // a ring in the strip's own colour to keep the overlap legible.
-  overflowChip: {
-    width: 30, height: 30, borderRadius: 15, borderWidth: 2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  overflowChipText: { fontSize: 11, fontWeight: '800' },
 
   memberRow:    {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -714,11 +715,11 @@ const styles = StyleSheet.create({
   carsSection:   { paddingTop: 18 },
   carsHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: TILE_GAP, marginBottom: 10 },
   carsHeading:   { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
-  associateBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
+  associateBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: COMMON_RADIUS },
   associateBtnText: { color: '#000000', fontSize: 12, fontWeight: '700' },
   carsEmpty:     { paddingHorizontal: TILE_GAP, fontSize: 13, paddingVertical: 4 },
   carsScroll:    { paddingHorizontal: TILE_GAP, gap: 10 },
-  groupCarCard:  { width: 150, borderRadius: 12, overflow: 'hidden' },
+  groupCarCard:  { width: 150, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   groupCarImg:   { width: '100%', height: 100 },
   groupCarTitle: { fontSize: 13, fontWeight: '700', padding: 8 },
 

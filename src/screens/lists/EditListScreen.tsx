@@ -16,6 +16,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type RouteType = RouteProp<AppStackParamList, 'EditList'>;
 
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
   toggleLabel: { fontSize: 15, fontWeight: '600' },
   toggleSub: { fontSize: 12, marginTop: 2 },
   submitBtn: {
-    paddingVertical: 15, borderRadius: 12, alignItems: 'center',
+    paddingVertical: 15, borderRadius: COMMON_RADIUS, alignItems: 'center',
   },
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

@@ -30,6 +30,8 @@ export interface CarItem {
   gallery?: GalleryItem[];
   carId: string;
   carName: string;
+  /** The car's owner — the heart is a way into the likers for them. */
+  ownerId?: string;
   like_count?: number;
   isLiked?: boolean;
   comment_count?: number;
@@ -157,12 +159,14 @@ export default function CarItemSummaryModal({
                 <LikeButton
                   documentId={item.internal_id}
                   entryType={item.entryType}
+                  ownerId={item.ownerId}
                   initialCount={item.like_count ?? 0}
                   initialLiked={item.isLiked ?? false}
                   color={c.grey}
                 />
                 <CommentButton
                   count={item.comment_count ?? 0}
+                  documentId={item.internal_id}
                   onPress={() => setCommentsOpen(true)}
                   color={c.grey}
                 />

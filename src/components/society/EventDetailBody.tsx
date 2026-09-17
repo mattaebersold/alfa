@@ -28,6 +28,7 @@ import EventDateBadge from './EventDateBadge';
 import EventImage from './EventImage';
 import { googleCalendarUrl } from '../../utils/calendarLinks';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Three tiles across the padded section, so a fourth peeks from the slider.
@@ -117,6 +118,8 @@ export function EventDetailBody({
    * browsing the calendar.
    */
   const isOwner = !!userInfo && userInfo.user_id === event.user_id;
+  /** The member who made it — not shown for the club's own (admin) events. */
+  const organizer = event.user?.username && event.user.accountType !== 'admin' ? event.user : null;
   const canEdit = isOwner || (!!userInfo && userInfo.user_id === (event as any).coowner_id);
 
   const handleOptions = () => {
@@ -227,6 +230,25 @@ export function EventDetailBody({
       ) : null}
 
       <View style={styles.section}>
+        {/* Who put this on, when it's a member rather than the club. An
+            admin-made event is the society's own, and a face on it would read
+            as one person's meet. Tapping goes to their profile. */}
+        {organizer && (
+          <TouchableOpacity
+            style={styles.organizerRow}
+            onPress={() => go('UserDetail', { userId: organizer.user_id, username: organizer.username })}
+            activeOpacity={0.75}
+          >
+            <Avatar user={organizer} size={40} />
+            <View style={styles.organizerText}>
+              <Text style={[styles.organizerLabel, { color: colors.grey }]}>Organizer</Text>
+              <Text style={[styles.organizerHandle, { color: colors.fg }]} numberOfLines={1}>
+                @{organizer.username}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {event.event_organizer ? (
           <Text style={[styles.quiet, { color: colors.grey }]}>
             Organized by {event.event_organizer}
@@ -363,7 +385,7 @@ const styles = StyleSheet.create({
   comments: { marginTop: 8, marginHorizontal: -16 },
   optionsBtn: {
     position: 'absolute', right: 16,
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -397,7 +419,7 @@ const styles = StyleSheet.create({
 
   calendarBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    marginHorizontal: 16, marginTop: 16, height: 44, borderRadius: 12,
+    marginHorizontal: 16, marginTop: 16, height: 44, borderRadius: COMMON_RADIUS,
   },
   calendarBtnText: { fontSize: 14, fontWeight: '800' },
 
@@ -406,6 +428,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '800', marginTop: 10 },
   quiet:     { fontSize: 13, fontStyle: 'italic' },
   avatarRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  organizerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start' },
+  organizerText: { flexShrink: 1 },
+  organizerLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  organizerHandle: { fontSize: 15, fontWeight: '700', marginTop: 1 },
 
   locationRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
   locationText: { fontSize: 14, flex: 1 },
@@ -420,7 +446,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
   interestBtn: {
-    height: 50, borderRadius: 12,
+    height: 50, borderRadius: COMMON_RADIUS,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   interestText: { fontSize: 15, fontWeight: '800' },

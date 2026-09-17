@@ -3,6 +3,7 @@ import { TouchableOpacity, Text, StyleSheet, StyleProp, ViewStyle } from 'react-
 import { MessageCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../../hooks/useColors';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 interface Props {
   sellerId: string;
@@ -46,7 +47,7 @@ export default function MessageAboutListingButton({ sellerId, sellerUsername, li
 const styles = StyleSheet.create({
   btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 11, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5,
+    paddingVertical: 11, paddingHorizontal: 14, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
   text: { fontSize: 14, fontWeight: '700' },
 });

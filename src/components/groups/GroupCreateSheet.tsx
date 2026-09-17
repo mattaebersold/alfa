@@ -23,6 +23,7 @@ import { contrastText } from '../../hooks/useBrandColor';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * "New <whatever you're looking at>" for a group section.
@@ -439,7 +440,7 @@ const styles = StyleSheet.create({
     width: 18, height: 18, alignItems: 'center', justifyContent: 'center',
   },
   submitBusy:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  submit:      { height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 26 },
+  submit:      { height: 50, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', marginTop: 26 },
   submitOff:   { opacity: 0.4 },
   submitText:  { fontSize: 16, fontWeight: '800', color: '#000000' },
 });

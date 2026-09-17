@@ -9,9 +9,17 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { categoryFor, toDayKey } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
-import type { SocietyEvent, Rally } from '../../types/api';
+import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 const WEEK_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/**
+ * Day number on a day with nothing on. Darker than the theme's `grey`, which
+ * sat close enough to the near-white of a busy day that the month read as one
+ * even block of numbers. Still clear on the card, just clearly secondary.
+ */
+const EMPTY_DAY = '#4F4F4F';
 
 /** More rallys than a month will ever hold, so one page always covers it. */
 const RALLY_LIMIT = 50;
@@ -89,9 +97,12 @@ function PaintedDay({
 export default function EventMonthCalendar({
   onSelectDay,
   category,
+  location,
 }: {
   onSelectDay: (date: Date, events: SocietyEvent[]) => void;
   category?: string;
+  /** The Events screen's Location filter, so the month shows what the list does. */
+  location?: EventLocationParams;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -103,6 +114,7 @@ export default function EventMonthCalendar({
     year: cursor.getFullYear(),
     month: cursor.getMonth(),
     ...(category ? { category } : {}),
+    ...(location ?? {}),
   });
 
   // Note the +1: the events calendar takes a 0-indexed month and the rally
@@ -150,7 +162,7 @@ export default function EventMonthCalendar({
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => shiftMonth(-1)}
-          style={[styles.navBtn, { backgroundColor: colors.segment }]}
+          style={styles.navBtn}
           hitSlop={8}
         >
           <ChevronLeft size={16} color={colors.fg} />
@@ -162,7 +174,7 @@ export default function EventMonthCalendar({
 
         <TouchableOpacity
           onPress={() => shiftMonth(1)}
-          style={[styles.navBtn, { backgroundColor: colors.segment }]}
+          style={styles.navBtn}
           hitSlop={8}
         >
           <ChevronRight size={16} color={colors.fg} />
@@ -240,7 +252,9 @@ export default function EventMonthCalendar({
                 <Text
                   style={[
                     styles.dayText,
-                    { color: isToday ? '#000000' : hasEvents ? colors.fg : colors.grey },
+                    // An empty day steps well back, so the days with something
+                    // on them are the ones the eye lands on.
+                    { color: isToday ? '#000000' : hasEvents ? colors.fg : EMPTY_DAY },
                     (isToday || hasEvents) && { fontWeight: '800' },
                   ]}
                 >
@@ -271,7 +285,12 @@ export default function EventMonthCalendar({
 const styles = StyleSheet.create({
   wrap:   { borderRadius: 14, padding: 12, marginHorizontal: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  navBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  // Translucent black rather than a solid grey, so the circle reads as a dip in
+  // the card instead of a second surface on it.
+  navBtn: {
+    width: 34, height: 34, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   monthLabel: { fontSize: 17, fontWeight: '800' },
 
   weekHeader: { flexDirection: 'row', marginBottom: 6 },
@@ -282,7 +301,8 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   // Seven per row; the fixed height keeps every week the same regardless of dots.
-  cell: { width: `${100 / 7}%`, height: 56, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
+  // Circle and dots need 43 of it; the rest is only the gap between weeks.
+  cell: { width: `${100 / 7}%`, height: 48, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   dayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontSize: 14 },
   dots: { flexDirection: 'row', gap: 4, height: 9, alignItems: 'center' },

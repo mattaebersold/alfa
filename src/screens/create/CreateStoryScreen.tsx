@@ -11,6 +11,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../../navigation/types';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
     lineHeight: 21, marginBottom: 36,
   },
   permBtn: {
-    backgroundColor: '#fff', borderRadius: 50,
+    backgroundColor: '#fff', borderRadius: COMMON_RADIUS,
     paddingHorizontal: 36, paddingVertical: 15, marginBottom: 14,
   },
   permBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 8, gap: 8,
   },
   circleBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 38, height: 38, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
@@ -349,6 +350,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', paddingBottom: 32, gap: 14,
   },
   hint: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '500' },
+  // The camera's record control stays round — that shape is the convention
+  // everywhere a camera has one, and it pairs with the stop glyph inside it.
   recordBtnOuter: {
     width: 80, height: 80, borderRadius: 40,
     borderWidth: 4, borderColor: '#fff',
@@ -359,6 +362,8 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff',
   },
   recordBtnInnerActive: {
+    // Not chrome — this is the stop glyph inside the record button, and its
+    // slight rounding is part of the shape, not a button corner.
     width: 28, height: 28, borderRadius: 6, backgroundColor: '#ef4444',
   },
   recordBtnDisabled: { opacity: 0.4 },
@@ -372,13 +377,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   discardBtn: {
-    flex: 1, borderRadius: 50, paddingVertical: 15,
+    flex: 1, borderRadius: COMMON_RADIUS, paddingVertical: 15,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
   },
   discardBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   nextBtn: {
-    flex: 2, borderRadius: 50, paddingVertical: 15,
+    flex: 2, borderRadius: COMMON_RADIUS, paddingVertical: 15,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#fff',
   },

@@ -21,6 +21,7 @@ import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import type { Post } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 const TYPES = [
   { key: 'general', label: 'Post' },
@@ -409,18 +410,18 @@ const styles = StyleSheet.create({
   input:       { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
   bodyInput:   { minHeight: 100, textAlignVertical: 'top' },
   pills:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
   pillText:    { fontSize: 13, fontWeight: '600' },
 
   selectedTags:   { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  tagChip:        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  tagChip:        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS, borderWidth: 1 },
   tagChipText:    { fontSize: 12, fontWeight: '600', maxWidth: 140 },
   tagSearchRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, marginTop: 8 },
   tagSearchInput: { flex: 1, fontSize: 14 },
   tagGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 10, paddingBottom: 6 },
   tagGroupLabel:  { fontSize: 11, fontWeight: '700' },
   tagResultRow:   { paddingVertical: 2, gap: 8 },
-  tagResultChip:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  tagResultChip:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
   tagResultText:  { fontSize: 13, fontWeight: '600', maxWidth: 160 },
 
   postToRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
 
   saveBtn:     {
     alignSelf: 'center', minWidth: 180,
-    backgroundColor: colors.primaryAlt, borderRadius: 999,
+    backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
     paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.5 },
