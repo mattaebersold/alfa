@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import SharedModal from '../ui/SharedModal';
+import { StepFormNav, StepFormProgress } from '../ui/StepFormHeader';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import GroupInvitePicker from './GroupInvitePicker';
 import { useCreateGroupMutation } from '../../api/apiService';
@@ -22,31 +23,13 @@ interface PickedImage { uri: string; name: string; type: string }
 
 /**
  * The steps, named in the header rather than inside each one — the same
- * arrangement as the garage's create form (CarCreateScreen), so the two
- * multi-step forms in the app move the same way.
+ * arrangement every multi-step form in the app uses. The header itself is
+ * ui/StepFormHeader, shared with the garage and marketplace create forms.
  */
 const STEP_TITLES = [
   'Group Details',
   'Invite Members',
 ];
-
-/** One bar that fills — copied from CarCreateScreen's, for the same reason. */
-function ProgressBar({ step, total }: { step: number; total: number }) {
-  const brand = useBrandColor();
-  return (
-    <View style={pb.track}>
-      <View style={[pb.fill, { width: `${(step / total) * 100}%`, backgroundColor: brand }]} />
-    </View>
-  );
-}
-const pb = StyleSheet.create({
-  track: {
-    height: 4, borderRadius: 2, overflow: 'hidden',
-    marginHorizontal: 16, marginTop: 12, marginBottom: 10,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  fill: { height: '100%', borderRadius: 2 },
-});
 
 /**
  * Start a group.
@@ -206,51 +189,22 @@ export default function NewGroupSheet({
       onClose={close}
       heightRatio={0.9}
       titleContent={(
-        /* Back, the sheet's name, forward — as CarCreateScreen. A caret is
-           absent rather than dimmed at the ends of the run, with a spacer
-           holding the name on the midline. */
-        <View style={styles.navRow}>
-          {step > 1 ? (
-            <TouchableOpacity
-              style={[styles.navBtn, { backgroundColor: brand }]}
-              onPress={() => setStep((s) => s - 1)}
-              accessibilityRole="button"
-              accessibilityLabel="Previous step"
-            >
-              <ChevronLeft size={20} color="#000000" strokeWidth={2.6} />
-            </TouchableOpacity>
-          ) : <View style={styles.navBtn} />}
-
-          <Text style={styles.navTitle} numberOfLines={1}>New Group</Text>
-
-          {step < STEP_TITLES.length ? (
-            <TouchableOpacity
-              style={[styles.navBtn, { backgroundColor: brand }, !canAdvance && styles.navBtnOff]}
-              onPress={() => setStep((s) => s + 1)}
-              disabled={!canAdvance}
-              accessibilityRole="button"
-              accessibilityLabel="Next step"
-            >
-              <ChevronRight size={20} color="#000000" strokeWidth={2.6} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.navBtn, styles.navBtnWide, { backgroundColor: brand }, !canSubmit && styles.navBtnOff]}
-              onPress={submit}
-              disabled={!canSubmit}
-              accessibilityRole="button"
-              accessibilityLabel="Create group"
-            >
-              {isLoading
-                ? <ActivityIndicator size="small" color="#000000" />
-                : <Text style={styles.navBtnText}>Create</Text>}
-            </TouchableOpacity>
-          )}
-        </View>
+        <StepFormNav
+          title="New Group"
+          step={step}
+          totalSteps={STEP_TITLES.length}
+          onBack={() => setStep((s) => s - 1)}
+          onNext={() => setStep((s) => s + 1)}
+          canAdvance={canAdvance}
+          onSubmit={submit}
+          submitLabel="Create"
+          submitAccessibilityLabel="Create group"
+          canSubmit={canSubmit}
+          submitting={isLoading}
+        />
       )}
     >
-      <ProgressBar step={step} total={STEP_TITLES.length} />
-      <Text style={[styles.stepCaption, { color: colors.fg }]}>{STEP_TITLES[step - 1]}</Text>
+      <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -516,23 +470,6 @@ const styles = StyleSheet.create({
   labelFirst: { marginTop: 0 },
   stepSub: { fontSize: 14, lineHeight: 20, marginBottom: 16 },
 
-  // The step header, as CarCreateScreen's.
-  stepCaption: {
-    fontSize: 20, fontWeight: '800', letterSpacing: -0.3,
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14,
-  },
-  navRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  navTitle: {
-    flex: 1, textAlign: 'center',
-    fontSize: 17, fontWeight: '700', color: '#FFFFFF',
-  },
-  navBtn: {
-    width: 34, height: 34, borderRadius: COMMON_RADIUS,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  navBtnOff: { opacity: 0.5 },
-  navBtnWide: { width: 'auto', paddingHorizontal: 12 },
-  navBtnText: { fontSize: 14, fontWeight: '800', color: '#000000' },
   input: {
     minHeight: 46, borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 12, fontSize: 15,

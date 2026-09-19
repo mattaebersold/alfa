@@ -25,7 +25,7 @@ import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } f
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
 import PostToSelector from '../../components/social/PostToSelector';
 import { colors } from '../../constants/colors';
-import { POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
+import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
@@ -173,7 +173,10 @@ export default function CreateScreen() {
 
   const currentCategories = POST_CATEGORIES[postType];
 
-  const showPrice    = postType === 'listing' || postType === 'want';
+  // Never, now: a price belongs to a marketplace listing, and a post can no
+  // longer be one. Kept as a named constant rather than deleted, so the field
+  // block below still reads as "these are the optional fields, price excluded".
+  const showPrice    = false;
   // Mileage is offered on every kind of post, not just listings and records:
   // a spot, a show photo or a general update is as likely to be worth stamping
   // with the number on the clock.
@@ -492,7 +495,7 @@ export default function CreateScreen() {
       >
         {/* Type selector */}
         <View style={[styles.typeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          {POST_TYPES.map(({ type, label, color }) => {
+          {CREATABLE_POST_TYPES.map(({ type, label, color }) => {
             const active = postType === type;
             return (
               <TouchableOpacity

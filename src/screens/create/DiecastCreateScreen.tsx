@@ -10,10 +10,11 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Camera, ImagePlus, Check, Sparkles } from 'lucide-react-native';
-import { useAnalyzeDiecastMutation, useCreatePostMutation } from '../../api/apiService';
+import { useAnalyzeDiecastMutation, useCreateListingMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import {
-  DIECAST_BRANDS, DIECAST_CONDITIONS, DIECAST_RARITIES, DIECAST_BLUE, DIECAST_BLUE_DARK,
+  DIECAST_BRANDS, DIECAST_CONDITIONS, DIECAST_CONDITION_LEVEL, DIECAST_RARITIES,
+  DIECAST_BLUE, DIECAST_BLUE_DARK,
 } from '../../constants/diecast';
 import type { AppStackParamList } from '../../navigation/types';
 import type { DiecastAnalysis } from '../../types/api';
@@ -100,7 +101,7 @@ export default function DiecastCreateScreen() {
   });
 
   const [analyzeDiecast, { isLoading: analyzing }] = useAnalyzeDiecastMutation();
-  const [createPost, { isLoading: publishing }] = useCreatePostMutation();
+  const [createListing, { isLoading: publishing }] = useCreateListingMutation();
 
   const setField = <K extends keyof DiecastForm>(key: K, val: DiecastForm[K]) =>
     setForm((f) => ({ ...f, [key]: val }));
@@ -171,13 +172,20 @@ export default function DiecastCreateScreen() {
       return;
     }
     const fd = new FormData();
-    fd.append('type', 'listing');
+    // A marketplace listing, not a post typed "listing" — that shape is gone,
+    // and anything made in it would never appear in the marketplace.
+    fd.append('kind', 'sale');
     fd.append('category', 'diecast');
     fd.append('status', 'published');
     fd.append('title', form.title.trim());
     if (form.body.trim())      fd.append('body', form.body.trim());
     fd.append('price', form.price.trim());
-    if (form.condition)        fd.append('condition', form.condition);
+    fd.append('price_mode', 'amount');
+    // The diecast words map onto the marketplace's 0-5 scale — a sealed model
+    // is the collector's "mint", which is this scale's New.
+    const condition = DIECAST_CONDITION_LEVEL[form.condition];
+    if (condition !== undefined) fd.append('condition', String(condition));
+    if (form.condition === 'In Packaging') fd.append('in_packaging', 'true');
     if (form.brand)            fd.append('diecast_brand', form.brand);
     if (form.rarity)           fd.append('diecast_rarity', form.rarity);
     if (form.make.trim())      fd.append('make', form.make.trim());
@@ -192,7 +200,7 @@ export default function DiecastCreateScreen() {
       fd.append('gallery', uploadFile(photo.uri));
     }
     try {
-      await createPost(fd).unwrap();
+      await createListing(fd).unwrap();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       appNav.goBack();
     } catch (err: any) {
@@ -200,7 +208,7 @@ export default function DiecastCreateScreen() {
       if (err?.data?.code === 'pro_required') Alert.alert('A Pro feature', err.data.error);
       else Alert.alert('Error', 'Could not publish the listing. Please try again.');
     }
-  }, [form, result, photo, createPost, appNav]);
+  }, [form, result, photo, createListing, appNav]);
 
   // ── Photo step ───────────────────────────────────────────────────────────
   if (step === 'photo' || step === 'analyzing') {

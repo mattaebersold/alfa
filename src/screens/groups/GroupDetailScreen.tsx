@@ -74,7 +74,9 @@ const SECTIONS = [
   { key: 'events',    label: 'Events',    Icon: Calendar,      color: '#F39C12' },
   // Drives members shared into the group — GroupSectionScreen's routes tab.
   { key: 'routes',    label: 'Routes',    Icon: RouteIcon,     color: '#E056A0' },
-  { key: 'market',    label: 'Market',    Icon: ShoppingBag,   color: '#1ABC9C' },
+  // The group's own marketplace — GroupSectionScreen's market tab, which is
+  // MarketplaceBrowse scoped to this group. Keyed to match that tab.
+  { key: 'market',    label: 'Marketplace', Icon: ShoppingBag, color: '#1ABC9C' },
   { key: 'resources', label: 'Resources', Icon: BookOpen,      color: '#95A5A6' },
 ];
 

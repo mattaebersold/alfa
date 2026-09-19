@@ -27,9 +27,20 @@ const TYPES = [
   { key: 'general', label: 'Post' },
   { key: 'record',  label: 'Record' },
   { key: 'spot',    label: 'Spotted' },
-  { key: 'listing', label: 'Listing' },
-  { key: 'want',    label: 'Want Ad' },
 ];
+
+/**
+ * Listings and want ads are marketplace records now, not post types.
+ *
+ * A post made before the split still carries one of these, and this sheet is
+ * where its author edits it — so the chip is offered only when the post is
+ * already that kind. What it can't do is turn an ordinary post into one: that
+ * would mint a listing the marketplace never shows.
+ */
+const LEGACY_TYPES: Record<string, { key: string; label: string }> = {
+  listing: { key: 'listing', label: 'Listing' },
+  want:    { key: 'want',    label: 'Want Ad' },
+};
 
 const CATEGORIES_BY_TYPE: Record<string, { key: string; label: string }[]> = {
   general: [{ key: 'show', label: 'Show' }, { key: 'misc', label: 'Misc.' }],
@@ -311,7 +322,10 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 
               <Text style={[styles.label, { color: colors.grey }]}>Type</Text>
               <View style={styles.pills}>
-                {TYPES.map((t) => (
+                {/* The post's own legacy type leads, so an old listing shows
+                    what it is — and stays what it is unless its author moves it
+                    to an ordinary post on purpose. */}
+                {[...(LEGACY_TYPES[type] ? [LEGACY_TYPES[type]] : []), ...TYPES].map((t) => (
                   <TouchableOpacity
                     key={t.key}
                     style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },

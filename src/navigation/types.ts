@@ -56,7 +56,6 @@ export type GroupsStackParamList = {
   GroupCars: { groupId: string };
   GroupMembers: { groupId: string };
   GroupEvents: { groupId: string };
-  GroupMarketplace: { groupId: string };
   GroupResources: { groupId: string };
   GroupSettings: { groupId: string };
 };
@@ -64,7 +63,6 @@ export type GroupsStackParamList = {
 // ── Market Stack ─────────────────────────────────────────────────────────────
 export type MarketStackParamList = {
   Marketplace: undefined;
-  ListingDetail: { postId: string };
 };
 
 // ── Cars Stack ───────────────────────────────────────────────────────────────
@@ -89,7 +87,7 @@ export type RoutesStackParamList = {
 export type MainTabParamList = {
   FeedTab: NavigatorScreenParams<FeedStackParamList> | undefined;
   SocietyTab: NavigatorScreenParams<SocietyStackParamList> | undefined;
-  RoutesTab: NavigatorScreenParams<RoutesStackParamList> | undefined;
+  MarketTab: NavigatorScreenParams<MarketStackParamList> | undefined;
   GroupsTab: NavigatorScreenParams<GroupsStackParamList> | undefined;
   CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
   /** The photo spot map. A real destination, unlike SearchTab below. */
@@ -116,9 +114,64 @@ export type AppStackParamList = {
   UserDetail: { userId: string; username?: string };
   Settings: undefined;
   NotificationSettings: undefined;
+  /**
+   * The custom alerts a member has standing — reached from the dashboard.
+   *
+   * Its own screen rather than a dashboard sheet: an alert is something you
+   * come back to and edit, and editing one opens a second form, which a sheet
+   * over a sheet handles badly.
+   */
+  Alerts: undefined;
+  /** With an id it edits that alert; without, it builds a new one. */
+  AlertCreate: { alertId?: string } | undefined;
   Articles: undefined;
   ArticleDetail: { articleId: string };
   Marketplace: undefined;
+  /**
+   * One listing, as its summary panel over whatever you were looking at.
+   *
+   * A route rather than only a piece of state on the marketplace screen,
+   * because a notification or a deep link has to be able to open a listing
+   * from anywhere — see utils/notificationTarget. Presented transparently: the
+   * screen draws SummaryModal, which runs its own animation.
+   */
+  ListingDetailModal: { listingId: string };
+  /** With an id it edits that listing; without, it creates one of `kind`. */
+  /**
+   * The listing form. `groupId` pre-picks that group on the "Where to post"
+   * step — what the plus inside a group's Market section means.
+   */
+  ListingCreate: {
+    listingId?: string;
+    kind?: import('../types/api').ListingKind;
+    groupId?: string;
+  } | undefined;
+  /**
+   * Marketplace conversations — a self-contained inbox, not the main one.
+   *
+   * Reachable from the marketplace and the dashboard only: a conversation
+   * about a listing never appears in Messages, and its unread count never
+   * touches that badge (see horacio's models/MarketplaceThread).
+   *
+   * With no params it's everything; `listingId` narrows it to one listing
+   * ("who's interested in this?") and `role` to one side of the market.
+   */
+  MarketplaceMessages: {
+    listingId?: string;
+    listingTitle?: string;
+    role?: import('../types/api').MarketplaceRoleFilter;
+  } | undefined;
+  /**
+   * One marketplace conversation.
+   *
+   * Exactly one of the two ids: `threadId` opens an existing conversation,
+   * `listingId` alone opens the composer for a new one about that listing —
+   * the server returns the existing thread if there already is one, so the
+   * "get in touch" button doesn't have to look first.
+   */
+  MarketplaceThread:
+    | { threadId: string; listingId?: string; listingTitle?: string; initialBody?: string }
+    | { listingId: string; threadId?: undefined; listingTitle?: string; initialBody?: string };
   Shop: undefined;
   /**
    * Pinning a spot. The map itself is a tab (`PhotographyTab`), but creating is
@@ -139,6 +192,14 @@ export type AppStackParamList = {
   Create: { carId?: string; carTitle?: string } | undefined;
   DiecastCreate: undefined;
   // Routes — recording is a full-screen flow, so it lives outside the tabs.
+  /**
+   * The routes list.
+   *
+   * It had a tab until the marketplace took that lane; it's reached from the
+   * menu now, so it needs a home on the app stack rather than inside a tab
+   * nobody can press.
+   */
+  Routes: undefined;
   RouteRecord: undefined;
   /**
    * Saves a finished drive (`draftId`), or edits a saved route (`routeId`) —
@@ -177,7 +238,6 @@ export type AppStackParamList = {
   GroupCars: { groupId: string };
   GroupMembers: { groupId: string };
   GroupEvents: { groupId: string };
-  GroupMarketplace: { groupId: string };
   GroupResources: { groupId: string };
   GroupSettings: { groupId: string };
 };

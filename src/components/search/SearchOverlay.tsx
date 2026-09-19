@@ -17,6 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { priceLabel } from '../marketplace/listingFormat';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
 import { PILL_RADIUS } from '../../constants/radius';
@@ -120,6 +121,25 @@ const SECTIONS: {
     }),
   },
   {
+    /**
+     * The marketplace. Its own kind rather than folded in with posts: a
+     * listing is a different question ("can I buy this?") and the price is
+     * what makes the row worth reading at a glance.
+     */
+    key: 'marketplace', kind: 'Listing',
+    toHit: (l) => ({
+      id: `listing-${l.internal_id}`, kind: 'Listing',
+      title: l.title || 'Listing',
+      subtitle: [
+        priceLabel(l),
+        l.sold ? 'Sold' : null,
+        [l.year, l.make, l.model].filter(Boolean).join(' ') || null,
+      ].filter(Boolean).join(' · ') || undefined,
+      image: firstGalleryUrl(l.gallery),
+      go: (nav) => nav.navigate('ListingDetailModal', { listingId: l.internal_id }),
+    }),
+  },
+  {
     key: 'articles', kind: 'Article',
     toHit: (a) => ({
       id: `article-${a.internal_id}`, kind: 'Article',
@@ -147,6 +167,7 @@ const KIND_COLORS: Record<string, { bg: string; fg: string }> = {
   Group:   { bg: colors.badgeGroup,   fg: '#000000' },
   Route:   { bg: colors.green,        fg: '#000000' },
   Article: { bg: colors.badgeUpdate,  fg: '#FFFFFF' },
+  Listing: { bg: colors.badgeListing, fg: '#000000' },
 };
 
 const isProUser = (u: any) => u?.accountType === 'pro' || u?.accountType === 'admin';

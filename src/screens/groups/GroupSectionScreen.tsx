@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Modal, Linking, Alert, Animated, useWindowDimensions,
+  ActivityIndicator, TextInput, Modal, Linking, Animated, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -9,7 +9,7 @@ import { WebView } from 'react-native-webview';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronLeft, ChevronDown, ChevronUp, Search, X, MoreVertical, Plus } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, ChevronUp, Search, X, Plus } from 'lucide-react-native';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   useGetGroupQuery,
@@ -24,6 +24,7 @@ import {
   useUpdateCarGroupMutation,
   useGetPostsQuery,
 } from '../../api/apiService';
+import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
@@ -35,7 +36,7 @@ import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import GroupSettingsSheet from '../../components/groups/GroupSettingsSheet';
 import GroupCreateSheet, { type CreateKind } from '../../components/groups/GroupCreateSheet';
 import RecordRow from '../../components/social/RecordRow';
-import { colors, withAlpha } from '../../constants/colors';
+import { withAlpha } from '../../constants/colors';
 import FollowButton from '../../components/social/FollowButton';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { postThumb } from '../../utils/postMedia';
@@ -64,7 +65,7 @@ const TABS: { key: ActiveTab; label: string }[] = [
   { key: 'cars',      label: 'Cars' },
   { key: 'events',    label: 'Events' },
   { key: 'routes',    label: 'Routes' },
-  { key: 'market',    label: 'Market' },
+  { key: 'market',    label: 'Marketplace' },
   { key: 'resources', label: 'Resources' },
 ];
 
@@ -221,7 +222,9 @@ export default function GroupSectionScreen() {
   // Routes shared into this group — `group_ids` on the route, as on a post, plus
   // the earliest routes that were attached by a group tag. The API reads both.
   const { data: routesData,    isFetching: routesFetching,    refetch: refetchRoutes }    = useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: 30 }, { skip: tab !== 'routes' });
-  const { data: marketData,    isFetching: marketFetching,    refetch: refetchMarket }    = useGetPostsQuery({ group_id: groupId, type: 'listing', limit: 30 }, { skip: tab !== 'market' });
+  // Market has no query here: the tab is MarketplaceBrowse, which reads the
+  // listing collection (`/api/marketplace?group_id=…`) and owns its own
+  // fetching, paging and pull-to-refresh.
 
   // Only the visible tab's query is running — refetching a skipped one throws,
   // so the pull refreshes the tab you're looking at and the members list the
@@ -229,7 +232,7 @@ export default function GroupSectionScreen() {
   const refetchTab: Record<string, (() => unknown) | undefined> = {
     posts: refetchPosts, discussion: refetchDiscussion, news: refetchNews,
     resources: refetchResources, events: refetchEvents, cars: refetchCars,
-    routes: refetchRoutes, market: refetchMarket,
+    routes: refetchRoutes,
   };
   const refreshControl = useRefreshControl(() =>
     Promise.all([refetchMembers(), refetchTab[tab]?.()].filter(Boolean)));
@@ -244,7 +247,15 @@ export default function GroupSectionScreen() {
    */
   const tabScrollRef = useRef<ScrollView>(null);
   const tabOffsets = useRef<Record<string, number>>({});
-  const didInitialTabScroll = useRef(false);
+  /**
+   * Which tab the row was last laid out for.
+   *
+   * Two things lay the row out: the first paint, and crossing into or out of
+   * the market tab, which swaps the body and takes the row with it. Both come
+   * back scrolled to zero, so both need the active pill brought back — and an
+   * ordinary switch, which doesn't re-lay-out, is handled by switchTab.
+   */
+  const laidOutFor = useRef<string | null>(null);
 
   const scrollTabIntoView = (key: string, animated = true) => {
     const x = tabOffsets.current[key];
@@ -256,33 +267,10 @@ export default function GroupSectionScreen() {
     tabOffsets.current[key] = x;
     // The tab a screen opens on can be anywhere in the row; bring it into view
     // once its position is known, without an animation on first paint.
-    if (key === tab && !didInitialTabScroll.current) {
-      didInitialTabScroll.current = true;
+    if (key === tab && laidOutFor.current !== tab) {
+      laidOutFor.current = tab;
       scrollTabIntoView(key, false);
     }
-  };
-
-  const openListingMenu = (listing: any) => {
-    const seller = listing.user ?? listing.user_objectid;
-    const options: { text: string; style?: 'cancel'; onPress?: () => void }[] = [
-      {
-        text: 'View listing',
-        onPress: () => (navigation as any).navigate('PostDetailModal', { postId: listing.internal_id }),
-      },
-    ];
-    // No point offering to message yourself about your own listing.
-    if (seller?.user_id && seller.user_id !== userInfo?.user_id) {
-      options.push({
-        text: 'Message seller',
-        onPress: () => (navigation as any).navigate('ComposeMessage', {
-          userId: seller.user_id,
-          username: seller.username,
-          subject: listing.title,
-        }),
-      });
-    }
-    options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(listing.title ?? 'Listing', undefined, options);
   };
 
   const openCreateIn = (category: string | null) => {
@@ -300,7 +288,9 @@ export default function GroupSectionScreen() {
 
   const visibleTabs = [...TABS, ...(isAdmin ? [{ key: 'settings', label: 'Settings' }] : [])];
 
-  const SEARCHABLE_TABS: ActiveTab[] = ['posts', 'discussion', 'members', 'cars', 'market', 'resources'];
+  // Market is absent on purpose — MarketplaceBrowse carries its own search box,
+  // which searches the listing collection rather than the rows already loaded.
+  const SEARCHABLE_TABS: ActiveTab[] = ['posts', 'discussion', 'members', 'cars', 'resources'];
   const showSearch = SEARCHABLE_TABS.includes(tab);
 
   /**
@@ -374,15 +364,18 @@ export default function GroupSectionScreen() {
       </View>
 
       {/* Creates whatever section you're in. Hidden on the tabs that have no
-          "new" of their own — members, cars, events, routes and market are all
-          composed elsewhere. */}
-      {createKind && (
+          "new" of their own — members, cars, events and routes are all
+          composed elsewhere. Market has one, but it isn't a group post: it
+          opens the listing form with this group already picked. */}
+      {(createKind || tab === 'market') && (
         <TouchableOpacity
           style={[styles.bannerAddBtn, { backgroundColor: c.pro }]}
-          onPress={() => openCreateIn(null)}
+          onPress={() => (tab === 'market'
+            ? (navigation as any).navigate('ListingCreate', { groupId })
+            : openCreateIn(null))}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel={`New ${sectionLabel}`}
+          accessibilityLabel={tab === 'market' ? `New listing in ${groupTitle}` : `New ${sectionLabel}`}
         >
           <Plus size={22} color="#000000" strokeWidth={3} />
         </TouchableOpacity>
@@ -399,7 +392,7 @@ export default function GroupSectionScreen() {
     case 'events':    rawItems = eventsData?.entries ?? [];    break;
     case 'cars':      rawItems = carsData?.entries ?? [];      break;
     case 'routes':    rawItems = routesData?.entries ?? [];    break;
-    case 'market':    rawItems = marketData?.entries ?? [];    break;
+    // 'market' has no rows here — MarketplaceBrowse renders that tab whole.
     // Admins lead; everyone else keeps the order the server sent. Matches the
     // roster pane on the group home.
     case 'members':
@@ -752,47 +745,6 @@ export default function GroupSectionScreen() {
       );
     }
 
-    if (item._tab === 'market') {
-      const hero = firstGalleryUrl(d.gallery);
-      const user = d.user ?? d.user_objectid;
-      const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
-      return (
-        <TouchableOpacity
-          style={[styles.itemCard, { backgroundColor: c.card, borderColor: c.borderDark }]}
-          onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
-          activeOpacity={0.8}
-        >
-          {hero
-            ? <Image source={{ uri: hero }} style={styles.marketThumb} contentFit="cover" />
-            : <View style={[styles.marketThumb, { backgroundColor: c.segment }]} />}
-          <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
-            {d.title ? <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text> : null}
-            {d.price ? (
-              <View style={styles.pricePill}>
-                <Text style={styles.pricePillText}>${Number(d.price).toLocaleString()}</Text>
-              </View>
-            ) : null}
-            {d.body ? <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={1}>{stripHtml(d.body)}</Text> : null}
-            <View style={styles.discussionByline}>
-              <Avatar user={user} size={20} />
-              <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
-                {user?.username ? `@${user.username} · ` : ''}{timeAgo}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            onPress={() => openListingMenu(d)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={styles.memberMenuBtn}
-            accessibilityRole="button"
-            accessibilityLabel={`Options for ${d.title ?? 'listing'}`}
-          >
-            <MoreVertical size={18} color={c.grey} />
-          </TouchableOpacity>
-        </TouchableOpacity>
-      );
-    }
-
     if (item._tab === 'members') {
       const isMe = d.user_id === userInfo?.user_id;
       return (
@@ -828,7 +780,6 @@ export default function GroupSectionScreen() {
     (tab === 'resources' && resourcesFetching) ||
     (tab === 'events' && eventsFetching) ||
     (tab === 'cars' && carsFetching) ||
-    (tab === 'market' && marketFetching) ||
     (tab === 'routes' && routesFetching)
   );
 
@@ -836,7 +787,7 @@ export default function GroupSectionScreen() {
   const filteredItems = q ? rawItems.filter((item) => {
     const user = item.user ?? item.user_objectid;
     switch (tab) {
-      case 'posts': case 'market': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || user?.username?.toLowerCase().includes(q);
+      case 'posts': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || user?.username?.toLowerCase().includes(q);
       case 'discussion': return item.title?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || item.user?.username?.toLowerCase().includes(q);
       case 'members': return item.user?.username?.toLowerCase().includes(q);
       case 'cars': return item.make?.toLowerCase().includes(q) || item.model?.toLowerCase().includes(q) || String(item.year ?? '').includes(q) || item.user?.username?.toLowerCase().includes(q);
@@ -941,22 +892,38 @@ export default function GroupSectionScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
       {compactHeader}
-      <Animated.FlatList
-        refreshControl={refreshControl}
-        ref={listRef}
-        data={flatData}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        stickyHeaderIndices={[0]}
-        showsVerticalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        // Without a flex the list sizes to its content and overflows the
-        // banner-plus-list column, so the tail is clipped rather than scrollable.
-        style={ss.fill}
-        contentContainerStyle={styles.list}
-        onScrollToIndexFailed={() => {}}
-      />
+      {/* The market tab is the marketplace itself, scoped to this group — the
+          same component the Marketplace tab renders, so the two can't drift.
+          It brings its own list, so the tab bar is drawn above it rather than
+          as the sticky first row; sticking immediately, that looks the same. */}
+      {tab === 'market' ? (
+        <View style={ss.fill}>
+          {tabBar}
+          <MarketplaceBrowse
+            groupId={groupId}
+            onScroll={onScroll}
+            style={ss.fill}
+            contentContainerStyle={styles.list}
+          />
+        </View>
+      ) : (
+        <Animated.FlatList
+          refreshControl={refreshControl}
+          ref={listRef}
+          data={flatData}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          stickyHeaderIndices={[0]}
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          // Without a flex the list sizes to its content and overflows the
+          // banner-plus-list column, so the tail is clipped rather than scrollable.
+          style={ss.fill}
+          contentContainerStyle={styles.list}
+          onScrollToIndexFailed={() => {}}
+        />
+      )}
 
       {/* Add cars to group modal */}
       <Modal visible={showCarModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCarModal(false)}>
@@ -1088,17 +1055,6 @@ const styles = StyleSheet.create({
   // The name column absorbs the squeeze so the follow button and menu keep
   // their full width on a long username.
   memberNameWrap: { flex: 1, minWidth: 0, gap: 3, alignItems: 'flex-start' },
-  memberMenuBtn:  { padding: 2 },
-
-  // A listing leads with its photo, so it gets the same room a record does.
-  marketThumb:    { width: 100, height: 100, borderRadius: 10 },
-  // Green fill, black label — the price is the one thing you scan a listing for.
-  pricePill:      {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.green,
-    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999,
-  },
-  pricePillText:  { fontSize: 13, fontWeight: '800', color: '#000000' },
 
   // A card per category, the same shape a car's to-do list uses: lighter cap,
   // rows beneath, inset from both edges so the group reads as one object.

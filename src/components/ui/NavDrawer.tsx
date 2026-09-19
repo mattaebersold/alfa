@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,6 +15,7 @@ import { LogOut } from 'lucide-react-native';
 import Avatar from './Avatar';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
+import { useMarketplaceUnread } from '../marketplace/MarketplaceUnreadBadge';
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
@@ -104,12 +105,18 @@ const BRASS     = '#E5C58E';
 const LOGO_CREAM = '#F7F1D9';
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, count, wide, flex }: {
+function NavTile({ label, Icon, onPress, count, countTone = 'brass', wide, flex }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
   /** Unread count — renders a brass pill on the right when above zero. */
   count?: number;
+  /**
+   * What the pill means. Brass is the drawer's own "there are things here";
+   * 'alert' is the red bubble the rest of the app uses for messages waiting on
+   * you, and matches the badge on the same feature's other entry points.
+   */
+  countTone?: 'brass' | 'alert';
   /** Fill the row instead of taking half of it. */
   wide?: boolean;
   /**
@@ -134,8 +141,10 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
       {/* Pinned to the corner rather than trailing the label — stacked, there
           is no end of the line for it to sit at. */}
       {count != null && count > 0 && (
-        <View style={styles.unreadPill}>
-          <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
+        <View style={[styles.unreadPill, countTone === 'alert' && styles.unreadPillAlert]}>
+          <Text style={[styles.unreadPillText, countTone === 'alert' && styles.unreadPillTextAlert]}>
+            {count > 99 ? '99+' : count}
+          </Text>
         </View>
       )}
     </TouchableOpacity>
@@ -194,6 +203,15 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
   const notifCount = notifData?.count ?? 0;
+
+  /**
+   * Marketplace messages waiting on you.
+   *
+   * On the drawer's Marketplace tile because that's the way in from anywhere —
+   * the marketplace has no tab of its own. Counted off the marketplace's own
+   * threads, so it can never move the Messages badge beside it.
+   */
+  const { count: marketplaceUnread } = useMarketplaceUnread();
 
   // Upcoming events you've flagged interest in — the bubble on "Your Events".
   const { data: myEventsData } = useGetMyEventsCountQuery(undefined, { skip: !isLoggedIn });
@@ -391,9 +409,14 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
               )}
 
               {/* Your inbox — pills, not tiles, and ahead of the grid. These
-                  are the two things that might be waiting for you, so they
-                  come before the places you browse to; the grid below is where
-                  you go when nothing is.
+                  are the things that might be waiting for you, so they come
+                  before the places you browse to; the grid below is where you
+                  go when nothing is.
+
+                  Alerts sits with them on its own row rather than squeezed
+                  into theirs: it's the rules behind some of those
+                  notifications, so it belongs beside them — but it's a full
+                  width of label, and a third of a row would truncate it.
 
                   Outlined and inline rather than filled and stacked: drawn
                   like the tiles they read as two more destinations in the same
@@ -409,6 +432,13 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                   Icon={Bell}
                   count={notifCount}
                   onPress={() => closeThen(() => navigation.navigate('Notifications'))}
+                />
+              </View>
+              <View style={styles.inboxRow}>
+                <InboxPill
+                  label="Custom Alerts"
+                  Icon={BellRing}
+                  onPress={() => closeThen(() => navigation.navigate('Alerts'))}
                 />
               </View>
 
@@ -445,11 +475,18 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
                     things you read: a photo spot is somewhere to drive to. */}
                 <NavTile label="Photography" Icon={Camera}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'PhotographyTab' } as any))} />
+                {/* Routes came out of the tab bar when the marketplace took
+                    that lane. Next to Photography, which is the other "somewhere
+                    to drive" tile. */}
+                <NavTile label="Routes" Icon={Route}
+                  onPress={() => closeThen(() => navigation.navigate('Routes'))} />
                 {/* Marketplace is somewhere you browse, so it browses with
                     everything else. It had a SHOP heading of its own next to
                     the merch shop; with that parked, the heading was left
                     naming a section that no longer had two things in it. */}
                 <NavTile label="Marketplace" Icon={ShoppingBag}
+                  count={marketplaceUnread}
+                  countTone="alert"
                   onPress={() => goFeed('Marketplace')} />
                 {/* The header's + used to be the only way to list a diecast; it
                     goes straight to a new post now, so the entry point lives
@@ -818,6 +855,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   unreadPillText: { fontSize: 11, fontWeight: '700', color: '#000000' },
+  // The app's "waiting for you" red — the same bubble the bell and the
+  // marketplace's other entry points wear.
+  unreadPillAlert:     { backgroundColor: colors.red },
+  unreadPillTextAlert: { color: '#FFFFFF' },
 
   aboutBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,

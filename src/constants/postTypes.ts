@@ -19,6 +19,20 @@ export const POST_TYPES: { type: PostType; label: string; color: string }[] = [
   { type: 'spot',     label: 'Spotted',    color: colors.tangerine },
 ];
 
+/**
+ * What a post can be *made* as.
+ *
+ * Listings and want ads left: they're their own records now, with their own
+ * collection, price, condition and location, created through the marketplace's
+ * own form. Offering them here would go on producing posts that look like
+ * listings and never appear in the marketplace. The two stay in POST_TYPES
+ * above, because posts made before the split still carry those types and still
+ * have to render and be editable.
+ */
+export const CREATABLE_POST_TYPES = POST_TYPES.filter(
+  (t) => t.type !== 'listing' && t.type !== 'want',
+);
+
 export const POST_CATEGORIES: Record<PostType, { key: string; label: string }[]> = {
   general: [
     { key: 'show',  label: 'Show' },

@@ -25,6 +25,54 @@ export const POST_LIMIT_BASIC = 20;
  */
 export const EVENT_LIMIT_BASIC = 3;
 
+/**
+ * Marketplace listings a basic member may post per calendar month. Counted and
+ * reset exactly like posts and events, by horacio.
+ *
+ * Diecast listings are outside this count — they're Pro-only outright, so
+ * there's no allowance of them to spend.
+ */
+export const LISTING_LIMIT_BASIC = 5;
+
+/**
+ * The two ways a basic membership stops short of a marketplace listing, worded
+ * once: the browse screen's create button, the category chips in the create
+ * form and the server's own refusal all put the same words on screen.
+ */
+export const LISTING_LIMIT_UPSELL = {
+  title: 'Monthly listings used up',
+  message: `A basic membership posts ${LISTING_LIMIT_BASIC} marketplace listings a month, and you've used all of them. Your allowance comes back on the 1st — or go Pro for unlimited listings.`,
+};
+
+export const DIECAST_UPSELL = {
+  title: 'Diecast is Pro only',
+  message: 'Listing diecast models is a Pro feature. Go Pro to list your collection — browsing the diecast marketplace stays open to everyone, and diecast listings never count against a monthly allowance.',
+};
+
+/**
+ * Custom alerts a member may keep — a standing count, not a monthly one.
+ *
+ * An alert isn't spent when it fires, so this is "how many rules can be
+ * watching at once", which is the car limit's shape rather than the post
+ * limit's. The server's `/api/alerts/meta` reports the real pair; these are
+ * the fallbacks for a build talking to a server that hasn't shipped it yet.
+ */
+export const ALERT_LIMIT_BASIC = 1;
+export const ALERT_LIMIT_PRO = 20;
+
+/**
+ * Out of alerts, worded once — the dashboard row, the list's add button and
+ * the server's own `alert_limit_reached` all say this.
+ *
+ * Deliberately not "comes back on the 1st": nothing resets. The way to have a
+ * second alert is to delete the first one or go Pro, and saying so is kinder
+ * than implying a wait.
+ */
+export const ALERT_LIMIT_UPSELL = {
+  title: 'Alerts used up',
+  message: `A basic membership keeps ${ALERT_LIMIT_BASIC} custom alert running. Pro keeps ${ALERT_LIMIT_PRO} — one per car you're hunting parts for, one per model you're watching the market for. Delete the one you have to swap it, or go Pro and stop choosing.`,
+};
+
 /** How many cars this member may keep. Pro is unlimited. */
 export function carLimitFor(isPro: boolean): number | null {
   return isPro ? null : CAR_LIMIT_BASIC;

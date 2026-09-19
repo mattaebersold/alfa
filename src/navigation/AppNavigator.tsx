@@ -47,9 +47,12 @@ import ComposeMessageScreen from '../screens/messages/ComposeMessageScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import NotificationSettingsScreen from '../screens/profile/NotificationSettingsScreen';
+import AlertsScreen from '../screens/alerts/AlertsScreen';
+import AlertCreateScreen from '../screens/alerts/AlertCreateScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import CreateScreen from '../screens/create/CreateScreen';
 import DiecastCreateScreen from '../screens/create/DiecastCreateScreen';
+import RoutesScreen from '../screens/routes/RoutesScreen';
 import RouteRecordScreen from '../screens/routes/RouteRecordScreen';
 import RouteSaveScreen from '../screens/routes/RouteSaveScreen';
 import RouteDetailScreen from '../screens/routes/RouteDetailScreen';
@@ -78,6 +81,10 @@ import GroupCarsScreen from '../screens/groups/GroupCarsScreen';
 import GroupMembersScreen from '../screens/groups/GroupMembersScreen';
 import GroupEventsScreen from '../screens/groups/GroupEventsScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
+import ListingDetailModalScreen from '../screens/marketplace/ListingDetailModalScreen';
+import ListingCreateScreen from '../screens/marketplace/ListingCreateScreen';
+import MarketplaceMessagesScreen from '../screens/marketplace/MarketplaceMessagesScreen';
+import MarketplaceThreadScreen from '../screens/marketplace/MarketplaceThreadScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
 import PhotoSpotCreateScreen from '../screens/photography/PhotoSpotCreateScreen';
 import ProductCreateScreen from '../screens/shop/ProductCreateScreen';
@@ -85,7 +92,6 @@ import AboutScreen from '../screens/marketing/AboutScreen';
 import SupportScreen from '../screens/support/SupportScreen';
 import SocietyEventDetailScreen from '../screens/society/SocietyEventDetailScreen';
 import SocietyEventCreateScreen from '../screens/society/SocietyEventCreateScreen';
-import GroupMarketplaceScreen from '../screens/groups/GroupMarketplaceScreen';
 import GroupResourcesScreen from '../screens/groups/GroupResourcesScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
 import GroupSectionScreen from '../screens/groups/GroupSectionScreen';
@@ -125,6 +131,11 @@ export default function AppNavigator() {
       />
       {/* Recording takes the whole screen — a live map with no chrome competing
           with it — and the save step follows as a normal modal. */}
+      <Stack.Screen
+        name="Routes"
+        component={RoutesScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="RouteRecord"
         component={RouteRecordScreen}
@@ -188,6 +199,19 @@ export default function AppNavigator() {
         // un-animated so the sheet runs its own animation over what's behind.
         options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
       />
+      {/* Marketplace conversations — their own pair of screens, deliberately
+          not the inbox's. The list is a modal like Messages; the conversation
+          is a SharedModal sheet like MessageThread. */}
+      <Stack.Screen
+        name="MarketplaceMessages"
+        component={MarketplaceMessagesScreen}
+        options={({ navigation }) => ({ headerShown: true, title: 'Marketplace', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+      />
+      <Stack.Screen
+        name="MarketplaceThread"
+        component={MarketplaceThreadScreen}
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
+      />
       <Stack.Screen
         name="ComposeMessage"
         component={ComposeMessageScreen}
@@ -208,6 +232,19 @@ export default function AppNavigator() {
         component={NotificationSettingsScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Notifications' }}
       />
+      {/* The alerts list is an ordinary pushed screen; the rule builder on top
+          of it is a SharedModal sheet, so its route is transparent and
+          un-animated exactly as ListingCreate's is. */}
+      <Stack.Screen
+        name="Alerts"
+        component={AlertsScreen}
+        options={{ ...headerOptions, headerShown: true, title: 'Custom Alerts' }}
+      />
+      <Stack.Screen
+        name="AlertCreate"
+        component={AlertCreateScreen}
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
+      />
       {/* Presented as a SharedModal bottom sheet, so the route itself must be
           transparent and un-animated — the sheet runs its own animation and
           blurs whatever is behind it. */}
@@ -224,6 +261,20 @@ export default function AppNavigator() {
         name="Marketplace"
         component={MarketplaceScreen}
         options={{ headerShown: false }}
+      />
+      {/* A listing's summary, as a destination. The screen draws SummaryModal,
+          which runs its own animation over whatever is behind it — so the
+          route has to be transparent and un-animated, as ArticleDetail is. */}
+      <Stack.Screen
+        name="ListingDetailModal"
+        component={ListingDetailModalScreen}
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
+      />
+      {/* The create form is its own SharedModal sheet, same as CarCreate. */}
+      <Stack.Screen
+        name="ListingCreate"
+        component={ListingCreateScreen}
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none' }}
       />
       <Stack.Screen
         name="About"
@@ -360,11 +411,6 @@ export default function AppNavigator() {
         name="GroupEvents"
         component={GroupEventsScreen}
         options={{ ...headerOptions, headerShown: true, title: 'Events' }}
-      />
-      <Stack.Screen
-        name="GroupMarketplace"
-        component={GroupMarketplaceScreen}
-        options={{ ...headerOptions, headerShown: true, title: 'Marketplace' }}
       />
       <Stack.Screen
         name="GroupResources"

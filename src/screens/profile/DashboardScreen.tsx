@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft } from 'lucide-react-native';
+import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +25,8 @@ import {
   useRemoveContentMutation,
   useRestoreContentMutation,
   useGetUsageQuery,
+  useGetMyListingsQuery,
+  useGetAlertsQuery,
 } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
@@ -54,10 +56,12 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useViewableIds } from '../../hooks/useViewableIds';
 import MemberRow from '../../components/members/MemberRow';
 import UsagePanel from '../../components/pro/UsagePanel';
+import { ManageListingsPane } from '../../components/marketplace/ManageListingsEntry';
+import MarketplaceUnreadBadge, { useMarketplaceUnread } from '../../components/marketplace/MarketplaceUnreadBadge';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | null;
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | 'marketplace' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -358,11 +362,31 @@ export default function DashboardScreen() {
     { user_id: userInfo?.user_id ?? '', limit: 30 },
     { skip: !userInfo?.user_id },
   );
+  /**
+   * How many alerts are standing — the badge on the row.
+   *
+   * Cheap and already cached by the alerts screen itself, so the badge is a
+   * read rather than a request most of the time. A failure draws no badge
+   * rather than a zero: "0" and "didn't load" look identical and mean
+   * opposite things.
+   */
+  const { data: alertsData } = useGetAlertsQuery();
+  const alertCount = alertsData?.entries.length ?? 0;
   const { data: blockedData } = useGetBlockedUsersQuery();
   const { data: followedCarsData } = useGetFollowedCarsQuery();
   // Cars put away rather than deleted, plus any offered to this member.
   const { data: archivedData } = useGetArchivedGarageQuery();
   const { data: pendingData } = useGetPendingCarTransfersQuery();
+  /**
+   * The marketplace, which the dashboard is the signed-in home for.
+   *
+   * Two separate things on purpose: what you have listed (the tile's count)
+   * and what's waiting for you about it (the badge). The badge is the
+   * marketplace's own unread count and never the inbox's — they're counted off
+   * different collections and neither can move the other.
+   */
+  const { data: myListings } = useGetMyListingsQuery();
+  const { count: marketplaceUnread } = useMarketplaceUnread();
   const [unblockUser] = useUnblockUserMutation();
   // The stat grid is the page — the sheets behind it read the same cache.
   const refreshControl = useRefreshControl(() =>
@@ -481,6 +505,15 @@ export default function DashboardScreen() {
       onPress: () => setSheet('posts'),
     },
     {
+      label: 'Listings',
+      count: myListings?.counts.total,
+      Icon: ShoppingBag,
+      bg: '#3a8a5c22',
+      color: '#3a8a5c',
+      badge: marketplaceUnread,
+      onPress: () => setSheet('marketplace'),
+    },
+    {
       label: 'Followers',
       count: stats?.followersCount,
       Icon: Users,
@@ -548,6 +581,9 @@ export default function DashboardScreen() {
             >
               <View style={[styles.statIcon, { backgroundColor: card.bg }]}>
                 <card.Icon size={18} color={card.color} />
+                {/* Only the marketplace tile carries one today — a count of
+                    things waiting, over a count of things you have. */}
+                <MarketplaceUnreadBadge count={(card as { badge?: number }).badge ?? 0} />
               </View>
               <Text style={[styles.statCount, { color: colors.fg }]}>
                 {card.count ?? '–'}
@@ -561,7 +597,13 @@ export default function DashboardScreen() {
             the member's own colour. Basic accounts only: Pro has no limits, so
             the card was a list of counts with nothing to measure them against. */}
         {!isPro && usage && (
-          <UsagePanel cars={usage.cars} posts={usage.posts} events={usage.events} />
+          <UsagePanel
+            cars={usage.cars}
+            posts={usage.posts}
+            events={usage.events}
+            listings={usage.listings}
+            alerts={usage.alerts}
+          />
         )}
 
         {/* Quick actions */}
@@ -578,6 +620,45 @@ export default function DashboardScreen() {
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('NotificationSettings')} activeOpacity={0.7}>
             <Bell size={16} color={colors.primaryAlt} />
             <Text style={[styles.actionLabel, { color: colors.fg }]}>Notification Settings</Text>
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Next to Notification Settings on purpose: that row decides how
+              you're told about things that already involve you, and this one
+              decides what else is worth telling you about. Same question, two
+              halves. */}
+          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Alerts')} activeOpacity={0.7}>
+            <BellRing size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Custom Alerts</Text>
+            {!!alertCount && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{alertCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Selling, in the two halves it actually splits into: the things
+              you've listed, and the people asking about them. Both are the
+              marketplace's own — neither appears in Messages. */}
+          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('marketplace')} activeOpacity={0.7}>
+            <ShoppingBag size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Manage your listings</Text>
+            {!!myListings?.counts.total && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{myListings.counts.total}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => navigation.navigate('MarketplaceMessages')}
+            activeOpacity={0.7}
+          >
+            <MessageSquare size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Marketplace messages</Text>
+            {/* Inline rather than floating: there's a line to sit at the end
+                of here, and the row has no icon corner to hang off. */}
+            <MarketplaceUnreadBadge count={marketplaceUnread} variant="inline" />
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('followedCars')} activeOpacity={0.7}>
@@ -716,7 +797,15 @@ export default function DashboardScreen() {
         />
       </SheetModal>
 
+      {/* Your listings: what's up, what you're after, what's gone — with the
+          quick actions a seller reaches for. The pane is shared with the
+          marketplace's own entry point, so the two can't drift. */}
+      <SheetModal visible={sheet === 'marketplace'} title="Your listings" onClose={() => setSheet(null)} colors={colors}>
+        <ManageListingsPane navigate={(go) => { setSheet(null); go(); }} />
+      </SheetModal>
+
       {/* Followed cars sheet */}
+
       <SheetModal visible={sheet === 'followedCars'} title="Followed Cars" onClose={() => setSheet(null)} colors={colors}>
         <FlatList
           data={followedCars}

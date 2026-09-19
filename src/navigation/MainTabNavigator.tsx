@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Users, Car, Route as RouteIcon, Search, Camera } from 'lucide-react-native';
+import { Users, Car, ShoppingBag, Search, Camera } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CheckeredFlag from '../components/ui/CheckeredFlag';
 import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
@@ -12,7 +12,7 @@ import FeedStackNavigator from './FeedStackNavigator';
 import SocietyStackNavigator from './SocietyStackNavigator';
 import GroupsStackNavigator from './GroupsStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
-import RoutesStackNavigator from './RoutesStackNavigator';
+import MarketStackNavigator from './MarketStackNavigator';
 import PhotographyScreen from '../screens/photography/PhotographyScreen';
 import { colors } from '../constants/colors';
 import { useBrandColor } from '../hooks/useBrandColor';
@@ -167,19 +167,22 @@ export default function MainTabNavigator() {
         })}
       />
 
+      {/* The marketplace earns the lane routes had: buying and selling is a
+          weekly errand, where recording a drive is an occasional one. Routes
+          moved to the menu. */}
       <Tab.Screen
-        name="RoutesTab"
-        component={RoutesStackNavigator}
+        name="MarketTab"
+        component={MarketStackNavigator}
         options={{
-          title: 'Routes',
+          title: 'Market',
           tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={RouteIcon} color={color} size={size} focused={focused} brandColor={brandColor} />
+            <TabIcon Icon={ShoppingBag} color={color} size={size} focused={focused} brandColor={brandColor} />
           ),
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('RoutesTab', { screen: 'Routes' });
+            navigation.navigate('MarketTab', { screen: 'Marketplace' });
           },
         })}
       />

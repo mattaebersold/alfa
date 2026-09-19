@@ -70,7 +70,7 @@ export const BANNER_DESTINATIONS: BannerDestination[] = [
   // ── Community ─────────────────────────────────────────────────────────────
   { key: 'groups',        label: 'Groups',            group: 'Community', target: () => tab('GroupsTab', 'Groups') },
   { key: 'members',       label: 'Members',           group: 'Community', target: () => tab('FeedTab', 'Members') },
-  { key: 'routes',        label: 'Driving Routes',    group: 'Community', target: () => tab('RoutesTab', 'Routes') },
+  { key: 'routes',        label: 'Driving Routes',    group: 'Community', target: () => ({ name: 'Routes' }) },
   {
     key: 'group_detail',
     label: 'A specific group',

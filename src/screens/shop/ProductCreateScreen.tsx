@@ -245,7 +245,7 @@ export default function ProductCreateScreen() {
           style={inputStyle}
           value={category}
           onChangeText={setCategory}
-          placeholder="apparel"
+          placeholder="car"
           placeholderTextColor={colors.grey}
           autoCapitalize="none"
         />

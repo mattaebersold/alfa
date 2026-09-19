@@ -341,6 +341,187 @@ export interface StoryGroup {
   allSeen: boolean;
 }
 
+// ── Marketplace ──────────────────────────────────────────────────────────────
+
+/** 'sale' — I have this. 'want' — I'm looking for this. */
+export type ListingKind = 'sale' | 'want';
+
+/** How the price works. 'amount' uses `price`; the other two ignore it. */
+export type ListingPriceMode = 'amount' | 'free' | 'trade';
+
+/** Pickup only, will ship, or either. */
+export type ListingShipping = 'pickup' | 'ship' | 'both';
+
+/**
+ * How a browse is ordered. 'match' is the default and is the whole point of
+ * the marketplace: listings that fit a car in your garage float to the top,
+ * nearest first underneath.
+ */
+export type ListingSort = 'match' | 'recent' | 'price_asc' | 'price_desc' | 'distance';
+
+/**
+ * A thing for sale, or a thing wanted.
+ *
+ * Its own collection on the server rather than a Post with `type: 'listing'` —
+ * which is why `price` is a number here and `condition` is a 0-5 index rather
+ * than whatever the seller typed. See horacio's models/Listing.js.
+ *
+ * The old post-shaped listings still exist (the migration hasn't run), so
+ * anything that can be handed either still goes through `Post`.
+ */
+export interface Listing {
+  _id?: string;
+  internal_id: string;
+  user_id: string;
+  entry_type?: string;
+  status?: 'published' | 'draft';
+  private?: boolean;
+
+  kind: ListingKind;
+  /** One of ListingMeta.categories — 'car', 'part', 'diecast' and so on. */
+  category: string;
+  title?: string;
+  body?: string;
+  gallery?: GalleryItem[];
+
+  /** 0-5, indexing ListingMeta.conditions. Sale only, and genuinely optional. */
+  condition?: number | null;
+  price?: number | null;
+  /** What it was before the seller dropped it — shown as a price cut. */
+  previous_price?: number | null;
+  obo?: boolean;
+  price_mode?: ListingPriceMode;
+  /** Want ads only: the top of the buyer's range. */
+  willing_to_pay?: number | null;
+  shipping?: ListingShipping;
+
+  /** The garage car this is for, when the seller picked one. */
+  car_id?: string | null;
+  make?: string | null;
+  model?: string | null;
+  make_handle?: string | null;
+  model_handle?: string | null;
+  year?: string | null;
+  trim?: string | null;
+  color?: string | null;
+  vin?: string | null;
+  mileage?: string | null;
+  part_number?: string | null;
+
+  /** Nested, not spread across the top level — only a diecast listing has them. */
+  diecast?: {
+    brand?: string | null;
+    rarity?: string | null;
+    in_packaging?: boolean;
+    is_limited_edition?: boolean;
+    /** Written by the AI analysis step. */
+    ai_notes?: string | null;
+    estimated_value_low?: number | null;
+    estimated_value_high?: number | null;
+  } | null;
+
+  /** A listing has a location of its own — usually, but not always, the seller's. */
+  zip?: string | null;
+  cityState?: string | null;
+  state?: string | null;
+  region?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+
+  /** Empty means public; with `also_public` false it's those groups only. */
+  group_ids?: string[];
+  also_public?: boolean;
+
+  sold?: boolean;
+  sold_at?: string | null;
+  /** The last time the owner said "yes, still available" — the 60-day nudge. */
+  last_confirmed_at?: string | null;
+
+  created_at?: string;
+  updated_at?: string;
+
+  // ── Added by the server per request, not stored ─────────────────────────
+  user?: User;
+  like_count?: number;
+  comment_count?: number;
+  has_liked?: boolean;
+  tags?: Tag[];
+  /** True when this fits a car the viewer owns — what the default sort floats. */
+  matches_garage?: boolean;
+  /** Only present when the browse was measured from somewhere. */
+  distance_miles?: number;
+}
+
+/**
+ * The filter vocabulary, straight from the server.
+ *
+ * Fetched rather than hardcoded so the marketplace's categories and condition
+ * labels can't drift between the app and the collection they describe.
+ */
+export interface ListingMeta {
+  kinds: ListingKind[];
+  categories: string[];
+  /** Six labels, worst to best: index is the stored `condition`. */
+  conditions: string[];
+  price_modes: ListingPriceMode[];
+  shipping: ListingShipping[];
+  default_radius_miles: number;
+  max_radius_miles: number;
+}
+
+/** Everything the browse endpoint takes. Location comes from useLocationFilter. */
+export interface ListingBrowseParams extends EventLocationParams {
+  kind?: ListingKind;
+  /** Comma-separated on the wire — one or several category keys. */
+  category?: string;
+  q?: string;
+  min_price?: number;
+  max_price?: number;
+  /** A floor on the 0-5 scale: "Good or better". */
+  condition_min?: number;
+  shipping?: ListingShipping;
+  group_id?: string;
+  user_id?: string;
+  /** Omitted excludes sold; 'true' shows only sold; 'all' shows both. */
+  sold?: 'true' | 'all';
+  sort?: ListingSort;
+  page?: number;
+  limit?: number;
+}
+
+/** What the browse endpoint answers with. */
+export interface ListingBrowseResponse {
+  entries: Listing[];
+  total: number;
+  sort: ListingSort;
+  /** Near me was asked for and the viewer has no zip to measure from. */
+  near_unavailable?: boolean;
+}
+
+/** The detail endpoint: the listing plus everything it points at. */
+export interface ListingDetailResponse {
+  entry: Listing;
+  user: User | null;
+  /** The garage car it's tagged to, when there is one. */
+  car: GarageCar | null;
+  /** The groups it was posted into — only the ones still around. */
+  groups: Group[];
+  like_count: number;
+  comment_count: number;
+  has_liked: boolean;
+  tags: Tag[];
+}
+
+/** The seller's dashboard, split server-side so the app makes one call. */
+export interface MyListingsResponse {
+  listings: Listing[];
+  wants: Listing[];
+  sold: Listing[];
+  /** internal_ids that haven't been confirmed in ~60 days. */
+  needs_confirmation: string[];
+  counts: { listings: number; wants: number; sold: number; total: number };
+}
+
 export interface Event {
   _id?: string;
   internal_id: string;
@@ -1163,4 +1344,342 @@ export interface GroupVoteResult {
   upvotes: number;
   downvotes: number;
   user_vote: 'up' | 'down' | null;
+}
+
+// ── Marketplace conversations ────────────────────────────────────────────────
+// Listings themselves are the browse screen's business; everything below is the
+// messaging side of the marketplace, which is a separate collection on the
+// server (models/MarketplaceThread) and a separate inbox here. Nothing in this
+// block touches `Message`, and nothing in it counts towards the main inbox
+// badge — that separation is the whole reason the server keeps them apart.
+
+/** Which side of a conversation the viewer is on. */
+export type MarketplaceRole = 'seller' | 'buyer';
+
+/** The query's `role` param, which names the same two sides from outside. */
+export type MarketplaceRoleFilter = 'as_seller' | 'as_buyer';
+
+/**
+ * The listing as a conversation remembers it.
+ *
+ * Snapshotted on the thread rather than joined from the listing, so a
+ * conversation row draws without an extra fetch and still draws after the
+ * listing is deleted. `available` is the server's own answer to "can this still
+ * be bought" — not `sold` inverted, since a deleted listing is neither.
+ */
+export interface MarketplaceThreadListing {
+  listing_id: string;
+  title: string;
+  photo?: GalleryItem | null;
+  price?: number | null;
+  price_mode: ListingPriceMode;
+  currency: string;
+  /** Empty on a thread whose snapshot predates the field. */
+  kind: ListingKind | '';
+  category: string;
+  sold: boolean;
+  deleted: boolean;
+  available: boolean;
+}
+
+/**
+ * One marketplace conversation, as the viewer sees it.
+ *
+ * `role`, `unread_count` and `archived` are all the *viewer's* — the server
+ * never sends the other participant's counters, so a seller can't tell that a
+ * buyer archived them.
+ */
+export interface MarketplaceThread {
+  internal_id: string;
+  entry_type?: 'marketplace_thread';
+  listing_id: string;
+  role: MarketplaceRole;
+  seller_id: string;
+  buyer_id: string;
+  listing: MarketplaceThreadListing;
+  other_user_id: string;
+  other_user?: User | null;
+  last_message_at?: string;
+  last_message_preview: string;
+  last_message_sender_id?: string | null;
+  message_count: number;
+  unread_count: number;
+  archived: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** One message inside a conversation. At most one photo, in the usual shape. */
+export interface MarketplaceMessage {
+  internal_id: string;
+  entry_type?: 'marketplace_message';
+  thread_id: string;
+  listing_id?: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string;
+  gallery: GalleryItem[];
+  read: boolean;
+  read_at?: string | null;
+  created_at?: string;
+}
+
+/** `GET /threads/:id` — a page of messages, oldest→newest, plus the thread. */
+export interface MarketplaceThreadPage {
+  total: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+  thread: MarketplaceThread;
+  entries: MarketplaceMessage[];
+}
+
+/**
+ * The marketplace badge.
+ *
+ * `by_listing` is what lets a seller's own listing say "3 people are asking
+ * about this one" without a request per row.
+ */
+export interface MarketplaceUnreadCount {
+  count: number;
+  threads: number;
+  by_listing: {
+    listing_id: string;
+    listing_title: string;
+    count: number;
+    threads: number;
+  }[];
+}
+
+
+// ── Custom alerts ────────────────────────────────────────────────────────────
+
+/**
+ * The thing that happened. One key per kind of record the server can watch
+ * being created, and the vocabulary the rule builder groups into Marketplace /
+ * Garage & cars / Groups / Events & routes.
+ *
+ * Kept as a closed union rather than `string` because every screen that draws
+ * an alert has to say it in English, and a key with no sentence for it is a
+ * blank row. `/api/alerts/meta` is still what decides which of these the
+ * server actually offers and which filters each one takes — this list is the
+ * app's side of the contract, not a second copy of it.
+ */
+export type AlertEvent =
+  | 'listing_created'
+  | 'want_created'
+  | 'garagecar_added'
+  | 'car_mod_added'
+  | 'car_photos_added'
+  | 'post_created'
+  | 'group_discussion_created'
+  | 'group_news_created'
+  | 'group_resource_created'
+  | 'event_created'
+  | 'rally_created'
+  | 'route_created';
+
+/**
+ * Every filter key an event can declare, in the app's spelling.
+ *
+ * The server names the two car filters after what it *stores* —
+ * `make_handle` / `model_handle` — while the form, the sentence and
+ * `AlertFilters` all key on the display spelling. `normalizeAlertMeta` maps
+ * one to the other in a single place, so nothing else has to know.
+ */
+export type AlertFilterKey =
+  | 'make' | 'model' | 'category' | 'kind' | 'condition_min'
+  | 'price_max' | 'region' | 'near' | 'group_id' | 'keyword';
+
+/** "Within N miles of here." `zip` is what the form collects; the rest is geocode. */
+export interface AlertNear {
+  zip?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  radius_miles?: number | null;
+}
+
+/**
+ * What narrows the event down to the thing you actually care about.
+ *
+ * Every key is optional and an absent one means "don't care" — an alert with
+ * an empty filter set is "tell me about everything of this kind", which is
+ * legal and occasionally what someone wants.
+ *
+ * Make and model are sent as the *display* spelling; the server handleizes
+ * them and stores both (models/Alert), returning the pair. A client-sent
+ * handle is accepted only as a fallback and never trusted over the name, so
+ * the app sends the name and reads whichever comes back.
+ */
+export interface AlertFilters {
+  make?: string | null;
+  model?: string | null;
+  make_handle?: string | null;
+  model_handle?: string | null;
+  /** Listing, post, event, group-discussion or group-resource category. */
+  category?: string | null;
+  /** Post `type` today — listings already split on kind via the event. */
+  kind?: string | null;
+  /** Index into the meta's `conditions`, worst to best. "At least this good." */
+  condition_min?: number | null;
+  price_max?: number | null;
+  /** A key from the meta's `regions`. */
+  region?: string | null;
+  near?: AlertNear | null;
+  group_id?: string | null;
+  /** Stored lowercased by the server. */
+  keyword?: string | null;
+}
+
+/** Where a match is delivered. In-app is not a channel — see the bell. */
+export interface AlertChannels {
+  push: boolean;
+  email: boolean;
+}
+
+export interface Alert {
+  internal_id: string;
+  user_id?: string;
+  enabled: boolean;
+  /** The member's own name for it. Blank means "read the sentence instead". */
+  label?: string | null;
+  event: AlertEvent;
+  filters: AlertFilters;
+  channels: AlertChannels;
+  last_matched_at?: string | null;
+  match_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Where a member stands against the alert cap.
+ *
+ * A standing count, not a monthly one — an alert isn't spent when it fires, so
+ * there's no `resets_at`. And unlike every other allowance, **`limit` is never
+ * null**: Pro has a ceiling here too (20), so this meter is drawn as a
+ * fraction for everybody. `reached` is optional only to tolerate a server that
+ * omits it — `/api/alerts` does, `/api/users/usage` sends it.
+ */
+export interface AlertCounts {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  reached?: boolean;
+  isPro?: boolean;
+}
+
+export interface AlertsResponse {
+  entries: Alert[];
+  counts: AlertCounts;
+}
+
+/**
+ * One event the server offers, and what it can be narrowed by.
+ *
+ * `filters` arrives in the server's spelling (`make_handle`, `model_handle`);
+ * `normalizeAlertMeta` translates it. `content_type` is the matched content's
+ * own type, which is what lets utils/notificationTarget route a match with no
+ * change at all.
+ */
+export interface AlertEventMeta {
+  key: AlertEvent;
+  label: string;
+  noun?: string;
+  content_type?: string;
+  filters: string[];
+  description?: string;
+}
+
+/** One group the picker may offer. A rule may only name one you're in. */
+export interface AlertGroupOption {
+  internal_id: string;
+  title: string;
+  type?: string | null;
+  is_member: boolean;
+}
+
+/**
+ * The whole rule-builder vocabulary in one payload.
+ *
+ * The server sends the vocabularies **both** flat (`listing_categories`,
+ * `conditions`, `post_types`…) and nested (`listing.categories`,
+ * `post.types`…) — the flat keys are the agreed contract and the nested
+ * objects carry the same values plus the lists that only exist there
+ * (`post.categories`, `group.entries`, the two group-section enums). Every
+ * field is optional and read through `normalizeAlertMeta`, which prefers the
+ * nested path, falls back to the flat one, then to what the app already knows.
+ */
+export interface AlertMeta {
+  events: AlertEventMeta[];
+
+  // Flat vocabularies.
+  listing_categories?: string[];
+  /** Index into this array is what `condition_min` stores. */
+  conditions?: string[];
+  post_types?: string[];
+  event_categories?: string[];
+  group_types?: string[];
+
+  // The same values, grouped — plus the lists that exist only here.
+  listing?: {
+    kinds?: string[];
+    categories?: string[];
+    conditions?: string[];
+    price_modes?: string[];
+    shipping?: string[];
+  };
+  /**
+   * `categories` is a map keyed by post *type*, not a flat list: a "record"
+   * post and a "spot" post offer different categories, so the picker depends
+   * on the `kind` chosen first.
+   */
+  post?: {
+    types?: string[];
+    categories?: Record<string, string[]>;
+  };
+  event?: { categories?: string[] };
+  group?: {
+    types?: string[];
+    discussion_categories?: string[];
+    resource_categories?: string[];
+    /** Every group, flagged with whether this member belongs to it. */
+    entries?: AlertGroupOption[];
+  };
+
+  regions?: { key: string; label: string; states?: string[] }[];
+  default_radius_miles?: number;
+  max_radius_miles?: number;
+  limits?: { basic: number; pro: number };
+}
+
+/**
+ * What create and update send.
+ *
+ * `filters` is replaced wholesale on update — the server removes a filter by
+ * it being absent, so a merge would make removing one impossible.
+ */
+export interface AlertInput {
+  event: AlertEvent;
+  label?: string;
+  enabled?: boolean;
+  filters: AlertFilters;
+  channels: AlertChannels;
+}
+
+/**
+ * What create and update answer with.
+ *
+ * `warnings` is the one that matters: a zip the server couldn't geocode saves
+ * the rule *without* the distance filter and says so here rather than failing,
+ * because refusing would lose everything else the member set. Anything that
+ * arrives here has to reach the member — a rule quietly narrower than the
+ * sentence they just read is the exact failure this feature can't afford.
+ */
+export interface AlertWriteResponse {
+  _id?: string;
+  success?: string | boolean;
+  entry: Alert;
+  counts?: AlertCounts;
+  warnings?: string[];
 }

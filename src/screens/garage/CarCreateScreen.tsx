@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, FlatList, Platform, ActivityIndicator,
+  TextInput, Alert, FlatList, Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
-import { X, Plus, ChevronLeft, ChevronRight, Check, Trash2, Search, ChevronUp, PenSquare } from 'lucide-react-native';
+import { X, Plus, Check, Trash2, Search, ChevronUp, PenSquare } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
   useGetCarQuery,
@@ -30,6 +30,7 @@ import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 import SharedModal from '../../components/ui/SharedModal';
+import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
 
 /**
@@ -38,6 +39,9 @@ import { useDebounced } from '../../hooks/useDebounced';
  * They used to sit inside each step's own block, so the first thing you did on
  * arriving at a step was scroll past its title to reach the fields. Up here it
  * stays put, and the two chevrons either side of it say what it's for.
+ *
+ * The header and bar themselves are ui/StepFormHeader, shared with the group
+ * and marketplace create forms.
  */
 const STEP_TITLES = [
   'Basic Information',
@@ -46,26 +50,6 @@ const STEP_TITLES = [
   'Groups',
   'Modifications',
 ];
-
-// ── Step progress bar ────────────────────────────────────────────────────────
-function ProgressBar({ step, total = 4 }: { step: number; total?: number }) {
-  const brand = useBrandColor();
-  return (
-    <View style={pb.track}>
-      {/* One bar that fills, not five tiles with gaps between them — the gaps
-          read as five separate things rather than one journey. */}
-      <View style={[pb.fill, { width: `${(step / total) * 100}%`, backgroundColor: brand }]} />
-    </View>
-  );
-}
-const pb = StyleSheet.create({
-  track: {
-    height: 4, borderRadius: 2, overflow: 'hidden',
-    marginHorizontal: 16, marginTop: 12, marginBottom: 10,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  fill: { height: '100%', borderRadius: 2 },
-});
 
 // ── Chip selector ─────────────────────────────────────────────────────────────
 /**
@@ -650,15 +634,19 @@ export function CarCreateSheet({ carId, onDismissed }: {
         done?.();
       }}
       titleContent={(
-        /* Back, the pane's name, forward — the header is the one row that's
-           always on screen, so the step controls belong in it.
-
-           Each caret is absent rather than disabled at the ends of the run:
-           there is no step before the first or after the last, and a dimmed
-           control implies one exists and is merely unavailable. A spacer holds
-           the gap so the name stays on the pane's midline either way. */
-        <View style={styles.navRow}>
-          {step === 1 && restored ? (
+        <StepFormNav
+          title={isEditMode ? 'Edit Garage Car' : 'Create Garage Car'}
+          step={step}
+          totalSteps={STEP_TITLES.length}
+          onBack={() => setStep((s) => s - 1)}
+          onNext={() => setStep((s) => s + 1)}
+          // Off until this step's required fields are in — see canAdvance.
+          canAdvance={canAdvance()}
+          onSubmit={handleSubmit}
+          submitLabel={isEditMode ? 'Save' : 'Create'}
+          submitAccessibilityLabel={isEditMode ? 'Save changes' : 'Create car'}
+          submitting={isLoading}
+          leading={restored ? (
             /* Start over. Only on step 1, and only when this pane opened onto
                remembered answers — there's no back to go to from here, and a
                form you didn't expect to still be filled in needs a way out. */
@@ -670,58 +658,14 @@ export function CarCreateSheet({ carId, onDismissed }: {
             >
               <Trash2 size={18} color="#FFFFFF" strokeWidth={2.4} />
             </TouchableOpacity>
-          ) : step > 1 ? (
-            <TouchableOpacity
-              style={[styles.navBtn, { backgroundColor: brand }]}
-              onPress={() => setStep((s) => s - 1)}
-              accessibilityRole="button"
-              accessibilityLabel="Previous step"
-            >
-              <ChevronLeft size={20} color="#000000" strokeWidth={2.6} />
-            </TouchableOpacity>
-          ) : <View style={styles.navBtn} />}
-
-          <Text style={styles.navTitle} numberOfLines={1}>
-            {isEditMode ? 'Edit Garage Car' : 'Create Garage Car'}
-          </Text>
-
-          {step < STEP_TITLES.length ? (
-            <TouchableOpacity
-              style={[styles.navBtn, { backgroundColor: brand }, !canAdvance() && styles.navBtnOff]}
-              onPress={() => setStep((s) => s + 1)}
-              // Off until this step's required fields are in — see canAdvance.
-              disabled={!canAdvance()}
-              accessibilityRole="button"
-              accessibilityLabel="Next step"
-            >
-              <ChevronRight size={20} color="#000000" strokeWidth={2.6} />
-            </TouchableOpacity>
-          ) : (
-            /* The last step ends in the save, not another caret. */
-            <TouchableOpacity
-              // Named, not a tick: this is the one press that commits
-              // everything, and a glyph made it look like another step.
-              style={[styles.navBtn, styles.navBtnWide, { backgroundColor: brand }]}
-              onPress={handleSubmit}
-              disabled={isLoading}
-              accessibilityRole="button"
-              accessibilityLabel={isEditMode ? 'Save changes' : 'Create car'}
-            >
-              {isLoading
-                ? <ActivityIndicator size="small" color="#000000" />
-                : <Text style={styles.navBtnText}>{isEditMode ? 'Save' : 'Create'}</Text>}
-            </TouchableOpacity>
-          )}
-        </View>
+          ) : undefined}
+        />
       )}
       fullHeight
     >
-      <ProgressBar step={step} total={5} />
-      {/* The header carries the pane's name and the bar above carries the
-          position, so this is just what you're filling in. */}
-      <Text style={[styles.stepCaption, { color: colors.fg }]}>
-        {STEP_TITLES[step - 1]}
-      </Text>
+      {/* The header carries the pane's name and the bar carries the position,
+          so the caption is just what you're filling in. */}
+      <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
 
       <View style={styles.flex}>
         <ScrollView
@@ -1234,25 +1178,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS,
   },
   customCatChipText: { fontSize: 13, fontWeight: '700', color: '#000000' },
-  stepCaption: {
-    fontSize: 20, fontWeight: '800', letterSpacing: -0.3,
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14,
-  },
-  navRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  // Centred by taking the space between two fixed-width buttons, so the name
-  // sits on the pane's midline whatever the buttons show.
-  navTitle: {
-    flex: 1, textAlign: 'center',
-    fontSize: 17, fontWeight: '700', color: '#FFFFFF',
-  },
-  // A black glyph on the account's own colour — blue, or gold for Pro. No
-  // border: the fill is the shape. A disabled one fades rather than changing.
+  // The "start over" button handed to StepFormNav as its leading slot — sized
+  // to match that header's own carets.
   navBtn: {
     width: 34, height: 34, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
-  navBtnOff: { opacity: 0.5 },
-  // Wide enough for a word — the chevrons stay square.
-  navBtnWide: { width: 'auto', paddingHorizontal: 12 },
-  navBtnText: { fontSize: 14, fontWeight: '800', color: '#000000' },
 });

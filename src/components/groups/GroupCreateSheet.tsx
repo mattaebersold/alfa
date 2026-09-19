@@ -21,7 +21,7 @@ import PhotoPickerField from '../ui/PhotoPickerField';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
-import { POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
+import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { COMMON_RADIUS } from '../../constants/radius';
 
@@ -236,7 +236,7 @@ export default function GroupCreateSheet({
           <>
             <Text style={[styles.label, { color: c.grey }]}>Type</Text>
             <View style={styles.chips}>
-              {POST_TYPES.map(({ type, label, color }) => {
+              {CREATABLE_POST_TYPES.map(({ type, label, color }) => {
                 const active = postType === type;
                 return (
                   <TouchableOpacity

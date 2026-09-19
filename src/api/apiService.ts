@@ -10,6 +10,11 @@ import type {
   DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
   PhotoSpot, PhotoSpotUsage, PlacePrediction, PlaceDetail, GroupActivityItem,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
+  Listing, ListingMeta, ListingBrowseParams, ListingBrowseResponse,
+  ListingDetailResponse, MyListingsResponse,
+  MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
+  MarketplaceRoleFilter, MarketplaceUnreadCount,
+  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts,
 } from '../types/api';
 
 export const apiService = createApi({
@@ -24,6 +29,25 @@ export const apiService = createApi({
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
     'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites', 'Product',
     'PhotoSpot', 'ArchivedCars',
+    /**
+     * Custom alerts. Its own tag, and also invalidated onto 'User' by every
+     * write — the dashboard's usage panel reads the alert count off
+     * `/api/users/usage`, so creating a rule has to move that bar too.
+     */
+    'Alert',
+    // The marketplace's own collection. 'Marketplace' above still covers the
+    // post-shaped listings that predate it — the migration hasn't run.
+    'Listing',
+    /**
+     * Marketplace conversations, kept apart from 'Message' on purpose.
+     *
+     * The server stores them in their own collection so a marketplace message
+     * can never land in the main inbox or its badge (see horacio's
+     * models/MarketplaceThread). Sharing the 'Message' tag here would undo that
+     * on the client: sending an offer would refetch the inbox, and the inbox's
+     * unread query would be invalidated by a conversation it can't show.
+     */
+    'MarketplaceThread', 'MarketplaceUnread',
   ],
   endpoints: (builder) => ({
 
@@ -57,12 +81,30 @@ export const apiService = createApi({
       posts: MonthlyUsage;
       /** Absent from servers older than the event limit. */
       events?: MonthlyUsage;
+      /**
+       * Marketplace listings this month. Absent from servers older than the
+       * listing limit — everything that reads it treats missing as "ungated".
+       * Diecast listings are Pro-only and aren't counted here.
+       */
+      listings?: MonthlyUsage;
       cars: { used: number; limit: number | null };
+      /**
+       * Custom alerts a member has standing.
+       *
+       * A standing count like cars, not a monthly allowance — an alert isn't
+       * spent when it fires, so there's no `resets_at`. Unlike every other
+       * meter here, `limit` is never null: Pro is capped at 20 too, so this
+       * one is a fraction for everybody. Still optional, so a build talking to
+       * a server without it falls back to `/api/alerts`'s own `counts`.
+       */
+      alerts?: AlertCounts;
       routes: { pro_only: boolean; allowed: boolean };
+      /** Diecast listings are Pro-only. Absent from older servers. */
+      diecast?: { pro_only: boolean; allowed: boolean };
       isPro: boolean;
     }, void>({
       query: () => 'api/users/usage',
-      providesTags: ['User', 'Post', 'SocietyEvent'],
+      providesTags: ['User', 'Post', 'SocietyEvent', 'Listing', 'Alert'],
     }),
 
     getUserStats: builder.query<{
@@ -1821,6 +1863,349 @@ export const apiService = createApi({
       providesTags: ['Block'],
     }),
 
+    // ── Marketplace (listings) ────────────────────────────────────────────────
+    /**
+     * The marketplace's own collection — see horacio's models/Listing.js.
+     *
+     * Deliberately uncached on the server, because nearly every answer depends
+     * on who is asking: which listings fit a car in *your* garage, how far they
+     * are from *your* zip, which of *your* groups they were posted into.
+     *
+     * Tagged as a list plus one tag per listing, so a price drop or a sold
+     * toggle refetches the browse without every screen having to know about it.
+     */
+    getListings: builder.query<ListingBrowseResponse, ListingBrowseParams | void>({
+      query: (params) => ({
+        url: 'api/marketplace',
+        params: { page: 0, limit: 12, ...(params ?? {}) },
+      }),
+      providesTags: (result) => [
+        { type: 'Listing' as const, id: 'LIST' },
+        ...(result?.entries ?? []).map((e) => ({ type: 'Listing' as const, id: e.internal_id })),
+      ],
+    }),
+
+    /**
+     * The filter vocabulary. Fetched rather than hardcoded so the app's
+     * categories and condition labels can't drift from the collection's.
+     * Never changes between deploys, so it's asked for once and cached.
+     */
+    getListingMeta: builder.query<ListingMeta, void>({
+      query: () => 'api/marketplace/meta',
+    }),
+
+    getListing: builder.query<ListingDetailResponse, string>({
+      query: (id) => `api/marketplace/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Listing', id }],
+    }),
+
+    /** The seller's own — active listings, want ads and what's sold. */
+    getMyListings: builder.query<MyListingsResponse, void>({
+      query: () => 'api/marketplace/mine',
+      providesTags: [{ type: 'Listing', id: 'MINE' }],
+    }),
+
+    // Multipart, like posts: the photos come up with the form, under `gallery`.
+    createListing: builder.mutation<{ _id: string; entry: Listing }, FormData>({
+      query: (body) => ({ url: 'api/marketplace/create', method: 'POST', body }),
+      invalidatesTags: [{ type: 'Listing', id: 'LIST' }, { type: 'Listing', id: 'MINE' }, 'UserEntries'],
+    }),
+
+    /** Partial-safe on the server: a field the form didn't send keeps its value. */
+    updateListing: builder.mutation<{ success: string; entry: Listing }, FormData>({
+      query: (body) => ({ url: 'api/marketplace/update', method: 'POST', body }),
+      // The id isn't readable off a FormData, so the whole list goes — an edit
+      // is rare enough that refetching the page you're on is the cheap answer.
+      invalidatesTags: [{ type: 'Listing', id: 'LIST' }, { type: 'Listing', id: 'MINE' }],
+    }),
+
+    deleteListing: builder.mutation<{ success: boolean }, { internal_id: string }>({
+      query: (body) => ({ url: 'api/marketplace/delete', method: 'POST', body }),
+      invalidatesTags: (result, error, { internal_id }) => [
+        { type: 'Listing', id: internal_id },
+        { type: 'Listing', id: 'LIST' },
+        { type: 'Listing', id: 'MINE' },
+      ],
+    }),
+
+    /**
+     * Mark sold, or put it back up. A toggle when `sold` is left out, which is
+     * what the button wants; passed explicitly when the caller knows the way.
+     */
+    markListingSold: builder.mutation<
+      { success: boolean; internal_id: string; sold: boolean; sold_at: string | null },
+      { id: string; sold?: boolean }
+    >({
+      query: ({ id, ...body }) => ({ url: `api/marketplace/${id}/sold`, method: 'POST', body }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Listing', id },
+        { type: 'Listing', id: 'LIST' },
+        { type: 'Listing', id: 'MINE' },
+      ],
+    }),
+
+    /** "Yes, still available" — resets the 60-day nudge clock. */
+    confirmListing: builder.mutation<
+      { success: boolean; internal_id: string; last_confirmed_at: string },
+      string
+    >({
+      query: (id) => ({ url: `api/marketplace/${id}/confirm`, method: 'POST' }),
+      invalidatesTags: (result, error, id) => [
+        { type: 'Listing', id },
+        { type: 'Listing', id: 'MINE' },
+      ],
+    }),
+
+    // ── Marketplace (conversations) ───────────────────────────────────────────
+    /**
+     * A marketplace conversation is not an inbox message.
+     *
+     * Everything below talks to /api/marketplace/messages, which is its own
+     * collection with its own unread counters — so none of it invalidates
+     * 'Message' and none of it moves the inbox badge. That containment is the
+     * point of the split on the server, and it only holds if the client keeps
+     * the two apart too.
+     *
+     * The tag shape: the threads list provides `MarketplaceThread/LIST`, each
+     * open conversation provides `MarketplaceThread/<id>`, and the badge
+     * provides 'MarketplaceUnread'. A reply therefore refreshes the one
+     * conversation, the list that previews it, and the count — and nothing else.
+     */
+    getMarketplaceThreads: builder.query<
+      { total: number; page: number; limit: number; entries: MarketplaceThread[] },
+      {
+        /** 'as_seller' is "people asking about my things"; 'as_buyer' the reverse. */
+        role?: MarketplaceRoleFilter;
+        /** One listing's conversations — "who's interested in this?" */
+        listing_id?: string;
+        page?: number;
+        limit?: number;
+        include_archived?: boolean;
+      } | void
+    >({
+      query: (params) => ({
+        url: 'api/marketplace/messages/threads',
+        params: { page: 0, limit: 20, ...(params ?? {}) },
+      }),
+      providesTags: (result) => [
+        { type: 'MarketplaceThread' as const, id: 'LIST' },
+        ...(result?.entries ?? []).map((t) => ({
+          type: 'MarketplaceThread' as const, id: t.internal_id,
+        })),
+      ],
+    }),
+
+    /**
+     * One conversation's messages, oldest→newest within a page.
+     *
+     * Page 0 is the *newest* page, so paging back walks up the history.
+     *
+     * Fetching this marks the viewer's messages read server-side, which no
+     * `providesTags` can express — a query can't invalidate. Hence the manual
+     * invalidation once it lands: the badge and the list both changed as a
+     * result of reading, and neither would know. It can't loop, because the
+     * tags it clears are not the one this query provides.
+     */
+    getMarketplaceThread: builder.query<
+      MarketplaceThreadPage,
+      { threadId: string; page?: number; limit?: number }
+    >({
+      query: ({ threadId, page = 0, limit = 30 }) => ({
+        url: `api/marketplace/messages/threads/${threadId}`,
+        params: { page, limit },
+      }),
+      providesTags: (result, error, { threadId }) => [
+        { type: 'MarketplaceThread', id: threadId },
+      ],
+      async onQueryStarted(arg, { dispatch, getState, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          /**
+           * Only when this read actually cleared something — an open thread
+           * polls every few seconds, and invalidating on each poll would
+           * refetch the list and the badge forever for nothing.
+           *
+           * The messages are the tell, not `thread.unread_count`: the server
+           * marks them read *after* it has selected the page but *before* it
+           * builds the thread view, so the count always comes back zero while
+           * the entries still carry the state they were in when we asked.
+           */
+          const myId = (getState() as { auth?: { userInfo?: { user_id?: string } } })
+            .auth?.userInfo?.user_id;
+          const cleared = data.entries.some((m) => !m.read && m.sender_id !== myId);
+          if (!cleared) return;
+          dispatch(apiService.util.invalidateTags([
+            'MarketplaceUnread',
+            { type: 'MarketplaceThread', id: 'LIST' },
+          ]));
+        } catch {
+          // A failed read leaves the count as it was, which is correct.
+        }
+      },
+    }),
+
+    /**
+     * Start (or reopen) the conversation about a listing, with its first
+     * message. The caller is always the buyer; the server returns the existing
+     * thread when there is one, so "get in touch" is safe to press twice.
+     *
+     * Takes FormData when a photo is coming with it — one file on the `gallery`
+     * field, the same part name the rest of the app uses — and a plain object
+     * otherwise, which is the normal case.
+     */
+    startMarketplaceThread: builder.mutation<
+      { created: boolean; thread: MarketplaceThread; entry: MarketplaceMessage },
+      { listing_id: string; body: string } | FormData
+    >({
+      query: (body) => ({ url: 'api/marketplace/messages/threads', method: 'POST', body }),
+      invalidatesTags: [
+        { type: 'MarketplaceThread', id: 'LIST' },
+        'MarketplaceUnread',
+      ],
+    }),
+
+    /** Reply. `data` is FormData when a photo is attached, a plain body if not. */
+    sendMarketplaceMessage: builder.mutation<
+      { entry: MarketplaceMessage; thread: MarketplaceThread },
+      { threadId: string; data: { body: string } | FormData }
+    >({
+      query: ({ threadId, data }) => ({
+        url: `api/marketplace/messages/threads/${threadId}/messages`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { threadId }) => [
+        { type: 'MarketplaceThread', id: threadId },
+        { type: 'MarketplaceThread', id: 'LIST' },
+        // Sending doesn't change *my* count, but the thread's preview and order
+        // change for both of us, and the badge is cheap to re-ask for.
+        'MarketplaceUnread',
+      ],
+    }),
+
+    /** Mark read without fetching the messages — for a list row you've opened. */
+    markMarketplaceThreadRead: builder.mutation<
+      { success: boolean; thread_id: string; unread_count: number },
+      string
+    >({
+      query: (threadId) => ({
+        url: `api/marketplace/messages/threads/${threadId}/read`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, threadId) => [
+        { type: 'MarketplaceThread', id: threadId },
+        { type: 'MarketplaceThread', id: 'LIST' },
+        'MarketplaceUnread',
+      ],
+    }),
+
+    /**
+     * Leave the conversation. Archive for the caller only — the other side
+     * keeps their copy, and the next message brings this one back.
+     */
+    leaveMarketplaceThread: builder.mutation<{ success: boolean; thread_id: string }, string>({
+      query: (threadId) => ({
+        url: `api/marketplace/messages/threads/${threadId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, threadId) => [
+        { type: 'MarketplaceThread', id: threadId },
+        { type: 'MarketplaceThread', id: 'LIST' },
+        'MarketplaceUnread',
+      ],
+    }),
+
+    /**
+     * The marketplace badge, with a per-listing breakdown.
+     *
+     * Polled by its callers at CONFIG.NOTIFICATION_POLL_INTERVAL, the way the
+     * bell polls its own count. `by_listing` is what lets a seller's row say
+     * how many people are waiting on that one listing without a call per row.
+     */
+    getMarketplaceUnreadCount: builder.query<MarketplaceUnreadCount, void>({
+      query: () => 'api/marketplace/messages/unread/count',
+      providesTags: ['MarketplaceUnread'],
+    }),
+
+    // ── Custom alerts ───────────────────────────────────────────────────────
+
+    /**
+     * This member's standing rules, with where they stand against the cap.
+     *
+     * `counts` rides along with the list rather than being a second request:
+     * the one screen that shows the rules is the same screen that has to know
+     * whether another one may be added, and the list's own count is the
+     * authority even on a server whose `/api/users/usage` hasn't grown an
+     * `alerts` key yet.
+     */
+    getAlerts: builder.query<AlertsResponse, void>({
+      query: () => 'api/alerts',
+      providesTags: (result) => [
+        { type: 'Alert' as const, id: 'LIST' },
+        ...(result?.entries ?? []).map((a) => ({ type: 'Alert' as const, id: a.internal_id })),
+      ],
+    }),
+
+    /**
+     * The rule-builder vocabulary — every event, which filters each takes, and
+     * the option lists behind those filters.
+     *
+     * Fetched rather than hardcoded for the same reason the marketplace's meta
+     * is: the categories and condition labels an alert matches on are the
+     * collection's, and a second copy in the app drifts. Never changes between
+     * deploys, so it's asked for once and cached.
+     */
+    getAlertMeta: builder.query<AlertMeta, void>({
+      query: () => 'api/alerts/meta',
+      keepUnusedDataFor: 3600,
+    }),
+
+    /**
+     * Refused with 403 `alert_limit_reached` over the cap — the same shape the
+     * marketplace's `listing_limit_reached` uses, and handled the same way.
+     */
+    createAlert: builder.mutation<AlertWriteResponse, AlertInput>({
+      query: (body) => ({ url: 'api/alerts', method: 'POST', body }),
+      invalidatesTags: [{ type: 'Alert', id: 'LIST' }, 'User'],
+    }),
+
+    updateAlert: builder.mutation<AlertWriteResponse, { id: string } & Partial<AlertInput>>({
+      query: ({ id, ...body }) => ({ url: `api/alerts/${id}`, method: 'PUT', body }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Alert', id },
+        { type: 'Alert', id: 'LIST' },
+      ],
+    }),
+
+    /**
+     * On or off without deleting it — the switch on each row.
+     *
+     * A toggle when `enabled` is left out, which is what the switch wants;
+     * passed explicitly when the caller already knows the way, exactly as
+     * `markListingSold` works.
+     */
+    toggleAlert: builder.mutation<
+      { success: boolean; entry: Alert },
+      { id: string; enabled?: boolean }
+    >({
+      query: ({ id, ...body }) => ({ url: `api/alerts/${id}/toggle`, method: 'POST', body }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Alert', id },
+        { type: 'Alert', id: 'LIST' },
+      ],
+    }),
+
+    deleteAlert: builder.mutation<{ success: boolean; counts?: AlertCounts }, string>({
+      query: (id) => ({ url: `api/alerts/${id}`, method: 'DELETE' }),
+      // 'User' as well: deleting frees a slot, and the dashboard's usage bar
+      // is what tells the member they have one again.
+      invalidatesTags: (result, error, id) => [
+        { type: 'Alert', id },
+        { type: 'Alert', id: 'LIST' },
+        'User',
+      ],
+    }),
+
   }),
 });
 
@@ -2055,4 +2440,28 @@ export const {
   useDeleteRouteMutation,
   useUpvoteRouteMutation,
   useDownvoteRouteMutation,
+  useGetListingsQuery,
+  useGetListingMetaQuery,
+  useGetListingQuery,
+  useGetMyListingsQuery,
+  useCreateListingMutation,
+  useUpdateListingMutation,
+  useDeleteListingMutation,
+  useMarkListingSoldMutation,
+  useConfirmListingMutation,
+  useGetMarketplaceThreadsQuery,
+  useLazyGetMarketplaceThreadsQuery,
+  useGetMarketplaceThreadQuery,
+  useStartMarketplaceThreadMutation,
+  useSendMarketplaceMessageMutation,
+  useMarkMarketplaceThreadReadMutation,
+  useLeaveMarketplaceThreadMutation,
+  useGetMarketplaceUnreadCountQuery,
+  // Custom alerts
+  useGetAlertsQuery,
+  useGetAlertMetaQuery,
+  useCreateAlertMutation,
+  useUpdateAlertMutation,
+  useToggleAlertMutation,
+  useDeleteAlertMutation,
 } = apiService;

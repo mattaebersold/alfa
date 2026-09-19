@@ -22,6 +22,7 @@ import {
   useBlockUserMutation,
   useUnblockUserMutation,
   useCreateReportMutation,
+  useGetListingsQuery,
 } from '../../api/apiService';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
@@ -42,6 +43,10 @@ import { regionForCityState } from '../../constants/regions';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import RoutesPane from '../../components/routes/RoutesPane';
+import MemberListingsShelf from '../../components/marketplace/MemberListingsShelf';
+import ListingCard from '../../components/marketplace/ListingCard';
+import ListingSummaryModal from '../../components/marketplace/ListingSummaryModal';
+import type { SummaryOrigin } from '../../components/ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { postMediaList } from '../../utils/postMedia';
@@ -49,7 +54,7 @@ import PostMediaCarousel from '../../components/media/PostMediaCarousel';
 import { useViewableIds } from '../../hooks/useViewableIds';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
-import type { GarageCar, Post, RouteListParams, User } from '../../types/api';
+import type { GarageCar, Listing, Post, RouteListParams, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
@@ -60,7 +65,10 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // Cars and routes live on the page itself (see the garage section and the
 // routes shelf), so they get no tile — but their "View all" opens a pane keyed
 // the same way a tile's is.
-type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes';
+// The marketplace sections are shelves too — see the three at the bottom of
+// the page — so like routes they get a pane key without a tile.
+type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes'
+  | 'forSale' | 'wants' | 'soldListings';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
@@ -80,6 +88,9 @@ const SECTION_LABELS: Record<Tab, string> = {
   following: 'Following',
   lists:     'Lists',
   routes:    'Routes',
+  forSale:      'For sale',
+  wants:        'Want ads',
+  soldListings: 'Sold',
 };
 
 // Garage carousel — cards stop short of full width so the next one peeks out.
@@ -310,6 +321,15 @@ export default function ProfileScreen() {
   const [bioExpanded, setBioExpanded] = useState(false);
   /** The cover-photo sheet, opened from the camera button on an empty banner. */
   const [bannerSheet, setBannerSheet] = useState(false);
+  /**
+   * The listing panel, and the card it grows out of.
+   *
+   * Opened from a shelf directly, or from a pane — in which case the pane
+   * closes first and this is set on the way out, because neither platform will
+   * present a panel over a modal that is still up.
+   */
+  const [listingSummary, setListingSummary] =
+    useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
   const [bioLines, setBioLines] = useState<number | null>(null);
   // Which cards in the Posts pane are on screen, so a video stops when its
   // card scrolls out of the pane.
@@ -410,6 +430,32 @@ export default function ProfileScreen() {
     { skip: !userId },
   );
 
+  /**
+   * What this member has on the marketplace.
+   *
+   * Three queries rather than one filtered three ways, because the browse
+   * endpoint decides what "sold" means: it leaves sold listings out unless
+   * asked for them by name. Each one only runs while its own pane is open —
+   * the shelves on the page fetch their own six-item preview (see
+   * MemberListingsShelf), and RTK caches the two separately.
+   *
+   * Sold is shown on anyone's profile, not just your own: on a marketplace
+   * with no ratings, what somebody has actually sold is the reputation.
+   */
+  const listingPaneParams = { user_id: userId, sort: 'recent' as const, limit: 24 };
+  const { data: forSalePane } = useGetListingsQuery(
+    { ...listingPaneParams, kind: 'sale' },
+    { skip: !userId || renderedSection !== 'forSale' },
+  );
+  const { data: wantsPane } = useGetListingsQuery(
+    { ...listingPaneParams, kind: 'want' },
+    { skip: !userId || renderedSection !== 'wants' },
+  );
+  const { data: soldPane } = useGetListingsQuery(
+    { ...listingPaneParams, sold: 'true' },
+    { skip: !userId || renderedSection !== 'soldListings' },
+  );
+
   // The profile is the person plus their posts, garage and routes — the things
   // the page actually shows. The rest are counts behind tiles and come back
   // with the tags these invalidate.
@@ -506,6 +552,11 @@ export default function ProfileScreen() {
       // No tile of its own — the shelf below is the routes section — but the
       // switch answers for every section so it can't fall through.
       case 'routes':    return routesData?.total ?? routes.length;
+      // Shelves too, and their counts live on the shelf's own query rather
+      // than here — nothing on this page asks for these.
+      case 'forSale':      return forSalePane?.total ?? 0;
+      case 'wants':        return wantsPane?.total ?? 0;
+      case 'soldListings': return soldPane?.total ?? 0;
     }
   };
 
@@ -807,6 +858,37 @@ export default function ProfileScreen() {
             />
           </ScrollView>
         );
+      case 'forSale':
+      case 'wants':
+      case 'soldListings': {
+        const source = renderedSection === 'forSale' ? forSalePane
+          : renderedSection === 'wants' ? wantsPane
+            : soldPane;
+        return (
+          <FlatList
+            data={source?.entries ?? []}
+            keyExtractor={(l: Listing) => l.internal_id}
+            contentContainerStyle={styles.modalList}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              // The browse screen's own card, so a listing looks the same
+              // wherever it's met. The panel it opens can't be presented over
+              // this pane, so the pane closes first and the panel opens after.
+              <ListingCard
+                listing={item}
+                onPress={(origin) => openAndClose(() => setListingSummary({ id: item.internal_id, origin }))}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState title={
+                renderedSection === 'forSale' ? 'Nothing for sale'
+                  : renderedSection === 'wants' ? 'No want ads'
+                    : 'Nothing sold yet'
+              } />
+            }
+          />
+        );
+      }
       case 'followers':
       case 'following': {
         const source = renderedSection === 'followers' ? followers : following;
@@ -913,6 +995,31 @@ export default function ProfileScreen() {
           total={routesData?.total ?? routes.length}
           onViewAll={() => setActiveSection('routes')}
         />
+        {/* Their marketplace, in the three piles it splits into. Each shelf
+            renders nothing when it's empty, so a member who has never sold
+            anything gets no marketplace section at all rather than three
+            headings over three blanks. */}
+        <MemberListingsShelf
+          userId={userId}
+          title="For sale"
+          kind="sale"
+          onViewAll={() => setActiveSection('forSale')}
+          onListingPress={(l) => setListingSummary({ id: l.internal_id, origin: null })}
+        />
+        <MemberListingsShelf
+          userId={userId}
+          title="Want ads"
+          kind="want"
+          onViewAll={() => setActiveSection('wants')}
+          onListingPress={(l) => setListingSummary({ id: l.internal_id, origin: null })}
+        />
+        <MemberListingsShelf
+          userId={userId}
+          title="Sold"
+          sold
+          onViewAll={() => setActiveSection('soldListings')}
+          onListingPress={(l) => setListingSummary({ id: l.internal_id, origin: null })}
+        />
       </ScrollView>
 
       <Modal
@@ -941,6 +1048,15 @@ export default function ProfileScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* The listing panel, shared with the marketplace — including its
+          "message the seller" button, which is the marketplace's own
+          conversation and not this app's inbox. */}
+      <ListingSummaryModal
+        listingId={listingSummary?.id ?? null}
+        origin={listingSummary?.origin}
+        onClose={() => setListingSummary(null)}
+      />
 
       {/* Saving invalidates the profile, so the banner fills and goes back to
           full height on its own — nothing here has to refresh it by hand. */}

@@ -82,6 +82,25 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
    */
   if (n.type === 'group_join_denied') return null;
 
+  /**
+   * A custom alert matched something.
+   *
+   * Nothing to do here in the normal case, and that's by design: the server
+   * files the notification under the *matched content's* own type — a listing
+   * alert arrives as `type: 'alert'`, `content_type: 'listing'` — so every one
+   * of the twelve alert events falls through to the table below and lands on
+   * the thing that matched, which is the only place worth landing.
+   *
+   * The guard is for the degenerate case. An alert whose `content_type` is
+   * missing, or is the notification's own type, has no content to open, and
+   * the default branch would send the member to the *poster's* profile —
+   * which, for "your alert matched", is a stranger. The rule that fired is the
+   * honest answer instead, and it's where you'd go to change it.
+   */
+  if (n.type === 'alert' && (!kind || kind === 'alert' || !id)) {
+    return { name: 'Alerts', params: undefined };
+  }
+
   if (n.type === 'follow' && kind !== 'garagecar') {
     const uid = n.senderUserId ?? id;
     return uid ? { name: 'UserDetail', params: { userId: uid } } : null;
@@ -111,9 +130,25 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
     // Every flavour of post is one record type behind one screen.
     case 'post':
     case 'note':
-    case 'listing':
     case 'diecast':
       return id ? { name: 'PostDetailModal', params: { postId: id } } : null;
+
+    /**
+     * A listing — the marketplace's own record now, not a post.
+     *
+     * The server sends this for anything filed against a Listing (a group
+     * hearing about one, a like, a comment). It opens the marketplace's summary
+     * panel as a route.
+     *
+     * The id may still be a post: the migration out of Post hasn't run, so
+     * notifications written before the split point at records the listing
+     * endpoint has never heard of. That's handled where it can be — the detail
+     * screen falls back to the post when the lookup 404s — rather than guessed
+     * at here, because the id alone doesn't say which kind it is.
+     */
+    case 'listing':
+    case 'want':
+      return id ? { name: 'ListingDetailModal', params: { listingId: id } } : null;
 
     case 'garagecar':
     case 'car':
