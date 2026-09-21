@@ -47,6 +47,7 @@ import CarDeleteOptionsModal from '../../components/cars/CarDeleteOptionsModal';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
 import TaggedPostsPane from '../../components/cars/TaggedPostsPane';
+import CarListsRow from '../../components/cars/CarListsRow';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import RoutesPane from '../../components/routes/RoutesPane';
 import BottomSheet from '../../components/ui/SharedModal';
@@ -1631,6 +1632,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           onRoutePress={(r) => openRoute(r.internal_id)}
           onViewAll={() => setPane('routes')}
         />
+
+        {/* ── What its owner has written down about it ── */}
+        {/* After where it's been, because this is where it's going: mods
+            planned, cars that inspired it. Renders nothing for a visitor when
+            there are none; a Pro owner or co-owner gets the way to add one —
+            the server accepts a list on a car from either. */}
+        <CarListsRow carId={car.internal_id} canAdd={isOwnerOrCoOwner && isPro} />
 
         {/* ── Comments on this car ── */}
         <InlineComments

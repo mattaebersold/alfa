@@ -802,10 +802,21 @@ export default function GroupSectionScreen() {
     if (catFilter) {
       processedItems = processedItems.filter((r) => (r.category ?? 'general') === catFilter);
     }
+    /**
+     * Category order only where the rows are drawn as a card per category —
+     * discussion and resources — because there the cards have to come out in
+     * the order the filter bar lists them. Posts and news are one plain list,
+     * and sorting that by category first made it read as shuffled: last week's
+     * "show" post sat above this morning's "misc" one. A plain list is a
+     * timeline, newest first; the category bar still filters it.
+     */
+    const byCategoryFirst = GROUPED_TABS.includes(tab);
     processedItems = [...processedItems].sort((a, b) => {
-      const ao = catOrder(tab, a.category);
-      const bo = catOrder(tab, b.category);
-      if (ao !== bo) return ao - bo;
+      if (byCategoryFirst) {
+        const ao = catOrder(tab, a.category);
+        const bo = catOrder(tab, b.category);
+        if (ao !== bo) return ao - bo;
+      }
       return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
     });
   }

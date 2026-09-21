@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing } from 'lucide-react-native';
+import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,6 +27,7 @@ import {
   useGetUsageQuery,
   useGetMyListingsQuery,
   useGetAlertsQuery,
+  useGetListsQuery,
 } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
@@ -301,8 +302,8 @@ export default function DashboardScreen() {
   const dispatch = useAppDispatch();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [sheet, setSheet] = useState<SheetType>(null);
-  // The My Posts sheet's cards play video inline; this stops one that's
-  // scrolled out of the sheet.
+  // Which of the My Posts sheet's cards are on screen, so a video opened from
+  // one closes if its card leaves the sheet.
   const { listProps: postViewability, isVisible: isPostVisible } =
     useViewableIds<{ internal_id: string }>((p) => p.internal_id);
   const [listModal, setListModal] = useState<'followers' | 'following' | null>(null);
@@ -372,6 +373,14 @@ export default function DashboardScreen() {
    */
   const { data: alertsData } = useGetAlertsQuery();
   const alertCount = alertsData?.entries.length ?? 0;
+  // The same arguments the profile's Lists pane uses, so this is the same
+  // cache entry and the badge can't disagree with the pane the row opens.
+  // Lists attached to a car are left out of both — they live on the car's page.
+  const { data: myLists } = useGetListsQuery(
+    { user_id: userInfo?.user_id ?? '', car_id: 'none', limit: 50 },
+    { skip: !userInfo?.user_id },
+  );
+  const listCount = myLists?.total ?? 0;
   const { data: blockedData } = useGetBlockedUsersQuery();
   const { data: followedCarsData } = useGetFollowedCarsQuery();
   // Cars put away rather than deleted, plus any offered to this member.
@@ -632,6 +641,26 @@ export default function DashboardScreen() {
             {!!alertCount && (
               <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
                 <Text style={[styles.countBadgeText, { color: colors.grey }]}>{alertCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Opens the profile's own Lists pane rather than a second place to
+              manage them. Shown to basic members too: the pane's "New list" is
+              where they meet the Pro pitch, and a lapsed Pro still has lists
+              here to tend. */}
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => (navigation as any).navigate('MainTabs', {
+              screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'lists' } },
+            })}
+            activeOpacity={0.7}
+          >
+            <ListOrdered size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>My lists</Text>
+            {!!listCount && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{listCount}</Text>
               </View>
             )}
           </TouchableOpacity>

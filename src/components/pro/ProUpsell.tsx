@@ -27,7 +27,7 @@ export const PRO_BENEFITS = [
   'Create groups',
   'Create driving routes',
   'Task lists on every car',
-  'User lists',
+  "Lists on your profile and your cars — top fives, wish lists, next year's mods",
   'Automated diecast marketplace listings',
   'Yearly invite-only PRO rally',
   'Access to the Pro channels on Discord',

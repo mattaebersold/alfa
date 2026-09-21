@@ -34,7 +34,8 @@ export type FeedStackParamList = {
   Podcasts: undefined;
   Search: undefined;
   Dashboard: undefined;
-  Profile: undefined;
+  /** `initialTab` opens one of the profile's panes on arrival — 'lists', from the dashboard. */
+  Profile: { initialTab?: string } | undefined;
   // Also reachable from the drawer while on the feed tab, so it's registered
   // here as well as in MarketStackParamList.
   Marketplace: undefined;
@@ -223,7 +224,11 @@ export type AppStackParamList = {
   PodcastDetail: { podcastId: string };
   // Lists
   ListDetail: { listId: string };
-  CreateList: undefined;
+  /**
+   * `carId` opens the form already attached to that garage car — "add a list"
+   * on a car's page. The form can still change or clear it.
+   */
+  CreateList: { carId?: string } | undefined;
   EditList: { listId: string };
   // Events
   EventCreate: undefined;

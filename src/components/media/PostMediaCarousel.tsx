@@ -4,13 +4,10 @@ import {
   type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useEvent } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { NavigationContext } from '@react-navigation/native';
 import Svg, { Polygon } from 'react-native-svg';
-import {
-  clampMediaRatio, muxStreamUrl, DEFAULT_MEDIA_RATIO, type PostMedia,
-} from '../../utils/postMedia';
+import VideoLightbox from '../ui/VideoLightbox';
+import { clampMediaRatio, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
 
 /**
  * A post's photos and videos in one swipeable strip.
@@ -30,17 +27,13 @@ import {
  * right trade in a feed — the alternative shows more of the photo but makes
  * every post a different, mostly-empty height.
  *
- * ## One player for the whole strip
+ * ## Videos play full screen, not in the strip
  *
- * A carousel of five videos is still one player, retargeted as you go. Video
- * players are expensive and the platform limits how many can decode at once, so
- * mounting one per slide costs memory for streams nobody is watching and risks
- * the later ones silently refusing to play. Only the slide being watched holds
- * the player; the rest show their poster frame.
- *
- * Swiping away pauses. Audio continuing from a video that's no longer on screen
- * is disorienting, and it's the reason you'd have to scroll back to find what's
- * making noise.
+ * A video slide is only ever its poster frame. Tapping it opens VideoLightbox,
+ * which owns the player — the strip's shape came from a photo, and a video
+ * fitted into it played as a sliver between black bars. It also means the
+ * strip holds no player of its own: nothing decodes for a post nobody has
+ * chosen to watch, however many videos are in the feed.
  */
 export default function PostMediaCarousel({
   media,
@@ -53,8 +46,8 @@ export default function PostMediaCarousel({
 }: {
   media: PostMedia[];
   /**
-   * A tap on a photo, or on a video that's already playing. Videos handle their
-   * own first tap — that one starts playback rather than leaving the post.
+   * A tap on a photo. Videos handle their own tap — it opens the full-screen
+   * viewer rather than leaving the post — unless `videoOpensItem` says otherwise.
    */
   onPressItem?: (index: number) => void;
   /** Badges and counters drawn over the media, in the strip's own box. */
@@ -63,10 +56,11 @@ export default function PostMediaCarousel({
   /**
    * Whether the post this belongs to is on screen.
    *
-   * A video keeps playing after you scroll past it otherwise — audible from
-   * nowhere, and holding a decoder open for a post nobody is looking at.
-   * Undefined means the surface isn't tracking visibility (a detail screen,
-   * say), and playback is left alone.
+   * Going false closes the video viewer if this post had it open — the list
+   * underneath can move without a scroll (a refresh, a deep link), and the
+   * viewer shouldn't outlive the card it was opened from. Undefined means the
+   * surface isn't tracking visibility (a detail screen, say), and the viewer
+   * is left alone.
    */
   visible?: boolean;
   /**
@@ -78,12 +72,12 @@ export default function PostMediaCarousel({
    */
   ratio?: number;
   /**
-   * A tap on a video opens the post instead of starting it.
+   * A tap on a video opens the post instead of the viewer.
    *
-   * For a tile too small to watch in — the shelf of posts on a profile, where
-   * a video that started playing in a 168pt card would be showing you the
-   * thing you were trying to open. The poster frame and its play badge still
-   * say there's a video; the post is where you watch it.
+   * For a tile in a shelf — the row of posts on a profile, where the card is a
+   * way into the post and a tap that played the video instead would be
+   * skipping the thing you were trying to open. The poster frame and its play
+   * badge still say there's a video; the post is where you watch it.
    */
   videoOpensItem?: boolean;
 }) {
@@ -91,22 +85,9 @@ export default function PostMediaCarousel({
   const [measuredRatio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
   const ratio = fixedRatio ?? measuredRatio;
   const [active, setActive] = useState(0);
-  /** The item currently holding the player. Null when nothing is playing. */
-  const [playingKey, setPlayingKey] = useState<string | null>(null);
+  /** The video open in the full-screen viewer. Null when it's closed. */
+  const [watchingId, setWatchingId] = useState<string | null>(null);
   const ratioLocked = useRef(false);
-
-  const player = useVideoPlayer(null, (p) => {
-    p.loop = false;
-  });
-
-  /**
-   * Whether the player is actually playing, as opposed to merely being the
-   * slide in front of you. Paging is locked while it is — a video's scrubber
-   * wants the same horizontal drag the carousel does, and a nudge sideways
-   * while seeking would page away from what you were watching. Pausing hands
-   * the drag back, so the lock can't strand anyone on a slide.
-   */
-  const { isPlaying } = useEvent(player, 'playingChange', { isPlaying: player.playing });
 
   /**
    * The strip's shape, decided once by whichever item leads it.
@@ -121,25 +102,19 @@ export default function PostMediaCarousel({
     setRatio(clampMediaRatio(w / h));
   }, []);
 
-  const stop = useCallback(() => {
-    player.pause();
-    setPlayingKey(null);
-  }, [player]);
+  const closeViewer = useCallback(() => setWatchingId(null), []);
 
-  // Scrolled out of the feed: stop, and drop back to the poster. Deliberately
-  // a pause rather than a mute — coming back to a video that silently ran on
-  // without you is worse than coming back to where you left it.
+  // The card left the list's viewport while the viewer was up. See `visible`.
   useEffect(() => {
-    if (visible === false && playingKey) stop();
-  }, [visible, playingKey, stop]);
+    if (visible === false) closeViewer();
+  }, [visible, closeViewer]);
 
   /**
-   * Left the screen entirely: same stop.
+   * Left the screen entirely: same close.
    *
-   * Visibility only knows about scrolling. Pushing a screen on top keeps this
-   * one mounted underneath, so a video started here would carry on playing
-   * behind whatever you opened — the post's detail, someone's profile — with
-   * nothing on screen to pause it from.
+   * The viewer is a Modal, which draws over the whole app rather than over this
+   * screen. Nothing inside it navigates, but a notification tap or a deep link
+   * can — and the viewer would then be sitting on top of wherever that went.
    *
    * Read from the context rather than `useNavigation`, which throws outside a
    * navigator; a carousel with no screen around it just has nothing to hear.
@@ -147,26 +122,13 @@ export default function PostMediaCarousel({
   const navigation = useContext(NavigationContext);
   useEffect(() => {
     if (!navigation) return undefined;
-    return navigation.addListener('blur', () => {
-      player.pause();
-      setPlayingKey(null);
-    });
-  }, [navigation, player]);
-
-  const playVideo = useCallback((item: Extract<PostMedia, { kind: 'video' }>) => {
-    if (!item.videoId) return;
-    player.replace(muxStreamUrl(item.videoId));
-    player.play();
-    setPlayingKey(item.key);
-  }, [player]);
+    return navigation.addListener('blur', closeViewer);
+  }, [navigation, closeViewer]);
 
   const onMomentumEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!width) return;
-    const next = Math.round(e.nativeEvent.contentOffset.x / width);
-    if (next === active) return;
-    setActive(next);
-    if (playingKey) stop();
-  }, [width, active, playingKey, stop]);
+    setActive(Math.round(e.nativeEvent.contentOffset.x / width));
+  }, [width]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setWidth(e.nativeEvent.layout.width);
@@ -194,29 +156,12 @@ export default function PostMediaCarousel({
       );
     }
 
-    const isPlaying = playingKey === item.key;
-
-    if (isPlaying) {
-      return (
-        <View style={slide}>
-          <VideoView
-            player={player}
-            style={StyleSheet.absoluteFill}
-            // Contain, not cover: the strip's shape came from a photo, and
-            // cropping someone's video to match it would cut the subject out.
-            contentFit="contain"
-            nativeControls
-          />
-        </View>
-      );
-    }
-
     return (
       <Pressable
         style={slide}
         onPress={() => {
           if (videoOpensItem) return onPressItem?.(index);
-          if (item.status === 'ready') playVideo(item);
+          if (item.status === 'ready' && item.videoId) setWatchingId(item.videoId);
         }}
         accessibilityRole="button"
         accessibilityLabel={
@@ -255,7 +200,7 @@ export default function PostMediaCarousel({
         </View>
       </Pressable>
     );
-  }, [width, onPressItem, lockRatio, playingKey, player, playVideo, videoOpensItem]);
+  }, [width, onPressItem, lockRatio, videoOpensItem]);
 
   const keyExtractor = useCallback((item: PostMedia) => item.key, []);
   const getItemLayout = useCallback(
@@ -285,22 +230,21 @@ export default function PostMediaCarousel({
             style={StyleSheet.absoluteFill}
             getItemLayout={getItemLayout}
             onMomentumScrollEnd={onMomentumEnd}
-            scrollEnabled={!isPlaying}
           />
         )
       )}
 
       {overlay}
 
-      {/* Not while a video holds the slide: the player's own controls sit
-          along the bottom edge, and the dots would land on its scrubber. */}
-      {showPageIndicator && media.length > 1 && !playingKey && (
+      {showPageIndicator && media.length > 1 && (
         <View style={styles.dots} pointerEvents="none">
           {dots.map((key, i) => (
             <View key={key} style={[styles.dot, i === active && styles.dotActive]} />
           ))}
         </View>
       )}
+
+      <VideoLightbox videoId={watchingId} onClose={closeViewer} />
     </View>
   );
 }

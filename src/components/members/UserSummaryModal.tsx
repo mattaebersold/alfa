@@ -81,7 +81,11 @@ export default function UserSummaryModal({
    * thrown away.
    */
   const { data: postsData } = useGetPostsQuery({ user_id: userId ?? '', limit: 1 }, { skip: !userId });
-  const { data: carsData }  = useGetCarsQuery({ user_id: userId ?? '', limit: 1 }, { skip: !userId });
+  // A handful of the cars themselves, not just how many: "what do they drive"
+  // is the question a summary gets asked most — by an admin weighing a join
+  // request above all — and a count doesn't answer it.
+  const { data: carsData }  = useGetCarsQuery({ user_id: userId ?? '', limit: GARAGE_PREVIEW }, { skip: !userId });
+  const garage = carsData?.entries ?? [];
 
   const isMe = !!user && user.user_id === userInfo?.user_id;
   const bio = user?.bio ? stripHtml(user.bio) : '';
@@ -164,6 +168,31 @@ export default function UserSummaryModal({
               <Text style={[styles.bio, { color: colors.muted }]} numberOfLines={6}>{bio}</Text>
             ) : null}
 
+            {/* What's in the garage, by name. Chips rather than cards: this is
+                a glance, and the profile behind "View Profile" has the photos. */}
+            {garage.length > 0 && (
+              <View style={styles.garage}>
+                <Text style={[styles.garageLabel, { color: colors.grey }]}>In the garage</Text>
+                <View style={styles.garageChips}>
+                  {garage.map((car) => (
+                    <View key={car.internal_id} style={[styles.garageChip, { backgroundColor: colors.segment }]}>
+                      <Car size={11} color={colors.grey} />
+                      <Text style={[styles.garageChipText, { color: colors.fg }]} numberOfLines={1}>
+                        {[car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car'}
+                      </Text>
+                    </View>
+                  ))}
+                  {(carsData?.total ?? 0) > garage.length && (
+                    <View style={[styles.garageChip, { backgroundColor: colors.segment }]}>
+                      <Text style={[styles.garageChipText, { color: colors.grey }]}>
+                        +{(carsData?.total ?? 0) - garage.length} more
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
           {/* Nothing to follow or send when it's you. */}
           {!isMe && (
             <View style={styles.actions}>
@@ -181,7 +210,18 @@ export default function UserSummaryModal({
   );
 }
 
+/** Cars named in the summary before "+N more". */
+const GARAGE_PREVIEW = 6;
+
 const styles = StyleSheet.create({
+  garage:      { gap: 7 },
+  garageLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  garageChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  garageChip:  {
+    flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%',
+    paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999,
+  },
+  garageChipText: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
   loading: { height: 200, alignItems: 'center', justifyContent: 'center' },
   // 3:1 — wide enough to read as a banner, short enough that it doesn't push
   // the name and the buttons off a short phone.

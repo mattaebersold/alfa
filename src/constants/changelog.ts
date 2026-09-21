@@ -25,9 +25,30 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
-  '1.42': {
+  '1.44': {
     date: 'September 2026',
     groups: [
+      {
+        title: 'Marketplace',
+        items: [
+          'Marketplace listings have been rebuilt from the ground up.',
+          'Your existing marketplace posts have been moved over to the new listings.',
+        ],
+      },
+      {
+        title: 'Custom Alerts',
+        items: [
+          'Set up custom alerts and hear about it when something you care about shows up — a particular make and model listed for sale, say.',
+          'Custom Alerts has its own spot in the menu.',
+        ],
+      },
+      {
+        title: 'Lists',
+        items: [
+          'Pro members can build lists of members.',
+          'Pro members can build lists of cars.',
+        ],
+      },
       {
         title: 'Sign-in',
         items: [
@@ -79,6 +100,8 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'Group filters now include type and region.',
           'Fixed upvoting and downvoting on group posts.',
           'Fixed the length of the member list in the group preview.',
+          'Group posts are in chronological order.',
+          'Preview the members who ask to join your group before you decide.',
         ],
       },
       {
@@ -100,6 +123,7 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'The likes list shows usernames only.',
           'Comment counts update as soon as you add or delete a comment, and deleting one closes the comment panel.',
           'Fixed a gallery close button that was hidden on some devices.',
+          'Videos open full screen when you play them, with a close button in the corner.',
         ],
       },
       {
@@ -107,6 +131,8 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         items: [
           'No banner image? You can upload one straight from your profile.',
           'Searching members or cars opens a quick preview instead of taking you off the screen.',
+          'Everyone on the Members screen is listed chronologically.',
+          'Behind-the-scenes updates to member records for internal requests.',
         ],
       },
       {
@@ -135,6 +161,7 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'Dashboard & Settings is easier to find in the menu.',
           'The logo and the add button catch an oil-slick sheen.',
           'Nudged the new post button at the bottom of the screen.',
+          'Routes and Marketplace swapped places in the footer menu.',
           'This "What\'s new" panel, at the foot of the menu.',
         ],
       },

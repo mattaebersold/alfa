@@ -140,9 +140,27 @@ export interface ListItem {
   title: string;
   description?: string;
   gallery?: GalleryItem[];
+  /**
+   * Somewhere to go for more — the designer's Wikipedia page, the part's
+   * product page. Rendered as a small button, never as a bare URL. The server
+   * normalises it to a full http(s) URL before storing; it's checked again
+   * before opening, because a tap hands it to the OS.
+   */
+  link?: string | null;
+  /** The button's words. Absent means "use a default" — see utils/listLinks. */
+  link_label?: string | null;
   deleted?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+/** The car a list is attached to, as much of it as a list needs to name it. */
+export interface ListCarSummary {
+  internal_id: string;
+  title?: string;
+  year?: string;
+  make?: string;
+  model?: string;
 }
 
 export interface List {
@@ -157,7 +175,20 @@ export interface List {
   item_count?: number;
   user_id: string;
   user?: User;
-  status?: string;
+  /**
+   * Set when the list belongs to one of its author's garage cars ("5 mods I
+   * want to do next year") rather than to the author at large. Such a list
+   * shows on the car's page and is left off the profile.
+   */
+  car_id?: string | null;
+  /**
+   * The server's summary of that car. Null whenever `car_id` is — and also
+   * when the car has been deleted, or is private or archived to this viewer.
+   * `car_id` set never implies `car` is.
+   */
+  car?: ListCarSummary | null;
+  /** `'draft'` lists only ever come back to their author. */
+  status?: 'draft' | 'published' | string;
   created_at?: string;
   updated_at?: string;
 }

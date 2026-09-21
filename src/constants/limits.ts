@@ -73,6 +73,24 @@ export const ALERT_LIMIT_UPSELL = {
   message: `A basic membership keeps ${ALERT_LIMIT_BASIC} custom alert running. Pro keeps ${ALERT_LIMIT_PRO} — one per car you're hunting parts for, one per model you're watching the market for. Delete the one you have to swap it, or go Pro and stop choosing.`,
 };
 
+/**
+ * Lists are Pro outright — there's no allowance of them to run out of, which is
+ * diecast's shape rather than the listing limit's.
+ *
+ * Worded once: the profile's and the car page's "New list" buttons, the create
+ * form opened by a link, and the server's own `pro_required` all put these
+ * words on screen. It says what a list *is*, because "User lists" on its own
+ * sells nothing, and it says that reading them is free, because a basic member
+ * meets this card while looking at someone else's.
+ *
+ * A lapsed Pro keeps the lists they made and can still edit them; only making
+ * a new one comes here.
+ */
+export const LIST_UPSELL = {
+  title: 'Lists are a Pro feature',
+  message: "Your top five car designers. The roads you'd drive again. The five mods you want done by next year — pinned to the car they're for. Go Pro to make lists of your own, each entry with a photo, a note and a link. Reading everyone else's stays open to all.",
+};
+
 /** How many cars this member may keep. Pro is unlimited. */
 export function carLimitFor(isPro: boolean): number | null {
   return isPro ? null : CAR_LIMIT_BASIC;

@@ -32,8 +32,10 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type ConversationSummary = {
   otherUserId: string;
   allThreadIds: string[];
-  representative: Message;
-  /** Newest message either way round — what the row previews and timestamps. */
+  /**
+   * Newest message either way round — what the row previews and timestamps,
+   * and the thread that opens when you tap it.
+   */
   lastMessage: Message;
   hasUnread: boolean;
   unreadFromOtherIds: string[];
@@ -51,11 +53,11 @@ function ConversationRow({
   onDelete: () => void;
 }) {
   const colors = useColors();
-  const { representative: msg, lastMessage, hasUnread } = summary;
+  const { lastMessage, hasUnread, unreadFromOtherIds } = summary;
 
-  const isMine = msg.sender_id === myUserId;
-  const otherId = isMine ? msg.recipient_id : msg.sender_id;
-  const populated = isMine ? msg.recipient : msg.sender;
+  const lastIsMine = lastMessage.sender_id === myUserId;
+  const otherId = summary.otherUserId;
+  const populated = lastIsMine ? lastMessage.recipient : lastMessage.sender;
   const { data: fetched } = useGetUserByIdQuery(otherId, { skip: !otherId || !!populated });
   const other = populated ?? fetched;
   const name = other?.username || 'Unknown';
@@ -65,7 +67,7 @@ function ConversationRow({
   const timeAgo = lastMessage.created_at
     ? formatDistanceToNow(new Date(lastMessage.created_at), { addSuffix: true })
     : '';
-  const lastIsMine = lastMessage.sender_id === myUserId;
+  const unreadCount = unreadFromOtherIds.length;
 
   // Two steps: the menu names what you're acting on, the confirm covers the
   // fact that a mis-tap here isn't recoverable.
@@ -118,6 +120,14 @@ function ConversationRow({
           {lastIsMine ? `You: ${lastMessage.body}` : lastMessage.body}
         </Text>
       </View>
+      {hasUnread && (
+        <View
+          style={[styles.unreadBadge, { backgroundColor: colors.red }]}
+          accessibilityLabel={`${unreadCount} unread`}
+        >
+          <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      )}
       <TouchableOpacity
         onPress={openMenu}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -162,17 +172,8 @@ export default function MessagesScreen() {
       byUser.set(otherId, arr);
     }
 
-    const seenUsers = new Set<string>();
-    const summaries = messages
-      .filter((m) => {
-        const otherId = m.sender_id === myId ? m.recipient_id : m.sender_id;
-        if (seenUsers.has(otherId)) return false;
-        seenUsers.add(otherId);
-        return true;
-      })
-      .map((representative) => {
-        const otherId = representative.sender_id === myId ? representative.recipient_id : representative.sender_id;
-        const userMsgs = byUser.get(otherId) ?? [representative];
+    const summaries = Array.from(byUser.entries())
+      .map(([otherId, userMsgs]) => {
         // Sorted explicitly rather than trusting the API's newest-first order,
         // since this collapses several threads into one conversation and their
         // messages interleave.
@@ -184,15 +185,20 @@ export default function MessagesScreen() {
         return {
           otherUserId: otherId,
           allThreadIds,
-          representative,
-          lastMessage: newestFirst[0] ?? representative,
+          lastMessage: newestFirst[0],
           hasUnread: unreadFromOther.length > 0,
           unreadFromOtherIds: unreadFromOther.map((m) => m.internal_id),
         };
       });
 
     /**
-     * Most recently active conversation first.
+     * Unread conversations first, then most recently active.
+     *
+     * Unread floats to the top so nothing waiting on you sits below something
+     * you've already dealt with. Within each half the order is by recency, and
+     * opening a conversation marks it read — so it drops back into the read
+     * half exactly where its newest message puts it, and over time the whole
+     * list settles into plain most-recent-first.
      *
      * The order used to be whatever order the rows came out of `messages` in —
      * each conversation landing where its first-seen message happened to sit —
@@ -207,6 +213,7 @@ export default function MessagesScreen() {
      */
     return summaries.sort(
       (a, b) =>
+        Number(b.hasUnread) - Number(a.hasUnread) ||
         new Date(b.lastMessage.created_at ?? 0).getTime() -
         new Date(a.lastMessage.created_at ?? 0).getTime(),
     );
@@ -214,14 +221,14 @@ export default function MessagesScreen() {
 
   const handlePress = useCallback((summary: ConversationSummary) => {
     summary.unreadFromOtherIds.forEach((id) => markRead(id));
-    const { representative: msg } = summary;
-    const isMine = msg.sender_id === myId;
+    // The newest thread is the one that opens — it's the one the row previews.
+    const { lastMessage: msg } = summary;
     navigation.navigate('MessageThread', {
       threadId: msg.thread_id,
-      recipientId: isMine ? msg.recipient_id : msg.sender_id,
+      recipientId: summary.otherUserId,
       subject: msg.subject,
     });
-  }, [navigation, myId, markRead]);
+  }, [navigation, markRead]);
 
   const handleDelete = useCallback((summary: ConversationSummary) => {
     summary.allThreadIds.forEach((tid) => deleteThread(tid));
@@ -283,6 +290,11 @@ const styles = StyleSheet.create({
   // Full-height stripe rather than a dot: it doesn't need to know how tall the
   // card grew, and it reads at a glance down a list of them.
   unreadBar:   { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  unreadBadge: {
+    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  unreadBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: COMMON_RADIUS,

@@ -41,6 +41,7 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
+import JoinRequestsPanel from '../../components/groups/JoinRequests';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { COMMON_RADIUS } from '../../constants/radius';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
@@ -96,6 +97,9 @@ export default function GroupDetailScreen() {
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
   const [rosterOrigin, setRosterOrigin] = useState<SummaryOrigin | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  // Non-undefined while the admin's join-request panel is open, and the rect
+  // it grows out of.
+  const [requestsOrigin, setRequestsOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   /** Invite search revealed inside the roster panel rather than as a sheet. */
   const [membersOpen, setMembersOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -205,6 +209,10 @@ export default function GroupDetailScreen() {
   // Active admins only. Without the status check an invited-but-not-joined
   // admin would see Settings before actually being in the group.
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin' && m.status === 'active');
+  // Oldest first — whoever has waited longest is answered first.
+  const pendingRequests = members
+    .filter((m) => m.status === 'pending')
+    .sort((a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime());
   const canManageCars = isMember || isAdmin;
 
   const goToSection = (initialTab: string) => {
@@ -341,6 +349,27 @@ export default function GroupDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Join requests — admins only, and only while someone is waiting.
+            At the top of the page rather than inside Settings: a request is a
+            person waiting on an answer, and the only other place it surfaced
+            was a notification, which is easy to clear without acting on. */}
+        {isAdmin && pendingRequests.length > 0 && (
+          <SummaryTouchable
+            style={[styles.requestsBar, { backgroundColor: HERO_SURFACE, borderBottomColor: c.borderDark }]}
+            onPress={(origin) => setRequestsOrigin(origin)}
+            activeOpacity={0.8}
+            accessibilityLabel={`Review ${pendingRequests.length} join request${pendingRequests.length === 1 ? '' : 's'}`}
+          >
+            <View style={styles.requestsCount}>
+              <Text style={styles.requestsCountText}>{pendingRequests.length}</Text>
+            </View>
+            <Text style={[styles.requestsText, { color: c.fg }]}>
+              {pendingRequests.length === 1 ? 'Join request waiting' : 'Join requests waiting'}
+            </Text>
+            <Text style={[styles.requestsAction, { color: c.primaryAlt }]}>Review</Text>
+          </SummaryTouchable>
+        )}
 
         {/* Members strip — opens the full roster */}
         {activeMembers.length > 0 && (
@@ -621,6 +650,14 @@ export default function GroupDetailScreen() {
         onClose={() => setUserSummary(null)}
       />
 
+      <JoinRequestsPanel
+        groupId={groupId}
+        pending={pendingRequests}
+        visible={requestsOrigin !== undefined}
+        origin={requestsOrigin}
+        onClose={() => setRequestsOrigin(undefined)}
+      />
+
       <GroupInviteModal
         groupId={groupId}
         groupTitle={group.title}
@@ -684,6 +721,20 @@ const styles = StyleSheet.create({
   },
 
   groupTitle:   { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
+
+  requestsBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1,
+  },
+  // The same red bubble unread counts wear — this is the same kind of "waiting
+  // on you".
+  requestsCount: {
+    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#EC4632',
+  },
+  requestsCountText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  requestsText:   { flex: 1, fontSize: 14, fontWeight: '700' },
+  requestsAction: { fontSize: 13, fontWeight: '800' },
 
   membersStrip: { padding: 14, paddingTop: 0, borderBottomWidth: 1 },
   membersHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },

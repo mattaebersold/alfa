@@ -17,6 +17,18 @@ import type {
   Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts,
 } from '../types/api';
 
+/**
+ * Where horacio mounts the lists router.
+ *
+ * One constant rather than nine string literals, because this path has a
+ * history: the router shipped with no mount in `server.js` at all, so every
+ * call here 404'd. It's now mounted twice — `api/lists`, which this app and
+ * murray were both written against, and `api/list`, the singular the rest of
+ * the API uses. The plural stays: it's the one older builds in the wild call,
+ * so it's the one that can never be dropped.
+ */
+const LIST_API = 'api/lists';
+
 export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
@@ -1771,44 +1783,94 @@ export const apiService = createApi({
     }),
 
     // ── Lists ─────────────────────────────────────────────────────────────────
+    //
+    // Every path goes through LIST_API, defined above `createApi`, because
+    // the mount point is the one thing about this feature that has moved
+    // between the three repos — see the constant.
 
-    getLists: builder.query<PaginatedResponse<import('../types/api').List>, { user_id?: string; page?: number; limit?: number; search?: string }>({
-      query: (params = {}) => ({ url: 'api/lists', params }),
+    /**
+     * A member's lists, or one car's.
+     *
+     * `car_id` is three-valued and the difference matters: left out, the server
+     * answers with every list the member has; `'none'` is only the ones not
+     * attached to a car, which is what a profile shows; a car's id is that
+     * car's lists, which is what its page shows. A profile asking without it
+     * would repeat "5 mods I want to do next year" beside "Top 5 designers".
+     *
+     * Open to anyone — reading a list is not the Pro part, making one is. The
+     * read is optionally authenticated (baseQuery sends the token whenever
+     * there is one), which is how an author gets their own private and draft
+     * lists back; each carries `private` and `status` so they can be badged.
+     * Zero-based `page`, and `limit` tops out at 50 server-side.
+     *
+     * `car_id=<id>` only returns lists written by that car's *current* owner
+     * or co-owner — a list stays with its author when a car changes hands.
+     */
+    getLists: builder.query<
+      PaginatedResponse<import('../types/api').List>,
+      { user_id?: string; car_id?: string; page?: number; limit?: number; search?: string }
+    >({
+      query: (params = {}) => ({ url: LIST_API, params }),
       providesTags: ['List'],
     }),
 
     getList: builder.query<import('../types/api').List, string>({
-      query: (id) => `api/lists/single/${id}`,
+      query: (id) => `${LIST_API}/single/${id}`,
       providesTags: (result, error, id) => [{ type: 'List' as const, id }],
     }),
 
+    /**
+     * Pro only: a basic member is refused with 403 `pro_required`, the same
+     * shape a diecast listing's refusal takes. `car_id` in the form attaches
+     * the list to one of the member's own garage cars (403 `car_not_owned`
+     * otherwise). Pro has a ceiling too — 50 lists, 403 `list_limit_reached` —
+     * which is about document size, not membership, so it's an alert and not
+     * an upsell.
+     */
     createList: builder.mutation<{ _id: string; entry: import('../types/api').List }, FormData>({
-      query: (formData) => ({ url: 'api/lists/create', method: 'POST', body: formData }),
+      query: (formData) => ({ url: `${LIST_API}/create`, method: 'POST', body: formData }),
       invalidatesTags: ['List'],
     }),
 
+    /** Not Pro-gated — a lapsed Pro keeps the lists they made and can still tend them. */
     updateList: builder.mutation<import('../types/api').List, FormData>({
-      query: (formData) => ({ url: 'api/lists/update', method: 'POST', body: formData }),
+      query: (formData) => ({ url: `${LIST_API}/update`, method: 'POST', body: formData }),
       invalidatesTags: ['List'],
     }),
 
     deleteList: builder.mutation<{ success: boolean }, { internal_id: string }>({
-      query: (body) => ({ url: 'api/lists/delete', method: 'POST', body }),
+      query: (body) => ({ url: `${LIST_API}/delete`, method: 'POST', body }),
       invalidatesTags: ['List'],
     }),
 
+    /**
+     * `link` is normalised server-side (a bare domain gets `https://`) and
+     * refused with 400 `invalid_link` when it can't be; `link_label` is cut to
+     * 30 characters. A full list — 50 items — is 403 `list_item_limit_reached`.
+     */
     createListItem: builder.mutation<{ item: import('../types/api').ListItem; list_id: string }, FormData>({
-      query: (formData) => ({ url: 'api/lists/items/create', method: 'POST', body: formData }),
+      query: (formData) => ({ url: `${LIST_API}/items/create`, method: 'POST', body: formData }),
+      invalidatesTags: ['List'],
+    }),
+
+    /**
+     * Edits one item in place. The photo follows the app-wide gallery protocol:
+     * a new file is appended, and `modifyImage:remove:0` names the one it
+     * replaces — without it the old photo stays first and keeps being shown.
+     * `link` left out is left alone; sent empty, it clears the link and its label.
+     */
+    updateListItem: builder.mutation<{ item: import('../types/api').ListItem; list_id: string }, FormData>({
+      query: (formData) => ({ url: `${LIST_API}/items/update`, method: 'POST', body: formData }),
       invalidatesTags: ['List'],
     }),
 
     deleteListItem: builder.mutation<{ success: boolean }, { list_id: string; item_internal_id: string }>({
-      query: (body) => ({ url: 'api/lists/items/delete', method: 'POST', body }),
+      query: (body) => ({ url: `${LIST_API}/items/delete`, method: 'POST', body }),
       invalidatesTags: ['List'],
     }),
 
     reorderListItems: builder.mutation<{ success: boolean }, { list_id: string; item_order: string[] }>({
-      query: (body) => ({ url: 'api/lists/items/reorder', method: 'POST', body }),
+      query: (body) => ({ url: `${LIST_API}/items/reorder`, method: 'POST', body }),
       invalidatesTags: ['List'],
     }),
 
@@ -2421,6 +2483,7 @@ export const {
   useUpdateListMutation,
   useDeleteListMutation,
   useCreateListItemMutation,
+  useUpdateListItemMutation,
   useDeleteListItemMutation,
   useReorderListItemsMutation,
   useCreateReportMutation,

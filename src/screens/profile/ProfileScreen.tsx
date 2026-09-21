@@ -33,6 +33,10 @@ import CarPosterCard from '../../components/cards/CarPosterCard';
 import FollowButton from '../../components/social/FollowButton';
 import { BannerSheet } from '../../components/members/ProfileSetupSheets';
 import ListCard from '../../components/lists/ListCard';
+import ListShelf, { LIST_SHELF_PREVIEW_COUNT } from '../../components/lists/ListShelf';
+import ListSummaryModal from '../../components/lists/ListSummaryModal';
+import { ProUpsellModal } from '../../components/pro/ProUpsell';
+import { LIST_UPSELL } from '../../constants/limits';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -312,8 +316,9 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
+  // The *viewer's* standing. It decides one thing on this page — whether "New
+  // list" opens the form or the Pro pitch — and nothing about what they may see.
   const isPro = userInfo?.accountType === 'pro' || userInfo?.accountType === 'admin';
-  const visibleTabs = isPro ? TABS : TABS.filter((t) => t.key !== 'lists');
   const [activeSection, setActiveSection] = useState<Tab | null>(paramInitialTab ?? null);
   // Kept mounted through the slide-out so content doesn't vanish mid-animation.
   const [renderedSection, setRenderedSection] = useState<Tab | null>(paramInitialTab ?? null);
@@ -330,6 +335,11 @@ export default function ProfileScreen() {
    */
   const [listingSummary, setListingSummary] =
     useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
+  /** The list panel — the same arrangement, for the same reason. */
+  const [listSummary, setListSummary] =
+    useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
+  /** "New list", pressed by a basic member: the pitch rather than a form the server will refuse. */
+  const [listUpsell, setListUpsell] = useState(false);
   const [bioLines, setBioLines] = useState<number | null>(null);
   // Which cards in the Posts pane are on screen, so a video stops when its
   // card scrolls out of the pane.
@@ -365,6 +375,31 @@ export default function ProfileScreen() {
       });
     }
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // `initialTab` arriving on a screen that's already mounted — the dashboard's
+  // "My lists" row, when this profile is the one underneath it. The useState
+  // initialisers above only ever see the first value.
+  useEffect(() => {
+    if (paramInitialTab) setActiveSection(paramInitialTab);
+  }, [paramInitialTab]);
+
+  /**
+   * Something to do once the pane has actually gone.
+   *
+   * The pane is a Modal that stays mounted through its 220ms slide-out, and a
+   * second Modal presented in that window is presented *from* the first — a
+   * view controller iOS is about to dismiss, which can take whatever it's
+   * presenting down with it. Waiting for `renderedSection` to clear is waiting
+   * for the unmount itself rather than guessing at its duration.
+   */
+  const afterPane = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (renderedSection !== null) return;
+    const run = afterPane.current;
+    afterPane.current = null;
+    run?.();
+  }, [renderedSection]);
+  const closePaneThen = (fn: () => void) => { afterPane.current = fn; setActiveSection(null); };
 
   const isOwnProfile = !paramUserId || paramUserId === userInfo?.user_id;
 
@@ -465,7 +500,19 @@ export default function ProfileScreen() {
     refetchCars(),
     refetchRoutes(),
   ]));
-  const { data: listsData }     = useGetListsQuery({ user_id: userId, limit: 50 }, { skip: !userId || !isPro });
+  /**
+   * Their lists — for anyone looking.
+   *
+   * This used to be skipped unless the *viewer* was Pro, which got the gate
+   * backwards: making lists is the Pro feature, so the people who could never
+   * see a Pro member's lists were exactly the basic members they were made to
+   * be shown to. Reading is open; only "New list" asks about membership.
+   *
+   * `car_id: 'none'` leaves out the lists attached to a car. Those belong to
+   * the car's page — "5 mods I want to do next year" beside "Top 5 designers"
+   * here would be the garage leaking into the profile.
+   */
+  const { data: listsData }     = useGetListsQuery({ user_id: userId, car_id: 'none', limit: 50 }, { skip: !userId });
   const { data: followersData } = useGetUserFollowersQuery({ userId, limit: 50 }, { skip: !userId });
   const { data: followingData } = useGetUserFollowingQuery({ userId, limit: 50 }, { skip: !userId });
 
@@ -560,6 +607,19 @@ export default function ProfileScreen() {
     }
   };
 
+  // The Lists tile is for profiles that have lists, plus your own — where an
+  // empty one is the way in to making the first. On anyone else's profile a
+  // "0 Lists" tile is a door onto an empty room.
+  const visibleTabs = isOwnProfile || countFor('lists') > 0
+    ? TABS
+    : TABS.filter((t) => t.key !== 'lists');
+
+  /** The form for a Pro member, the pitch for everyone else. Never both. */
+  const startNewList = () => {
+    if (isPro) (navigation as any).navigate('CreateList');
+    else setListUpsell(true);
+  };
+
   // ── Top chrome ─────────────────────────────────────────────────────────────
   // Identical chrome whether it's your profile or someone else's — the back
   // chevron is replaced by the header's own navigation (plus swipe-back).
@@ -569,9 +629,9 @@ export default function ProfileScreen() {
   const tilesEl = (
     // Sideways rather than a wrapping grid: a grid has to give every tile the
     // same slot and reflows into a ragged last row as tabs come and go — the
-    // Lists tile is pro-only, so that row is two-up for some people and
-    // three-up for others. A strip just runs on, and matches the garage and
-    // posts rows below it.
+    // Lists tile only appears on profiles with lists, so that row is two-up
+    // for some people and three-up for others. A strip just runs on, and
+    // matches the garage and posts rows below it.
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -938,7 +998,7 @@ export default function ProfileScreen() {
               isOwnProfile ? (
                 <TouchableOpacity
                   style={[styles.newListBtn, { backgroundColor: colors.primaryAlt }]}
-                  onPress={() => openAndClose(() => (navigation as any).navigate('CreateList'))}
+                  onPress={() => closePaneThen(startNewList)}
                 >
                   <Plus size={16} color="#fff" />
                   <Text style={styles.newListBtnText}>New List</Text>
@@ -946,9 +1006,11 @@ export default function ProfileScreen() {
               ) : null
             }
             renderItem={({ item }) => (
+              // The panel can't be presented over this pane, so the pane goes
+              // first and the panel opens once it has — see closePaneThen.
               <ListCard
                 list={item}
-                onPress={(l: any) => openAndClose(() => (navigation as any).navigate('ListDetail', { listId: l.internal_id }))}
+                onPress={(l, origin) => closePaneThen(() => setListSummary({ id: l.internal_id, origin }))}
               />
             )}
             ListEmptyComponent={<EmptyState title="No lists yet" />}
@@ -994,6 +1056,20 @@ export default function ProfileScreen() {
           routes={routes}
           total={routesData?.total ?? routes.length}
           onViewAll={() => setActiveSection('routes')}
+        />
+        {/* What they've ranked and collected. Nothing at all when there are
+            none — except on your own profile as a Pro member, where the empty
+            shelf is the invitation. A basic member's way in is the Lists tile,
+            which leads to the pitch; a standing "New list" here that only ever
+            opened an advert would be the app nagging them on their own page. */}
+        <ListShelf
+          title="Lists"
+          lists={lists.slice(0, LIST_SHELF_PREVIEW_COUNT)}
+          total={listsData?.total ?? lists.length}
+          onListPress={(l, origin) => setListSummary({ id: l.internal_id, origin })}
+          onViewAll={() => setActiveSection('lists')}
+          onAdd={isOwnProfile && isPro ? startNewList : undefined}
+          emptyHint="Your top five anything — designers, roads, the cars you'd own tomorrow."
         />
         {/* Their marketplace, in the three piles it splits into. Each shelf
             renders nothing when it's empty, so a member who has never sold
@@ -1056,6 +1132,21 @@ export default function ProfileScreen() {
         listingId={listingSummary?.id ?? null}
         origin={listingSummary?.origin}
         onClose={() => setListingSummary(null)}
+      />
+
+      {/* A list, read in place — open to every viewer. Its Edit button only
+          appears for the author, whatever their membership is now. */}
+      <ListSummaryModal
+        listId={listSummary?.id ?? null}
+        origin={listSummary?.origin}
+        onClose={() => setListSummary(null)}
+      />
+
+      <ProUpsellModal
+        visible={listUpsell}
+        onClose={() => setListUpsell(false)}
+        title={LIST_UPSELL.title}
+        message={LIST_UPSELL.message}
       />
 
       {/* Saving invalidates the profile, so the banner fills and goes back to

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Lock } from 'lucide-react-native';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { List } from '../../types/api';
@@ -9,7 +10,11 @@ import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 interface Props {
   list: List;
-  onPress: (list: List) => void;
+  /**
+   * `origin` is this row's rect on screen. A list opens as a summary panel now,
+   * and the panel grows out of whatever was tapped — see SummaryTouchable.
+   */
+  onPress: (list: List, origin: SummaryOrigin | null) => void;
 }
 
 export default function ListCard({ list, onPress }: Props) {
@@ -17,10 +22,11 @@ export default function ListCard({ list, onPress }: Props) {
   const coverUri = firstGalleryUrl(list.gallery);
 
   return (
-    <TouchableOpacity
+    <SummaryTouchable
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-      onPress={() => onPress(list)}
+      onPress={(origin) => onPress(list, origin)}
       activeOpacity={0.8}
+      accessibilityLabel={list.title}
     >
       {coverUri && (
         <Image source={{ uri: coverUri }} style={styles.cover} contentFit="cover" />
@@ -34,8 +40,14 @@ export default function ListCard({ list, onPress }: Props) {
         </View>
         <View style={styles.meta}>
           <Text style={[styles.count, { color: colors.grey }]}>
-            {list.item_count ?? 0} items
+            {list.item_count ?? 0} item{(list.item_count ?? 0) === 1 ? '' : 's'}
           </Text>
+          {/* Only ever sent to the author — nobody else receives a draft. */}
+          {list.status === 'draft' ? (
+            <View style={[styles.badge, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+              <Text style={[styles.badgeText, { color: colors.muted }]}>Draft</Text>
+            </View>
+          ) : null}
           {list.category ? (
             <View style={[styles.badge, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
               <Text style={[styles.badgeText, { color: colors.muted }]}>{list.category}</Text>
@@ -43,7 +55,7 @@ export default function ListCard({ list, onPress }: Props) {
           ) : null}
         </View>
       </View>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 

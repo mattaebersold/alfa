@@ -18,6 +18,8 @@ import Avatar from '../ui/Avatar';
 import Spinner from '../ui/Spinner';
 import SharedModal from '../ui/SharedModal';
 import PhotoPickerField from '../ui/PhotoPickerField';
+import { JoinRequestsList } from './JoinRequests';
+import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
@@ -145,6 +147,7 @@ export default function GroupSettingsSheet({
   }, [visible, group]);
 
   const pending = members.filter((m) => m.status === 'pending');
+  const { openUser, stacked: stackedUser } = useStackedUserSummary(visible);
   const active  = members.filter((m) => m.status === 'active');
   const isAdmin = active.some(
     (m) => m.user_id === userInfo?.user_id && m.member_type === 'admin',
@@ -433,14 +436,11 @@ export default function GroupSettingsSheet({
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>
                 Pending Requests ({pending.length})
               </Text>
-              {pending.map((m) => (
-                <View key={m.user_id} style={[styles.memberRow, { borderTopColor: c.borderDark }]}>
-                  <Avatar user={m.user} size={36} />
-                  <View style={styles.memberInfo}>
-                    <Text style={[styles.memberName, { color: c.fg }]}>@{m.user?.username}</Text>
-                  </View>
-                </View>
-              ))}
+              {/* The same rows the group home's panel uses: a profile to look
+                  at and an answer to give. This was a list of names with
+                  neither — somewhere you could see that people were waiting
+                  and do nothing about it. */}
+              <JoinRequestsList groupId={groupId} pending={pending} onOpenUser={openUser} />
             </View>
           )}
 
@@ -550,6 +550,10 @@ export default function GroupSettingsSheet({
           )}
         </ScrollView>
       )}
+      {/* Inside the sheet's own Modal, so the profile presents over it — a
+          sibling would be asked of the root controller, which is busy showing
+          this sheet. */}
+      {stackedUser}
     </SharedModal>
   );
 }
