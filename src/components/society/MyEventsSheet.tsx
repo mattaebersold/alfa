@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import SharedModal from '../ui/SharedModal';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
@@ -28,7 +28,9 @@ export default function MyEventsSheet({
 
   return (
     <SharedModal visible={visible} onClose={onClose} title="Your Events">
-      <View style={styles.body}>
+      {/* Scrolls: the cards take their photos' own heights, so a handful of
+          them run past the sheet, and the sheet clips whatever it's handed. */}
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <Spinner />
         ) : entries.length === 0 ? (
@@ -39,7 +41,7 @@ export default function MyEventsSheet({
         ) : (
           <>
             {upcoming.map((event) => (
-              <EventCard key={event.internal_id} event={event} variant="row" onPress={onSelectEvent} />
+              <EventCard key={event.internal_id} event={event} onPress={onSelectEvent} />
             ))}
 
             {past.length > 0 && (
@@ -47,14 +49,14 @@ export default function MyEventsSheet({
                 <Text style={[styles.pastLabel, { color: colors.grey }]}>PAST</Text>
                 <View style={{ opacity: 0.6, gap: 12 }}>
                   {past.map((event) => (
-                    <EventCard key={event.internal_id} event={event} variant="row" onPress={onSelectEvent} />
+                    <EventCard key={event.internal_id} event={event} onPress={onSelectEvent} />
                   ))}
                 </View>
               </>
             )}
           </>
         )}
-      </View>
+      </ScrollView>
     </SharedModal>
   );
 }

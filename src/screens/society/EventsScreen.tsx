@@ -226,7 +226,9 @@ export default function EventsScreen() {
             : ''
         }
       >
-        <View style={styles.sheetBody}>
+        {/* Scrolls: each card is as tall as its photo, so a busy Saturday runs
+            past the sheet, and the sheet clips whatever it's handed. */}
+        <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
           {(daySheet?.events ?? []).map((event, i) => (
             <EventCard
               key={`${event.internal_id}-${i}`}
@@ -234,7 +236,7 @@ export default function EventsScreen() {
               onPress={(e) => { setPendingEvent(e); setDaySheet(null); }}
             />
           ))}
-        </View>
+        </ScrollView>
       </SharedModal>
 
       <ProUpsellModal

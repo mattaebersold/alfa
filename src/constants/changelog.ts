@@ -25,6 +25,38 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.46': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Posts',
+        items: [
+          'Add a poll to a post and let people vote on the options.',
+          'The tagging section of the post form is cleaner — search for people, cars and events, with your garage cars ready to tap.',
+        ],
+      },
+      {
+        title: 'Routes',
+        items: [
+          'Create a route without recording it live: mark where you started and finished, then tap the roads you took to pull the route through them.',
+        ],
+      },
+      {
+        title: 'Events',
+        items: [
+          'Event images show at their real proportions instead of being cropped.',
+        ],
+      },
+      {
+        title: 'Photography',
+        items: [
+          'Edit or remove your own spots from the spot summary.',
+          'Pins show who pinned the spot at a sensible size.',
+          'More fixes in the photography section.',
+        ],
+      },
+    ],
+  },
   '1.45': {
     date: 'September 2026',
     groups: [

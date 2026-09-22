@@ -41,10 +41,12 @@ function ItemRow({ item, rank }: { item: ListItem; rank: number }) {
   return (
     <View style={[styles.item, { borderTopColor: colors.borderDark }]}>
       <Text style={[styles.rank, { color: colors.grey }]}>{rank}</Text>
-      {photo ? (
-        <Image source={{ uri: photo }} style={styles.itemPhoto} contentFit="cover" transition={150} />
-      ) : null}
+      {/* Photo above the words, not beside them: at this size a side thumbnail
+          would leave the title a third of the panel to wrap in. */}
       <View style={styles.itemText}>
+        {photo ? (
+          <Image source={{ uri: photo }} style={styles.itemPhoto} contentFit="cover" transition={150} />
+        ) : null}
         <Text style={[styles.itemTitle, { color: colors.fg }]}>{item.title}</Text>
         {description ? (
           <Text style={[styles.itemDesc, { color: colors.muted }]}>{description}</Text>
@@ -226,7 +228,10 @@ const styles = StyleSheet.create({
   // Fixed width so a list that reaches 10 doesn't shift every photo right by
   // a digit from the ninth row on.
   rank:      { width: 22, fontSize: 17, fontWeight: '800', textAlign: 'center', marginTop: 1 },
-  itemPhoto: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#161616' },
+  // Big enough to actually see the car in — twice the thumbnail it replaced.
+  // The photo sits above the text rather than beside it (see ItemRow), so it
+  // can be this size without squeezing the title.
+  itemPhoto: { width: 128, height: 128, borderRadius: COMMON_RADIUS, backgroundColor: '#161616', marginBottom: 5 },
   itemText:  { flex: 1, minWidth: 0, gap: 3 },
   itemTitle: { fontSize: 15, fontWeight: '700' },
   itemDesc:  { fontSize: 13, lineHeight: 18 },

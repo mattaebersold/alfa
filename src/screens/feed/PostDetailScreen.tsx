@@ -34,6 +34,7 @@ import type { GalleryItem } from '../../types/api';
 import { stripHtml, extractLinks, linkLabel } from '../../utils/text';
 import MentionText from '../../components/ui/MentionText';
 import PostTagBadges from '../../components/social/PostTagBadges';
+import PostPoll from '../../components/social/PostPoll';
 import { tabNavProxy } from '../../navigation/navigateInTabs';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
@@ -359,6 +360,10 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                 />
               )}
 
+              {/* The poll, under the words — the same place the feed card
+                  puts it, so opening the post doesn't move it. */}
+              {post.poll_summary ? <PostPoll post={post} style={styles.poll} /> : null}
+
               {hasMedia && (
                 <View>
                   <PostMedia media={media} />
@@ -671,6 +676,8 @@ const styles = StyleSheet.create({
   // Full-bleed to the screen's own gutters, not inset in a card.
   postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 10 },
   mileageRow:      { padding: 14 },
+  // The body's own gutters, so the options line up with the prose above.
+  poll:            { paddingHorizontal: 16, paddingBottom: 12 },
   postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 12 },
   priceWrap:       { padding: 14, gap: 2 },
   priceLabel:      { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: colors.grey },

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform,
   Alert, ActivityIndicator, type LayoutChangeEvent,
@@ -13,8 +13,10 @@ import PostGalleryEditor, { type EditorImage } from '../../components/social/Pos
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import {
-  useCreatePhotoSpotMutation, useGetPhotoSpotUsageQuery, useSyncPostTagsMutation,
+  useCreatePhotoSpotMutation, useUpdatePhotoSpotMutation, useGetPhotoSpotQuery,
+  useGetPhotoSpotUsageQuery, useSyncPostTagsMutation,
 } from '../../api/apiService';
+import { toEditorImages } from '../../components/social/PostGalleryEditor';
 import {
   spotTypeColor,
 } from '../../constants/photoSpots';
@@ -49,14 +51,26 @@ export default function PhotoSpotCreateScreen() {
   const colors = useColors();
   const brand = useBrandColor();
   const nav = useNavigation<any>();
-  // The point the member held the map at, when that's how they got here.
-  const dropped = (useRoute().params as { lat?: number; lng?: number } | undefined) ?? undefined;
+  // The point the member held the map at, when that's how they got here — or
+  // the spot they're editing, when that's how.
+  const params = (useRoute().params as { lat?: number; lng?: number; spotId?: string } | undefined) ?? undefined;
+  const editId = params?.spotId;
+  const isEdit = !!editId;
+  const dropped = params;
   const droppedPoint = Number.isFinite(dropped?.lat) && Number.isFinite(dropped?.lng)
     ? { lat: dropped!.lat!, lng: dropped!.lng! }
     : null;
 
-  const { data: usage, isLoading: usageLoading } = useGetPhotoSpotUsageQuery();
-  const [createSpot, { isLoading: saving }] = useCreatePhotoSpotMutation();
+  useLayoutEffect(() => {
+    if (isEdit) nav.setOptions({ title: 'Edit Spot' });
+  }, [nav, isEdit]);
+
+  // An edit doesn't spend a spot, so the allowance isn't asked.
+  const { data: usage, isLoading: usageLoading } = useGetPhotoSpotUsageQuery(undefined, { skip: isEdit });
+  const { data: existing, isLoading: loadingExisting } = useGetPhotoSpotQuery(editId as string, { skip: !isEdit });
+  const [createSpot, { isLoading: creating }] = useCreatePhotoSpotMutation();
+  const [updateSpot, { isLoading: updating }] = useUpdatePhotoSpotMutation();
+  const saving = creating || updating;
   const [syncTags] = useSyncPostTagsMutation();
 
   // A held-map pin arrives placed, with the map already on it. It's the spot
@@ -74,6 +88,23 @@ export default function PhotoSpotCreateScreen() {
   const [location, setLocation] = useState('');
   const [photos, setPhotos] = useState<EditorImage[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
+
+  // Edit: the saved spot fills the form once, and the map opens on its pin.
+  // Tags aren't prefilled — the picker is search-only, and the sync below
+  // only runs when something was picked, so what's tagged is left alone.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (!isEdit || !existing || prefilled.current) return;
+    prefilled.current = true;
+    setTitle(existing.title ?? '');
+    setBody(existing.body ?? '');
+    setLocation(existing.location ?? '');
+    setPhotos(toEditorImages(existing.gallery));
+    if (Number.isFinite(existing.lat) && Number.isFinite(existing.lng)) {
+      setPoint({ lat: existing.lat, lng: existing.lng });
+      setCamera({ coordinates: { latitude: existing.lat, longitude: existing.lng }, zoom: 16 });
+    }
+  }, [isEdit, existing]);
 
   /** Centre the map on the member, and drop the pin there as a starting guess. */
   const useMyLocation = useCallback(async () => {
@@ -140,16 +171,21 @@ export default function PhotoSpotCreateScreen() {
     fd.append('body', body.trim());
     fd.append('location', location.trim());
 
-    // Only the newly picked ones carry a file. A create has nothing else in
-    // it, but the editor's type allows both and narrowing here is what keeps
-    // this honest if this screen ever grows an edit mode.
+    // Only the newly picked ones carry a file; on an edit the ones kept are
+    // named so the server drops whatever was removed.
     photos.forEach((photo) => {
       if (photo.kind !== 'new') return;
       fd.append('gallery', { uri: photo.uri, name: photo.name, type: photo.type } as any);
     });
+    if (isEdit) {
+      fd.append('internal_id', editId!);
+      fd.append('existing_gallery', JSON.stringify(
+        photos.flatMap((p) => (p.kind === 'existing' ? [{ filename: p.filename }] : [])),
+      ));
+    }
 
     try {
-      const { entry } = await createSpot(fd).unwrap();
+      const { entry } = isEdit ? await updateSpot(fd).unwrap() : await createSpot(fd).unwrap();
 
       /**
        * Tags go up separately, and their failure isn't the spot's.
@@ -182,12 +218,12 @@ export default function PhotoSpotCreateScreen() {
     }
   };
 
-  if (usageLoading) {
+  if (usageLoading || (isEdit && loadingExisting)) {
     return <View style={[styles.fill, styles.center]}><ActivityIndicator color={brand} /></View>;
   }
 
   // The server enforces this too; this is so nobody writes a description first.
-  if (usage?.reached) {
+  if (!isEdit && usage?.reached) {
     return (
       <View style={[styles.fill, styles.center, { backgroundColor: colors.cream, padding: 28 }]}>
         <Lock size={26} color={colors.grey} />
@@ -312,7 +348,9 @@ export default function PhotoSpotCreateScreen() {
         disabled={saving}
         activeOpacity={0.85}
       >
-        <Text style={styles.primaryText}>{saving ? 'Pinning…' : 'Pin this spot'}</Text>
+        <Text style={styles.primaryText}>
+          {saving ? (isEdit ? 'Saving…' : 'Pinning…') : (isEdit ? 'Save changes' : 'Pin this spot')}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

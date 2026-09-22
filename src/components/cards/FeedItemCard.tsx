@@ -45,6 +45,7 @@ import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import PostContextRow from '../social/PostContextRow';
 import LikersSheet from '../social/LikersSheet';
+import PostPoll from '../social/PostPoll';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
@@ -425,6 +426,11 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         </TouchableOpacity>
       ) : null}
 
+      {/* The poll, when the post has one — under the words and above the
+          picture, because the question is what the words were leading up
+          to. Renders nothing without a summary. */}
+      {post.poll_summary ? <PostPoll post={post} style={styles.poll} /> : null}
+
       {/* The post's media — photos and videos in one strip, drawn at one
           shape so swiping doesn't resize the card. */}
       {hasMedia && (
@@ -632,6 +638,7 @@ const styles = StyleSheet.create({
   multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
   messageWrap: { paddingHorizontal: 8, paddingTop: 10 },
+  poll:        { paddingHorizontal: 8, paddingBottom: 10 },
   footerRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,

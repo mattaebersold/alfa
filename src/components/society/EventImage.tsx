@@ -6,8 +6,8 @@ import { Image } from 'expo-image';
  * An event's photo, with a shared stand-in for events that don't have one.
  *
  * The fallback is blurred and darkened so it reads as a backdrop rather than a
- * photo of the event itself — and so the badges and title overlaid on it stay
- * legible.
+ * photo of the event itself — and so the detail hero's title, which does sit
+ * over it, stays legible. The cards draw nothing over their photos.
  */
 export default function EventImage({
   uri,

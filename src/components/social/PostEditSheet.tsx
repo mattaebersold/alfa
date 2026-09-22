@@ -10,6 +10,7 @@ import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalle
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from './PostOptionalFields';
 import StickyFormFooter from '../ui/StickyFormFooter';
 import PostToSelector from './PostToSelector';
+import PollEditor, { pollDraftFrom, pollDraftToInput, type PollDraft } from './PollEditor';
 import { uploadFile } from '../../utils/upload';
 import {
   useUpdatePostMutation, useSyncPostTagsMutation, useGetPostTagsQuery,
@@ -106,6 +107,15 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isPublic, setIsPublic] = useState(true);
 
+  // Poll — seeded from the post's own, with option ids kept so a relabel
+  // keeps its votes (see PollInput).
+  const [poll, setPoll] = useState<PollDraft>(() => pollDraftFrom(post.poll));
+  // Options somebody has voted for can be reworded but not dropped.
+  const lockedOptionIds = useMemo(
+    () => new Set((post.poll_summary?.options ?? []).filter((o) => o.count > 0).map((o) => o.internal_id)),
+    [post.poll_summary],
+  );
+
   const { data: existingTags } = useGetPostTagsQuery(post.internal_id, { skip: !visible });
   const { data: prevUsersData } = useGetPreviouslyTaggedUsersQuery();
   const { data: prevCarsData } = useGetPreviouslyTaggedCarsQuery();
@@ -136,6 +146,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       // "Post publicly" defaults to checked on edit (previously it unchecked
       // whenever the post had any group, dropping the public flag on save).
       setIsPublic(true);
+      setPoll(pollDraftFrom(post.poll));
     }
   }, [visible, post]);
 
@@ -270,8 +281,24 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   };
 
   const handleSave = async () => {
+    const pollInput = pollDraftToInput(poll);
+    if (pollInput.error) {
+      Alert.alert('Check the poll', pollInput.error);
+      return;
+    }
     const fd = new FormData();
     baseFields(fd);
+    /**
+     * The poll rides on this first update only. The server reads an absent
+     * field as "leave the poll alone", which is what the gallery passes after
+     * this one want — sending it three times would merge it three times.
+     *
+     * Switched off on a post that had one, the field goes empty, which is the
+     * server's "remove it". It refuses that once anyone has voted; the message
+     * it sends says so, and is shown as-is below.
+     */
+    if (pollInput.poll) fd.append('poll', JSON.stringify(pollInput.poll));
+    else if (post.poll?.options?.length) fd.append('poll', '');
     try {
       setSavingImages(true);
       await updatePost(fd).unwrap();
@@ -283,8 +310,11 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
         tagged_events: taggedEvents.map((t) => t.id),
       }).unwrap().catch(() => {});
       onClose();
-    } catch {
-      Alert.alert('Error', 'Could not save changes.');
+    } catch (err: any) {
+      // The poll rules come back as a 400 with a sentence fit to show — "that
+      // option already has votes", say — which beats a shrug.
+      const serverMsg = err?.data?.error ?? err?.data?.message;
+      Alert.alert('Error', typeof serverMsg === 'string' && serverMsg ? serverMsg : 'Could not save changes.');
     } finally {
       setSavingImages(false);
     }
@@ -371,6 +401,11 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 events={taggedEvents}
                 onToggle={toggleTag}
               />
+
+              {/* ── Poll — the same block the create form uses. Options with
+                  votes keep their ids and can't be removed here. ── */}
+              <Text style={[styles.label, { color: colors.grey }]}>Poll</Text>
+              <PollEditor draft={poll} onChange={setPoll} lockedOptionIds={lockedOptionIds} />
 
               {/* ── Post To — the same tiles the create form uses ── */}
               <Text style={[styles.label, { color: colors.grey }]}>Post To</Text>

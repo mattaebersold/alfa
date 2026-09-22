@@ -10,6 +10,7 @@ import RouteMap from '../../components/routes/RouteMap';
 import PostTagPicker, { type TagItem } from '../../components/social/PostTagPicker';
 import PostToSelector from '../../components/social/PostToSelector';
 import Spinner from '../../components/ui/Spinner';
+import { DateField } from '../../components/ui/DateTimeField';
 import { readDraft, clearDraft } from '../../hooks/useRouteRecorder';
 import {
   useCreateRouteMutation,
@@ -27,8 +28,9 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
-  formatDistance, formatDuration, formatSpeed, compactSamples, decodePolyline,
+  formatDistance, formatDuration, formatSpeed, compactSamples, decodePolyline, curvinessLabel,
 } from '../../utils/routeGeometry';
+import { isPlottedRoute } from '../../types/api';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
@@ -50,11 +52,18 @@ export const SURFACES = [
  * Save-or-discard, shown once a drive is finished — and the edit form for a
  * route already saved.
  *
- * One screen for both, the way the post form is, so tagging and sharing to
- * groups can't drift apart between creating a route and fixing one. The
- * difference is where the shape comes from: a new drive reads its track back
- * from the on-disk draft, an edit draws the saved route's polyline. The track
- * itself is never editable — a route's numbers are the ones its drive produced.
+ * One screen for all of them, the way the post form is, so tagging and
+ * sharing to groups can't drift apart between creating a route and fixing
+ * one. The difference is where the shape comes from: a new drive reads its
+ * track back from the on-disk draft, a plotted drive arrives with the path
+ * the plotting screen drew, an edit draws the saved route's polyline. The
+ * shape itself is never editable here — a route's numbers are the ones its
+ * drive (or its plot) produced.
+ *
+ * A plotted route has no time, speed or elevation, and the form doesn't
+ * pretend otherwise: it shows the distance, says "Plotted", and offers a day
+ * the drive happened — a day, nothing finer. Nothing typed here can become a
+ * number that recorded drives have to earn.
  *
  * For a new drive the track is read from disk rather than passed through
  * navigation params — it's thousands of points, far too much to put in a
@@ -76,6 +85,9 @@ export default function RouteSaveScreen() {
 
   const editId = params?.routeId;
   const isEdit = !!editId;
+  /** A plotted drive, with the path the plotting screen drew. */
+  const plot = params?.plot ?? null;
+  const isPlot = !!plot;
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: isEdit ? 'Edit Route' : 'Save Route' });
@@ -86,7 +98,7 @@ export default function RouteSaveScreen() {
   const [syncTags, { isLoading: syncing }] = useSyncPostTagsMutation();
   const isLoading = creating || updating || syncing;
 
-  const draft = useMemo(() => (isEdit ? null : readDraft()), [isEdit]);
+  const draft = useMemo(() => (isEdit || isPlot ? null : readDraft()), [isEdit, isPlot]);
   const { data: existing, isLoading: loadingExisting } = useGetRouteQuery(editId ?? '', { skip: !isEdit });
   const { data: existingTags } = useGetPostTagsQuery(editId ?? '', { skip: !isEdit });
 
@@ -95,6 +107,8 @@ export default function RouteSaveScreen() {
   const [technical, setTechnical] = useState<number | null>(null);
   const [startPlace, setStartPlace] = useState('');
   const [endPlace, setEndPlace] = useState('');
+  /** "YYYY-MM-DD", plotted routes only. Empty means unsaid. */
+  const [drivenOn, setDrivenOn] = useState('');
   /**
    * Surface is hidden for now — every route recorded so far is a paved road, and
    * a three-way choice nobody varies is a field people learn to skip. The value
@@ -145,6 +159,7 @@ export default function RouteSaveScreen() {
     setTechnical(e.technical_rating ?? null);
     setStartPlace(e.start_place ?? '');
     setEndPlace(e.end_place ?? '');
+    setDrivenOn(e.driven_on ? String(e.driven_on).slice(0, 10) : '');
     setIsPrivate(!!e.private);
     setSelectedGroupIds(e.group_ids ?? []);
     // No groups means public; with groups, public is its own choice.
@@ -217,8 +232,8 @@ export default function RouteSaveScreen() {
    * empty. Only a suggestion — both are editable, and the drive saves fine if
    * the lookup comes back with nothing.
    */
-  const firstSample = draft?.samples?.[0];
-  const lastSample = draft?.samples?.[draft.samples.length - 1];
+  const firstSample = draft?.samples?.[0] ?? plot?.waypoints[0];
+  const lastSample = draft?.samples?.[draft.samples.length - 1] ?? plot?.waypoints[plot.waypoints.length - 1];
   const { data: placeNames } = useGetRouteEndpointNamesQuery(
     {
       start_lat: firstSample?.lat as number,
@@ -261,12 +276,17 @@ export default function RouteSaveScreen() {
 
   const path = useMemo(() => {
     if (isEdit) return existing?.entry.polyline ? decodePolyline(existing.entry.polyline) : [];
+    if (plot) return decodePolyline(plot.polyline);
     return (draft?.samples ?? []).map((s) => ({ lat: s.lat, lng: s.lng }));
-  }, [isEdit, existing, draft]);
+  }, [isEdit, existing, draft, plot]);
   const pathSpeeds = useMemo(() => {
     if (isEdit) return existing?.entry.speed_profile ?? [];
+    if (plot) return [];
     return (draft?.samples ?? []).map((s) => Math.max(0, s.speed));
-  }, [isEdit, existing, draft]);
+  }, [isEdit, existing, draft, plot]);
+
+  /** Whether the route being shown has no timed numbers to print. */
+  const plotted = isPlot || (isEdit && isPlottedRoute(existing?.entry));
 
   const pitStops = isEdit ? existing?.entry.pit_stops : draft?.pitStops;
 
@@ -276,9 +296,10 @@ export default function RouteSaveScreen() {
     if (isEdit) {
       const stats = existing?.entry.stats;
       return stats
-        ? { distance: stats.distance_meters, duration: stats.moving_ms || stats.duration_ms, maxSpeed: stats.max_speed }
+        ? { distance: stats.distance_meters, duration: stats.moving_ms || stats.duration_ms, maxSpeed: stats.max_speed, curviness: stats.curviness }
         : null;
     }
+    if (plot) return { distance: plot.distance_meters, duration: 0, maxSpeed: 0, curviness: plot.curviness };
     if (!draft?.samples?.length) return null;
     const first = draft.samples[0];
     const last = draft.samples[draft.samples.length - 1];
@@ -296,11 +317,16 @@ export default function RouteSaveScreen() {
         if (b.speed > maxSpeed) maxSpeed = b.speed;
       }
     }
-    return { distance, duration: last.t - first.t, maxSpeed };
-  }, [isEdit, existing, draft]);
+    return { distance, duration: last.t - first.t, maxSpeed, curviness: 0 };
+  }, [isEdit, existing, draft, plot]);
 
   const discard = () => {
     if (isEdit) {
+      navigation.goBack();
+      return;
+    }
+    if (isPlot) {
+      // Back to the pins, which are still on the plotting screen.
       navigation.goBack();
       return;
     }
@@ -361,6 +387,7 @@ export default function RouteSaveScreen() {
     fd.append('end_place', endPlace.trim());
     fd.append('technical_rating', technical ? String(technical) : '');
     fd.append('private', isPrivate ? 'true' : 'false');
+    if (plotted) fd.append('driven_on', drivenOn);
     // The first tagged car is "the car I drove", as on a new route.
     fd.append('car_id', taggedCars[0]?.id ?? '');
     appendGroups(fd);
@@ -387,7 +414,7 @@ export default function RouteSaveScreen() {
       await saveEdit();
       return;
     }
-    if (!draft?.samples?.length) {
+    if (!plot && !draft?.samples?.length) {
       Alert.alert('No track found', 'The recording could not be read back.');
       return;
     }
@@ -395,11 +422,19 @@ export default function RouteSaveScreen() {
     const fd = new FormData();
     fd.append('title', title.trim());
     if (body.trim()) fd.append('body', body.trim());
-    fd.append('samples', JSON.stringify(compactSamples(draft.samples)));
+    // The shape: pins for a plotted drive, the track for a recorded one. The
+    // server redraws the roads through the pins itself rather than trusting
+    // the path this screen was handed.
+    if (plot) {
+      fd.append('waypoints', JSON.stringify(plot.waypoints));
+      if (drivenOn) fd.append('driven_on', drivenOn);
+    } else {
+      fd.append('samples', JSON.stringify(compactSamples(draft!.samples)));
+    }
     fd.append('surface', surface);
     if (startPlace.trim()) fd.append('start_place', startPlace.trim());
     if (endPlace.trim()) fd.append('end_place', endPlace.trim());
-    if (draft.pitStops?.length) fd.append('pit_stops', JSON.stringify(draft.pitStops));
+    if (draft?.pitStops?.length) fd.append('pit_stops', JSON.stringify(draft.pitStops));
     if (technical) fd.append('technical_rating', String(technical));
     if (isPrivate) fd.append('private', 'true');
     // The first tagged car doubles as "the car I drove" — the route's own
@@ -414,14 +449,19 @@ export default function RouteSaveScreen() {
         Alert.alert('Route saved', 'The route was saved, but its tags could not be applied.');
       }
 
-      clearDraft();
-      navigation.goBack();
+      if (plot) {
+        // Past the plotting screen too — the route is saved, the pins are done.
+        navigation.pop(2);
+      } else {
+        clearDraft();
+        navigation.goBack();
+      }
     } catch (e: any) {
       // The draft is deliberately left on disk here. Whatever went wrong, the
       // drive itself is the irreplaceable part — it can't be re-driven — and
       // the record screen offers it back the next time it's opened.
       const offline = e?.status === 'FETCH_ERROR' || e?.status === 'TIMEOUT_ERROR';
-      if (offline) {
+      if (offline && !plot) {
         Alert.alert(
           "You're offline",
           "This drive is saved on your phone — nothing is lost. Open Record a Route once you have a connection and choose \"Finish it\" to upload it.",
@@ -437,7 +477,7 @@ export default function RouteSaveScreen() {
 
   if (isEdit && loadingExisting) return <Spinner />;
 
-  if (isEdit ? !existing : !draft) {
+  if (isEdit ? !existing : !(draft || plot)) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
         <Text style={[styles.emptyTitle, { color: colors.fg }]}>
@@ -478,8 +518,19 @@ export default function RouteSaveScreen() {
         {preview && (
           <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
             <Stat label="Distance" value={formatDistance(preview.distance)} colors={colors} />
-            <Stat label="Time" value={formatDuration(preview.duration)} colors={colors} />
-            <Stat label="Top speed" value={formatSpeed(preview.maxSpeed)} colors={colors} />
+            {plotted ? (
+              // No time, no speed: nothing was there to measure them. What a
+              // path can say is how it bends.
+              <>
+                <Stat label="Curves" value={curvinessLabel(preview.curviness)} colors={colors} />
+                <Stat label="Source" value="Plotted" colors={colors} />
+              </>
+            ) : (
+              <>
+                <Stat label="Time" value={formatDuration(preview.duration)} colors={colors} />
+                <Stat label="Top speed" value={formatSpeed(preview.maxSpeed)} colors={colors} />
+              </>
+            )}
           </View>
         )}
 
@@ -532,6 +583,21 @@ export default function RouteSaveScreen() {
             />
           </Field>
 
+          {/* Plotted routes only. A day, not a time — plotted from memory,
+              nobody knows the minute — and never a duration or a speed, which
+              would be numbers a recorded drive had to earn. */}
+          {plotted && (
+            <Field label="When did you drive it?">
+              <DateField
+                value={drivenOn}
+                onChange={setDrivenOn}
+                placeholder="Optional"
+                clearable
+                maximumDate={new Date()}
+              />
+            </Field>
+          )}
+
           <Field label="How technical was it?">
             <View style={styles.pillRow}>
               {[1, 2, 3, 4, 5].map((n) => {
@@ -552,7 +618,9 @@ export default function RouteSaveScreen() {
               })}
             </View>
             <Text style={[styles.helper, { color: colors.grey }]}>
-              Your rating sits alongside a curviness score we calculate from the GPS track.
+              {plotted
+                ? 'Your rating sits alongside a curviness score we calculate from the road.'
+                : 'Your rating sits alongside a curviness score we calculate from the GPS track.'}
             </Text>
           </Field>
 

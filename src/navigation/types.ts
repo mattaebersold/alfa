@@ -2,6 +2,18 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
+/**
+ * A plotted drive on its way to the save form: the pins and the path the
+ * server drew through them. Small enough to travel as a param — a plotted
+ * path is a few hundred points, not the thousands a recording holds.
+ */
+export interface RoutePlotDraft {
+  waypoints: { lat: number; lng: number }[];
+  polyline: string;
+  distance_meters: number;
+  curviness: number;
+}
+
 // ── Auth Stack ──────────────────────────────────────────────────────────────
 export type AuthStackParamList = {
   Login: undefined;
@@ -182,7 +194,8 @@ export type AppStackParamList = {
    * With a point when the member held the map to drop a pin there; without
    * one the screen starts from wherever they're standing.
    */
-  PhotoSpotCreate: { lat: number; lng: number } | undefined;
+  /** Pin a new spot at a held point, edit one by id, or start blank. */
+  PhotoSpotCreate: { lat: number; lng: number; spotId?: undefined } | { spotId: string; lat?: undefined; lng?: undefined } | undefined;
   /** Admin-only. With an id it edits that product, without it creates one. */
   ProductCreate: { productId?: string } | undefined;
   About: undefined;
@@ -206,11 +219,17 @@ export type AppStackParamList = {
    */
   Routes: undefined;
   RouteRecord: undefined;
+  /** Marks a past drive on a map — start, finish, the roads between. */
+  RoutePlot: undefined;
   /**
-   * Saves a finished drive (`draftId`), or edits a saved route (`routeId`) —
-   * one form for both, as the post form is. Exactly one of the two is given.
+   * Saves a finished drive (`draftId`), a plotted one (`plot`), or edits a
+   * saved route (`routeId`) — one form for all three, as the post form is.
+   * Exactly one of them is given.
    */
-  RouteSave: { draftId: string; routeId?: undefined } | { routeId: string; draftId?: undefined };
+  RouteSave:
+    | { draftId: string; routeId?: undefined; plot?: undefined }
+    | { routeId: string; draftId?: undefined; plot?: undefined }
+    | { plot: RoutePlotDraft; draftId?: undefined; routeId?: undefined };
   RouteDetailModal: { routeId: string };
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)

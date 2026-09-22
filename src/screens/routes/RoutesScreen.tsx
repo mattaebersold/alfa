@@ -1,9 +1,9 @@
 import React, { useCallback, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Heart, MessageCircle } from 'lucide-react-native';
+import { Heart, MessageCircle, PenLine } from 'lucide-react-native';
 import { useGetRoutesQuery } from '../../api/apiService';
 import RouteTrace from '../../components/routes/RouteTrace';
 import VoteButton from '../../components/routes/VoteButton';
@@ -22,7 +22,7 @@ import {
   formatDistance, formatDuration, curvinessLabel,
 } from '../../utils/routeGeometry';
 import type { RoutesStackParamList } from '../../navigation/types';
-import type { DrivingRoute } from '../../types/api';
+import { isPlottedRoute, type DrivingRoute } from '../../types/api';
 import { COMMON_RADIUS } from '../../constants/radius';
 
 type NavProp = NativeStackNavigationProp<RoutesStackParamList>;
@@ -58,7 +58,11 @@ function RouteRow({ route, onPress }: { route: DrivingRoute; onPress: () => void
           <>
             <View style={styles.metrics}>
               <Metric value={formatDistance(stats.distance_meters)} colors={colors} />
-              <Metric value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />
+              {/* A plotted route was never timed; it says so where the time
+                  would go. */}
+              {isPlottedRoute(route)
+                ? <Metric value="Plotted" colors={colors} Icon={PenLine} />
+                : <Metric value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />}
             </View>
             <Text style={[styles.technical, { color: colors.grey }]}>
               {curvinessLabel(stats.curviness)} · {stats.curviness}/100
@@ -119,13 +123,18 @@ export default function RoutesScreen() {
         <ScreenHeading
           title="Routes"
           inline
-          // Recording is pro-only, so the entry point simply isn't there for
-          // everyone else — same rule the API enforces.
+          // Making routes is pro-only, so the entry point simply isn't there
+          // for everyone else — same rule the API enforces. Two ways to make
+          // one: record the drive as it happens, or plot one already driven.
           right={isPro ? (
             <HeadingActionButton
               label="New Route"
-              onPress={() => (navigation as any).navigate('RouteRecord')}
-              accessibilityLabel="Record a new route"
+              onPress={() => Alert.alert('New route', 'Record a drive as you go, or plot one you\'ve already done.', [
+                { text: 'Record a drive', onPress: () => (navigation as any).navigate('RouteRecord') },
+                { text: 'Plot a past drive', onPress: () => (navigation as any).navigate('RoutePlot') },
+                { text: 'Cancel', style: 'cancel' },
+              ])}
+              accessibilityLabel="Make a new route"
             />
           ) : undefined}
         />
@@ -154,7 +163,7 @@ export default function RoutesScreen() {
             <EmptyState
               title="No routes yet"
               message={isPro
-                ? 'Record your first drive with New Route.'
+                ? 'Record a drive, or plot one you\'ve already done, with New Route.'
                 : 'Pro members can record and share the roads they drive.'}
             />
           }

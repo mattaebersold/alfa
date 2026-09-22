@@ -5,13 +5,15 @@ import { calendarDate } from '../../utils/calendarDate';
 
 /**
  * Torn-off calendar page: red month strip over a big day number and weekday on
- * white. Shared by the event card and the event detail so a date reads the same
- * in both. `size="sm"` is the card version.
+ * white, in the event detail's hero. The cards used to carry the `sm` size over
+ * their photos; they now say the day as a line of copy under the photo instead,
+ * so the badge is the detail's alone — the size stays for the next photo that
+ * wants one.
  *
  * The colours are fixed rather than themed. The badge's whole job is to look
- * like a page off a wall calendar, and it sits on a photograph in both places it
- * appears — a dark-mode version would be a dark rectangle on a dark scrim,
- * which is neither legible nor a calendar.
+ * like a page off a wall calendar, and it sits on a photograph — a dark-mode
+ * version would be a dark rectangle on a dark scrim, which is neither legible
+ * nor a calendar.
  */
 export default function EventDateBadge({
   date,

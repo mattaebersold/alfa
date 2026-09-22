@@ -46,6 +46,8 @@ import ProfileLinks from '../../components/members/ProfileLinks';
 import { regionForCityState } from '../../constants/regions';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
+import PollShelf, { POLL_SHELF_PREVIEW_COUNT } from '../../components/social/PollShelf';
+import FeedItemCard from '../../components/cards/FeedItemCard';
 import RoutesPane from '../../components/routes/RoutesPane';
 import MemberListingsShelf from '../../components/marketplace/MemberListingsShelf';
 import ListingCard from '../../components/marketplace/ListingCard';
@@ -71,8 +73,10 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // the same way a tile's is.
 // The marketplace sections are shelves too — see the three at the bottom of
 // the page — so like routes they get a pane key without a tile.
+// Polls are a shelf as well — their posts are in the Posts count too, but the
+// shelf shows them with their choices, which the Posts cards don't.
 type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes'
-  | 'forSale' | 'wants' | 'soldListings';
+  | 'forSale' | 'wants' | 'soldListings' | 'polls';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
@@ -92,6 +96,7 @@ const SECTION_LABELS: Record<Tab, string> = {
   following: 'Following',
   lists:     'Lists',
   routes:    'Routes',
+  polls:     'Polls',
   forSale:      'For sale',
   wants:        'Want ads',
   soldListings: 'Sold',
@@ -420,6 +425,20 @@ export default function ProfileScreen() {
   // ready the moment a tile opens its modal.
   const { data: postsData, refetch: refetchPosts } = useGetPostsQuery({ user_id: userId, limit: 30 }, { skip: !userId });
 
+  /**
+   * The posts of theirs that carry a poll — the Polls shelf, and its pane.
+   *
+   * `has_poll` is what makes the server resolve the viewer on this list (a
+   * plain `user_id` list is cached without one), so `my_option_id` is right
+   * here and a poll you've voted in shows its results rather than asking
+   * again. One query at a generous limit for both the shelf and the pane: a
+   * member's polls are a handful, not a feed.
+   */
+  const { data: pollsData, refetch: refetchPolls } = useGetPostsQuery(
+    { user_id: userId, has_poll: true, limit: 50 },
+    { skip: !userId },
+  );
+
   // The Posts pane pages rather than stopping at whatever the strip's query
   // happened to fetch. Its own query so the strip and the counts aren't
   // refetched every time someone scrolls the pane.
@@ -497,6 +516,7 @@ export default function ProfileScreen() {
   const refreshControl = useRefreshControl(() => Promise.all([
     isOwnProfile ? refetchOwn() : refetchOther(),
     refetchPosts(),
+    refetchPolls(),
     refetchCars(),
     refetchRoutes(),
   ]));
@@ -576,6 +596,7 @@ export default function ProfileScreen() {
 
   const bannerUri = user.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
   const posts     = postsData?.entries ?? [];
+  const polls     = pollsData?.entries ?? [];
   const cars      = carsData?.entries ?? [];
   const routes    = routesData?.entries ?? [];
   const lists     = listsData?.entries ?? [];
@@ -599,6 +620,7 @@ export default function ProfileScreen() {
       // No tile of its own — the shelf below is the routes section — but the
       // switch answers for every section so it can't fall through.
       case 'routes':    return routesData?.total ?? routes.length;
+      case 'polls':     return pollsData?.total ?? polls.length;
       // Shelves too, and their counts live on the shelf's own query rather
       // than here — nothing on this page asks for these.
       case 'forSale':      return forSalePane?.total ?? 0;
@@ -918,6 +940,29 @@ export default function ProfileScreen() {
             />
           </ScrollView>
         );
+      case 'polls':
+        // The feed's own cards, full width, so every poll can be answered
+        // from the list. Opening one closes the pane first — see 'posts'.
+        return (
+          <FlatList
+            data={polls}
+            keyExtractor={(p: Post) => p.internal_id}
+            contentContainerStyle={styles.modalList}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              // Inset to the gutter the Posts pane's cards keep, so the two
+              // panes line up; the card brings its own corners.
+              <View style={styles.pollRow}>
+                <FeedItemCard
+                  post={item}
+                  onPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
+                  onCommentPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
+                />
+              </View>
+            )}
+            ListEmptyComponent={<EmptyState title="No polls yet" />}
+          />
+        );
       case 'forSale':
       case 'wants':
       case 'soldListings': {
@@ -1047,6 +1092,16 @@ export default function ProfileScreen() {
           showByline={false}
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
+        />
+        {/* The questions they've asked, drawn as the feed draws them so the
+            choices show and can be picked. Nothing at all when there are
+            none — see PollShelf. */}
+        <PollShelf
+          title="Polls"
+          posts={polls.slice(0, POLL_SHELF_PREVIEW_COUNT)}
+          total={pollsData?.total ?? polls.length}
+          onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
+          onViewAll={() => setActiveSection('polls')}
         />
         {/* The drives they've recorded, the same shape as the posts shelf
             above it. Renders nothing at all when there are none — see
@@ -1258,6 +1313,7 @@ const styles = StyleSheet.create({
   },
   userSearchInput: { flex: 1, fontSize: 14 },
 
+  pollRow:  { marginHorizontal: 12 },
   postCard: {
     marginHorizontal: 12, marginTop: 10,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',

@@ -361,8 +361,101 @@ export interface Post {
   liker_names?: Record<string, string>;
   /** Who and what is tagged in this post — batched by the feed endpoint. */
   tags?: Tag[];
+  /**
+   * The poll on this post, tallied for the viewer, or null when it has none.
+   *
+   * Sent with every read of a post — feed, list and detail — so a card can draw
+   * the poll without a second request. See PollSummary.
+   */
+  poll_summary?: PollSummary | null;
+  /**
+   * The poll as stored — ids, labels and settings, with the vote arrays
+   * stripped server-side. `poll_summary` is what every surface draws from;
+   * this is for the edit sheet, which has to send options back *by id* so a
+   * relabel isn't mistaken for a removal (see PollInput).
+   */
+  poll?: StoredPoll | null;
   // stories
   seen?: boolean;
+}
+
+// ── Polls ────────────────────────────────────────────────────────────────────
+
+/**
+ * What the create and edit forms send as the multipart `poll` field, as a
+ * JSON string.
+ *
+ * On create the options are plain labels and the server mints ids. On an
+ * edit they go back as `{ internal_id, label }` for every option the post
+ * already had: the server keeps an option's votes by id, and an option with
+ * votes that arrives unmatched makes it refuse the whole update rather than
+ * throw those votes away. A new option added in the edit is still a string.
+ */
+export interface PollInput {
+  question?: string;
+  /** 2–6 options, in the order they'll be shown. */
+  options: (string | { internal_id: string; label: string })[];
+  /** Whether a member can move their vote to another option. Server default: true. */
+  allow_change?: boolean;
+  /** Hide who voted — the summary's `voters` come back empty. */
+  anonymous?: boolean;
+  /** ISO date after which the poll only shows results. */
+  closes_at?: string | null;
+}
+
+/** The poll as the server returns it on a post — see `Post.poll`. */
+export interface StoredPoll {
+  question?: string | null;
+  options: { internal_id: string; label: string }[];
+  allow_change: boolean;
+  anonymous: boolean;
+  closes_at?: string | null;
+}
+
+/**
+ * Someone who picked an option — the subset of a member the avatar stack and
+ * the voter list need, sent inline so neither has to look anyone up.
+ */
+export interface PollVoter {
+  user_id: string;
+  username?: string;
+  gallery?: { filename?: string }[] | null;
+  profilePicture?: string | null;
+  avatarColor?: string | null;
+}
+
+export interface PollOptionSummary {
+  internal_id: string;
+  label: string;
+  count: number;
+  /** A page of the people who chose this — capped (≤12); `voter_total` is all of them. */
+  voters: PollVoter[];
+  voter_total: number;
+}
+
+/**
+ * A post's poll, tallied for whoever is asking.
+ *
+ * `my_option_id` is the viewer's own vote, which is what decides whether the
+ * card shows plain choices or filled result bars. `closed` folds the closing
+ * date in server-side so the client never compares clocks.
+ */
+export interface PollSummary {
+  question?: string | null;
+  total_votes: number;
+  /**
+   * The viewer's vote. Null when they haven't — and also null on lists the
+   * server caches without a viewer (a plain `GET /api/post?user_id=`, a car's
+   * feed). The home feed, the detail, `has_poll` lists and the vote responses
+   * all resolve it.
+   */
+  my_option_id: string | null;
+  closed: boolean;
+  allow_change: boolean;
+  /** No faces on the options — `voters` is empty on every one. */
+  anonymous: boolean;
+  closes_at?: string | null;
+  options: PollOptionSummary[];
 }
 
 export interface StoryGroup {
@@ -1113,10 +1206,22 @@ export interface DrivingRoute {
   gallery?: GalleryItem[];
   private?: boolean;
 
+  /**
+   * How the shape was made. `recorded` (or absent, for every route before the
+   * field existed) means the phone rode along and every stat was measured.
+   * `plotted` means the ends and the roads between were marked on a map after
+   * the fact: distance and shape are real, and time, speed and elevation are
+   * null — nothing was there to measure them. See `isPlottedRoute`.
+   */
+  source?: 'recorded' | 'plotted';
+  /** A plotted route's pins in order: start, roads pulled through, finish. */
+  waypoints?: { lat: number; lng: number }[];
+  /** The day a plotted drive happened, if the member said. ISO date. */
+  driven_on?: string | null;
   /** Encoded polyline (precision 5) of the simplified path. */
   polyline?: string;
   /** Speed (m/s) at each polyline point, same length and order. Drives the
-   *  red→green speed gradient on traces and maps. */
+   *  red→green speed gradient on traces and maps. Empty on a plotted route. */
   speed_profile?: number[];
   stats?: RouteStats;
 
@@ -1158,6 +1263,21 @@ export interface DrivingRoute {
 }
 
 export type RouteVote = 'up' | 'down' | null;
+
+/**
+ * Whether a route was plotted rather than driven with the phone recording.
+ * The timed stats on a plotted route are null, so anything that prints a
+ * duration or a speed asks this first.
+ */
+export const isPlottedRoute = (route?: Pick<DrivingRoute, 'source'> | null) => route?.source === 'plotted';
+
+/** What POST /api/routes/plot returns: the roads through a set of pins. */
+export interface RoutePlotPreview {
+  polyline: string;
+  stats: RouteStats;
+  /** Under the shortest distance the server will save. */
+  too_short: boolean;
+}
 
 /** What GET /api/routes/:id returns. */
 export interface DrivingRouteDetail {

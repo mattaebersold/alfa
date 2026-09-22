@@ -8,6 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useGetRallysQuery } from '../../api/apiService';
 import RallyDetailSheet from '../../components/society/RallyDetailSheet';
+import EventImage from '../../components/society/EventImage';
+import EventPills from '../../components/society/EventPills';
+import { useNaturalRatio } from '../../hooks/useNaturalRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -30,44 +33,29 @@ const rallyHero = (rally: Rally) =>
   (rally.hero_image ? imageUrl(rally.hero_image) : null) ?? firstGalleryUrl(rally.gallery);
 
 /**
- * Bounds for a hero's own shape.
+ * The full card for an upcoming rally: hero, pill, date, title, and a way in.
  *
- * Outside anything a camera produces, so ordinary photos pass through — they
- * only stop a panorama becoming a sliver or a phone-portrait becoming a
- * skyscraper.
+ * The card takes the photo's own shape rather than cropping it to 16/9. These
+ * are the club's own posters and route maps as often as they are photographs,
+ * and a fixed frame cut the tops off them. The bounds are the event cards' —
+ * see `clampCardRatio` — so a rally and an event photo are the same shape.
  */
-const MIN_RATIO = 0.6;
-const MAX_RATIO = 2.6;
-
-/** The full card for an upcoming rally: hero, date, title, and a way in. */
 function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
   const colors = useColors();
   const hero = rallyHero(rally);
-  // The card takes the photo's own shape rather than cropping it to 16/9.
-  // These are the club's own posters and route maps as often as they are
-  // photographs, and a fixed frame cut the tops off them.
-  const [ratio, setRatio] = useState(16 / 9);
+  // 16/9 until the photo reports its shape, and for rallies without one.
+  const { ratio, onAspectRatio } = useNaturalRatio(16 / 9);
   const eventDay = calendarDate(rally.event_date);
   // Never null: an unscheduled rally says so rather than losing the line.
-  const date = eventDay ? format(eventDay, 'MMM d, yyyy') : RALLY_DATE_TBA;
+  const date = eventDay ? format(eventDay, 'EEE, MMM d, yyyy') : RALLY_DATE_TBA;
 
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
-      {hero
-        ? (
-          <Image
-            source={{ uri: hero }}
-            style={[styles.cardImage, { aspectRatio: ratio }]}
-            contentFit="cover"
-            onLoad={(e) => {
-              const { width, height } = e.source ?? {};
-              if (width && height) setRatio(Math.min(Math.max(width / height, MIN_RATIO), MAX_RATIO));
-            }}
-          />
-        )
-        : <View style={[styles.cardImage, styles.cardFallbackRatio, styles.cardPlaceholder]} />
-      }
+      <View style={{ aspectRatio: ratio }}>
+        <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={onAspectRatio} />
+      </View>
       <View style={styles.cardBody}>
+        <EventPills />
         <Text style={styles.date}>{date}</Text>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
         {rally.location && <Text style={[styles.location, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>}
@@ -211,13 +199,9 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  // No ratio here — the card measures the photo and supplies its own. The
-  // fallback keeps a shape for the case where there is no photo to measure.
-  cardImage:    { width: '100%' },
-  cardFallbackRatio: { aspectRatio: 16 / 9 },
   cardPlaceholder: { backgroundColor: colors.primaryAlt },
   cardBody:     { padding: 12 },
-  date:         { fontSize: 12, fontWeight: '700', color: colors.primaryAlt, marginBottom: 4 },
+  date:         { fontSize: 12, fontWeight: '700', color: colors.primaryAlt, marginTop: 8, marginBottom: 4 },
   title:        { fontSize: 16, fontWeight: '800', lineHeight: 22 },
   location:     { fontSize: 13, marginTop: 4 },
   slots:        { fontSize: 12, color: colors.primaryAlt, fontWeight: '700', marginTop: 6 },

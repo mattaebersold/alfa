@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
-import { ChevronRight, ListOrdered, Lock, Plus } from 'lucide-react-native';
+import { ChevronRight, Lock, Plus } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import ListPreviewMosaic from './ListPreviewMosaic';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
-import { firstGalleryUrl } from '../../utils/image';
 import type { List } from '../../types/api';
 import { COMMON_RADIUS } from '../../constants/radius';
 
@@ -15,18 +14,8 @@ export const LIST_SHELF_PREVIEW_COUNT = 6;
 const CARD_GAP = 12;
 const ROW_PAD_LEFT = 12;
 const CARD_WIDTH = 168;
-
-/**
- * The picture that stands for a list: its cover, or failing that the photo of
- * whatever it ranks first — a list of designers with no cover is still best
- * introduced by its number one.
- */
-function shelfPhoto(list: List): string | null {
-  const cover = firstGalleryUrl(list.gallery);
-  if (cover) return cover;
-  const first = (list.items ?? []).find((i) => !i.deleted && firstGalleryUrl(i.gallery));
-  return first ? firstGalleryUrl(first.gallery) : null;
-}
+/** Tall enough that the three-up mosaic's small tiles are still pictures, not swatches. */
+const PREVIEW_HEIGHT = 104;
 
 /**
  * A shelf of lists — a handful, sideways, with the rest behind "View all".
@@ -114,7 +103,6 @@ export default function ListShelf({
           decelerationRate="fast"
         >
           {lists.map((list) => {
-            const photo = shelfPhoto(list);
             const count = list.item_count ?? (list.items ?? []).filter((i) => !i.deleted).length;
             return (
               <SummaryTouchable
@@ -123,13 +111,8 @@ export default function ListShelf({
                 onPress={(origin) => onListPress(list, origin)}
                 accessibilityLabel={`${list.title}, ${count} item${count === 1 ? '' : 's'}`}
               >
-                {photo ? (
-                  <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" transition={150} />
-                ) : (
-                  <View style={[styles.photo, styles.blank, { backgroundColor: colors.segment }]}>
-                    <ListOrdered size={22} color={colors.grey} />
-                  </View>
-                )}
+                {/* What's on it, not just what's on the front of it — see ListPreviewMosaic. */}
+                <ListPreviewMosaic list={list} height={PREVIEW_HEIGHT} />
                 <View style={styles.cardText}>
                   <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{list.title}</Text>
                   <View style={styles.cardMeta}>
@@ -175,8 +158,6 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH, borderRadius: COMMON_RADIUS,
     borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
   },
-  photo:     { width: '100%', height: 104, backgroundColor: '#161616' },
-  blank:     { alignItems: 'center', justifyContent: 'center' },
   cardText:  { paddingHorizontal: 10, paddingVertical: 9, gap: 3 },
   // Two lines reserved whether or not they're used, so a shelf of mixed title
   // lengths keeps one baseline for its counts.

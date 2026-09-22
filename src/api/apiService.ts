@@ -5,8 +5,8 @@ import type {
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
-  DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace,
-  FeedPreferences, HomeBanner, CarActivityItem,
+  DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
+  FeedPreferences, HomeBanner, CarActivityItem, PollSummary,
   DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
   PhotoSpot, PhotoSpotUsage, PlacePrediction, PlaceDetail, GroupActivityItem,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
@@ -194,6 +194,8 @@ export const apiService = createApi({
        * you're a member of. The server answers per-viewer when this is set.
        */
       include_groups?: boolean;
+      /** Only posts carrying a poll — the profile's Polls shelf, with `user_id`. */
+      has_poll?: boolean;
     }>({
       query: (params = {}) => ({
         url: 'api/post',
@@ -234,6 +236,53 @@ export const apiService = createApi({
     deletePost: builder.mutation<void, { internal_id: string }>({
       query: (body) => ({ url: 'api/post/delete', method: 'POST', body }),
       invalidatesTags: ['Post', 'UserEntries'],
+    }),
+
+    // ── Polls ────────────────────────────────────────────────────────────────
+
+    /**
+     * Cast, or move, a vote. Both this and `unvotePoll` answer with the
+     * post's fresh `poll_summary`, which is written straight into every cached
+     * copy of the post rather than refetching the feed it sits in — see
+     * `patchPollSummary`. The tap itself is applied optimistically first: the
+     * bar filling is the feedback, and a round trip before it moves reads as
+     * a dropped tap.
+     *
+     * No tag invalidation, on purpose. The feeds and shelves provide the bare
+     * 'Post' tag, and RTK treats that as "any Post" — so even `{ type: 'Post',
+     * id }` would refetch every list on screen for a change they've already
+     * been handed. The response *is* the post's fresh state; writing it into
+     * the caches is the refresh.
+     */
+    votePoll: builder.mutation<{ internal_id: string; poll_summary: PollSummary }, { postId: string; option_id: string }>({
+      query: ({ postId, option_id }) => ({
+        url: `api/post/${postId}/vote`, method: 'POST', body: { option_id },
+      }),
+      async onQueryStarted({ postId, option_id }, { dispatch, getState, queryFulfilled }) {
+        const me = (getState() as { auth?: { userInfo?: User | null } }).auth?.userInfo ?? null;
+        const undo = patchPollSummary(dispatch, getState, postId, (poll) =>
+          moveVote(poll, option_id, me));
+        try {
+          const { data } = await queryFulfilled;
+          if (data?.poll_summary) patchPollSummary(dispatch, getState, postId, () => data.poll_summary);
+        } catch {
+          undo();
+        }
+      },
+    }),
+
+    unvotePoll: builder.mutation<{ internal_id: string; poll_summary: PollSummary }, { postId: string }>({
+      query: ({ postId }) => ({ url: `api/post/${postId}/vote`, method: 'DELETE' }),
+      async onQueryStarted({ postId }, { dispatch, getState, queryFulfilled }) {
+        const me = (getState() as { auth?: { userInfo?: User | null } }).auth?.userInfo ?? null;
+        const undo = patchPollSummary(dispatch, getState, postId, (poll) => moveVote(poll, null, me));
+        try {
+          const { data } = await queryFulfilled;
+          if (data?.poll_summary) patchPollSummary(dispatch, getState, postId, () => data.poll_summary);
+        } catch {
+          undo();
+        }
+      },
     }),
 
     // ── Likes ────────────────────────────────────────────────────────────────
@@ -844,6 +893,16 @@ export const apiService = createApi({
     createRoute: builder.mutation<DrivingRoute, FormData>({
       query: (body) => ({ url: 'api/routes/create', method: 'POST', body }),
       invalidatesTags: ['Route', 'UserEntries'],
+    }),
+
+    /**
+     * The roads through a set of pins, for the plotting screen's live preview.
+     * A mutation rather than a query: every call is a billed Directions
+     * request on the server, so it fires when the pins change and never on a
+     * cache miss of its own accord.
+     */
+    plotRoute: builder.mutation<RoutePlotPreview, { waypoints: { lat: number; lng: number }[] }>({
+      query: (body) => ({ url: 'api/routes/plot', method: 'POST', body }),
     }),
 
     updateRoute: builder.mutation<{ entry: DrivingRoute }, FormData>({
@@ -1460,6 +1519,14 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'Tags', id }],
     }),
 
+    /**
+     * Who and what you've tagged before.
+     *
+     * No longer suggestions — the tag picker is search-only now. These stay
+     * because the edit forms (PostEditSheet, RouteSaveScreen) use them as an
+     * id → label pool for the tags a post or route already carries, which the
+     * tag records themselves don't name.
+     */
     getPreviouslyTaggedUsers: builder.query<{ users: User[]; total: number }, number | void>({
       query: (limit = 12) => `api/tags/previously-tagged/users?limit=${limit ?? 12}`,
     }),
@@ -1470,12 +1537,6 @@ export const apiService = createApi({
 
     getPreviouslyTaggedEvents: builder.query<{ events: Event[]; total: number }, number | void>({
       query: (limit = 12) => `api/tags/previously-tagged/events?limit=${limit ?? 12}`,
-    }),
-
-    // Falls back to the groups you're a member of when you haven't tagged any
-    // yet, so the picker opens with something useful rather than blank.
-    getPreviouslyTaggedGroups: builder.query<{ groups: Group[]; total: number }, number | void>({
-      query: (limit = 12) => `api/tags/previously-tagged/groups?limit=${limit ?? 12}`,
     }),
 
     // `entity_type` selects which collection the id is looked up in — posts by
@@ -2286,6 +2347,99 @@ export const apiService = createApi({
   }),
 });
 
+// ── Poll cache helpers ───────────────────────────────────────────────────────
+
+/** Where a post can be cached, by endpoint and by how the post is reached. */
+type PostListEndpoint = 'getFeed' | 'getPosts';
+
+/**
+ * Rewrite one post's `poll_summary` in every cache entry that holds it.
+ *
+ * A post lives in several places at once — the home feed, a profile's posts
+ * query, its own detail — and a vote has to move all of them or the same poll
+ * shows two different tallies a scroll apart. Each cached argument set of the
+ * list endpoints is patched in turn, then the detail entry. The list tag is
+ * deliberately not invalidated for this: that would refetch every feed on
+ * screen for a change it has just been handed.
+ *
+ * Returns one function that undoes every patch it made.
+ */
+function patchPollSummary(
+  dispatch: (action: any) => any,
+  getState: () => unknown,
+  postId: string,
+  update: (poll: PollSummary) => PollSummary,
+): () => void {
+  const undos: (() => void)[] = [];
+  const state = getState() as Parameters<typeof apiService.util.selectCachedArgsForQuery>[0];
+
+  const lists: PostListEndpoint[] = ['getFeed', 'getPosts'];
+  for (const endpoint of lists) {
+    for (const args of apiService.util.selectCachedArgsForQuery(state, endpoint)) {
+      const patch = dispatch(
+        apiService.util.updateQueryData(endpoint, args as any, (draft) => {
+          const post = draft.entries?.find((p) => p.internal_id === postId);
+          if (post?.poll_summary) post.poll_summary = update(post.poll_summary);
+        }),
+      );
+      undos.push(() => patch.undo());
+    }
+  }
+
+  const detail = dispatch(
+    apiService.util.updateQueryData('getPost', postId, (draft) => {
+      if (draft.entry?.poll_summary) draft.entry.poll_summary = update(draft.entry.poll_summary);
+    }),
+  );
+  undos.push(() => detail.undo());
+
+  return () => undos.forEach((undo) => undo());
+}
+
+/**
+ * The viewer's vote moved to `optionId` — or withdrawn, when null — before the
+ * server has said so.
+ *
+ * Counts follow the vote; so does the viewer's face in the option's avatar
+ * stack, which is why the caller passes who they are. The faces are a capped
+ * page, so the stack only grows when there's room and the total is what's
+ * trusted for "+N".
+ */
+function moveVote(poll: PollSummary, optionId: string | null, me: User | null): PollSummary {
+  const from = poll.my_option_id;
+  if (from === optionId) return poll;
+  const myId = me?.user_id;
+  const voter = me
+    ? {
+        user_id: me.user_id, username: me.username,
+        gallery: me.gallery, profilePicture: me.profilePicture, avatarColor: me.avatarColor,
+      }
+    : null;
+
+  const options = poll.options.map((o) => {
+    if (o.internal_id === from) {
+      return {
+        ...o,
+        count: Math.max(0, o.count - 1),
+        voter_total: Math.max(0, o.voter_total - 1),
+        voters: o.voters.filter((v) => v.user_id !== myId),
+      };
+    }
+    if (o.internal_id === optionId) {
+      return {
+        ...o,
+        count: o.count + 1,
+        voter_total: o.voter_total + 1,
+        voters: voter && o.voters.length < 12 ? [voter, ...o.voters] : o.voters,
+      };
+    }
+    return o;
+  });
+
+  const delta = (optionId ? 1 : 0) - (from ? 1 : 0);
+  return { ...poll, options, my_option_id: optionId, total_votes: Math.max(0, poll.total_votes + delta) };
+}
+
 // Export hooks
 export const {
   useGetLoggedInUserQuery,
@@ -2307,6 +2461,8 @@ export const {
   useAddPostImageMutation,
   useUpdatePostMutation,
   useDeletePostMutation,
+  useVotePollMutation,
+  useUnvotePollMutation,
   useGetLikeInfoQuery,
   useGetPostCountsQuery,
   useGetBatchLikesMutation,
@@ -2508,12 +2664,12 @@ export const {
   useBlockUserMutation,
   useUnblockUserMutation,
   useGetBlockedUsersQuery,
-  useGetPreviouslyTaggedGroupsQuery,
   useGetRoutesQuery,
   useGetNearbyPlacesQuery,
   useGetRouteEndpointNamesQuery,
   useGetRouteQuery,
   useCreateRouteMutation,
+  usePlotRouteMutation,
   useUpdateRouteMutation,
   useDeleteRouteMutation,
   useUpvoteRouteMutation,

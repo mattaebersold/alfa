@@ -54,6 +54,7 @@ import CreateScreen from '../screens/create/CreateScreen';
 import DiecastCreateScreen from '../screens/create/DiecastCreateScreen';
 import RoutesScreen from '../screens/routes/RoutesScreen';
 import RouteRecordScreen from '../screens/routes/RouteRecordScreen';
+import RoutePlotScreen from '../screens/routes/RoutePlotScreen';
 import RouteSaveScreen from '../screens/routes/RouteSaveScreen';
 import RouteDetailScreen from '../screens/routes/RouteDetailScreen';
 import { DIECAST_BLUE } from '../constants/diecast';
@@ -139,6 +140,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="RouteRecord"
         component={RouteRecordScreen}
+        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="RoutePlot"
+        component={RoutePlotScreen}
         options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen

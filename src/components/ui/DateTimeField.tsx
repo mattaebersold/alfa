@@ -65,6 +65,8 @@ interface FieldProps {
   clearable?: boolean;
   /** Date fields only — the earliest selectable day. */
   minimumDate?: Date;
+  /** Date fields only — the latest. Today, for a date something happened. */
+  maximumDate?: Date;
 }
 
 /** The tappable face both fields share: label above, value in a bordered row. */
@@ -139,7 +141,7 @@ function IOSPickerSheet({
 }
 
 export function DateField({
-  label, value, onChange, placeholder = 'Pick a date', clearable, minimumDate,
+  label, value, onChange, placeholder = 'Pick a date', clearable, minimumDate, maximumDate,
 }: FieldProps) {
   const [open, setOpen] = useState(false);
   // iOS edits a buffer so Cancel really cancels; Android commits from its dialog.
@@ -173,6 +175,7 @@ export function DateField({
             mode="date"
             display="inline"
             minimumDate={minimumDate}
+            maximumDate={maximumDate}
             themeVariant="dark"
             onChange={(_, picked) => picked && setDraft(picked)}
           />
@@ -183,6 +186,7 @@ export function DateField({
           mode="date"
           display="calendar"
           minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={(event, picked) => {
             setOpen(false);
             if (event.type === 'set' && picked) onChange(toDayKey(picked));

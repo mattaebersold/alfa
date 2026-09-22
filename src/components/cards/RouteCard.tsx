@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
-import { Lock, Mountain, Route as RouteIcon } from 'lucide-react-native';
+import { Lock, Mountain, PenLine, Route as RouteIcon } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import UserSummaryModal from '../members/UserSummaryModal';
 import RouteTrace from '../routes/RouteTrace';
@@ -16,7 +16,7 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import {
   formatDistance, formatDuration, formatElevation, curvinessLabel,
 } from '../../utils/routeGeometry';
-import type { DrivingRoute } from '../../types/api';
+import { isPlottedRoute, type DrivingRoute } from '../../types/api';
 import { PILL_RADIUS } from '../../constants/radius';
 
 /**
@@ -139,7 +139,10 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
           {stats && (
             <View style={styles.metrics}>
               <Metric value={formatDistance(stats.distance_meters)} colors={colors} />
-              <Metric value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />
+              {/* A plotted route was never timed; it says so where the time would go. */}
+              {isPlottedRoute(route)
+                ? <Metric value="Plotted" colors={colors} Icon={PenLine} />
+                : <Metric value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />}
               {stats.elevation_gain > 0 && (
                 <Metric value={formatElevation(stats.elevation_gain)} colors={colors} Icon={Mountain} />
               )}

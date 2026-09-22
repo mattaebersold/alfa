@@ -24,6 +24,7 @@ import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTag
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
 import PostToSelector from '../../components/social/PostToSelector';
+import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '../../components/social/PollEditor';
 import { colors } from '../../constants/colors';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -155,6 +156,9 @@ export default function CreateScreen() {
   // Groups
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isPublic, setIsPublic]                 = useState(true);
+
+  // Poll — off until the author switches it on; the editor owns the shape.
+  const [poll, setPoll] = useState<PollDraft>(emptyPollDraft);
 
   // Tags (people, cars, events) — the search/autocomplete lives in PostTagPicker
   const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
@@ -323,8 +327,16 @@ export default function CreateScreen() {
 
   const handleSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    if (!title.trim() && !body.trim() && media.length === 0) {
-      Alert.alert('Content required', 'Please add a title, body, photo, or video.');
+    // A poll is content too — a question with its choices is a whole post.
+    if (!title.trim() && !body.trim() && media.length === 0 && !poll.enabled) {
+      Alert.alert('Content required', 'Please add a title, body, photo, video, or poll.');
+      return;
+    }
+    // Checked before anything uploads: a video takes a while to reach Mux, and
+    // learning the poll was one option short *after* that is the wrong order.
+    const pollInput = pollDraftToInput(poll);
+    if (pollInput.error) {
+      Alert.alert('Check the poll', pollInput.error);
       return;
     }
 
@@ -349,6 +361,9 @@ export default function CreateScreen() {
       fd.append('group_ids', JSON.stringify(selectedGroupIds));
       if (isPublic) fd.append('also_public', 'true');
     }
+
+    // One JSON field inside the multipart body — see PollInput.
+    if (pollInput.poll) fd.append('poll', JSON.stringify(pollInput.poll));
 
     // Videos go straight to Mux (never through our API). Each one is sent with
     // the position it occupies in the post's media, because Mux takes minutes to
@@ -453,7 +468,7 @@ export default function CreateScreen() {
       Alert.alert('Post failed', detail);
     }
   }, [
-    postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic,
+    postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
     taggedUsers, taggedCars, taggedEvents, media,
     createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav,
   ]);
@@ -601,6 +616,9 @@ export default function CreateScreen() {
             onToggle={toggleTag}
           />
         </View>
+
+        {/* ── Poll — optional, folded until switched on ── */}
+        <PollEditor draft={poll} onChange={setPoll} />
 
         {/* ── Post to ── */}
         <View style={[styles.postToCard, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>

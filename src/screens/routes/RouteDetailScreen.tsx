@@ -5,7 +5,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
-import { Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2 } from 'lucide-react-native';
+import { Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2, PenLine } from 'lucide-react-native';
 import RouteMap from '../../components/routes/RouteMap';
 import RouteMapFullScreen from '../../components/routes/RouteMapFullScreen';
 import VoteButton from '../../components/routes/VoteButton';
@@ -25,8 +25,9 @@ import {
   decodePolyline, formatDistance, formatDuration, formatSpeed, curvinessLabel,
 } from '../../utils/routeGeometry';
 import { openInMaps } from '../../utils/routeDirections';
+import { format } from 'date-fns';
 import type { RoutesStackParamList } from '../../navigation/types';
-import type { RoutePitStop } from '../../types/api';
+import { isPlottedRoute, type RoutePitStop } from '../../types/api';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
@@ -230,7 +231,24 @@ export default function RouteDetailScreen() {
         )}
         </View>
 
-        {stats && (
+        {/* A plotted route's grid has no timed cells — there was nothing to
+            time. In their place it says what it is, and when, if the member
+            said. The numbers a route is sorted on stay honest that way. */}
+        {stats && (isPlottedRoute(entry) ? (
+          <View style={[styles.statsGrid, { borderColor: colors.border }]}>
+            <GridStat label="Distance" value={formatDistance(stats.distance_meters)} colors={colors} />
+            <GridStat
+              label="Technical"
+              value={`${curvinessLabel(stats.curviness)} (${stats.curviness})`}
+              colors={colors}
+            />
+            <GridStat
+              label="Driven"
+              value={entry.driven_on ? format(new Date(entry.driven_on), 'MMM d, yyyy') : 'Plotted'}
+              colors={colors}
+            />
+          </View>
+        ) : (
           <View style={[styles.statsGrid, { borderColor: colors.border }]}>
             <GridStat label="Distance" value={formatDistance(stats.distance_meters)} colors={colors} />
             <GridStat label="Moving time" value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />
@@ -241,6 +259,15 @@ export default function RouteDetailScreen() {
               value={`${curvinessLabel(stats.curviness)} (${stats.curviness})`}
               colors={colors}
             />
+          </View>
+        ))}
+
+        {isPlottedRoute(entry) && (
+          <View style={styles.plottedNote}>
+            <PenLine size={13} color={colors.grey} />
+            <Text style={[styles.meta, { color: colors.grey, flex: 1 }]}>
+              Plotted on a map after the drive, not recorded live — the roads are right; there are no times or speeds.
+            </Text>
           </View>
         )}
 
@@ -522,6 +549,7 @@ const styles = StyleSheet.create({
   gridLabel: { fontSize: 11, marginTop: 2 },
 
   meta:        { fontSize: 13 },
+  plottedNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 16, paddingTop: 10 },
   directions:   { marginTop: 8 },
   groups:       { marginTop: 8 },
   // The banners inset themselves 8 for a feed card's edge; the body already

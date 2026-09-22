@@ -1,38 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Image, type ImageRef } from 'expo-image';
-import { imageUrl } from '../../utils/image';
+import { CONFIG } from '../../constants/config';
 import { spotTypeColor } from '../../constants/photoSpots';
 import type { PhotoSpot } from '../../types/api';
 
 /**
  * Photo spots, turned into markers the map can draw.
  *
- * ## Why the pin can't simply be a profile photo
- *
  * expo-maps takes markers as a *prop array*, not as children, so a marker can't
- * be a React view — there is nowhere to render an avatar, a ring and a tail into.
- * What each platform accepts is all it accepts:
+ * be a React view. What each platform accepts is all it accepts:
  *
  *   Apple Maps — `systemImage` (an SF Symbol) or `monogram` (1–2 characters),
  *                plus `tintColor`. No custom image of any kind.
- *   Google Maps — `icon`, a loaded image ref. A real picture, but the picture
- *                 as-is: the SDK draws it flat, so it can't be composited into
- *                 a pin shape here.
+ *   Google Maps — `icon`, a loaded image ref, drawn flat and at the image's
+ *                 own pixel size.
  *
- * So the owner's identity goes on the pin as far as each platform allows: their
- * initials on iOS, their actual avatar on Android, and the spot's type as the
- * colour on both. That asymmetry is the map library's, not a shortcut.
- *
- * Getting the same avatar pin on both platforms means either rendering the pin
- * server-side into a PNG (horacio already has sharp) — which still doesn't help
- * iOS, since Apple markers take no image — or moving this screen to
- * react-native-maps, whose `<Marker>` accepts arbitrary React children. That's
- * the only route to a true avatar pin on iOS, and it's a native dependency and
- * a rebuild, which is why it isn't taken here.
- *
- * Everything platform-specific about a pin lives in this file, so that swap is
- * a change to one module rather than to the screen.
+ * So on Android the pin is a picture made for the purpose: the server draws
+ * the owner's avatar into a teardrop (horacio services/avatarPin) and this
+ * loads that PNG as the icon. It used to load the raw profile photo, which
+ * the map pasted over itself at full size. iOS gets the owner's initials in a
+ * balloon, which is as close as Apple's markers come. The spot's type is the
+ * colour on both — the ring on the Android pin, the balloon tint on iOS.
  */
 
 /** Initials for the balloon: "matt aebersold" → "MA", "matt" → "MA". */
@@ -45,9 +34,16 @@ function monogramFor(username?: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function avatarUrlFor(spot: PhotoSpot): string | null {
-  const filename = spot.user?.profile?.[0] ?? spot.user?.gallery?.[0]?.filename;
-  return filename ? imageUrl(filename) : null;
+/**
+ * The rendered pin for a spot's owner. Always a URL, even with no avatar —
+ * the server draws a plain-headed pin then, and it should still be a pin.
+ * The type colour is in the URL so the ring matches, and a changed photo is
+ * a changed URL, so there's no cache here to invalidate.
+ */
+function pinUrlFor(spot: PhotoSpot): string {
+  const filename = spot.user?.profile?.[0] ?? spot.user?.gallery?.[0]?.filename ?? '';
+  const ring = spotTypeColor(spot.type).replace('#', '');
+  return `${CONFIG.API_BASE_URL}/api/photospot/pin.png?avatar=${encodeURIComponent(filename)}&ring=${ring}`;
 }
 
 export interface SpotMarker {
@@ -61,18 +57,16 @@ export interface SpotMarker {
 }
 
 /**
- * Avatar images, loaded once per URL and kept.
+ * Pin images, loaded once per URL and kept.
  *
- * Android only — nothing on iOS can use them. Keyed by URL rather than by user
- * so a member who changes their photo gets the new one without a cache to
- * invalidate, and held in a ref so panning the map doesn't re-download a pin
- * that's already been drawn once.
+ * Android only — nothing on iOS can use them. Held in a ref so panning the
+ * map doesn't re-download a pin that's already been drawn once.
  */
-function useAvatarIcons(spots: PhotoSpot[]): Record<string, ImageRef> {
+function usePinIcons(spots: PhotoSpot[]): Record<string, ImageRef> {
   const cache = useRef<Record<string, ImageRef>>({});
   const [, bump] = useState(0);
 
-  const urls = spots.map(avatarUrlFor).filter((u): u is string => !!u);
+  const urls = spots.map(pinUrlFor);
   const key = urls.join('|');
 
   useEffect(() => {
@@ -107,7 +101,7 @@ function useAvatarIcons(spots: PhotoSpot[]): Record<string, ImageRef> {
 }
 
 export function useSpotMarkers(spots: PhotoSpot[]): SpotMarker[] {
-  const icons = useAvatarIcons(spots);
+  const icons = usePinIcons(Platform.OS === 'ios' ? [] : spots);
 
   return spots
     .filter((spot) => Number.isFinite(spot.lat) && Number.isFinite(spot.lng))
@@ -125,8 +119,8 @@ export function useSpotMarkers(spots: PhotoSpot[]): SpotMarker[] {
         return { ...base, monogram: monogramFor(spot.user?.username) };
       }
 
-      const url = avatarUrlFor(spot);
-      const icon = url ? icons[url] : undefined;
+      // Until the pin image has loaded the marker is a stock pin, briefly.
+      const icon = icons[pinUrlFor(spot)];
       return icon ? { ...base, icon } : base;
     });
 }

@@ -38,8 +38,16 @@ interface RouteMapProps {
    * segments — red where the drive was slowest, green where it was fastest.
    */
   speeds?: number[];
-  /** Pit stops, rendered as pins. */
-  markers?: { lat: number; lng: number; label?: string }[];
+  /**
+   * Pins. Pit stops, mostly; the plotting screen puts its waypoints here too,
+   * with an `id` so a tap on one can be told apart, and an SF Symbol and tint
+   * for iOS, which is the only platform expo-maps lets colour a pin on.
+   */
+  markers?: { lat: number; lng: number; label?: string; id?: string; systemImage?: string; tintColor?: string }[];
+  /** A tap on the map itself — not on a pin. Where it landed. */
+  onMapClick?: (point: LatLng) => void;
+  /** A tap on a pin, by its `id`. */
+  onMarkerClick?: (id: string) => void;
   /**
    * Drop pins on the first and last point of the path.
    *
@@ -70,6 +78,8 @@ export default function RouteMap({
   showsUserLocation = false,
   followsUser = false,
   showEndpoints,
+  onMapClick,
+  onMarkerClick,
   style,
 }: RouteMapProps) {
   /**
@@ -184,15 +194,29 @@ export default function RouteMap({
       ...(markers ?? [])
         .filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng))
         .map((m, i) => ({
-          id: `stop-${i}`,
+          id: m.id ?? `stop-${i}`,
           coordinates: { latitude: m.lat, longitude: m.lng },
           title: m.label || 'Pit stop',
+          ...(Platform.OS === 'ios' && m.systemImage ? { systemImage: m.systemImage, tintColor: m.tintColor } : {}),
         })),
       // Last, so a pit stop dropped on the start line doesn't bury it.
       ...endpoints,
     ],
     [markers, endpoints],
   );
+
+  // The same two handlers on both maps; each reports its coordinates the same way.
+  const tapProps = {
+    onMapClick: onMapClick
+      ? (e: { coordinates?: { latitude?: number; longitude?: number } }) => {
+          const { latitude, longitude } = e.coordinates ?? {};
+          if (typeof latitude === 'number' && typeof longitude === 'number') onMapClick({ lat: latitude, lng: longitude });
+        }
+      : undefined,
+    onMarkerClick: onMarkerClick
+      ? (e: { id?: string }) => { if (e.id) onMarkerClick(e.id); }
+      : undefined,
+  };
 
   if (Platform.OS === 'ios') {
     return (
@@ -202,6 +226,7 @@ export default function RouteMap({
         cameraPosition={cameraPosition}
         polylines={polylines}
         markers={mapMarkers}
+        {...tapProps}
         properties={{ isMyLocationEnabled: showsUserLocation }}
         uiSettings={{ myLocationButtonEnabled: showsUserLocation }}
       />
@@ -216,6 +241,7 @@ export default function RouteMap({
       cameraPosition={cameraPosition}
       polylines={polylines}
       markers={mapMarkers}
+      {...tapProps}
       properties={{ isMyLocationEnabled: showsUserLocation }}
       userLocation={
         target && followsUser

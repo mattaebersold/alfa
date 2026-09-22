@@ -1,13 +1,15 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { MapPin, Clock, ShieldAlert, Navigation, Camera } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { MapPin, Clock, ShieldAlert, Navigation, Camera, Pencil, Trash2 } from 'lucide-react-native';
 import SummaryModal from '../ui/SummaryModal';
 import SpotContextRow from './SpotContextRow';
 import { useColors } from '../../hooks/useColors';
-import { useGetPhotoSpotQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
+import { useGetPhotoSpotQuery, useDeletePhotoSpotMutation } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
 import { spotTypeLabel, spotCategoryLabel, spotTypeColor } from '../../constants/photoSpots';
 
@@ -27,7 +29,38 @@ export default function PhotoSpotSummaryModal({ spotId, onClose }: {
   onClose: () => void;
 }) {
   const colors = useColors();
+  const nav = useNavigation<any>();
   const { data: spot } = useGetPhotoSpotQuery(spotId as string, { skip: !spotId });
+  const me = useAppSelector((s) => s.auth.userInfo);
+  const isOwner = !!spot && !!me?.user_id && (spot.user_id === me.user_id || me.accountType === 'admin');
+  const [deleteSpot, { isLoading: deleting }] = useDeletePhotoSpotMutation();
+
+  /** Your own pin: change it, or take it off the map. */
+  const edit = () => {
+    if (!spot) return;
+    onClose();
+    // After the summary has gone — iOS won't present a modal over one that's
+    // still dismissing.
+    setTimeout(() => nav.navigate('PhotoSpotCreate', { spotId: spot.internal_id }), 350);
+  };
+  const remove = () => {
+    if (!spot) return;
+    Alert.alert('Remove this spot?', `"${spot.title}" comes off the map for everyone. This can't be undone.`, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteSpot(spot.internal_id).unwrap();
+            onClose();
+          } catch (err: any) {
+            Alert.alert("Couldn't remove it", err?.data?.error ?? 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   const gallery = spot?.gallery ?? [];
   const avatarUrl = imageUrl(spot?.user?.profile?.[0] ?? spot?.user?.gallery?.[0]?.filename);
@@ -140,6 +173,35 @@ export default function PhotoSpotSummaryModal({ spotId, onClose }: {
               post uses, reading the same generic Tag records. */}
           <SpotContextRow spotId={spot.internal_id} />
 
+          {/* The owner's controls, at the foot where they don't compete with
+              the spot itself. Edit reopens the pin form filled in; Remove asks
+              first, since a spot is a place other people may have saved. */}
+          {isOwner && (
+            <View style={[styles.ownerRow, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.ownerBtn, { borderColor: colors.border }]}
+                onPress={edit}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Edit this spot"
+              >
+                <Pencil size={14} color={colors.fg} />
+                <Text style={[styles.ownerBtnText, { color: colors.fg }]}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ownerBtn, { borderColor: colors.border }, deleting && { opacity: 0.5 }]}
+                onPress={remove}
+                disabled={deleting}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Remove this spot"
+              >
+                <Trash2 size={14} color="#E23B3B" />
+                <Text style={[styles.ownerBtnText, { color: '#E23B3B' }]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.coords}>
             <Navigation size={11} color={colors.grey} />
             <Text style={[styles.coordsText, { color: colors.grey }]}>
@@ -165,6 +227,15 @@ function Row({ Icon, text, color, fg }: {
 
 const styles = StyleSheet.create({
   loading: { paddingVertical: 40, alignItems: 'center' },
+  ownerRow: {
+    flexDirection: 'row', gap: 8, marginTop: 14, paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  ownerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1,
+  },
+  ownerBtnText: { fontSize: 13, fontWeight: '700' },
   livery:  { height: 4, borderRadius: 2, marginBottom: 14 },
   body:    { gap: 8 },
 

@@ -1,12 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
 import { Lock } from 'lucide-react-native';
+import ListPreviewMosaic from './ListPreviewMosaic';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
-import { firstGalleryUrl } from '../../utils/image';
 import type { List } from '../../types/api';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+
+/**
+ * Shorter than the shelf card's preview: this card is full width, so at 104
+ * the hero tile would be a letterbox, and a pane of these is a scroll, not a
+ * glance — each one needs to give way to the next sooner.
+ */
+const PREVIEW_HEIGHT = 96;
 
 interface Props {
   list: List;
@@ -17,20 +23,27 @@ interface Props {
   onPress: (list: List, origin: SummaryOrigin | null) => void;
 }
 
+/**
+ * A list in a vertical stack — the profile's "View all" pane.
+ *
+ * Preview on top, words beneath, the same order as the shelf card, so a list
+ * looks like the same list whether you meet it sideways or in the full pane.
+ */
 export default function ListCard({ list, onPress }: Props) {
   const colors = useColors();
-  const coverUri = firstGalleryUrl(list.gallery);
+  // The server sends a count with the summary; a payload that carries the
+  // items but not the number still knows how many it has.
+  const count = list.item_count ?? (list.items ?? []).filter((i) => !i.deleted).length;
 
   return (
     <SummaryTouchable
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={(origin) => onPress(list, origin)}
       activeOpacity={0.8}
-      accessibilityLabel={list.title}
+      accessibilityLabel={`${list.title}, ${count} item${count === 1 ? '' : 's'}`}
     >
-      {coverUri && (
-        <Image source={{ uri: coverUri }} style={styles.cover} contentFit="cover" />
-      )}
+      {/* What's on it, not just what's on the front of it — see ListPreviewMosaic. */}
+      <ListPreviewMosaic list={list} height={PREVIEW_HEIGHT} />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
@@ -40,7 +53,7 @@ export default function ListCard({ list, onPress }: Props) {
         </View>
         <View style={styles.meta}>
           <Text style={[styles.count, { color: colors.grey }]}>
-            {list.item_count ?? 0} item{(list.item_count ?? 0) === 1 ? '' : 's'}
+            {count} item{count === 1 ? '' : 's'}
           </Text>
           {/* Only ever sent to the author — nobody else receives a draft. */}
           {list.status === 'draft' ? (
@@ -61,19 +74,12 @@ export default function ListCard({ list, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
     borderRadius: COMMON_RADIUS,
     borderWidth: 1,
-    marginBottom: 8,
+    marginBottom: 10,
     overflow: 'hidden',
   },
-  cover: {
-    width: 56,
-    height: 56,
-  },
   body: {
-    flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },

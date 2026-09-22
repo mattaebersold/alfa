@@ -1,22 +1,40 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, type LayoutChangeEvent } from 'react-native';
 import { Check, Globe, Users } from 'lucide-react-native';
+import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS } from '../../constants/radius';
 
 export interface PostToGroup { internal_id: string; title?: string }
+
+const CARD_GAP = 8;
+/**
+ * A card's share of the row it sits in — the same proportion the "My Groups"
+ * shelf on GroupsScreen uses: a little over two fit, and the part of the
+ * third that shows is what says the row goes on. Measured off the row's own
+ * width rather than the screen's, because the hosts wrap this in cards with
+ * different paddings, and a fixed fraction of the screen inside the narrowest
+ * of them left the third card with nothing to peek with.
+ */
+const CARD_FRACTION = 0.42;
+/** Before the first layout has reported a width. */
+const FALLBACK_WIDTH = Math.round(Dimensions.get('window').width * CARD_FRACTION);
+/** One height for every card, so a long group name doesn't make its card taller. */
+const CARD_HEIGHT = 96;
 
 /**
  * Where a post goes: the public feed, a group, or both.
  *
- * Tiles rather than a list of checkbox rows. These are destinations you pick
- * between, and a stack of rows made the choice look like a settings screen —
- * you read it top to bottom instead of seeing your options at once. Two to a
- * row is what fits a group's name without truncating most of them.
+ * A row of cards you scroll sideways, the next one peeking in from the right.
+ * It was a two-up grid, which grew a row for every pair of groups — a member
+ * of eight groups scrolled past a wall of tiles to reach the Post button. The
+ * row takes one line of the form however many groups there are, and matches
+ * the shelves elsewhere in the app (ListShelf, RouteStrip, GroupsScreen).
  *
- * Selection is carried by the whole tile — brand border, tinted ground and a
- * filled check — rather than by a small box on the left, so a glance tells you
- * where this is going.
+ * Public stays first: it's the default, and the one every post is deciding
+ * for or against. Selection is carried by the whole card — brand border,
+ * tinted ground and a filled check — as it was on the tiles.
  */
 export default function PostToSelector({
   isPublic,
@@ -33,8 +51,11 @@ export default function PostToSelector({
 }) {
   const colors = useColors();
   const brand = useBrandColor();
+  const [rowWidth, setRowWidth] = useState(0);
+  const cardWidth = rowWidth > 0 ? Math.round(rowWidth * CARD_FRACTION) : FALLBACK_WIDTH;
+  const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width);
 
-  const tile = (
+  const card = (
     key: string,
     label: string,
     Icon: typeof Globe,
@@ -44,8 +65,8 @@ export default function PostToSelector({
     <TouchableOpacity
       key={key}
       style={[
-        styles.tile,
-        { backgroundColor: colors.inputBg, borderColor: colors.inputBorder },
+        styles.card,
+        { width: cardWidth, backgroundColor: colors.inputBg, borderColor: colors.inputBorder },
         active && { borderColor: brand, backgroundColor: brand + '1F' },
       ]}
       onPress={onPress}
@@ -54,7 +75,7 @@ export default function PostToSelector({
       accessibilityState={{ checked: active }}
       accessibilityLabel={label}
     >
-      <View style={styles.tileTop}>
+      <View style={styles.cardTop}>
         <Icon size={18} color={active ? brand : colors.grey} />
         <View style={[
           styles.check,
@@ -65,7 +86,7 @@ export default function PostToSelector({
         </View>
       </View>
       <Text
-        style={[styles.tileLabel, { color: active ? colors.fg : colors.muted }]}
+        style={[styles.cardLabel, { color: active ? colors.fg : colors.muted }]}
         numberOfLines={2}
       >
         {label}
@@ -74,37 +95,43 @@ export default function PostToSelector({
   );
 
   return (
-    <View style={styles.grid}>
-      {tile('__public', 'Post publicly', Globe, isPublic, onTogglePublic)}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      // Card by card, so the peek stays put wherever the row is left.
+      snapToInterval={cardWidth + CARD_GAP}
+      snapToAlignment="start"
+      decelerationRate="fast"
+      keyboardShouldPersistTaps="handled"
+      onLayout={onLayout}
+    >
+      {card('__public', 'Post publicly', Globe, isPublic, onTogglePublic)}
       {groups.map((g) =>
-        tile(
+        card(
           g.internal_id,
           g.title ?? 'Group',
           Users,
           selectedGroupIds.includes(g.internal_id),
           () => onToggleGroup(g.internal_id),
         ))}
-      {/* An odd number of tiles would otherwise stretch the last one across
-          the row. */}
-      {(groups.length + 1) % 2 === 1 && <View style={styles.spacer} />}
-    </View>
+      <RowEndSpacer width={CARD_GAP} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  grid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: {
-    // Two per row, with the gap between them taken off each.
-    width: '47.8%', flexGrow: 1,
-    borderRadius: 12, borderWidth: 1.5,
+  row: { gap: CARD_GAP },
+  card: {
+    height: CARD_HEIGHT,
+    borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     paddingHorizontal: 12, paddingVertical: 12,
-    gap: 10,
+    justifyContent: 'space-between',
   },
-  spacer: { width: '47.8%', flexGrow: 1 },
-  tileTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   check: {
     width: 20, height: 20, borderRadius: 6, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  tileLabel: { fontSize: 13.5, fontWeight: '700', lineHeight: 18 },
+  cardLabel: { fontSize: 13.5, fontWeight: '700', lineHeight: 18 },
 });

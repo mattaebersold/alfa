@@ -4,8 +4,8 @@
  */
 import { calendarDate } from '../utils/calendarDate';
 
-// One hex per category, used by the card's header bar and the calendar dots so
-// a colour means the same thing in both places. Kept deliberately distinct and
+// One hex per category, used by the card's category pill and the calendar dots
+// so a colour means the same thing in both places. Kept deliberately distinct and
 // light enough for black text. Mirrored in murray's helpers/eventHelpers.js —
 // change both together.
 export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] = [
@@ -23,6 +23,24 @@ export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] =
  * Mirrored in murray's helpers/eventHelpers.js — change both together.
  */
 export const ORS_EVENT_COLOR = '#CDA96F';
+
+/**
+ * Bounds on an event card's photo, which otherwise takes the photo's own shape.
+ *
+ * The floor sits just past a Letter or A4 flyer (0.77 and 0.71) so a poster —
+ * the commonest event art — shows whole, while a 9:16 phone portrait gives up
+ * its top and bottom tenth rather than making one card two-thirds of a screen.
+ * The ceiling is a cinematic 2:1: wider than any camera's default, so it only
+ * catches a panorama before it becomes a letter slot with nothing to read in it.
+ *
+ * Shared by every event and rally card so a photo is the same shape wherever
+ * it appears.
+ */
+export const EVENT_CARD_MIN_RATIO = 0.7;
+export const EVENT_CARD_MAX_RATIO = 2;
+
+export const clampCardRatio = (ratio: number) =>
+  Math.min(Math.max(ratio, EVENT_CARD_MIN_RATIO), EVENT_CARD_MAX_RATIO);
 
 export const categoryFor = (key?: string) =>
   EVENT_CATEGORIES.find((c) => c.key === key) ?? EVENT_CATEGORIES[EVENT_CATEGORIES.length - 1];
