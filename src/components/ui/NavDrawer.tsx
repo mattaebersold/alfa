@@ -1,9 +1,8 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
-  Pressable, Linking, Animated, Dimensions, Platform, Alert,
+  Linking, Dimensions, Platform, Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import {
@@ -13,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LogOut } from 'lucide-react-native';
 import Avatar from './Avatar';
+import GrowPanel, { type GrowOrigin } from './GrowPanel';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
 import { useMarketplaceUnread } from '../marketplace/MarketplaceUnreadBadge';
@@ -47,13 +47,18 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
  * open. Full width also means the tiles can be sized from the real screen
  * rather than from a cap that stopped matching phones years ago.
  */
-const PANEL_WIDTH = Dimensions.get('window').width;
+/**
+ * The panel is nine tenths of the screen now, not all of it — the tiles are
+ * sized off that, or the pair overflows the row and wraps to one per line.
+ */
+/** How much of the screen the open panel takes; the content scrolls inside. */
+const PANEL_RATIO = 0.9;
+const PANEL_WIDTH = Dimensions.get('window').width * PANEL_RATIO;
 /**
  * Half the row, minus the 8px gutter — and a pixel of slack, so a rounding
  * error can't overflow the row and wrap the tiles to one per line.
  */
 const TILE_WIDTH = Math.floor((PANEL_WIDTH - 32 - 8) / 2) - 1;
-const SLIDE_DURATION = 220;
 
 /**
  * Your Events is parked, not removed.
@@ -87,8 +92,7 @@ const SHOW_SHOP = true;
  * reading as a flat black box.
  */
 const PRO_GOLD  = colors.pro;
-const PANEL_BG  = 'rgba(18,18,18,0.985)';
-const BACKDROP  = 'rgba(0,0,0,0.88)';
+const PANEL_BG  = '#000000';
 const TEXT_HI   = '#FFFFFF';
 const TEXT_MID  = 'rgba(255,255,255,0.6)';
 const TEXT_FAINT= 'rgba(255,255,255,0.45)';
@@ -181,11 +185,17 @@ function InboxPill({ label, Icon, count, onPress }: {
 interface NavDrawerProps {
   visible: boolean;
   onClose: () => void;
+  /**
+   * Where the menu button sits on screen, measured at press time — the panel
+   * grows out of that rectangle, the way the notifications bell's does.
+   */
+  origin?: GrowOrigin | null;
 }
+/** The menu button's corner radius, which the growing box starts from. */
+const BTN_RADIUS = 14;
 
-export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
+export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) {
   const navigation = useNavigation<NavProp>();
-  const insets = useSafeAreaInsets();
   // Measured rather than assumed: the header carries the status-bar inset on
   // top of its own row, and the list has to start below whatever that adds up
   // to on this device.
@@ -224,59 +234,16 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const [carFormOpen, setCarFormOpen] = useState(false);
   const { openEventSheet } = useEventSheet();
 
-  const translateX = useRef(new Animated.Value(PANEL_WIDTH)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-
-  // Any navigation is deferred until the drawer has fully closed. Firing it
-  // mid-animation is what made the next screen's transition collide with the
-  // drawer's, showing hard-edged overlays sliding past each other.
-  const pendingNav = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: 0,
-          duration: SLIDE_DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayOpacity, {
-          toValue: 1,
-          duration: SLIDE_DURATION,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleClose = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(translateX, {
-        toValue: PANEL_WIDTH,
-        duration: SLIDE_DURATION,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: SLIDE_DURATION,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      translateX.setValue(PANEL_WIDTH);
-      overlayOpacity.setValue(0);
-      onClose();
-
-      const go = pendingNav.current;
-      pendingNav.current = null;
-      go?.();
-    });
-  }, [onClose, translateX, overlayOpacity]);
-
+  /**
+   * Set by GrowPanel once mounted — the panel owns the open/close animation
+   * and hands this in, so every "leave the menu" path below goes through the
+   * same collapse-then-go. Held in a ref so the callbacks defined here (which
+   * are created before the panel renders) can reach it.
+   */
+  const leave = useRef<(run?: () => void) => void>(() => onClose());
   /** Close first, then navigate once the drawer is off-screen. */
-  const closeThen = useCallback((go: () => void) => {
-    pendingNav.current = go;
-    handleClose();
-  }, [handleClose]);
+  const closeThen = useCallback((go: () => void) => leave.current(go), []);
+  const handleClose = useCallback(() => leave.current(), []);
 
   /**
    * Confirmed, because the control is now an icon rather than a labelled
@@ -304,30 +271,17 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
   const displayName = userInfo?.username ?? '';
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        {/* Blurred, dimmed backdrop that fades with the panel. It runs the full
-            width, so the translucent panel reads as glass over it. */}
-        <Animated.View
-          style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
-          pointerEvents="none"
-        >
-          <BlurView tint="dark" intensity={40} style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: BACKDROP }]} />
-        </Animated.View>
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-
-        <Animated.View style={[styles.panel, { transform: [{ translateX }] }]}>
-          {/* No insets on the wrapper any more — they belong to the scroll
-              content, so the list runs the full height of the panel and pads
-              itself clear of the notch and the home indicator. */}
+    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={PANEL_BG}>
+      {({ closeThen: panelClose }) => {
+        leave.current = panelClose;
+        return (
+          <>
           <View style={ss.fill}>
-
             <ScrollView
               style={styles.scroll}
               contentContainerStyle={[
                 styles.scrollContent,
-                { paddingTop: headerH + 10, paddingBottom: insets.bottom + 24 },
+                { paddingTop: headerH + 10, paddingBottom: 24 },
               ]}
               showsVerticalScrollIndicator={false}
             >
@@ -654,18 +608,19 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
             {/* Header. Rendered after the list so it paints on top of it: an
                 iOS blur samples whatever is beneath it in the hierarchy, which
                 is what lets the tiles show through as they pass under. */}
+            {/* Inside an inset panel now, so no status-bar inset of its own —
+                the panel's top edge already clears it. */}
             <View
-              style={[styles.panelHeader, { paddingTop: insets.top + 14 }]}
+              style={[styles.panelHeader, { paddingTop: 14 }]}
               onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
             >
-              <BlurView
-                tint="dark"
-                intensity={55}
-                // Android has no real backdrop blur without this; without it
-                // expo-blur degrades to a flat scrim and nothing shows through.
-                blurMethod="dimezisBlurView"
-                style={StyleSheet.absoluteFill}
-              />
+              {/* iOS only. Android's blur needs a `blurTarget` this bar
+                  can't sensibly give it, and without one expo-blur logs a
+                  warning on every render and draws nothing — the tint below
+                  does the job there on its own. */}
+              {Platform.OS === 'ios' && (
+                <BlurView tint="dark" intensity={55} style={StyleSheet.absoluteFill} />
+              )}
               {/* Enough tint to keep the logo and icons legible over whatever
                   tile happens to be sliding under them, and no more. */}
               <View style={[StyleSheet.absoluteFill, styles.panelHeaderTint]} />
@@ -712,10 +667,14 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
             </View>
 
           </View>
-        </Animated.View>
-      </View>
 
-      <ProUpsellModal
+          {/* Sheets that open over the menu. Rendered in here, inside
+              GrowPanel's own Modal, on purpose: on iOS a Modal is presented
+              by the nearest presented controller above it, so a sibling
+              outside the panel would be asked of the root — which is busy
+              showing the panel — and never appear. Inside, each stacks on
+              top, the same way the setup card's photo and bio sheets do. */}
+          <ProUpsellModal
         visible={proOpen}
         onClose={() => setProOpen(false)}
         title="Open Road Society Pro"
@@ -746,20 +705,16 @@ export default function NavDrawer({ visible, onClose }: NavDrawerProps) {
           closeThen(() => openEventSheet({ eventId: event.internal_id }));
         }}
       />
-    </Modal>
+          </>
+        );
+      }}
+    </GrowPanel>
   );
 }
 
 const styles = StyleSheet.create({
-  // Backdrop colour now lives on the animated layer above, so this is bare.
-  overlay:    { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
-  panel:      {
-    width: PANEL_WIDTH, height: '100%',
-    backgroundColor: PANEL_BG,
-    // No left border: at full width there's nothing beside it for an edge to
-    // separate it from. The shadow stays — it's what the panel travels on.
-    shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20,
-  },
+  // The panel's box, backdrop and fade are GrowPanel's; only what's drawn
+  // inside the panel is styled here.
   panelHeader: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
     // One line: the mark, the wordmark, and the X.
@@ -770,7 +725,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DIVIDER,
   },
-  panelHeaderTint: { backgroundColor: 'rgba(18,18,18,0.62)' },
+  panelHeaderTint: { backgroundColor: 'rgba(0,0,0,0.62)' },
   titleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },

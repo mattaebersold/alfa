@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, forwardRef } from 'react';
 import {
   View, TextInput, TouchableOpacity, Text, StyleSheet,
 } from 'react-native';
@@ -30,13 +30,24 @@ interface MentionInputProps {
    * where a correction would be wrong (a handle, a URL, a part number).
    */
   disableSuggestions?: boolean;
+  /**
+   * Fill the space the field is given instead of sizing to its text.
+   *
+   * The composer's focused panel hands the field the whole top half of the
+   * screen, so growing to fit the content — the default, which is right for a
+   * one-line bar — would shrink it back to a line. In this mode the suggestion
+   * dropdown also anchors to the field's *bottom* edge, inside it: above the
+   * field there is nothing but the panel's header and the status bar.
+   */
+  fill?: boolean;
+  maxLength?: number;
 }
 
 /** How many of each kind the dropdown shows before it stops. */
 const MAX_USERS = 4;
 const MAX_CARS = 4;
 
-export default function MentionInput({
+const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionInput({
   value,
   onChangeText,
   placeholder,
@@ -48,7 +59,9 @@ export default function MentionInput({
   onFocus,
   onBlur,
   disableSuggestions = false,
-}: MentionInputProps) {
+  fill = false,
+  maxLength,
+}, ref) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
@@ -106,9 +119,13 @@ export default function MentionInput({
   }, [value, onChangeText]);
 
   return (
-    <View style={[styles.wrapper, containerStyle]}>
+    <View style={[styles.wrapper, fill && styles.wrapperFill, containerStyle]}>
       {mentionQuery !== null && hasResults && (
-        <View style={[styles.dropdown, { backgroundColor: c.card, borderColor: c.border }]}>
+        <View style={[
+          styles.dropdown,
+          fill ? styles.dropdownInside : styles.dropdownAbove,
+          { backgroundColor: c.card, borderColor: c.border },
+        ]}>
           {/* Rendered with map() rather than a FlatList: this input often lives
               inside a ScrollView, and a nested VirtualizedList warns/breaks. The
               suggestion list is tiny (≤8), so a plain map is the right tool. */}
@@ -155,14 +172,16 @@ export default function MentionInput({
         </View>
       )}
       <TextInput
+        ref={ref}
         value={value}
         onChangeText={handleChangeText}
         placeholder={placeholder}
         placeholderTextColor={placeholderTextColor}
-        style={[style, multiline && contentHeight ? { height: contentHeight } : null]}
+        style={[style, multiline && !fill && contentHeight ? { height: contentHeight } : null]}
         multiline={multiline}
+        maxLength={maxLength}
         onContentSizeChange={
-          multiline ? (e) => setContentHeight(e.nativeEvent.contentSize.height) : undefined
+          multiline && !fill ? (e) => setContentHeight(e.nativeEvent.contentSize.height) : undefined
         }
         onFocus={onFocus}
         onBlur={onBlur}
@@ -177,13 +196,15 @@ export default function MentionInput({
       />
     </View>
   );
-}
+});
+
+export default MentionInput;
 
 const styles = StyleSheet.create({
-  wrapper:    { position: 'relative' },
+  wrapper:     { position: 'relative' },
+  wrapperFill: { flex: 1 },
   dropdown:   {
     position: 'absolute',
-    bottom: '100%',
     left: 0,
     right: 0,
     borderWidth: 1,
@@ -191,8 +212,10 @@ const styles = StyleSheet.create({
     maxHeight: 280,
     zIndex: 999,
     overflow: 'hidden',
-    marginBottom: 4,
   },
+  dropdownAbove:  { bottom: '100%', marginBottom: 4 },
+  // Over the lower part of a tall field: the text being typed is at its top.
+  dropdownInside: { bottom: 0 },
   resultRow:  {
     flexDirection: 'row',
     alignItems: 'center',

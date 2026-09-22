@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform,
   Alert, ActivityIndicator, type LayoutChangeEvent,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
 import * as Location from 'expo-location';
 import { Crosshair, Lock } from 'lucide-react-native';
@@ -16,7 +16,7 @@ import {
   useCreatePhotoSpotMutation, useGetPhotoSpotUsageQuery, useSyncPostTagsMutation,
 } from '../../api/apiService';
 import {
-  PHOTO_SPOT_TYPES, PHOTO_SPOT_CATEGORIES, spotTypeColor,
+  spotTypeColor,
 } from '../../constants/photoSpots';
 import { COMMON_RADIUS } from '../../constants/radius';
 
@@ -49,22 +49,29 @@ export default function PhotoSpotCreateScreen() {
   const colors = useColors();
   const brand = useBrandColor();
   const nav = useNavigation<any>();
+  // The point the member held the map at, when that's how they got here.
+  const dropped = (useRoute().params as { lat?: number; lng?: number } | undefined) ?? undefined;
+  const droppedPoint = Number.isFinite(dropped?.lat) && Number.isFinite(dropped?.lng)
+    ? { lat: dropped!.lat!, lng: dropped!.lng! }
+    : null;
 
   const { data: usage, isLoading: usageLoading } = useGetPhotoSpotUsageQuery();
   const [createSpot, { isLoading: saving }] = useCreatePhotoSpotMutation();
   const [syncTags] = useSyncPostTagsMutation();
 
-  const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [camera, setCamera] = useState(DEFAULT_CAMERA);
+  // A held-map pin arrives placed, with the map already on it. It's the spot
+  // they chose; asking the GPS where they are would move it somewhere else.
+  const [point, setPoint] = useState<{ lat: number; lng: number } | null>(droppedPoint);
+  const [camera, setCamera] = useState(
+    droppedPoint
+      ? { coordinates: { latitude: droppedPoint.lat, longitude: droppedPoint.lng }, zoom: 16 }
+      : DEFAULT_CAMERA,
+  );
   const [locating, setLocating] = useState(false);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [location, setLocation] = useState('');
-  const [bestTime, setBestTime] = useState('');
-  const [accessNote, setAccessNote] = useState('');
-  const [type, setType] = useState<string | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
   const [photos, setPhotos] = useState<EditorImage[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
 
@@ -132,10 +139,6 @@ export default function PhotoSpotCreateScreen() {
     fd.append('title', title.trim());
     fd.append('body', body.trim());
     fd.append('location', location.trim());
-    fd.append('best_time', bestTime.trim());
-    fd.append('access_note', accessNote.trim());
-    if (type) fd.append('type', type);
-    if (category) fd.append('category', category);
 
     // Only the newly picked ones carry a file. A create has nothing else in
     // it, but the editor's type allows both and narrowing here is what keeps
@@ -214,7 +217,7 @@ export default function PhotoSpotCreateScreen() {
           id: 'new',
           coordinates: { latitude: point.lat, longitude: point.lng },
           title: title || 'New spot',
-          tintColor: spotTypeColor(type),
+          tintColor: spotTypeColor(undefined),
         }]
       : [],
   };
@@ -250,7 +253,7 @@ export default function PhotoSpotCreateScreen() {
         </View>
       </View>
 
-      <Field label="Name" value={title} onChange={setTitle} placeholder="Fourth floor, north ramp" />
+      <Field label="Name" value={title} onChange={setTitle} />
       <View style={styles.section}>
         <Text style={[styles.label, { color: colors.fg }]}>
           Where is it<Text style={{ color: colors.grey, fontWeight: '400' }}> (optional)</Text>
@@ -264,7 +267,6 @@ export default function PhotoSpotCreateScreen() {
           value={location}
           onChangeText={setLocation}
           near={point}
-          placeholder="Rose Quarter garage"
           onPlacePicked={(place) => {
             if (place.lat == null || place.lng == null) return;
             setPoint({ lat: place.lat, lng: place.lng });
@@ -277,18 +279,11 @@ export default function PhotoSpotCreateScreen() {
         />
       </View>
 
-      <Picker label="What is it" options={PHOTO_SPOT_TYPES} value={type} onChange={setType} colored />
-      <Picker label="Good for" options={PHOTO_SPOT_CATEGORIES} value={category} onChange={setCategory} />
-
-      <Field label="Notes" value={body} onChange={setBody} placeholder="What makes it worth the trip" multiline optional />
-      <Field label="Best time" value={bestTime} onChange={setBestTime} placeholder="An hour before sunset" optional />
-      <Field
-        label="Getting in"
-        value={accessNote}
-        onChange={setAccessNote}
-        placeholder="Gate's locked after 8. Fine on a Sunday."
-        optional
-      />
+      {/* Just a name, a place and a note. Type, category, best time and
+          access notes came out: six questions in front of "drop a pin" was
+          why so few pins got dropped. The fields still exist on the server,
+          and a spot that has them still shows them. */}
+      <Field label="Notes" value={body} onChange={setBody} multiline optional />
 
       <View style={styles.section}>
         <Text style={[styles.label, { color: colors.fg }]}>Photos from here</Text>
@@ -349,50 +344,6 @@ function Field({ label, value, onChange, placeholder, multiline, optional }: {
     </View>
   );
 }
-
-function Picker({ label, options, value, onChange, colored }: {
-  label: string;
-  options: { key: string; label: string; color?: string }[];
-  value: string | null;
-  onChange: (v: string | null) => void;
-  colored?: boolean;
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.section}>
-      <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
-      <View style={styles.options}>
-        {options.map((o) => {
-          const on = value === o.key;
-          const tint = colored ? (o.color ?? colors.grey) : brandNeutral;
-          return (
-            <TouchableOpacity
-              key={o.key}
-              // Tapping the chosen one clears it: these are optional, and
-              // there's otherwise no way back to "unset" once you've picked.
-              onPress={() => onChange(on ? null : o.key)}
-              activeOpacity={0.8}
-              style={[
-                styles.option,
-                {
-                  borderColor: on ? tint : colors.border,
-                  backgroundColor: on ? tint : 'transparent',
-                },
-              ]}
-            >
-              <Text style={[styles.optionText, { color: on ? '#FFFFFF' : colors.fg }]}>
-                {o.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-/** The fill for a selected chip that carries no colour of its own. */
-const brandNeutral = '#3A3A3A';
 
 const styles = StyleSheet.create({
   fill:   { flex: 1 },

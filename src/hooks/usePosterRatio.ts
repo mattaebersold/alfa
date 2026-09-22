@@ -21,15 +21,24 @@ export const PORTRAIT = 3 / 4;
  * never moves. A card that does change shape does it on the frame the image
  * appears, which reads as the picture arriving rather than as a reflow.
  */
-export function usePosterRatio(initial: number = LANDSCAPE) {
-  const [ratio, setRatio] = useState(initial);
+export function usePosterRatio(
+  initial?: number,
+  /**
+   * The two shapes to pick between. The defaults suit a feed; a garage card
+   * wants the taller pair (3:2 and 2:3), since it's more picture than card.
+   */
+  shapes: { landscape: number; portrait: number } = { landscape: LANDSCAPE, portrait: PORTRAIT },
+) {
+  const [ratio, setRatio] = useState(initial ?? shapes.landscape);
 
   const onLoad = useCallback((e: { source?: { width?: number; height?: number } | null }) => {
     const w = e.source?.width;
     const h = e.source?.height;
     if (!w || !h) return;
-    setRatio(h > w ? PORTRAIT : LANDSCAPE);
-  }, []);
+    // Square counts as wide: a wide card crops a square photo less than a
+    // tall one does, and reads as the common case.
+    setRatio(h > w ? shapes.portrait : shapes.landscape);
+  }, [shapes.landscape, shapes.portrait]);
 
   return { ratio, onLoad };
 }

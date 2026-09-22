@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Animated,
-  View, Text, StyleSheet, FlatList, TextInput,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -18,6 +18,8 @@ import Avatar from '../../components/ui/Avatar';
 import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
 import CommentRow, { COMMENT_SURFACE } from '../../components/social/CommentRow';
+import Composer, { type ComposerHandle } from '../../components/social/Composer';
+import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
 import Spinner from '../../components/ui/Spinner';
@@ -26,7 +28,6 @@ import { postMediaList, type PostMedia as PostMediaItem } from '../../utils/post
 import PostMediaCarousel from '../../components/media/PostMediaCarousel';
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardInset } from '../../hooks/useKeyboardHeight';
 import type { FeedScreenProps, AppStackParamList } from '../../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GalleryItem } from '../../types/api';
@@ -96,8 +97,6 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const { postId } = route.params;
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
-  // Lifts the comment composer onto the keyboard — see the note below.
-  const { animated: keyboardPad } = useKeyboardInset();
   const insets = useSafeAreaInsets();
 
 
@@ -191,6 +190,9 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
+  const photos = useComposerPhotos();
+  // Tapping Reply on a comment opens the composer straight away.
+  const composerRef = useRef<ComposerHandle>(null);
   // Whose summary is open, and the row it grew out of.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
   // The row the likers panel grew out of — null until one is tapped.
@@ -253,19 +255,22 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   );
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim()) return;
     const fd = new FormData();
     fd.append('document_id', post.internal_id);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
+    photos.appendTo(fd);
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     try {
       await createComment(fd).unwrap();
       setCommentText('');
       setReplyingTo(null);
+      photos.clear();
       Keyboard.dismiss();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
+      // Keeps the composer open with the words still in it.
+      return false;
     }
   };
 
@@ -324,14 +329,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         </TouchableOpacity>
       </View>
 
-      {/* Padded by the keyboard's measured height rather than a
-          KeyboardAvoidingView. That needed a `keyboardVerticalOffset` guessed
-          at 90 on iOS, and gave Android `behavior="height"`, which has no
-          window resize to act on in an edge-to-edge app — so the composer sat
-          under the keyboard exactly when you were typing in it. */}
+      {/* No keyboard handling of its own any more: the only field on this
+          screen is the composer's, and it opens in its own panel over the
+          post — see Composer — so nothing here ever has to move for it. */}
       {/* The ground the cards sit on. Without this the gaps between them would
           show whatever is behind the modal rather than a deliberate colour. */}
-      <Animated.View style={[styles.flex, { backgroundColor: groundBg, paddingBottom: keyboardPad }]}>
+      <View style={[styles.flex, { backgroundColor: groundBg }]}>
         <FlatList
           refreshControl={refreshControl}
           data={commentRows}
@@ -500,6 +503,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               onReply={(commentId, username) => {
                 setReplyingTo({ commentId, username });
                 setCommentText(`@${username} `);
+                composerRef.current?.open();
               }}
             />
           )}
@@ -514,44 +518,43 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
         {/* No fill and no rule of its own: it's the same surface as the
             comments it sits under, and the field's own border is what marks
-            where you type. */}
-        <View style={{
-          backgroundColor: surfaceBg,
-          // Clear the home indicator / nav bar without double-counting the
-          // safe area, which the SafeAreaView no longer applies.
-          paddingBottom: Platform.OS === 'android' ? 48 : Math.max(insets.bottom, 12),
-        }}>
-          {replyingTo && (
+            where you type. Tapped, it opens over the post on the keyboard —
+            see Composer. */}
+        <Composer
+          ref={composerRef}
+          value={commentText}
+          onChangeText={setCommentText}
+          placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
+          title={replyingTo ? `Reply to @${replyingTo.username}` : 'Comment'}
+          photos={photos}
+          onSend={handleSubmitComment}
+          sending={submitting}
+          sendLabel="Post"
+          tone={{ surface: surfaceBg, field: surfaceBg, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
+          barStyle={{
+            paddingHorizontal: 4, paddingTop: 4,
+            // Clear the home indicator / nav bar without double-counting the
+            // safe area, which the SafeAreaView no longer applies.
+            paddingBottom: Platform.OS === 'android' ? 48 : Math.max(insets.bottom, 12),
+          }}
+          leading={<Avatar user={userInfo} size={32} />}
+          banner={replyingTo ? (
             <View style={[styles.replyBanner, { backgroundColor: surfaceBg, borderBottomColor: colors.border }]}>
               <Text style={[styles.replyBannerText, { color: colors.grey }]}>
                 Replying to <Text style={{ fontWeight: '700', color: colors.fg }}>@{replyingTo.username}</Text>
               </Text>
-              <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
+              <TouchableOpacity
+                onPress={() => { setReplyingTo(null); setCommentText(''); }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Stop replying"
+              >
                 <X size={16} color={colors.grey} />
               </TouchableOpacity>
             </View>
-          )}
-          <View style={styles.inputRow}>
-            <Avatar user={userInfo} size={32} />
-            <TextInput
-              style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
-              value={commentText}
-              onChangeText={setCommentText}
-              placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-              placeholderTextColor={colors.grey}
-              multiline
-              autoFocus={!!replyingTo}
-            />
-            <TouchableOpacity
-              onPress={handleSubmitComment}
-              disabled={submitting || !commentText.trim()}
-              style={[styles.sendBtn, (!commentText.trim() || submitting) && styles.sendBtnDisabled]}
-            >
-              <Text style={styles.sendText}>Post</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Animated.View>
+          ) : null}
+        />
+      </View>
 
       <LikersSheet
         entryId={postId}
@@ -684,12 +687,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1,
   },
   replyBannerText: { fontSize: 13 },
-  inputRow:        {
-    flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: 16, paddingVertical: 14,
-    gap: 10,
-  },
-  sendBtn:         { backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 8 },
-  sendBtnDisabled: { opacity: 0.4 },
-  sendText:        { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

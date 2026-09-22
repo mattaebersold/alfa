@@ -178,7 +178,11 @@ export type AppStackParamList = {
    * Pinning a spot. The map itself is a tab (`PhotographyTab`), but creating is
    * a modal over it, the way every other create flow in the app works.
    */
-  PhotoSpotCreate: undefined;
+  /**
+   * With a point when the member held the map to drop a pin there; without
+   * one the screen starts from wherever they're standing.
+   */
+  PhotoSpotCreate: { lat: number; lng: number } | undefined;
   /** Admin-only. With an id it edits that product, without it creates one. */
   ProductCreate: { productId?: string } | undefined;
   About: undefined;

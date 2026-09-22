@@ -25,6 +25,45 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.45': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Messages & Comments',
+        items: [
+          'Writing a message or a comment opens a proper composer above the keyboard — no more keyboard covering what you type.',
+          'You can add images to messages, the same as comments.',
+        ],
+      },
+      {
+        title: 'Photography',
+        items: [
+          'The map opens on where you are.',
+          'Hold anywhere on the map to pin a photo spot there.',
+          'Pinning a spot asks for less — a name, where it is, a note and photos.',
+        ],
+      },
+      {
+        title: 'Getting Around',
+        items: [
+          'The menu and your garage open from their header buttons the way notifications do, and your garage has a fresh look.',
+          'No more terms checkbox when logging in — that belongs to signing up.',
+        ],
+      },
+      {
+        title: 'Garage & Cars',
+        items: [
+          'Car cards take their shape from the photo, without the coloured edge and glow.',
+        ],
+      },
+      {
+        title: 'Fixes',
+        items: [
+          'Assorted fixes and improvements.',
+        ],
+      },
+    ],
+  },
   '1.44': {
     date: 'September 2026',
     groups: [

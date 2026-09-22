@@ -12,6 +12,7 @@ import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
 import NotificationsBell from './NotificationsBell';
 import GarageDoor from './GarageDoor';
+import GaragePanel from '../cars/GaragePanel';
 import { useAppSelector } from '../../store/store';
 import { useGetUserGarageQuery } from '../../api/apiService';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -177,6 +178,30 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   const insets = useSafeAreaInsets();
   const { isLoggedIn, userInfo } = useAppSelector((s) => s.auth);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Where the menu button sits, captured at press time — the drawer grows out
+  // of that rectangle, so it has to be measured, not assumed.
+  const menuRef = useRef<View>(null);
+  const [drawerOrigin, setDrawerOrigin] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  // The garage opens the same way — measured off its own button.
+  const garageRef = useRef<View>(null);
+  const [garageOpen, setGarageOpen] = useState(false);
+  const [garageOrigin, setGarageOrigin] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const openGarage = useCallback(() => {
+    const node = garageRef.current;
+    if (!node) { setGarageOpen(true); return; }
+    node.measureInWindow((x, y, w, h) => {
+      setGarageOrigin({ x, y, w, h });
+      setGarageOpen(true);
+    });
+  }, []);
+  const openDrawer = useCallback(() => {
+    const node = menuRef.current;
+    if (!node) { setDrawerOpen(true); return; }
+    node.measureInWindow((x, y, w, h) => {
+      setDrawerOrigin({ x, y, w, h });
+      setDrawerOpen(true);
+    });
+  }, []);
 
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
@@ -346,33 +371,40 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           {/* A garage-door icon in place of the word: the row has five buttons
               to fit and the label was the widest thing in it. Only widened
               when there are thumbs to sit beside the icon. */}
-          <FloatingButton
-            label="Garage"
-            tint={tint}
-            outlined
-            wide={garageCars.length > 0}
-            onPress={() => go('CarsTab', { screen: 'Garage' })}
-          >
-            <GarageDoor size={21} color="#FFFFFF" strokeWidth={2.4} />
-            <GarageThumbs cars={garageCars} />
-          </FloatingButton>
+          {/* Opens in place, like the bell and the menu beside it, rather
+              than navigating to the garage tab. */}
+          <View ref={garageRef} collapsable={false}>
+            <FloatingButton
+              label="Garage"
+              tint={tint}
+              outlined
+              wide={garageCars.length > 0}
+              onPress={openGarage}
+            >
+              <GarageDoor size={21} color="#FFFFFF" strokeWidth={2.4} />
+              <GarageThumbs cars={garageCars} />
+            </FloatingButton>
+          </View>
 
           {/* No badge. An unread message raises a notice in the bell next to
               this button — a red dot on the menu could only say that something
               somewhere was waiting, and left you to open the drawer and hunt
               for it. The notice says who wrote and opens the conversation. */}
-          <FloatingButton
-            label="Menu"
-            tint={tint}
-            outlined
-            onPress={() => setDrawerOpen(true)}
-          >
-            <Menu size={22} color="#FFFFFF" strokeWidth={2.2} />
-          </FloatingButton>
+          <View ref={menuRef} collapsable={false}>
+            <FloatingButton
+              label="Menu"
+              tint={tint}
+              outlined
+              onPress={openDrawer}
+            >
+              <Menu size={22} color="#FFFFFF" strokeWidth={2.2} />
+            </FloatingButton>
+          </View>
         </View>
       </Animated.View>
 
-      <NavDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <NavDrawer visible={drawerOpen} origin={drawerOrigin} onClose={() => setDrawerOpen(false)} />
+      <GaragePanel visible={garageOpen} origin={garageOrigin} onClose={() => setGarageOpen(false)} />
     </>
   );
 }

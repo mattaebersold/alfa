@@ -1,12 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator, Keyboard, Platform, Animated, Alert,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Platform, Alert,
 } from 'react-native';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { formatDistanceToNow } from 'date-fns';
-import { Send, ImagePlus, X } from 'lucide-react-native';
 import {
   useGetMarketplaceThreadQuery,
   useGetMarketplaceThreadsQuery,
@@ -18,70 +13,24 @@ import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import SharedModal from '../../components/ui/SharedModal';
-import ListingSnapshot, { listingThumb } from '../../components/marketplace/ListingSnapshot';
-import { colors } from '../../constants/colors';
+import ListingSnapshot from '../../components/marketplace/ListingSnapshot';
+import ThreadBubble from '../../components/messages/ThreadBubble';
+import Composer from '../../components/social/Composer';
+import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
 import { CONFIG } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
-import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
-import { toUploadableJpeg, uploadFile } from '../../utils/upload';
 import type { AppScreenProps } from '../../navigation/types';
-import type { MarketplaceMessage, User } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
 
 /** How many messages a page holds, and how many more "earlier" adds. */
 const PAGE_SIZE = 30;
 
-function MessageBubble({ message, isMe, otherUser, showTime }: {
-  message: MarketplaceMessage;
-  isMe: boolean;
-  otherUser?: User;
-  /** Only the newest message from each side is stamped — see `stampedIds`. */
-  showTime: boolean;
-}) {
-  const colors = useColors();
-  const photo = listingThumb(message.gallery);
-  const timeAgo = message.created_at
-    ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
-    : '';
-
-  return (
-    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-      {!isMe && <Avatar user={otherUser} size={28} />}
-      <View style={styles.bubbleBody}>
-        {/* The photo sits above the words in its own rounded block rather than
-            inside the bubble: "is this the wheel you mean?" is usually a
-            picture with a line under it, and a picture boxed in a chat bubble's
-            padding reads as an attachment to something. */}
-        {photo && (
-          <Image
-            source={{ uri: photo }}
-            style={[styles.photo, isMe ? styles.photoMe : styles.photoThem]}
-            contentFit="cover"
-          />
-        )}
-        {!!message.body && (
-          <View style={[
-            styles.bubbleContent,
-            isMe
-              ? styles.bubbleContentMe
-              : { backgroundColor: colors.card, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-          ]}>
-            <Text style={[styles.bubbleText, { color: colors.fg }, isMe && styles.bubbleTextMe]}>
-              {message.body}
-            </Text>
-          </View>
-        )}
-        {showTime && timeAgo ? (
-          <Text style={[styles.bubbleTime, { color: colors.grey }, isMe && { textAlign: 'right' }]}>
-            {timeAgo}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
+/**
+ * One photo, because the reply route is `upload.single('gallery')` — a second
+ * file would come back as an unexpected field, not a second picture.
+ */
+const MAX_PHOTOS = 1;
 
 /**
  * One marketplace conversation.
@@ -113,14 +62,9 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
    */
   const [threadId, setThreadId] = useState<string | undefined>(params.threadId);
   const [body, setBody] = useState(params.initialBody ?? '');
-  const [photo, setPhoto] = useState<string | null>(null);
+  const photos = useComposerPhotos(MAX_PHOTOS);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const listRef = useRef<FlatList>(null);
-
-  // Composer clearance — measured against the keyboard rather than calculated.
-  // See useKeyboardOverlap for why the arithmetic can't be trusted on Android.
-  const composerRef = useRef<View>(null);
-  const { lift, animated: composerLift, onLayout: onComposerLayout } = useKeyboardOverlap(composerRef);
 
   /**
    * Is there already a conversation about this listing?
@@ -170,8 +114,10 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
     wasActive.current = appActive;
   }, [appActive, refetch, threadId]);
 
-  // The keyboard shrinks the list without changing its content, so nothing
-  // scrolls the newest message back into view on its own — follow it down.
+  // The keyboard (raised by the composer's panel, over this sheet) shrinks the
+  // list without changing its content, so nothing scrolls the newest message
+  // back into view on its own — follow it down, so the thread is on its newest
+  // message when the panel folds away.
   useEffect(() => {
     const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const sub = Keyboard.addListener(event, () => {
@@ -179,9 +125,6 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
     });
     return () => sub.remove();
   }, []);
-  useEffect(() => {
-    if (lift > 0) requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-  }, [lift]);
 
   // Sheet owns its visibility so it animates out before the route unmounts.
   const [visible, setVisible] = useState(true);
@@ -254,32 +197,22 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
     if (!mine && !haveTheirs) { stampedIds.add(messages[i].internal_id); haveTheirs = true; }
   }
 
-  const pickPhoto = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    // iOS hands back HEIC, which the server's image pipeline can't decode.
-    setPhoto(await toUploadableJpeg(result.assets[0].uri));
-  }, []);
-
   const handleSend = useCallback(async () => {
     const trimmed = body.trim();
-    if ((!trimmed && !photo) || busy) return;
-    const sentPhoto = photo;
+    const sentPhotos = photos.photos;
+    if ((!trimmed && sentPhotos.length === 0) || busy) return false;
     setBody('');
-    setPhoto(null);
+    photos.clear();
 
     try {
       if (threadId) {
         // Multipart only when there's a file: a plain reply is the normal case
         // and shouldn't pay for a form encoding.
         let data: { body: string } | FormData = { body: trimmed };
-        if (sentPhoto) {
+        if (sentPhotos.length > 0) {
           const fd = new FormData();
           fd.append('body', trimmed);
-          fd.append('gallery', uploadFile(sentPhoto));
+          appendPhotosTo(fd, sentPhotos);
           data = fd;
         }
         await sendMessage({ threadId, data }).unwrap();
@@ -288,11 +221,11 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
           listing_id: listingId,
           body: trimmed,
         };
-        if (sentPhoto) {
+        if (sentPhotos.length > 0) {
           const fd = new FormData();
           fd.append('listing_id', listingId);
           fd.append('body', trimmed);
-          fd.append('gallery', uploadFile(sentPhoto));
+          appendPhotosTo(fd, sentPhotos);
           payload = fd;
         }
         const created = await startThread(payload).unwrap();
@@ -304,12 +237,12 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
     } catch (err: any) {
       // Give the message back rather than losing what they typed.
       setBody(trimmed);
-      setPhoto(sentPhoto);
+      photos.restore(sentPhotos);
       Alert.alert('Not sent', err?.data?.error || "That message couldn't be sent.");
+      return false;
     }
-  }, [body, photo, busy, threadId, listingId, sendMessage, startThread]);
+  }, [body, photos, busy, threadId, listingId, sendMessage, startThread]);
 
-  const canSend = (!!body.trim() || !!photo) && !busy;
   const loading = (threadId && isLoading) || (!threadId && lookingUp);
 
   return (
@@ -327,10 +260,12 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
             data={messages}
             keyExtractor={(m) => m.internal_id}
             renderItem={({ item }) => (
-              <MessageBubble
-                message={item}
+              <ThreadBubble
+                body={item.body}
+                gallery={item.gallery}
+                createdAt={item.created_at}
                 isMe={item.sender_id === myId}
-                otherUser={otherUser}
+                sender={otherUser}
                 showTime={stampedIds.has(item.internal_id)}
               />
             )}
@@ -367,71 +302,22 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
             keyboardDismissMode="interactive"
           />
 
-          {/* The composer lifts by a margin rather than a transform, so the
-              list above it shrinks and the newest message stays visible — a
-              transform would slide the bar over the message being replied to. */}
-          <Animated.View
-            ref={composerRef}
-            onLayout={onComposerLayout}
-            style={[
-              styles.composer,
-              {
-                backgroundColor: colors.card,
-                borderTopColor: colors.border,
-                marginBottom: composerLift,
-              },
-            ]}
-          >
-            {photo && (
-              <View style={styles.attachRow}>
-                <Image source={{ uri: photo }} style={styles.attachThumb} contentFit="cover" />
-                <TouchableOpacity
-                  style={[styles.attachRemove, { backgroundColor: colors.cream }]}
-                  onPress={() => setPhoto(null)}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Remove photo"
-                >
-                  <X size={12} color={colors.fg} />
-                </TouchableOpacity>
-              </View>
-            )}
-            <View style={styles.composerRow}>
-              <TouchableOpacity
-                style={[styles.attachBtn, { borderColor: colors.borderDark }]}
-                onPress={pickPhoto}
-                accessibilityRole="button"
-                accessibilityLabel="Attach a photo"
-              >
-                <ImagePlus size={18} color={colors.grey} />
-              </TouchableOpacity>
-              <TextInput
-                style={[ss.chatInput, {
-                  backgroundColor: colors.cream, borderColor: colors.border, color: colors.fg, flex: 1,
-                }]}
-                value={body}
-                onChangeText={setBody}
-                placeholder={threadId ? 'Message...' : 'Ask about this listing...'}
-                placeholderTextColor={colors.grey}
-                multiline
-                maxLength={2000}
-                // A message is prose — stated outright, since `spellCheck` only
-                // inherits from `autoCorrect` when neither is given.
-                autoCorrect
-                spellCheck
-                autoCapitalize="sentences"
-              />
-              <TouchableOpacity
-                style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
-                onPress={handleSend}
-                disabled={!canSend}
-              >
-                {busy
-                  ? <ActivityIndicator size="small" color="#FFFFFF" />
-                  : <Send size={18} color="#FFFFFF" />}
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+          {/* Tapped, the composer opens over the sheet on the keyboard — see
+              Composer — so nothing here has to be lifted clear of it. */}
+          <Composer
+            value={body}
+            onChangeText={setBody}
+            placeholder={threadId ? 'Message...' : 'Ask about this listing...'}
+            title={otherUser?.username ? `Message @${otherUser.username}` : 'About this listing'}
+            photos={photos}
+            onSend={handleSend}
+            sending={busy}
+            sendLabel="Send"
+            sendIcon
+            maxLength={2000}
+            tone={{ surface: colors.card, field: colors.cream, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
+            barStyle={[styles.composer, { borderTopColor: colors.border }]}
+          />
         </View>
       )}
     </SharedModal>
@@ -445,46 +331,10 @@ const styles = StyleSheet.create({
   headerPerson:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerPersonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', maxWidth: 180 },
 
-  bubble:     { flexDirection: 'row', marginBottom: 12, gap: 8 },
-  bubbleMe:   { flexDirection: 'row-reverse' },
-  bubbleThem: {},
-  bubbleBody: { flex: 1 },
-  bubbleContent: {
-    borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, maxWidth: '85%',
-  },
-  bubbleContentMe: { backgroundColor: colors.primaryAlt, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleText:      { fontSize: 15, lineHeight: 21 },
-  bubbleTextMe:    { color: '#FFFFFF' },
-  bubbleTime:      { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
-  photo:      { width: 200, height: 200, borderRadius: COMMON_RADIUS, marginBottom: 4 },
-  photoMe:    { alignSelf: 'flex-end' },
-  photoThem:  { alignSelf: 'flex-start' },
-
   earlier:     { alignItems: 'center', paddingVertical: 10 },
   earlierText: { fontSize: 13, fontWeight: '700' },
   intro:       { paddingHorizontal: 24, paddingTop: 24 },
   introText:   { fontSize: 14, lineHeight: 20, textAlign: 'center' },
 
-  composer: {
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10,
-    borderTopWidth: 1, gap: 8,
-  },
-  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  attachRow:   { width: 64 },
-  attachThumb: { width: 64, height: 64, borderRadius: COMMON_RADIUS },
-  attachRemove: {
-    position: 'absolute', top: -6, right: -6,
-    width: 20, height: 20, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  attachBtn: {
-    width: 40, height: 40, borderRadius: COMMON_RADIUS, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  sendBtn: {
-    width: 40, height: 40, borderRadius: COMMON_RADIUS,
-    backgroundColor: colors.primaryAlt,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  sendBtnDisabled: { opacity: 0.4 },
+  composer: { borderTopWidth: 1 },
 });

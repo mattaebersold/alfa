@@ -1,73 +1,30 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator, Keyboard, Platform, Animated,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Platform,
 } from 'react-native';
-import { formatDistanceToNow } from 'date-fns';
-import { Send } from 'lucide-react-native';
 import {
   useGetMessageThreadQuery,
   useSendMessageMutation,
   useMarkMessageReadMutation,
   useGetUserByIdQuery,
+  type SendMessageArgs,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import SharedModal from '../../components/ui/SharedModal';
-import { colors } from '../../constants/colors';
+import ThreadBubble from '../../components/messages/ThreadBubble';
+import Composer from '../../components/social/Composer';
+import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
 import { CONFIG } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps } from '../../navigation/types';
-import type { Message, User } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
-import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
-import { COMMON_RADIUS } from '../../constants/radius';
 
-function MessageBubble({ message, isMe, otherUser, showTime }: {
-  message: Message;
-  isMe: boolean;
-  otherUser?: User;
-  /** Only the newest message from each side is stamped — see `stampedIds`. */
-  showTime: boolean;
-}) {
-  const colors = useColors();
-  const timeAgo = message.created_at
-    ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
-    : '';
-
-  const sender = message.sender ?? otherUser;
-
-  return (
-    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-      {!isMe && (
-        <Avatar
-          user={sender}
-          size={28}
-        />
-      )}
-      <View style={styles.bubbleBody}>
-        <View style={[
-          styles.bubbleContent,
-          isMe
-            ? styles.bubbleContentMe
-            : { backgroundColor: colors.card, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-        ]}>
-          <Text style={[styles.bubbleText, { color: colors.fg }, isMe && styles.bubbleTextMe]}>
-            {message.body}
-          </Text>
-        </View>
-        {showTime && timeAgo ? (
-          <Text style={[styles.bubbleTime, { color: colors.grey }, isMe && { textAlign: 'right' }]}>
-            {timeAgo}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
+/** The server's ceiling for photos on one message — see uploadMessageGallery. */
+const MAX_PHOTOS = 4;
 
 export default function MessageThreadScreen({ route, navigation }: AppScreenProps<'MessageThread'>) {
   const { threadId, recipientId: routeRecipientId, subject } = route.params;
@@ -76,18 +33,8 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   const myId = userInfo?.user_id ?? '';
 
   const [body, setBody] = useState('');
+  const photos = useComposerPhotos(MAX_PHOTOS);
   const listRef = useRef<FlatList>(null);
-
-  /**
-   * The reply bar keeps itself above the keyboard.
-   *
-   * It measures its own position against the keyboard's top edge rather than
-   * trusting the sheet's arithmetic — see useKeyboardOverlap for why the
-   * arithmetic can't be trusted on Android. It only ever adds what's missing,
-   * so on iOS, where the sheet already resizes correctly, this is zero.
-   */
-  const replyRef = useRef<View>(null);
-  const { lift, animated: replyLift, onLayout: onReplyLayout } = useKeyboardOverlap(replyRef);
 
   // An open thread polls so replies land without reopening the app. A push
   // arriving invalidates the cache too (see RootNavigator), which is the fast
@@ -118,10 +65,12 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     });
   }, [messages, myId, markRead]);
 
-  // The keyboard shrinks the list without changing its content, so neither
-  // onContentSizeChange nor a plain re-render brings the newest message back
-  // into view — the offset is preserved and the last bubble ends up hidden
-  // behind the reply bar. Follow the keyboard down to the bottom instead.
+  // The keyboard (raised by the composer's panel, over this sheet) shrinks the
+  // sheet without changing the list's content, so neither onContentSizeChange
+  // nor a plain re-render brings the newest message back into view — the
+  // offset is preserved and the last bubble ends up hidden. Follow the
+  // keyboard down to the bottom instead, so the thread is on its newest
+  // message when the panel folds away.
   useEffect(() => {
     const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const sub = Keyboard.addListener(event, () => {
@@ -130,12 +79,6 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     });
     return () => sub.remove();
   }, []);
-
-  // The lift lands a frame or two after the keyboard event, and it shortens the
-  // list again — so the scroll has to follow it, not just the keyboard.
-  useEffect(() => {
-    if (lift > 0) requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-  }, [lift]);
 
   // Derive the other participant's ID from messages if not provided in route
   const recipientId = routeRecipientId ?? messages.find((m) => m.sender_id !== myId)?.sender_id;
@@ -208,10 +151,12 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
 
   const handleSend = useCallback(async () => {
     const trimmed = body.trim();
-    if (!trimmed || !recipientId) return;
+    const sentPhotos = photos.photos;
+    if ((!trimmed && sentPhotos.length === 0) || !recipientId) return false;
     setBody('');
+    photos.clear();
     try {
-      await sendMessage({
+      const fields: SendMessageArgs = {
         recipient_id: recipientId,
         // The route param is optional — a thread reached from anywhere but the
         // inbox list arrives without it — so fall back to the thread's own
@@ -220,13 +165,28 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         subject: subject ?? sorted[0]?.subject ?? '',
         body: trimmed,
         parent_message_id: parentMessageId,
-      }).unwrap();
+      };
+      // Multipart only when there's a file — see sendMessage.
+      let payload: SendMessageArgs | FormData = fields;
+      if (sentPhotos.length > 0) {
+        const fd = new FormData();
+        (Object.keys(fields) as (keyof SendMessageArgs)[]).forEach((key) => {
+          const v = fields[key];
+          if (v != null) fd.append(key, v);
+        });
+        appendPhotosTo(fd, sentPhotos);
+        payload = fd;
+      }
+      await sendMessage(payload).unwrap();
       refetch();
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150);
     } catch {
-      setBody(trimmed); // restore on failure
+      // Give the message back rather than losing what they typed.
+      setBody(trimmed);
+      photos.restore(sentPhotos);
+      return false;
     }
-  }, [body, recipientId, sendMessage, subject, sorted, parentMessageId, refetch]);
+  }, [body, photos, recipientId, sendMessage, subject, sorted, parentMessageId, refetch]);
 
   return (
     <SharedModal
@@ -244,10 +204,12 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         data={sorted}
         keyExtractor={(item) => item.internal_id}
         renderItem={({ item }) => (
-          <MessageBubble
-            message={item}
+          <ThreadBubble
+            body={item.body}
+            gallery={item.gallery}
+            createdAt={item.created_at}
             isMe={item.sender_id === myId}
-            otherUser={otherUser}
+            sender={item.sender ?? otherUser}
             showTime={stampedIds.has(item.internal_id)}
           />
         )}
@@ -262,52 +224,23 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       />
 
       {/* Reply bar. Clearance for the home indicator / gesture bar is the
-          sheet's own bottom padding, which collapses when the keyboard is up —
-          adding the safe-area inset here too would double it.
-
-          The lift is a margin rather than a transform on purpose: the list
-          above is `flex: 1`, so margin here shrinks the list and the newest
-          message stays visible. A transform would slide the bar over the list
-          and hide the very message you're replying to. */}
-      <Animated.View
-        ref={replyRef}
-        onLayout={onReplyLayout}
-        style={[
-          styles.replyBar,
-          {
-            backgroundColor: colors.card,
-            borderTopColor: colors.border,
-            marginBottom: replyLift,
-          },
-        ]}
-      >
-        <TextInput
-          style={[ss.chatInput, { backgroundColor: colors.cream, borderColor: colors.border, color: colors.fg, flex: 1 }]}
-          value={body}
-          onChangeText={setBody}
-          placeholder="Message..."
-          placeholderTextColor={colors.grey}
-          multiline
-          maxLength={2000}
-          onSubmitEditing={handleSend}
-          // A message is prose — stated explicitly, since `spellCheck` only
-          // inherits from `autoCorrect` when neither is given.
-          autoCorrect
-          spellCheck
-          autoCapitalize="sentences"
-
-        />
-        <TouchableOpacity
-          style={[styles.sendBtn, (!body.trim() || sending) && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={!body.trim() || sending}
-        >
-          {sending
-            ? <ActivityIndicator size="small" color="#FFFFFF" />
-            : <Send size={18} color="#FFFFFF" />
-          }
-        </TouchableOpacity>
-      </Animated.View>
+          sheet's own bottom padding, so none is added here. Tapped, it opens
+          over the sheet on the keyboard — see Composer — so nothing here has
+          to be lifted clear of it any more. */}
+      <Composer
+        value={body}
+        onChangeText={setBody}
+        placeholder="Message..."
+        title={otherUser?.username ? `Message @${otherUser.username}` : 'Message'}
+        photos={photos}
+        onSend={handleSend}
+        sending={sending}
+        sendLabel="Send"
+        sendIcon
+        maxLength={2000}
+        tone={{ surface: colors.card, field: colors.cream, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
+        barStyle={[styles.replyBar, { borderTopColor: colors.border }]}
+      />
       </View>
       )}
     </SharedModal>
@@ -315,30 +248,8 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
 }
 
 const styles = StyleSheet.create({
-  list:    { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
-  bubble:  { flexDirection: 'row', marginBottom: 12, gap: 8 },
-  bubbleMe:   { flexDirection: 'row-reverse' },
-  bubbleThem: {},
-  bubbleBody: { flex: 1 },
-  bubbleContent: {
-    borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, maxWidth: '85%',
-  },
-  bubbleContentMe:  { backgroundColor: colors.primaryAlt, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleText:       { fontSize: 15, lineHeight: 21 },
-  bubbleTextMe:     { color: '#FFFFFF' },
-  bubbleTime:       { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
-  replyBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10,
-    borderTopWidth: 1,
-  },
-  sendBtn: {
-    width: 40, height: 40, borderRadius: COMMON_RADIUS,
-    backgroundColor: colors.primaryAlt,
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  sendBtnDisabled: { opacity: 0.4 },
+  list:     { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
+  replyBar: { borderTopWidth: 1 },
 
   headerTitleRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitleText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', maxWidth: 180 },

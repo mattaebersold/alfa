@@ -29,6 +29,14 @@ import type {
  */
 const LIST_API = 'api/lists';
 
+/** The fields of a direct message, whether sent as JSON or as FormData. */
+export interface SendMessageArgs {
+  recipient_id: string;
+  subject?: string;
+  body: string;
+  parent_message_id?: string;
+}
+
 export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
@@ -1368,7 +1376,14 @@ export const apiService = createApi({
       providesTags: ['Message'],
     }),
 
-    sendMessage: builder.mutation<Message, { recipient_id: string; subject?: string; body: string; parent_message_id?: string }>({
+    /**
+     * JSON for a plain message, multipart when there's a photo. `POST
+     * /api/message/create` takes both: up to four images on the `gallery`
+     * field, and `body` may be empty when one is attached. A plain reply is
+     * the common case and shouldn't pay for a form encoding — the caller
+     * builds the FormData only when it has a file to put in it.
+     */
+    sendMessage: builder.mutation<Message, SendMessageArgs | FormData>({
       query: (data) => ({ url: 'api/message/create', method: 'POST', body: data }),
       invalidatesTags: ['Message'],
     }),

@@ -36,6 +36,12 @@ interface CarPosterCardProps {
   car: GarageCar;
   /** Called before navigating — use to close a parent modal/sheet. */
   onBeforeNavigate?: () => void;
+  /**
+   * Take over the tap entirely. For a host that has to get out of the way
+   * before anything can be pushed — the garage panel is a Modal, and iOS
+   * won't run a stack transition over one that's still closing.
+   */
+  onPress?: () => void;
   onTasksPress?: () => void;
   taskCount?: number;
   onEditPress?: () => void;
@@ -56,6 +62,16 @@ interface CarPosterCardProps {
    * name down to something that fits in half a screen.
    */
   compact?: boolean;
+  /**
+   * The picture with a name on it, and little else.
+   *
+   * For the garage panel, where the cards are yours and stacked: the type and
+   * category pills, the follower count and the task chip are all things you
+   * know about your own car, and on a column of them they were chrome repeated
+   * down the screen. The name goes small and to the left, the way a caption
+   * sits, with a smaller mark above it, and the owner's controls stay.
+   */
+  plain?: boolean;
   /** Shows a "Featured" badge over the image. */
   featured?: boolean;
   /**
@@ -82,18 +98,25 @@ interface CarPosterCardProps {
  * a single wash would grey out the middle of the picture, which is the part
  * worth showing.
  *
- * The type colour edges the card at low alpha. It's a tint you register in
- * passing, not a frame competing with the photo inside it.
+ * No coloured edge and no glow. The type colour used to frame the card at
+ * low alpha and pool underneath it as a tinted shadow; the badge already says
+ * what the car is, and on a screen of cards the colour added up to haze
+ * around every one. The photo is the card.
  */
+/** A garage card is more picture than card, so it takes the taller pair. */
+const CARD_SHAPES = { landscape: 3 / 2, portrait: 2 / 3 };
+
 export default function CarPosterCard({
   car,
   onBeforeNavigate,
+  onPress,
   onTasksPress,
   taskCount = 0,
   onEditPress,
   attribution = false,
   showOwner = false,
   compact = false,
+  plain = false,
   featured = false,
   style,
 }: CarPosterCardProps) {
@@ -130,7 +153,12 @@ export default function CarPosterCard({
   const cardRef = useRef<View>(null);
   // Feed cards take their shape from the photo. Everywhere else the card is
   // square, because those surfaces are grids and carousels that need one shape.
-  const { ratio, onLoad } = usePosterRatio();
+  /**
+   * The card's shape follows its photo: a wide picture gets a 3:2 card, a
+   * tall one 2:3. It used to be square outside the feed, which cropped every
+   * car — landscape shots lost their ends, portrait shots lost the car.
+   */
+  const { ratio, onLoad } = usePosterRatio(undefined, CARD_SHAPES);
 
   const needOwner = attribution || showOwner;
   const { data: owner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id || !needOwner });
@@ -142,7 +170,11 @@ export default function CarPosterCard({
   });
   const followerCount = inlineFollowerCount ?? fetchedFollowerCount ?? 0;
 
-  const isOwner = userInfo?.user_id === car.user_id;
+  // A co-owner gets the owner's controls too: the car is as much theirs to
+  // post about, mod and edit, and a garage that shows it without them reads
+  // as read-only for half of the people it belongs to.
+  const isOwner = !!userInfo?.user_id
+    && (userInfo.user_id === car.user_id || userInfo.user_id === (car as any).coowner_id);
 
   // Hidden (reported) or from a blocked user — returned after all hooks so hook
   // order stays stable.
@@ -167,15 +199,12 @@ export default function CarPosterCard({
 
   const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
 
-  // The border and the glow are the same colour at different strengths — one
-  // hairline of it on the edge, one soft pool of it underneath.
-  const tint = typeBadge ? typeBadge.bg : c.borderDark;
-
   // Controls belong to the owner, and a carousel card is too small to hold them.
   const showControls = isOwner && !compact;
 
 
   const handlePress = () => {
+    if (onPress) return onPress();
     onBeforeNavigate?.();
     (nav as any).navigate('CarDetail', { carId: car.internal_id });
   };
@@ -241,13 +270,10 @@ export default function CarPosterCard({
 
     <View
       style={[
-        styles.glow,
-        compact && styles.glowCompact,
-        // Android honours shadowColor from API 28; below that this is a soft
-        // neutral shadow rather than a tinted one, which is a fine floor.
-        { shadowColor: tint },
+        styles.frame,
+        compact && styles.frameCompact,
         // The feed card sits in its own wrapper, which owns the margins.
-        attribution && styles.glowInFeed,
+        attribution && styles.frameInFeed,
         style,
       ]}
     >
@@ -255,8 +281,11 @@ export default function CarPosterCard({
         ref={cardRef}
         style={[
           styles.card,
-          attribution && { aspectRatio: ratio },
-          { borderColor: typeBadge ? `${typeBadge.bg}80` : c.borderDark },
+          { aspectRatio: ratio },
+          // In the feed, the same hairline the mod and photo cards wear, so a
+          // column of mixed cards reads as one kind of thing. Elsewhere the
+          // card is borderless — the photo is the card.
+          attribution && { borderWidth: 1, borderColor: c.borderDark },
         ]}
         onPress={attribution ? openSummary : handlePress}
         activeOpacity={0.92}
@@ -266,13 +295,13 @@ export default function CarPosterCard({
           // Written out rather than spreading `StyleSheet.absoluteFillObject`,
           // which RN 0.86 removed — spreading it yields {} and the image loses
           // its position silently.
-          style={attribution ? styles.imageFill : styles.image}
+          style={styles.imageFill}
           contentFit="cover"
           // Centred, so a crop takes from both edges evenly rather than
           // keeping the top-left corner and dropping the rest.
           contentPosition="center"
           transition={250}
-          onLoad={attribution ? onLoad : undefined}
+          onLoad={onLoad}
         />
 
         {/* Only where something still sits up top. In the feed the byline has
@@ -317,12 +346,12 @@ export default function CarPosterCard({
 
         {/* ── Top right: what the owner can do to it ── */}
         {(showControls || (onTasksPress && taskCount > 0)) && (
-          <View style={styles.topRight}>
+          <View style={[styles.topRight, plain && styles.topRightPlain]}>
             {/* Where its owner is, on the cards that show an owner at all —
                 the featured row, and any list of other people's cars. A car
                 in your own garage needs no map to say where it is. */}
             {needOwner && <RegionBadge region={car.owner_region ?? regionForCityState(owner?.cityState)?.key} size={32} />}
-            {onTasksPress && taskCount > 0 && (
+            {onTasksPress && taskCount > 0 && !plain && (
               <TouchableOpacity style={styles.taskBadge} onPress={onTasksPress} hitSlop={4}>
                 <Wrench size={10} color="#000" />
                 <Text style={styles.taskBadgeText}>Tasks · {taskCount}</Text>
@@ -338,8 +367,8 @@ export default function CarPosterCard({
                   accessibilityRole="button"
                   accessibilityLabel={`Add to ${displayName}`}
                 >
-                  <View style={styles.circleBtn}>
-                    <Plus size={16} color="#FFFFFF" strokeWidth={2.6} />
+                  <View style={[styles.circleBtn, plain && styles.circleBtnPlain]}>
+                    <Plus size={plain ? 20 : 16} color="#FFFFFF" strokeWidth={2.6} />
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -348,8 +377,8 @@ export default function CarPosterCard({
                   accessibilityRole="button"
                   accessibilityLabel={`Manage ${displayName}`}
                 >
-                  <View style={styles.circleBtn}>
-                    <Settings size={14} color="#FFFFFF" />
+                  <View style={[styles.circleBtn, plain && styles.circleBtnPlain]}>
+                    <Settings size={plain ? 18 : 14} color="#FFFFFF" />
                   </View>
                 </TouchableOpacity>
               </>
@@ -359,25 +388,40 @@ export default function CarPosterCard({
 
         {/* ── The plate ── */}
         <View
-          style={[styles.plate, compact && styles.plateCompact, attribution && styles.plateLeft]}
+          style={[
+            styles.plate,
+            compact && styles.plateCompact,
+            (attribution || plain) && styles.plateLeft,
+            plain && styles.platePlain,
+          ]}
           pointerEvents="none"
         >
-          {!compact && <CarIcon size={38} color="#FFFFFF" strokeWidth={1.6} />}
+          {!compact && <CarIcon size={plain ? 26 : 38} color="#FFFFFF" strokeWidth={1.6} />}
           <Text
-            style={[styles.title, compact && styles.titleCompact, attribution && styles.textLeft]}
+            style={[
+              styles.title,
+              compact && styles.titleCompact,
+              (attribution || plain) && styles.textLeft,
+              plain && styles.titlePlain,
+            ]}
             numberOfLines={2}
           >
             {displayTitle}
           </Text>
           {subtitle ? (
             <Text
-              style={[styles.subtitle, compact && styles.subtitleCompact, attribution && styles.textLeft]}
+              style={[
+                styles.subtitle,
+                compact && styles.subtitleCompact,
+                (attribution || plain) && styles.textLeft,
+                plain && styles.subtitlePlain,
+              ]}
               numberOfLines={1}
             >
               {subtitle}
             </Text>
           ) : null}
-          {(typeLabel || categoryLabel || followerCount > 0) && (
+          {!plain && (typeLabel || categoryLabel || followerCount > 0) && (
             <View style={[styles.badges, attribution && styles.badgesLeft]}>
               {typeLabel && typeBadge && (
                 <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
@@ -534,31 +578,17 @@ export default function CarPosterCard({
 }
 
 const styles = StyleSheet.create({
-  glow: {
-    marginHorizontal: 12, marginVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#111111',
-    // Offset down and spread wide: a pool of the car's own colour under the
-    // card, not a hard drop shadow behind it. Low opacity on purpose — it
-    // should register as warmth around the edge, not as a halo.
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.26,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  // The parent owns the width and the gutters; a card in a carousel sits too
-  // close to its neighbours for a wide glow, so it gets a tighter one.
-  glowCompact: {
-    marginHorizontal: 0, marginVertical: 0,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5,
-  },
+  /**
+   * The wrapper that used to carry the glow. No shadow now — the tinted pool
+   * under each card was warmth on a dark ground, and on a screen of cards it
+   * added up to haze. Kept as a wrapper because it still owns the margins.
+   */
+  frame: { marginHorizontal: 12, marginVertical: 8, borderRadius: 16 },
+  // The parent owns the width and the gutters for a card in a carousel.
+  frameCompact: { marginHorizontal: 0, marginVertical: 0 },
   card: {
     position: 'relative',
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    borderWidth: 1.25,
     backgroundColor: '#111111',
   },
   feedWrap: { marginBottom: 6 },
@@ -572,7 +602,6 @@ const styles = StyleSheet.create({
   bylineSub:  { fontSize: 12, marginTop: 1 },
   bylineTime: { fontSize: 11, fontStyle: 'italic' },
 
-  image: { width: '100%', aspectRatio: 1 },
   /**
    * The ratio lives on the card in the feed, not on the image.
    *
@@ -582,7 +611,7 @@ const styles = StyleSheet.create({
    * the card and letting the image fill it leaves nothing to resolve twice.
    */
   imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  glowInFeed: { marginHorizontal: 12, marginVertical: 0 },
+  frameInFeed: { marginHorizontal: 12, marginVertical: 0 },
 
   plateLeft: { alignItems: 'flex-start', paddingHorizontal: 14 },
   textLeft:  { textAlign: 'left' },
@@ -634,6 +663,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center', justifyContent: 'center',
   },
+  // Bigger and closer to the corner on the garage panel's cards: they're the
+  // only chrome left on those, so they can carry a real touch target, and
+  // tucked in they read as the card's corner rather than as things laid on
+  // the photo.
+  circleBtnPlain: { width: 36, height: 36 },
+  topRightPlain:  { top: 8, right: 8, gap: 8 },
   taskBadge: {
     backgroundColor: colors.pro, borderRadius: PILL_RADIUS,
     flexDirection: 'row', alignItems: 'center',
@@ -655,6 +690,11 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   titleCompact: { fontSize: 17, letterSpacing: -0.2 },
+  // A caption, not a headline: the garage panel's cards are yours, stacked,
+  // and each name only has to be findable.
+  titlePlain:    { fontSize: 18, letterSpacing: -0.3 },
+  subtitlePlain: { fontSize: 10.5, letterSpacing: 0.7, marginTop: 0 },
+  platePlain:    { gap: 3, paddingHorizontal: 14, paddingBottom: 14 },
   subtitle: {
     fontSize: 12, fontWeight: '700', textAlign: 'center',
     color: 'rgba(255,255,255,0.82)',

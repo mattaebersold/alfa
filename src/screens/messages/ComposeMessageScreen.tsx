@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
   Animated, ActivityIndicator, Alert, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,9 +11,12 @@ import {
   useSearchMessageUsersQuery,
   useSendMessageMutation,
   useGetMessagesQuery,
+  type SendMessageArgs,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
+import { FocusedComposer, ComposerPhotoStrip } from '../../components/social/Composer';
+import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useKeyboardInset, useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
@@ -48,6 +51,11 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState(route.params?.subject ?? '');
   const [body, setBody] = useState(route.params?.initialBody ?? '');
+  // Up to four, the server's ceiling for a message — see uploadMessageGallery.
+  const photos = useComposerPhotos(4);
+  // The message is written in the composer's panel, not in the form: the form
+  // field is a stand-in that shows what's been written and opens the panel.
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const { data: messagesData } = useGetMessagesQuery({ limit: 100 });
   const allMessages = messagesData?.entries ?? [];
@@ -76,16 +84,28 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
   const [sendMessage, { isLoading: sending }] = useSendMessageMutation();
 
   const handleSend = useCallback(async () => {
-    if (!recipient || !body.trim()) {
+    if (!recipient || (!body.trim() && !photos.hasPhotos)) {
       Alert.alert('Missing fields', 'Please select a recipient and write a message.');
-      return;
+      return false;
     }
     try {
-      const msg = await sendMessage({
+      const fields: SendMessageArgs = {
         recipient_id: recipient.user_id,
         subject: subject.trim() || undefined,
         body: body.trim(),
-      }).unwrap();
+      };
+      // Multipart only when there's a file — see sendMessage.
+      let payload: SendMessageArgs | FormData = fields;
+      if (photos.hasPhotos) {
+        const fd = new FormData();
+        (Object.keys(fields) as (keyof SendMessageArgs)[]).forEach((key) => {
+          const v = fields[key];
+          if (v != null) fd.append(key, v);
+        });
+        appendPhotosTo(fd, photos.photos);
+        payload = fd;
+      }
+      const msg = await sendMessage(payload).unwrap();
       navigation.replace('MessageThread', {
         threadId: msg.thread_id,
         recipientId: recipient.user_id,
@@ -93,10 +113,11 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
       });
     } catch {
       Alert.alert('Error', 'Failed to send message. Please try again.');
+      return false;
     }
-  }, [recipient, subject, body, sendMessage, navigation]);
+  }, [recipient, subject, body, photos, sendMessage, navigation]);
 
-  const canSend = !!recipient && !!body.trim() && !sending;
+  const canSend = !!recipient && (!!body.trim() || photos.hasPhotos) && !sending;
 
   /**
    * Lift the whole screen off the keyboard.
@@ -179,21 +200,38 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
           />
         </View>
 
-        {/* Body */}
-        <View style={[styles.field, styles.bodyField, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        {/* Body. A Pressable rather than a field, for the reason Composer
+            gives: the panel's field is the one you type into, and this only
+            has to show what it holds and open it. */}
+        <Pressable
+          style={[styles.field, styles.bodyField, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+          onPress={() => setComposerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={body ? `Message: ${body}` : 'Write your message'}
+          accessibilityHint="Opens the composer"
+        >
           <Text style={[styles.label, { color: colors.grey }]}>Message</Text>
-          <TextInput
-            style={[styles.textInput, styles.bodyInput, { color: colors.fg }]}
-            value={body}
-            onChangeText={setBody}
-            placeholder="Write your message..."
-            placeholderTextColor={colors.grey}
-            multiline
-            textAlignVertical="top"
-            scrollEnabled={false}
-          />
-        </View>
+          <Text style={[styles.textInput, styles.bodyInput, { color: body ? colors.fg : colors.grey }]}>
+            {body || 'Write your message...'}
+          </Text>
+          <ComposerPhotoStrip photos={photos} borderColor={colors.border} />
+        </Pressable>
       </ScrollView>
+
+      <FocusedComposer
+        visible={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        value={body}
+        onChangeText={setBody}
+        placeholder="Write your message..."
+        title={recipient ? `Message @${recipient.username}` : 'New message'}
+        photos={photos}
+        onSend={handleSend}
+        sending={sending}
+        sendLabel="Send"
+        maxLength={2000}
+        tone={{ surface: colors.card, field: colors.cream, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
+      />
 
       {/* Send button — always visible above the keyboard */}
       <Animated.View

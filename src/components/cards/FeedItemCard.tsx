@@ -31,10 +31,11 @@ import { DIECAST_BLUE } from '../../constants/diecast';
  *
  * The feed is a column of these against the page's #0A0A0A, and at card grey
  * they ran together as one continuous slab. Staying under it gives each card an
- * edge without needing a rule to draw one — the gap between the two is doing
- * the work, so this can lift a little without losing it.
+ * edge without needing a rule to draw one. Darker than it was (#202020): that
+ * sat a shade above `card`, which made the posts the brightest things on the
+ * page, and the photos in them should be.
  */
-const FEED_CARD_BG = '#202020';
+const FEED_CARD_BG = '#161616';
 
 /** Lines of description a card shows before it offers "more". */
 const BODY_LINES = 2;

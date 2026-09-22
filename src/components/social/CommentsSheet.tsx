@@ -9,18 +9,15 @@ import { Dimensions } from 'react-native';
 import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
-import MentionInput from '../ui/MentionInput';
 import CommentRow, { COMMENT_SURFACE } from './CommentRow';
-import { CommentPhotoButton, CommentPhotoPreview } from './CommentPhotoBar';
-import { useCommentPhoto } from '../../hooks/useCommentPhoto';
+import Composer from './Composer';
+import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import { useColors } from '../../hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardInset, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
 import { colors } from '../../constants/colors';
-import { ss } from '../../styles/shared';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
-import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * One ground for the whole sheet — header, list and composer alike.
@@ -46,8 +43,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const [commentText, setCommentText] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
-  const [inputFocused, setInputFocused] = useState(false);
-  const photo = useCommentPhoto();
+  const photos = useComposerPhotos();
   // Whose summary is open, and the row it grew out of.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
@@ -106,22 +102,19 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
         setCommentText('');
         setMentionedUserIds([]);
         setReplyingTo(null);
-        photo.clear();
+        photos.clear();
       });
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!rendered) return null;
 
-  const canSubmit = !!commentText.trim() || photo.hasPhoto;
-
   const handleSubmit = async () => {
-    if (!canSubmit) return;
     const fd = new FormData();
     fd.append('document_id', postId);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
-    photo.appendTo(fd);
+    photos.appendTo(fd);
     // A reply is a comment whose reply_to is the parent's internal_id. The backend
     // returns these separately (getReplies) and we nest them under the parent.
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
@@ -134,6 +127,8 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
       onClose();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
+      // Keeps the composer open with the words still in it.
+      return false;
     }
   };
 
@@ -211,41 +206,36 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             />
           )}
 
-          {/* Input area */}
-          <View style={[styles.inputWrap, { backgroundColor: SHEET_BG, paddingBottom: bottomPad }]}>
-            {replyingTo && (
+          {/* Composer. Collapsed it's this bar; tapped, it opens over the
+              sheet on the keyboard — see Composer. */}
+          <Composer
+            value={commentText}
+            onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
+            placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
+            title={replyingTo ? `Reply to @${replyingTo.username}` : 'Comment'}
+            photos={photos}
+            onSend={handleSubmit}
+            sending={submitting}
+            mentions
+            sendLabel="Post"
+            tone={{ surface: SHEET_BG, field: SHEET_BG, border: '#2A2A2A', text: '#ECECEC', accent: colors.primaryAlt }}
+            barStyle={{ paddingHorizontal: 4, paddingTop: 4, paddingBottom: bottomPad }}
+            banner={replyingTo ? (
               <View style={[styles.replyBanner, { backgroundColor: '#1E1E1E', borderBottomColor: '#000000' }]}>
                 <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
                   Replying to <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>@{replyingTo.username}</Text>
                 </Text>
-                <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
+                <TouchableOpacity
+                  onPress={() => { setReplyingTo(null); setCommentText(''); }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Stop replying"
+                >
                   <X size={14} color="rgba(255,255,255,0.7)" />
                 </TouchableOpacity>
               </View>
-            )}
-            <CommentPhotoPreview photo={photo} />
-            <View style={styles.inputRow}>
-              <CommentPhotoButton photo={photo} tint={c.grey} />
-              <MentionInput
-                containerStyle={styles.inputContainer}
-                style={[ss.chatInput, styles.input, inputFocused && styles.inputFocused, { borderColor: '#2A2A2A', color: '#ECECEC' }]}
-                value={commentText}
-                onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
-                placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-                placeholderTextColor={c.grey}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                multiline
-              />
-              <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={submitting || !canSubmit}
-                style={[styles.sendBtn, (!canSubmit || submitting) && styles.sendDisabled]}
-              >
-                <Text style={styles.sendText}>Post</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            ) : null}
+          />
 
           {/* Inside the sheet's own tree, so it presents over it rather than
               needing the sheet closed first. */}
@@ -271,15 +261,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700' },
   list:        { paddingTop: 4, paddingBottom: 16 },
   empty:       { textAlign: 'center', padding: 32, fontSize: 14 },
-  inputWrap:   {},
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1 },
   replyText:   { fontSize: 13 },
-  inputRow:      { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
-  inputContainer:{ flex: 1 },
-  input:         { width: '100%', maxHeight: 120 },
-  // On focus, open up to ~3 lines so there's room to write.
-  inputFocused:  { minHeight: 76 },
-  sendBtn:     { backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 8 },
-  sendDisabled:{ opacity: 0.4 },
-  sendText:    { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
 });

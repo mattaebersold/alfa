@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Keyboard,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,8 @@ import Spinner from '../ui/Spinner';
 import Avatar from '../ui/Avatar';
 import LikeButton from '../social/LikeButton';
 import CommentRow from '../social/CommentRow';
+import Composer from '../social/Composer';
+import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { useStartListingThread } from '../../screens/marketplace/useStartListingThread';
@@ -23,7 +25,6 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
-import { ss } from '../../styles/shared';
 import {
   categoryLabel, conditionLabel, distanceLabel, matchLabel,
   previousPriceLabel, priceLabel, shippingLabel,
@@ -77,6 +78,8 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
   );
   const [createComment, { isLoading: posting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
+  // The composer's attachments — not the listing's own `photos` below.
+  const attachments = useComposerPhotos();
 
   const seller = data?.user ?? listing?.user ?? null;
   const isMine = !!seller && seller.user_id === myId;
@@ -128,17 +131,21 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
   ].filter((s) => s.value) as { label: string; value: string }[]) : [];
 
   const submitComment = async () => {
-    if (!listingId || !commentText.trim()) return;
+    if (!listingId) return false;
     const fd = new FormData();
     fd.append('document_id', listingId);
     fd.append('document_type', LISTING_ENTRY_TYPE);
     fd.append('body', commentText.trim());
+    attachments.appendTo(fd);
     try {
       await createComment(fd).unwrap();
       setCommentText('');
+      attachments.clear();
       Keyboard.dismiss();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
+      // Keeps the composer open with the words still in it.
+      return false;
     }
   };
 
@@ -353,25 +360,21 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
               </ScrollView>
             )}
 
-            <View style={styles.composer}>
-              <TextInput
-                style={[ss.chatInput, { borderColor: colors.border, color: colors.fg }]}
-                value={commentText}
-                onChangeText={setCommentText}
-                placeholder="Ask a question…"
-                placeholderTextColor={colors.grey}
-                multiline
-              />
-              <TouchableOpacity
-                style={[styles.postBtn, { backgroundColor: brand }, (!commentText.trim() || posting) && styles.postBtnOff]}
-                onPress={submitComment}
-                disabled={!commentText.trim() || posting}
-                accessibilityRole="button"
-                accessibilityLabel="Post comment"
-              >
-                <Text style={styles.postText}>Post</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Tapped, the field opens over the panel on the keyboard — see
+                Composer. Pulled out to the panel's own gutter, since the bar
+                carries a gutter of its own. */}
+            <Composer
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder="Ask a question…"
+              title="Ask a question"
+              photos={attachments}
+              onSend={submitComment}
+              sending={posting}
+              sendLabel="Post"
+              tone={{ surface: '#000000', field: '#000000', border: colors.border, text: colors.fg, accent: brand, onAccent: '#000000' }}
+              barStyle={styles.composer}
+            />
           </View>
         </View>
       )}
@@ -448,8 +451,5 @@ const styles = StyleSheet.create({
   // A ceiling, like the panel's: a short thread gets a short list.
   commentList: { maxHeight: 260, marginTop: 4 },
 
-  composer:   { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 8 },
-  postBtn:    { paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS },
-  postBtnOff: { opacity: 0.4 },
-  postText:   { fontSize: 13, fontWeight: '800', color: '#000000' },
+  composer:   { marginHorizontal: -12, marginTop: 4 },
 });

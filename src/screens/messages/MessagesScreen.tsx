@@ -68,6 +68,10 @@ function ConversationRow({
     ? formatDistanceToNow(new Date(lastMessage.created_at), { addSuffix: true })
     : '';
   const unreadCount = unreadFromOtherIds.length;
+  // The server supplies `preview` for a row — the text, or "📷 Photo" when
+  // there is none — and the fallback here covers a row from before it did.
+  const preview = lastMessage.preview
+    ?? (lastMessage.body || (lastMessage.gallery?.length ? '📷 Photo' : ''));
 
   // Two steps: the menu names what you're acting on, the confirm covers the
   // fact that a mis-tap here isn't recoverable.
@@ -117,7 +121,7 @@ function ConversationRow({
           ]}
           numberOfLines={1}
         >
-          {lastIsMine ? `You: ${lastMessage.body}` : lastMessage.body}
+          {lastIsMine ? `You: ${preview}` : preview}
         </Text>
       </View>
       {hasUnread && (

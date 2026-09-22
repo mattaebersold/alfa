@@ -6,16 +6,15 @@ import { X } from 'lucide-react-native';
 import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
-import MentionInput from '../ui/MentionInput';
 import Avatar from '../ui/Avatar';
 import CommentRow from './CommentRow';
-import { CommentPhotoButton, CommentPhotoPreview } from './CommentPhotoBar';
-import { useCommentPhoto } from '../../hooks/useCommentPhoto';
+import Composer from './Composer';
+import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/radius';
 
 interface InlineCommentsProps {
   /** internal_id of the thing being commented on. */
@@ -25,10 +24,12 @@ interface InlineCommentsProps {
   /** Section heading; omit to render none. */
   title?: string;
   /**
-   * Fired when the comment box takes focus.
+   * Fired when the composer opens.
    *
-   * This component lives inside a parent ScrollView, so it can't scroll itself
-   * into view above the keyboard — only the parent owns that scroll position.
+   * This component lives inside a parent ScrollView. The focused composer
+   * covers the page while it's open, but when it folds back the parent wants
+   * the thread in view under what was just written — and only the parent owns
+   * that scroll position.
    */
   onInputFocus?: () => void;
   /** Background for the section, so it can be set off from the page. */
@@ -50,7 +51,7 @@ export default function InlineComments({
   const [commentText, setCommentText] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
-  const photo = useCommentPhoto();
+  const photos = useComposerPhotos();
   // Tapping a commenter summarises them in place, as it does in the sheet.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
@@ -60,16 +61,12 @@ export default function InlineComments({
   const onAccent = contrastText(c.primaryAlt);
   const bg = backgroundColor ?? c.bg;
 
-  // Words or a photo — a comment doesn't need both.
-  const canSubmit = !!commentText.trim() || photo.hasPhoto;
-
   const handleSubmit = async () => {
-    if (!canSubmit) return;
     const fd = new FormData();
     fd.append('document_id', documentId);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
-    photo.appendTo(fd);
+    photos.appendTo(fd);
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
     try {
@@ -77,12 +74,14 @@ export default function InlineComments({
       setCommentText('');
       setMentionedUserIds([]);
       setReplyingTo(null);
-      photo.clear();
+      photos.clear();
       // Inline, so there's no pane to close — just clear the keyboard off the
       // comment you just posted.
       Keyboard.dismiss();
     } catch {
       Alert.alert('Error', 'Could not post comment.');
+      // Keeps the composer open with the words still in it.
+      return false;
     }
   };
 
@@ -126,57 +125,43 @@ export default function InlineComments({
         ))
       )}
 
-      {replyingTo && (
-        <View style={[styles.replyBanner, { backgroundColor: c.segment, borderColor: c.borderDark }]}>
-          <Text style={[styles.replyBannerText, { color: c.grey }]}>
-            Replying to <Text style={{ fontWeight: '700', color: c.fg }}>@{replyingTo.username}</Text>
-          </Text>
-          <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
-            <X size={15} color={c.grey} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <CommentPhotoPreview photo={photo} />
-
-      <View style={styles.inputRow}>
-        {/* Boxed at a fixed size: in a row whose other child grows, the avatar
-            was picking up the leftover width and drawing as a wide rectangle
-            instead of a circle. */}
-        <View style={styles.avatarBox}>
-          <Avatar user={userInfo} size={30} />
-        </View>
-        <View style={[styles.inputFlex, { backgroundColor: c.card, borderColor: c.borderDark }]}>
-          <MentionInput
-            // MentionInput applies no colour of its own, so without this the
-            // TextInput falls back to RN's default black — invisible against
-            // the dark comment surface. Same reason as placeholderTextColor
-            // below, which was already handled.
-            style={[styles.input, { color: c.fg }]}
-            value={commentText}
-            onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
-            placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-            // Without this the placeholder falls back to RN's system colour,
-            // which is near-invisible on the dark sheet.
-            placeholderTextColor={c.grey}
-            onFocus={onInputFocus}
-            multiline
-          />
-        </View>
-        <CommentPhotoButton photo={photo} tint={c.grey} />
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={submitting || !canSubmit}
-          style={[
-            styles.sendBtn,
-            { backgroundColor: c.primaryAlt },
-            (!canSubmit || submitting) && styles.sendBtnDisabled,
-          ]}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.sendText, { color: onAccent }]}>Post</Text>
-        </TouchableOpacity>
-      </View>
+      <Composer
+        value={commentText}
+        onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
+        placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
+        title={replyingTo ? `Reply to @${replyingTo.username}` : 'Comment'}
+        photos={photos}
+        onSend={handleSubmit}
+        sending={submitting}
+        mentions
+        sendLabel="Post"
+        tone={{ surface: bg, field: c.card, border: c.borderDark, text: c.fg, accent: c.primaryAlt, onAccent: onAccent }}
+        barStyle={styles.composer}
+        onOpenChange={(open) => { if (open) onInputFocus?.(); }}
+        // Boxed at a fixed size: in a row whose other child grows, the avatar
+        // was picking up the leftover width and drawing as a wide rectangle
+        // instead of a circle.
+        leading={(
+          <View style={styles.avatarBox}>
+            <Avatar user={userInfo} size={30} />
+          </View>
+        )}
+        banner={replyingTo ? (
+          <View style={[styles.replyBanner, { backgroundColor: c.segment, borderColor: c.borderDark }]}>
+            <Text style={[styles.replyBannerText, { color: c.grey }]}>
+              Replying to <Text style={{ fontWeight: '700', color: c.fg }}>@{replyingTo.username}</Text>
+            </Text>
+            <TouchableOpacity
+              onPress={() => { setReplyingTo(null); setCommentText(''); }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Stop replying"
+            >
+              <X size={15} color={c.grey} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      />
 
       <UserSummaryModal
         userId={userSummary?.userId ?? null}
@@ -209,20 +194,6 @@ const styles = StyleSheet.create({
   },
   replyBannerText: { fontSize: 12 },
 
-  inputRow:  {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 16,
-  },
+  composer:  { paddingBottom: 6 },
   avatarBox: { width: 30, height: 30, flexGrow: 0, flexShrink: 0 },
-  // A field with edges, so the composer reads as somewhere to type rather than
-  // as loose text between an avatar and a button.
-  inputFlex: {
-    flex: 1, minHeight: 38, justifyContent: 'center',
-    borderRadius: 19, borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-  },
-  input:     { fontSize: 15, maxHeight: 100, paddingVertical: 8 },
-  sendBtn:   { paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS, flexShrink: 0 },
-  sendBtnDisabled: { opacity: 0.4 },
-  sendText:  { fontWeight: '700', fontSize: 13 },
 });

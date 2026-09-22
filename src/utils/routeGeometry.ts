@@ -279,6 +279,40 @@ export interface MapBounds {
  * is the honest description of a wrapped rectangle, and horacio's spot query
  * splits it into two ranges rather than reading it as an empty one.
  */
+/**
+ * The coordinate under a point on the map view — `boundsFor` run backwards.
+ *
+ * Apple Maps in expo-maps has no long-press event, and neither map exposes a
+ * "coordinate for this pixel" call. But a camera is a centre and a zoom, and
+ * the view has a size, so the pixel's offset from the centre is a known
+ * fraction of the world: longitude linearly, latitude through Mercator. Good
+ * to well under a screen pixel at any zoom a person would drop a pin at.
+ *
+ * `x`/`y` are measured from the view's top-left, in the same units as
+ * `widthPx`/`heightPx`.
+ */
+export function coordinateAt(
+  center: { lat: number; lng: number },
+  zoom: number,
+  widthPx: number,
+  heightPx: number,
+  x: number,
+  y: number,
+): { lat: number; lng: number } | null {
+  if (!Number.isFinite(center?.lat) || !Number.isFinite(center?.lng)) return null;
+  if (!Number.isFinite(zoom) || widthPx <= 0 || heightPx <= 0) return null;
+
+  const worldPx = TILE_PX * Math.pow(2, zoom);
+  const dx = x - widthPx / 2;
+  const dy = y - heightPx / 2;
+
+  const lng = ((((center.lng + (dx / worldPx) * 360) + 180) % 360) + 360) % 360 - 180;
+  // Screen y grows downward; projected y grows northward.
+  const lat = inverseMercatorY(mercatorY(center.lat) - (dy / worldPx) * 2 * Math.PI);
+
+  return { lat: Math.max(-85.05, Math.min(85.05, lat)), lng };
+}
+
 export function boundsFor(
   center: { lat: number; lng: number },
   zoom: number,

@@ -994,7 +994,12 @@ export interface Message {
   sender_id: string;
   recipient_id: string;
   subject?: string;
+  /** Empty when the message is a photo alone. */
   body?: string;
+  /** Up to four photos, sent on the `gallery` part — same shape as a comment's. */
+  gallery?: GalleryItem[];
+  /** Inbox rows only: the body, or "📷 Photo" for a message with none. */
+  preview?: string;
   read?: boolean;
   created_at?: string;
   sender?: User;
