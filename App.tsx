@@ -1,3 +1,6 @@
+// First: configures @ors/kit (API base, app id) before the store — which
+// includes the kit's API — or any screen is created.
+import './src/kitSetup';
 import './src/global.css';
 import React from 'react';
 import { Provider } from 'react-redux';

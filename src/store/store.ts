@@ -4,6 +4,10 @@ import authReducer, { logout } from './authSlice';
 import moderationReducer from './moderationSlice';
 import connectivityReducer, { networkErrorSeen, connectionRestored } from './connectivitySlice';
 import { apiService } from '../api/apiService';
+// The shared API — photo spots come from @ors/kit, the same endpoints the
+// photo app uses. Its actions carry `meta.arg.endpointName` like apiService's,
+// so the connectivity and auth-expiry middlewares below cover it too.
+import { orsApi } from '@ors/kit';
 
 /**
  * Turns ordinary API traffic into a connectivity *hint*.
@@ -78,6 +82,7 @@ export const store = configureStore({
     moderation: moderationReducer,
     connectivity: connectivityReducer,
     [apiService.reducerPath]: apiService.reducer,
+    [orsApi.reducerPath]: orsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -87,7 +92,7 @@ export const store = configureStore({
       // (Both are no-ops in production regardless.)
       serializableCheck: false,
       immutableCheck: false,
-    }).concat(apiService.middleware, connectivityMiddleware, authExpiryMiddleware),
+    }).concat(apiService.middleware, orsApi.middleware, connectivityMiddleware, authExpiryMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

@@ -195,7 +195,16 @@ export type AppStackParamList = {
    * one the screen starts from wherever they're standing.
    */
   /** Pin a new spot at a held point, edit one by id, or start blank. */
-  PhotoSpotCreate: { lat: number; lng: number; spotId?: undefined } | { spotId: string; lat?: undefined; lng?: undefined } | undefined;
+  PhotoSpotCreate:
+    | {
+        lat?: number; lng?: number; spotId?: undefined;
+        /** The place the point was chosen as, to prefill the name and address. */
+        name?: string; address?: string;
+        /** Made from a form that wants the new pin back: return there with its id. */
+        pickFor?: { screen: 'Create' };
+      }
+    | { spotId: string; lat?: undefined; lng?: undefined; name?: undefined; address?: undefined; pickFor?: undefined }
+    | undefined;
   /** Admin-only. With an id it edits that product, without it creates one. */
   ProductCreate: { productId?: string } | undefined;
   About: undefined;
@@ -207,7 +216,8 @@ export type AppStackParamList = {
    * A car passed in arrives already tagged — that's how "new post" from a car's
    * own card knows what the post is about.
    */
-  Create: { carId?: string; carTitle?: string } | undefined;
+  /** `spotId`/`spotTitle`: a pin made from the tag picker's "Create a new pin", handed back once saved. */
+  Create: { carId?: string; carTitle?: string; spotId?: string; spotTitle?: string } | undefined;
   DiecastCreate: undefined;
   // Routes — recording is a full-screen flow, so it lives outside the tabs.
   /**

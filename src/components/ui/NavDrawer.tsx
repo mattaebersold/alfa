@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useGetPhotoSpotsQuery } from '@ors/kit';
 import {
   Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings,
 } from 'lucide-react-native';
@@ -28,6 +30,7 @@ import ProfileSetupCard from '../members/ProfileSetupCard';
 import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
+import { imageUrl } from '../../utils/image';
 import WhatsNewButton from './WhatsNew';
 import { logout } from '../../store/authSlice';
 import { useIsPro } from '../../hooks/useBrandColor';
@@ -152,6 +155,75 @@ function NavTile({ label, Icon, onPress, count, countTone = 'brass', wide, flex 
         </View>
       )}
     </TouchableOpacity>
+  );
+}
+
+/** How many pin photos the Photography tile lays side by side behind its label. */
+const PHOTOGRAPHY_TILE_SHOTS = 3;
+
+/**
+ * The Photography tile: full width, taller than the grid's, and wearing a few
+ * photos from recent pins behind its label — a glimpse of the map's point
+ * rather than an icon standing in for it. The photos fade to the tile's own
+ * black along the bottom and the left, where the label sits, so it reads on
+ * any picture. With no pinned photos yet it's a plain tile, still full width.
+ */
+function PhotographyTile({ onPress }: { onPress: () => void }) {
+  // The most recent spots, as the map lists them with no viewport; the first
+  // photo of each of the first few that have one.
+  const { data } = useGetPhotoSpotsQuery({ limit: 12 });
+  const shots = (data?.entries ?? [])
+    .map((spot) => imageUrl(spot.gallery?.[0]?.filename))
+    .filter((url): url is string => !!url)
+    .slice(0, PHOTOGRAPHY_TILE_SHOTS);
+
+  return (
+    // A hairline of grey gradient around the tile, lit from the bottom-right: the
+    // gradient is the frame, and the tile is inset by the frame's width.
+    <LinearGradient
+      colors={['#262626', '#5A5A5A']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.photoTileFrame}
+    >
+    <TouchableOpacity
+      style={styles.photoTile}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel="Photography"
+    >
+      {shots.length > 0 && (
+        <View style={[StyleSheet.absoluteFill, styles.photoTileShots]}>
+          {shots.map((url) => (
+            <Image key={url} source={{ uri: url }} style={styles.photoTileShot} contentFit="cover" transition={200} />
+          ))}
+        </View>
+      )}
+      {/* Two fades: up from the bottom for the label, and in from the left so
+          the icon and the first word don't sit on the brightest part of a photo. */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.85)']}
+        locations={[0.35, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 0.7, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.photoTileText}>
+        <View style={styles.photoTileTitleRow}>
+          <Camera size={20} color={TEXT_HI} />
+          <Text style={styles.photoTileTitle}>Photography</Text>
+        </View>
+        <Text style={styles.photoTileSub} numberOfLines={1}>Members' favorite places to shoot their cars</Text>
+      </View>
+    </TouchableOpacity>
+    </LinearGradient>
   );
 }
 
@@ -425,13 +497,8 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   onPress={() => goFeed('Members')} />
                 <NavTile label="Articles" Icon={BookOpen}
                   onPress={() => goFeed('Articles')} />
-                {/* Photography sits with the places you go rather than with the
-                    things you read: a photo spot is somewhere to drive to. */}
-                <NavTile label="Photography" Icon={Camera}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'PhotographyTab' } as any))} />
                 {/* Routes came out of the tab bar when the marketplace took
-                    that lane. Next to Photography, which is the other "somewhere
-                    to drive" tile. */}
+                    that lane. */}
                 <NavTile label="Routes" Icon={Route}
                   onPress={() => closeThen(() => navigation.navigate('Routes'))} />
                 {/* Marketplace is somewhere you browse, so it browses with
@@ -453,6 +520,13 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
                 )}
               </View>
+
+              {/* Photography closes the grid on a full-width tile of its own —
+                  the map is a place you go, and a few of its photos say so
+                  better than a camera glyph did. */}
+              <PhotographyTile
+                onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'PhotographyTab' } as any))}
+              />
 
               {/* The shop leads the three slabs at the foot of the menu.
                   It sits out of the tile grid for the same reason About and
@@ -798,6 +872,18 @@ const styles = StyleSheet.create({
     backgroundColor: TILE_BG,
   },
   navTileWide:  { width: undefined, flex: 1 },
+  // The frame's padding is the border's width; the tile's radius is the frame's less that.
+  photoTileFrame: { marginTop: 8, padding: 1.5, borderRadius: 12 },
+  photoTile: {
+    height: 128, borderRadius: 10.5, overflow: 'hidden',
+    backgroundColor: PANEL_BG, justifyContent: 'flex-end',
+  },
+  photoTileShots: { flexDirection: 'row' },
+  photoTileShot:  { flex: 1, height: '100%' },
+  photoTileText:  { paddingHorizontal: 14, paddingBottom: 12, gap: 3 },
+  photoTileTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  photoTileTitle: { fontSize: 17, fontWeight: '800', color: TEXT_HI },
+  photoTileSub:   { fontSize: 12, fontWeight: '600', color: TEXT_MID },
   navTileLabel: {
     fontSize: 12.5, fontWeight: '700', color: TEXT_HI,
     textAlign: 'center', flexShrink: 1,

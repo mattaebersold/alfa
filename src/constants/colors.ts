@@ -79,6 +79,8 @@ export const BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
   group:    { bg: colors.badgeGroup,   fg: colors.badgeFg },
   record:   { bg: colors.badgeRecord,  fg: colors.badgeFg },
   spotted:  { bg: colors.badgeSpot,    fg: colors.badgeFg },
+  // Car Spotter's own green, so the badge matches the game's grid.
+  spot_result: { bg: '#2FA84F',      fg: '#FFFFFF' },
   update:   { bg: colors.badgeUpdate,  fg: colors.badgeUpdateFg },
   post:     { bg: colors.badgeDefault, fg: colors.badgeFg },
   default:  { bg: colors.badgeDefault, fg: colors.badgeFg },

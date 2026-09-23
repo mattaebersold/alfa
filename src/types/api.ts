@@ -62,6 +62,12 @@ export interface User {
    * profile; the home feed's suggestions put that member and their cars first.
    */
   invited_by?: string | null;
+  /**
+   * Which of the ORS apps this member has joined. Missing on accounts from
+   * before the field existed, which the server treats as `['ors']`. alfa never
+   * sends an app header, so signing in here is what tags an account 'ors'.
+   */
+  accounts?: ('ors' | 'photo' | 'spot')[];
 }
 
 export type HideMode = 'none' | 'temporary' | 'permanent';
@@ -377,6 +383,39 @@ export interface Post {
   poll?: StoredPoll | null;
   // stories
   seen?: boolean;
+  /**
+   * The sibling app this post was shared from, when it wasn't made here.
+   * Absent on native ORS posts. Drives the "Shared from …" chip — see
+   * constants/sourceApps.
+   */
+  source_app?: 'photo' | 'spot' | null;
+  /** The photo gallery / Car Spotter play it was shared from; what the chip deep-links to. */
+  source_id?: string | null;
+  /** Only on `type: 'spot_result'` — the game summary SpotResultBody draws. */
+  carspot?: CarSpotSummary | null;
+}
+
+/**
+ * A finished Car Spotter game, as it rides on a shared post.
+ *
+ * Deliberately no make/model: a result can be posted the day it's played, and
+ * the feed must not spoil the puzzle for anyone who hasn't.
+ */
+export interface CarSpotSummary {
+  puzzle_number: number;
+  /** 'YYYY-MM-DD' in the game's own timezone. */
+  play_date: string;
+  attempts: number;
+  won: boolean;
+  /** One entry per guess: [make right, model right]. */
+  grid: [boolean, boolean][];
+  /** S3 filename of the puzzle photo — pass through imageUrl(). */
+  image: string;
+  /** The point the puzzle zooms in on, 0..1 of the photo's width/height. */
+  focus_x: number;
+  focus_y: number;
+  /** How far in the puzzle starts, 1.5–8. */
+  zoom: number;
 }
 
 // ── Polls ────────────────────────────────────────────────────────────────────
@@ -826,61 +865,6 @@ export interface PlaceDetail {
 }
 
 /**
- * A place worth photographing a car, pinned to the map.
- *
- * The coordinate is the point of it — a spot is "this corner of this parking
- * structure", which no address says. Everything else hangs off that.
- */
-export interface PhotoSpot {
-  internal_id: string;
-  user_id: string;
-  lat: number;
-  lng: number;
-  title?: string;
-  body?: string;
-  /** A human name for the place. Descriptive only; the coordinate is identity. */
-  location?: string;
-  /** What the place is — drives the pin colour. See constants/photoSpots. */
-  type?: string | null;
-  /** What you'd shoot there. */
-  category?: string | null;
-  /** Resolved from the coordinate on save — what the Location filter's regions match. */
-  location_state?: string | null;
-  region?: string | null;
-  gallery?: PhotoSpotPhoto[];
-  /** Free text, because the useful version of this is always a sentence. */
-  access_note?: string;
-  best_time?: string;
-  private?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  /** Attached by the server — a narrow projection, not the whole user. */
-  user?: PhotoSpotAuthor | null;
-}
-
-/** The narrow author projection a spot and its contributed photos carry. */
-export interface PhotoSpotAuthor {
-  user_id: string;
-  username?: string;
-  profile?: string[];
-  gallery?: GalleryItem[];
-  accountType?: string;
-}
-
-/**
- * One photo on a spot.
- *
- * The owner's own, uploaded with the pin, carry nothing extra. One added by
- * another member through the spot's "Add photos" carries who added it, and
- * the detail attaches that member so the strip can credit them.
- */
-export interface PhotoSpotPhoto extends GalleryItem {
-  user_id?: string;
-  added_at?: string;
-  user?: PhotoSpotAuthor | null;
-}
-
-/**
  * The events Location filter, as query params. `near_lat`/`near_lng` is the
  * device's position; `near: 'me'` asks the server to use the member's saved
  * zip instead; `region` is a key from constants/regions.
@@ -891,15 +875,6 @@ export interface EventLocationParams {
   near_lat?: number;
   near_lng?: number;
   radius?: number;
-}
-
-/** Where a member stands against the pin limit. `limit: null` means unlimited. */
-export interface PhotoSpotUsage {
-  used: number;
-  limit: number | null;
-  remaining: number | null;
-  reached: boolean;
-  isPro: boolean;
 }
 
 /**

@@ -42,6 +42,8 @@ import GroupAttribution from '../../components/groups/GroupAttribution';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import Odometer from '../../components/ui/Odometer';
+import SourceAppChip from '../../components/social/SourceAppChip';
+import SpotResultBody from '../../components/feed/SpotResultBody';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -233,8 +235,16 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
     ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
     : null;
 
+  /**
+   * A shared Car Spotter result draws the puzzle and its guess grid instead of
+   * the body and media — the body is the emoji version of the same grid, for
+   * surfaces that can only show text. Same rule as FeedItemCard: no `carspot`
+   * summary, no special treatment.
+   */
+  const spotResult = post.type === 'spot_result' && post.carspot ? post.carspot : null;
+
   // Photos and videos in one ordered strip, legacy `video_id` posts folded in.
-  const media = postMediaList(post);
+  const media = spotResult ? [] : postMediaList(post);
   const hasMedia = media.length > 0;
 
   // Rendered over the media when there is any, otherwise in the author row.
@@ -348,7 +358,9 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               {/* Full width: prose reads better with the screen's own margins
                   than inset inside a card that has no background to show for
                   itself now that everything shares one surface. */}
-              {post.body && (
+              {spotResult ? <SpotResultBody carspot={spotResult} inset={16} /> : null}
+
+              {!spotResult && post.body && (
                 // Without a picture the words are the whole post, so they get
                 // the size to match — the same step the feed card takes.
                 <MentionText
@@ -412,6 +424,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
                   initialLiked={likeInfo?.hasLiked ?? post.isLiked ?? false}
                 />
               </View>
+
+              {/* Made in a sibling app — under the author, the same place the
+                  feed card puts it, and a way back into that app. */}
+              {post.source_app ? (
+                <SourceAppChip app={post.source_app} sourceId={post.source_id} style={styles.sourceChip} />
+              ) : null}
 
               {/* Links found in the post body → open in the external browser */}
               {extractLinks(post.body).length > 0 && (
@@ -664,6 +682,8 @@ const styles = StyleSheet.create({
   },
   postHeaderUser:  { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   postHeaderText:  { flex: 1 },
+  // Lined up with the avatar above: the card's 12 plus the header's 14.
+  sourceChip:      { marginLeft: 26, marginTop: -6, marginBottom: 4 },
   badgeOverlay: {
     position: 'absolute', top: 10, right: 10,
     alignItems: 'flex-end',

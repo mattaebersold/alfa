@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon } from 'lucide-react-native';
-import { useSearchQuery } from '../../api/apiService';
+import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon, MapPin } from 'lucide-react-native';
+import { SpotPicker } from '@ors/kit/src/photography';
+import { colors as palette } from '../../constants/colors';
+import { useSearchQuery, useGetPreviouslyTaggedPhotoSpotsQuery } from '../../api/apiService';
 import GarageCarStrip from './GarageCarStrip';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { PILL_RADIUS } from '../../constants/radius';
 
-export type TagKind = 'user' | 'car' | 'event' | 'group';
+export type TagKind = 'user' | 'car' | 'event' | 'group' | 'spot';
 export interface TagItem {
   id: string;
   label: string;
@@ -149,6 +151,14 @@ interface Props {
    */
   groups?: TagItem[];
   /**
+   * Photo spots — the places it was shot. Opt-in like groups: passing the
+   * array turns the row on. The picker searches pinned spots by name, offers
+   * the ones tagged before, and can start a new pin through `onCreateSpot`.
+   */
+  spots?: TagItem[];
+  /** "Create a new pin" in the spots row, with the name typed. */
+  onCreateSpot?: (name: string) => void;
+  /**
    * Put the member's own garage above the car search as a row of tappable
    * thumbnails. On by default — searching for a car you own is the long way
    * round to a tag you could have picked from a picture.
@@ -157,7 +167,63 @@ interface Props {
   onToggle: (t: TagItem) => void;
 }
 
-export default function PostTagPicker({ users, cars, events, groups, showGarage = true, onToggle }: Props) {
+/**
+ * The spots card: the same chrome as a TagRow, with the kit's spot picker
+ * where the search would be — it brings its own search, recents and
+ * "create a new pin".
+ */
+function SpotTagRow({ selected, onToggle, onCreate }: {
+  selected: TagItem[];
+  onToggle: (t: TagItem) => void;
+  onCreate?: (name: string) => void;
+}) {
+  const colors = useColors();
+  const accent = palette.badgeSpot;
+  const onAccent = contrastText(accent);
+  const { data: previous } = useGetPreviouslyTaggedPhotoSpotsQuery();
+  const recentIds = (previous?.spots ?? []).map((s) => s.internal_id);
+
+  return (
+    <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+      <View style={[styles.rowHeader, { borderBottomColor: accent }]}>
+        <MapPin size={15} color={accent} />
+        <Text style={[styles.rowTitle, { color: colors.fg }]}>Tag Photo Spots</Text>
+        {selected.length > 0 && (
+          <View style={[styles.countPill, { backgroundColor: accent }]}>
+            <Text style={[styles.countText, { color: onAccent }]}>{selected.length}</Text>
+          </View>
+        )}
+      </View>
+
+      {selected.length > 0 && (
+        <View style={styles.chips}>
+          {selected.map((t) => (
+            <TouchableOpacity key={t.id} style={[styles.chip, { backgroundColor: accent }]} onPress={() => onToggle(t)} activeOpacity={0.8}>
+              <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
+              <X size={12} color={onAccent} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      <SpotPicker
+        spotId={null}
+        recentIds={recentIds}
+        placeholder="Search pinned spots…"
+        onChange={(spot) => {
+          if (!spot) return;
+          // Already picked: the chip's tap takes it off, so this is a no-op.
+          if (selected.some((t) => t.id === spot.internal_id)) return;
+          onToggle({ id: spot.internal_id, label: spot.title || 'Photo spot', kind: 'spot' });
+        }}
+        onCreateNew={(name) => onCreate?.(name)}
+        inputStyle={[styles.inputBox, styles.spotInput, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.fg }]}
+      />
+    </View>
+  );
+}
+
+export default function PostTagPicker({ users, cars, events, groups, spots, onCreateSpot, showGarage = true, onToggle }: Props) {
   const colors = useColors();
 
   const [userQ, setUserQ]   = useState('');
@@ -223,6 +289,7 @@ export default function PostTagPicker({ users, cars, events, groups, showGarage 
             onToggle={onToggle}
         />
       )}
+      {spots && <SpotTagRow selected={spots} onToggle={onToggle} onCreate={onCreateSpot} />}
     </View>
   );
 }
@@ -250,6 +317,8 @@ const styles = StyleSheet.create({
 
   inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1.5, borderRadius: 10 },
   input:        { flex: 1, fontSize: 14, padding: 0 },
+  // The kit's picker draws its own input; this gives it the row's field look.
+  spotInput:    { fontSize: 14 },
 
   suggestBox:   { marginTop: 8, borderWidth: 1, borderRadius: 10, overflow: 'hidden' },
   suggestHeader:{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },

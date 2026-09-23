@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Road Society",
     "slug": "alfa",
-    "version": "1.47",
+    "version": "1.49",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -28,6 +28,7 @@
         "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
         "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
         "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["orsphoto", "orsspot"],
         "NSLocationWhenInUseUsageDescription": "Open Road Society uses your location to record the roads you drive and to drop a pin where you're standing when you add a photography spot."
       },
       "usesAppleSignIn": true

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { CONFIG } from '../constants/config';
 import { storeToken, removeToken, getToken } from '../utils/token';
+import { orsApi } from '@ors/kit';
 import { apiService } from '../api/apiService';
 import type { User, LoginResponse } from '../types/api';
 
@@ -190,6 +191,8 @@ export const logout = createAsyncThunk(
     await removeToken();
     // Clear all cached queries so the next account doesn't see the previous user's data.
     dispatch(apiService.util.resetApiState());
+    // And the kit's — photo spots, and anything else alfa takes from @ors/kit.
+    dispatch(orsApi.util.resetApiState());
     return { expired: !!(opts && opts.expired) };
   }
 );

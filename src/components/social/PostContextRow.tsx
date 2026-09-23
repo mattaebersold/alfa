@@ -7,7 +7,9 @@ import UserSummaryModal from '../members/UserSummaryModal';
 import CarSummaryModal from '../cars/CarSummaryModal';
 import GroupSummaryModal from '../groups/GroupSummaryModal';
 import { useEventSheet } from '../../providers/EventSheetProvider';
-import { Users, Car as CarIcon, User as UserIcon, Calendar, ChevronRight } from 'lucide-react-native';
+import { Users, Car as CarIcon, User as UserIcon, Calendar, ChevronRight, MapPin } from 'lucide-react-native';
+import { useGetPhotoSpotQuery } from '@ors/kit';
+import { PhotoSpotSummaryModal } from '@ors/kit/src/photography';
 import {
   useGetGroupQuery, useGetUserByIdQuery, useGetCarQuery, useGetSocietyEventQuery,
   useGetPostTagsQuery,
@@ -40,13 +42,14 @@ function tileWidth(count: number): number {
   return SCREEN_WIDTH * 0.4;
 }
 
-type Kind = 'group' | 'user' | 'car' | 'event';
+type Kind = 'group' | 'user' | 'car' | 'event' | 'spot';
 
 const KIND_BADGE: Record<Kind, { label: string; bg: string }> = {
   group: { label: 'Group', bg: colors.badgeGroup },
   user:  { label: 'User',  bg: colors.badgeGarage },
   car:   { label: 'Car',   bg: colors.badgeRecord },
   event: { label: 'Event', bg: colors.badgeEvent },
+  spot:  { label: 'Spot',  bg: colors.badgeSpot },
 };
 
 const KIND_ICON = {
@@ -54,6 +57,7 @@ const KIND_ICON = {
   user:  UserIcon,
   car:   CarIcon,
   event: Calendar,
+  spot:  MapPin,
 } as const;
 
 /**
@@ -137,6 +141,20 @@ function GroupTile({ id, width, onOpen }: { id: string; width: number; onOpen: O
   );
 }
 
+function SpotTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
+  const { data: spot } = useGetPhotoSpotQuery(id, { skip: !id });
+  if (!spot) return null;
+  return (
+    <Tile
+      kind="spot"
+      name={spot.title || 'Photo spot'}
+      image={firstGalleryUrl(spot.gallery as any)}
+      width={width}
+      onPress={onOpen}
+    />
+  );
+}
+
 function UserTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
   const { data: user } = useGetUserByIdQuery(id, { skip: !id });
   if (!user) return null;
@@ -198,6 +216,7 @@ function kindFromEntryType(t?: string): Exclude<Kind, 'group'> | null {
   if (t === 'user') return 'user';
   if (t === 'garagecar' || t === 'car') return 'car';
   if (t === 'event') return 'event';
+  if (t === 'photospot') return 'spot';
   return null;
 }
 
@@ -300,6 +319,7 @@ export default function PostContextRow({ post }: { post: ContextSubject }) {
     if (item.kind === 'group') return <GroupTile key={item.key} {...props} />;
     if (item.kind === 'user')  return <UserTile key={item.key} {...props} />;
     if (item.kind === 'car')   return <CarTile key={item.key} {...props} />;
+    if (item.kind === 'spot')  return <SpotTile key={item.key} {...props} />;
     return <EventTile key={item.key} {...props} />;
   });
 
@@ -333,6 +353,12 @@ export default function PostContextRow({ post }: { post: ContextSubject }) {
       <GroupSummaryModal
         groupId={open?.kind === 'group' ? open.id : null}
         origin={open?.origin}
+        onClose={close}
+      />
+      {/* The spot's summary without its own tag tiles — SpotContextRow is
+          built on this row, and drawing it here would be a loop. */}
+      <PhotoSpotSummaryModal
+        spotId={open?.kind === 'spot' ? open.id : null}
         onClose={close}
       />
     </>

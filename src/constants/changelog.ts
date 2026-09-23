@@ -25,6 +25,31 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.48': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Photography',
+        items: [
+          'Search an address above the map to pin a spot there, as well as holding the map.',
+          'Holding the map asks whether you mean that exact spot or a place nearby — a park, a garage — and names the pin after it.',
+          'One pin per place: pinning somewhere already pinned opens that spot so you can add your photos to it.',
+          'Pins are a black teardrop with the face of whoever pinned it.',
+          'The spot summary is tidier, with bigger photos — tap one to see it full-screen.',
+          'Everyone who added photos to a spot shows in a row of faces; tap it for the list.',
+          'Tap the name on a spot to see who pinned it.',
+          'Only the member who pinned a spot can edit or remove it, from the cog beside their name.',
+          'Tag photo spots in a post the way you tag people and cars, and make a new pin from there.',
+        ],
+      },
+      {
+        title: 'Getting Around',
+        items: [
+          'Photography has a bigger tile in the menu, with photos from recent pins.',
+        ],
+      },
+    ],
+  },
   '1.47': {
     date: 'September 2026',
     groups: [

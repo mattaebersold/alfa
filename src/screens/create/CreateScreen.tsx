@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
@@ -164,6 +164,18 @@ export default function CreateScreen() {
   const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars]     = useState<TagItem[]>(prefilledCar);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
+  const [taggedSpots, setTaggedSpots]   = useState<TagItem[]>([]);
+
+  // A pin made from the picker's "Create a new pin" comes back as route params
+  // once saved — see PhotoSpotCreateScreen — and joins the tags here.
+  const returnedSpotId = route.params?.spotId;
+  const returnedSpotTitle = route.params?.spotTitle;
+  useEffect(() => {
+    if (!returnedSpotId) return;
+    setTaggedSpots((prev) => prev.some((t) => t.id === returnedSpotId)
+      ? prev
+      : [...prev, { id: returnedSpotId, label: returnedSpotTitle || 'Photo spot', kind: 'spot' }]);
+  }, [returnedSpotId, returnedSpotTitle]);
 
   const [createPost, { isLoading: submitting }] = useCreatePostMutation();
   const [createMuxUploadUrl] = useCreateMuxUploadUrlMutation();
@@ -308,7 +320,10 @@ export default function CreateScreen() {
   const toggleTag = useCallback((tag: TagItem) => {
     // Posts don't offer group tagging, so the picker never emits one here.
     if (tag.kind === 'group') return;
-    const setter = tag.kind === 'user' ? setTaggedUsers : tag.kind === 'car' ? setTaggedCars : setTaggedEvents;
+    const setter = tag.kind === 'user' ? setTaggedUsers
+      : tag.kind === 'car' ? setTaggedCars
+      : tag.kind === 'spot' ? setTaggedSpots
+      : setTaggedEvents;
     setter((prev) => {
       const exists = prev.some(t => t.id === tag.id);
       return exists ? prev.filter(t => t.id !== tag.id) : [...prev, tag];
@@ -431,7 +446,7 @@ export default function CreateScreen() {
         dispatch(apiService.util.invalidateTags(['Post', 'UserEntries']));
       }
 
-      const hasAnyTags = taggedUsers.length > 0 || taggedCars.length > 0 || taggedEvents.length > 0;
+      const hasAnyTags = taggedUsers.length > 0 || taggedCars.length > 0 || taggedEvents.length > 0 || taggedSpots.length > 0;
       if (hasAnyTags && postId) {
         // Await so the request finishes before we navigate away (unmounting was
         // racing the fire-and-forget call), and surface failures instead of
@@ -442,6 +457,7 @@ export default function CreateScreen() {
             tagged_users: taggedUsers.map(t => t.id),
             tagged_cars: taggedCars.map(t => t.id),
             tagged_events: taggedEvents.map(t => t.id),
+            tagged_photospots: taggedSpots.map(t => t.id),
           }).unwrap();
         } catch (e) {
           console.warn('[CreatePost] tag sync failed:', JSON.stringify(e));
@@ -470,7 +486,7 @@ export default function CreateScreen() {
   }, [
     postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
     taggedUsers, taggedCars, taggedEvents, media,
-    createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav,
+    createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav, taggedSpots,
   ]);
 
   const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }];
@@ -607,13 +623,16 @@ export default function CreateScreen() {
         {/* ── Tag people, cars & events — always visible (no accordion) ── */}
         <View>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionLabel, { color: colors.fg }]}>Tag People, Cars & Events</Text>
+            <Text style={[styles.sectionLabel, { color: colors.fg }]}>Tag People, Cars, Events & Spots</Text>
           </View>
           <PostTagPicker
             users={taggedUsers}
             cars={taggedCars}
             events={taggedEvents}
+            spots={taggedSpots}
             onToggle={toggleTag}
+            // The pin form opens over this one and hands the new pin back — see returnedSpotId.
+            onCreateSpot={(name) => appNav.navigate('PhotoSpotCreate', { name: name || undefined, pickFor: { screen: 'Create' } })}
           />
         </View>
 

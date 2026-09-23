@@ -17,6 +17,8 @@ export const TYPE_LABELS: Record<string, string> = {
   wants:     'Want Ad',
   spot:      'Spotted',
   spotted:   'Spotted',
+  // A shared Car Spotter result — nothing to do with 'spot' ("Spotted").
+  spot_result: 'Car Spotter',
   update:    'Update',
   garage:    'Garage',
   event:     'Event',

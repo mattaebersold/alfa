@@ -8,7 +8,7 @@ import type {
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
   FeedPreferences, HomeBanner, CarActivityItem, PollSummary,
   DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
-  PhotoSpot, PhotoSpotUsage, PlacePrediction, PlaceDetail, GroupActivityItem,
+  PlacePrediction, PlaceDetail, GroupActivityItem,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
   Listing, ListingMeta, ListingBrowseParams, ListingBrowseResponse,
   ListingDetailResponse, MyListingsResponse,
@@ -48,7 +48,7 @@ export const apiService = createApi({
     'CarFollow', 'Group', 'GroupMembers', 'GroupDiscussion', 'GroupNews',
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
     'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites', 'Product',
-    'PhotoSpot', 'ArchivedCars',
+    'ArchivedCars',
     /**
      * Custom alerts. Its own tag, and also invalidated onto 'User' by every
      * write — the dashboard's usage panel reads the alert count off
@@ -1548,10 +1548,18 @@ export const apiService = createApi({
       tagged_cars: string[];
       tagged_events: string[];
       tagged_groups?: string[];
+      /** Photo spots — the places a post was shot at. */
+      tagged_photospots?: string[];
       entity_type?: 'post' | 'article' | 'route' | 'photospot';
     }>({
       query: (body) => ({ url: 'api/tags/sync', method: 'POST', body }),
       invalidatesTags: (result, error, { post_id }) => [{ type: 'Post', id: `tags-${post_id}` }],
+    }),
+
+    /** Photo spots this member has tagged before, most recent first — the spot picker's "Recent". */
+    getPreviouslyTaggedPhotoSpots: builder.query<{ spots: { internal_id: string; title?: string }[]; total: number }, number | void>({
+      query: (limit = 12) => `api/tags/previously-tagged/photospots?limit=${limit ?? 12}`,
+      providesTags: ['Tags'],
     }),
 
     getPostTags: builder.query<{ tag_internal_id: string; tag_entry_type: string }[], string>({
@@ -1593,77 +1601,6 @@ export const apiService = createApi({
       place_id: string; session: string;
     }>({
       query: (params) => ({ url: 'api/places/details', params }),
-    }),
-
-    // ── Photography spots ─────────────────────────────────────────────────────
-
-    /**
-     * The pins inside the map's current viewport.
-     *
-     * Bounds are optional: without them the server returns the most recent
-     * spots, which is what a cold start wants before the map has reported a
-     * camera. Cached per viewport rather than as one list — panning is a new
-     * query, and re-using the previous rectangle's answer would leave pins
-     * hanging off the edge of the screen.
-     */
-    getPhotoSpots: builder.query<{
-      entries: PhotoSpot[];
-      total: number;
-      /** Near me was asked for and there's no zip to measure from. */
-      near_unavailable?: boolean;
-      /** The point near me measured from, for the map to go to. */
-      center?: { lat: number; lng: number } | null;
-    }, ({
-      north?: number; south?: number; east?: number; west?: number;
-      type?: string; category?: string; user_id?: string; limit?: number;
-    } & EventLocationParams) | void>({
-      query: (params) => ({ url: 'api/photospot', params: params ?? {} }),
-      providesTags: ['PhotoSpot'],
-    }),
-
-    getPhotoSpot: builder.query<PhotoSpot, string>({
-      query: (id) => `api/photospot/detail/${id}`,
-      transformResponse: (r: any) => r?.entry ?? r,
-      providesTags: (result, error, id) => [{ type: 'PhotoSpot', id }],
-    }),
-
-    /** Drawn as a meter on the create screen, and what disables the add button. */
-    getPhotoSpotUsage: builder.query<PhotoSpotUsage, void>({
-      query: () => 'api/photospot/usage',
-      providesTags: [{ type: 'PhotoSpot', id: 'usage' }],
-    }),
-
-    createPhotoSpot: builder.mutation<{ entry: PhotoSpot }, FormData>({
-      // FormData: a spot carries the photos taken there alongside its fields.
-      query: (body) => ({ url: 'api/photospot/create', method: 'POST', body }),
-      invalidatesTags: ['PhotoSpot'],
-    }),
-
-    updatePhotoSpot: builder.mutation<{ entry: PhotoSpot }, FormData>({
-      query: (body) => ({ url: 'api/photospot/update', method: 'POST', body }),
-      invalidatesTags: ['PhotoSpot'],
-    }),
-
-    deletePhotoSpot: builder.mutation<{ success: boolean; usage: PhotoSpotUsage }, string>({
-      query: (internal_id) => ({
-        url: 'api/photospot/delete', method: 'POST', body: { internal_id },
-      }),
-      invalidatesTags: ['PhotoSpot'],
-    }),
-
-    /**
-     * Hang your own photos on somebody's spot. FormData: `internal_id` plus
-     * `gallery` file parts. Any signed-in member may, on a public spot.
-     */
-    addPhotoSpotPhotos: builder.mutation<{ entry: PhotoSpot }, { internal_id: string; body: FormData }>({
-      query: ({ body }) => ({ url: 'api/photospot/photos', method: 'POST', body }),
-      invalidatesTags: (r, e, { internal_id }) => ['PhotoSpot', { type: 'PhotoSpot', id: internal_id }],
-    }),
-
-    /** Your own contribution, or any photo on your own spot. */
-    removePhotoSpotPhoto: builder.mutation<{ entry: PhotoSpot }, { internal_id: string; filename: string }>({
-      query: (body) => ({ url: 'api/photospot/photos/remove', method: 'POST', body }),
-      invalidatesTags: (r, e, { internal_id }) => ['PhotoSpot', { type: 'PhotoSpot', id: internal_id }],
     }),
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -2464,6 +2401,7 @@ function moveVote(poll: PollSummary, optionId: string | null, me: User | null): 
 
 // Export hooks
 export const {
+  useGetPreviouslyTaggedPhotoSpotsQuery,
   useGetLoggedInUserQuery,
   useGetUserByIdQuery,
   useGetPublicUserQuery,
@@ -2629,14 +2567,6 @@ export const {
   useGetGroupActivityQuery,
   useLazySearchPlacesQuery,
   useLazyGetPlaceDetailsQuery,
-  useGetPhotoSpotsQuery,
-  useGetPhotoSpotQuery,
-  useGetPhotoSpotUsageQuery,
-  useCreatePhotoSpotMutation,
-  useUpdatePhotoSpotMutation,
-  useDeletePhotoSpotMutation,
-  useAddPhotoSpotPhotosMutation,
-  useRemovePhotoSpotPhotoMutation,
   useSearchQuery,
   useUpdateUserSettingMutation,
   useGetNotificationTypesQuery,

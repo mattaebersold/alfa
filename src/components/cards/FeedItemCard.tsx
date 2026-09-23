@@ -22,6 +22,8 @@ import { useAppSelector } from '../../store/store';
 import { imageUrl } from '../../utils/image';
 import { postMediaList, type PostMedia } from '../../utils/postMedia';
 import PostMediaCarousel from '../media/PostMediaCarousel';
+import SourceAppChip from '../social/SourceAppChip';
+import SpotResultBody from '../feed/SpotResultBody';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
@@ -188,9 +190,17 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   // Photos and videos are one ordered list — see utils/postMedia. This also
   // folds in posts whose video predates typed gallery entries, so the card
   // doesn't need a separate branch for them any more.
-  const media = postMediaList(post);
+  /**
+   * A shared Car Spotter result draws its own middle — the zoomed puzzle photo
+   * and the guess grid — in place of the title, words and media. Its body is
+   * the emoji version of that grid, for surfaces that can only show text, and
+   * would only repeat it here. Needs the `carspot` summary to draw from; a
+   * result without one falls back to an ordinary text post.
+   */
+  const spotResult = post.type === 'spot_result' && post.carspot ? post.carspot : null;
+  const media = spotResult ? [] : postMediaList(post);
   const hasMedia = media.length > 0;
-  const bodyText = post.body ? stripHtml(post.body).trim() : '';
+  const bodyText = !spotResult && post.body ? stripHtml(post.body).trim() : '';
 
   /**
    * Like state, from the feed when the feed knows it.
@@ -357,7 +367,16 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           Padding lives on the wrapper, not the text: MentionText hands its
           style down to each inline segment, and a mention carrying the card's
           horizontal padding would sit in a gap of its own. */}
-      {(post.title || bodyText) && (
+      {/* Where the post was made, when it wasn't made here. Under the author,
+          because it's about the post's origin the way the author is, and
+          above the post itself so it doesn't read as part of what was said. */}
+      {post.source_app ? (
+        <SourceAppChip app={post.source_app} sourceId={post.source_id} style={styles.sourceChip} />
+      ) : null}
+
+      {spotResult ? <SpotResultBody carspot={spotResult} /> : null}
+
+      {!spotResult && (post.title || bodyText) && (
         <TouchableOpacity
           style={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
           onPress={handleBodyPress}
@@ -638,6 +657,8 @@ const styles = StyleSheet.create({
   multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
   messageWrap: { paddingHorizontal: 8, paddingTop: 10 },
+  // Tucked up under the author row; the card's own inset on the left.
+  sourceChip:  { marginLeft: 8, marginTop: -2, marginBottom: 10 },
   poll:        { paddingHorizontal: 8, paddingBottom: 10 },
   footerRow: {
     flexDirection: 'row', alignItems: 'center',
