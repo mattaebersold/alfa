@@ -131,17 +131,18 @@ function WhatsNewSheet({ visible, onClose, entry }: {
       onClose={onClose}
       showClose
       surface={SHEET_BG}
-      titleContent={(
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle} numberOfLines={1}>What's new</Text>
-          <VersionPill version={APP_VERSION} />
-        </View>
-      )}
+      // The sheet's own header holds only the close button: the title scrolls
+      // with the notes below, so it's read once and then gets out of the way.
+      titleContent={<View style={styles.headerSpacer} />}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle} numberOfLines={1}>What's new</Text>
+          <VersionPill version={APP_VERSION} />
+        </View>
         <Text style={styles.date}>{entry.date}</Text>
         <VersionNotes entry={entry} />
 
@@ -182,8 +183,10 @@ const styles = StyleSheet.create({
   btnText:  { flex: 1, minWidth: 0 },
   btnLabel: { fontSize: 14, fontWeight: '600', color: BTN_FG },
 
-  headerRow:     { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle:   { flexShrink: 1, fontSize: 17, fontWeight: '700', color: TEXT_HI },
+  headerSpacer:  { flex: 1 },
+  // At the top of the scroll, ahead of the latest release's date and notes.
+  headerRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  headerTitle:   { flexShrink: 1, fontSize: 22, fontWeight: '800', color: TEXT_HI },
   // The button's surface, at pill size. Clips the sheen to the corners.
   versionPill: {
     paddingHorizontal: 11, paddingVertical: 4,

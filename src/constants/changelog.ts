@@ -25,7 +25,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
-  '1.48': {
+  '1.49': {
     date: 'September 2026',
     groups: [
       {
