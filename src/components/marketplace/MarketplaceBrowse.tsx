@@ -11,7 +11,7 @@ import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
 import FilterSummaryRow, { FilterLabel, FilterChoiceRow, type FilterPill } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../ui/LocationFilterRow';
-import ListingCard from './ListingCard';
+import ListingCard, { LISTING_GRID_ROW } from './ListingCard';
 import ManageListingsEntry from './ManageListingsEntry';
 import ListingSummaryModal from './ListingSummaryModal';
 import { categoryLabel } from './listingFormat';
@@ -303,6 +303,9 @@ export default function MarketplaceBrowse({
         style={style}
         data={entries}
         keyExtractor={(item) => item.internal_id}
+        // Two tiles across — see ListingCard. The header still spans the row.
+        numColumns={2}
+        columnWrapperStyle={LISTING_GRID_ROW}
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}

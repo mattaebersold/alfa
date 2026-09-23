@@ -844,7 +844,10 @@ export interface PhotoSpot {
   type?: string | null;
   /** What you'd shoot there. */
   category?: string | null;
-  gallery?: GalleryItem[];
+  /** Resolved from the coordinate on save — what the Location filter's regions match. */
+  location_state?: string | null;
+  region?: string | null;
+  gallery?: PhotoSpotPhoto[];
   /** Free text, because the useful version of this is always a sentence. */
   access_note?: string;
   best_time?: string;
@@ -852,13 +855,29 @@ export interface PhotoSpot {
   created_at?: string;
   updated_at?: string;
   /** Attached by the server — a narrow projection, not the whole user. */
-  user?: {
-    user_id: string;
-    username?: string;
-    profile?: string[];
-    gallery?: GalleryItem[];
-    accountType?: string;
-  } | null;
+  user?: PhotoSpotAuthor | null;
+}
+
+/** The narrow author projection a spot and its contributed photos carry. */
+export interface PhotoSpotAuthor {
+  user_id: string;
+  username?: string;
+  profile?: string[];
+  gallery?: GalleryItem[];
+  accountType?: string;
+}
+
+/**
+ * One photo on a spot.
+ *
+ * The owner's own, uploaded with the pin, carry nothing extra. One added by
+ * another member through the spot's "Add photos" carries who added it, and
+ * the detail attaches that member so the strip can credit them.
+ */
+export interface PhotoSpotPhoto extends GalleryItem {
+  user_id?: string;
+  added_at?: string;
+  user?: PhotoSpotAuthor | null;
 }
 
 /**

@@ -1,17 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
-import { MapPin, Clock, ShieldAlert, Navigation, Camera, Pencil, Trash2 } from 'lucide-react-native';
+import { MapPin, Clock, ShieldAlert, Navigation, Camera, Pencil, Trash2, ImagePlus } from 'lucide-react-native';
 import SummaryModal from '../ui/SummaryModal';
 import SpotContextRow from './SpotContextRow';
 import { useColors } from '../../hooks/useColors';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
-import { useGetPhotoSpotQuery, useDeletePhotoSpotMutation } from '../../api/apiService';
+import {
+  useGetPhotoSpotQuery, useDeletePhotoSpotMutation,
+  useAddPhotoSpotPhotosMutation, useRemovePhotoSpotPhotoMutation,
+} from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
+import { normalizePickedAssets, uploadFile } from '../../utils/upload';
 import { spotTypeLabel, spotCategoryLabel, spotTypeColor } from '../../constants/photoSpots';
+import type { PhotoSpotPhoto } from '../../types/api';
+
+/** The most photos one spot holds, everyone's together. Mirrors horacio's MAX_PHOTOS_PER_SPOT. */
+const MAX_PHOTOS = 30;
+/** How many one add can carry — multer's ceiling on the gallery field. */
+const MAX_PER_ADD = 10;
 
 /**
  * What a pin is, when you tap it.
@@ -29,11 +42,77 @@ export default function PhotoSpotSummaryModal({ spotId, onClose }: {
   onClose: () => void;
 }) {
   const colors = useColors();
+  const brand = useBrandColor();
   const nav = useNavigation<any>();
   const { data: spot } = useGetPhotoSpotQuery(spotId as string, { skip: !spotId });
   const me = useAppSelector((s) => s.auth.userInfo);
   const isOwner = !!spot && !!me?.user_id && (spot.user_id === me.user_id || me.accountType === 'admin');
   const [deleteSpot, { isLoading: deleting }] = useDeletePhotoSpotMutation();
+  const [addPhotos] = useAddPhotoSpotPhotosMutation();
+  const [removePhoto] = useRemovePhotoSpotPhotoMutation();
+  const [adding, setAdding] = useState(false);
+
+  /**
+   * Anyone signed in can hang their own photos on a public spot — the point
+   * of a pin is that other people go and shoot there. The owner has Edit for
+   * the same thing, but a quick add from here is quicker than the form.
+   */
+  const canAdd = !!spot && !!me?.user_id && (!spot.private || isOwner);
+
+  const addYourPhotos = async () => {
+    if (!spot) return;
+    const room = MAX_PHOTOS - (spot.gallery?.length ?? 0);
+    if (room <= 0) {
+      Alert.alert('Full up', 'This spot already has all the photos it can hold.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: Math.min(room, MAX_PER_ADD),
+      quality: 0.85,
+    });
+    if (result.canceled) return;
+
+    setAdding(true);
+    try {
+      const picked = await normalizePickedAssets(result.assets);
+      const fd = new FormData();
+      fd.append('internal_id', spot.internal_id);
+      // The same file part every upload form builds — see utils/upload.
+      picked.slice(0, Math.min(room, MAX_PER_ADD)).forEach((p) => fd.append('gallery', uploadFile(p.uri)));
+      await addPhotos({ internal_id: spot.internal_id, body: fd }).unwrap();
+    } catch (err: any) {
+      Alert.alert('Not added', err?.data?.error ?? "Those didn't upload. Try again in a moment.");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  /** Your own contribution, or anything on your own spot. */
+  const mayRemove = (photo: PhotoSpotPhoto) =>
+    !!me?.user_id && (photo.user_id === me.user_id || isOwner);
+
+  const removeOne = (photo: PhotoSpotPhoto) => {
+    if (!spot || !photo.filename) return;
+    const whose = photo.user_id && photo.user_id !== me?.user_id
+      ? `${photo.user?.username ?? 'their'}'s photo`
+      : 'your photo';
+    Alert.alert('Remove this photo?', `Takes ${whose} off the spot. This can't be undone.`, [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removePhoto({ internal_id: spot.internal_id, filename: photo.filename! }).unwrap();
+          } catch (err: any) {
+            Alert.alert("Couldn't remove it", err?.data?.error ?? 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   /** Your own pin: change it, or take it off the map. */
   const edit = () => {
@@ -138,7 +217,10 @@ export default function PhotoSpotSummaryModal({ spotId, onClose }: {
             ) : null}
           </View>
 
-          {/* Photos taken here — the evidence for the spot being worth the trip. */}
+          {/* Photos taken here — the evidence for the spot being worth the
+              trip. The owner's carry no credit: the byline already says whose
+              spot it is. One another member added is captioned with theirs.
+              Hold a photo you may remove to take it down. */}
           {gallery.length > 0 && (
             <ScrollView
               horizontal
@@ -148,13 +230,29 @@ export default function PhotoSpotSummaryModal({ spotId, onClose }: {
               {gallery.map((g, i) => {
                 const url = imageUrl(g.filename);
                 if (!url) return null;
+                const credit = g.user_id && g.user_id !== spot.user_id ? g.user : null;
+                const creditAvatar = imageUrl(credit?.profile?.[0] ?? credit?.gallery?.[0]?.filename);
                 return (
-                  <Image
+                  <TouchableOpacity
                     key={g.filename ?? i}
-                    source={{ uri: url }}
-                    style={styles.shot}
-                    contentFit="cover"
-                  />
+                    activeOpacity={0.85}
+                    onLongPress={mayRemove(g) ? () => removeOne(g) : undefined}
+                    delayLongPress={350}
+                    accessibilityRole="image"
+                    accessibilityLabel={credit?.username ? `Photo by ${credit.username}` : 'Photo from this spot'}
+                  >
+                    <Image source={{ uri: url }} style={styles.shot} contentFit="cover" />
+                    {credit && (
+                      <View style={styles.credit}>
+                        {creditAvatar ? (
+                          <Image source={{ uri: creditAvatar }} style={styles.creditAvatar} contentFit="cover" />
+                        ) : null}
+                        <Text style={styles.creditText} numberOfLines={1}>
+                          {credit.username ?? 'member'}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 );
               })}
             </ScrollView>
@@ -164,9 +262,27 @@ export default function PhotoSpotSummaryModal({ spotId, onClose }: {
             <View style={[styles.noShots, { borderColor: colors.border }]}>
               <Camera size={14} color={colors.grey} />
               <Text style={[styles.noShotsText, { color: colors.grey }]}>
-                No photos from here yet
+                No photos from here yet{canAdd ? ' — add yours' : ''}
               </Text>
             </View>
+          )}
+
+          {canAdd && (
+            <TouchableOpacity
+              style={[styles.addBtn, { borderColor: brand }, adding && { opacity: 0.6 }]}
+              onPress={addYourPhotos}
+              disabled={adding}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Add your photos from this spot"
+            >
+              {adding
+                ? <ActivityIndicator size="small" color={brand} />
+                : <ImagePlus size={15} color={brand} strokeWidth={2.4} />}
+              <Text style={[styles.addBtnText, { color: brand }]}>
+                {adding ? 'Uploading…' : 'Add your photos'}
+              </Text>
+            </TouchableOpacity>
           )}
 
           {/* Who and what is associated with this spot — the same tile row a
@@ -255,8 +371,25 @@ const styles = StyleSheet.create({
 
   text: { fontSize: 14, lineHeight: 20, marginTop: 4 },
 
-  shots: { gap: 8, paddingVertical: 14 },
+  shots: { gap: 8, paddingTop: 14, paddingBottom: 6 },
   shot:  { width: 150, height: 110, borderRadius: 10 },
+  // Over the photo's bottom-left corner: who took it, for a contributed one.
+  credit: {
+    position: 'absolute', left: 6, bottom: 6, maxWidth: 138,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 999,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
+  creditAvatar: { width: 14, height: 14, borderRadius: 7 },
+  creditText:   { color: '#FFFFFF', fontSize: 10.5, fontWeight: '700', flexShrink: 1 },
+
+  addBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5,
+    marginTop: 8,
+  },
+  addBtnText: { fontSize: 13, fontWeight: '700' },
 
   noShots: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,

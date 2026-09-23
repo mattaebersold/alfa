@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { Image, type ImageRef } from 'expo-image';
 import { CONFIG } from '../../constants/config';
-import { spotTypeColor } from '../../constants/photoSpots';
+import { spotTypeColor, PHOTO_SPOT_PIN_COLOR } from '../../constants/photoSpots';
 import type { PhotoSpot } from '../../types/api';
 
 /**
@@ -20,8 +20,9 @@ import type { PhotoSpot } from '../../types/api';
  * the owner's avatar into a teardrop (horacio services/avatarPin) and this
  * loads that PNG as the icon. It used to load the raw profile photo, which
  * the map pasted over itself at full size. iOS gets the owner's initials in a
- * balloon, which is as close as Apple's markers come. The spot's type is the
- * colour on both — the ring on the Android pin, the balloon tint on iOS.
+ * balloon, which is as close as Apple's markers come. Every pin is the one
+ * fuchsia (PHOTO_SPOT_PIN_COLOR) so it reads against the tiles; the spot's
+ * type survives as the ring around the avatar on the Android pin.
  */
 
 /** Initials for the balloon: "matt aebersold" → "MA", "matt" → "MA". */
@@ -35,6 +36,15 @@ function monogramFor(username?: string): string {
 }
 
 /**
+ * Which drawing of the pin this build expects.
+ *
+ * The server sends pins as immutable for a week, so a redesign — the larger
+ * fuchsia pin replacing the small black one — would otherwise show up on a
+ * phone only once its cache aged out. A new number is a new URL.
+ */
+const PIN_VERSION = 2;
+
+/**
  * The rendered pin for a spot's owner. Always a URL, even with no avatar —
  * the server draws a plain-headed pin then, and it should still be a pin.
  * The type colour is in the URL so the ring matches, and a changed photo is
@@ -43,7 +53,7 @@ function monogramFor(username?: string): string {
 function pinUrlFor(spot: PhotoSpot): string {
   const filename = spot.user?.profile?.[0] ?? spot.user?.gallery?.[0]?.filename ?? '';
   const ring = spotTypeColor(spot.type).replace('#', '');
-  return `${CONFIG.API_BASE_URL}/api/photospot/pin.png?avatar=${encodeURIComponent(filename)}&ring=${ring}`;
+  return `${CONFIG.API_BASE_URL}/api/photospot/pin.png?avatar=${encodeURIComponent(filename)}&ring=${ring}&v=${PIN_VERSION}`;
 }
 
 export interface SpotMarker {
@@ -112,7 +122,9 @@ export function useSpotMarkers(spots: PhotoSpot[]): SpotMarker[] {
         coordinates: { latitude: spot.lat, longitude: spot.lng },
         title: spot.title || 'Photo spot',
         snippet: spot.user?.username ? `by ${spot.user.username}` : undefined,
-        tintColor: spotTypeColor(spot.type),
+        // One colour for every pin, on both maps — the type tints were lost
+        // against the tiles. The type is the ring on the Android pin.
+        tintColor: PHOTO_SPOT_PIN_COLOR,
       };
 
       if (Platform.OS === 'ios') {

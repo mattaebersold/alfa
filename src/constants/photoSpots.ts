@@ -25,17 +25,26 @@ export interface SpotOption {
 }
 
 export const PHOTO_SPOT_TYPES: SpotOption[] = [
-  { key: 'garage',       label: 'Parking Garage',    color: '#7C6BD8' },
-  { key: 'road',         label: 'Road / Canyon',     color: '#2E9E4F' },
-  { key: 'lot',          label: 'Empty Lot',         color: '#9A8F80' },
-  { key: 'industrial',   label: 'Industrial',        color: '#C2703D' },
-  { key: 'urban',        label: 'Urban / Street',    color: '#3D8BC2' },
-  { key: 'nature',       label: 'Nature / Scenic',   color: '#4E8C5A' },
-  { key: 'airstrip',     label: 'Airstrip / Runway', color: '#5C5C5C' },
-  { key: 'track',        label: 'Track / Circuit',   color: '#E23B3B' },
-  { key: 'architecture', label: 'Architecture',      color: '#B0538A' },
-  { key: 'other',        label: 'Other',             color: '#8A8A8A' },
+  { key: 'garage',     label: 'Parking Garage',  color: '#7C6BD8' },
+  { key: 'road',       label: 'Road / Canyon',   color: '#2E9E4F' },
+  { key: 'urban',      label: 'Urban / Street',  color: '#3D8BC2' },
+  { key: 'industrial', label: 'Industrial',      color: '#C2703D' },
+  { key: 'nature',     label: 'Scenic / Nature', color: '#4E8C5A' },
+  { key: 'track',      label: 'Track / Airstrip', color: '#E23B3B' },
+  { key: 'other',      label: 'Other',           color: '#8A8A8A' },
 ];
+
+/**
+ * Keys from the ten-type list this replaced, and where each went: a lot is
+ * an industrial setting to a camera, architecture is urban, an airstrip
+ * shoots like a track. Spots pinned under them keep their stored key; the
+ * label and colour resolve through here. Mirrors horacio's LEGACY_TYPES.
+ */
+const LEGACY_TYPES: Record<string, string> = {
+  lot: 'industrial',
+  architecture: 'urban',
+  airstrip: 'track',
+};
 
 export const PHOTO_SPOT_CATEGORIES: { key: string; label: string }[] = [
   { key: 'static',      label: 'Statics' },
@@ -48,16 +57,31 @@ export const PHOTO_SPOT_CATEGORIES: { key: string; label: string }[] = [
   { key: 'group',       label: 'Group Shots' },
 ];
 
+/**
+ * The pin itself, on the map.
+ *
+ * One colour for every pin, chosen to stand off the tiles: the type colours
+ * above are tints that vanish into a map, and a pin's first job is to be
+ * seen. The type still shows as the ring around the avatar on Android and in
+ * the summary's badge. Mirrors PIN_FILL in horacio's services/avatarPin.js,
+ * which draws the Android pin; change both.
+ */
+export const PHOTO_SPOT_PIN_COLOR = '#F0198C';
+
 /** Pins a basic member may keep. Real: horacio refuses the fourth. */
 export const PHOTO_SPOT_LIMIT_BASIC = 3;
 
 const TYPE_BY_KEY = new Map(PHOTO_SPOT_TYPES.map((t) => [t.key, t]));
 const CATEGORY_BY_KEY = new Map(PHOTO_SPOT_CATEGORIES.map((c) => [c.key, c]));
 
+/** A stored type's entry in today's list, following an old key to its new home. */
+const typeFor = (key?: string | null) =>
+  key ? TYPE_BY_KEY.get(LEGACY_TYPES[key] ?? key) : undefined;
+
 /** The label for a stored key, or the key itself — never blank. */
 export function spotTypeLabel(key?: string | null): string | null {
   if (!key) return null;
-  return TYPE_BY_KEY.get(key)?.label ?? key;
+  return typeFor(key)?.label ?? key;
 }
 
 export function spotCategoryLabel(key?: string | null): string | null {
@@ -67,5 +91,5 @@ export function spotCategoryLabel(key?: string | null): string | null {
 
 /** The pin colour for a spot's type, falling back to the "other" grey. */
 export function spotTypeColor(key?: string | null): string {
-  return (key && TYPE_BY_KEY.get(key)?.color) || '#8A8A8A';
+  return typeFor(key)?.color || '#8A8A8A';
 }

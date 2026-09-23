@@ -66,6 +66,12 @@ interface SharedModalProps {
    * the extra affordance.
    */
   showClose?: boolean;
+  /**
+   * The sheet's own colour, header and grabber included, in place of the
+   * near-black default — true black for a sheet that wants to be a void
+   * behind its content, like What's new.
+   */
+  surface?: string;
   children: React.ReactNode;
 }
 
@@ -75,7 +81,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -171,6 +177,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
         <Animated.View
           style={[
             styles.sheet,
+            surface != null && { backgroundColor: surface },
             heightRatio
               ? [styles.sheetRatio, { height: `${Math.round(heightRatio * 100)}%` as const }]
               : fullHeight ? styles.sheetFull : styles.sheetSized,
@@ -197,10 +204,10 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               twice and opened a band of dead black above the title. */}
           <View {...panResponder.panHandlers}>
             {/* Tap it or drag it down — both close. */}
-            <Pressable onPress={onClose} style={styles.grabberHit} hitSlop={6}>
+            <Pressable onPress={onClose} style={[styles.grabberHit, surface != null && { backgroundColor: surface }]} hitSlop={6}>
               <View style={styles.grabber} />
             </Pressable>
-            <View style={styles.header}>
+            <View style={[styles.header, surface != null && { backgroundColor: surface }]}>
               {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
               <View style={styles.headerRight}>
                 {headerRight}

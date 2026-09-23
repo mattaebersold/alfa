@@ -50,7 +50,7 @@ import PollShelf, { POLL_SHELF_PREVIEW_COUNT } from '../../components/social/Pol
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import RoutesPane from '../../components/routes/RoutesPane';
 import MemberListingsShelf from '../../components/marketplace/MemberListingsShelf';
-import ListingCard from '../../components/marketplace/ListingCard';
+import ListingCard, { LISTING_GRID_ROW } from '../../components/marketplace/ListingCard';
 import ListingSummaryModal from '../../components/marketplace/ListingSummaryModal';
 import type { SummaryOrigin } from '../../components/ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
@@ -975,9 +975,11 @@ export default function ProfileScreen() {
             keyExtractor={(l: Listing) => l.internal_id}
             contentContainerStyle={styles.modalList}
             showsVerticalScrollIndicator={false}
+            numColumns={2}
+            columnWrapperStyle={LISTING_GRID_ROW}
             renderItem={({ item }) => (
-              // The browse screen's own card, so a listing looks the same
-              // wherever it's met. The panel it opens can't be presented over
+              // The browse screen's own card and grid, so a listing looks the
+              // same wherever it's met. The panel it opens can't be presented over
               // this pane, so the pane closes first and the panel opens after.
               <ListingCard
                 listing={item}

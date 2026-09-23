@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, ActivityIndicator, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Clock, Repeat, MapPin, Check, Plus, CalendarPlus, MoreHorizontal } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
@@ -33,20 +32,6 @@ import { COMMON_RADIUS } from '../../constants/radius';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Three tiles across the padded section, so a fourth peeks from the slider.
 const POST_TILE = (SCREEN_WIDTH - 32 - 16) / 3;
-
-/**
- * Zero-alpha version of a hex colour. A literal 'transparent' stop interpolates
- * through transparent *black*, which shows as a grey band on Android — fading
- * to the background's own colour at 0 alpha keeps it clean.
- */
-const fadeOut = (hex: string): string => {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const r = parseInt(full.slice(0, 2), 16);
-  const g = parseInt(full.slice(2, 4), 16);
-  const b = parseInt(full.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, 0)`;
-};
 
 /** Time / repeats block beside the date badge. */
 function InfoTile({ icon: Icon, label, value, large }: { icon: any; label: string; value?: string | null; large?: boolean }) {
@@ -90,6 +75,11 @@ export function EventDetailBody({
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const [deleteEvent] = useDeleteSocietyEventMutation();
+  /**
+   * The poster's own shape, once it has decoded. 4:3 until then, and for the
+   * stand-in, which has no shape of its own worth taking.
+   */
+  const [heroRatio, setHeroRatio] = useState(4 / 3);
 
   const { data: event, isLoading } = useGetSocietyEventQuery(eventId);
   const { data: interestedData } = useGetEventInterestedUsersQuery(eventId);
@@ -171,23 +161,25 @@ export function EventDetailBody({
 
   return (
     <>
-      {/* Hero */}
-      <View style={styles.hero}>
-        <EventImage uri={hero} style={StyleSheet.absoluteFill} />
-        {/* Lower edge dissolves into the page so the title sits on solid colour. */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0)', fadeOut(colors.cream), colors.cream]}
-          locations={[0, 0.3, 0.5, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View style={[styles.categoryBadge, { backgroundColor: category.color, top: headerPad }]}>
+      {/* Hero — the poster whole, at its own shape, as a rounded card inset
+          from the edges. It used to run edge to edge, cropped to 4:3 with
+          the title laid over its lower half: a tall flyer lost its date and
+          the title fought whatever was under it. Now the picture is the
+          picture and the title sits beneath it on solid colour. */}
+      <View
+        style={[
+          styles.hero,
+          { aspectRatio: heroRatio, marginTop: headerPad, backgroundColor: colors.segment },
+        ]}
+      >
+        <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={setHeroRatio} />
+        <View style={[styles.categoryBadge, { backgroundColor: category.color }]}>
           <Text style={styles.categoryText}>{category.label}</Text>
         </View>
 
         {canEdit && (
           <TouchableOpacity
-            style={[styles.optionsBtn, { top: headerPad }]}
+            style={styles.optionsBtn}
             onPress={handleOptions}
             hitSlop={8}
             accessibilityLabel="Event options"
@@ -195,8 +187,9 @@ export function EventDetailBody({
             <MoreHorizontal size={20} color="#FFFFFF" />
           </TouchableOpacity>
         )}
-        <Text style={[styles.heroTitle, { color: colors.fg }]} numberOfLines={3}>{event.title}</Text>
       </View>
+
+      <Text style={[styles.heroTitle, { color: colors.fg }]} numberOfLines={3}>{event.title}</Text>
 
       {/* Sponsorship banner — under the title, so it frames the event rather
           than reading as one more attribute of it. */}
@@ -381,16 +374,18 @@ export function EventInterestBar({ eventId }: { eventId: string }) {
 }
 
 const styles = StyleSheet.create({
-  hero: { width: '100%', aspectRatio: 4 / 3, justifyContent: 'flex-end' },
+  // aspectRatio and marginTop are set inline — the poster's own shape, and
+  // clearance for a floating header on the screen route.
+  hero: { marginHorizontal: 16, borderRadius: 16, overflow: 'hidden' },
   comments: { marginTop: 8, marginHorizontal: -16 },
   optionsBtn: {
-    position: 'absolute', right: 16,
+    position: 'absolute', right: 10, top: 10,
     width: 36, height: 36, borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center', justifyContent: 'center',
   },
   categoryBadge: {
-    position: 'absolute', left: 16,
+    position: 'absolute', left: 10, top: 10,
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999,
   },
   categoryText: {
@@ -398,7 +393,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 26, fontWeight: '800',
-    paddingHorizontal: 16, paddingBottom: 10, letterSpacing: -0.5,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, letterSpacing: -0.5,
   },
 
   orsBanner: {

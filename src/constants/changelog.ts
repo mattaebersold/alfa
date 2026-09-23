@@ -25,6 +25,41 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.47': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Photography',
+        items: [
+          'Adding photos while pinning a spot works again.',
+          'Pins are bigger and easier to spot on the map.',
+          'Anyone can add their own photos to a spot, with a credit on each one.',
+          'See spots as a list instead of the map, from the switch beside the title.',
+          'Filter spots to near you, with a radius, or by region — the same filter events use.',
+          'Say what kind of place a spot is again, from a shorter list, and filter by it.',
+          'On iOS the map opens on where you are.',
+        ],
+      },
+      {
+        title: 'Events',
+        items: [
+          'Event posters show whole, at their own proportions, with the title beneath.',
+        ],
+      },
+      {
+        title: 'Marketplace',
+        items: [
+          'Listings are a two-column grid of cards.',
+        ],
+      },
+      {
+        title: 'Getting Around',
+        items: [
+          'The header menus open with a smoother animation.',
+        ],
+      },
+    ],
+  },
   '1.46': {
     date: 'September 2026',
     groups: [
@@ -102,8 +137,45 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
       {
         title: 'Marketplace',
         items: [
-          'Marketplace listings have been rebuilt from the ground up.',
           'Your existing marketplace posts have been moved over to the new listings.',
+        ],
+      },
+      {
+        title: 'Lists',
+        items: [
+          'Pro members can build lists of members.',
+          'Pro members can build lists of cars.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'Group posts are in chronological order.',
+          'Preview the members who ask to join your group before you decide.',
+        ],
+      },
+      {
+        title: 'Feed & Posts',
+        items: [
+          'Videos open full screen when you play them, with a close button in the corner.',
+        ],
+      },
+      {
+        title: 'Profiles & Members',
+        items: [
+          'Everyone on the Members screen is listed chronologically.',
+          'Behind-the-scenes updates to member records for internal requests.',
+        ],
+      },
+    ],
+  },
+  '1.43': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Marketplace',
+        items: [
+          'Marketplace listings have been rebuilt from the ground up.',
         ],
       },
       {
@@ -114,12 +186,16 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         ],
       },
       {
-        title: 'Lists',
+        title: 'Getting Around',
         items: [
-          'Pro members can build lists of members.',
-          'Pro members can build lists of cars.',
+          'Routes and Marketplace swapped places in the footer menu.',
         ],
       },
+    ],
+  },
+  '1.42': {
+    date: 'September 2026',
+    groups: [
       {
         title: 'Sign-in',
         items: [
@@ -171,8 +247,6 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'Group filters now include type and region.',
           'Fixed upvoting and downvoting on group posts.',
           'Fixed the length of the member list in the group preview.',
-          'Group posts are in chronological order.',
-          'Preview the members who ask to join your group before you decide.',
         ],
       },
       {
@@ -194,7 +268,6 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'The likes list shows usernames only.',
           'Comment counts update as soon as you add or delete a comment, and deleting one closes the comment panel.',
           'Fixed a gallery close button that was hidden on some devices.',
-          'Videos open full screen when you play them, with a close button in the corner.',
         ],
       },
       {
@@ -202,8 +275,6 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         items: [
           'No banner image? You can upload one straight from your profile.',
           'Searching members or cars opens a quick preview instead of taking you off the screen.',
-          'Everyone on the Members screen is listed chronologically.',
-          'Behind-the-scenes updates to member records for internal requests.',
         ],
       },
       {
@@ -232,7 +303,6 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'Dashboard & Settings is easier to find in the menu.',
           'The logo and the add button catch an oil-slick sheen.',
           'Nudged the new post button at the bottom of the screen.',
-          'Routes and Marketplace swapped places in the footer menu.',
           'This "What\'s new" panel, at the foot of the menu.',
         ],
       },
@@ -243,4 +313,33 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
 /** The notes for a version, or null when that version has none written up. */
 export function changelogFor(version: string): ChangelogEntry | null {
   return CHANGELOG[version] ?? null;
+}
+
+/**
+ * The oldest version the panel reaches back to.
+ *
+ * The panel shows the running version's notes first and every version since
+ * this one after, so someone who skipped a few updates — or simply never
+ * opened the panel — still reads what changed. Earlier than this the app
+ * was a different thing, and the list would be history rather than news.
+ */
+export const EARLIEST_SHOWN = '1.42';
+
+/** "1.47" → 147, for ordering. Versions here are always major.minor. */
+const ordinal = (version: string) => {
+  const [major, minor] = version.split('.').map(Number);
+  return (major || 0) * 1000 + (minor || 0);
+};
+
+/**
+ * Every written-up version older than `version` and no older than
+ * EARLIEST_SHOWN, newest first — the panel's "Earlier" section.
+ */
+export function changelogBefore(version: string): { version: string; entry: ChangelogEntry }[] {
+  const current = ordinal(version);
+  const floor = ordinal(EARLIEST_SHOWN);
+  return Object.keys(CHANGELOG)
+    .filter((v) => ordinal(v) < current && ordinal(v) >= floor)
+    .sort((a, b) => ordinal(b) - ordinal(a))
+    .map((v) => ({ version: v, entry: CHANGELOG[v] }));
 }

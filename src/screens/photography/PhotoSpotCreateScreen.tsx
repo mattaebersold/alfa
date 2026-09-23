@@ -17,8 +17,9 @@ import {
   useGetPhotoSpotUsageQuery, useSyncPostTagsMutation,
 } from '../../api/apiService';
 import { toEditorImages } from '../../components/social/PostGalleryEditor';
+import { uploadFile } from '../../utils/upload';
 import {
-  spotTypeColor,
+  PHOTO_SPOT_TYPES, PHOTO_SPOT_PIN_COLOR,
 } from '../../constants/photoSpots';
 import { COMMON_RADIUS } from '../../constants/radius';
 
@@ -86,6 +87,8 @@ export default function PhotoSpotCreateScreen() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [location, setLocation] = useState('');
+  /** What kind of place — one chip, or none. Drives the filter and the badge. */
+  const [type, setType] = useState<string | null>(null);
   const [photos, setPhotos] = useState<EditorImage[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
 
@@ -99,6 +102,7 @@ export default function PhotoSpotCreateScreen() {
     setTitle(existing.title ?? '');
     setBody(existing.body ?? '');
     setLocation(existing.location ?? '');
+    setType(existing.type ?? null);
     setPhotos(toEditorImages(existing.gallery));
     if (Number.isFinite(existing.lat) && Number.isFinite(existing.lng)) {
       setPoint({ lat: existing.lat, lng: existing.lng });
@@ -170,12 +174,17 @@ export default function PhotoSpotCreateScreen() {
     fd.append('title', title.trim());
     fd.append('body', body.trim());
     fd.append('location', location.trim());
+    // Sent even when cleared, so an edit can take a type off.
+    fd.append('type', type ?? '');
 
     // Only the newly picked ones carry a file; on an edit the ones kept are
-    // named so the server drops whatever was removed.
+    // named so the server drops whatever was removed. The part is built by
+    // uploadFile, as on every other form: this SDK's fetch throws on the
+    // classic `{ uri, name, type }` object before the request is ever sent,
+    // which surfaced as "That didn't save" with nothing in the server logs.
     photos.forEach((photo) => {
       if (photo.kind !== 'new') return;
-      fd.append('gallery', { uri: photo.uri, name: photo.name, type: photo.type } as any);
+      fd.append('gallery', uploadFile(photo.uri));
     });
     if (isEdit) {
       fd.append('internal_id', editId!);
@@ -253,7 +262,7 @@ export default function PhotoSpotCreateScreen() {
           id: 'new',
           coordinates: { latitude: point.lat, longitude: point.lng },
           title: title || 'New spot',
-          tintColor: spotTypeColor(undefined),
+          tintColor: PHOTO_SPOT_PIN_COLOR,
         }]
       : [],
   };
@@ -290,6 +299,37 @@ export default function PhotoSpotCreateScreen() {
       </View>
 
       <Field label="Name" value={title} onChange={setTitle} />
+
+      {/* What kind of place, as one row of chips. Back after coming out: the
+          filter wants it, and the badge on the summary is how a spot says
+          what it is at a glance. One question, one tap, and skippable. */}
+      <View style={styles.section}>
+        <Text style={[styles.label, { color: colors.fg }]}>
+          What kind of place<Text style={{ color: colors.grey, fontWeight: '400' }}> (optional)</Text>
+        </Text>
+        <View style={styles.chips}>
+          {PHOTO_SPOT_TYPES.map((t) => {
+            const on = type === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                style={[
+                  styles.chip,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                  on && { backgroundColor: t.color, borderColor: t.color },
+                ]}
+                onPress={() => setType(on ? null : t.key)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.chipText, { color: on ? '#000000' : colors.fg }]}>{t.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       <View style={styles.section}>
         <Text style={[styles.label, { color: colors.fg }]}>
           Where is it<Text style={{ color: colors.grey, fontWeight: '400' }}> (optional)</Text>
@@ -315,10 +355,10 @@ export default function PhotoSpotCreateScreen() {
         />
       </View>
 
-      {/* Just a name, a place and a note. Type, category, best time and
-          access notes came out: six questions in front of "drop a pin" was
-          why so few pins got dropped. The fields still exist on the server,
-          and a spot that has them still shows them. */}
+      {/* A name, a kind, a place and a note. Category, best time and access
+          notes stayed out: six questions in front of "drop a pin" was why so
+          few pins got dropped. The fields still exist on the server, and a
+          spot that has them still shows them. */}
       <Field label="Notes" value={body} onChange={setBody} multiline optional />
 
       <View style={styles.section}>
@@ -404,6 +444,9 @@ const styles = StyleSheet.create({
 
   section: { marginTop: 14 },
   label:   { fontSize: 13, fontWeight: '700', marginBottom: 7 },
+  chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
+  chipText: { fontSize: 12.5, fontWeight: '700' },
   input: {
     borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,

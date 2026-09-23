@@ -13,8 +13,19 @@ export const GROW_PANEL_RATIO = 0.9;
 export const GROW_PANEL_RADIUS = 20;
 /** The header buttons' corner radius, which the growing box starts from. */
 const BTN_RADIUS = 14;
-/** How long the panel sits empty before its contents fade in. */
-const CONTENT_DELAY_MS = 1000;
+/** How long the box takes to grow — and so how long the contents wait. */
+const OPEN_MS = 420;
+/**
+ * How far past its mark the box goes before settling. The default back
+ * easing (1.7) overshoots by a tenth, which on a box this size read as
+ * wobble; this is a nudge — a couple of percent — that lets the box land
+ * rather than stop dead. The bell's own copy uses the same figure.
+ */
+const OPEN_OVERSHOOT = 0.9;
+/** How long the contents take to come up once the box has landed. */
+const CONTENT_MS = 520;
+/** How far below their place the contents start, rising as they fade in. */
+const CONTENT_RISE = 10;
 /**
  * Grey, not black — the same scrim the notifications bell uses. The panel is
  * true black, and against a black scrim its edges vanished into the dim: the
@@ -82,13 +93,15 @@ export default function GrowPanel({
   const box = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(0)).current;
   /**
-   * The contents' own fade, held back a beat.
+   * The contents' own fade, held until the box has landed.
    *
-   * They used to ride `reveal`, arriving as the box was still settling, so
-   * the panel filled while it was in motion. Waiting a second lets the box
-   * land and sit empty for a moment first — the surface arrives, then what's
-   * on it — which reads as the panel opening rather than as a screen
-   * appearing. On close it goes at once, ahead of the box.
+   * The surface arrives, then what's on it: the contents start fading in the
+   * moment the box stops growing, not before — filling a box still in motion
+   * reads as a screen appearing rather than a panel opening. But only that
+   * long. This used to wait a full second, which was the box's travel plus
+   * cover for the old spring's overshoot; with a plain ease-out the box is
+   * still at 420ms and there's nothing after it to wait for. On close they
+   * go at once, ahead of the box.
    */
   const content = useRef(new Animated.Value(0)).current;
   /** True once the box has arrived — gates touches on the content. */
@@ -110,13 +123,15 @@ export default function GrowPanel({
     // Two frames of head start, so the content mounts before the box moves.
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => {
       Animated.parallel([
-        Animated.spring(box, {
+        Animated.timing(box, {
           toValue: 1,
-          // About four tenths of a second to size, a breath past the mark,
-          // then settle — the bell's own spring.
-          stiffness: 90,
-          damping: 11.4,
-          mass: 1,
+          // An ease-out with a small back: fast off the button, slowing into
+          // place, a touch past it, then settled — all inside OPEN_MS, so the
+          // contents still arrive on a box that has stopped. This was a spring
+          // that overshot by a tenth and rocked back, and that much read as
+          // wobble on a box this big.
+          duration: OPEN_MS,
+          easing: Easing.out(Easing.back(OPEN_OVERSHOOT)),
           useNativeDriver: false,
         }),
         Animated.timing(reveal, {
@@ -127,8 +142,10 @@ export default function GrowPanel({
         }),
         Animated.timing(content, {
           toValue: 1,
-          delay: CONTENT_DELAY_MS,
-          duration: 320,
+          delay: OPEN_MS,
+          // Unhurried, and a slight rise with the fade (see contentRise): the
+          // contents settle onto the surface rather than switching on.
+          duration: CONTENT_MS,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -187,6 +204,8 @@ export default function GrowPanel({
    * both moments; by the time it's opaque it's already visibly a panel.
    */
   const boxOpacity = box.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 1, 1] });
+  /** The contents' rise, driven by their own fade so the two always agree. */
+  const contentRise = content.interpolate({ inputRange: [0, 1], outputRange: [CONTENT_RISE, 0] });
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={() => closeThen()} statusBarTranslucent>
@@ -226,7 +245,7 @@ export default function GrowPanel({
           style={[styles.panel, { left: panelX, top: panelY, width: panelW, height: panelH }]}
           pointerEvents={expanded ? 'auto' : 'none'}
         >
-          <Animated.View style={[styles.fill, { opacity: content }]}>
+          <Animated.View style={[styles.fill, { opacity: content, transform: [{ translateY: contentRise }] }]}>
             {children({ closeThen, expanded })}
           </Animated.View>
         </Animated.View>

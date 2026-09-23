@@ -16,10 +16,13 @@ import type { Listing } from '../../types/api';
 /**
  * One thing for sale, or one thing wanted.
  *
- * A row rather than a grid tile: a listing is a photo *and* a sentence's worth
- * of numbers — price, condition, how far away — and a two-up grid gave the
- * numbers a third of the width they need. The photo still leads, because it's
- * what tells you whether to read the rest.
+ * A tile for a two-up grid: the photo across the top, the copy beneath it.
+ * It was a row, on the theory that the numbers — price, condition, how far
+ * away — needed the width; in practice the photo is what you scan a market
+ * by, and a grid puts twice as many on screen. The copy keeps its budget by
+ * stacking: two lines of title, the price on its own line, then the tags
+ * wrapping. The host lays the grid out (`numColumns={2}` with a gap in the
+ * row style); the card only fills the cell it's given.
  *
  * The match pill is the card's reason for existing where it is. The default
  * browse floats listings that fit a car in your garage, and a list reordered
@@ -124,14 +127,22 @@ export default function ListingCard({ listing, onPress, conditions }: {
   );
 }
 
+/**
+ * The grid the card is made for: two across, one gap.
+ *
+ * On the FlatList's `columnWrapperStyle`, so every host that shows listings
+ * lays them out the same way and a lone last item still sits at half width
+ * rather than stretching across the row.
+ */
+export const LISTING_GRID_ROW = { gap: 10, paddingHorizontal: 12, marginBottom: 10 } as const;
+
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row', gap: 12,
-    marginHorizontal: 12, marginBottom: 10,
-    padding: 10,
+    flex: 1,
+    padding: 8,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  thumbWrap: { width: 104, height: 104, borderRadius: 8, overflow: 'hidden' },
+  thumbWrap: { width: '100%', aspectRatio: 1, borderRadius: 8, overflow: 'hidden' },
   thumb:     { width: '100%', height: '100%', backgroundColor: '#161616' },
   soldScrim: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -141,7 +152,7 @@ const styles = StyleSheet.create({
   soldPill: { backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS },
   soldText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
 
-  info: { flex: 1, minWidth: 0, gap: 4, justifyContent: 'center' },
+  info: { minWidth: 0, gap: 4, paddingTop: 8, paddingHorizontal: 2 },
   matchPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     alignSelf: 'flex-start',
@@ -150,8 +161,10 @@ const styles = StyleSheet.create({
   // Black on the brand fill, as every other filled pill in the app.
   matchText: { fontSize: 10, fontWeight: '800', color: '#000000', flexShrink: 1 },
 
-  title: { fontSize: 14.5, fontWeight: '700', lineHeight: 19 },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  // Two lines' worth of room always, so a one-line title doesn't leave its
+  // tile shorter than the one beside it.
+  title: { fontSize: 13.5, fontWeight: '700', lineHeight: 18, minHeight: 36 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' },
   price:    { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
   wasPrice: { fontSize: 12, fontWeight: '600', textDecorationLine: 'line-through' },
 

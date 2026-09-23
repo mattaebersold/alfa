@@ -169,16 +169,14 @@ export default function NotificationsBell() {
       // few. Letting the list land first buys a quiet thread to animate on.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         Animated.parallel([
-          Animated.spring(box, {
+          Animated.timing(box, {
             toValue: 1,
-            // Stiff enough to reach full size in about four tenths of a second,
-            // loose enough (damping ratio ~0.6) to overshoot it by a tenth and
-            // rock back — the box arrives, breathes past its mark, and settles.
-            // Any less damping and the overshoot carries it off the bottom of
-            // the screen rather than just past the edge.
-            stiffness: 90,
-            damping: 11.4,
-            mass: 1,
+            // The same curve GrowPanel opens with: an ease-out with a small
+            // back, so the box slows into place, goes a touch past, and
+            // settles. This was a spring that overshot by a tenth and rocked
+            // back, and that much read as wobble on a box this big.
+            duration: 420,
+            easing: Easing.out(Easing.back(0.9)),
             useNativeDriver: false,
           }),
           Animated.timing(reveal, {

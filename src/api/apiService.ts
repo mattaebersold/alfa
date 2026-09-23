@@ -1606,10 +1606,17 @@ export const apiService = createApi({
      * query, and re-using the previous rectangle's answer would leave pins
      * hanging off the edge of the screen.
      */
-    getPhotoSpots: builder.query<{ entries: PhotoSpot[]; total: number }, {
+    getPhotoSpots: builder.query<{
+      entries: PhotoSpot[];
+      total: number;
+      /** Near me was asked for and there's no zip to measure from. */
+      near_unavailable?: boolean;
+      /** The point near me measured from, for the map to go to. */
+      center?: { lat: number; lng: number } | null;
+    }, ({
       north?: number; south?: number; east?: number; west?: number;
       type?: string; category?: string; user_id?: string; limit?: number;
-    } | void>({
+    } & EventLocationParams) | void>({
       query: (params) => ({ url: 'api/photospot', params: params ?? {} }),
       providesTags: ['PhotoSpot'],
     }),
@@ -1642,6 +1649,21 @@ export const apiService = createApi({
         url: 'api/photospot/delete', method: 'POST', body: { internal_id },
       }),
       invalidatesTags: ['PhotoSpot'],
+    }),
+
+    /**
+     * Hang your own photos on somebody's spot. FormData: `internal_id` plus
+     * `gallery` file parts. Any signed-in member may, on a public spot.
+     */
+    addPhotoSpotPhotos: builder.mutation<{ entry: PhotoSpot }, { internal_id: string; body: FormData }>({
+      query: ({ body }) => ({ url: 'api/photospot/photos', method: 'POST', body }),
+      invalidatesTags: (r, e, { internal_id }) => ['PhotoSpot', { type: 'PhotoSpot', id: internal_id }],
+    }),
+
+    /** Your own contribution, or any photo on your own spot. */
+    removePhotoSpotPhoto: builder.mutation<{ entry: PhotoSpot }, { internal_id: string; filename: string }>({
+      query: (body) => ({ url: 'api/photospot/photos/remove', method: 'POST', body }),
+      invalidatesTags: (r, e, { internal_id }) => ['PhotoSpot', { type: 'PhotoSpot', id: internal_id }],
     }),
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -2613,6 +2635,8 @@ export const {
   useCreatePhotoSpotMutation,
   useUpdatePhotoSpotMutation,
   useDeletePhotoSpotMutation,
+  useAddPhotoSpotPhotosMutation,
+  useRemovePhotoSpotPhotoMutation,
   useSearchQuery,
   useUpdateUserSettingMutation,
   useGetNotificationTypesQuery,
