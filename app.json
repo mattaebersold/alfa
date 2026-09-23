@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#1C3738"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "co.openroadsociety.app",
@@ -28,7 +22,10 @@
         "NSPhotoLibraryUsageDescription": "Used to select photos for posts, cars, and profile.",
         "NSPhotoLibraryAddUsageDescription": "Used to save photos from the app.",
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["orsphoto", "orsspot"],
+        "LSApplicationQueriesSchemes": [
+          "orsphoto",
+          "orsspot"
+        ],
         "NSLocationWhenInUseUsageDescription": "Open Road Society uses your location to record the roads you drive and to drop a pin where you're standing when you add a photography spot."
       },
       "usesAppleSignIn": true
@@ -65,7 +62,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1C3738"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
@@ -120,7 +116,8 @@
           "iosUrlScheme": "com.googleusercontent.apps.102801063030-muebpoen038tgise15bm7t4crbe2o9kl"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-splash-screen"
     ],
     "scheme": "openroadsociety",
     "extra": {
