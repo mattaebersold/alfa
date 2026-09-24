@@ -19,6 +19,13 @@ interface ButtonProps {
    * pill every other button in the app wears.
    */
   radius?: number;
+  /** Fill override, for one placement that needs a different shade of its variant. */
+  background?: string;
+  /**
+   * A floor on the width, for a button whose label changes — Follow and
+   * Following — so it doesn't resize the row every time it's pressed.
+   */
+  minWidth?: number;
 }
 
 const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = {
@@ -29,7 +36,7 @@ const SIZE_STYLES: Record<Size, { py: number; px: number; fontSize: number }> = 
 };
 
 export default function Button({
-  label, onPress, variant = 'primary', size = 'default', loading = false, disabled = false, radius,
+  label, onPress, variant = 'primary', size = 'default', loading = false, disabled = false, radius, background, minWidth,
 }: ButtonProps) {
   const s = SIZE_STYLES[size];
   // The brand fill, which is gold for pro members and blue for everyone else.
@@ -60,10 +67,11 @@ export default function Button({
       style={[
         styles.base,
         {
-          backgroundColor: v.bg,
+          backgroundColor: background ?? v.bg,
           paddingVertical: s.py,
           paddingHorizontal: s.px,
           width: size === 'full' ? '100%' : undefined,
+          ...(minWidth != null && { minWidth }),
           ...(radius != null && { borderRadius: radius }),
           borderWidth: isOutline ? 1.5 : 0,
           borderColor: isOutline ? (v.border ?? brand) : 'transparent',

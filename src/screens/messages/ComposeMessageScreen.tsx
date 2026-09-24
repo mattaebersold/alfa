@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
-  Animated, ActivityIndicator, Alert, ScrollView,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  ActivityIndicator, Alert,
 } from 'react-native';
+import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -15,11 +16,10 @@ import {
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
-import { FocusedComposer, ComposerPhotoStrip } from '../../components/social/Composer';
+import { ComposerAttach, ComposerPhotoStrip } from '../../components/social/Composer';
 import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardInset, useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
@@ -53,9 +53,6 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
   const [body, setBody] = useState(route.params?.initialBody ?? '');
   // Up to four, the server's ceiling for a message — see uploadMessageGallery.
   const photos = useComposerPhotos(4);
-  // The message is written in the composer's panel, not in the form: the form
-  // field is a stand-in that shows what's been written and opens the panel.
-  const [composerOpen, setComposerOpen] = useState(false);
 
   const { data: messagesData } = useGetMessagesQuery({ limit: 100 });
   const allMessages = messagesData?.entries ?? [];
@@ -119,36 +116,17 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
 
   const canSend = !!recipient && (!!body.trim() || photos.hasPhotos) && !sending;
 
-  /**
-   * Lift the whole screen off the keyboard.
-   *
-   * This was a KeyboardAvoidingView, which needed a `keyboardVerticalOffset`
-   * guessed from the nav header's height on iOS and did nothing at all useful
-   * on Android — `behavior="height"` has no window resize to work with in an
-   * edge-to-edge app, so the keyboard simply covered the message field and the
-   * Send button. Padding by the measured inset needs no guess and behaves the
-   * same on both.
-   */
-  const { animated: keyboardPad, height: keyboardHeight } = useKeyboardInset();
-
-  /**
-   * And a measured correction on top of it.
-   *
-   * The padding above is computed from the reported keyboard height, which is
-   * right on iOS and can be short by a navigation bar on Android. This measures
-   * the footer against the keyboard's actual top edge and makes up whatever is
-   * missing — zero, wherever the arithmetic was already right.
-   */
-  const footerRef = useRef<View>(null);
-  const { animated: footerLift, onLayout: onFooterLayout } = useKeyboardOverlap(footerRef);
+  // Send's height, kept clear under the focused field.
+  const [footerH, setFooterH] = useState(0);
 
   return (
-    <Animated.View
-      style={[styles.root, { backgroundColor: colors.cream, paddingBottom: keyboardPad }]}
-    >
-      <ScrollView
+    // Fields above, Send pinned under them: the column shrinks by the keyboard's
+    // height so Send sits on the keyboard (kit's KeyboardAvoidingView), and the
+    // focused field is kept clear of Send as well.
+    <KeyboardAvoidingView style={[styles.root, { backgroundColor: colors.cream }]}>
+      <FormScrollView
         style={styles.scroll}
-        keyboardShouldPersistTaps="handled"
+        bottomOffset={KEYBOARD_GAP + footerH}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -200,53 +178,42 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
           />
         </View>
 
-        {/* Body. A Pressable rather than a field, for the reason Composer
-            gives: the panel's field is the one you type into, and this only
-            has to show what it holds and open it. */}
-        <Pressable
-          style={[styles.field, styles.bodyField, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-          onPress={() => setComposerOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={body ? `Message: ${body}` : 'Write your message'}
-          accessibilityHint="Opens the composer"
-        >
-          <Text style={[styles.label, { color: colors.grey }]}>Message</Text>
-          <Text style={[styles.textInput, styles.bodyInput, { color: body ? colors.fg : colors.grey }]}>
-            {body || 'Write your message...'}
-          </Text>
+        {/* Body — typed right here; the form keeps it above the keyboard as
+            it grows. */}
+        <View style={[styles.field, styles.bodyField, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <View style={styles.bodyHead}>
+            <Text style={[styles.label, { color: colors.grey }]}>Message</Text>
+            <ComposerAttach photos={photos} tint={colors.grey} />
+          </View>
+          <TextInput
+            style={[styles.textInput, styles.bodyInput, { color: colors.fg }]}
+            value={body}
+            onChangeText={setBody}
+            placeholder="Write your message..."
+            placeholderTextColor={colors.grey}
+            multiline
+            maxLength={2000}
+            textAlignVertical="top"
+            autoCorrect
+            spellCheck
+            autoCapitalize="sentences"
+          />
           <ComposerPhotoStrip photos={photos} borderColor={colors.border} />
-        </Pressable>
-      </ScrollView>
+        </View>
+      </FormScrollView>
 
-      <FocusedComposer
-        visible={composerOpen}
-        onClose={() => setComposerOpen(false)}
-        value={body}
-        onChangeText={setBody}
-        placeholder="Write your message..."
-        title={recipient ? `Message @${recipient.username}` : 'New message'}
-        photos={photos}
-        onSend={handleSend}
-        sending={sending}
-        sendLabel="Send"
-        maxLength={2000}
-        tone={{ surface: colors.card, field: colors.cream, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
-      />
-
-      {/* Send button — always visible above the keyboard */}
-      <Animated.View
-        ref={footerRef}
-        onLayout={onFooterLayout}
+      {/* Send button — always visible above the keyboard. Measured without
+          the home indicator's clearance, which collapses under it as the
+          keyboard rises: a height that changed mid-animation would move the
+          form's scroll offset with it, and the form would bob. */}
+      <View style={{ backgroundColor: colors.card }}>
+      <View
+        onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
         style={[
         styles.footer,
         {
-          backgroundColor: colors.card,
           borderTopColor: colors.border,
-          // The home indicator's clearance is only needed while the keyboard is
-          // down; with it up, the root's padding has already lifted the footer
-          // clear and this would just be a gap above the keys.
-          paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 12),
-          marginBottom: footerLift,
+          paddingBottom: 12,
         },
       ]}>
         <TouchableOpacity
@@ -260,8 +227,10 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
             : <Text style={styles.sendBtnText}>Send Message</Text>
           }
         </TouchableOpacity>
-      </Animated.View>
-    </Animated.View>
+      </View>
+      <HomeIndicatorSpacer height={Math.max(insets.bottom, 12) - 12} />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -275,6 +244,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   bodyField:     { minHeight: 160 },
+  // The label with the attach button across from it.
+  bodyHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label:         { fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   textInput:     { fontSize: 15, padding: 0 },
   bodyInput:     { minHeight: 120, textAlignVertical: 'top' },

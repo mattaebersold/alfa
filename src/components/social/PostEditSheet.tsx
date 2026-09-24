@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Alert,
 } from 'react-native';
+import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP } from '@ors/kit';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
@@ -321,12 +322,15 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       {/* Gesture Handler needs its own root inside an RN Modal, or the gallery's
           drag-to-reorder never receives touches. */}
       <GestureHandlerRootView style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrap}>
+        {/* The sheet rides on the keyboard: this fills the modal and shrinks by
+            the keyboard's height, and the sheet sits at its bottom capped to a
+            share of it. `box-none` lets a tap above the sheet reach the backdrop. */}
+        <KeyboardAvoidingView style={styles.sheetWrap} pointerEvents="box-none">
           <View style={[styles.sheet, { backgroundColor: colors.cream }]}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
               <Text style={[styles.headerTitle, { color: colors.fg }]}>Edit Post</Text>
@@ -335,7 +339,9 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            {/* The Save footer floats over the form's bottom edge, so a focused
+                field is kept clear of it as well as of the keyboard. */}
+            <FormScrollView style={styles.scroll} contentContainerStyle={styles.form} bottomOffset={KEYBOARD_GAP + FOOTER_H}>
               <PostGalleryEditor images={images} onChange={setImages} />
 
               <Text style={[styles.label, { color: colors.grey }]}>Title</Text>
@@ -420,7 +426,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 <Text style={[styles.postToEmpty, { color: colors.grey }]}>You're not a member of any groups.</Text>
               )}
 
-            </ScrollView>
+            </FormScrollView>
 
             <StickyFormFooter color={colors.card} bottomInset={0}>
               <TouchableOpacity style={[styles.saveBtn, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
@@ -435,17 +441,20 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 }
 
 
+/** Roughly how tall the floating Save footer stands over the form. */
+const FOOTER_H = 70;
+
 const styles = StyleSheet.create({
   overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
   backdrop:    { ...StyleSheet.absoluteFill },
-  sheetWrap:   { maxHeight: '90%' },
-  // The sheet has to shrink to the wrapper's cap rather than overflow it. A
-  // content-height box holding a tall ScrollView lays out past the 90% and gets
+  sheetWrap:   { flex: 1, justifyContent: 'flex-end' },
+  // The sheet has to shrink to its cap rather than overflow it. A
+  // content-height box holding a tall ScrollView lays out past the cap and gets
   // clipped, which leaves the footer — positioned against the *box's* bottom —
   // sitting somewhere below the screen. Shrinking both the sheet and its
   // scroller keeps the laid-out bottom and the visible bottom the same edge.
   sheet:       {
-    flexShrink: 1,
+    maxHeight: '90%', flexShrink: 1,
     borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden',
   },
   scroll:      { flexShrink: 1 },

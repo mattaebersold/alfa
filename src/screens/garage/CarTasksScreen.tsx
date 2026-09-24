@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, RefreshControl,
-  TextInput, Modal, Alert, KeyboardAvoidingView, Platform, ScrollView, Linking,
+  TextInput, Modal, Alert, Linking,
 } from 'react-native';
+import { FormScrollView, KeyboardAvoidingView } from '@ors/kit';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
@@ -225,18 +226,18 @@ function TaskDialog({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={dialog.backdrop}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      {/* Centred in the room the keyboard leaves (kit's KeyboardAvoidingView
+          shrinks by its height). Its own padding is the keyboard's, so the
+          backdrop's margin lives on the view inside. */}
+      <KeyboardAvoidingView style={dialog.fill}>
+      <View style={dialog.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         {/* Scrollable because the optional section can push the dialog past the
             screen once the keyboard is up. */}
-        <ScrollView
+        <FormScrollView
           style={dialog.scroll}
           contentContainerStyle={dialog.scrollContent}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
         <View style={[dialog.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
@@ -378,17 +379,16 @@ function TaskDialog({
             </TouchableOpacity>
           </View>
         </View>
-        </ScrollView>
+        </FormScrollView>
+      </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const dialog = StyleSheet.create({
-  backdrop:   {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)', padding: 24,
-  },
+  fill:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  backdrop:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   // The ScrollView must not stretch to the backdrop's full height, or its
   // content stops being centred and pins to the top.
   scroll:        { flexGrow: 0, width: '100%', maxWidth: 400 },

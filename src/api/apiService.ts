@@ -521,6 +521,19 @@ export const apiService = createApi({
       providesTags: ['ArchivedCars'],
     }),
 
+    /** Every make, with what the Brands screen's cards show. */
+    getCarBrandSummaries: builder.query<{
+      make: string; make_handle: string; qty: number;
+      /** Distinct models of this make on the site. */
+      model_count?: number;
+      /** Up to three of its public cars' photos, picked at random per request. */
+      sample_photos?: string[];
+    }[], void>({
+      query: () => 'api/garage/brands/all',
+      transformResponse: (response: { brands: any[] }) => response.brands ?? [],
+      providesTags: ['Brands'],
+    }),
+
     getCarBrands: builder.query<string[], void>({
       query: () => 'api/garage/brands/all',
       transformResponse: (response: { brands: { make: string; make_handle: string; qty: number }[] }) =>
@@ -1738,6 +1751,19 @@ export const apiService = createApi({
       providesTags: (result, error, id) => [{ type: 'Cars', id }],
     }),
 
+    /**
+     * Ask the owner of a photo-less car to add some. Once per asker per car —
+     * a repeat answers `already: true` and sends nothing.
+     */
+    requestCarPhotos: builder.mutation<{ success: boolean; already: boolean }, string>({
+      query: (carId) => ({ url: `api/car/${encodeURIComponent(carId)}/request-photos`, method: 'POST' }),
+    }),
+
+    /** The same ask, of a member with no profile photo. Once per asker per member. */
+    requestProfilePhoto: builder.mutation<{ success: boolean; already: boolean }, string>({
+      query: (userId) => ({ url: `api/users/request-photo/${encodeURIComponent(userId)}`, method: 'POST' }),
+    }),
+
     updateCarGroup: builder.mutation<void, { carId: string; groupId: string | null }>({
       query: ({ carId, groupId }) => {
         const fd = new FormData();
@@ -2432,6 +2458,8 @@ export const {
   useGetCommentsQuery,
   useGetCommentRepliesQuery,
   useGetCommentCountQuery,
+  useRequestCarPhotosMutation,
+  useRequestProfilePhotoMutation,
   useCreateCommentMutation,
   useDeleteCommentMutation,
   useGetCarsQuery,
@@ -2451,6 +2479,7 @@ export const {
   useDeclineCarTransferMutation,
   useGetPendingCarTransfersQuery,
   useGetCarBrandsQuery,
+  useGetCarBrandSummariesQuery,
   useGetCarModelsQuery,
   useGetCarMakeOptionsQuery,
   useGetCarModelOptionsQuery,

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, Alert, Image,
+  Alert, Image,
   Dimensions,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eye, EyeOff } from 'lucide-react-native';
@@ -51,119 +52,114 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
       style={ss.fill}
     >
       <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <FormScrollView
           style={styles.flex}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.container}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.header}>
-              <Image
-                source={require('../../../assets/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
+          <View style={styles.header}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
+          </View>
+
+          <BlurView intensity={40} tint="dark" style={styles.form}>
+            {/* Says why they're looking at this screen. Without it, being
+                returned to a login form mid-session reads as the app having
+                forgotten them for no reason. A real login error supersedes
+                it — that's the more recent news. */}
+            {sessionExpired && !error && (
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeText}>
+                  Your session expired. Please sign in again.
+                </Text>
+              </View>
+            )}
+
+            {(error || googleError) && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error || googleError}</Text>
+              </View>
+            )}
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Email or Username</Text>
+              <TextInput
+                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder=""
+                placeholderTextColor={colors.grey}
+                autoCapitalize="none"
+                keyboardType="default"
+                autoCorrect={false}
+                textContentType="username"
+                autoComplete="username"
               />
-              <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
             </View>
 
-            <BlurView intensity={40} tint="dark" style={styles.form}>
-              {/* Says why they're looking at this screen. Without it, being
-                  returned to a login form mid-session reads as the app having
-                  forgotten them for no reason. A real login error supersedes
-                  it — that's the more recent news. */}
-              {sessionExpired && !error && (
-                <View style={styles.noticeBox}>
-                  <Text style={styles.noticeText}>
-                    Your session expired. Please sign in again.
-                  </Text>
-                </View>
-              )}
-
-              {(error || googleError) && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error || googleError}</Text>
-                </View>
-              )}
-
-              <View style={styles.field}>
-                <Text style={styles.label}>Email or Username</Text>
+            <View style={styles.field}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrap}>
                 <TextInput
-                  style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                  value={email}
-                  onChangeText={setEmail}
+                  style={[ss.input, styles.inputWithEye, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                  value={password}
+                  onChangeText={setPassword}
                   placeholder=""
                   placeholderTextColor={colors.grey}
+                  secureTextEntry={!showPassword}
                   autoCapitalize="none"
-                  keyboardType="default"
-                  autoCorrect={false}
-                  textContentType="username"
-                  autoComplete="username"
+                  textContentType="password"
+                  autoComplete="current-password"
                 />
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>Password</Text>
-                <View style={styles.inputWrap}>
-                  <TextInput
-                    style={[ss.input, styles.inputWithEye, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder=""
-                    placeholderTextColor={colors.grey}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    textContentType="password"
-                    autoComplete="current-password"
-                  />
-                  <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)} hitSlop={8}>
-                    {showPassword
-                      ? <Eye size={18} color={colors.grey} />
-                      : <EyeOff size={18} color={colors.grey} />}
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => navigation.navigate('ForgotPassword')}
-                style={styles.forgotLink}
-              >
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
-
-              <View style={styles.actionRow}>
-                <TouchableOpacity onPress={() => navigation.navigate('Register')} activeOpacity={0.7}>
-                  <Text style={styles.registerLink}>Create an account</Text>
+                <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)} hitSlop={8}>
+                  {showPassword
+                    ? <Eye size={18} color={colors.grey} />
+                    : <EyeOff size={18} color={colors.grey} />}
                 </TouchableOpacity>
-                <Button
-                  label="Sign In"
-                  onPress={handleLogin}
-                  loading={loading}
-                  size="default"
-                  variant="dark"
-                />
               </View>
+            </View>
 
-              {/* Google sits below the form rather than above it. The email
-                  field is what returning members reach for, and a provider
-                  button at the top of a login screen reads as the primary path
-                  when it is the alternative one. */}
-              <View style={styles.altRow}>
-                <View style={styles.altLine} />
-                <Text style={styles.altLabel}>or</Text>
-                <View style={styles.altLine} />
-              </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotLink}
+            >
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
 
-              <GoogleSignInButton
-                label="Sign in with Google"
-                onError={setGoogleError}
+            <View style={styles.actionRow}>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')} activeOpacity={0.7}>
+                <Text style={styles.registerLink}>Create an account</Text>
+              </TouchableOpacity>
+              <Button
+                label="Sign In"
+                onPress={handleLogin}
+                loading={loading}
+                size="default"
+                variant="dark"
               />
-              <AppleSignInButton onError={setGoogleError} />
-            </BlurView>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            </View>
+
+            {/* Google sits below the form rather than above it. The email
+                field is what returning members reach for, and a provider
+                button at the top of a login screen reads as the primary path
+                when it is the alternative one. */}
+            <View style={styles.altRow}>
+              <View style={styles.altLine} />
+              <Text style={styles.altLabel}>or</Text>
+              <View style={styles.altLine} />
+            </View>
+
+            <GoogleSignInButton
+              label="Sign in with Google"
+              onError={setGoogleError}
+            />
+            <AppleSignInButton onError={setGoogleError} />
+          </BlurView>
+        </FormScrollView>
       </SafeAreaView>
 
     </CrossfadeBackground>

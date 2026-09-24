@@ -1,17 +1,15 @@
-import React, {
-  forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState,
-} from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable, Modal, Animated,
-  ActivityIndicator, Keyboard, Platform, ScrollView, type StyleProp, type ViewStyle,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  ActivityIndicator, ScrollView, type StyleProp, type ViewStyle,
 } from 'react-native';
+import Reanimated from 'react-native-reanimated';
+import { useKeyboardPadding } from '@ors/kit';
 import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ImagePlus, X, Send, ChevronDown, Camera, Images } from 'lucide-react-native';
+import { ImagePlus, X, Send, Camera, Images } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';
 import MentionInput from '../ui/MentionInput';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardOverlap, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
 import type { ComposerPhotos, PhotoSource } from '../../hooks/useComposerPhotos';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
@@ -25,7 +23,7 @@ import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
  * dropped on top. Anything left out falls back to the theme.
  */
 export interface ComposerTone {
-  /** The ground of the bar and of the focused panel. */
+  /** The bar's ground. */
   surface?: string;
   /** The field's fill. */
   field?: string;
@@ -38,13 +36,12 @@ export interface ComposerTone {
 }
 
 /**
- * The result of a send. `false` keeps the composer open — the surface has
- * shown its own error and the words shouldn't be lost behind a collapse.
- * Anything else means it went, and the composer folds back into its bar.
+ * The result of a send. `false` means it didn't go — the surface has shown its
+ * own error, and the words are still in the field. Anything else means it went.
  */
 export type SendResult = boolean | void;
 
-interface SharedProps {
+export interface ComposerProps {
   value: string;
   /**
    * Mentioned user ids ride along with the text, as MentionInput reports them.
@@ -53,8 +50,6 @@ interface SharedProps {
    */
   onChangeText: (text: string, mentionedUserIds: string[]) => void;
   placeholder: string;
-  /** What the focused panel is headed — "Comment", "Message @someone". */
-  title?: string;
   /**
    * The attachment strip. Omit for a surface that can't take a photo; the
    * attach button goes with it.
@@ -67,25 +62,28 @@ interface SharedProps {
   /** "Post" for a comment, "Send" for a message. */
   sendLabel?: string;
   maxLength?: number;
-  /** A "Replying to @x" strip, shown above the field in both modes. */
+  /** A "Replying to @x" strip, shown above the field. */
   banner?: React.ReactNode;
   tone?: ComposerTone;
-}
-
-export interface ComposerProps extends SharedProps {
   /** Something to lead the bar with — the writer's avatar, usually. */
   leading?: React.ReactNode;
   /** Draw the bar's send button as an icon rather than the label. */
   sendIcon?: boolean;
-  /** Padding and such for the bar's wrapper — the home-indicator clearance. */
+  /** Padding, border and such for the bar's wrapper. */
   barStyle?: StyleProp<ViewStyle>;
-  /** Fired as the focused panel opens and closes. */
+  /**
+   * The home indicator's clearance, for a bar at the very foot of the screen:
+   * padded below while the keyboard is down, eased to nothing as it rises.
+   */
+  bottomInset?: number;
+  /** Fired as the field gains and loses focus. */
   onOpenChange?: (open: boolean) => void;
 }
 
 export interface ComposerHandle {
-  /** Open the focused panel — for a Reply tap that should start you typing. */
+  /** Focus the field — for a Reply tap that should start you typing. */
   open: () => void;
+  /** Blur it, taking the keyboard down. */
   close: () => void;
 }
 
@@ -113,10 +111,9 @@ function useTone(tone?: ComposerTone) {
 }
 
 /**
- * The attached photos, above the toolbar, each with a way to take it back off.
- * Renders nothing until there's one. Exported for a surface that draws its
- * own collapsed field (ComposeMessageScreen) and still needs to show what's
- * attached while the panel is down.
+ * The attached photos, above the field, each with a way to take it back off.
+ * Renders nothing until there's one. Exported for a surface with a field of
+ * its own (ComposeMessageScreen) that still takes photos.
  */
 export function ComposerPhotoStrip({ photos, borderColor }: { photos: ComposerPhotos; borderColor: string }) {
   if (!photos.hasPhotos) return null;
@@ -188,324 +185,100 @@ function PhotoSourceSheet({ visible, onClose, onPick }: {
   );
 }
 
-export interface FocusedComposerProps extends SharedProps {
-  visible: boolean;
-  /** Asked to fold back into the bar — the keyboard went, or the chevron was tapped. */
-  onClose: () => void;
-}
-
 /**
- * The composer, open: the top half of the screen, sitting on the keyboard.
- *
- * ## Why it's a Modal
- *
- * The bar it grows out of lives in six different kinds of place — a comment
- * sheet, a chat sheet, a summary panel, a transparent screen, the middle of a
- * ScrollView — and an overlay drawn inside any of those is clipped by it. A
- * Modal is the one thing that draws over all of them the same way, and it's
- * rendered *inside* the host's tree rather than beside it so iOS presents it
- * over a host that is itself a Modal (see SummaryModal's note on stacking).
- *
- * It also means the keyboard is met in exactly one environment: always a
- * `statusBarTranslucent` Modal, on both platforms, rather than a plain screen
- * on one surface and a sheet on another. There is one set of keyboard sums to
- * get right, not six.
- *
- * ## Why it isn't a KeyboardAvoidingView
- *
- * The app is edge-to-edge on Android and this is a translucent Modal, and
- * neither window is resized by the keyboard — `adjustResize` and
- * KeyboardAvoidingView both have nothing to act on. And the arithmetic the
- * other sheets do (window height minus reported keyboard height) is exactly
- * what's off by a navigation bar on Android inside a Modal like this one.
- *
- * So nothing here is computed. The toolbar asks where it *is*, in the same
- * screen coordinates the keyboard reports its top edge in, and rises by the
- * difference — useKeyboardOverlap, the one mechanism SummaryModal already
- * uses for the same situation. On iOS that measurement comes with the
- * keyboard's own duration, so the toolbar travels with it; on Android the
- * event arrives after the fact and the hook takes its extra passes. It's
- * deliberately *not* paired with useKeyboardInset's padding as
- * ComposeMessageScreen does: both react to the same event, and with the
- * padding still at zero when the overlap is first measured, the two lifts
- * add up and the toolbar overshoots before the layout passes pull it back.
- *
- * The panel's ground fills the whole window, keyboard included, so the field
- * shrinking above the toolbar is the only thing that moves.
- *
- * ## Closing
- *
- * The keyboard going away *is* the signal to fold back into the bar — back
- * button, swipe, a tap on the chevron, a send. The one time the keyboard
- * leaves without meaning that is while a photo picker is up, which is what
- * `hold` is for: the picker hides the keyboard, the panel stays, and the field
- * takes focus back once the picker returns.
+ * The attach button with its own "take or choose" sheet, for a surface with a
+ * field of its own that still takes photos (ComposeMessageScreen).
  */
-export function FocusedComposer({
-  visible, onClose, value, onChangeText, placeholder, title, photos, onSend, sending,
-  mentions = false, sendLabel = 'Send', maxLength, banner, tone,
-}: FocusedComposerProps) {
-  const t = useTone(tone);
-  const insets = useSafeAreaInsets();
-  // The home indicator's clearance, while the keyboard is down (a picker up,
-  // an alert showing). Zero once the keyboard is covering that strip.
-  const bottomPad = useComposerBottomPad();
-  const toolbarRef = useRef<View>(null);
-  const { animated: toolbarLift, onLayout: onToolbarLayout } = useKeyboardOverlap(toolbarRef);
-
-  const inputRef = useRef<TextInput>(null);
-  // True while something other than the person has the keyboard — a picker,
-  // a send in flight — and its going shouldn't close the panel.
-  const hold = useRef(false);
-  const picking = useRef(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-
-  const focus = useCallback(() => inputRef.current?.focus(), []);
-
-  // `autoFocus` inside a Modal is unreliable on Android — the field can mount
-  // before the Dialog's window is able to take the keyboard. Focus once the
-  // Modal reports itself shown, and again a beat later for the cases where
-  // `onShow` fires early.
-  useEffect(() => {
-    if (!visible) {
-      // Whatever was holding the panel open is over with the panel.
-      hold.current = false;
-      picking.current = false;
-      setPickerOpen(false);
-      return;
-    }
-    const timer = setTimeout(focus, 120);
-    return () => clearTimeout(timer);
-  }, [visible, focus]);
-
-  useEffect(() => {
-    if (!visible) return;
-    const event = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const sub = Keyboard.addListener(event, () => {
-      if (!hold.current) onClose();
-    });
-    return () => sub.remove();
-  }, [visible, onClose]);
-
-  const openPicker = () => {
-    hold.current = true;
-    setPickerOpen(true);
-  };
-
-  const closePicker = () => {
-    setPickerOpen(false);
-    // A choice runs a frame after the sheet closes (see ActionSheet.choose),
-    // so a cancel can only be told apart from a choice by waiting that frame.
-    setTimeout(() => {
-      if (!picking.current) {
-        hold.current = false;
-        focus();
-      }
-    }, 80);
-  };
-
-  const pick = async (from: PhotoSource) => {
-    if (!photos) return;
-    picking.current = true;
-    try {
-      await photos.add(from);
-    } finally {
-      picking.current = false;
-      hold.current = false;
-      // A beat later: straight after the picker's activity hands back, on
-      // Android, this window may not yet be able to take the keyboard.
-      setTimeout(focus, 150);
-    }
-  };
-
-  const canSend = canSendWith(value, photos) && !sending && !photos?.preparing;
-
-  const send = async () => {
-    if (!canSend) return;
-    // An error alert takes the keyboard on Android; that mustn't read as a
-    // request to close.
-    hold.current = true;
-    let result: SendResult = false;
-    try {
-      result = await onSend();
-    } finally {
-      if (result !== false) {
-        hold.current = false;
-        onClose();
-      } else {
-        // The alert's window takes the keyboard a beat after it's asked for,
-        // so the hold outlives the call by that much.
-        setTimeout(() => { hold.current = false; }, 600);
-      }
-    }
-  };
-
-  const fieldStyle = [styles.panelField, { color: t.text }];
-
+export function ComposerAttach({ photos, tint }: { photos: ComposerPhotos; tint: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
-      onShow={focus}
-    >
-      <View style={[styles.panel, { backgroundColor: t.surface, paddingTop: insets.top }]}>
-        <View style={styles.panelHeader}>
-          <Text style={[styles.panelTitle, { color: t.grey }]} numberOfLines={1}>
-            {title ?? ''}
-          </Text>
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={10}
-            style={styles.iconBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Minimize"
-            accessibilityHint="Keeps what you wrote and closes the keyboard"
-          >
-            <ChevronDown size={24} color={t.grey} />
-          </TouchableOpacity>
-        </View>
-
-        {banner}
-
-        {mentions ? (
-          <MentionInput
-            ref={inputRef}
-            fill
-            multiline
-            style={fieldStyle}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor={t.grey}
-            maxLength={maxLength}
-          />
-        ) : (
-          <TextInput
-            ref={inputRef}
-            style={fieldStyle}
-            value={value}
-            onChangeText={(text) => onChangeText(text, [])}
-            placeholder={placeholder}
-            placeholderTextColor={t.grey}
-            multiline
-            maxLength={maxLength}
-            textAlignVertical="top"
-            // Prose — stated outright, since `spellCheck` only follows
-            // `autoCorrect` when neither is given.
-            autoCorrect
-            spellCheck
-            autoCapitalize="sentences"
-          />
-        )}
-
-        {photos ? <ComposerPhotoStrip photos={photos} borderColor={t.border} /> : null}
-
-        {/* The lift is a margin, not a transform: the field above is `flex: 1`,
-            so a margin here shortens the field and the toolbar stays on the
-            keyboard, where a transform would slide it over the words. */}
-        <Animated.View
-          ref={toolbarRef}
-          onLayout={onToolbarLayout}
-          style={[
-            styles.toolbar,
-            { borderTopColor: t.border, paddingBottom: 10 + bottomPad, marginBottom: toolbarLift },
-          ]}
-        >
-          {photos ? <AttachButton photos={photos} tint={t.grey} onPress={openPicker} /> : <View />}
-          <TouchableOpacity
-            onPress={send}
-            disabled={!canSend}
-            style={[styles.sendPill, { backgroundColor: t.accent }, !canSend && styles.sendOff]}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={sendLabel}
-            accessibilityState={{ disabled: !canSend, busy: sending }}
-          >
-            {sending
-              ? <ActivityIndicator size="small" color={t.onAccent} />
-              : (
-                <>
-                  <Text style={[styles.sendPillText, { color: t.onAccent }]}>{sendLabel}</Text>
-                  <Send size={15} color={t.onAccent} />
-                </>
-              )}
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-
-      {photos ? <PhotoSourceSheet visible={pickerOpen} onClose={closePicker} onPick={pick} /> : null}
-    </Modal>
+    <>
+      <AttachButton photos={photos} tint={tint} onPress={() => setOpen(true)} size={21} />
+      <PhotoSourceSheet visible={open} onClose={() => setOpen(false)} onPick={(from) => { void photos.add(from); }} />
+    </>
   );
 }
 
+/** The field grows with the text to about five lines, then scrolls. */
+const FIELD_MAX_H = 120;
+
 /**
- * Where a comment or a message is written.
+ * Where a comment or a message is written: a bar whose field is the real text
+ * field, the way Messages or Instagram do it. Tap it and the keyboard comes up;
+ * the surface the bar sits on carries it up on top of the keyboard (a kit
+ * KeyboardAvoidingView, a sheet that rides the keyboard, a FormScrollView), and
+ * the field grows with what's typed until it scrolls. Attach and send stay
+ * beside it the whole time.
  *
- * Two modes. Collapsed, it's the small bar at the bottom of a thread — a field
- * that shows what's been written so far, the attach button, and Post or Send.
- * Tap the field and it opens into the FocusedComposer above: the top half of
- * the screen, on the keyboard, with the thread covered. Dismiss the keyboard
- * and it's the bar again, words intact.
+ * This replaced a full-screen panel that opened over the bar to type in. That
+ * panel existed to dodge the keyboard handling each surface used to need, and
+ * it tied its own lifetime to the keyboard — any hide, even a momentary one,
+ * closed it. With the kit's keyboard pieces the surfaces handle the keyboard
+ * themselves, so the bar can simply be the field.
  *
- * The bar's field is a Pressable rather than a TextInput on purpose. A real
- * field would take focus and raise the keyboard on its own, and the panel's
- * field would then have to take it *over* — two keyboards, one flicker, and on
- * Android a fair chance of neither. Nothing here is ever the thing you type
- * into; it's the thing you tap to start typing.
- *
- * The text and the photos are the caller's state, passed in — so nothing is
- * lost between the two modes, and the caller's own send handler keeps doing
- * exactly what it did (FormData, close-after-posting, its own error alert).
+ * The text and the photos are the caller's state, passed in, and the caller's
+ * own send handler does the sending (FormData, its own error alert). The
+ * keyboard stays up after a send, so a conversation can carry on; a surface
+ * that's done after one (the comments sheet) closes itself.
  */
 const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
-  value, onChangeText, placeholder, title, photos, onSend, sending, mentions,
-  sendLabel = 'Send', maxLength, banner, tone, leading, sendIcon = false, barStyle, onOpenChange,
+  value, onChangeText, placeholder, photos, onSend, sending, mentions = false,
+  sendLabel = 'Send', maxLength, banner, tone, leading, sendIcon = false, barStyle, bottomInset = 0,
+  onOpenChange,
 }, ref) {
   const t = useTone(tone);
-  const [open, setOpen] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The home indicator's clearance with the keyboard down, eased away as the
+  // keyboard covers that strip — switched on its events instead, the bar hops.
+  const bottomPad = useKeyboardPadding({ closed: bottomInset, open: 0 });
 
-  // Through a ref, so the handle's `open`/`close` stay stable across renders
-  // however the caller writes its callback.
-  const onOpenChangeRef = useRef(onOpenChange);
-  onOpenChangeRef.current = onOpenChange;
-
-  const openPanel = useCallback(() => {
-    setOpen(true);
-    onOpenChangeRef.current?.(true);
-  }, []);
-  const closePanel = useCallback(() => {
-    setOpen(false);
-    onOpenChangeRef.current?.(false);
-    // The panel's field unmounts with it, which takes the keyboard on its own;
-    // this is belt and braces for the paths where it's already half gone.
-    Keyboard.dismiss();
-  }, []);
-
-  useImperativeHandle(ref, () => ({ open: openPanel, close: closePanel }), [openPanel, closePanel]);
+  useImperativeHandle(ref, () => ({
+    open: () => inputRef.current?.focus(),
+    close: () => inputRef.current?.blur(),
+  }), []);
 
   const canSend = canSendWith(value, photos) && !sending && !photos?.preparing;
 
+  const fieldProps = {
+    ref: inputRef,
+    value,
+    placeholder,
+    placeholderTextColor: t.grey,
+    multiline: true,
+    maxLength,
+    onFocus: () => onOpenChange?.(true),
+    onBlur: () => onOpenChange?.(false),
+    style: [ss.chatInput, styles.field, { color: t.text, backgroundColor: t.field, borderColor: t.border }],
+  };
+
   return (
-    <View style={[{ backgroundColor: t.surface }, barStyle]}>
+    <Reanimated.View style={[{ backgroundColor: t.surface }, barStyle, bottomPad]}>
       {banner}
       {photos ? <ComposerPhotoStrip photos={photos} borderColor={t.border} /> : null}
       <View style={styles.barRow}>
         {leading}
-        <Pressable
-          onPress={openPanel}
-          style={[ss.chatInput, styles.barField, { backgroundColor: t.field, borderColor: t.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={value ? `Edit: ${value}` : placeholder}
-          accessibilityHint="Opens the composer"
-        >
-          <Text style={[styles.barText, { color: value ? t.text : t.grey }]} numberOfLines={2}>
-            {value || placeholder}
-          </Text>
-        </Pressable>
+        {mentions ? (
+          // Its suggestions open above the field — the keyboard is below it.
+          <MentionInput
+            {...fieldProps}
+            containerStyle={styles.fieldWrap}
+            onChangeText={onChangeText}
+          />
+        ) : (
+          <View style={styles.fieldWrap}>
+            <TextInput
+              {...fieldProps}
+              onChangeText={(text) => onChangeText(text, [])}
+              textAlignVertical="top"
+              // Prose — stated outright, since `spellCheck` only follows
+              // `autoCorrect` when neither is given.
+              autoCorrect
+              spellCheck
+              autoCapitalize="sentences"
+            />
+          </View>
+        )}
         {photos ? (
           <AttachButton photos={photos} tint={t.grey} onPress={() => setPickerOpen(true)} size={21} />
         ) : null}
@@ -530,25 +303,6 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
         </TouchableOpacity>
       </View>
 
-      <FocusedComposer
-        visible={open}
-        onClose={closePanel}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        title={title}
-        photos={photos}
-        onSend={onSend}
-        sending={sending}
-        mentions={mentions}
-        sendLabel={sendLabel}
-        maxLength={maxLength}
-        banner={banner}
-        tone={tone}
-      />
-
-      {/* The bar's own picker — a photo can be attached without opening the
-          panel, as it always could. */}
       {photos ? (
         <PhotoSourceSheet
           visible={pickerOpen}
@@ -556,7 +310,7 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
           onPick={(from) => { void photos.add(from); }}
         />
       ) : null}
-    </View>
+    </Reanimated.View>
   );
 });
 
@@ -564,17 +318,20 @@ export default Composer;
 
 const styles = StyleSheet.create({
   // ── The bar ──────────────────────────────────────────────────────────────
-  barRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  barField: { flex: 1, minHeight: 40, justifyContent: 'center' },
-  barText:  { fontSize: 15, lineHeight: 20 },
-  sendBtn:  { paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS, flexShrink: 0 },
+  barRow:   { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  // Bottom-aligned: as the field grows upward, attach and send stay on the
+  // line you're typing on.
+  fieldWrap: { flex: 1 },
+  field:    { flex: 0, minHeight: 40, maxHeight: FIELD_MAX_H, lineHeight: 20 },
+  // 40 tall, like the field at one line, so the three sit level.
+  sendBtn:  { minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: COMMON_RADIUS, flexShrink: 0 },
   sendIconBtn: {
     width: 40, height: 40, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   sendText: { fontWeight: '700', fontSize: 13 },
   sendOff:  { opacity: 0.4 },
-  iconBtn:  { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconBtn:  { width: 36, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   iconBtnOff: { opacity: 0.35 },
 
   // ── The strip ────────────────────────────────────────────────────────────
@@ -589,31 +346,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center', justifyContent: 'center',
   },
-
-  // ── The panel ────────────────────────────────────────────────────────────
-  panel:       { flex: 1 },
-  panelHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingLeft: 16, paddingRight: 6, paddingTop: 4, paddingBottom: 2,
-  },
-  panelTitle:  { flex: 1, fontSize: 14, fontWeight: '700' },
-  // The field takes everything between the header and the toolbar. Its own
-  // padding is the panel's margin; there's no box drawn around it, because the
-  // panel *is* the box.
-  panelField:  {
-    flex: 1, fontSize: 17, lineHeight: 24,
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10,
-    textAlignVertical: 'top',
-  },
-  toolbar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  sendPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: COMMON_RADIUS,
-    minWidth: 84, justifyContent: 'center',
-  },
-  sendPillText: { fontWeight: '700', fontSize: 14 },
 });

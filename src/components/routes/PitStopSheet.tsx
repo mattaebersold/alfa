@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal,
-  KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { FormScrollView, KeyboardAvoidingView } from '@ors/kit';
 import { ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin } from 'lucide-react-native';
@@ -61,10 +61,12 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      {/* The sheet rides on the keyboard: the backdrop shrinks by its height
+          and the sheet sits at the bottom, scrolling if it no longer fits. */}
+      <KeyboardAvoidingView style={[styles.backdrop, { paddingTop: insets.top }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+          <FormScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={[styles.title, { color: colors.fg }]}>Add pit stop</Text>
             <Text style={[styles.subtitle, { color: colors.grey }]}>
               Pinned where you are right now.
@@ -149,9 +151,9 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
                 <Text style={[styles.submitText, { color: onBrand }]}>Add stop</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
+          </FormScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -159,9 +161,10 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 20, gap: 10,
+    maxHeight: '100%',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden',
   },
+  body:  { padding: 20, gap: 10 },
   title:    { fontSize: 18, fontWeight: '800' },
   subtitle: { fontSize: 13, marginTop: -6 },
 

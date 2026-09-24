@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
   ActivityIndicator,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ImagePlus, Trash2, Check } from 'lucide-react-native';
@@ -152,7 +153,7 @@ export default function HomeBannerManager() {
   if (isLoading) return <ActivityIndicator style={{ marginTop: 40 }} color={colors.primaryAlt} />;
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <FormScrollView contentContainerStyle={styles.content}>
       <Text style={[styles.blurb, { color: colors.grey }]}>
         Shown at the top of the home feed, above the quick links. Members can close it;
         uploading a new image brings it back for everyone.
@@ -260,7 +261,7 @@ export default function HomeBannerManager() {
           <Text style={[styles.removeText, { color: colors.red }]}>Remove Banner</Text>
         </TouchableOpacity>
       )}
-    </ScrollView>
+    </FormScrollView>
   );
 }
 

@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Switch, Alert, KeyboardAvoidingView, Platform,
+  Switch, Alert,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -223,135 +224,133 @@ export default function EditListScreen() {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <FormScrollView style={ss.fill} contentContainerStyle={styles.scroll}>
 
-          {/* Cover image */}
-          <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
-            {imageUri ? (
-              <>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" />
-                <TouchableOpacity
-                  style={styles.removeImage}
-                  onPress={() => setImageUri(null)}
-                >
-                  <X size={16} color="#fff" />
-                </TouchableOpacity>
-              </>
-            ) : existingCoverUri ? (
-              <>
-                <Image source={{ uri: existingCoverUri }} style={styles.imagePreview} contentFit="cover" />
-                <View style={styles.changeOverlay}>
-                  <Text style={styles.changeOverlayText}>Change Image</Text>
-                </View>
-              </>
-            ) : (
-              <View style={styles.imagePlaceholder}>
-                <ImagePlus size={24} color={colors.grey} />
-                <Text style={[styles.imagePlaceholderText, { color: colors.grey }]}>Add cover image</Text>
+        {/* Cover image */}
+        <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+          {imageUri ? (
+            <>
+              <Image source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" />
+              <TouchableOpacity
+                style={styles.removeImage}
+                onPress={() => setImageUri(null)}
+              >
+                <X size={16} color="#fff" />
+              </TouchableOpacity>
+            </>
+          ) : existingCoverUri ? (
+            <>
+              <Image source={{ uri: existingCoverUri }} style={styles.imagePreview} contentFit="cover" />
+              <View style={styles.changeOverlay}>
+                <Text style={styles.changeOverlayText}>Change Image</Text>
               </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Title */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.muted }]}>Title *</Text>
-            <TextInput
-              style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="List title..."
-              placeholderTextColor={colors.grey}
-            />
-          </View>
-
-          {/* Description */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.muted }]}>Description</Text>
-            <TextInput
-              style={[ss.input, ss.inputMulti, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What's this list about?"
-              placeholderTextColor={colors.grey}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Items — saved one at a time, as each is finished. See the
-              component comment for why they don't wait for Save Changes. */}
-          <ListItemsEditor
-            rows={items.map((it) => ({
-              key: it.internal_id,
-              title: it.title,
-              description: it.description ? stripHtml(it.description) : '',
-              photoUrl: firstGalleryUrl(it.gallery),
-              link: it.link,
-              linkLabel: it.link_label,
-            }))}
-            onAdd={() => setSheet('new')}
-            onEdit={(index) => setSheet(items[index]?.internal_id ?? null)}
-            onRemove={removeItem}
-            onMove={moveItem}
-            orderDirty={!!localOrder}
-            onSaveOrder={saveOrder}
-            savingOrder={savingOrder}
-          />
-
-          <ListCarPicker value={carId} valueLabel={listCarLabel(list?.car)} onChange={setCarId} />
-
-          {/* Category */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.muted }]}>Category</Text>
-            <TextInput
-              style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
-              value={category}
-              onChangeText={setCategory}
-              placeholder="e.g. Design, Wish list, Roads..."
-              placeholderTextColor={colors.grey}
-            />
-          </View>
-
-          {/* Private toggle */}
-          <View style={[styles.toggleRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View>
-              <Text style={[styles.toggleLabel, { color: colors.fg }]}>Private</Text>
-              <Text style={[styles.toggleSub, { color: colors.grey }]}>Only visible to you</Text>
+            </>
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <ImagePlus size={24} color={colors.grey} />
+              <Text style={[styles.imagePlaceholderText, { color: colors.grey }]}>Add cover image</Text>
             </View>
-            <Switch
-              value={isPrivate}
-              onValueChange={setIsPrivate}
-              trackColor={{ true: colors.primaryAlt }}
-            />
+          )}
+        </TouchableOpacity>
+
+        {/* Title */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.muted }]}>Title *</Text>
+          <TextInput
+            style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="List title..."
+            placeholderTextColor={colors.grey}
+          />
+        </View>
+
+        {/* Description */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.muted }]}>Description</Text>
+          <TextInput
+            style={[ss.input, ss.inputMulti, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="What's this list about?"
+            placeholderTextColor={colors.grey}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Items — saved one at a time, as each is finished. See the
+            component comment for why they don't wait for Save Changes. */}
+        <ListItemsEditor
+          rows={items.map((it) => ({
+            key: it.internal_id,
+            title: it.title,
+            description: it.description ? stripHtml(it.description) : '',
+            photoUrl: firstGalleryUrl(it.gallery),
+            link: it.link,
+            linkLabel: it.link_label,
+          }))}
+          onAdd={() => setSheet('new')}
+          onEdit={(index) => setSheet(items[index]?.internal_id ?? null)}
+          onRemove={removeItem}
+          onMove={moveItem}
+          orderDirty={!!localOrder}
+          onSaveOrder={saveOrder}
+          savingOrder={savingOrder}
+        />
+
+        <ListCarPicker value={carId} valueLabel={listCarLabel(list?.car)} onChange={setCarId} />
+
+        {/* Category */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.muted }]}>Category</Text>
+          <TextInput
+            style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+            value={category}
+            onChangeText={setCategory}
+            placeholder="e.g. Design, Wish list, Roads..."
+            placeholderTextColor={colors.grey}
+          />
+        </View>
+
+        {/* Private toggle */}
+        <View style={[styles.toggleRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View>
+            <Text style={[styles.toggleLabel, { color: colors.fg }]}>Private</Text>
+            <Text style={[styles.toggleSub, { color: colors.grey }]}>Only visible to you</Text>
           </View>
+          <Switch
+            value={isPrivate}
+            onValueChange={setIsPrivate}
+            trackColor={{ true: colors.primaryAlt }}
+          />
+        </View>
 
-          {/* Save */}
-          <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: colors.primaryAlt, opacity: isSaving || !title.trim() ? 0.5 : 1 }]}
-            onPress={handleSave}
-            disabled={isSaving || !title.trim()}
-          >
-            <Text style={styles.submitBtnText}>{isSaving ? 'Saving...' : 'Save Changes'}</Text>
-          </TouchableOpacity>
+        {/* Save */}
+        <TouchableOpacity
+          style={[styles.submitBtn, { backgroundColor: colors.primaryAlt, opacity: isSaving || !title.trim() ? 0.5 : 1 }]}
+          onPress={handleSave}
+          disabled={isSaving || !title.trim()}
+        >
+          <Text style={styles.submitBtnText}>{isSaving ? 'Saving...' : 'Save Changes'}</Text>
+        </TouchableOpacity>
 
-          {/* Last, apart, and quiet: it's the one thing here that can't be
-              taken back, and it shouldn't sit where Save is reached for. */}
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={handleDelete}
-            disabled={isDeleting}
-            accessibilityRole="button"
-          >
-            <Trash2 size={15} color={colors.red} />
-            <Text style={[styles.deleteBtnText, { color: colors.red }]}>
-              {isDeleting ? 'Deleting...' : 'Delete list'}
-            </Text>
-          </TouchableOpacity>
+        {/* Last, apart, and quiet: it's the one thing here that can't be
+            taken back, and it shouldn't sit where Save is reached for. */}
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={handleDelete}
+          disabled={isDeleting}
+          accessibilityRole="button"
+        >
+          <Trash2 size={15} color={colors.red} />
+          <Text style={[styles.deleteBtnText, { color: colors.red }]}>
+            {isDeleting ? 'Deleting...' : 'Delete list'}
+          </Text>
+        </TouchableOpacity>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScrollView>
 
       <ListItemSheet
         visible={sheet !== null}

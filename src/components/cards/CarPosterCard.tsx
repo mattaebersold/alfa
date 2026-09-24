@@ -75,6 +75,17 @@ interface CarPosterCardProps {
   /** Shows a "Featured" badge over the image. */
   featured?: boolean;
   /**
+   * Square, whatever the photo. For a row of cards meant to line up — the
+   * photo-led 3:2 / 2:3 shape made the featured row a ragged skyline.
+   */
+  square?: boolean;
+  /**
+   * A tap opens the car's summary panel, grown from the card, rather than
+   * the car's page — the feed's behaviour, for surfaces where a preview is
+   * the better first step.
+   */
+  summaryOnPress?: boolean;
+  /**
    * Override the outer frame — width, margins.
    *
    * For carousels that size their own cards but still want the full-size
@@ -118,6 +129,8 @@ export default function CarPosterCard({
   compact = false,
   plain = false,
   featured = false,
+  square = false,
+  summaryOnPress = false,
   style,
 }: CarPosterCardProps) {
   const c = useColors();
@@ -281,13 +294,13 @@ export default function CarPosterCard({
         ref={cardRef}
         style={[
           styles.card,
-          { aspectRatio: ratio },
+          { aspectRatio: square ? 1 : ratio },
           // In the feed, the same hairline the mod and photo cards wear, so a
           // column of mixed cards reads as one kind of thing. Elsewhere the
           // card is borderless — the photo is the card.
           attribution && { borderWidth: 1, borderColor: c.borderDark },
         ]}
-        onPress={attribution ? openSummary : handlePress}
+        onPress={attribution || summaryOnPress ? openSummary : handlePress}
         activeOpacity={0.92}
       >
         <Image
@@ -391,7 +404,6 @@ export default function CarPosterCard({
           style={[
             styles.plate,
             compact && styles.plateCompact,
-            (attribution || plain) && styles.plateLeft,
             plain && styles.platePlain,
           ]}
           pointerEvents="none"
@@ -401,10 +413,11 @@ export default function CarPosterCard({
             style={[
               styles.title,
               compact && styles.titleCompact,
-              (attribution || plain) && styles.textLeft,
               plain && styles.titlePlain,
             ]}
-            numberOfLines={2}
+            // One line, whatever the name: two lines of a long custom title
+            // pushed the badges down and covered half the car.
+            numberOfLines={1}
           >
             {displayTitle}
           </Text>
@@ -413,7 +426,6 @@ export default function CarPosterCard({
               style={[
                 styles.subtitle,
                 compact && styles.subtitleCompact,
-                (attribution || plain) && styles.textLeft,
                 plain && styles.subtitlePlain,
               ]}
               numberOfLines={1}
@@ -422,7 +434,7 @@ export default function CarPosterCard({
             </Text>
           ) : null}
           {!plain && (typeLabel || categoryLabel || followerCount > 0) && (
-            <View style={[styles.badges, attribution && styles.badgesLeft]}>
+            <View style={styles.badges}>
               {typeLabel && typeBadge && (
                 <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
                   <Text style={[styles.badgeText, { color: typeBadge.text }]}>{typeLabel}</Text>
@@ -613,10 +625,6 @@ const styles = StyleSheet.create({
   imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   frameInFeed: { marginHorizontal: 12, marginVertical: 0 },
 
-  plateLeft: { alignItems: 'flex-start', paddingHorizontal: 14 },
-  textLeft:  { textAlign: 'left' },
-  badgesLeft: { justifyContent: 'flex-start' },
-
   footer: { paddingHorizontal: 12, paddingTop: 8 },
   actionsPill: {
     alignSelf: 'flex-start',
@@ -626,7 +634,9 @@ const styles = StyleSheet.create({
   },
 
   scrimTop:    { position: 'absolute', left: 0, right: 0, top: 0, height: '34%' },
-  scrimBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '62%' },
+  // One point past the bottom edge: flush, the card's height and the scrim's
+  // percentage round separately and the photo showed through as a hairline.
+  scrimBottom: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '62%' },
 
   topLeft: {
     position: 'absolute', top: 0, left: 0, right: 56,
@@ -678,31 +688,32 @@ const styles = StyleSheet.create({
 
   plate: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, paddingBottom: 20,
+    // Left, like a caption: centred, a two-line name read as a headline
+    // floating over the car rather than a label on it.
+    alignItems: 'flex-start', gap: 8,
+    paddingHorizontal: 16, paddingBottom: 18,
   },
   plateCompact: { gap: 5, paddingHorizontal: 12, paddingBottom: 12 },
   title: {
-    fontSize: 30, fontWeight: '800', color: '#FFFFFF', textAlign: 'center',
+    fontSize: 24, fontWeight: '800', color: '#FFFFFF', textAlign: 'left',
     letterSpacing: -0.5,
     textShadowColor: 'rgba(0,0,0,0.55)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
-  titleCompact: { fontSize: 17, letterSpacing: -0.2 },
+  titleCompact: { fontSize: 15, letterSpacing: -0.2 },
   // A caption, not a headline: the garage panel's cards are yours, stacked,
   // and each name only has to be findable.
-  titlePlain:    { fontSize: 18, letterSpacing: -0.3 },
-  subtitlePlain: { fontSize: 10.5, letterSpacing: 0.7, marginTop: 0 },
+  titlePlain:    { fontSize: 16, letterSpacing: -0.3 },
+  subtitlePlain: { fontSize: 11.5, marginTop: 0 },
   platePlain:    { gap: 3, paddingHorizontal: 14, paddingBottom: 14 },
   subtitle: {
-    fontSize: 12, fontWeight: '700', textAlign: 'center',
+    fontSize: 12, fontWeight: '700', textAlign: 'left',
     color: 'rgba(255,255,255,0.82)',
-    textTransform: 'uppercase', letterSpacing: 1,
     marginTop: -2,
   },
-  subtitleCompact: { fontSize: 9.5, letterSpacing: 0.6, marginTop: 0 },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginTop: 6 },
+  subtitleCompact: { fontSize: 10.5, marginTop: 0 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 5, marginTop: 6 },
   badge:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   badgeDark: {
     backgroundColor: 'rgba(0,0,0,0.55)',

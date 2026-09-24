@@ -1,10 +1,21 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
+import RegionBadge from '../ui/RegionBadge';
+
+/** Both tiles' height: a band under the bio, not a panel. */
+const TILE_HEIGHT = 92;
+const TILE_GAP = 8;
+const PAGE_INSET = 12;
+/**
+ * The country map's width inside its quarter-width tile. Worked out from the
+ * window rather than measured, so it's drawn at size on the first frame.
+ */
+const US_MAP_SIZE = ((Dimensions.get('window').width - PAGE_INSET * 2 - TILE_GAP) * 0.25) - 20;
 
 /**
  * Where a member is, as a picture rather than as a string.
@@ -20,11 +31,21 @@ import { imageUrl } from '../../utils/image';
 export default function RegionTile({
   filename,
   cityState,
+  region,
+  regionColor,
   onPress,
 }: {
   /** The stored map render. Without one there's nothing to show. */
   filename?: string | null;
   cityState?: string | null;
+  /**
+   * The member's region key. Given one, a second tile beside the map shows the
+   * whole country with that region lit — the map is the neighbourhood, this is
+   * where the neighbourhood is.
+   */
+  region?: string | null;
+  /** The lit region's colour — the member's own, gold or blue. */
+  regionColor?: string;
   /**
    * Opens the members list filtered to this region. Omitted where that would
    * lead nowhere — a member whose city never resolved belongs to no region.
@@ -52,7 +73,8 @@ export default function RegionTile({
     // The margin and the rounding live on the container so the map itself stays
     // a plain rectangle — clipping is the wrapper's job, and an Image carrying
     // its own radius fights the parent's on Android.
-    <View style={styles.wrap}>
+    <View style={styles.row}>
+    <View style={[styles.wrap, region ? styles.wrapBeside : styles.wrapFull]}>
       <TouchableOpacity
         style={styles.tile}
         onPress={onPress}
@@ -83,6 +105,19 @@ export default function RegionTile({
         ) : null}
       </TouchableOpacity>
     </View>
+      {region ? (
+        <View style={[styles.wrap, styles.usTile]}>
+          <RegionBadge
+            region={region}
+            size={US_MAP_SIZE}
+            color={regionColor}
+            backdrop={false}
+            // A soft coastline, as in the member rows: the lit region is the point.
+            outline="rgba(255,255,255,0.14)"
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -97,12 +132,23 @@ const styles = StyleSheet.create({
 
   // Everything positional: the inset from the page, the corners, and the clip
   // that keeps the map inside them.
-  wrap: {
-    marginTop: 4, marginBottom: 18, marginHorizontal: 12,
-    borderRadius: 14, overflow: 'hidden',
+  // The page inset and the spacing live on the row; each tile only rounds and
+  // clips itself.
+  row: {
+    flexDirection: 'row', gap: TILE_GAP,
+    marginTop: 4, marginBottom: 18, marginHorizontal: PAGE_INSET,
+  },
+  wrap: { borderRadius: 14, overflow: 'hidden', height: TILE_HEIGHT },
+  wrapFull:   { flex: 1 },
+  wrapBeside: { flex: 3 },
+  usTile: {
+    flex: 1,
+    // The profile's tile shade — the white outline and lit region carry it.
+    backgroundColor: '#171717',
+    alignItems: 'center', justifyContent: 'center',
   },
   tile: {
-    aspectRatio: 2.4,
+    flex: 1,
     backgroundColor: '#1D1D1D',
     justifyContent: 'flex-end',
   },

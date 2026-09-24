@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   TextInput, Alert, FlatList, Platform,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -20,7 +21,6 @@ import { useAppSelector } from '../../store/store';
 import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { useIsPro, useBrandColor } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS, TYPE_COLORS } from '../../constants/carTypes';
 import { categoryColor } from '../../utils/categoryColor';
@@ -257,7 +257,6 @@ export function CarCreateSheet({ carId, onDismissed }: {
   onDismissed: () => void;
 }) {
   const colors = useColors();
-  const keyboardHeight = useKeyboardHeight();
   const isPro = useIsPro();
   const brand = useBrandColor();
   // Already cached by the garage screen, so this is free on the common path in.
@@ -668,9 +667,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
       <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
 
       <View style={styles.flex}>
-        <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight + (Platform.OS === 'android' ? 40 : 20) }]}
-          keyboardShouldPersistTaps="handled"
+        <FormScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: 24 + (Platform.OS === 'android' ? 40 : 20) }]}
           showsVerticalScrollIndicator={false}
         >
 
@@ -1054,7 +1052,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
               </TouchableOpacity>
             </View>
           )}
-        </ScrollView>
+        </FormScrollView>
       </View>
     </SharedModal>
   );

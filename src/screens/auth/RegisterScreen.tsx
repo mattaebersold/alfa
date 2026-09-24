@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  Alert,
   Image, Dimensions,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { ChevronLeft, Eye, EyeOff, Check } from 'lucide-react-native';
@@ -200,167 +201,162 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
           <Text style={styles.backToLogin}>Back to login</Text>
         </TouchableOpacity>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <FormScrollView
           style={styles.flex}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.container}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <BlurView intensity={40} tint="dark" style={styles.form}>
-              <Text style={styles.title}>
-                {step === 1 ? 'Create Account' : 'Profile Photo'}
-              </Text>
+          <BlurView intensity={40} tint="dark" style={styles.form}>
+            <Text style={styles.title}>
+              {step === 1 ? 'Create Account' : 'Profile Photo'}
+            </Text>
 
-              {(error || googleError) && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error || googleError}</Text>
+            {(error || googleError) && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error || googleError}</Text>
+              </View>
+            )}
+
+            {/* Only on step 1. Step 2 is the profile photo, by which point the
+                account already exists — offering Google there would start a
+                second, competing signup half way through the first.
+
+                There is no separate "register with Google": horacio matches on
+                Google id, then email, and creates an account only if neither
+                exists. The same button on the login screen does the same three
+                things. */}
+            {step === 1 && (
+              <>
+                <GoogleSignInButton label="Sign up with Google" onError={setGoogleError} />
+                <AppleSignInButton onError={setGoogleError} />
+                <View style={styles.altRow}>
+                  <View style={styles.altLine} />
+                  <Text style={styles.altLabel}>or sign up with email</Text>
+                  <View style={styles.altLine} />
                 </View>
-              )}
+              </>
+            )}
 
-              {/* Only on step 1. Step 2 is the profile photo, by which point the
-                  account already exists — offering Google there would start a
-                  second, competing signup half way through the first.
-
-                  There is no separate "register with Google": horacio matches on
-                  Google id, then email, and creates an account only if neither
-                  exists. The same button on the login screen does the same three
-                  things. */}
-              {step === 1 && (
-                <>
-                  <GoogleSignInButton label="Sign up with Google" onError={setGoogleError} />
-                  <AppleSignInButton onError={setGoogleError} />
-                  <View style={styles.altRow}>
-                    <View style={styles.altLine} />
-                    <Text style={styles.altLabel}>or sign up with email</Text>
-                    <View style={styles.altLine} />
-                  </View>
-                </>
-              )}
-
-              {step === 1 ? (
-                <>
-                  {fields.map(({ key, label, secure, keyboard, contentType, autoComplete }) => (
-                    <View key={key} style={styles.field}>
-                      <Text style={styles.label}>{label}</Text>
-                      <View style={secure ? styles.inputWrap : undefined}>
-                        <TextInput
-                          style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg, backgroundColor: colors.inputBg }]}
-                          value={form[key]}
-                          onChangeText={handleChange(key)}
-                          placeholder=""
-                          placeholderTextColor={colors.grey}
-                          secureTextEntry={secure && !showPasswords[key]}
-                          autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
-                          keyboardType={keyboard ?? 'default'}
-                          autoCorrect={false}
-                          textContentType={contentType}
-                          autoComplete={autoComplete}
-                        />
-                        {secure && (
-                          <TouchableOpacity style={styles.eyeBtn} onPress={() => toggleShow(key)} hitSlop={8}>
-                            {showPasswords[key]
-                              ? <Eye size={18} color={colors.grey} />
-                              : <EyeOff size={18} color={colors.grey} />}
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      {key === 'username' && (
-                        usernameError ? (
-                          <Text style={styles.fieldError}>{usernameError}</Text>
-                        ) : (
-                          <Text style={styles.fieldHint}>
-                            Letters, numbers, and _ - . — this is your public handle.
-                          </Text>
-                        )
-                      )}
-                      {key === 'zip' && (
-                        zipError ? (
-                          <Text style={styles.fieldError}>{zipError}</Text>
-                        ) : (
-                          <Text style={styles.fieldHint}>
-                            Five digits. Sets your region and what "near me" shows you — it stays private.
-                          </Text>
-                        )
+            {step === 1 ? (
+              <>
+                {fields.map(({ key, label, secure, keyboard, contentType, autoComplete }) => (
+                  <View key={key} style={styles.field}>
+                    <Text style={styles.label}>{label}</Text>
+                    <View style={secure ? styles.inputWrap : undefined}>
+                      <TextInput
+                        style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg, backgroundColor: colors.inputBg }]}
+                        value={form[key]}
+                        onChangeText={handleChange(key)}
+                        placeholder=""
+                        placeholderTextColor={colors.grey}
+                        secureTextEntry={secure && !showPasswords[key]}
+                        autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
+                        keyboardType={keyboard ?? 'default'}
+                        autoCorrect={false}
+                        textContentType={contentType}
+                        autoComplete={autoComplete}
+                      />
+                      {secure && (
+                        <TouchableOpacity style={styles.eyeBtn} onPress={() => toggleShow(key)} hitSlop={8}>
+                          {showPasswords[key]
+                            ? <Eye size={18} color={colors.grey} />
+                            : <EyeOff size={18} color={colors.grey} />}
+                        </TouchableOpacity>
                       )}
                     </View>
-                  ))}
-
-                  <TouchableOpacity
-                    style={styles.termsRow}
-                    onPress={() => setTermsAccepted(v => !v)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                      {termsAccepted && <Check size={11} color="#FFF" />}
-                    </View>
-                    <Text style={styles.termsText}>
-                      By creating an account you're accepting the{' '}
-                      <Text
-                        style={styles.termsLink}
-                        onPress={() => setTermsVisible(true)}
-                      >
-                        terms and conditions
-                      </Text>
-                    </Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.gap} />
-
-                  <Button
-                    label="Continue"
-                    onPress={handleStep1}
-                    size="full"
-                    variant="dark"
-                  />
-
-                </>
-              ) : (
-                <>
-                  <Text style={styles.photoHint}>
-                    Add a profile photo so people know who you are. This is optional — you can always add one later.
-                  </Text>
-
-                  <View style={styles.photoCircle}>
-                    {photo ? (
-                      <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
-                    ) : (
-                      <View style={styles.photoPlaceholder} />
+                    {key === 'username' && (
+                      usernameError ? (
+                        <Text style={styles.fieldError}>{usernameError}</Text>
+                      ) : (
+                        <Text style={styles.fieldHint}>
+                          Letters, numbers, and _ - . — this is your public handle.
+                        </Text>
+                      )
+                    )}
+                    {key === 'zip' && (
+                      zipError ? (
+                        <Text style={styles.fieldError}>{zipError}</Text>
+                      ) : (
+                        <Text style={styles.fieldHint}>
+                          Five digits. Sets your region and what "near me" shows you — it stays private.
+                        </Text>
+                      )
                     )}
                   </View>
+                ))}
 
-                  <View style={styles.photoButtons}>
-                    <TouchableOpacity style={styles.photoBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
-                      <Text style={styles.photoBtnText}>Take Photo</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} activeOpacity={0.8}>
-                      <Text style={styles.photoBtnText}>Choose Photo</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.termsRow}
+                  onPress={() => setTermsAccepted(v => !v)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                    {termsAccepted && <Check size={11} color="#FFF" />}
                   </View>
+                  <Text style={styles.termsText}>
+                    By creating an account you're accepting the{' '}
+                    <Text
+                      style={styles.termsLink}
+                      onPress={() => setTermsVisible(true)}
+                    >
+                      terms and conditions
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
 
-                  {photo && (
-                    <TouchableOpacity onPress={() => setPhoto(null)} style={styles.removePhotoBtn}>
-                      <Text style={styles.removePhotoText}>Remove photo</Text>
-                    </TouchableOpacity>
+                <View style={styles.gap} />
+
+                <Button
+                  label="Continue"
+                  onPress={handleStep1}
+                  size="full"
+                  variant="dark"
+                />
+
+              </>
+            ) : (
+              <>
+                <Text style={styles.photoHint}>
+                  Add a profile photo so people know who you are. This is optional — you can always add one later.
+                </Text>
+
+                <View style={styles.photoCircle}>
+                  {photo ? (
+                    <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
+                  ) : (
+                    <View style={styles.photoPlaceholder} />
                   )}
+                </View>
 
-                  <View style={styles.gap} />
+                <View style={styles.photoButtons}>
+                  <TouchableOpacity style={styles.photoBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
+                    <Text style={styles.photoBtnText}>Take Photo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} activeOpacity={0.8}>
+                    <Text style={styles.photoBtnText}>Choose Photo</Text>
+                  </TouchableOpacity>
+                </View>
 
-                  <Button
-                    label="Create account"
-                    onPress={handleRegister}
-                    loading={loading}
-                    size="full"
-                    variant="dark"
-                  />
+                {photo && (
+                  <TouchableOpacity onPress={() => setPhoto(null)} style={styles.removePhotoBtn}>
+                    <Text style={styles.removePhotoText}>Remove photo</Text>
+                  </TouchableOpacity>
+                )}
 
-                </>
-              )}
-            </BlurView>
-          </ScrollView>
-        </KeyboardAvoidingView>
+                <View style={styles.gap} />
+
+                <Button
+                  label="Create account"
+                  onPress={handleRegister}
+                  loading={loading}
+                  size="full"
+                  variant="dark"
+                />
+
+              </>
+            )}
+          </BlurView>
+        </FormScrollView>
       </SafeAreaView>
 
       <TermsModal

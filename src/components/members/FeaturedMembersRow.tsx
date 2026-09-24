@@ -1,17 +1,16 @@
 import React, { useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
+  View, Text, ScrollView, StyleSheet, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Car } from 'lucide-react-native';
 import SteeringWheel from '../ui/SteeringWheel';
-import RegionBadge from '../ui/RegionBadge';
 import { shuffle } from '../../utils/array';
-import { regionForCityState } from '../../constants/regions';
 import { useGetSiteSettingsQuery, useGetCarsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { COMMON_RADIUS } from '../../constants/radius';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.40;
@@ -19,32 +18,27 @@ const CARD_GAP = 10;
 const ROW_PAD = 14; // matches the section heading's inset
 
 interface Props {
-  onMemberPress: (userId: string, username: string) => void;
+  /** `origin` is the card's rect, so a summary can grow out of it. */
+  onMemberPress: (userId: string, username: string, origin: SummaryOrigin | null) => void;
 }
 
-function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
+function MemberCard({ member, onPress }: { member: any; onPress: (origin: SummaryOrigin | null) => void }) {
   const { data: carsData } = useGetCarsQuery({ user_id: member.user_id, limit: 1 }, { skip: !member.user_id });
   const carCount = carsData?.total ?? 0;
   const photo = member.gallery?.[0]?.filename ? imageUrl(member.gallery[0].filename) : null;
   const isPro = member.accountType === 'pro' || member.accountType === 'admin';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
+    <SummaryTouchable style={styles.card} onPress={onPress} activeOpacity={0.88} accessibilityLabel={`@${member.username}`}>
       {photo ? (
         <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#222' }]} />
       )}
       <View style={styles.overlay} />
-      {/* Where in the country they are — the same map the member rows and
-          summary panels use. Top right, clear of the pro wheel and the name
-          along the bottom. */}
-      <View style={styles.regionBadge}>
-        <RegionBadge region={regionForCityState(member.cityState)?.key} size={32} />
-      </View>
       <View style={styles.info}>
         {/* The one pro marker on the card: a thick gold frame around the photo
-            read as a selection state and fought with the map badge. */}
+            read as a selection state. */}
         {isPro && (
           <View style={styles.proWheelBadge}>
             <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />
@@ -58,7 +52,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: () => void }) {
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </SummaryTouchable>
   );
 }
 
@@ -86,7 +80,7 @@ export default function FeaturedMembersRow({ onMemberPress }: Props) {
           <MemberCard
             key={member.user_id}
             member={member}
-            onPress={() => onMemberPress(member.user_id, member.username)}
+            onPress={(origin) => onMemberPress(member.user_id, member.username, origin)}
           />
         ))}
         <RowEndSpacer width={ROW_PAD} />
@@ -110,7 +104,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  regionBadge: { position: 'absolute', top: 8, right: 8 },
   info:       {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', gap: 5,

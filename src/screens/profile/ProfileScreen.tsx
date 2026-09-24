@@ -31,6 +31,16 @@ import AppHeader from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import FollowButton from '../../components/social/FollowButton';
+import ProfileHelpCard from '../../components/members/ProfileHelpCard';
+import AskForPhotosButton from '../../components/cars/AskForPhotosButton';
+import PhotoSpotShelf from '../../components/photography/PhotoSpotShelf';
+import { PhotoSpotSummaryModal, PhotoSpotRow } from '@ors/kit/src/photography';
+import { useGetPhotoSpotsQuery, type PhotoSpot } from '@ors/kit';
+import GaragePanel from '../../components/cars/GaragePanel';
+import GarageThumbs from '../../components/cars/GarageThumbs';
+import SettingsPanel from '../../components/profile/SettingsPanel';
+import { regionForCityState } from '../../constants/regions';
+import { Shimmer } from '@ors/kit';
 import { BannerSheet } from '../../components/members/ProfileSetupSheets';
 import ListCard from '../../components/lists/ListCard';
 import ListShelf, { LIST_SHELF_PREVIEW_COUNT } from '../../components/lists/ListShelf';
@@ -43,7 +53,6 @@ import { colors } from '../../constants/colors';
 import SteeringWheel from '../../components/ui/SteeringWheel';
 import RegionTile from '../../components/members/RegionTile';
 import ProfileLinks from '../../components/members/ProfileLinks';
-import { regionForCityState } from '../../constants/regions';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import PollShelf, { POLL_SHELF_PREVIEW_COUNT } from '../../components/social/PollShelf';
@@ -76,7 +85,7 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // Polls are a shelf as well — their posts are in the Posts count too, but the
 // shelf shows them with their choices, which the Posts cards don't.
 type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes'
-  | 'forSale' | 'wants' | 'soldListings' | 'polls';
+  | 'forSale' | 'wants' | 'soldListings' | 'polls' | 'photoSpots';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'posts',     label: 'Posts' },
@@ -100,6 +109,7 @@ const SECTION_LABELS: Record<Tab, string> = {
   forSale:      'For sale',
   wants:        'Want ads',
   soldListings: 'Sold',
+  photoSpots:   'Photo spots',
 };
 
 // Garage carousel — cards stop short of full width so the next one peeks out.
@@ -123,6 +133,22 @@ const POSTS_PAGE_SIZE = 12;
 
 /** The Posts pane's media shape — one for every card, whatever the photo. */
 const POST_CARD_RATIO = 16 / 10;
+
+/** The profile photo. The banner overlap, the ring and the badges all follow from it. */
+const AVATAR_SIZE = 88;
+
+/** The Pro ring's thickness around the photo. */
+const PRO_RING = 5;
+/**
+ * How far the wheel and member-number badges hang past the photo's corners —
+ * enough that they read as pinned to it rather than printed on it.
+ */
+const BADGE_OFFSET = -5;
+
+/** How much of a bio shows before "… more". */
+const BIO_LINES = 3;
+/** Characters taken off the last kept line to make room for "… more". */
+const BIO_MORE_ROOM = 8;
 
 const GARAGE_GUTTER = 12;
 const GARAGE_CARD_WIDTH = Dimensions.get('window').width * 0.9 - GARAGE_GUTTER;
@@ -331,6 +357,26 @@ export default function ProfileScreen() {
   const [bioExpanded, setBioExpanded] = useState(false);
   /** The cover-photo sheet, opened from the camera button on an empty banner. */
   const [bannerSheet, setBannerSheet] = useState(false);
+  /** The banner's garage and settings panels, and the buttons they grow from. */
+  const garageBtnRef = useRef<View>(null);
+  const [garageOpen, setGarageOpen] = useState(false);
+  const [garageOrigin, setGarageOrigin] = useState<SummaryOrigin | null>(null);
+  const settingsBtnRef = useRef<View>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOrigin, setSettingsOrigin] = useState<SummaryOrigin | null>(null);
+  /** Measures the pressed button first, so the panel grows out of it. */
+  const openFrom = (
+    ref: React.RefObject<View | null>,
+    setOrigin: (o: SummaryOrigin | null) => void,
+    setOpen: (v: boolean) => void,
+  ) => {
+    const node = ref.current;
+    if (!node) { setOrigin(null); setOpen(true); return; }
+    node.measureInWindow((x, y, w, h) => {
+      setOrigin({ x, y, w, h });
+      setOpen(true);
+    });
+  };
   /**
    * The listing panel, and the card it grows out of.
    *
@@ -341,11 +387,14 @@ export default function ProfileScreen() {
   const [listingSummary, setListingSummary] =
     useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
   /** The list panel — the same arrangement, for the same reason. */
+  /** The photo spot whose summary is open, from the shelf or its pane. */
+  const [spotSummaryId, setSpotSummaryId] = useState<string | null>(null);
   const [listSummary, setListSummary] =
     useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
   /** "New list", pressed by a basic member: the pitch rather than a form the server will refuse. */
   const [listUpsell, setListUpsell] = useState(false);
-  const [bioLines, setBioLines] = useState<number | null>(null);
+  /** The bio's lines as laid out unclamped — measured once, then used to cut it. */
+  const [bioLines, setBioLines] = useState<string[] | null>(null);
   // Which cards in the Posts pane are on screen, so a video stops when its
   // card scrolls out of the pane.
   const { listProps: postViewability, isVisible: isPostVisible } =
@@ -415,9 +464,6 @@ export default function ProfileScreen() {
   // The *viewed* profile's standing, not the viewer's — `isPro` above gates
   // what you're allowed to see, this is a badge on someone else.
   const viewedIsPro = (user as any)?.accountType === 'pro' || (user as any)?.accountType === 'admin';
-  // Null for anyone whose city never resolved — the tile stays unpressable
-  // rather than opening an empty list.
-  const viewedRegion = regionForCityState((user as any)?.cityState);
   const isLoading = isOwnProfile ? loadingOwn : loadingOther;
   const userId = user?.user_id ?? '';
 
@@ -460,6 +506,10 @@ export default function ProfileScreen() {
     });
   }, [postsPageData, postsPage]);
   const { data: carsData, refetch: refetchCars }  = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
+  // Their photography pins, newest first. The whole set rather than a page:
+  // the endpoint has no count to go with a short page, and it's the map's
+  // query — a member has tens of these, not thousands.
+  const { data: spotsData } = useGetPhotoSpotsQuery({ user_id: userId, limit: 300 }, { skip: !userId });
 
   /**
    * The routes this person recorded.
@@ -598,6 +648,7 @@ export default function ProfileScreen() {
   const posts     = postsData?.entries ?? [];
   const polls     = pollsData?.entries ?? [];
   const cars      = carsData?.entries ?? [];
+  const photoSpots = spotsData?.entries ?? [];
   const routes    = routesData?.entries ?? [];
   const lists     = listsData?.entries ?? [];
   const followers = followersData?.entries ?? [];
@@ -626,6 +677,7 @@ export default function ProfileScreen() {
       case 'forSale':      return forSalePane?.total ?? 0;
       case 'wants':        return wantsPane?.total ?? 0;
       case 'soldListings': return soldPane?.total ?? 0;
+      case 'photoSpots':   return photoSpots.length;
     }
   };
 
@@ -665,7 +717,7 @@ export default function ProfileScreen() {
       {visibleTabs.map((t) => (
         <TouchableOpacity
           key={t.key}
-          style={[styles.tile, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.tile, { borderColor: colors.border }]}
           onPress={() => setActiveSection(t.key)}
           activeOpacity={0.85}
           accessibilityRole="button"
@@ -740,6 +792,9 @@ export default function ProfileScreen() {
           style={styles.banner}
           contentFit="cover"
         />
+        {/* The stand-in, dimmed — it's a placeholder, and shouldn't be the
+            brightest thing on a profile that hasn't chosen a cover. */}
+        {!bannerUri && <View style={styles.bannerDim} pointerEvents="none" />}
         {/* Darkens the top of the cover so the floating header reads over it. */}
         <LinearGradient
           colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0)']}
@@ -747,15 +802,29 @@ export default function ProfileScreen() {
           pointerEvents="none"
         />
 
-        {/* Your own shortcuts, on the cover rather than in a row of their own —
-            they're navigation, not part of the introduction, and the avatar
-            overlaps only the bottom-left of the banner so this corner is free.
-            Translucent discs so they read over any photo. */}
-        {isOwnProfile && (
+        {/* Shortcuts on the cover rather than in a row of their own — the
+            avatar overlaps only the bottom-left of the banner, so this corner
+            is free. The garage is anyone's to look in; the camera and the cog
+            are yours alone. Both panels open in place. */}
+        {(isOwnProfile || cars.length > 0) && (
           <View style={styles.bannerActions}>
+            {/* The header's garage door, here too: their cars' photos beside
+                the icon, and a tap opens the garage summary in place rather
+                than leaving the profile. */}
+            <View ref={garageBtnRef} collapsable={false}>
+              <TouchableOpacity
+                style={[styles.bannerIconBtn, cars.length > 0 && styles.bannerGarageBtn]}
+                onPress={() => openFrom(garageBtnRef, setGarageOrigin, setGarageOpen)}
+                accessibilityRole="button"
+                accessibilityLabel={isOwnProfile ? 'Your garage' : `@${user.username}'s garage`}
+              >
+                <Warehouse size={19} color="#FFFFFF" />
+                <GarageThumbs cars={cars} />
+              </TouchableOpacity>
+            </View>
             {/* Only while there's nothing there — once a cover is set, the
                 photo is the thing, and changing it lives in Settings. */}
-            {!bannerUri && (
+            {isOwnProfile && !bannerUri && (
               <TouchableOpacity
                 style={styles.bannerIconBtn}
                 onPress={() => setBannerSheet(true)}
@@ -765,22 +834,18 @@ export default function ProfileScreen() {
                 <Camera size={19} color="#FFFFFF" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={styles.bannerIconBtn}
-              onPress={() => (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Garage' } })}
-              accessibilityRole="button"
-              accessibilityLabel="Your garage"
-            >
-              <Warehouse size={19} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.bannerIconBtn}
-              onPress={() => (navigation as any).navigate('Settings')}
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-            >
-              <Settings size={19} color="#FFFFFF" />
-            </TouchableOpacity>
+            {isOwnProfile && (
+              <View ref={settingsBtnRef} collapsable={false}>
+                <TouchableOpacity
+                  style={styles.bannerIconBtn}
+                  onPress={() => openFrom(settingsBtnRef, setSettingsOrigin, setSettingsOpen)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Settings"
+                >
+                  <Settings size={19} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -788,13 +853,29 @@ export default function ProfileScreen() {
         {/* The ring and the badge ride on a box outside the avatar: the avatar
             itself clips to a circle, so a badge inside it would be cut in half.
             Same gold ring and wheel a pro member gets in the member list. */}
-        <View style={[styles.avatarBox, viewedIsPro && styles.avatarBoxPro]}>
-          <View style={styles.avatarWrap}>
-            <Avatar user={user} size={104} />
-          </View>
+        <View style={styles.avatarBox}>
+          {/* A Pro member's ring is the Pro buttons' gold, oil-slick sheen and
+              passing shine included, rather than a flat stroke. The ring is the fill showing around the photo;
+              the badges stay outside it, since it clips to its own circle. */}
+          {viewedIsPro ? (
+            <Shimmer
+              radius={AVATAR_SIZE / 2 + PRO_RING}
+              color={colors.pro}
+              tone="warm"
+              style={styles.proRing}
+            >
+              <View style={styles.avatarWrap}>
+                <Avatar user={user} size={AVATAR_SIZE} />
+              </View>
+            </Shimmer>
+          ) : (
+            <View style={styles.avatarWrap}>
+              <Avatar user={user} size={AVATAR_SIZE} />
+            </View>
+          )}
           {viewedIsPro && (
             <View style={styles.proWheel}>
-              <SteeringWheel size={19} color="#000000" strokeWidth={2.5} />
+              <SteeringWheel size={24} color="#000000" strokeWidth={2.5} />
             </View>
           )}
           {/* Membership number, worn on the photo like the pro wheel — opposite
@@ -806,7 +887,7 @@ export default function ProfileScreen() {
               { backgroundColor: viewedIsPro ? BADGE_PRO : BADGE_MEMBER },
             ]}>
               <Text
-                style={[styles.memberBadgeText, { color: viewedIsPro ? '#000000' : '#FFFFFF' }]}
+                style={[styles.memberBadgeText, { color: '#000000' }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
@@ -834,9 +915,14 @@ export default function ProfileScreen() {
           <View style={styles.followRow}>
             {/* Squared off to match Message and the ⋮ beside it — a pill next
                 to two 8pt corners read as a different kind of control. */}
-            <FollowButton username={user.username} radius={8} />
+            {/* Darker than the app's usual grey, in step with the tiles below.
+                Wrapped so it can take half the row: Button has no style prop,
+                and a column child stretches to its parent's width. */}
+            <View style={styles.actionGrow}>
+              <FollowButton username={user.username} radius={8} followingBackground="#1E1E1E" />
+            </View>
             <TouchableOpacity
-              style={[styles.msgBtn, { borderColor: colors.border }]}
+              style={[styles.msgBtn, styles.actionGrow, { borderColor: colors.border }]}
               onPress={() => navigation.navigate('ComposeMessage', { userId: user.user_id, username: user.username })}
             >
               <Text style={[styles.msgBtnText, { color: colors.fg }]}>Message</Text>
@@ -855,34 +941,59 @@ export default function ProfileScreen() {
       <View style={styles.info}>
         {user.bio ? (
           <View style={styles.bioWrap}>
+            {/* "… more" sits at the end of the third line, not on a line of its
+                own. RN's own ellipsis can't be followed by anything, so the
+                clamp is done by hand: laid out once in full to learn where the
+                lines break, then the first three are kept, with the last one
+                shortened to leave room for the link. */}
             <Text
               style={[styles.bio, { color: colors.muted }]}
-              numberOfLines={bioLines == null ? undefined : (bioExpanded ? undefined : 3)}
-              onTextLayout={bioLines == null ? (e) => setBioLines(e.nativeEvent.lines.length) : undefined}
+              onTextLayout={bioLines == null ? (e) => setBioLines(e.nativeEvent.lines.map((l) => l.text)) : undefined}
             >
-              {stripHtml(user.bio)}
+              {bioLines && bioLines.length > BIO_LINES && !bioExpanded ? (
+                <>
+                  {bioLines.slice(0, BIO_LINES - 1).join('')}
+                  {bioLines[BIO_LINES - 1].trimEnd().slice(0, -BIO_MORE_ROOM).trimEnd()}
+                  {'… '}
+                  <Text style={[styles.moreLink, { color: colors.grey }]} onPress={() => setBioExpanded(true)}>More</Text>
+                </>
+              ) : (
+                <>
+                  {stripHtml(user.bio)}
+                  {bioLines && bioLines.length > BIO_LINES ? (
+                    <>
+                      {' '}
+                      <Text style={[styles.moreLink, { color: colors.grey }]} onPress={() => setBioExpanded(false)}>Less</Text>
+                    </>
+                  ) : null}
+                </>
+              )}
             </Text>
-            {bioLines != null && bioLines > 3 && (
-              <TouchableOpacity onPress={() => setBioExpanded((v) => !v)} hitSlop={6}>
-                <Text style={[styles.moreLink, { color: colors.grey }]}>{bioExpanded ? 'Less' : 'More'}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ) : null}
 
         {/* Their own links, under the bio they belong to. */}
         <ProfileLinks links={user.links} />
+
+        {/* Yours: what's still missing — a photo, a bio, a car, anyone to
+            follow — each finished without leaving the page. Nothing once done. */}
+        {isOwnProfile && (
+          <ProfileHelpCard carCount={carsData?.total ?? cars.length} followingCount={countFor('following')} />
+        )}
+        {/* Someone else's, with no photo: ask them for one. */}
+        {!isOwnProfile && !!userInfo && !user.gallery?.length && !(user as any).profilePicture && (
+          <AskForPhotosButton kind="profile" userId={user.user_id} ownerName={user.username} />
+        )}
       </View>
 
-      {/* Renders nothing until the server has one for them. Tapping it asks
-          the obvious follow-up question — who else is around here — which the
-          members list can now actually answer. */}
+      {/* Renders nothing until the server has one for them. A picture, not a
+          button — no onPress, so no chevron and nothing to tap. The country
+          tile beside it is lit in their colour, like their member badge. */}
       <RegionTile
         filename={(user as any)?.regionMap?.filename}
         cityState={(user as any)?.cityState}
-        onPress={viewedRegion
-          ? () => (navigation as any).navigate('Members', { region: viewedRegion.key })
-          : undefined}
+        region={regionForCityState((user as any)?.cityState)?.key}
+        regionColor={viewedIsPro ? BADGE_PRO : BADGE_MEMBER}
       />
     </View>
   );
@@ -939,6 +1050,21 @@ export default function ProfileScreen() {
               onRoutePress={(r) => openAndClose(() => (navigation as any).navigate('RouteDetailModal', { routeId: r.internal_id }))}
             />
           </ScrollView>
+        );
+      case 'photoSpots':
+        // The map's own rows. A spot's summary is its own modal, so the pane
+        // closes on the way — see 'routes'.
+        return (
+          <FlatList
+            data={photoSpots}
+            keyExtractor={(s: PhotoSpot) => s.internal_id}
+            contentContainerStyle={styles.modalList}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <PhotoSpotRow spot={item} onPress={(s) => openAndClose(() => setSpotSummaryId(s.internal_id))} />
+            )}
+            ListEmptyComponent={<EmptyState title="No photo spots yet" />}
+          />
         );
       case 'polls':
         // The feed's own cards, full width, so every poll can be answered
@@ -1092,6 +1218,8 @@ export default function ProfileScreen() {
           // Every post here is theirs, so a byline on each card would just be
           // the same name six times.
           showByline={false}
+          // Same shade as the section tiles, so the page's surfaces agree.
+          cardBackground="#171717"
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
         />
@@ -1127,6 +1255,14 @@ export default function ProfileScreen() {
           onViewAll={() => setActiveSection('lists')}
           onAdd={isOwnProfile && isPro ? startNewList : undefined}
           emptyHint="Your top five anything — designers, roads, the cars you'd own tomorrow."
+        />
+        {/* The places they've pinned for photographs. Nothing when there are
+            none — see PhotoSpotShelf. */}
+        <PhotoSpotShelf
+          spots={photoSpots}
+          total={photoSpots.length}
+          onSpotPress={(s) => setSpotSummaryId(s.internal_id)}
+          onViewAll={() => setActiveSection('photoSpots')}
         />
         {/* Their marketplace, in the three piles it splits into. Each shelf
             renders nothing when it's empty, so a member who has never sold
@@ -1199,6 +1335,13 @@ export default function ProfileScreen() {
         onClose={() => setListSummary(null)}
       />
 
+      {/* The same summary a pin on the map opens; the pinner gets its Edit. */}
+      <PhotoSpotSummaryModal
+        spotId={spotSummaryId}
+        onClose={() => setSpotSummaryId(null)}
+        onEdit={(id) => (navigation as any).navigate('PhotoSpotCreate', { spotId: id })}
+      />
+
       <ProUpsellModal
         visible={listUpsell}
         onClose={() => setListUpsell(false)}
@@ -1209,6 +1352,15 @@ export default function ProfileScreen() {
       {/* Saving invalidates the profile, so the banner fills and goes back to
           full height on its own — nothing here has to refresh it by hand. */}
       <BannerSheet visible={bannerSheet} onClose={() => setBannerSheet(false)} />
+      <GaragePanel
+        visible={garageOpen}
+        origin={garageOrigin}
+        onClose={() => setGarageOpen(false)}
+        owner={{ user_id: user.user_id, username: user.username }}
+      />
+      {isOwnProfile && (
+        <SettingsPanel visible={settingsOpen} origin={settingsOrigin} onClose={() => setSettingsOpen(false)} />
+      )}
     </SafeAreaView>
   );
 }
@@ -1220,40 +1372,44 @@ const styles = StyleSheet.create({
   // 10/9 is the old 5/3 with 50% more height.
   bannerContainer: { width: '100%', aspectRatio: 10 / 8 },
   // Still deep enough for the floating header to sit over, and for the avatar
-  // to overlap by its usual 52 — just not a photo's worth of height.
-  bannerContainerBare: { aspectRatio: 10 / 4 },
+  // to overlap by half its height — just not a photo's worth of height. The old
+  // 10/4 plus 100: at 10/4 the stand-in read as a strip, not a cover.
+  bannerContainerBare: { aspectRatio: undefined, height: Dimensions.get('window').width * 0.4 + 100 },
   banner:          { width: '100%', height: '100%' },
+  // Written out: RN 0.86 removed `StyleSheet.absoluteFillObject`, and spreading
+  // it yields {} — the dim would have no size and silently not show.
+  bannerDim:       { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
   // Neutral, not brand-colored — at this height a solid accent block dominates
   // the screen for anyone without a cover image.
   bannerScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '60%' },
-  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 16, marginTop: -52 },
+  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 16, marginTop: -AVATAR_SIZE / 2 },
   // Sits on the avatar's baseline, with a little lift so it reads level with
   // the photo rather than hanging off its bottom edge.
   identity:        { flex: 1, minWidth: 0, paddingBottom: 10 },
   actionsRow:      { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 12 },
-  // Clear of the avatar, which overlaps the banner's bottom-left by 52.
+  // Clear of the avatar, which overlaps the banner's bottom-left by half its height.
   bannerActions:   { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
   bannerIconBtn:   {
     width: 38, height: 38, borderRadius: COMMON_RADIUS,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    // Near-solid: at half black the buttons went muddy over a bright cover.
+    backgroundColor: 'rgba(0,0,0,0.75)',
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.28)',
     alignItems: 'center', justifyContent: 'center',
   },
+  // Widens to hold the car photos beside the door, as the header's does.
+  bannerGarageBtn: { width: undefined, flexDirection: 'row', gap: 6, paddingHorizontal: 9 },
   avatarBox:       { position: 'relative' },
   // Pads out to hold the ring clear of the photo, so the avatar reads at the
-  // same 104 either way.
-  avatarBoxPro:    {
-    padding: 0,
-    borderWidth: 5, borderColor: colors.pro, borderRadius: 60,
-  },
+  // same AVATAR_SIZE either way.
+  proRing:         { padding: PRO_RING },
   proWheel: {
-    position: 'absolute', bottom: -2, right: -2,
-    width: 32, height: 32, borderRadius: 16,
+    position: 'absolute', bottom: BADGE_OFFSET, right: BADGE_OFFSET,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.pro,
     alignItems: 'center', justifyContent: 'center',
   },
   avatarWrap:      {
-    width: 104, height: 104, borderRadius: 52,
+    width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
     overflow: 'hidden',
     backgroundColor: colors.primaryAlt,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
@@ -1264,18 +1420,20 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  followRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  msgBtn:     { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 14, paddingVertical: 6 },
+  // Follow and Message split the width between them; the ⋮ keeps its size.
+  followRow:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  actionGrow: { flex: 1 },
+  msgBtn:     { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center' },
   msgBtnText: { fontSize: 14, fontWeight: '600' },
   profileMenuBtn: { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   info:       { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 3 },
-  name:       { fontSize: 22, fontWeight: '800' },
+  name:       { fontSize: 19, fontWeight: '600' },
   // Bottom-left of the photo — the pro wheel owns the bottom-right. A true
   // circle: fixed on both axes rather than stretched by its padding, so a
   // three-digit number and a one-digit number are the same shape. Long numbers
   // scale their text down instead of pulling it into an oval.
   memberBadge: {
-    position: 'absolute', bottom: -2, left: -2,
+    position: 'absolute', bottom: BADGE_OFFSET, left: BADGE_OFFSET,
     width: 32, height: 32, borderRadius: PILL_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -1284,13 +1442,16 @@ const styles = StyleSheet.create({
     textAlign: 'center', paddingHorizontal: 2,
   },
   username:   { fontSize: 14, marginTop: 2 },
-  bioWrap:    { marginTop: 8 },
+  bioWrap:    { marginTop: 8, marginBottom: 14 },
   bio:        { fontSize: 14, lineHeight: 20 },
-  moreLink:   { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline', marginTop: 4 },
+  moreLink:   { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
   location:   { fontSize: 13, marginTop: 4 },
   tilesRow:   { paddingLeft: 12, paddingTop: 4, gap: 10 },
   tile:       {
     width: TILE_WIDTH,
+    // A step under the card colour (#1e1e1e): a row of them at full card
+    // brightness outweighed the profile they sit under.
+    backgroundColor: '#171717',
     borderRadius: 12, borderWidth: 1,
     paddingVertical: 16, paddingHorizontal: 14,
     alignItems: 'center', justifyContent: 'center', gap: 2,

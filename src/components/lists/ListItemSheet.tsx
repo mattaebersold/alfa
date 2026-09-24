@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ImagePlus, X } from 'lucide-react-native';
@@ -160,7 +161,7 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
 
   return (
     <SharedModal visible={visible} onClose={onClose} title={initial ? 'Edit item' : 'Add item'}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <FormScrollView contentContainerStyle={styles.scroll}>
         <TouchableOpacity
           style={[styles.photoPicker, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={pickPhoto}
@@ -256,7 +257,7 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
             ? <ActivityIndicator size="small" color="#000000" />
             : <Text style={styles.saveText}>{initial ? 'Save item' : 'Add to list'}</Text>}
         </TouchableOpacity>
-      </ScrollView>
+      </FormScrollView>
     </SharedModal>
   );
 }

@@ -2,13 +2,14 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
   Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView,
-  ActivityIndicator, Alert, Animated, TextInput, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Animated, TextInput, Platform,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageCircle, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2 } from 'lucide-react-native';
+import { X, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2 } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -28,7 +29,9 @@ import {
   useGetCarFollowersQuery, useGetCarGroupsQuery, useGetCarsQuery,
   useGetRoutesQuery,
   apiService,
+  useGetCommentCountQuery,
 } from '../../api/apiService';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { CATEGORY_LABELS } from '../../components/ui/Badge';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
@@ -48,6 +51,8 @@ import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
 import TaggedPostsPane from '../../components/cars/TaggedPostsPane';
 import CarListsRow from '../../components/cars/CarListsRow';
+import CarSetupCard from '../../components/cars/CarSetupCard';
+import AskForPhotosButton from '../../components/cars/AskForPhotosButton';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import RoutesPane from '../../components/routes/RoutesPane';
 import BottomSheet from '../../components/ui/SharedModal';
@@ -165,7 +170,7 @@ function Lightbox({
   const insets = useSafeAreaInsets();
   const androidTop = Platform.OS === 'android' ? Math.max(insets.top, StatusBar.currentHeight ?? 0) : 0;
   return (
-    <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <GestureHandlerRootView style={{ flex: 1 }}>
       <RNSafeAreaView style={styles.lightboxSafe}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -510,6 +515,15 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [deleteCarGallery] = useDeleteCarGalleryMutation();
 
   const { data: car, isLoading, refetch: refetchCar } = useGetCarWithUserQuery(carId);
+  /**
+   * The car's comment count, for the bubble beside the like. Asked for here
+   * because the car's payload doesn't carry one; with the same argument
+   * CommentButton reads, so a comment added or removed below updates the
+   * bubble through the cache.
+   */
+  const { data: commentCount } = useGetCommentCountQuery(
+    car?.internal_id ? { id: car.internal_id } : skipToken,
+  );
   const { data: coOwnerData } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
   // The active list carries both done and outstanding items — only archiving
   // removes one — so completion is a count over what's already loaded.
@@ -1003,6 +1017,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const heroFilename = car.profile_image || car.gallery?.[0]?.filename || undefined;
 
+  /**
+   * Miles as typed, or TMU — true mileage unknown, the term of art — when it
+   * wasn't given or doesn't read as a distance. Stored values are free text, so
+   * "120,000", "120000 mi" and "120k" all turn up; anything else printed as
+   * "NaN mi".
+   */
+  const formatMileage = (raw: unknown) => {
+    const text = String(raw ?? '').trim().toLowerCase().replace(/[,\s]/g, '').replace(/(mi|miles)$/, '');
+    const n = text.endsWith('k') ? Number(text.slice(0, -1)) * 1000 : Number(text);
+    return text && Number.isFinite(n) && n >= 0 ? `${Math.round(n).toLocaleString()} mi` : 'TMU';
+  };
+
   const specs: { label: string; value: string | undefined }[] = [
     { label: 'Year',      value: car.year },
     { label: 'Make',      value: car.make },
@@ -1012,7 +1038,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     { label: 'Engine',    value: car.engine },
     { label: 'HP',        value: car.horsepower },
     { label: 'Torque',    value: car.torque },
-    { label: 'Mileage',   value: car.mileage ? `${Number(car.mileage).toLocaleString()} mi` : undefined },
+    { label: 'Mileage',   value: formatMileage(car.mileage) },
     { label: 'Condition', value: car.condition },
   ].filter((s) => s.value);
 
@@ -1240,25 +1266,15 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
-      {/* Lifts the page clear of the keyboard when the comment box is focused,
-          matching the post pane. The offset is 0 rather than the post pane's 90
-          because AppHeader floats absolutely here — this view already starts at
-          the top of the screen. */}
-      <KeyboardAvoidingView
-        style={ss.fill}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-      <ScrollView
+      {/* A FormScrollView for the comment field at the foot of the page:
+          focused, it's scrolled up to sit on the keyboard. */}
+      <FormScrollView
         refreshControl={refreshControl}
-        ref={scrollRef}
+        ref={scrollRef as any}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: headerPad, paddingBottom: tabBarClearance + 16 }}
         onScroll={onHeaderScroll}
         scrollEventThrottle={16}
-        // Without this the first tap on Post is swallowed dismissing the
-        // keyboard, so posting a comment takes two taps.
-        keyboardShouldPersistTaps="handled"
       >
 
         {/* Car title leads the page and scrolls away with the content. The
@@ -1430,16 +1446,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   color={colors.fg}
                 />
               </View>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.commentBtn, { backgroundColor: colors.secondary }]}
-                onPress={() => setCommentsOpen(true)}
-                hitSlop={8}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Comments"
-              >
-                <MessageCircle size={18} color={colors.fg} />
-              </TouchableOpacity>
+              <View style={[styles.actionBtn, { backgroundColor: colors.secondary }]}>
+                <CommentButton
+                  documentId={car.internal_id}
+                  count={commentCount ?? 0}
+                  onPress={() => setCommentsOpen(true)}
+                  color={colors.fg}
+                />
+              </View>
             </View>
           </View>
 
@@ -1457,6 +1471,16 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               <Plus size={17} color={brandTextColor} strokeWidth={2.6} />
               <Text style={[styles.addContentText, { color: brandTextColor }]}>Add Content</Text>
             </TouchableOpacity>
+          )}
+
+          {/* What's still missing on your own car — a photo, its specs, a first
+              mod — each finished in a panel right here. Nothing once done. */}
+          {isOwnerOrCoOwner && <CarSetupCard car={car} modCount={(modsData as any)?.total ?? mods.length} />}
+
+          {/* Someone else's car with no photos: ask its owner for some. Signed
+              in only — the ask is sent from someone. */}
+          {!isOwnerOrCoOwner && !!userInfo && !car.gallery?.length && !car.profile_image && (
+            <AskForPhotosButton carId={car.internal_id} ownerName={(car as any).user?.username} />
           )}
 
           {/* The to-do list sits with the car's own story rather than down among
@@ -1515,7 +1539,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 {row.map((spec) => (
                   <View
                     key={spec.label}
-                    style={[styles.specsCell, { borderColor: colors.borderDark, backgroundColor: colors.inputBg }]}
+                    style={styles.specsCell}
                   >
                     <Text style={[styles.specsLabel, { color: colors.grey }]} numberOfLines={1}>{spec.label}</Text>
                     <Text style={[styles.specsValue, { color: colors.fg }]} numberOfLines={1}>
@@ -1644,16 +1668,9 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         <InlineComments
           documentId={car.internal_id}
           entryType={(car as any).entry_type ?? 'garagecar'}
-          // Comments are the last section, so scrolling to the end puts the
-          // input just above the keyboard. Shrinking the viewport alone leaves
-          // it off-screen when the page is scrolled up.
-          onInputFocus={() => {
-            setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
-          }}
         />
 
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </FormScrollView>
 
       {/* ── Mod edit sheet ── */}
       <BottomSheet
@@ -1661,7 +1678,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onClose={() => { setActiveSheet(null); setEditingMod(null); }}
         title="Edit Mod"
       >
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+        <FormScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
           <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Title *</Text>
           <TextInput
             style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
@@ -1716,7 +1733,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               }
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </FormScrollView>
       </BottomSheet>
 
       {/* ── Mod detail sheet ── */}
@@ -1782,7 +1799,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
       {/* ── Gallery create sheet ── */}
       <BottomSheet visible={activeSheet === 'gallery'} onClose={() => { setActiveSheet(null); setGalleryTitle(''); setGalleryImages([]); }} title="New Gallery">
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+        <FormScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
           <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Title *</Text>
           <TextInput
             style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
@@ -1826,7 +1843,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               : <><Plus size={16} color="#FFFFFF" /><Text style={styles.sheetCreateBtnText}>Create Gallery</Text></>
             }
           </TouchableOpacity>
-        </ScrollView>
+        </FormScrollView>
       </BottomSheet>
 
       {/* ── Gallery edit sheet ── */}
@@ -1835,7 +1852,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onClose={() => { setActiveSheet(null); setEditingAlbum(null); setEditAlbumTitle(''); setEditAlbumRemovedFilenames([]); setEditAlbumNewImages([]); }}
         title="Edit Gallery"
       >
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+        <FormScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
           <Text style={[styles.gallerySheetLabel, { color: colors.fg }]}>Title *</Text>
           <TextInput
             style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card, marginBottom: 20 }]}
@@ -1910,7 +1927,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               }
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </FormScrollView>
       </BottomSheet>
 
       {/* ── Section pane ── */}
@@ -2144,7 +2161,6 @@ const styles = StyleSheet.create({
     // gets the horizontal room here instead.
     paddingHorizontal: 6,
   },
-  commentBtn:     { paddingHorizontal: 8 },
   // Wider than a square icon button: it holds a word, not a glyph.
   followingBtn:     { paddingHorizontal: 12 },
   followingBtnText: { fontSize: 13, fontWeight: '700', color: '#000000' },
@@ -2198,10 +2214,13 @@ const styles = StyleSheet.create({
   specsRow:    { flexDirection: 'row', gap: 8 },
   // Equal thirds, and `minWidth: 0` so a long value truncates inside its own
   // box instead of widening it and pushing the others out of line.
+  // Filled and borderless: these are facts, not buttons, and an outline was
+  // the one thing making them look like the tappable tiles below.
   specsCell: {
     flex: 1, minWidth: 0,
     paddingVertical: 8, paddingHorizontal: 9, gap: 2,
-    borderWidth: 1, borderRadius: 9,
+    borderRadius: 9,
+    backgroundColor: '#1A1A1A',
   },
   specsSpacer: { flex: 1, minWidth: 0 },
   // A shade smaller than at two columns — a third of a phone is not much room.

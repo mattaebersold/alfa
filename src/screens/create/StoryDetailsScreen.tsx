@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, ActivityIndicator, Platform, KeyboardAvoidingView,
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
+import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -64,17 +65,17 @@ export default function StoryDetailsScreen({ route }: Props) {
     }
   };
 
+  const [footerH, setFooterH] = useState(0);
+
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={90}
-      >
-        <ScrollView
+      {/* The column shrinks by the keyboard's height so Post Story sits on it;
+          the focused field is kept clear of that footer as well. */}
+      <KeyboardAvoidingView style={styles.flex}>
+        <FormScrollView
           style={styles.flex}
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
+          bottomOffset={KEYBOARD_GAP + footerH}
           showsVerticalScrollIndicator={false}
         >
           {/* Thumbnail preview */}
@@ -118,10 +119,13 @@ export default function StoryDetailsScreen({ route }: Props) {
               />
             </View>
           </View>
-        </ScrollView>
+        </FormScrollView>
 
         {/* Submit button */}
-        <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <View
+          style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}
+          onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
+        >
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={isLoading || !title.trim()}

@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images, Car as CarIcon } from 'lucide-react-native';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { stripHtml } from '../../utils/text';
 import Avatar from '../ui/Avatar';
 import ReportButton from '../ui/ReportButton';
@@ -82,14 +83,10 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
     ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
     : '';
 
-  // The item's own photo where it has one — that's the new thing. The car's
-  // picture stands in when a mod was logged without one, so the row still shows
-  // what it's about rather than an empty grey block.
-  const hero = firstGalleryUrl(item.gallery)
-    ?? firstGalleryUrl(car.gallery)
-    ?? (car.profile_image ? imageUrl(car.profile_image) : null);
   const carThumb = firstGalleryUrl(car.gallery)
     ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  // The item's own photo where it has one — that's the new thing.
+  const ownPhoto = firstGalleryUrl(item.gallery);
 
   // Written in the web editor, so it arrives as HTML — unstripped it renders
   // as a line of tags where a sentence should be.
@@ -97,6 +94,13 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
 
   const isMod = item.kind === 'mod';
   const Mark = isMod ? Wrench : Images;
+  /**
+   * A mod logged without a photo is a plain dark card: the wrench, the badge
+   * and the title, and nothing pictured. The car's own photo used to stand in,
+   * which made "installed new plugs" look like a picture of the plugs.
+   */
+  const bare = isMod && !ownPhoto;
+  const hero = bare ? null : ownPhoto ?? carThumb;
   const photoCount = item.gallery?.length ?? 0;
   // Named in full: "Mod" alone reads as a category on a card that could be
   // about anything, and the card is always about a car.
@@ -118,6 +122,25 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
 
   const openCar = () => (nav as any).navigate('CarDetail', { carId: car.internal_id });
   const openOwner = () => owner && setSummaryUserId(owner.user_id);
+
+  const carChip = (
+    <TouchableOpacity
+      style={[styles.carChip, bare && styles.carChipInline]}
+      onPress={openCar}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={carName}
+    >
+      {carThumb ? (
+        <Image source={{ uri: carThumb }} style={styles.carThumb} contentFit="cover" />
+      ) : (
+        <View style={[styles.carThumb, styles.carThumbBlank]}>
+          <CarIcon size={14} color="rgba(255,255,255,0.8)" />
+        </View>
+      )}
+      <Text style={styles.carChipText} numberOfLines={1}>{carName}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.wrap}>
@@ -159,67 +182,69 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           panel has its own View Car. */}
       <TouchableOpacity
         ref={cardRef}
-        style={[styles.card, { aspectRatio: ratio, borderColor: colors.borderDark }]}
+        style={[
+          styles.card,
+          // Bare, it's as tall as its words: there's no photo to give it a shape.
+          { aspectRatio: bare ? undefined : ratio, borderColor: colors.borderDark },
+          bare && styles.cardBare,
+        ]}
         onPress={openDetail}
         activeOpacity={0.92}
       >
-        <Image
-          source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
-          style={styles.image}
-          contentFit="cover"
-          // Centred, so a crop takes from both edges evenly rather than
-          // keeping the top-left corner and dropping the rest.
-          contentPosition="center"
-          transition={200}
-          onLoad={onLoad}
-        />
+        {!bare && (
+          <>
+            <Image
+              source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
+              style={styles.image}
+              contentFit="cover"
+              // Centred, so a crop takes from both edges evenly rather than
+              // keeping the top-left corner and dropping the rest.
+              contentPosition="center"
+              transition={200}
+              onLoad={onLoad}
+            />
 
-        {/* One gradient, off the bottom edge only. The top is clear now that
-            the attribution has moved off the photo, so a second scrim up there
-            would be darkening the picture for nothing. */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.95)']}
-          locations={[0, 0.55, 1]}
-          style={styles.scrim}
-          pointerEvents="none"
-        />
+            {/* One gradient, off the bottom edge only. The top is clear now
+                that the attribution has moved off the photo, so a second scrim
+                up there would be darkening the picture for nothing. */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.95)']}
+              locations={[0, 0.55, 1]}
+              style={styles.scrim}
+              pointerEvents="none"
+            />
+          </>
+        )}
 
         {/* Anchored to the foot and ranged left, so the badge, the name and the
             description read as one block down the same edge. */}
-        <View style={styles.plate} pointerEvents="none">
+        {/* box-none on the bare card, whose car chip sits inside the plate
+            and has to stay tappable; over a photo nothing in here is. */}
+        <View style={[styles.plate, bare && styles.plateBare]} pointerEvents={bare ? 'box-none' : 'none'}>
           {/* The mark, at size, on its own — it's the one thing that says at a
               glance which of the two kinds this is, and shrunk into the badge
               it was competing with the word beside it. */}
           <Mark size={34} color="#FFFFFF" strokeWidth={1.6} />
-          <View style={styles.kindPill}>
-            <Text style={styles.kindText}>{kindLabel}</Text>
+          {/* A mod wears the mod colour the category badges use elsewhere;
+              a gallery keeps the plain white pill. */}
+          <View style={[styles.kindPill, isMod && { backgroundColor: CATEGORY_BADGE_COLORS.mod.bg }]}>
+            <Text style={[styles.kindText, isMod && { color: CATEGORY_BADGE_COLORS.mod.fg }]}>{kindLabel}</Text>
           </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title || (isMod ? 'New mod' : 'New photos')}
-          </Text>
+          <View style={styles.titleRow} pointerEvents="box-none">
+            <Text style={[styles.title, bare && styles.titleBare]} numberOfLines={2}>
+              {item.title || (isMod ? 'New mod' : 'New photos')}
+            </Text>
+            {bare && carChip}
+          </View>
           {description ? (
             <Text style={styles.body} numberOfLines={2}>{description}</Text>
           ) : null}
         </View>
 
-        {/* Which car, bottom right — its own touchable, so this tap goes to the
-            car rather than to whatever the card is doing. */}
-        <TouchableOpacity
-          style={styles.carChip}
-          onPress={openCar}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel={carName}
-        >
-          {carThumb ? (
-            <Image source={{ uri: carThumb }} style={styles.carThumb} contentFit="cover" />
-          ) : (
-            <View style={[styles.carThumb, styles.carThumbBlank]}>
-              <CarIcon size={14} color="rgba(255,255,255,0.8)" />
-            </View>
-          )}
-          <Text style={styles.carChipText} numberOfLines={1}>{carName}</Text>
-        </TouchableOpacity>
+        {/* Which car, top left over a photo — its own touchable, so this tap
+            goes to the car rather than to whatever the card is doing. The bare
+            card carries it beside the title instead. */}
+        {!bare && carChip}
       </TouchableOpacity>
 
       {/* Like and comment, under the card — the same footer a post has.
@@ -317,6 +342,14 @@ const styles = StyleSheet.create({
   // RN 0.86 removed — spreading it yields {} and the image loses its position
   // entirely, silently.
   image: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // A photo-less mod: no picture to be, so a dark grey ground for the plate.
+  cardBare: { backgroundColor: '#141414' },
+  // In the flow rather than pinned to the foot, so the card sizes to it.
+  plateBare: { position: 'relative', paddingTop: 16 },
+  titleRow:  { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10 },
+  titleBare: { flex: 1 },
+  // Beside the title rather than floating over a photo's corner.
+  carChipInline: { position: 'relative', top: 0, left: 0, maxWidth: '48%' },
 
   scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '58%' },
 
@@ -326,6 +359,9 @@ const styles = StyleSheet.create({
     paddingLeft: 14, paddingRight: 14, paddingBottom: 16,
   },
   kindPill: {
+    // A little clear of the mark above it — the plate's gap alone had the two
+    // touching visually, the glyph's stroke running to its box's edge.
+    marginTop: 4,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999,
   },

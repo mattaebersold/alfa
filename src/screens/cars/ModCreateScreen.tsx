@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   TextInput, Alert,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,7 +13,6 @@ import { useCreateModMutation } from '../../api/apiService';
 import Button from '../../components/ui/Button';
 import SharedButton from '../../components/ui/SharedButton';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { MOD_TYPES } from '../../constants/carTypes';
 import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
@@ -60,7 +60,6 @@ const chip = StyleSheet.create({
 export default function ModCreateScreen({ navigation, route }: AppScreenProps<'ModCreate'>) {
   const { carId, carTitle } = route.params;
   const c = useColors();
-  const keyboardHeight = useKeyboardHeight();
 
   const [title, setTitle] = useState('');
   const [type, setType] = useState('general');
@@ -132,9 +131,8 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardHeight }]}
-        keyboardShouldPersistTaps="handled"
+      <FormScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
         {carTitle ? (
@@ -215,7 +213,7 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
           loading={isLoading}
           full
         />
-      </ScrollView>
+      </FormScrollView>
     </SafeAreaView>
   );
 }

@@ -1,9 +1,13 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { FormScrollView, KEYBOARD_GAP } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SharedModal from '../ui/SharedModal';
 import { EventDetailBody, EventInterestBar } from './EventDetailBody';
 import { useGetSocietyEventQuery } from '../../api/apiService';
+
+/** Roughly the Interested bar's height, above the keyboard while typing. */
+const INTEREST_BAR_H = 64;
 
 /**
  * Event detail as a slide-up sheet — the app's standard surface for opening
@@ -27,14 +31,21 @@ export default function SocietyEventSheet({
     <SharedModal visible={visible} onClose={onClose} title={event?.title ?? 'Event'}>
       {eventId ? (
         <>
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* The comment field at the foot of the event is scrolled up onto
+              the keyboard — clear of the Interested bar too, which rides up
+              with the sheet under it. */}
+          <FormScrollView
+            style={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            bottomOffset={KEYBOARD_GAP + INTEREST_BAR_H}
+          >
             <EventDetailBody
               eventId={eventId}
               occurrenceDate={occurrenceDate}
               onNavigateAway={onClose}
             />
             <View style={{ height: 16 }} />
-          </ScrollView>
+          </FormScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <EventInterestBar eventId={eventId} />

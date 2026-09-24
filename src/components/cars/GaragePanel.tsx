@@ -8,7 +8,8 @@ import HeadingActionButton from '../ui/HeadingActionButton';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import { GetProButton, ProUpsellModal } from '../pro/ProUpsell';
-import { useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService';
+import { useGetUserGarageQuery, useGetCarTasksQuery, useGetCarsQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { CAR_LIMIT_BASIC } from '../../constants/limits';
@@ -54,16 +55,26 @@ function CarCardWithTasks({ car, isPro, onPress, onTasksPress, onEditPress }: {
  *
  * The garage *screen* still exists for the tab and for deep links; this is the
  * header's way in.
+ *
+ * Given someone else as `owner` — from the garage button on their profile —
+ * it's their garage, read-only: their cars, a count, and none of the adding,
+ * the car limit, the Pro pitch or the task counts, which are all yours.
  */
-export default function GaragePanel({ visible, origin, onClose }: {
+export default function GaragePanel({ visible, origin, onClose, owner }: {
   visible: boolean;
   origin?: GrowOrigin | null;
   onClose: () => void;
+  /** Whose garage. Omitted, or yourself, means yours. */
+  owner?: { user_id: string; username?: string } | null;
 }) {
   const colors = useColors();
   const isPro = useIsPro();
   const navigation = useNavigation<any>();
-  const { data, isLoading } = useGetUserGarageQuery(undefined, { skip: !visible });
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
+  const visiting = !!owner && owner.user_id !== myId;
+  const own = useGetUserGarageQuery(undefined, { skip: !visible || visiting });
+  const theirs = useGetCarsQuery({ user_id: owner?.user_id, limit: 50 }, { skip: !visible || !visiting });
+  const { data, isLoading } = visiting ? theirs : own;
   const cars = data?.entries ?? [];
 
   // The cap bites in one place: the add button, which opens the upsell rather
@@ -87,15 +98,23 @@ export default function GaragePanel({ visible, origin, onClose }: {
                   a basic account; Pro has no cap to count against. */}
               <View style={styles.head}>
                 <View style={styles.headText}>
-                  <HeadingActionButton label="Add Car" onPress={addCar} accessibilityLabel="Add a car" />
+                  {/* Someone else's garage does get a title: here the button
+                      was theirs, and the panel should say whose cars these are. */}
+                  {visiting ? (
+                    <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
+                      {owner?.username ? `@${owner.username}'s garage` : 'Garage'}
+                    </Text>
+                  ) : (
+                    <HeadingActionButton label="Add Car" onPress={addCar} accessibilityLabel="Add a car" />
+                  )}
                   <View style={[styles.countPill, { backgroundColor: colors.segment }]}>
                     <Text style={[styles.countText, { color: colors.fg }]}>
-                      {isPro ? cars.length : `${cars.length}/${CAR_LIMIT_BASIC}`}
+                      {visiting ? (theirs.data?.total ?? cars.length) : isPro ? cars.length : `${cars.length}/${CAR_LIMIT_BASIC}`}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.headActions}>
-                  {!isPro && <GetProButton onPress={() => setUpsell(true)} />}
+                  {!isPro && !visiting && <GetProButton onPress={() => setUpsell(true)} />}
                   <TouchableOpacity
                     onPress={() => closeThen()}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -113,7 +132,9 @@ export default function GaragePanel({ visible, origin, onClose }: {
                 <FlatList
                   data={cars}
                   keyExtractor={(item) => item.internal_id}
-                  renderItem={({ item }) => (
+                  renderItem={({ item }) => visiting ? (
+                    <CarPosterCard car={item} plain onPress={() => go('CarDetail', { carId: item.internal_id })} />
+                  ) : (
                     <CarCardWithTasks
                       car={item}
                       isPro={isPro}
@@ -155,6 +176,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
   },
   headText:    { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  title:       { fontSize: 18, fontWeight: '800', flexShrink: 1 },
   countPill: {
     minWidth: 28, height: 28, borderRadius: PILL_RADIUS, paddingHorizontal: 7,
     alignItems: 'center', justifyContent: 'center',

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, Switch,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
@@ -206,9 +206,8 @@ export default function NewGroupSheet({
     >
       <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
 
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {step === 1 && (
@@ -451,7 +450,7 @@ export default function NewGroupSheet({
             </TouchableOpacity>
           </>
         )}
-      </ScrollView>
+      </FormScrollView>
     </SharedModal>
   );
 }

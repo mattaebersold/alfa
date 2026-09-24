@@ -24,8 +24,6 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
  */
 
 const AVATAR_SIZE = 50;
-/** A rounded square rather than a circle, matching the car thumbnails below. */
-const AVATAR_RADIUS = 10;
 // Just wider than the avatar: at 72 each face sat in its own column of empty
 // space and the row read as sparse.
 const CARD_WIDTH = 60;
@@ -42,11 +40,8 @@ function MemberCard({ member, onPress }: {
   const colors = useColors();
   return (
     <SummaryTouchable style={styles.card} onPress={onPress}>
-      <Avatar
-        user={member}
-        size={AVATAR_SIZE}
-        radius={AVATAR_RADIUS}
-      />
+      {/* A circle, like every other face in the app — Avatar's default. */}
+      <Avatar user={member} size={AVATAR_SIZE} />
       <Text style={[styles.username, { color: colors.grey }]} numberOfLines={1}>
         @{member.username}
       </Text>

@@ -19,6 +19,7 @@ import { TYPE_LABELS, CATEGORY_LABELS } from '../../components/ui/Badge';
 import LikeButton from '../../components/social/LikeButton';
 import CommentRow, { COMMENT_SURFACE } from '../../components/social/CommentRow';
 import Composer, { type ComposerHandle } from '../../components/social/Composer';
+import { KeyboardAvoidingView } from '@ors/kit';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import LikersSheet from '../../components/social/LikersSheet';
 import PostEditSheet from '../../components/social/PostEditSheet';
@@ -340,12 +341,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
         </TouchableOpacity>
       </View>
 
-      {/* No keyboard handling of its own any more: the only field on this
-          screen is the composer's, and it opens in its own panel over the
-          post — see Composer — so nothing here ever has to move for it. */}
       {/* The ground the cards sit on. Without this the gaps between them would
-          show whatever is behind the modal rather than a deliberate colour. */}
-      <View style={[styles.flex, { backgroundColor: groundBg }]}>
+          show whatever is behind the modal rather than a deliberate colour.
+          It's also what meets the keyboard: it shrinks by the keyboard's
+          height, so the composer at its foot sits on the keyboard and the
+          comments above give up the room. */}
+      <KeyboardAvoidingView style={[styles.flex, { backgroundColor: groundBg }]}>
         <FlatList
           refreshControl={refreshControl}
           data={commentRows}
@@ -541,25 +542,21 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
         {/* No fill and no rule of its own: it's the same surface as the
             comments it sits under, and the field's own border is what marks
-            where you type. Tapped, it opens over the post on the keyboard —
-            see Composer. */}
+            where you type. */}
         <Composer
           ref={composerRef}
           value={commentText}
           onChangeText={setCommentText}
           placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-          title={replyingTo ? `Reply to @${replyingTo.username}` : 'Comment'}
           photos={photos}
           onSend={handleSubmitComment}
           sending={submitting}
           sendLabel="Post"
           tone={{ surface: surfaceBg, field: surfaceBg, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
-          barStyle={{
-            paddingHorizontal: 4, paddingTop: 4,
-            // Clear the home indicator / nav bar without double-counting the
-            // safe area, which the SafeAreaView no longer applies.
-            paddingBottom: Platform.OS === 'android' ? 48 : Math.max(insets.bottom, 12),
-          }}
+          barStyle={{ paddingHorizontal: 4, paddingTop: 4 }}
+          // Clear the home indicator / nav bar without double-counting the
+          // safe area, which the SafeAreaView no longer applies.
+          bottomInset={Platform.OS === 'android' ? 48 : Math.max(insets.bottom, 12)}
           leading={<Avatar user={userInfo} size={32} />}
           banner={replyingTo ? (
             <View style={[styles.replyBanner, { backgroundColor: surfaceBg, borderBottomColor: colors.border }]}>
@@ -577,7 +574,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             </View>
           ) : null}
         />
-      </View>
+      </KeyboardAvoidingView>
 
       <LikersSheet
         entryId={postId}

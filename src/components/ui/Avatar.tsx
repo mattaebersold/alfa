@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { imageUrl } from '../../utils/image';
 import { avatarColorFor, initialsFor } from '../../utils/avatarColor';
 
@@ -68,41 +69,76 @@ export default function Avatar({ user, filename, name, size = 40, radius }: Avat
   const background = user?.avatarColor || avatarColorFor(user?.user_id ?? user?.username ?? name);
 
   const showImage = uri && !failed;
+  const inner = size - EDGE * 2;
+  const innerCorner = Math.max(corner - EDGE, 0);
 
+  /**
+   * Every avatar, photo or initials, is edged the same way: a 1px ring
+   * running white to dark grey across the diagonal — a gradient behind a disc
+   * inset by one point, since a border can't take a gradient. Half-transparent,
+   * so it reads as a catch of light on the edge rather than a drawn outline.
+   *
+   * The initials disc also gets a faint sheen over the member's colour —
+   * lighter top-left, darker bottom-right — so a flat swatch reads as a
+   * surface. A photo has its own light and doesn't.
+   */
   return (
-    <View style={[
-      styles.container,
-      { width: size, height: size, borderRadius: corner, backgroundColor: background },
-    ]}>
-      {showImage ? (
-        <Image
-          source={{ uri }}
-          style={{ width: size, height: size, borderRadius: corner }}
-          contentFit="cover"
-          transition={200}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <Text
-          style={[styles.initials, { fontSize: size * (initials.length > 1 ? 0.38 : 0.46) }]}
-          numberOfLines={1}
-        >
-          {initials}
-        </Text>
-      )}
-    </View>
+    <LinearGradient
+      colors={RING}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.container, { width: size, height: size, borderRadius: corner }]}
+    >
+      <View style={[
+        styles.container,
+        { width: inner, height: inner, borderRadius: innerCorner, backgroundColor: background },
+      ]}>
+        {showImage ? (
+          <Image
+            source={{ uri }}
+            style={{ width: inner, height: inner, borderRadius: innerCorner }}
+            contentFit="cover"
+            transition={200}
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.22)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sheen}
+              pointerEvents="none"
+            />
+            <Text
+              style={[styles.initials, { fontSize: size * (initials.length > 1 ? 0.38 : 0.46) }]}
+              numberOfLines={1}
+            >
+              {initials}
+            </Text>
+          </>
+        )}
+      </View>
+    </LinearGradient>
   );
 }
 
+/** The gradient ring's width, in points. */
+const EDGE = 1;
+/** White to dark grey, both at half strength — see the render. */
+const RING = ['rgba(255,255,255,0.5)', 'rgba(68,68,68,0.5)'] as const;
+
 const styles = StyleSheet.create({
+  // Written out — RN 0.86 dropped `StyleSheet.absoluteFillObject`.
+  sheen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   container: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   initials: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
     // The palette is built to clear 4.5:1 against white, but an avatar can land
     // on a photo or a pale card, so the letters carry their own edge.
     textShadowColor: 'rgba(0,0,0,0.35)',

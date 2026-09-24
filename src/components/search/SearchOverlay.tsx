@@ -15,7 +15,7 @@ import SteeringWheel from '../ui/SteeringWheel';
 import { useSearchQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
-import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
+import { KeyboardAvoidingView } from '@ors/kit';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { priceLabel } from '../marketplace/listingFormat';
 import { stripHtml } from '../../utils/text';
@@ -265,7 +265,6 @@ export default function SearchOverlay({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
   const { openGroup } = useGroupSummary();
-  const keyboardHeight = useKeyboardHeight();
 
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -351,7 +350,7 @@ export default function SearchOverlay({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => dismiss()}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => dismiss()} statusBarTranslucent navigationBarTranslucent>
       {/* The screen behind, softened rather than replaced.
           `blurMethod` is what gives Android a real backdrop blur — without it
           expo-blur degrades to a flat wash there and the feed stays legible
@@ -367,12 +366,10 @@ export default function SearchOverlay({
         onPress={() => dismiss()}
       />
 
-      {/* The sheet stops above the keyboard, so the list scrolls inside a real
-          viewport. Padding the list's *content* by the keyboard instead — which
-          is what this did — leaves the list itself taller than the screen and
-          shifts its content every time the keyboard moves mid-drag. */}
-      <View
-        style={[styles.sheet, { paddingTop: insets.top + 14, paddingBottom: keyboardHeight }]}
+      {/* The sheet stops above the keyboard (kit's KeyboardAvoidingView), so
+          the list scrolls inside a real viewport. */}
+      <KeyboardAvoidingView
+        style={[styles.sheet, { paddingTop: insets.top + 14 }]}
         pointerEvents="box-none"
       >
         {/* ── Close ──
@@ -515,7 +512,7 @@ export default function SearchOverlay({
             </TouchableOpacity>
           )}
         />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

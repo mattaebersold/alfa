@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -12,10 +12,12 @@ import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
 import SessionRecovery from '../components/auth/SessionRecovery';
+import ZipPrompt from '../components/auth/ZipPrompt';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
 import { GroupSummaryProvider } from '../providers/GroupSummaryProvider';
 import { SearchProvider } from '../providers/SearchProvider';
 import { navigationRef, navigateFromOutside } from './navigationRef';
+import { readNavState, writeNavState, clearNavState } from './navPersistence';
 import { notificationTarget } from '../utils/notificationTarget';
 
 // ── Deep linking config ───────────────────────────────────────────────────────
@@ -60,6 +62,17 @@ const linking = {
     },
   },
 };
+
+/**
+ * Whether the app was opened by a link to somewhere in particular.
+ *
+ * That link wins over wherever you were last. A launch URL that isn't one of
+ * ours — a dev client's own, or none at all — is just the app starting.
+ */
+function isDeepLink(url: string | null) {
+  if (!url) return false;
+  return linking.prefixes.some((p) => url.startsWith(p) && url.slice(p.length).replace(/^\/+/, '').length > 0);
+}
 
 // ── Auth-aware inner component ────────────────────────────────────────────────
 /**
@@ -117,6 +130,11 @@ function AuthGate() {
     });
   }, [isLoggedIn]);
 
+  // Signed out: forget where the last account was.
+  useEffect(() => {
+    if (!restoring && !isLoggedIn) clearNavState();
+  }, [restoring, isLoggedIn]);
+
   // Nothing is known until the stored token has been read back.
   if (restoring) return <Spinner fullScreen />;
 
@@ -135,11 +153,30 @@ function AuthGate() {
     );
   }
 
-  return <AppNavigator />;
+  return (
+    <>
+      <AppNavigator />
+      {/* Over the app, not in place of it — see ZipPrompt. */}
+      <ZipPrompt />
+    </>
+  );
 }
 
 export default function RootNavigator() {
   const dispatch = useAppDispatch();
+  /**
+   * Where you were last, read back before the container mounts — it only
+   * takes an initial state once. A reload or a cold start reopens there
+   * rather than on the home feed.
+   */
+  const [navReady, setNavReady] = useState(false);
+  const [initialNavState, setInitialNavState] = useState<ReturnType<typeof readNavState>>();
+  useEffect(() => {
+    Linking.getInitialURL()
+      .then((url) => { if (!isDeepLink(url)) setInitialNavState(readNavState()); })
+      .catch(() => {})
+      .finally(() => setNavReady(true));
+  }, []);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
 
@@ -219,8 +256,19 @@ export default function RootNavigator() {
     };
   }, [dispatch]);
 
+  if (!navReady) return <Spinner fullScreen />;
+
   return (
-    <NavigationContainer ref={navigationRef} linking={linking as any}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking as any}
+      initialState={initialNavState}
+      // Only the signed-in app is worth returning to; the sign-in screens
+      // aren't a place anyone wants to resume.
+      onStateChange={(state) => {
+        if (state?.routeNames?.includes('MainTabs')) writeNavState(state);
+      }}
+    >
       {/* Inside the container: the event sheet it hosts renders navigation-aware
           content, so it needs a navigation context of its own. */}
       <EventSheetProvider>

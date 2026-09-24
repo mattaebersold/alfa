@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle,
+  View, Text, TouchableOpacity, StyleSheet, type Insets, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Filter } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
-import RowEndSpacer from './RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+
+/**
+ * Reach for the panel's chips — half the 8pt gap between neighbours, so a
+ * near-miss still lands without two chips' targets overlapping.
+ */
+export const FILTER_HIT_SLOP: Insets = { top: 4, bottom: 4, left: 4, right: 4 };
 
 /** One applied choice, as the row shows it. */
 export interface FilterPill {
@@ -123,7 +128,12 @@ export function FilterLabel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * One section of single choices, as a sideways-scrolling row of chips.
+ * One section of single choices, as chips that wrap onto as many lines as they
+ * need.
+ *
+ * Wrapped rather than scrolled sideways, and 44pt tall: a single line of small
+ * chips kept the panel short, hid options past the edge, and made every tap a
+ * near-miss. See LocationFilterRow, which sets the size these match.
  *
  * `null` is a key like any other — it's how "All" is usually spelled. What a
  * tap on the chip already chosen does is the screen's call, so `onSelect` is
@@ -146,11 +156,7 @@ export function FilterChoiceRow<K extends string | null>({
   return (
     <>
       {label ? <FilterLabel>{label}</FilterLabel> : null}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
+      <View style={styles.chipRow}>
         {options.map((opt) => {
           const active = selected === opt.key;
           const fill = opt.color ?? brand;
@@ -159,19 +165,20 @@ export function FilterChoiceRow<K extends string | null>({
               key={opt.key ?? '__all'}
               style={[
                 styles.chip,
+                styles.choiceChip,
                 { borderColor: colors.border },
                 active && { backgroundColor: fill, borderColor: fill },
               ]}
               onPress={() => onSelect(opt.key)}
+              hitSlop={FILTER_HIT_SLOP}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.chipText, { color: active ? '#000000' : colors.fg }]}>{opt.label}</Text>
+              <Text style={[styles.choiceText, { color: active ? '#000000' : colors.fg }]}>{opt.label}</Text>
             </TouchableOpacity>
           );
         })}
-        <RowEndSpacer />
-      </ScrollView>
+      </View>
     </>
   );
 }
@@ -180,7 +187,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: 12, marginTop: 4, marginBottom: 6,
-    paddingHorizontal: 12, paddingVertical: 10,
+    // 44pt like the chips inside — it's the thing you tap to get to them.
+    minHeight: 44, paddingHorizontal: 12, paddingVertical: 10,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   rowLabel: { fontSize: 14, fontWeight: '600' },
@@ -195,7 +203,11 @@ const styles = StyleSheet.create({
     fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase',
     paddingHorizontal: 12, marginBottom: 6, marginTop: 4,
   },
-  chipRow: { paddingLeft: 12, gap: 8, paddingBottom: 4 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, marginBottom: 12 },
+  // Shared by the row's summary pills and the panel's choices; the panel's are
+  // made tall enough to hit by `choiceChip`, the row's stay compact.
   chip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
   chipText: { fontSize: 12, fontWeight: '700' },
+  choiceChip: { minHeight: 44, paddingHorizontal: 16, paddingVertical: 0, justifyContent: 'center' },
+  choiceText: { fontSize: 14, fontWeight: '700' },
 });

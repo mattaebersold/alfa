@@ -1,15 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, Dimensions,
-  PanResponder,
+  View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable,
+  PanResponder, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
-import { useKeyboardInset, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
+import { KeyboardAvoidingView, HomeIndicatorSpacer } from '@ors/kit';
 import { COMMON_RADIUS } from '../../constants/radius';
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // Near-black surfaces — matches the car-detail pane look.
 const SHEET_BG = '#161616';
@@ -87,26 +85,8 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
   const mountedRef = useRef(false);
   const [rendered, setRendered] = useState(false);
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
 
-  /**
-   * Keyboard clearance. The sheet sits on the bottom of the screen, which is
-   * exactly what the keyboard covers, so the inset needs no correction — the
-   * whole stack is simply padded up by it. See useKeyboardInset for why this
-   * isn't a KeyboardAvoidingView.
-   */
-  const { height: keyboardHeight } = useKeyboardInset();
-  const bottomPad = useComposerBottomPad();
-
-  /**
-   * The room the sheet has to live in, once the keyboard has taken its share.
-   *
-   * The sheet is resized rather than pushed. Padding the stack by the keyboard
-   * moved the whole sheet — header, content and composer as one block — which
-   * for a tall sheet means jamming it against the top of the screen and leaving
-   * the composer stranded in the middle. Capping the height instead keeps the
-   * bottom edge on the keyboard and lets the scrollable middle absorb the loss.
-   */
-  const available = SCREEN_HEIGHT - keyboardHeight - insets.top - 8;
 
   useEffect(() => {
     if (visible) {
@@ -167,41 +147,35 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
   if (!rendered) return null;
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Animated.View style={styles.stack}>
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <View style={styles.fill}>
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]} pointerEvents="none">
           <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        {/* The sheet rides on the keyboard: this fills the screen below the
+            status bar and shrinks by the keyboard's height (kit's
+            KeyboardAvoidingView), and the sheet sits at its bottom, capped to
+            it — a short sheet lifts, a tall one shrinks. Callers with fields
+            give it a FormScrollView body. `box-none` lets a tap on the empty
+            part through to the backdrop. */}
+        <KeyboardAvoidingView
+          style={[styles.stack, { paddingTop: insets.top + 8 }]}
+          pointerEvents="box-none"
+        >
         <Animated.View
           style={[
             styles.sheet,
             surface != null && { backgroundColor: surface },
             heightRatio
-              ? [styles.sheetRatio, { height: `${Math.round(heightRatio * 100)}%` as const }]
+              ? [styles.sheetRatio, { height: Math.round(heightRatio * windowHeight) }]
               : fullHeight ? styles.sheetFull : styles.sheetSized,
-            {
-              // The real home-indicator inset, and zero while the keyboard is
-              // up — see useComposerBottomPad.
-              paddingBottom: bottomPad,
-              // Never taller than the space above the keyboard, and sitting
-              // directly on top of it.
-              maxHeight: available,
-              // Capped against `available` for the same reason: a minimum
-              // taller than the room left over beats the maximum and undoes it.
-              ...(heightRatio || fullHeight
-                ? null
-                : { minHeight: Math.min(SCREEN_HEIGHT * 0.5, available) }),
-              marginBottom: keyboardHeight,
-              transform: [{ translateY: slideY }],
-            },
+            { transform: [{ translateY: slideY }] },
           ]}
         >
-          {/* No status-bar padding of its own. `maxHeight: available` already
-              stops every sheet — full-height included — an inset plus 8pt short
-              of the top of the screen, so adding the inset again here counted it
-              twice and opened a band of dead black above the title. */}
+          {/* No status-bar padding of its own: the stack's top padding already
+              keeps every sheet, full-height included, clear of it. */}
           <View {...panResponder.panHandlers}>
             {/* Tap it or drag it down — both close. */}
             <Pressable onPress={onClose} style={[styles.grabberHit, surface != null && { backgroundColor: surface }]} hitSlop={6}>
@@ -220,33 +194,43 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             </View>
           </View>
           {children}
+          {/* The home indicator's clearance, only while the keyboard is down —
+              with it up, the keyboard covers that strip. A spacer that
+              collapses as the keyboard rises, not a padding switched on its
+              events: that switch made the sheet's foot hop on Android. */}
+          <HomeIndicatorSpacer height={Math.max(insets.bottom, 12)} />
         </Animated.View>
-      </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  fill:  { flex: 1 },
   stack: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: SHEET_BG,
     overflow: 'hidden',
+    // Never taller than the room left above the keyboard.
+    maxHeight: '100%',
   },
+  // Grows with its content from half of that room.
   sheetSized: {
+    minHeight: '50%',
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,
   },
   // Fills whatever the keyboard leaves, so the sheet shrinks rather than slides
-  // and its own bottom bar stays on screen. It still caps below the status bar
-  // — `maxHeight: available` keeps it clear of the inset — so it has a top edge
-  // to round like every other sheet.
+  // and its own bottom bar stays on screen. It still stops below the status
+  // bar, so it has a top edge to round like every other sheet.
   sheetFull: {
     flex: 1,
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,
   },
-  // Fixed fraction: keeps the sized sheet's rounded cap, drops its min/max so
-  // the explicit height is the only thing driving it.
+  // Fixed fraction of the screen: keeps the sized sheet's rounded cap, drops
+  // its minimum; the sheet's maxHeight still shrinks it for the keyboard.
   sheetRatio: {
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,

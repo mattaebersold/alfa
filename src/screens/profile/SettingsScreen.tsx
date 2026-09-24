@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
   Switch, Alert, ActivityIndicator,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';
@@ -272,7 +273,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <FormScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Photos ──────────────────────────────────────────────── */}
         <SectionHeader title="Photos" />
@@ -476,7 +477,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </FormScrollView>
     </SafeAreaView>
   );
 }

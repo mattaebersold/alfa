@@ -20,6 +20,8 @@ const CARD_WIDTH = 168;
 const CARD_GAP = 10;
 const ROW_PAD_LEFT = 16;
 const MEDIA_RATIO = 4 / 3;
+/** What fits in a text post's preview at `leadText`'s size before the "…". */
+const TEXT_LEAD_LINES = 4;
 /** Same bar FeedList sets for "being watched" — most of the card, not a sliver. */
 const VISIBLE_FRACTION = 0.6;
 
@@ -40,6 +42,9 @@ export default function PostStrip({
   posts,
   total,
   showByline = true,
+  cardBackground,
+  showTime = true,
+  largeCaption = false,
   onPostPress,
   onViewAll,
 }: {
@@ -49,6 +54,15 @@ export default function PostStrip({
   total?: number;
   /** Off where every post has the same author, e.g. a profile. */
   showByline?: boolean;
+  /**
+   * The cards' fill, and a text post's preview with it. Defaults to the card
+   * colour; the profile passes a darker one to match its tiles.
+   */
+  cardBackground?: string;
+  /** The "3 hours ago" line. Off where the byline alone is enough. */
+  showTime?: boolean;
+  /** A bigger caption, still two lines — for a shelf that's more read than scanned. */
+  largeCaption?: boolean;
   onPostPress: (post: Post) => void;
   onViewAll: () => void;
 }) {
@@ -145,7 +159,7 @@ export default function PostStrip({
                video is worth watching. */
             <View
               key={post.internal_id}
-              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}
+              style={[styles.card, { backgroundColor: cardBackground ?? colors.card, borderColor: colors.borderDark }]}
             >
               {lead ? (
                 <PostMediaCarousel
@@ -159,31 +173,40 @@ export default function PostStrip({
                   videoOpensItem
                 />
               ) : (
-                // Text posts keep the same footprint, so the row stays even.
+                // Text posts keep the same footprint, so the row stays even —
+                // and fill it with their words rather than an icon, which said
+                // "a post" and nothing about which. The caption below would
+                // only repeat it, so it goes.
                 <TouchableOpacity
-                  style={[styles.image, styles.imageBlank, { backgroundColor: colors.segment }]}
+                  style={[styles.image, caption ? styles.imageText : styles.imageBlank, { backgroundColor: cardBackground ?? colors.segment }]}
                   onPress={() => onPostPress(post)}
                   activeOpacity={0.85}
                 >
-                  <MessageSquare size={20} color={colors.grey} />
+                  {caption ? (
+                    <Text style={[styles.leadText, { color: colors.fg }]} numberOfLines={TEXT_LEAD_LINES}>
+                      {caption}
+                    </Text>
+                  ) : (
+                    <MessageSquare size={20} color={colors.grey} />
+                  )}
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.body} onPress={() => onPostPress(post)} activeOpacity={0.85}>
-                {caption ? (
-                  <Text style={[styles.caption, { color: colors.fg }]} numberOfLines={2}>{caption}</Text>
+                {caption && lead ? (
+                  <Text style={[styles.caption, largeCaption && styles.captionLarge, { color: colors.fg }]} numberOfLines={2}>{caption}</Text>
                 ) : null}
                 {showByline ? (
-                  <View style={styles.byline}>
+                  <View style={[styles.byline, styles.pinBottom]}>
                     <Avatar
                       user={post.user}
                       size={18}
                     />
                     <Text style={[styles.bylineText, { color: colors.grey }]} numberOfLines={1}>
-                      {post.user?.username ? `@${post.user.username}` : ''}{timeAgo ? ` · ${timeAgo}` : ''}
+                      {post.user?.username ? `@${post.user.username}` : ''}{showTime && timeAgo ? ` · ${timeAgo}` : ''}
                     </Text>
                   </View>
-                ) : timeAgo ? (
-                  <Text style={[styles.bylineText, { color: colors.grey }]} numberOfLines={1}>{timeAgo}</Text>
+                ) : showTime && timeAgo ? (
+                  <Text style={[styles.bylineText, styles.pinBottom, { color: colors.grey }]} numberOfLines={1}>{timeAgo}</Text>
                 ) : null}
               </TouchableOpacity>
             </View>
@@ -205,14 +228,22 @@ const styles = StyleSheet.create({
   viewAll:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
   viewAllText: { fontSize: 13, fontWeight: '700' },
 
+  // Every card as tall as the tallest, so the row reads as one shelf.
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   card: { width: CARD_WIDTH, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   image: { width: '100%', aspectRatio: MEDIA_RATIO },
   imageBlank: { alignItems: 'center', justifyContent: 'center' },
-  // Grows to the card's height, so the whole area under the photo is the
-  // target even on a card whose neighbour has a longer caption.
+  imageText:  { padding: 12, justifyContent: 'center' },
+  leadText:   { fontSize: 16, fontWeight: '700', lineHeight: 21 },
+  // Grows to the card's height, and pins the byline to the bottom: the extra
+  // height a shorter card takes on goes between the caption and the byline,
+  // not in a block of empty card beneath it.
   body:    { padding: 10, gap: 6, flexGrow: 1 },
+  // `auto` rather than space-between on the body, which would lift a lone
+  // byline (a text post's, with its words up in the preview) to the top.
+  pinBottom: { marginTop: 'auto' },
   caption: { fontSize: 13, fontWeight: '600', lineHeight: 17 },
+  captionLarge: { fontSize: 15, lineHeight: 20 },
   byline:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   bylineText: { fontSize: 11, flexShrink: 1 },
 });

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
@@ -224,7 +225,7 @@ export default function GroupCreateSheet({
       title={(editing && EDIT_TITLE[kind]) || KIND_TITLE[kind]}
       heightRatio={0.85}
     >
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <FormScrollView contentContainerStyle={styles.body}>
         {groupTitle ? (
           <View style={[styles.groupChip, { backgroundColor: c.secondary, borderColor: c.borderDark }]}>
             <Text style={[styles.groupChipLabel, { color: c.grey }]}>Posting to</Text>
@@ -396,7 +397,7 @@ export default function GroupCreateSheet({
             )
             : <Text style={styles.submitText}>{editing ? 'Save' : 'Post'}</Text>}
         </TouchableOpacity>
-      </ScrollView>
+      </FormScrollView>
 
       <ActionSheet
         visible={mediaSheet}

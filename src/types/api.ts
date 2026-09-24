@@ -26,6 +26,11 @@ export interface User {
    */
   zip?: number | null;
   /**
+   * Whether a zip is on file — what your own profile sends in place of the zip.
+   * False for Google and Apple sign-ins until they add one; see ZipPrompt.
+   */
+  hasZip?: boolean;
+  /**
    * A rendered map of the general region this member is in, stored once on the
    * server. Their zip is never exposed — see horacio's userRegionMap.
    */

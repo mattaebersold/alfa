@@ -10,11 +10,11 @@ import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import CommentRow, { COMMENT_SURFACE } from './CommentRow';
-import Composer from './Composer';
+import Composer, { type ComposerHandle } from './Composer';
+import { KeyboardAvoidingView } from '@ors/kit';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import { useColors } from '../../hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useKeyboardInset, useComposerBottomPad } from '../../hooks/useKeyboardHeight';
 import { colors } from '../../constants/colors';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
@@ -51,31 +51,16 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
 
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
 
-  // Lifts the whole sheet clear of the keyboard — see the note at the shell.
-  const { height: keyboardHeight } = useKeyboardInset();
-  const bottomPad = useComposerBottomPad();
   const insets = useSafeAreaInsets();
 
   /**
-   * The sheet is *resized* by the keyboard, not pushed by it.
-   *
-   * It used to sit in a container padded by the keyboard's height, which moves
-   * the whole sheet — header, list and composer together — up the screen as one
-   * block. With a sheet 88% of the screen tall and a keyboard taking 40% of it,
-   * there is nowhere for that block to go: it ends up jammed against the top
-   * with its composer stranded in the middle of the screen, which is exactly
-   * what the keyboard was covering up.
-   *
-   * Resizing instead keeps the bottom edge on top of the keyboard and lets the
-   * comment list absorb the loss, which is what a list is for. The composer
-   * never moves relative to the keyboard, and nothing needs to slide.
+   * The gap above the sheet — 12% of the screen, and never under the status
+   * bar. The sheet fills everything below it, so when the keyboard comes up
+   * and the avoiding view pads its foot, the sheet shrinks rather than slides:
+   * the composer lands on the keyboard and the comment list gives up the room.
    */
-  const sheetHeight = Math.min(
-    SCREEN_HEIGHT * 0.88,
-    // Never taller than what's left above the keyboard, and never under the
-    // status bar.
-    SCREEN_HEIGHT - keyboardHeight - insets.top - 8,
-  );
+  const topGap = Math.max(SCREEN_HEIGHT * 0.12, insets.top + 8);
+  const composerRef = useRef<ComposerHandle>(null);
 
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -133,30 +118,21 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   };
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      {/* The sheet sits on the bottom of the screen, which is exactly what the
-          keyboard covers, so padding the stack by the keyboard's height puts
-          the composer directly on top of it. KeyboardAvoidingView did this on
-          iOS only — Android got `behavior="height"`, which has no window resize
-          to act on in an edge-to-edge app, so the keyboard simply covered the
-          field you were typing in. See useKeyboardInset. */}
-      <Animated.View style={styles.stack}>
-        <Animated.View
-          style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
-          pointerEvents="none"
-        >
-          <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
-        </Animated.View>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <Animated.View
+        style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
+        pointerEvents="none"
+      >
+        <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+      </Animated.View>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <KeyboardAvoidingView style={[styles.stack, { paddingTop: topGap }]} pointerEvents="box-none">
         <Animated.View
           style={[
             styles.sheet,
             {
               backgroundColor: SHEET_BG,
-              height: sheetHeight,
-              // Sits the sheet directly on top of the keyboard.
-              marginBottom: keyboardHeight,
               transform: [{ translateY: slideY }],
             },
           ]}
@@ -191,6 +167,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
                   onReply={(commentId, username) => {
                     setReplyingTo({ commentId, username });
                     setCommentText(`@${username} `);
+                    composerRef.current?.open();
                   }}
                   // Opening the sheet to delete one comment and being left
                   // staring at the thread with a gap in it is a second step
@@ -206,20 +183,21 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             />
           )}
 
-          {/* Composer. Collapsed it's this bar; tapped, it opens over the
-              sheet on the keyboard — see Composer. */}
+          {/* Composer, on the keyboard while typing — the sheet shrinks to
+              put it there (see topGap). */}
           <Composer
+            ref={composerRef}
             value={commentText}
             onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
             placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-            title={replyingTo ? `Reply to @${replyingTo.username}` : 'Comment'}
             photos={photos}
             onSend={handleSubmit}
             sending={submitting}
             mentions
             sendLabel="Post"
             tone={{ surface: SHEET_BG, field: SHEET_BG, border: '#2A2A2A', text: '#ECECEC', accent: colors.primaryAlt }}
-            barStyle={{ paddingHorizontal: 4, paddingTop: 4, paddingBottom: bottomPad }}
+            barStyle={{ paddingHorizontal: 4, paddingTop: 4 }}
+            bottomInset={Math.max(insets.bottom, 12)}
             banner={replyingTo ? (
               <View style={[styles.replyBanner, { backgroundColor: '#1E1E1E', borderBottomColor: '#000000' }]}>
                 <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
@@ -245,7 +223,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             onClose={() => setUserSummary(null)}
           />
         </Animated.View>
-      </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -254,7 +232,7 @@ const styles = StyleSheet.create({
   // Comments are a place you settle into, not a peek — it opens near
   // full-height rather than growing into it as the thread gets long.
   stack:       { flex: 1, justifyContent: 'flex-end' },
-  sheet:       { borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  sheet:       { flex: 1, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
   // No rules against the list: header, comments and composer are one surface,
   // and a line across it made them read as separate panels again.
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },

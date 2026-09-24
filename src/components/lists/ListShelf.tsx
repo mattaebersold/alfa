@@ -5,6 +5,7 @@ import RowEndSpacer from '../ui/RowEndSpacer';
 import ListPreviewMosaic from './ListPreviewMosaic';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
+import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import type { List } from '../../types/api';
 import { COMMON_RADIUS } from '../../constants/radius';
 
@@ -16,6 +17,8 @@ const ROW_PAD_LEFT = 12;
 const CARD_WIDTH = 168;
 /** Tall enough that the three-up mosaic's small tiles are still pictures, not swatches. */
 const PREVIEW_HEIGHT = 104;
+/** The post cards' shade — see PostStrip's `cardBackground` on the profile. */
+const CARD_BG = '#171717';
 
 /**
  * A shelf of lists — a handful, sideways, with the rest behind "View all".
@@ -53,6 +56,8 @@ export default function ListShelf({
   emptyHint?: string;
 }) {
   const colors = useColors();
+  const brand = useBrandColor();
+  const brandText = useBrandTextColor();
 
   if (lists.length === 0 && !onAdd) return null;
   const hasMore = !!onViewAll && (total ?? lists.length) > lists.length;
@@ -62,17 +67,20 @@ export default function ListShelf({
       <View style={styles.head}>
         <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
         <View style={styles.headActions}>
-          {onAdd && (
+          {/* Empty, the panel below is the button — one is enough. */}
+          {onAdd && lists.length > 0 && (
             <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: colors.segment }]}
+              // Brand-filled: a grey chip beside the heading read as a tag,
+              // not as the one thing on the shelf you can do.
+              style={[styles.addBtn, { backgroundColor: brand }]}
               onPress={onAdd}
               hitSlop={8}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={addLabel}
             >
-              <Plus size={13} color={colors.fg} strokeWidth={2.6} />
-              <Text style={[styles.addText, { color: colors.fg }]}>{addLabel}</Text>
+              <Plus size={13} color={brandText} strokeWidth={2.6} />
+              <Text style={[styles.addText, { color: brandText }]}>{addLabel}</Text>
             </TouchableOpacity>
           )}
           {hasMore && (
@@ -91,7 +99,24 @@ export default function ListShelf({
       </View>
 
       {lists.length === 0 ? (
-        emptyHint ? <Text style={[styles.hint, { color: colors.grey }]}>{emptyHint}</Text> : null
+        // Only the owner gets here (see the early return). A line of grey text
+        // was easy to scroll past; a panel the width of the shelf, that opens
+        // the form, says there's something to put here.
+        <TouchableOpacity
+          style={[styles.emptyPanel, { borderColor: colors.borderDark }]}
+          onPress={onAdd}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={addLabel}
+        >
+          <View style={[styles.emptyIcon, { backgroundColor: brand }]}>
+            <Plus size={18} color={brandText} strokeWidth={2.8} />
+          </View>
+          <View style={styles.emptyText}>
+            <Text style={[styles.emptyTitle, { color: colors.fg }]}>{addLabel}</Text>
+            {emptyHint ? <Text style={[styles.hint, { color: colors.grey }]}>{emptyHint}</Text> : null}
+          </View>
+        </TouchableOpacity>
       ) : (
         <ScrollView
           horizontal
@@ -107,24 +132,27 @@ export default function ListShelf({
             return (
               <SummaryTouchable
                 key={list.internal_id}
-                style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}
+                // The post cards' darker shade, so the page's shelves match.
+                style={[styles.card, { backgroundColor: CARD_BG, borderColor: colors.borderDark }]}
                 onPress={(origin) => onListPress(list, origin)}
                 accessibilityLabel={`${list.title}, ${count} item${count === 1 ? '' : 's'}`}
               >
                 {/* What's on it, not just what's on the front of it — see ListPreviewMosaic. */}
-                <ListPreviewMosaic list={list} height={PREVIEW_HEIGHT} />
+                <View>
+                  <ListPreviewMosaic list={list} height={PREVIEW_HEIGHT} />
+                  {/* The count rides on the picture, so the text below is just
+                      the title — the same shape as a post card's caption. */}
+                  <View style={styles.countBadge}>
+                    {list.private ? <Lock size={10} color="#FFFFFF" /> : null}
+                    <Text style={styles.countBadgeText}>
+                      {count} item{count === 1 ? '' : 's'}
+                      {/* Only ever sent to the author — nobody else receives a draft. */}
+                      {list.status === 'draft' ? ' · Draft' : ''}
+                    </Text>
+                  </View>
+                </View>
                 <View style={styles.cardText}>
                   <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{list.title}</Text>
-                  <View style={styles.cardMeta}>
-                    <Text style={[styles.cardCount, { color: colors.grey }]}>
-                      {count} item{count === 1 ? '' : 's'}
-                    </Text>
-                    {list.private ? <Lock size={10} color={colors.grey} /> : null}
-                    {/* Only ever sent to the author — nobody else receives a draft. */}
-                    {list.status === 'draft' ? (
-                      <Text style={[styles.cardCount, { color: colors.grey }]}>· Draft</Text>
-                    ) : null}
-                  </View>
                 </View>
               </SummaryTouchable>
             );
@@ -151,17 +179,32 @@ const styles = StyleSheet.create({
   addText:     { fontSize: 12, fontWeight: '800' },
   viewAll:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
   viewAllText: { fontSize: 13, fontWeight: '700' },
-  hint:        { fontSize: 13, lineHeight: 18, paddingHorizontal: 16 },
+  hint:        { fontSize: 13, lineHeight: 18 },
+  emptyPanel: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    marginHorizontal: ROW_PAD_LEFT, padding: 16,
+    borderRadius: COMMON_RADIUS, borderWidth: 1.5, borderStyle: 'dashed',
+  },
+  emptyIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptyText:  { flex: 1, gap: 3 },
+  emptyTitle: { fontSize: 15, fontWeight: '800' },
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   card: {
     width: CARD_WIDTH, borderRadius: COMMON_RADIUS,
     borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
   },
-  cardText:  { paddingHorizontal: 10, paddingVertical: 9, gap: 3 },
-  // Two lines reserved whether or not they're used, so a shelf of mixed title
-  // lengths keeps one baseline for its counts.
-  cardTitle: { fontSize: 14, fontWeight: '700', lineHeight: 18, minHeight: 36 },
-  cardMeta:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardCount: { fontSize: 12, fontWeight: '600' },
+  // Same padding and type as a post card's caption (PostStrip).
+  cardText:  { padding: 10 },
+  cardTitle: { fontSize: 13, fontWeight: '600', lineHeight: 17 },
+  countBadge: {
+    position: 'absolute', left: 8, bottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+  },
+  countBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
 });

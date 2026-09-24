@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, Alert,
+  View, Text, TextInput, StyleSheet, TouchableOpacity, Alert,
   ActivityIndicator, Platform,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -205,9 +206,8 @@ export default function SocietyEventCreateScreen() {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 40 + insets.bottom }}
-        keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.fieldLabel, { color: colors.grey }]}>Title *</Text>
         <TextInput
@@ -368,7 +368,7 @@ export default function SocietyEventCreateScreen() {
             ? <ActivityIndicator size="small" color="#000000" />
             : <Text style={styles.submitText}>{editingId ? 'Save Changes' : 'Create Event'}</Text>}
         </TouchableOpacity>
-      </ScrollView>
+      </FormScrollView>
     </SafeAreaView>
   );
 }

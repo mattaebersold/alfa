@@ -360,14 +360,13 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
               </ScrollView>
             )}
 
-            {/* Tapped, the field opens over the panel on the keyboard — see
-                Composer. Pulled out to the panel's own gutter, since the bar
+            {/* The panel lifts itself clear of the keyboard, so the bar rides
+                up with it. Pulled out to the panel's own gutter, since the bar
                 carries a gutter of its own. */}
             <Composer
               value={commentText}
               onChangeText={setCommentText}
               placeholder="Ask a question…"
-              title="Ask a question"
               photos={attachments}
               onSend={submitComment}
               sending={posting}

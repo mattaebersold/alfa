@@ -30,16 +30,6 @@ interface MentionInputProps {
    * where a correction would be wrong (a handle, a URL, a part number).
    */
   disableSuggestions?: boolean;
-  /**
-   * Fill the space the field is given instead of sizing to its text.
-   *
-   * The composer's focused panel hands the field the whole top half of the
-   * screen, so growing to fit the content — the default, which is right for a
-   * one-line bar — would shrink it back to a line. In this mode the suggestion
-   * dropdown also anchors to the field's *bottom* edge, inside it: above the
-   * field there is nothing but the panel's header and the status bar.
-   */
-  fill?: boolean;
   maxLength?: number;
 }
 
@@ -59,7 +49,6 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   onFocus,
   onBlur,
   disableSuggestions = false,
-  fill = false,
   maxLength,
 }, ref) {
   const c = useColors();
@@ -119,11 +108,13 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   }, [value, onChangeText]);
 
   return (
-    <View style={[styles.wrapper, fill && styles.wrapperFill, containerStyle]}>
+    <View style={[styles.wrapper, containerStyle]}>
       {mentionQuery !== null && hasResults && (
         <View style={[
           styles.dropdown,
-          fill ? styles.dropdownInside : styles.dropdownAbove,
+          // Above the field: a composer sits on the keyboard, so below it
+          // there's no room.
+          styles.dropdownAbove,
           { backgroundColor: c.card, borderColor: c.border },
         ]}>
           {/* Rendered with map() rather than a FlatList: this input often lives
@@ -177,11 +168,11 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
         onChangeText={handleChangeText}
         placeholder={placeholder}
         placeholderTextColor={placeholderTextColor}
-        style={[style, multiline && !fill && contentHeight ? { height: contentHeight } : null]}
+        style={[style, multiline && contentHeight ? { height: contentHeight } : null]}
         multiline={multiline}
         maxLength={maxLength}
         onContentSizeChange={
-          multiline && !fill ? (e) => setContentHeight(e.nativeEvent.contentSize.height) : undefined
+          multiline ? (e) => setContentHeight(e.nativeEvent.contentSize.height) : undefined
         }
         onFocus={onFocus}
         onBlur={onBlur}
@@ -202,7 +193,6 @@ export default MentionInput;
 
 const styles = StyleSheet.create({
   wrapper:     { position: 'relative' },
-  wrapperFill: { flex: 1 },
   dropdown:   {
     position: 'absolute',
     left: 0,
@@ -214,8 +204,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dropdownAbove:  { bottom: '100%', marginBottom: 4 },
-  // Over the lower part of a tall field: the text being typed is at its top.
-  dropdownInside: { bottom: 0 },
   resultRow:  {
     flexDirection: 'row',
     alignItems: 'center',

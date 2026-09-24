@@ -14,6 +14,7 @@ import EventCard from '../../components/cards/EventCard';
 import { UpcomingEventCard, UPCOMING_CARD_WIDTH } from '../../components/cards/UpcomingCard';
 import EventMonthCalendar from '../../components/society/EventMonthCalendar';
 import RallyCarousel from '../../components/society/RallyCarousel';
+import { EventsMapTile, EventsMapSheet, mappableEvents } from '../../components/society/EventsMap';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetUpcomingEventsQuery, useGetUsageQuery, useGetEventRegionsQuery } from '../../api/apiService';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
@@ -60,6 +61,8 @@ export default function EventsScreen() {
   // iOS won't present a screen while a modal is dismissing, so the tapped event
   // is held until the sheet is fully gone.
   const [pendingEvent, setPendingEvent] = useState<SocietyEvent | null>(null);
+  /** The map of upcoming events, in a sheet over this screen. */
+  const [mapOpen, setMapOpen] = useState(false);
 
   // A rolling 30-day window rather than the calendar month: on the 28th, "the
   // rest of this month" is two days of events and the carousel looks abandoned.
@@ -89,6 +92,10 @@ export default function EventsScreen() {
   const upcoming = collapseMultiDay(
     category ? all.filter((e) => categoryFor(e.category).key === category) : all,
   ).slice(0, UPCOMING_SHOWN);
+
+  // The same window and filters as the carousel, minus anything with no
+  // address to pin — so the map and the cards above it always agree.
+  const mapped = mappableEvents(category ? all.filter((e) => categoryFor(e.category).key === category) : all);
 
   // Only categories with something coming up — a pill that filters to "Nothing
   // in the next 30 days" is a dead end. EventFilters keeps the selected one.
@@ -197,6 +204,10 @@ export default function EventsScreen() {
           </ScrollView>
         )}
 
+        {/* The same events, on a map — a sheet over this screen. Nothing when
+            none of them has an address to put a pin on. */}
+        <EventsMapTile events={mapped} days={UPCOMING_DAYS} onPress={() => setMapOpen(true)} />
+
         {/* Month calendar */}
         <View style={{ marginTop: 24 }}>
           <EventMonthCalendar
@@ -208,6 +219,22 @@ export default function EventsScreen() {
 
         <RallyCarousel />
       </ScrollView>
+
+      <EventsMapSheet
+        visible={mapOpen}
+        onClose={() => setMapOpen(false)}
+        events={mapped}
+        // Closed first, then opened — iOS won't present the event over a
+        // sheet that's still going. Same handoff as the day sheet below.
+        onOpenEvent={(e) => { setPendingEvent(e); setMapOpen(false); }}
+        onDismissed={() => {
+          if (pendingEvent) {
+            const event = pendingEvent;
+            setPendingEvent(null);
+            openEvent(event);
+          }
+        }}
+      />
 
       {/* A day's events */}
       <SharedModal

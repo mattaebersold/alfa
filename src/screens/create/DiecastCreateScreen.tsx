@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -273,7 +274,7 @@ export default function DiecastCreateScreen() {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+      <FormScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Analysis summary card */}
         <View style={[styles.summaryCard, { backgroundColor: DIECAST_BLUE }]}>
           {photo && (
@@ -356,7 +357,7 @@ export default function DiecastCreateScreen() {
             </View>
           ) : null}
         </View>
-      </ScrollView>
+      </FormScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <TouchableOpacity

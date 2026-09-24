@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import OilSheen, { useSheenTone } from './OilSheen';
-import { COMMON_RADIUS } from '../../constants/radius';
 
 /**
  * 50, down from 62.
@@ -16,6 +15,8 @@ import { COMMON_RADIUS } from '../../constants/radius';
  * comfortable target while giving the labels beside it room to set.
  */
 const FAB_SIZE = 50;
+/** Rounder than the app's 10: a lone floating button reads better soft-cornered. */
+const FAB_RADIUS = 16;
 const FAB_RIGHT = 18;
 /**
  * Clearance above the safe-area inset. More on Android, where the tab bar keeps
@@ -60,13 +61,13 @@ export default function CreateFab() {
       {/* The same film as the header's home button — the two brand-filled
           buttons that bookend the screen. Warm on gold, full spectrum on blue. */}
       {/* Clips to its own radius, so it has to track the button's. */}
-      <OilSheen tone={sheenTone} radius={COMMON_RADIUS} />
+      <OilSheen tone={sheenTone} radius={FAB_RADIUS} />
       {/* Always black, rather than whatever contrasts with the fill.
           `contrastText` put a white plus on the basic account's blue — correct
           by contrast, but it made the same button look like two different
           controls depending on the account. The mark is black on gold and
           black on blue; both are legible, and it stays one button. */}
-      <Plus size={24} color="#000000" strokeWidth={3} />
+      <Plus size={28} color="#000000" strokeWidth={3.5} />
     </TouchableOpacity>
   );
 }
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: FAB_RIGHT,
-    width: FAB_SIZE, height: FAB_SIZE, borderRadius: COMMON_RADIUS,
+    width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     // Heavier than the header buttons carried: it has to read as sitting on top
     // of the feed rather than in it.

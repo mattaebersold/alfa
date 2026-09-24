@@ -6,6 +6,7 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { StatusBar } from 'expo-status-bar';
 import { store } from './src/store/store';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -21,6 +22,9 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        {/* Edge-to-edge on Android (always, from Expo 57), so both bars are
+            translucent as far as the keyboard is concerned. */}
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
         <Provider store={store}>
           <StatusBar style="light" />
           <RootNavigator />
@@ -29,6 +33,7 @@ export default function App() {
               app happens to be on. */}
           <OfflineOverlay />
         </Provider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

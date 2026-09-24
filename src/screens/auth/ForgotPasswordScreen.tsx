@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert,
+  Alert,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Button from '../../components/ui/Button';
@@ -41,50 +42,45 @@ export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'Fo
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <View style={styles.container}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.back}>← Back</Text>
-          </TouchableOpacity>
+      <FormScrollView style={styles.flex} contentContainerStyle={styles.container}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Text style={styles.back}>← Back</Text>
+        </TouchableOpacity>
 
-          <Text style={[styles.title, { color: colors.fg }]}>Forgot Password</Text>
-          <Text style={[styles.sub, { color: colors.muted }]}>
-            Enter the email associated with your account and we'll send a reset link.
-          </Text>
+        <Text style={[styles.title, { color: colors.fg }]}>Forgot Password</Text>
+        <Text style={[styles.sub, { color: colors.muted }]}>
+          Enter the email associated with your account and we'll send a reset link.
+        </Text>
 
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
-            <TextInput
-              style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.grey}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-            />
-          </View>
-
-          <Button
-            label="Send Reset Link"
-            onPress={handleSubmit}
-            loading={loading}
-            size="full"
-            variant="dark"
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
+          <TextInput
+            style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            placeholderTextColor={colors.grey}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoCorrect={false}
           />
         </View>
-      </KeyboardAvoidingView>
+
+        <Button
+          label="Send Reset Link"
+          onPress={handleSubmit}
+          loading={loading}
+          size="full"
+          variant="dark"
+        />
+      </FormScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
+  container: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24 },
   backBtn: { marginBottom: 24 },
   back: { fontSize: 14, color: colors.primaryAlt, fontWeight: '600' },
   title: { fontSize: 26, fontWeight: '800', marginBottom: 8 },

@@ -3,8 +3,10 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
+import { useKeyboardState } from 'react-native-keyboard-controller';
+import { FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
 import { Image } from 'expo-image';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -29,7 +31,6 @@ import { colors } from '../../constants/colors';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
-import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
@@ -491,38 +492,22 @@ export default function CreateScreen() {
 
   const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }];
 
-  /**
-   * Clearance for the software keyboard.
-   *
-   * Nothing in this screen moved when the keyboard opened, so writing a
-   * description left the body field and the media picker pinned to the top of
-   * the keyboard with no room to work in — and the only way to put the keyboard
-   * away was to guess that dragging the form would do it.
-   *
-   * The scroll gets the keyboard's height added to its tail so everything below
-   * the caret — the Post button included, now that it ends the form — can still
-   * be scrolled into view, and the Done footer rises to sit just above the keys.
-   * `insets.bottom` comes off that: the footer is positioned inside a
-   * bottom-inset SafeAreaView, so it already starts above the home indicator,
-   * while the keyboard's height is measured from the screen edge and counts
-   * that strip. Adding both would float it a home indicator too high.
-   */
-  const keyboardHeight = useKeyboardHeight();
-  const insets = useSafeAreaInsets();
-  const keyboardUp = keyboardHeight > 0;
-  const footerInset = Math.max(0, keyboardHeight - insets.bottom) + 10;
+  // The Done footer is only there while the keyboard is — see below.
+  const keyboardUp = useKeyboardState((st) => st.isVisible);
   const busy = submitting || videoUploading || imageProgress !== null;
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
 
-      <ScrollView
+      <FormScrollView
         style={styles.scroll}
-        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        // With the keyboard up the tail also clears the floating Done button,
-        // so the Post button can scroll out from under it.
-        contentContainerStyle={{ paddingBottom: keyboardUp ? keyboardHeight + 70 : Platform.OS === 'android' ? 40 : 20 }}
+        // The Done footer floats on the keyboard over the form, so the focused
+        // field is kept clear of it too, and with the keyboard up the tail has
+        // room for the Post button to scroll out from under it.
+        bottomOffset={KEYBOARD_GAP + DONE_FOOTER_H}
+        extraKeyboardSpace={DONE_FOOTER_H}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 40 : 20 }}
       >
         {/* Type selector */}
         <View style={[styles.typeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -680,14 +665,15 @@ export default function CreateScreen() {
             <Text style={styles.submitText}>Post</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </FormScrollView>
 
       {/* The body field is multiline, so its return key inserts a newline and
           can't double as a dismiss. Without this the only way out of the
           keyboard is to know that dragging the form closes it. Only while the
           keyboard is up — the Post button no longer lives down here. */}
       {keyboardUp && (
-        <StickyFormFooter color={colors.cream} bottomInset={footerInset}>
+        <KeyboardStickyView style={styles.doneDock}>
+        <StickyFormFooter color={colors.cream} bottomInset={10} style={styles.doneFooter}>
           <View style={styles.footerRow}>
             <TouchableOpacity
               style={[styles.doneBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
@@ -700,6 +686,7 @@ export default function CreateScreen() {
             </TouchableOpacity>
           </View>
         </StickyFormFooter>
+        </KeyboardStickyView>
       )}
 
       <ActionSheet
@@ -716,6 +703,9 @@ export default function CreateScreen() {
     </SafeAreaView>
   );
 }
+
+/** How tall the floating Done footer stands: its fade, the button, its gap. */
+const DONE_FOOTER_H = 76;
 
 const styles = StyleSheet.create({
   scroll:       { flex: 1 },
@@ -778,6 +768,10 @@ const styles = StyleSheet.create({
   // Checkbox
   checkbox:        { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
+  // Pinned to the bottom edge and carried up on the keyboard; the footer
+  // inside is in flow rather than absolute so it has the dock's size.
+  doneDock:        { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  doneFooter:      { position: 'relative' },
   footerRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   doneBtn:         {
     paddingVertical: 11, paddingHorizontal: 18,

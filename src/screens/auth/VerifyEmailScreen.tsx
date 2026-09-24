@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView, ImageBackground, Image,
+  ImageBackground, Image,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { useAppDispatch, useAppSelector } from '../../store/store';
@@ -96,83 +97,78 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
       resizeMode="cover"
     >
       <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <FormScrollView
           style={styles.flex}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.container}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.header}>
-              <Image
-                source={require('../../../assets/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
+          <View style={styles.header}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
+          </View>
+
+          <BlurView intensity={40} tint="dark" style={styles.form}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Text style={styles.back}>← Back</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.title}>Check your email</Text>
+            <Text style={styles.subtitle}>
+              We sent a 6-digit code to{'\n'}
+              <Text style={styles.emailText}>{email}</Text>
+            </Text>
+
+            {error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            <View style={styles.codeRow}>
+              {digits.map((digit, i) => (
+                <TextInput
+                  key={i}
+                  ref={refs[i]}
+                  style={[styles.codeBox, digit ? styles.codeBoxFilled : null]}
+                  value={digit}
+                  onChangeText={(v) => handleDigitChange(i, v)}
+                  onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
+                  keyboardType="numeric"
+                  maxLength={1}
+                  selectTextOnFocus
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                />
+              ))}
             </View>
 
-            <BlurView intensity={40} tint="dark" style={styles.form}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                <Text style={styles.back}>← Back</Text>
-              </TouchableOpacity>
+            <View style={styles.gap} />
 
-              <Text style={styles.title}>Check your email</Text>
-              <Text style={styles.subtitle}>
-                We sent a 6-digit code to{'\n'}
-                <Text style={styles.emailText}>{email}</Text>
+            <Button
+              label="Verify"
+              onPress={handleVerify}
+              loading={loading}
+              disabled={code.length < 6}
+              size="full"
+              variant="dark"
+            />
+
+            <TouchableOpacity
+              onPress={handleResend}
+              style={styles.resendBtn}
+              disabled={cooldown > 0}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.resendText, cooldown > 0 && styles.resendDisabled]}>
+                {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
               </Text>
-
-              {error && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
-
-              <View style={styles.codeRow}>
-                {digits.map((digit, i) => (
-                  <TextInput
-                    key={i}
-                    ref={refs[i]}
-                    style={[styles.codeBox, digit ? styles.codeBoxFilled : null]}
-                    value={digit}
-                    onChangeText={(v) => handleDigitChange(i, v)}
-                    onKeyPress={({ nativeEvent }) => handleKeyPress(i, nativeEvent.key)}
-                    keyboardType="numeric"
-                    maxLength={1}
-                    selectTextOnFocus
-                    textContentType="oneTimeCode"
-                    autoComplete="one-time-code"
-                  />
-                ))}
-              </View>
-
-              <View style={styles.gap} />
-
-              <Button
-                label="Verify"
-                onPress={handleVerify}
-                loading={loading}
-                disabled={code.length < 6}
-                size="full"
-                variant="dark"
-              />
-
-              <TouchableOpacity
-                onPress={handleResend}
-                style={styles.resendBtn}
-                disabled={cooldown > 0}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.resendText, cooldown > 0 && styles.resendDisabled]}>
-                  {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
-                </Text>
-              </TouchableOpacity>
-            </BlurView>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            </TouchableOpacity>
+          </BlurView>
+        </FormScrollView>
       </SafeAreaView>
     </ImageBackground>
   );

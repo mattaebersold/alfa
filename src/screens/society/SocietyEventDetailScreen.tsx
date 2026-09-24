@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -32,14 +33,16 @@ export default function SocietyEventDetailScreen({
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
-      <ScrollView
-        ref={scrollRef}
+      {/* A FormScrollView for the comment field at the foot of the event:
+          focused, it's scrolled up to sit on the keyboard. */}
+      <FormScrollView
+        ref={scrollRef as any}
         refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 + insets.bottom }}
       >
         <EventDetailBody eventId={eventId} occurrenceDate={occurrenceDate} topInset={headerPad} />
-      </ScrollView>
+      </FormScrollView>
 
       <View
         style={[

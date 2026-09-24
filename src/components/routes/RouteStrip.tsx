@@ -14,6 +14,8 @@ export const ROUTE_STRIP_PREVIEW_COUNT = 6;
 
 const CARD_GAP = 12;
 const ROW_PAD_LEFT = 12;
+/** One route alone: the page width, less the same inset on both sides. */
+const SINGLE_WIDTH = Dimensions.get('window').width - ROW_PAD_LEFT * 2;
 /**
  * Wide enough for the trace plus a readable column of words beside it, short
  * of full width so the next card peeks out and says the row scrolls — the same
@@ -54,6 +56,7 @@ export default function RouteStrip({
   // failing to load.
   if (routes.length === 0) return null;
   const hasMore = (total ?? routes.length) > routes.length;
+  const single = routes.length === 1;
 
   return (
     <View style={styles.wrap}>
@@ -77,13 +80,16 @@ export default function RouteStrip({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
+        scrollEnabled={!single}
         // Card-by-card rather than page-by-page, so the peek stays put.
         snapToInterval={CARD_WIDTH + CARD_GAP}
         snapToAlignment="start"
         decelerationRate="fast"
       >
         {routes.map((route) => (
-          <View key={route.internal_id} style={styles.item}>
+          // A lone route takes the full width: there's nothing to peek at, and
+          // at 86% it looked like a row that failed to load its second card.
+          <View key={route.internal_id} style={[styles.item, single && styles.itemSingle]}>
             {/* The feed card takes whatever width it's given; here it's given
                 the shelf's, plus a border and corners so a card reads as a
                 card rather than as a slab of the page. */}
@@ -113,9 +119,12 @@ const styles = StyleSheet.create({
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   item: { width: CARD_WIDTH },
+  itemSingle: { width: SINGLE_WIDTH },
   // Drops the feed card's vertical margins — the row supplies the rhythm here.
   card: {
     marginVertical: 0, paddingBottom: 12,
+    // The darker card shade the car page and profile shelves share.
+    backgroundColor: '#171717',
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },

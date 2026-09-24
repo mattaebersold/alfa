@@ -102,7 +102,6 @@ const TEXT_FAINT= 'rgba(255,255,255,0.45)';
 const DIVIDER   = 'rgba(255,255,255,0.1)';
 const TILE_BG   = 'rgba(255,255,255,0.07)';
 const CHIP_BG   = 'rgba(255,255,255,0.1)';
-const BRASS     = '#E5C58E';
 /**
  * The wheel's own off-white, sampled from assets/logo.png.
  *
@@ -112,18 +111,12 @@ const BRASS     = '#E5C58E';
 const LOGO_CREAM = '#F7F1D9';
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, count, countTone = 'brass', wide, flex }: {
+function NavTile({ label, Icon, onPress, count, wide, flex }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
-  /** Unread count — renders a brass pill on the right when above zero. */
+  /** Unread count — a red bubble in the corner when above zero. */
   count?: number;
-  /**
-   * What the pill means. Brass is the drawer's own "there are things here";
-   * 'alert' is the red bubble the rest of the app uses for messages waiting on
-   * you, and matches the badge on the same feature's other entry points.
-   */
-  countTone?: 'brass' | 'alert';
   /** Fill the row instead of taking half of it. */
   wide?: boolean;
   /**
@@ -143,13 +136,15 @@ function NavTile({ label, Icon, onPress, count, countTone = 'brass', wide, flex 
       onPress={onPress}
       activeOpacity={0.75}
     >
-      <Icon size={19} color={TEXT_MID} />
+      {/* Larger and white: the mark is how a tile is found at a glance, and at
+          mid grey it sat behind its own label. */}
+      <Icon size={24} color="#FFFFFF" />
       <Text style={styles.navTileLabel} numberOfLines={1}>{label}</Text>
       {/* Pinned to the corner rather than trailing the label — stacked, there
           is no end of the line for it to sit at. */}
       {count != null && count > 0 && (
-        <View style={[styles.unreadPill, countTone === 'alert' && styles.unreadPillAlert]}>
-          <Text style={[styles.unreadPillText, countTone === 'alert' && styles.unreadPillTextAlert]}>
+        <View style={[styles.unreadPill, styles.unreadPillCorner]}>
+          <Text style={styles.unreadPillText}>
             {count > 99 ? '99+' : count}
           </Text>
         </View>
@@ -237,7 +232,7 @@ function PhotographyTile({ onPress }: { onPress: () => void }) {
 function InboxPill({ label, Icon, count, onPress }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
-  /** Unread count — a brass pill on the right when above zero. */
+  /** Unread count — a red bubble after the label when above zero. */
   count?: number;
   onPress: () => void;
 }) {
@@ -507,7 +502,6 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     naming a section that no longer had two things in it. */}
                 <NavTile label="Marketplace" Icon={ShoppingBag}
                   count={marketplaceUnread}
-                  countTone="alert"
                   onPress={() => goFeed('Marketplace')} />
                 {/* The header's + used to be the only way to list a diecast; it
                     goes straight to a new post now, so the entry point lives
@@ -889,17 +883,17 @@ const styles = StyleSheet.create({
     textAlign: 'center', flexShrink: 1,
   },
   rowGap:       { marginTop: 8 },
+  // Every count in the menu is the app's "waiting for you" red — the bell's
+  // bubble — a circle for one digit, stretching to a pill for more.
   unreadPill:   {
-    position: 'absolute', top: 7, right: 7,
-    minWidth: 20, height: 20, borderRadius: PILL_RADIUS, paddingHorizontal: 6,
-    backgroundColor: BRASS,
+    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    backgroundColor: colors.red,
     alignItems: 'center', justifyContent: 'center',
   },
-  unreadPillText: { fontSize: 11, fontWeight: '700', color: '#000000' },
-  // The app's "waiting for you" red — the same bubble the bell and the
-  // marketplace's other entry points wear.
-  unreadPillAlert:     { backgroundColor: colors.red },
-  unreadPillTextAlert: { color: '#FFFFFF' },
+  // On a tile, pinned in the corner — far enough in that it sits on the tile
+  // rather than on its edge. In an inbox pill it's inline, after the label.
+  unreadPillCorner: { position: 'absolute', top: 11, right: 11 },
+  unreadPillText: { fontSize: 11.5, fontWeight: '800', color: '#FFFFFF' },
 
   aboutBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,

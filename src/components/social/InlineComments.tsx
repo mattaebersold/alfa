@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Keyboard,
 } from 'react-native';
@@ -8,7 +8,7 @@ import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import CommentRow from './CommentRow';
-import Composer from './Composer';
+import Composer, { type ComposerHandle } from './Composer';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
@@ -23,15 +23,6 @@ interface InlineCommentsProps {
   entryType: string;
   /** Section heading; omit to render none. */
   title?: string;
-  /**
-   * Fired when the composer opens.
-   *
-   * This component lives inside a parent ScrollView. The focused composer
-   * covers the page while it's open, but when it folds back the parent wants
-   * the thread in view under what was just written — and only the parent owns
-   * that scroll position.
-   */
-  onInputFocus?: () => void;
   /** Background for the section, so it can be set off from the page. */
   backgroundColor?: string;
 }
@@ -44,7 +35,7 @@ interface InlineCommentsProps {
  * same-direction VirtualizedList inside one breaks scrolling and warns.
  */
 export default function InlineComments({
-  documentId, entryType, title = 'Comments', backgroundColor, onInputFocus,
+  documentId, entryType, title = 'Comments', backgroundColor,
 }: InlineCommentsProps) {
   const c = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -52,6 +43,7 @@ export default function InlineComments({
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
   const photos = useComposerPhotos();
+  const composerRef = useRef<ComposerHandle>(null);
   // Tapping a commenter summarises them in place, as it does in the sheet.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
 
@@ -86,10 +78,10 @@ export default function InlineComments({
   };
 
   return (
-    <View style={[styles.wrap, { backgroundColor: bg, borderTopColor: c.border }]}>
+    <View style={[styles.wrap, { backgroundColor: bg, borderTopColor: c.borderDark }]}>
       {title ? (
         <View style={styles.headingRow}>
-          <Text style={[styles.heading, { color: c.grey }]}>{title.toUpperCase()}</Text>
+          <Text style={[styles.heading, { color: c.fg }]}>{title}</Text>
           {comments.length > 0 && (
             <View style={[styles.countBadge, { backgroundColor: c.segment }]}>
               <Text style={[styles.countText, { color: c.fg }]}>{comments.length}</Text>
@@ -120,16 +112,17 @@ export default function InlineComments({
             onReply={(commentId, username) => {
               setReplyingTo({ commentId, username });
               setCommentText(`@${username} `);
+              composerRef.current?.open();
             }}
           />
         ))
       )}
 
       <Composer
+        ref={composerRef}
         value={commentText}
         onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
         placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-        title={replyingTo ? `Reply to @${replyingTo.username}` : 'Comment'}
         photos={photos}
         onSend={handleSubmit}
         sending={submitting}
@@ -137,7 +130,6 @@ export default function InlineComments({
         sendLabel="Post"
         tone={{ surface: bg, field: c.card, border: c.borderDark, text: c.fg, accent: c.primaryAlt, onAccent: onAccent }}
         barStyle={styles.composer}
-        onOpenChange={(open) => { if (open) onInputFocus?.(); }}
         // Boxed at a fixed size: in a row whose other child grows, the avatar
         // was picking up the leftover width and drawing as a wide rectangle
         // instead of a circle.
@@ -173,9 +165,12 @@ export default function InlineComments({
 }
 
 const styles = StyleSheet.create({
-  wrap:       { paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth },
+  // Set apart from the shelves above it: more room, and a rule you can see.
+  // Comments are the page's conversation, not another row of its content.
+  wrap:       { marginTop: 28, paddingTop: 20, borderTopWidth: 1 },
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 10 },
-  heading:    { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  // The same heading every shelf on the page wears — see PostStrip, ListShelf.
+  heading:    { fontSize: 17, fontWeight: '800' },
   countBadge: {
     minWidth: 22, height: 22, borderRadius: PILL_RADIUS, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center',

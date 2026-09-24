@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
 import ListSummaryContent from './ListSummaryContent';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
-import { useGetListQuery } from '../../api/apiService';
+import { useGetListQuery, useDeleteListMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import type { List } from '../../types/api';
@@ -18,19 +18,49 @@ import type { List } from '../../types/api';
  * Called from ListSummaryModal itself it would find nothing (or, stacked, the
  * wrong panel) — and the car row needs this one, to close it before pushing.
  */
-function PanelBody({ list, hideCar, onOpenUser }: {
+function PanelBody({ list, hideCar, isMine, onOpenUser, onClose }: {
   list: List;
   hideCar?: boolean;
+  /** The author — who gets the cog's edit and delete. */
+  isMine: boolean;
   onOpenUser: (userId: string, origin: SummaryOrigin | null) => void;
+  onClose: () => void;
 }) {
   const nav = useNavigation<any>();
   const panel = useSummaryPanel();
+  const [deleteList] = useDeleteListMutation();
+
+  const edit = () => {
+    const go = () => nav.navigate('EditList', { listId: list.internal_id });
+    if (panel) panel.closeThen(go); else go();
+  };
+
+  // Asked first: a list is someone's ranking and notes, and nothing brings it back.
+  const remove = () => {
+    Alert.alert('Delete list?', `"${list.title}" and everything on it will be deleted.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteList({ internal_id: list.internal_id }).unwrap();
+            if (panel) panel.closeThen(); else onClose();
+          } catch {
+            Alert.alert('Error', "Couldn't delete the list. Try again.");
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <ListSummaryContent
       list={list}
       hideCar={hideCar}
       onOpenUser={onOpenUser}
+      onEdit={isMine ? edit : undefined}
+      onDelete={isMine ? remove : undefined}
       // Close, *then* push. A screen pushed while the panel is up opens
       // underneath it, and iOS won't present over a modal mid-dismissal.
       onOpenCar={(carId) => {
@@ -51,8 +81,9 @@ function PanelBody({ list, hideCar, onOpenUser }: {
  *
  * Open to everyone. Making lists is the Pro feature; reading one never was.
  *
- * The author gets Edit as the panel's button. Nobody else gets a button at
- * all: there's no fuller page to "view more" of — the panel *is* the list.
+ * The author gets a cog beside the title, for editing or deleting it. Nobody
+ * else gets a control at all: there's no fuller page to "view more" of — the
+ * panel *is* the list.
  */
 export default function ListSummaryModal({ listId, origin, onClose, hideCar }: {
   /** The list to show. `null` closes the panel. */
@@ -64,7 +95,6 @@ export default function ListSummaryModal({ listId, origin, onClose, hideCar }: {
   hideCar?: boolean;
 }) {
   const colors = useColors();
-  const nav = useNavigation<any>();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
 
   const { data: list, isLoading, isError } = useGetListQuery(listId ?? '', { skip: !listId });
@@ -80,9 +110,6 @@ export default function ListSummaryModal({ listId, origin, onClose, hideCar }: {
       visible={!!listId}
       onClose={onClose}
       origin={origin}
-      actionLabel="Edit list"
-      // Runs once the panel has finished closing — see SummaryModal.
-      onAction={isMine && listId ? () => nav.navigate('EditList', { listId }) : undefined}
       stacked={stacked}
     >
       {isError ? (
@@ -96,7 +123,7 @@ export default function ListSummaryModal({ listId, origin, onClose, hideCar }: {
         // from its content, so an unsized loading state opens as a sliver.
         <View style={styles.loading}><Spinner /></View>
       ) : (
-        <PanelBody list={list} hideCar={hideCar} onOpenUser={openUser} />
+        <PanelBody list={list} hideCar={hideCar} isMine={isMine} onOpenUser={openUser} onClose={onClose} />
       )}
     </SummaryModal>
   );

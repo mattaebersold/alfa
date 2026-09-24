@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Platform,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
 import {
   useGetMessageThreadQuery,
@@ -64,21 +64,6 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       }
     });
   }, [messages, myId, markRead]);
-
-  // The keyboard (raised by the composer's panel, over this sheet) shrinks the
-  // sheet without changing the list's content, so neither onContentSizeChange
-  // nor a plain re-render brings the newest message back into view — the
-  // offset is preserved and the last bubble ends up hidden. Follow the
-  // keyboard down to the bottom instead, so the thread is on its newest
-  // message when the panel folds away.
-  useEffect(() => {
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(event, () => {
-      // One frame after the resize lands, or scrollToEnd targets the old height.
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-    });
-    return () => sub.remove();
-  }, []);
 
   // Derive the other participant's ID from messages if not provided in route
   const recipientId = routeRecipientId ?? messages.find((m) => m.sender_id !== myId)?.sender_id;
@@ -223,15 +208,13 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         keyboardDismissMode="interactive"
       />
 
-      {/* Reply bar. Clearance for the home indicator / gesture bar is the
-          sheet's own bottom padding, so none is added here. Tapped, it opens
-          over the sheet on the keyboard — see Composer — so nothing here has
-          to be lifted clear of it any more. */}
+      {/* Reply bar. The sheet rides the keyboard and keeps its own
+          home-indicator clearance, so the bar needs neither; the list above
+          shrinks and stays on the newest message (its onLayout). */}
       <Composer
         value={body}
         onChangeText={setBody}
         placeholder="Message..."
-        title={otherUser?.username ? `Message @${otherUser.username}` : 'Message'}
         photos={photos}
         onSend={handleSend}
         sending={sending}

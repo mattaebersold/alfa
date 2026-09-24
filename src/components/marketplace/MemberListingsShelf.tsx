@@ -52,7 +52,11 @@ function ListingTile({ listing, onPress }: { listing: Listing; onPress: () => vo
           {listing.title || 'Listing'}
         </Text>
         {!!price && (
-          <Text style={[styles.price, { color: colors.primaryAlt }]} numberOfLines={1}>{price}</Text>
+          // A green tag rather than brand-coloured text: money reads as
+          // money, and it no longer changes colour with the viewer's account.
+          <View style={[styles.pricePill, { backgroundColor: colors.green }]}>
+            <Text style={styles.price} numberOfLines={1}>{price}</Text>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -181,5 +185,9 @@ const styles = StyleSheet.create({
 
   info:  { padding: 10, gap: 3 },
   title: { fontSize: 13, fontWeight: '700', lineHeight: 17 },
-  price: { fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
+  pricePill: {
+    alignSelf: 'flex-start', marginTop: 3,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+  },
+  price: { fontSize: 13, fontWeight: '800', letterSpacing: -0.2, color: '#000000' },
 });

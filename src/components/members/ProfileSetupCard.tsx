@@ -124,10 +124,11 @@ const styles = StyleSheet.create({
   // The drawer's own tile grey, so it sits with the rest of the menu rather
   // than competing with the gold callout above it.
   card: {
-    marginBottom: 10,
+    marginTop: 6, marginBottom: 16,
     paddingHorizontal: 13, paddingTop: 12, paddingBottom: 4,
     borderRadius: COMMON_RADIUS,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    // Darker, matching the page prompts (CarSetupCard, ProfileHelpCard).
+    backgroundColor: '#121212',
   },
   heading: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 },
 

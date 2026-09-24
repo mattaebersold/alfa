@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  Alert, ActivityIndicator, Switch, KeyboardAvoidingView, Platform,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator, Switch,
 } from 'react-native';
+import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,6 +79,9 @@ export default function RouteSaveScreen() {
   const navigation = useNavigation<NavProp>();
   const { params } = useRoute<SaveRoute>();
   const insets = useSafeAreaInsets();
+  // The home indicator's clearance under the actions, only while the keyboard
+  // is down; and their height, which the focused field is kept clear of.
+  const [actionsH, setActionsH] = useState(0);
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
@@ -499,11 +503,14 @@ export default function RouteSaveScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} keyboardShouldPersistTaps="handled">
+    // Form above, actions pinned under it: the column shrinks by the keyboard's
+    // height so the actions sit on it, and the focused field is kept clear of
+    // them as well.
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <FormScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+        bottomOffset={KEYBOARD_GAP + actionsH}
+      >
         <View style={styles.mapWrap}>
           <RouteMap path={path} speeds={pathSpeeds} color={brand} style={StyleSheet.absoluteFill} />
         </View>
@@ -671,9 +678,15 @@ export default function RouteSaveScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </FormScrollView>
 
-      <View style={[styles.actions, { backgroundColor: colors.card, paddingBottom: insets.bottom + 12, borderTopColor: colors.border }]}>
+      {/* Measured without the home indicator's clearance, which collapses
+          under it as the keyboard rises — see ComposeMessageScreen. */}
+      <View style={{ backgroundColor: colors.card }}>
+      <View
+        style={[styles.actions, { paddingBottom: 12, borderTopColor: colors.border }]}
+        onLayout={(e) => setActionsH(e.nativeEvent.layout.height)}
+      >
         <TouchableOpacity
           style={[styles.secondaryBtn, { borderColor: isEdit ? colors.border : palette.red }]}
           onPress={discard}
@@ -692,6 +705,8 @@ export default function RouteSaveScreen() {
             ? <ActivityIndicator color={onBrand} />
             : <Text style={[styles.primaryLabel, { color: onBrand }]}>{isEdit ? 'Save Changes' : 'Save Route'}</Text>}
         </TouchableOpacity>
+      </View>
+      <HomeIndicatorSpacer height={insets.bottom} />
       </View>
     </KeyboardAvoidingView>
   );

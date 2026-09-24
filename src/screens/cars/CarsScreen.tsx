@@ -3,14 +3,13 @@ import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native';
-import { Search } from 'lucide-react-native';
+import { Search, Car, ChevronRight } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
-import RegionBadge from '../../components/ui/RegionBadge';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
@@ -18,7 +17,7 @@ import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
-import { useGetCarsQuery, useGetUserByIdQuery } from '../../api/apiService';
+import { useGetCarsQuery, useGetUserByIdQuery, useGetCarBrandsQuery } from '../../api/apiService';
 import { firstGalleryUrl } from '../../utils/image';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -37,26 +36,32 @@ function CarGridItem({ item, onPress }: {
   const colors = useColors();
   const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
   const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
+  const ymm = [item.year, item.make, item.model].filter(Boolean).join(' ');
+  // The owner's name for it leads, with what it is underneath. A car with no
+  // name of its own is its year, make and model — said once, not twice.
+  const title = item.title || ymm || 'Car';
+  const subtitle = item.title ? ymm : '';
   return (
-    <SummaryTouchable style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress}>
+    <SummaryTouchable style={[styles.card, { backgroundColor: CARD_BG }]} onPress={onPress}>
       <View style={styles.cardImageContainer}>
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
           style={styles.cardImage}
           contentFit="cover"
         />
+        {/* The stand-in, dimmed — the same as a profile with no cover. A
+            placeholder shouldn't outshine the real photos around it. */}
+        {!hero && <View style={styles.placeholderDim} pointerEvents="none" />}
       </View>
       <View style={styles.cardInfo}>
-        <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
-          {item.year} {item.make} {item.model}
-        </Text>
+        <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>{title}</Text>
+        {subtitle ? (
+          <Text style={[styles.carSubtitle, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text>
+        ) : null}
         {owner && (
           <View style={styles.ownerRow}>
             <Avatar user={owner} size={20} />
             <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
-            {/* Where the owner is, as a map — see RegionBadge. It belongs with
-                the name it describes rather than floating over the car. */}
-            <RegionBadge region={item.owner_region} size={24} />
           </View>
         )}
       </View>
@@ -78,6 +83,9 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
+  // The same list the Brands screen shows — its length is the count on the button.
+  const { data: brands } = useGetCarBrandsQuery();
+  const brandCount = brands?.length ?? 0;
 
   // A car is where its owner is, so this filters on the member behind it —
   // near me by default, measured from the zip on your profile.
@@ -153,8 +161,23 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
             <ScreenHeading title="Cars" />
             <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
             <View style={styles.searchRow}>
-              <TouchableOpacity style={[styles.brandsBtn, { backgroundColor: brand }]} onPress={() => navigation.navigate('Brands')}>
-                <Text style={styles.brandsBtnText}>Browse by Brand →</Text>
+              {/* The way into the site by make — a real button now, not a
+                  strip: the car, the words, how many makes there are to browse. */}
+              <TouchableOpacity
+                style={[styles.brandsBtn, { backgroundColor: brand }]}
+                onPress={() => navigation.navigate('Brands')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={brandCount ? `Browse by brand, ${brandCount} brands` : 'Browse by brand'}
+              >
+                <Car size={22} color="#000000" strokeWidth={2.2} />
+                <Text style={styles.brandsBtnText}>Browse by Brand</Text>
+                {brandCount > 0 && (
+                  <View style={styles.brandsCount}>
+                    <Text style={[styles.brandsCountText, { color: brand }]}>{brandCount}</Text>
+                  </View>
+                )}
+                <ChevronRight size={20} color="#000000" strokeWidth={2.4} style={styles.brandsChevron} />
               </TouchableOpacity>
               <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Search size={15} color={colors.grey} />
@@ -237,6 +260,9 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   );
 }
 
+/** The grid cards' fill — the darker shade the profile's shelves use. */
+const CARD_BG = '#171717';
+
 const styles = StyleSheet.create({
   content: { flex: 1 },
   searchRow: {
@@ -255,13 +281,22 @@ const styles = StyleSheet.create({
   filterRow: { marginHorizontal: 6, marginTop: 0, marginBottom: 10 },
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 8, marginBottom: 10 },
   brandsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: COMMON_RADIUS,
-    paddingVertical: 10,
+    paddingVertical: 15,
     paddingHorizontal: 16,
-    alignSelf: 'flex-start',
     width: '100%',
   },
-  brandsBtnText: { color: '#000000', fontWeight: '700', fontSize: 13 },
+  brandsBtnText: { color: '#000000', fontWeight: '800', fontSize: 16 },
+  // Black on the brand fill, with the number in the brand colour — reads as a
+  // badge on the button rather than another word on it.
+  brandsCount: {
+    minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6,
+    backgroundColor: '#000000',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  brandsCountText: { fontSize: 12, fontWeight: '800' },
+  brandsChevron: { marginLeft: 'auto' },
   list: { paddingBottom: 20 },
   row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
   card: {
@@ -272,8 +307,11 @@ const styles = StyleSheet.create({
   },
   cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
   cardImage: { width: '100%', height: '100%' },
+  // Written out: RN 0.86 dropped `StyleSheet.absoluteFillObject`.
+  placeholderDim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
   cardInfo: { padding: 8 },
-  carTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  carTitle: { fontSize: 13, fontWeight: '700' },
+  carSubtitle: { fontSize: 11, fontWeight: '600', marginTop: 1 },
+  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   ownerName: { fontSize: 11, flex: 1 },
 });

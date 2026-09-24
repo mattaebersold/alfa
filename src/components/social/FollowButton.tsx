@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { UserPlus, UserMinus, MoreHorizontal } from 'lucide-react-native';
+import ActionSheet from '../ui/ActionSheet';
+import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS } from '../../constants/radius';
 import { useFollowUserMutation, useUnfollowUserMutation, useGetFollowStatusQuery } from '../../api/apiService';
 import Button from '../ui/Button';
 
@@ -23,6 +27,17 @@ interface FollowButtonProps {
   variant?: 'dark' | 'secondary';
   /** Passed through — see Button. The profile squares this off to match Message. */
   radius?: number;
+  /** The "Following" fill, where the default grey is too bright for its surroundings. */
+  followingBackground?: string;
+  /** Passed through — see Button. Holds one width across both labels. */
+  minWidth?: number;
+  /**
+   * A square icon button instead of a labelled one: a person with a plus to
+   * follow; once followed, a ⋯ whose menu holds the unfollow. For dense lists
+   * where the word "Following" was the widest thing in every row — and where
+   * an unfollow one stray tap away was too easy to hit.
+   */
+  iconOnly?: boolean;
 }
 
 /**
@@ -41,7 +56,9 @@ interface FollowButtonProps {
  * It doesn't swallow failures. The press used to be a bare await with no catch,
  * so a rejected follow looked exactly like a successful one.
  */
-export default function FollowButton({ username, isFollowing: known, variant, radius }: FollowButtonProps) {
+export default function FollowButton({ username, isFollowing: known, variant, radius, followingBackground, minWidth, iconOnly }: FollowButtonProps) {
+  const brand = useBrandColor();
+  const brandText = useBrandTextColor();
   // A caller that already has the answer doesn't need us to ask again.
   const skip = known !== undefined;
   const { data, isLoading, isError, refetch } = useGetFollowStatusQuery(username, { skip });
@@ -57,6 +74,8 @@ export default function FollowButton({ username, isFollowing: known, variant, ra
    * a round trip.
    */
   const [pending, setPending] = useState<boolean | null>(null);
+  /** The ⋯ menu, in icon mode once followed. */
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const resolved = known ?? data?.isFollowing;
   const isFollowing = pending ?? resolved ?? false;
@@ -84,11 +103,55 @@ export default function FollowButton({ username, isFollowing: known, variant, ra
 
   if (!skip && isLoading) return null;
 
+  if (iconOnly) {
+    const unknown = !skip && isError && resolved === undefined;
+
+    // Followed: a quiet ⋯, and the unfollow inside it — undoing a follow is
+    // rarer than making one, and shouldn't sit under a thumb in a list.
+    if (isFollowing) {
+      return (
+        <>
+          <TouchableOpacity
+            style={[iconStyles.btn, iconStyles.more]}
+            onPress={() => setMenuOpen(true)}
+            disabled={busy}
+            activeOpacity={0.8}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={`Options for @${username}`}
+          >
+            {busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <MoreHorizontal size={20} color="#FFFFFF" />}
+          </TouchableOpacity>
+          <ActionSheet
+            visible={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            title={`@${username}`}
+            options={[{ label: 'Unfollow', Icon: UserMinus, destructive: true, onPress: handlePress }]}
+          />
+        </>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={[iconStyles.btn, { backgroundColor: brand }, unknown && iconStyles.disabled]}
+        onPress={unknown ? () => refetch() : handlePress}
+        disabled={busy || unknown}
+        activeOpacity={0.8}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={`Follow @${username}`}
+      >
+        {busy ? <ActivityIndicator size="small" color={brandText} /> : <UserPlus size={17} color={brandText} strokeWidth={2.4} />}
+      </TouchableOpacity>
+    );
+  }
+
   // Nothing sensible to offer: we asked and couldn't find out. Shown rather
   // than hidden so the row doesn't change shape, and disabled so it can't
   // send a follow whose result we'd have no way to reflect.
   if (!skip && isError && resolved === undefined) {
-    return <Button label="Follow" onPress={() => refetch()} variant="dark" size="sm" radius={radius} disabled />;
+    return <Button label="Follow" onPress={() => refetch()} variant="dark" size="sm" radius={radius} minWidth={minWidth} disabled />;
   }
 
   return (
@@ -98,7 +161,20 @@ export default function FollowButton({ username, isFollowing: known, variant, ra
       variant={variant ?? (isFollowing ? 'secondary' : 'dark')}
       size="sm"
       radius={radius}
+      background={isFollowing ? followingBackground : undefined}
+      minWidth={minWidth}
       loading={busy}
     />
   );
 }
+
+const iconStyles = StyleSheet.create({
+  btn: {
+    width: 36, height: 36, borderRadius: COMMON_RADIUS,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  disabled: { opacity: 0.5 },
+  // Just the dots — the menu is housekeeping, not an invitation. Keeps the
+  // button's footprint, so the row's edge lines up whether followed or not.
+  more:     { backgroundColor: 'transparent' },
+});

@@ -125,9 +125,11 @@ export default function MembersScreen() {
       {/* Heading rides in the list so it scrolls away with the content. */}
       <ScreenHeading title="Members" />
       <FeaturedMembersRow
-        onMemberPress={(userId, username) => navigation.navigate('UserDetail', { userId, username })}
+        // The same summary a row opens — a preview first, with the profile
+        // one button inside it.
+        onMemberPress={(userId, _username, origin) => setSummary({ userId, origin })}
       />
-      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
         <TextInput
           style={[styles.searchInput, { color: colors.fg }]}
@@ -145,7 +147,7 @@ export default function MembersScreen() {
         value={{ choice: location.choice, radius: location.radius }}
         onApply={applyLocation}
         pills={[locationPill(location.choice, location.radius)]}
-        style={styles.filterRow}
+        style={[styles.filterRow, { backgroundColor: CONTROL_BG }]}
       >
         {(draft, setDraft) => (
           <LocationFilterRow
@@ -176,6 +178,7 @@ export default function MembersScreen() {
         renderItem={({ item }) => (
           <MemberRow
             user={item}
+            plain
             isFollowing={item.username ? followStatuses?.[item.username] : undefined}
             // A summary first, as the home feed's suggestions do — the
             // profile is one button inside the panel.
@@ -210,6 +213,13 @@ export default function MembersScreen() {
     </SafeAreaView>
   );
 }
+
+/**
+ * The search box and the filter row, a shade under the card colour — with the
+ * member rows now unfilled, the full-brightness controls were the loudest
+ * thing on the screen.
+ */
+const CONTROL_BG = '#111111';
 
 const styles = StyleSheet.create({
   content:     { flex: 1 },

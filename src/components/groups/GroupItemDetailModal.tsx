@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, FlatList, Dimensions, ActivityIndicator,
+  View, Text, StyleSheet, FlatList, Dimensions, ActivityIndicator,
   TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
 import { ExternalLink, Pencil, Trash2, ChevronRight } from 'lucide-react-native';
@@ -153,7 +154,7 @@ export default function GroupItemDetailModal({
 
   return (
     <SharedModal visible={visible} onClose={onClose} title={kindLabel}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <FormScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Media */}
         {ytId ? (
           <View style={styles.ytWrap}>
@@ -292,7 +293,7 @@ export default function GroupItemDetailModal({
             ))
           )}
         </View>
-      </ScrollView>
+      </FormScrollView>
 
       {onViewMore && (
         /* Below the scroller, not in it: it's the way out of this summary, and

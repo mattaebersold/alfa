@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
   Platform, useWindowDimensions, type StyleProp, type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
@@ -98,21 +99,35 @@ export function SummaryTouchable({
 const WIDTH_RATIO = 0.9;
 /** The close button's edge, and so how far above the panel it sits. */
 const CLOSE_SIZE = 38;
+/** Space between the close button and the panel, and between it and the status bar. */
+const CLOSE_GAP = 10;
 
 /** A ceiling, not a size — a short summary gets a short panel. */
 const MAX_HEIGHT_RATIO = 0.9;
 const PANEL_RADIUS = 20;
+/** The panel's border, which the content sits inside rather than over. */
+const PANEL_BORDER = 1;
 /** Height to assume before the content has been measured. */
 const UNMEASURED_RATIO = 0.55;
+/** How long the box takes to grow — and so how long the contents wait. */
+const OPEN_MS = 420;
 /**
- * How small the panel starts.
- *
- * Fixed rather than derived from the tapped row: a list row is nearly the
- * panel's width, so matching it would mean starting at 0.9 and barely growing
- * at all. This reads as coming out of the row because of *where* it starts, not
- * because it matches its shape.
+ * How far past its mark the box goes before settling — a nudge, not a
+ * wobble. The same figure as GrowPanel's, which this now opens like.
  */
-const START_SCALE = 0.42;
+const OPEN_OVERSHOOT = 0.9;
+/** How long the contents take to come up once the box has landed. */
+const CONTENT_MS = 260;
+/**
+ * Slower than it arrives. Opening is a response to a tap and wants to feel
+ * immediate; closing is the panel taking its leave, and at 190ms it read as
+ * being snatched away.
+ */
+const CLOSE_MS = 180;
+/** When the contents start to fade in — and so, near enough, become scrollable. */
+const CONTENT_DELAY_MS = 300;
+/** The close settles to this scale as it fades. */
+const EXIT_SCALE = 0.94;
 
 /**
  * A summary of one thing, in a panel that grows out of whatever you tapped.
@@ -127,25 +142,36 @@ const START_SCALE = 0.42;
  *
  * ## Why it animates the way it does
  *
- * Everything that moves is a `transform` or an `opacity`, on **one** view, on
- * the native driver. Nothing is laid out per frame.
+ * The same way GrowPanel does, with two layers and three values:
+ *  - The **box** is childless: the black surface, its border and its shadow,
+ *    and nothing else. It morphs from the tapped row's rect to the panel's on
+ *    the JS driver (`box`), since position, size and corner radius are layout.
+ *    With nothing inside it there's nothing to re-lay out, so a frame costs
+ *    one rectangle. It's see-through at the row's size and opaque by an
+ *    eighth of the way out, so it never sits as a black slab on the row.
+ *  - The **content** is laid out once, at the panel's final size, and only
+ *    ever fades (`content`, native). It waits for the box to land.
+ *  - The scrim and the close button fade on `reveal` (native).
  *
- * The first version grew the panel from the tapped row's exact rect by
- * animating `left`/`top`/`width`/`height` — a true morph. Those are layout
- * properties: they cannot run on the native driver, so every frame crossed the
- * bridge and triggered a layout pass, and that is visibly janky however little
- * is inside the box. Two rewrites chasing it (a childless box, then a static
- * content layer) each helped and neither fixed it, because the cost was the
- * layout animation itself.
+ * The version before this put all of it — surface, content, and a uniform
+ * scale out of the row — on one view, driven natively, and on iOS the black
+ * surface appeared only once the grow had finished. Two things fed that:
+ *  - The panel re-renders while it grows: the scroller reports its content
+ *    height a frame or two in, and that moves the panel and its origin
+ *    offsets. Each render built fresh interpolations of a natively-driven
+ *    value, and a natively-driven value's JS side still reads 0 until the
+ *    animation ends — so every mid-grow commit handed the panel opacity 0
+ *    and start-scale again, and it stayed that way until the finished
+ *    spring synced its 1 back.
+ *  - The spring started a frame after the Modal was *asked* for, not after
+ *    it was on screen. iOS presents it as a view controller of its own, and
+ *    a native animation that runs while that's still happening drives views
+ *    that aren't there yet.
  *
- * So the morph is gone, replaced by a uniform scale from the row's position.
- * Lost: the panel no longer matches the row's exact shape on the way up. Kept:
- * it still comes out of the row you tapped, and the corners stay right. An
- * earlier attempt at a transform failed on that last point only because the
- * scale was wildly *non-uniform* — a fourteenth vertically against an eighth
- * horizontally — which turns square corners into ellipses. A uniform scale
- * gives a small box proportionally small corners, which is how a small box
- * should look.
+ * So here the surface lives on the JS driver, where every commit carries its
+ * real current value; every native-driven view has a style that never
+ * changes from render to render, so a re-render has nothing to overwrite; and
+ * nothing starts until the Modal reports itself shown.
  *
  * ## Stacking
  *
@@ -198,6 +224,7 @@ export default function SummaryModal({
   const colors = useColors();
   const brand = useBrandColor();
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   /** Stays true through the closing animation, so the panel can be seen leaving. */
   const [rendered, setRendered] = useState(false);
@@ -205,23 +232,51 @@ export default function SummaryModal({
   const [expanded, setExpanded] = useState(false);
   const pendingAction = useRef<(() => void) | null>(null);
   const wasVisible = useRef(false);
+  /**
+   * Whether the Modal is up. Reopening during the close animation finds it
+   * still up, and then there's no `onShow` coming to start the grow.
+   */
+  const presented = useRef(false);
 
-  const progress = useRef(new Animated.Value(0)).current;
+  /** The box's morph — JS-driven: it's layout. */
+  const box = useRef(new Animated.Value(0)).current;
+  /** The scrim and the close button — native. */
+  const reveal = useRef(new Animated.Value(0)).current;
+  /** The contents' fade, held until the box has landed — native. */
+  const content = useRef(new Animated.Value(0)).current;
+  /** The close: 1 while up, fading and settling smaller to 0 on the way out. */
+  const exit = useRef(new Animated.Value(1)).current;
+  /** When the contents become scrollable — cleared if it closes first. */
+  const unlockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Built once, not per render: see "Why it animates" — a native-driven view
+  // whose props are the same from one render to the next is one a mid-grow
+  // re-render leaves alone.
+  const fadeStyles = useMemo(() => ({
+    reveal: { opacity: reveal },
+    content: { flex: 1, opacity: content },
+  }), [reveal, content]);
 
   /**
    * How far the panel has to rise to clear the keyboard.
    *
    * Only a summary with a field in it (the invite) ever raises one; for every
    * other summary this stays at zero. Applied to a wrapper rather than to the
-   * panel itself, because the panel's transform is on the native driver and
-   * this one can't be.
+   * panel itself, so the layers inside it can each keep their own driver.
    */
   const panelRef = useRef<View>(null);
   const { animated: keyboardLift, onLayout: onPanelLayout } = useKeyboardOverlap(panelRef, 16);
 
   const panelW = screenW * WIDTH_RATIO;
   const panelX = (screenW - panelW) / 2;
-  const maxH = screenH * MAX_HEIGHT_RATIO;
+  /**
+   * Short enough that the close button, which sits above the panel, always
+   * clears the status bar. The panel is centred, so the room it leaves above
+   * is half of what it leaves in all — at the full ratio on a notched phone
+   * the button landed on the clock and the battery, where it can't be tapped.
+   */
+  const closeClearance = insets.top + CLOSE_SIZE + CLOSE_GAP * 2;
+  const maxH = Math.min(screenH * MAX_HEIGHT_RATIO, screenH - closeClearance * 2);
 
   /**
    * The panel's height: the scroller's content plus the footer.
@@ -230,11 +285,12 @@ export default function SummaryModal({
    * height until it is given one, and a ScrollView inside a container with no
    * height reports almost nothing. Plain state, not an animated value: it
    * changes once or twice per open, so it costs one layout pass, not one per
-   * frame.
+   * frame. The box follows it on the JS driver, so a late measurement moves
+   * the box's target rather than fighting a native animation.
    */
   const [scrollH, setScrollH] = useState<number | null>(null);
   const [footerH, setFooterH] = useState(0);
-  const measured = scrollH == null ? null : scrollH + footerH;
+  const measured = scrollH == null ? null : scrollH + footerH + PANEL_BORDER * 2;
   const settledH = Math.min(measured ?? maxH * UNMEASURED_RATIO, maxH);
   const panelY = (screenH - settledH) / 2;
 
@@ -246,45 +302,95 @@ export default function SummaryModal({
   if (visible && origin) originRef.current = origin;
   const from = (visible ? origin : originRef.current) ?? fallback;
 
+  const grow = useCallback(() => {
+    // Two frames of head start, so the content's first layout pass — and the
+    // re-render its measurement causes — land before the box moves.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      Animated.parallel([
+        Animated.timing(box, {
+          toValue: 1,
+          // An ease-out with a small back: fast off the row, slowing into
+          // place, a touch past it, settled — all inside OPEN_MS.
+          duration: OPEN_MS,
+          easing: Easing.out(Easing.back(OPEN_OVERSHOOT)),
+          useNativeDriver: false,
+        }),
+        Animated.timing(reveal, {
+          toValue: 1,
+          duration: OPEN_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        // The surface arrives, then what's on it: filling a box still in
+        // motion reads as a screen appearing rather than a panel opening.
+        //
+        // A little before the box has quite settled, though — the last of its
+        // travel is the small overshoot, and the contents can ride that.
+        Animated.timing(content, {
+          toValue: 1,
+          delay: CONTENT_DELAY_MS,
+          duration: CONTENT_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+      // Scrollable as soon as the contents start to show, not once every fade
+      // has finished — waiting that out made a panel feel stuck.
+      unlockTimer.current = setTimeout(() => setExpanded(true), CONTENT_DELAY_MS + 60);
+    }));
+  }, [box, reveal, content]);
+
+  const onShow = useCallback(() => {
+    presented.current = true;
+    // Closed again before the Modal made it up: growing now would stop the
+    // close animation short, and the panel would never unmount.
+    if (wasVisible.current) grow();
+  }, [grow]);
+
   useEffect(() => {
     if (visible === wasVisible.current) return;
     wasVisible.current = visible;
 
     if (visible) {
       setRendered(true);
-      setScrollH(null);
-      progress.setValue(0);
-      // One frame of head start, so the content's first (and only) layout pass
-      // happens before the animation rather than during it.
-      requestAnimationFrame(() => {
-        Animated.spring(progress, {
-          toValue: 1,
-          stiffness: 200,
-          damping: 20,
-          mass: 0.9,
-          useNativeDriver: true,
-        }).start(({ finished }) => { if (finished) setExpanded(true); });
-      });
+      box.setValue(0);
+      reveal.setValue(0);
+      content.setValue(0);
+      exit.setValue(1);
+      // Already up means reopened mid-close: same content, which won't report
+      // a size change, so keep the height it last measured — and no `onShow`
+      // is coming, so start from here. Otherwise the Modal's `onShow` does.
+      if (presented.current) grow();
+      else setScrollH(null);
       return;
     }
 
     setExpanded(false);
-    Animated.timing(progress, {
-      toValue: 0,
-      // Slower than it arrives. Opening is a response to a tap and wants to
-      // feel immediate; closing is the panel taking its leave, and at 190ms it
-      // read as being snatched away.
-      duration: 300,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    if (unlockTimer.current) clearTimeout(unlockTimer.current);
+    // Fade and settle in place, rather than flying back to the row it came
+    // from — on the way out that travel is just something to wait for.
+    Animated.parallel([
+      Animated.timing(exit, {
+        toValue: 0,
+        duration: CLOSE_MS,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(reveal, {
+        toValue: 0,
+        duration: CLOSE_MS,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
       if (!finished) return;
+      presented.current = false;
       setRendered(false);
       const go = pendingAction.current;
       pendingAction.current = null;
       if (go) requestAnimationFrame(go);
     });
-  }, [visible, progress]);
+  }, [visible, box, reveal, content, exit, grow]);
 
   // Through refs, because a stacked panel calls `closeThen` from its own close
   // animation's callback — a closure from a render 300ms ago, whose `onClose`
@@ -307,16 +413,18 @@ export default function SummaryModal({
 
   if (!rendered) return null;
 
-  // Where the panel comes from: the tapped row's centre, relative to its own.
-  // Translate is listed before scale, which keeps it in unscaled units.
-  const dx = (from.x + from.w / 2) - (panelX + panelW / 2);
-  const dy = (from.y + from.h / 2) - (panelY + settledH / 2);
-
   const track = (a: number, b: number) =>
-    progress.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
+    box.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+      onShow={onShow}
+      statusBarTranslucent
+    >
       <SummaryPanelContext.Provider value={panelHandle}>
       {/* Blur plus a tint, not a tint alone: the panel sits over a list of the
           very things it is summarising, and the blur is what stops the row
@@ -336,7 +444,7 @@ export default function SummaryModal({
         style={[
           StyleSheet.absoluteFill,
           Platform.OS === 'ios' ? styles.scrim : styles.scrimOpaque,
-          { opacity: progress },
+          fadeStyles.reveal,
         ]}
         pointerEvents="none"
       />
@@ -352,84 +460,106 @@ export default function SummaryModal({
         style={[StyleSheet.absoluteFill, { transform: [{ translateY: Animated.multiply(keyboardLift, -1) }] }]}
         pointerEvents="box-none"
       >
-      {/* The panel. Laid out once, then only transformed and faded. */}
+      {/* The close's fade and settle, on its own view: the box inside runs a
+          JS-driven layout animation, and one view can't mix the two drivers. */}
       <Animated.View
-        ref={panelRef}
-        onLayout={onPanelLayout}
+        style={[StyleSheet.absoluteFill, { opacity: exit, transform: [{ scale: exit.interpolate({ inputRange: [0, 1], outputRange: [EXIT_SCALE, 1] }) }] }]}
+        pointerEvents="box-none"
+      >
+      {/* The growing box: the surface, and nothing to re-measure. See-through
+          at the row's size — opaque there, it's a black slab on the row at the
+          start of every open and the end of every close — and solid by the
+          time it's visibly a panel. */}
+      <Animated.View
+        pointerEvents="none"
         style={[
-          styles.panel,
+          styles.box,
           { borderColor: colors.border },
-          { left: panelX, top: panelY, width: panelW, height: settledH },
           {
-            opacity: progress.interpolate({
-              inputRange: [0, 0.35, 1], outputRange: [0, 0.85, 1], extrapolate: 'clamp',
+            opacity: box.interpolate({
+              inputRange: [0, 0.12, 1], outputRange: [0, 1, 1], extrapolate: 'clamp',
             }),
-            transform: [
-              { translateX: track(dx, 0) },
-              { translateY: track(dy, 0) },
-              { scale: track(START_SCALE, 1) },
-            ],
+            left: track(from.x, panelX),
+            top: track(from.y, panelY),
+            width: track(from.w, panelW),
+            height: track(from.h, settledH),
+            borderRadius: track(Math.min(PANEL_RADIUS, from.h / 2), PANEL_RADIUS),
           },
         ]}
+      />
+
+      {/* The content, at the panel's final size throughout. The positioned
+          view is plain, so a late measurement moving it touches no animated
+          props; the fade is on the view inside, whose style never changes. */}
+      <View
+        ref={panelRef}
+        onLayout={onPanelLayout}
+        style={[styles.panel, { left: panelX, top: panelY, width: panelW, height: settledH }]}
         pointerEvents={expanded ? 'auto' : 'none'}
       >
-        {/* The scroller belongs to the panel rather than to each summary: it's
-            the only thing that knows how tall the content wants to be, and
-            every summary needs the same "grow to fit, then scroll". */}
-        <ScrollView
-          style={styles.body}
-          showsVerticalScrollIndicator={false}
-          // A button under an open keyboard should take the first tap, not
-          // spend it on dismissing the keyboard.
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={(_w, h) => setScrollH(h)}
-        >
-          {children}
-        </ScrollView>
-
-        {onAction && (
-          <View
-            style={[styles.footer, { borderTopColor: colors.border }]}
-            onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
+        <Animated.View style={fadeStyles.content}>
+          {/* The scroller belongs to the panel rather than to each summary: it's
+              the only thing that knows how tall the content wants to be, and
+              every summary needs the same "grow to fit, then scroll". */}
+          <ScrollView
+            style={styles.body}
+            showsVerticalScrollIndicator={false}
+            // A button under an open keyboard should take the first tap, not
+            // spend it on dismissing the keyboard.
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={(_w, h) => setScrollH(h)}
           >
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: brand }]}
-              onPress={runAction}
-              activeOpacity={0.85}
-              accessibilityRole="button"
+            {children}
+          </ScrollView>
+
+          {onAction && (
+            <View
+              style={[styles.footer, { borderTopColor: colors.border }]}
+              onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
             >
-              {/* Black rather than `contrastText(brand)`. Both brand fills are
-                  light — a mid blue and a gold — and the automatic contrast
-                  picked white on the blue, which read as thin against it.
-                  Black is the deliberate answer on both. */}
-              <Text style={[styles.actionText, styles.onBrand]}>{actionLabel}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </Animated.View>
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: brand }]}
+                onPress={runAction}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+              >
+                {/* Black rather than `contrastText(brand)`. Both brand fills are
+                    light — a mid blue and a gold — and the automatic contrast
+                    picked white on the blue, which read as thin against it.
+                    Black is the deliberate answer on both. */}
+                <Text style={[styles.actionText, styles.onBrand]}>{actionLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Animated.View>
+      </View>
 
       {/* Outside the panel, above its top-right corner — over the content it
           sat on the photo every summary opens with, and on a pale one it had
           to carry its own dark disc to stay visible. Out here it's on the
           dimmed backdrop, where white reads on its own. Clamped so a tall
-          panel on a short screen can't push it off the top. */}
-      <Animated.View
+          panel on a short screen can't push it off the top. Positioned by a
+          plain view and faded by the one inside, for the same reason as the
+          content. */}
+      <View
         style={[
           styles.close,
-          { left: panelX + panelW - CLOSE_SIZE, top: Math.max(10, panelY - CLOSE_SIZE - 10) },
-          { opacity: progress },
+          { left: panelX + panelW - CLOSE_SIZE, top: Math.max(insets.top + CLOSE_GAP, panelY - CLOSE_SIZE - CLOSE_GAP) },
         ]}
-        pointerEvents={expanded ? 'auto' : 'none'}
+        pointerEvents={expanded ? 'box-none' : 'none'}
       >
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        >
-          <X size={22} color="#FFFFFF" strokeWidth={2.2} />
-        </TouchableOpacity>
+        <Animated.View style={fadeStyles.reveal}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
       </Animated.View>
       </Animated.View>
 
@@ -449,11 +579,15 @@ const styles = StyleSheet.create({
   // Doing the whole job on its own where there is no blur under it.
   scrimOpaque: { backgroundColor: 'rgba(0,0,0,0.78)' },
 
-  panel: {
+  /**
+   * Stacking, bottom to top: scrim, backdrop press, the box, the content, the
+   * close button. Both zIndex and elevation, because iOS honours tree order
+   * and zIndex while Android honours elevation over tree order.
+   */
+  box: {
     position: 'absolute',
-    borderRadius: PANEL_RADIUS,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: PANEL_BORDER,
     // Opaque: the blurred screen behind must not read through the panel that
     // is covering it.
     backgroundColor: '#000000',
@@ -461,6 +595,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
+    zIndex: 10, elevation: 20,
+  },
+  // No surface of its own — the box under it is the surface. The transparent
+  // border keeps the content inside the box's border rather than over it.
+  panel: {
+    position: 'absolute',
+    borderRadius: PANEL_RADIUS,
+    borderWidth: PANEL_BORDER,
+    borderColor: 'transparent',
+    overflow: 'hidden',
     zIndex: 20, elevation: 22,
   },
   // Takes what the footer leaves. Once the content is taller than the cap, this

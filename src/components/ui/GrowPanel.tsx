@@ -15,6 +15,11 @@ export const GROW_PANEL_RADIUS = 20;
 const BTN_RADIUS = 14;
 /** How long the box takes to grow — and so how long the contents wait. */
 const OPEN_MS = 420;
+/** When the contents start to fade in — and so, near enough, become touchable. */
+const CONTENT_DELAY_MS = 300;
+/** The close: a fade, and a slight settle to this scale. */
+const CLOSE_MS = 180;
+const EXIT_SCALE = 0.94;
 /**
  * How far past its mark the box goes before settling. The default back
  * easing (1.7) overshoots by a tenth, which on a box this size read as
@@ -104,8 +109,14 @@ export default function GrowPanel({
    * go at once, ahead of the box.
    */
   const content = useRef(new Animated.Value(0)).current;
-  /** True once the box has arrived — gates touches on the content. */
+  /** True once the contents start to show — gates touches on them. */
   const [expanded, setExpanded] = useState(false);
+  /**
+   * The close: the whole panel fading and settling a little smaller where it
+   * is. It used to shrink back into the button that opened it, which on the
+   * way out is a lot of travel for something you've already finished with.
+   */
+  const exit = useRef(new Animated.Value(1)).current;
   const pending = useRef<(() => void) | null>(null);
 
   // Held for the life of the animation: the origin is whatever button opened
@@ -119,7 +130,11 @@ export default function GrowPanel({
     box.setValue(0);
     reveal.setValue(0);
     content.setValue(0);
+    exit.setValue(1);
     setExpanded(false);
+    // Touchable as soon as the contents start to show, not once every fade has
+    // finished — waiting that out made the menu feel stuck for half a second.
+    const unlock = setTimeout(() => setExpanded(true), CONTENT_DELAY_MS + 60);
     // Two frames of head start, so the content mounts before the box moves.
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => {
       Animated.parallel([
@@ -142,45 +157,35 @@ export default function GrowPanel({
         }),
         Animated.timing(content, {
           toValue: 1,
-          delay: OPEN_MS,
+          // A little before the box has quite settled — the last of its
+          // travel is the small overshoot, and the contents can ride that.
+          delay: CONTENT_DELAY_MS,
           // Unhurried, and a slight rise with the fade (see contentRise): the
           // contents settle onto the surface rather than switching on.
           duration: CONTENT_MS,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start(({ finished }) => {
-        if (finished) setExpanded(true);
-      });
+      ]).start();
     }));
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); clearTimeout(unlock); };
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeThen = useCallback((run?: () => void) => {
     pending.current = run ?? null;
     setExpanded(false);
     Animated.parallel([
-      // Quick and fully damped on the way home: the open earns its slow
-      // breath because you're waiting for the contents, but a close is a
-      // dismissal, and a dismissal that lingers feels like it didn't take.
-      Animated.spring(box, {
+      // Fade and settle in place — quick, because a dismissal that lingers
+      // feels like it didn't take. The box stays put; `exit` carries it.
+      Animated.timing(exit, {
         toValue: 0,
-        stiffness: 180,
-        damping: 26,
-        mass: 0.7,
-        useNativeDriver: false,
-      }),
-      // Quicker than the box: the content is pinned at full size, so it has
-      // to be gone before the box shrinks out from under it.
-      Animated.timing(reveal, {
-        toValue: 0,
-        duration: 150,
+        duration: CLOSE_MS,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(content, {
+      Animated.timing(reveal, {
         toValue: 0,
-        duration: 120,
+        duration: CLOSE_MS,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -191,7 +196,7 @@ export default function GrowPanel({
       pending.current = null;
       go?.();
     });
-  }, [onClose, box, reveal, content]);
+  }, [onClose, exit, reveal]);
 
   const grow = (a: number, b: number) => box.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
   /**
@@ -222,6 +227,13 @@ export default function GrowPanel({
         </Animated.View>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => closeThen()} accessibilityLabel="Close" />
 
+        {/* The box and the content ride one wrapper, so the close fades and
+            settles them together. Native-driven, and a separate view from the
+            box's own layout animation, so the two drivers never share one. */}
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { opacity: exit, transform: [{ scale: exit.interpolate({ inputRange: [0, 1], outputRange: [EXIT_SCALE, 1] }) }] }]}
+          pointerEvents="box-none"
+        >
         {/* The growing box: colour and shape only, nothing to re-measure. */}
         <Animated.View
           pointerEvents="none"
@@ -248,6 +260,7 @@ export default function GrowPanel({
           <Animated.View style={[styles.fill, { opacity: content, transform: [{ translateY: contentRise }] }]}>
             {children({ closeThen, expanded })}
           </Animated.View>
+        </Animated.View>
         </Animated.View>
       </View>
     </Modal>

@@ -4,6 +4,8 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Users, UserPlus, FileText, Car } from 'lucide-react-native';
+import GarageDoor from '../ui/GarageDoor';
+import GarageThumbs from '../cars/GarageThumbs';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
 import RegionBadge from '../ui/RegionBadge';
@@ -168,28 +170,14 @@ export default function UserSummaryModal({
               <Text style={[styles.bio, { color: colors.muted }]} numberOfLines={6}>{bio}</Text>
             ) : null}
 
-            {/* What's in the garage, by name. Chips rather than cards: this is
-                a glance, and the profile behind "View Profile" has the photos. */}
+            {/* What's in the garage, as the header shows yours: the door, and
+                the cars' own photos overlapping beside it. Larger here, and
+                not a button — it's a glance; the profile behind "View Profile"
+                is where the cars are. */}
             {garage.length > 0 && (
-              <View style={styles.garage}>
-                <Text style={[styles.garageLabel, { color: colors.grey }]}>In the garage</Text>
-                <View style={styles.garageChips}>
-                  {garage.map((car) => (
-                    <View key={car.internal_id} style={[styles.garageChip, { backgroundColor: colors.segment }]}>
-                      <Car size={11} color={colors.grey} />
-                      <Text style={[styles.garageChipText, { color: colors.fg }]} numberOfLines={1}>
-                        {[car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car'}
-                      </Text>
-                    </View>
-                  ))}
-                  {(carsData?.total ?? 0) > garage.length && (
-                    <View style={[styles.garageChip, { backgroundColor: colors.segment }]}>
-                      <Text style={[styles.garageChipText, { color: colors.grey }]}>
-                        +{(carsData?.total ?? 0) - garage.length} more
-                      </Text>
-                    </View>
-                  )}
-                </View>
+              <View style={styles.garage} accessibilityLabel={`${carsData?.total ?? garage.length} cars in the garage`}>
+                <GarageDoor size={28} color={colors.fg} strokeWidth={2.2} />
+                <GarageThumbs cars={garage} max={3} size={38} total={carsData?.total} />
               </View>
             )}
 
@@ -214,14 +202,7 @@ export default function UserSummaryModal({
 const GARAGE_PREVIEW = 6;
 
 const styles = StyleSheet.create({
-  garage:      { gap: 7 },
-  garageLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  garageChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  garageChip:  {
-    flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%',
-    paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999,
-  },
-  garageChipText: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  garage:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
   loading: { height: 200, alignItems: 'center', justifyContent: 'center' },
   // 3:1 — wide enough to read as a banner, short enough that it doesn't push
   // the name and the buttons off a short phone.

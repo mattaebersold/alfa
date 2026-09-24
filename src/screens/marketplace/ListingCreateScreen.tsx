@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
   Alert, Platform, Switch,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Check, Tag, X } from 'lucide-react-native';
@@ -21,7 +22,6 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import { DIECAST_UPSELL, LISTING_LIMIT_UPSELL } from '../../constants/limits';
-import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
@@ -156,7 +156,6 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
   const colors = useColors();
   const brand = useBrandColor();
   const isPro = useIsPro();
-  const keyboardHeight = useKeyboardHeight();
   const me = useAppSelector((s) => s.auth.userInfo);
   const isEdit = !!listingId;
 
@@ -487,12 +486,11 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
     >
       <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
 
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: 24 + keyboardHeight + (Platform.OS === 'android' ? 40 : 20) },
+          { paddingBottom: 24 + (Platform.OS === 'android' ? 40 : 20) },
         ]}
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* ── STEP 1: which side of the market ───────────────────────────── */}
@@ -867,7 +865,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
             )}
           </View>
         )}
-      </ScrollView>
+      </FormScrollView>
 
       {/*
         The pitch, over the form. Someone who's out of listings for the month

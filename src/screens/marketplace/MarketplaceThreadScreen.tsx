@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Platform, Alert,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
 import {
   useGetMarketplaceThreadQuery,
@@ -113,18 +113,6 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
     if (appActive && !wasActive.current && threadId) refetch();
     wasActive.current = appActive;
   }, [appActive, refetch, threadId]);
-
-  // The keyboard (raised by the composer's panel, over this sheet) shrinks the
-  // list without changing its content, so nothing scrolls the newest message
-  // back into view on its own — follow it down, so the thread is on its newest
-  // message when the panel folds away.
-  useEffect(() => {
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(event, () => {
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-    });
-    return () => sub.remove();
-  }, []);
 
   // Sheet owns its visibility so it animates out before the route unmounts.
   const [visible, setVisible] = useState(true);
@@ -302,13 +290,12 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
             keyboardDismissMode="interactive"
           />
 
-          {/* Tapped, the composer opens over the sheet on the keyboard — see
-              Composer — so nothing here has to be lifted clear of it. */}
+          {/* The sheet rides the keyboard, so the bar sits on it; the list
+              above shrinks and stays on the newest message (its onLayout). */}
           <Composer
             value={body}
             onChangeText={setBody}
             placeholder={threadId ? 'Message...' : 'Ask about this listing...'}
-            title={otherUser?.username ? `Message @${otherUser.username}` : 'About this listing'}
             photos={photos}
             onSend={handleSend}
             sending={busy}

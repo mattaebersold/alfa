@@ -1,8 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Image } from 'expo-image';
-import { Car, ExternalLink, Lock } from 'lucide-react-native';
+import { Car, ExternalLink, Lock, Settings, PenSquare, Trash2 } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
+import ActionSheet from '../ui/ActionSheet';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
@@ -38,16 +39,27 @@ function ItemRow({ item, rank }: { item: ListItem; rank: number }) {
     Linking.openURL(link).catch(() => Alert.alert("Couldn't open link", link));
   };
 
+  const rankBadge = (
+    <View style={[styles.rank, { backgroundColor: colors.segment }]}>
+      <Text style={[styles.rankText, { color: colors.fg }]}>{rank}</Text>
+    </View>
+  );
+
   return (
     <View style={[styles.item, { borderTopColor: colors.borderDark }]}>
-      <Text style={[styles.rank, { color: colors.grey }]}>{rank}</Text>
-      {/* Photo above the words, not beside them: at this size a side thumbnail
-          would leave the title a third of the panel to wrap in. */}
-      <View style={styles.itemText}>
-        {photo ? (
+      {/* The photo takes the panel's full width, with the rank worn on its
+          corner. Without one, the rank sits beside the title instead. */}
+      {photo ? (
+        <View>
           <Image source={{ uri: photo }} style={styles.itemPhoto} contentFit="cover" transition={150} />
-        ) : null}
-        <Text style={[styles.itemTitle, { color: colors.fg }]}>{item.title}</Text>
+          <View style={styles.rankOnPhoto}>{rankBadge}</View>
+        </View>
+      ) : null}
+      <View style={styles.itemText}>
+        <View style={styles.itemTitleRow}>
+          {photo ? null : rankBadge}
+          <Text style={[styles.itemTitle, { color: colors.fg }]}>{item.title}</Text>
+        </View>
         {description ? (
           <Text style={[styles.itemDesc, { color: colors.muted }]}>{description}</Text>
         ) : null}
@@ -89,8 +101,17 @@ export default function ListSummaryContent({
   onOpenUser,
   onOpenCar,
   hideCar,
+  onEdit,
+  onDelete,
 }: {
   list: List;
+  /**
+   * The author's controls. Given either, a cog beside the title opens them —
+   * a sheet rather than a full-width button, since reading the list is what
+   * the panel is for and editing is the rarer errand.
+   */
+  onEdit?: () => void;
+  onDelete?: () => void;
   onOpenUser?: (userId: string, origin: SummaryOrigin | null) => void;
   onOpenCar?: (carId: string) => void;
   /** On the car's own page, "attached to this car" is the page you're on. */
@@ -98,6 +119,8 @@ export default function ListSummaryContent({
 }) {
   const colors = useColors();
   const authorRef = useRef<View>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hasMenu = !!(onEdit || onDelete);
 
   const cover = firstGalleryUrl(list.gallery);
   const body = list.body ? stripHtml(list.body).trim() : '';
@@ -112,7 +135,20 @@ export default function ListSummaryContent({
       {cover ? <Image source={{ uri: cover }} style={styles.cover} contentFit="cover" transition={150} /> : null}
 
       <View style={styles.body}>
-        <Text style={[styles.title, { color: colors.fg }]}>{list.title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.fg }]}>{list.title}</Text>
+          {hasMenu && (
+            <TouchableOpacity
+              style={[styles.cogBtn, { backgroundColor: colors.segment }]}
+              onPress={() => setMenuOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="List options"
+            >
+              <Settings size={17} color={colors.fg} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View style={styles.badges}>
           <View style={[styles.badge, { backgroundColor: colors.segment }]}>
@@ -186,6 +222,18 @@ export default function ListSummaryContent({
           <Text style={[styles.empty, { color: colors.grey }]}>Nothing on this list yet.</Text>
         )}
       </View>
+
+      {hasMenu && (
+        <ActionSheet
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          title={list.title}
+          options={[
+            ...(onEdit ? [{ label: 'Edit list', Icon: PenSquare, onPress: onEdit }] : []),
+            ...(onDelete ? [{ label: 'Delete list', Icon: Trash2, destructive: true, onPress: onDelete }] : []),
+          ]}
+        />
+      )}
     </View>
   );
 }
@@ -193,7 +241,12 @@ export default function ListSummaryContent({
 const styles = StyleSheet.create({
   cover: { width: '100%', height: 140, backgroundColor: '#161616' },
   body:  { padding: 18, paddingBottom: 22, gap: 8 },
-  title: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  title: { flex: 1, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  cogBtn: {
+    width: 34, height: 34, borderRadius: COMMON_RADIUS,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   badge: {
@@ -222,18 +275,21 @@ const styles = StyleSheet.create({
 
   items: { marginTop: 8 },
   item: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    gap: 8,
     paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  // Fixed width so a list that reaches 10 doesn't shift every photo right by
-  // a digit from the ninth row on.
-  rank:      { width: 22, fontSize: 17, fontWeight: '800', textAlign: 'center', marginTop: 1 },
-  // Big enough to actually see the car in — twice the thumbnail it replaced.
-  // The photo sits above the text rather than beside it (see ItemRow), so it
-  // can be this size without squeezing the title.
-  itemPhoto: { width: 128, height: 128, borderRadius: COMMON_RADIUS, backgroundColor: '#161616', marginBottom: 5 },
-  itemText:  { flex: 1, minWidth: 0, gap: 3 },
-  itemTitle: { fontSize: 15, fontWeight: '700' },
+  // A disc, fixed size, so 1 and 10 sit the same.
+  rank: {
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rankText:    { fontSize: 13, fontWeight: '800' },
+  rankOnPhoto: { position: 'absolute', top: 8, left: 8 },
+  // The panel's full width: the car is the point of the entry.
+  itemPhoto: { width: '100%', aspectRatio: 16 / 10, borderRadius: COMMON_RADIUS, backgroundColor: '#161616' },
+  itemText:  { minWidth: 0, gap: 3 },
+  itemTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  itemTitle: { flex: 1, fontSize: 15, fontWeight: '700' },
   itemDesc:  { fontSize: 13, lineHeight: 18 },
   // Small, and the panel's secondary grey: it's a way out of the list, not the
   // thing the list is for.

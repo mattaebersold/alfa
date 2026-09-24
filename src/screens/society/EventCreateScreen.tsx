@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -133,9 +134,8 @@ export default function EventCreateScreen() {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      <ScrollView
+      <FormScrollView
         style={styles.scroll}
-        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ paddingBottom: 24 }}
       >
@@ -242,7 +242,7 @@ export default function EventCreateScreen() {
             </ScrollView>
           )}
         </View>
-      </ScrollView>
+      </FormScrollView>
 
       {/* Submit */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>

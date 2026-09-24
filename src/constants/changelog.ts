@@ -25,6 +25,52 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.50': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Profiles',
+        items: [
+          'A cleaner layout on profiles, with a darker look throughout.',
+          'Profiles show a member\'s photography pins, and their marketplace and diecast listings.',
+          'Help prompts on your own profile if you\'re missing a photo, a bio or a car, or aren\'t following anyone yet.',
+          'Ask a member with no profile photo to add one.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'Updated car cards and car pages.',
+          'Help prompts on your own car if it\'s missing a photo, specs or mods — add them right there.',
+          'Ask the owner of a car with no photos to add some; they get a notification.',
+          'A mod posted without a photo no longer shows the car\'s photo in its card.',
+          'Mileage shows properly, or TMU when it isn\'t known.',
+          'The brands page shows a few of each brand\'s cars and how many models are on the site.',
+        ],
+      },
+      {
+        title: 'Members',
+        items: [
+          'A refreshed members list.',
+          'Tap a featured member or featured car for a quick preview.',
+        ],
+      },
+      {
+        title: 'Events',
+        items: [
+          'See upcoming events on a map.',
+        ],
+      },
+      {
+        title: 'Fixes',
+        items: [
+          'Text fields are no longer hidden behind the keyboard.',
+          'Porsche no longer appears twice in the list of makes.',
+          'Tidied up the car make and model list.',
+        ],
+      },
+    ],
+  },
   '1.49': {
     date: 'September 2026',
     groups: [

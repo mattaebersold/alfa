@@ -11,7 +11,8 @@ const ROW_PAD = 14; // matches the section heading's inset
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 
 interface Props {
-  onCarPress: (carId: string) => void;
+  /** Optional now: a tap opens the car's summary, which has its own way to the car. */
+  onCarPress?: (carId: string) => void;
 }
 
 /**
@@ -56,7 +57,11 @@ function FeaturedCarsRow({ onCarPress }: Props) {
             // you meet it without having come from their profile.
             showOwner
             featured
-            onBeforeNavigate={() => onCarPress(car.internal_id)}
+            // Squares, so the row lines up; and a preview first, like the
+            // members row — the summary has its own View Car.
+            square
+            summaryOnPress
+            onBeforeNavigate={onCarPress ? () => onCarPress(car.internal_id) : undefined}
             style={styles.card}
           />
         ))}

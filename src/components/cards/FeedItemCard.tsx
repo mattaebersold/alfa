@@ -347,7 +347,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           {/* Squared to the app's corner rather than a circle — it sits in a
               card built from the same radius, and a lone circle in that row
               read as a different kind of object. */}
-          <Avatar user={user} size={36} radius={COMMON_RADIUS} />
+          <Avatar user={user} size={36} />
           <View style={styles.headerText}>
             <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
           </View>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Car } from 'lucide-react-native';
+import { Car, FileText } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import RegionBadge from '../ui/RegionBadge';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
@@ -26,7 +26,7 @@ import type { User } from '../../types/api';
  * handle, with no way to follow anyone back from the one screen where you are
  * literally looking at people who followed you.
  */
-export default function MemberRow({ user, onPress, isFollowing, showStats = true }: {
+export default function MemberRow({ user, onPress, isFollowing, showStats = true, plain = false }: {
   user: User;
   /**
    * Handed the row's position on screen, for callers that open a summary
@@ -43,6 +43,12 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
    * needs names can turn them off.
    */
   showStats?: boolean;
+  /**
+   * No fill — the row sits straight on the page, parted from the next by a
+   * near-black rule. For a long list on a screen of its own, where a filled
+   * band per member was a column of grey slabs.
+   */
+  plain?: boolean;
 }) {
   const colors = useColors();
   const { userInfo } = useAppSelector((s: any) => s.auth);
@@ -62,7 +68,12 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
 
   return (
     <SummaryTouchable
-      style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+      style={[
+        ss.listRow,
+        plain
+          ? { borderBottomColor: '#1A1A1A', borderBottomWidth: StyleSheet.hairlineWidth }
+          : { backgroundColor: colors.card, borderBottomColor: colors.border },
+      ]}
       onPress={onPress}
     >
       <View style={[styles.avatarWrap, isPro && styles.proRing]}>
@@ -75,21 +86,22 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
       </View>
 
       <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]}>@{user.username}</Text>
+        <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
         {showStats && (
           <View style={styles.statsRow}>
+            {/* Icon and number, no words — the glyphs say which is which, and
+                in a darker grey they sit under the name rather than beside it. */}
             {carCount > 0 && (
-              <View style={styles.statChip}>
-                <Car size={12} color={colors.grey} />
-                <Text style={[styles.statText, { color: colors.grey }]}>
-                  {carCount} {carCount === 1 ? 'car' : 'cars'}
-                </Text>
+              <View style={styles.statChip} accessibilityLabel={`${carCount} ${carCount === 1 ? 'car' : 'cars'}`}>
+                <Car size={13} color={colors.greyDark} />
+                <Text style={[styles.statText, { color: colors.greyDark }]}>{carCount}</Text>
               </View>
             )}
             {postCount > 0 && (
-              <Text style={[styles.statText, { color: colors.grey }]}>
-                {postCount} {postCount === 1 ? 'post' : 'posts'}
-              </Text>
+              <View style={styles.statChip} accessibilityLabel={`${postCount} ${postCount === 1 ? 'post' : 'posts'}`}>
+                <FileText size={12} color={colors.greyDark} />
+                <Text style={[styles.statText, { color: colors.greyDark }]}>{postCount}</Text>
+              </View>
             )}
           </View>
         )}
@@ -97,22 +109,32 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
 
       {/* Where in the country they are, as a map — "Bothell, WA" only places
           someone if you already know where Bothell is. */}
-      <RegionBadge region={regionForCityState(user.cityState)?.key} size={32} />
+      {/* No backdrop: a row is a plain dark ground, not a photo the map has
+          to stand out from, and the pad only boxed it in. Larger to make up
+          for the room the pad took. */}
+      <RegionBadge
+        region={regionForCityState(user.cityState)?.key}
+        size={42}
+        backdrop={false}
+        // A soft outline, so the lit region is what reads, not the coastline.
+        outline="rgba(255,255,255,0.14)"
+      />
 
-      {/* No follow button against your own row. */}
+      {/* No follow button against your own row. An icon rather than a word:
+          the same size either way, so a row doesn't jump when followed. */}
       {user.username && user.user_id !== userInfo?.user_id && (
-        <FollowButton username={user.username} isFollowing={isFollowing} />
+        <FollowButton username={user.username} isFollowing={isFollowing} iconOnly />
       )}
     </SummaryTouchable>
   );
 }
 
 const styles = StyleSheet.create({
-  info:      { flex: 1 },
+  info:      { flex: 1, minWidth: 0 },
   name:      { fontSize: 15, fontWeight: '700' },
   statsRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
-  statChip:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statText:  { fontSize: 12 },
+  statChip:  { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  statText:  { fontSize: 11, fontWeight: '600' },
   avatarWrap:{ position: 'relative' },
   proRing:   { borderWidth: 2.5, borderColor: '#CDA96F', borderRadius: 26, padding: 2 },
   proWheelBadge: {

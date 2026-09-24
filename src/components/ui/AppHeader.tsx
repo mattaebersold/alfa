@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
@@ -13,10 +12,9 @@ import NavDrawer from './NavDrawer';
 import NotificationsBell from './NotificationsBell';
 import GarageDoor from './GarageDoor';
 import GaragePanel from '../cars/GaragePanel';
+import GarageThumbs from '../cars/GarageThumbs';
 import { useAppSelector } from '../../store/store';
 import { useGetUserGarageQuery } from '../../api/apiService';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
-import type { GarageCar } from '../../types/api';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
@@ -127,40 +125,6 @@ function FloatingButton({
       {sheen && !bare && !outlined && <OilSheen tone={sheen} radius={BTN_RADIUS} />}
       <View style={[styles.btnIcon, wide && styles.btnIconWide]}>{children}</View>
     </TouchableOpacity>
-  );
-}
-
-/**
- * Up to `max` overlapping car photos from the user's garage, followed by a
- * "+N" chip when the garage holds more than that. Renders nothing for an empty
- * garage — the button's door icon already stands on its own.
- */
-function GarageThumbs({ cars, max = 2 }: { cars: GarageCar[]; max?: number }) {
-  const shown = cars.slice(0, max);
-  const overflow = cars.length - shown.length;
-  if (shown.length === 0) return null;
-
-  return (
-    <View style={styles.thumbRow}>
-      {shown.map((car, i) => {
-        const uri = car.profile_image
-          ? imageUrl(car.profile_image) ?? undefined
-          : firstGalleryUrl(car.gallery) ?? undefined;
-        return (
-          <ExpoImage
-            key={car.internal_id ?? i}
-            source={{ uri }}
-            style={[styles.thumb, i > 0 && styles.thumbOverlap]}
-            contentFit="cover"
-          />
-        );
-      })}
-      {overflow > 0 && (
-        <View style={[styles.thumb, styles.thumbOverlap, styles.thumbMore]}>
-          <Text style={styles.thumbMoreText}>+{overflow}</Text>
-        </View>
-      )}
-    </View>
   );
 }
 
@@ -471,15 +435,6 @@ const styles = StyleSheet.create({
     width: undefined, flexDirection: 'row', alignItems: 'center', gap: 6.5,
     overflow: 'visible',
   },
-
-  thumbRow:     { flexDirection: 'row', alignItems: 'center' },
-  thumb:        { width: 23, height: 23, borderRadius: 11.5, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.25)' },
-  thumbOverlap: { marginLeft: -8.5 },
-  // Solid dark grey rather than 75% black: the button behind it is now a 10%
-  // black wash, so a translucent chip picked up whatever photo was underneath
-  // and the count sat on a moving ground.
-  thumbMore:    { backgroundColor: '#3A3A3A', alignItems: 'center', justifyContent: 'center' },
-  thumbMoreText:{ fontSize: 9.5, fontWeight: '800', color: '#FFFFFF' },
 
   logo: { width: 25, height: 25 },
   // A box the size of the *rotated* word, so the row lays out around what you

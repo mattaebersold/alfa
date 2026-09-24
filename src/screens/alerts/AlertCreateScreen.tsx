@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
   Alert as RNAlert, Platform, Switch,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Check, Mail, Smartphone } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
@@ -16,7 +17,6 @@ import {
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { handleize } from '../../utils/handleize';
 import { ss } from '../../styles/shared';
 import { PILL_RADIUS } from '../../constants/radius';
@@ -102,7 +102,6 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
 }) {
   const colors = useColors();
   const brand = useBrandColor();
-  const keyboardHeight = useKeyboardHeight();
   const me = useAppSelector((s) => s.auth.userInfo);
   const isEdit = !!alertId;
 
@@ -353,12 +352,11 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
         </View>
       )}
 
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: 24 + keyboardHeight + (Platform.OS === 'android' ? 40 : 20) },
+          { paddingBottom: 24 + (Platform.OS === 'android' ? 40 : 20) },
         ]}
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* ── STEP 1: the event ──────────────────────────────────────────── */}
@@ -657,7 +655,7 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
             )}
           </View>
         )}
-      </ScrollView>
+      </FormScrollView>
 
       {/* Only a basic member is shown the gold card. A Pro member at twenty
           has nothing to buy, so their refusal is a plain alert — see

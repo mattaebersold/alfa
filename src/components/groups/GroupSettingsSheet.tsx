@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator,
 } from 'react-native';
+import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { UserMinus, ShieldCheck, ShieldOff, Camera, X } from 'lucide-react-native';
@@ -331,10 +332,9 @@ export default function GroupSettingsSheet({
   return (
     <SharedModal visible={visible} onClose={onClose} title="Group Settings" heightRatio={0.9}>
       {isLoading ? <Spinner /> : (
-        <ScrollView
+        <FormScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           {/* ── Group info ─────────────────────────────────────────── */}
           <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
@@ -548,7 +548,7 @@ export default function GroupSettingsSheet({
               </View>
             </View>
           )}
-        </ScrollView>
+        </FormScrollView>
       )}
       {/* Inside the sheet's own Modal, so the profile presents over it — a
           sibling would be asked of the root controller, which is busy showing

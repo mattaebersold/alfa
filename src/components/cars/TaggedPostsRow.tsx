@@ -26,6 +26,11 @@ export default function TaggedPostsRow({
       title="Tagged in Posts"
       posts={data?.entries ?? []}
       total={data?.total}
+      // Darker cards, a bigger two-line caption, and no "3 hours ago": what
+      // matters here is who put the car in a story and what they said.
+      cardBackground="#171717"
+      largeCaption
+      showTime={false}
       onPostPress={onPostPress}
       onViewAll={onViewAll}
     />

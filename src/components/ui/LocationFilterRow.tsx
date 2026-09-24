@@ -1,12 +1,13 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Navigation } from 'lucide-react-native';
-import RowEndSpacer from './RowEndSpacer';
+import { FILTER_HIT_SLOP } from './FilterSummaryRow';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { REGIONS } from '../../constants/regions';
 import { RADIUS_OPTIONS, type LocationChoice } from '../../hooks/useLocationFilter';
 import type { FilterPill } from './FilterSummaryRow';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 
 /**
  * Where to look: near me, everywhere, or one region.
@@ -19,6 +20,12 @@ import type { FilterPill } from './FilterSummaryRow';
  *
  * The radius only appears under near me: a region has a size of its own, and
  * "everywhere" has no middle to measure from.
+ *
+ * Options wrap onto as many lines as they need rather than scrolling sideways,
+ * and every one is a full 44pt tall. The first version was a single scrolling
+ * line of 28pt chips and a row of 22pt radius chips — it made the panel barely
+ * taller than its Apply button, half the regions sat off the edge, and people
+ * kept missing the chip they aimed for.
  */
 export default function LocationFilterRow({
   choice,
@@ -52,12 +59,7 @@ export default function LocationFilterRow({
     <>
       <Text style={[styles.label, { color: colors.grey }]}>Location</Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.row}>
         {options.map((opt) => {
           const active = choice === opt.key;
           return (
@@ -69,18 +71,18 @@ export default function LocationFilterRow({
                 active && { backgroundColor: brand, borderColor: brand },
               ]}
               onPress={() => onChoose(opt.key)}
+              hitSlop={FILTER_HIT_SLOP}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              {opt.key === 'near' && <Navigation size={11} color={active ? '#000000' : colors.fg} />}
+              {opt.key === 'near' && <Navigation size={14} color={active ? '#000000' : colors.fg} />}
               <Text style={[styles.chipText, { color: active ? '#000000' : colors.fg }]}>
                 {opt.label}
               </Text>
             </TouchableOpacity>
           );
         })}
-        <RowEndSpacer />
-      </ScrollView>
+      </View>
 
       {choice === 'near' && (
         <View style={styles.radiusRow}>
@@ -95,6 +97,7 @@ export default function LocationFilterRow({
                   active && { backgroundColor: colors.segment, borderColor: colors.grey },
                 ]}
                 onPress={() => onRadius(miles)}
+                hitSlop={FILTER_HIT_SLOP}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
@@ -145,16 +148,24 @@ const styles = StyleSheet.create({
     fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase',
     paddingHorizontal: 12, marginBottom: 6, marginTop: 4,
   },
-  row: { paddingLeft: 12, gap: 8, paddingBottom: 4, marginBottom: 8 },
+  // Wraps rather than scrolls — every region in view at once, none of them a
+  // sideways swipe away.
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, marginBottom: 12 },
+  // 44pt: the smallest target a thumb lands on reliably.
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    minHeight: 44, paddingHorizontal: 16, borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  chipText: { fontSize: 12, fontWeight: '700' },
+  chipText: { fontSize: 14, fontWeight: '700' },
 
-  radiusRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 12, marginTop: -2, marginBottom: 10 },
-  radiusChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
-  radiusText: { fontSize: 11, fontWeight: '700' },
+  // Equal thirds across the panel, like a segmented control — three choices of
+  // one number read better as one control than as three loose chips.
+  radiusRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginBottom: 12 },
+  radiusChip: {
+    flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center',
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
+  },
+  radiusText: { fontSize: 14, fontWeight: '700' },
 
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginTop: -2, marginBottom: 10 },
 });
