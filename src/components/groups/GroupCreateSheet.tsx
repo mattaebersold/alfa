@@ -60,7 +60,14 @@ export interface EditableGroupItem {
 
 interface Props {
   kind: CreateKind;
+  /** The group — or, with `scope`, the car model's cache key (utils/carScope). */
   groupId: string;
+  /**
+   * Post to a car model's page instead of a group: discussion and resources
+   * only, and open to anyone. The server takes the make + model in place of a
+   * group id.
+   */
+  scope?: { make: string; model: string };
   groupTitle?: string;
   /** Categories offered for this section, already narrowed to the real set. */
   categories: { key: string; label: string }[];
@@ -76,8 +83,10 @@ interface Props {
 }
 
 export default function GroupCreateSheet({
-  kind, groupId, groupTitle, categories, initialCategory, editing, visible, onClose,
+  kind, groupId, scope, groupTitle, categories, initialCategory, editing, visible, onClose,
 }: Props) {
+  // Where a new discussion or resource goes: the group, or the model's page.
+  const home = scope ? { make: scope.make, model: scope.model } : { group_id: groupId };
   const c = useColors();
 
   const [title, setTitle] = useState('');
@@ -203,11 +212,11 @@ export default function GroupCreateSheet({
           setImageProgress(null);
         }
       } else if (kind === 'discussion') {
-        await createDiscussion({ group_id: groupId, title: title.trim(), body: body.trim(), category }).unwrap();
+        await createDiscussion({ ...home, title: title.trim(), body: body.trim(), category }).unwrap();
       } else if (kind === 'news') {
         await createNews({ group_id: groupId, title: title.trim(), body: body.trim(), url: url.trim() || undefined }).unwrap();
       } else {
-        await createResource({ group_id: groupId, title: title.trim(), body: body.trim(), url: url.trim() || undefined, category }).unwrap();
+        await createResource({ ...home, title: title.trim(), body: body.trim(), url: url.trim() || undefined, category }).unwrap();
       }
       onClose();
     } catch {

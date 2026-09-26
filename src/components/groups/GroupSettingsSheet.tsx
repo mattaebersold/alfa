@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator,
 } from 'react-native';
+import MakeModelFields from '../cars/MakeModelFields';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -132,6 +133,8 @@ export default function GroupSettingsSheet({
 
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
+  const [groupMake, setGroupMake] = useState('');
+  const [groupModel, setGroupModel] = useState('');
   const [newImage, setNewImage] = useState<PickedImage | null>(null);
   const [newBanner, setNewBanner] = useState<PickedImage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -142,6 +145,8 @@ export default function GroupSettingsSheet({
     if (!visible || !group) return;
     setTitle(group.title ?? '');
     setSubtitle(group.subtitle ?? '');
+    setGroupMake(group.group_make ?? '');
+    setGroupModel(group.group_model ?? '');
     setNewImage(null);
     setNewBanner(null);
     setDeleteConfirm('');
@@ -209,6 +214,9 @@ export default function GroupSettingsSheet({
     fd.append('internal_id', group.internal_id);
     fd.append('title', name);
     fd.append('subtitle', subtitle.trim());
+    // Always sent, so clearing them here clears them; the model only with a make.
+    fd.append('group_make', groupMake.trim());
+    fd.append('group_model', groupMake.trim() ? groupModel.trim() : '');
 
     // Sent back as they are. The endpoint rewrites every field it names, so
     // leaving these out would clear them rather than leave them alone.
@@ -358,6 +366,17 @@ export default function GroupSettingsSheet({
                   onChangeText={setSubtitle}
                   placeholder="A short line under the name"
                   placeholderTextColor={c.grey}
+                />
+
+                {/* The car it's about — puts it on that make's page, and the
+                    model's too when there is one. Both optional. */}
+                <Text style={[styles.fieldLabel, { color: c.grey, marginTop: 14 }]}>Car (optional)</Text>
+                <MakeModelFields
+                  make={groupMake}
+                  model={groupModel}
+                  onMakeChange={setGroupMake}
+                  onModelChange={setGroupModel}
+                  hideMissingLink
                 />
               </View>
             ) : (

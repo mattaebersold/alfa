@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
@@ -9,7 +9,6 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +29,7 @@ import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '..
 import { colors } from '../../constants/colors';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
+import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -147,6 +147,17 @@ export default function CreateScreen() {
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [media, setMedia]         = useState<DraftMedia[]>([]);
   const [videoUploading, setVideoUploading] = useState(false);
+  /** Which video, of how many, which step it's on, and how far through that step (0–1). */
+  const [videoProgress, setVideoProgress] = useState<{
+    current: number; total: number; step: 'compressing' | 'uploading'; fraction: number;
+  } | null>(null);
+  /**
+   * Videos already on Mux, by file. A post that fails after its first video
+   * made it — the second one, or the create itself — is tried again with the
+   * same Post tap, and re-sending a video that already arrived is minutes of
+   * someone's data for nothing.
+   */
+  const sentVideos = useRef(new Map<string, string>());
   // Photos upload one-at-a-time after the post is created — this is the progress.
   const [imageProgress, setImageProgress] = useState<{ current: number; total: number } | null>(null);
 
@@ -265,6 +276,12 @@ export default function CreateScreen() {
       selectionLimit: room,
       quality: 0.85,
       videoMaxDuration: 120,
+      // iOS hands library videos over untouched by default — often 4K, and
+      // several hundred MB for two minutes, which is what timed out on a
+      // phone connection. 1080p is what the post plays at anyway (Mux
+      // streams it adaptively), and any preset but Passthrough also fetches
+      // an iCloud-only video instead of failing to load it.
+      videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
     });
     if (result.canceled) return;
     appendMedia(await toDraft(result.assets));
@@ -394,24 +411,40 @@ export default function CreateScreen() {
       setVideoUploading(true);
       const uploads: { upload_id: string; index: number }[] = [];
       try {
-        for (const { m, index } of videoItems) {
-          const { id, url } = await createMuxUploadUrl().unwrap();
-          const res = await FileSystem.uploadAsync(url, m.uri, {
-            httpMethod: 'PUT',
-            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-            headers: { 'Content-Type': 'video/mp4' },
-          });
-          if (res.status < 200 || res.status >= 300) throw new Error(`Mux upload failed (${res.status})`);
+        for (const [n, { m, index }] of videoItems.entries()) {
+          let id = sentVideos.current.get(m.uri);
+          if (!id) {
+            const at = { current: n + 1, total: videoItems.length };
+            setVideoProgress({ ...at, step: 'compressing', fraction: 0 });
+            const file = await compressVideo(
+              m.uri,
+              (fraction) => setVideoProgress({ ...at, step: 'compressing', fraction }),
+            );
+            setVideoProgress({ ...at, step: 'uploading', fraction: 0 });
+            id = await uploadVideoToMux(
+              file,
+              () => createMuxUploadUrl().unwrap(),
+              (fraction) => setVideoProgress({ ...at, step: 'uploading', fraction }),
+            );
+            sentVideos.current.set(m.uri, id);
+          }
           uploads.push({ upload_id: id, index });
         }
         fd.append('mux_uploads', JSON.stringify(uploads));
       } catch (e) {
+        console.warn('[CreatePost] video upload failed:', e);
         setVideoUploading(false);
+        setVideoProgress(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Video upload failed', 'Could not upload the video. Please try again.');
+        Alert.alert(
+          'Video upload failed',
+          "We couldn't get the video through after a few tries — usually a weak connection. "
+            + 'Anything that already made it is kept, so tapping Post again picks up where it stopped.',
+        );
         return;
       }
       setVideoUploading(false);
+      setVideoProgress(null);
     }
     // NOTE: photos are NOT attached here — they're added one-at-a-time after the
     // post exists (below), so we never send one giant multipart request.
@@ -656,7 +689,11 @@ export default function CreateScreen() {
             <>
               <ActivityIndicator color="#FFFFFF" size="small" />
               {videoUploading ? (
-                <Text style={[styles.submitText, { marginLeft: 8 }]}>Uploading video…</Text>
+                <Text style={[styles.submitText, { marginLeft: 8 }]}>
+                  {videoProgress
+                    ? `${videoProgress.step === 'compressing' ? 'Preparing' : 'Uploading'} video${videoProgress.total > 1 ? ` ${videoProgress.current} of ${videoProgress.total}` : ''}… ${Math.round(videoProgress.fraction * 100)}%`
+                    : 'Uploading video…'}
+                </Text>
               ) : imageProgress ? (
                 <Text style={[styles.submitText, { marginLeft: 8 }]}>Uploading {imageProgress.current} of {imageProgress.total}…</Text>
               ) : null}

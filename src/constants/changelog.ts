@@ -62,11 +62,31 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         ],
       },
       {
+        title: 'Brands & Models',
+        items: [
+          'Brand pages have a new look, with model cards that show more at a glance.',
+          'A better layout for the grid of cars on a brand\'s page.',
+          'Tap a model on a brand\'s page for a page of its own.',
+          'Bookmark a model\'s page to get back to it quickly — your bookmarked models are in the menu.',
+          'Discussion and resources sections on every model\'s page.',
+          'Cars can now have a generation and trim, and each brand\'s models are tidied up to match.',
+          'An updated and corrected list of car makes, models and trims.',
+        ],
+      },
+      {
+        title: 'Getting Around',
+        items: [
+          'Small tweaks to how the header menus look and open.',
+        ],
+      },
+      {
         title: 'Fixes',
         items: [
           'Text fields are no longer hidden behind the keyboard.',
           'Porsche no longer appears twice in the list of makes.',
           'Tidied up the car make and model list.',
+          'The make and model pickers stay open while you search, with suggestions above the field so the keyboard doesn\'t cover them.',
+          'Video uploads are more reliable: they show progress, retry on a shaky connection, and pick up where they left off if you tap Post again.',
         ],
       },
     ],

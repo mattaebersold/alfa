@@ -4,24 +4,22 @@ import {
   RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native';
 import { Search, Car, ChevronRight } from 'lucide-react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
-import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
-import { useGetCarsQuery, useGetUserByIdQuery, useGetCarBrandsQuery } from '../../api/apiService';
-import { firstGalleryUrl } from '../../utils/image';
+import { useGetCarsQuery, useGetCarBrandsQuery } from '../../api/apiService';
+import CarGridItem from '../../components/cars/CarGridItem';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
@@ -29,45 +27,6 @@ import { ss } from '../../styles/shared';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { COMMON_RADIUS } from '../../constants/radius';
 
-function CarGridItem({ item, onPress }: {
-  item: GarageCar;
-  onPress: (origin: SummaryOrigin | null) => void;
-}) {
-  const colors = useColors();
-  const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
-  const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
-  const ymm = [item.year, item.make, item.model].filter(Boolean).join(' ');
-  // The owner's name for it leads, with what it is underneath. A car with no
-  // name of its own is its year, make and model — said once, not twice.
-  const title = item.title || ymm || 'Car';
-  const subtitle = item.title ? ymm : '';
-  return (
-    <SummaryTouchable style={[styles.card, { backgroundColor: CARD_BG }]} onPress={onPress}>
-      <View style={styles.cardImageContainer}>
-        <Image
-          source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
-          style={styles.cardImage}
-          contentFit="cover"
-        />
-        {/* The stand-in, dimmed — the same as a profile with no cover. A
-            placeholder shouldn't outshine the real photos around it. */}
-        {!hero && <View style={styles.placeholderDim} pointerEvents="none" />}
-      </View>
-      <View style={styles.cardInfo}>
-        <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>{title}</Text>
-        {subtitle ? (
-          <Text style={[styles.carSubtitle, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text>
-        ) : null}
-        {owner && (
-          <View style={styles.ownerRow}>
-            <Avatar user={owner} size={20} />
-            <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
-          </View>
-        )}
-      </View>
-    </SummaryTouchable>
-  );
-}
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   // The header's back button lands here at the top — see useScrollTopOnBack.
@@ -260,9 +219,6 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   );
 }
 
-/** The grid cards' fill — the darker shade the profile's shelves use. */
-const CARD_BG = '#171717';
-
 const styles = StyleSheet.create({
   content: { flex: 1 },
   searchRow: {
@@ -299,19 +255,4 @@ const styles = StyleSheet.create({
   brandsChevron: { marginLeft: 'auto' },
   list: { paddingBottom: 20 },
   row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
-  card: {
-    flex: 1,
-    borderRadius: COMMON_RADIUS,
-    overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
-  cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
-  cardImage: { width: '100%', height: '100%' },
-  // Written out: RN 0.86 dropped `StyleSheet.absoluteFillObject`.
-  placeholderDim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
-  cardInfo: { padding: 8 },
-  carTitle: { fontSize: 13, fontWeight: '700' },
-  carSubtitle: { fontSize: 11, fontWeight: '600', marginTop: 1 },
-  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-  ownerName: { fontSize: 11, flex: 1 },
 });

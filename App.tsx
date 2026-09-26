@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { StatusBar } from 'expo-status-bar';
+import { PortalHost } from '@ors/kit';
 import { store } from './src/store/store';
 import RootNavigator from './src/navigation/RootNavigator';
 import OfflineOverlay from './src/components/ui/OfflineOverlay';
@@ -27,7 +28,11 @@ export default function App() {
         <KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
         <Provider store={store}>
           <StatusBar style="light" />
+          {/* Floating lists (autocompletes) draw here, over the screens; each
+              Modal has a host of its own. */}
+          <PortalHost>
           <RootNavigator />
+          </PortalHost>
           {/* Last child, so it covers the navigator rather than being covered
               by it — an outage has to be answerable from whatever screen the
               app happens to be on. */}

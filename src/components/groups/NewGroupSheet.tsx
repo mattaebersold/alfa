@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch,
 } from 'react-native';
+import MakeModelFields from '../cars/MakeModelFields';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -73,6 +74,9 @@ export default function NewGroupSheet({
   const [type, setType] = useState('regional');
   const [category, setCategory] = useState('');
   const [region, setRegion] = useState('');
+  // Optional: the car this group is about. A make alone is a make-wide group.
+  const [groupMake, setGroupMake] = useState('');
+  const [groupModel, setGroupModel] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [image, setImage] = useState<PickedImage | null>(null);
   const [invitees, setInvitees] = useState<User[]>([]);
@@ -157,6 +161,11 @@ export default function NewGroupSheet({
     // always a string — so it's appended only when it's actually true, or every
     // group would come out private.
     if (isPrivate) fd.append('private', 'true');
+    // Lists the group on that make's page, and the model's when there is one.
+    if (groupMake.trim()) {
+      fd.append('group_make', groupMake.trim());
+      if (groupModel.trim()) fd.append('group_model', groupModel.trim());
+    }
     if (image) fd.append('gallery', uploadFile(image.uri));
     // One JSON field, the way tags and group_ids travel in other multipart
     // calls — a repeated field is easy to get wrong on both ends. The server
@@ -359,6 +368,18 @@ export default function NewGroupSheet({
               </>
             )}
 
+            <Label colors={colors}>Car</Label>
+            <Text style={[styles.carHint, { color: colors.grey }]}>
+              Optional. A make puts the group on that make's page; add a model if it's about just one.
+            </Text>
+            <MakeModelFields
+              make={groupMake}
+              model={groupModel}
+              onMakeChange={setGroupMake}
+              onModelChange={setGroupModel}
+              hideMissingLink
+            />
+
             <Label colors={colors}>About</Label>
             <TextInput
               style={[
@@ -461,6 +482,7 @@ function Label({ children, colors, first = false }: { children: React.ReactNode;
 }
 
 const styles = StyleSheet.create({
+  carHint: { fontSize: 12, lineHeight: 17, marginBottom: 8 },
   content: { paddingHorizontal: 16, paddingBottom: 40 },
   label: {
     fontSize: 11, fontWeight: '700', textTransform: 'uppercase',

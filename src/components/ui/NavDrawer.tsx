@@ -27,6 +27,8 @@ import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import InviteFriendModal from '../members/InviteFriendModal';
 import ProfileSetupCard from '../members/ProfileSetupCard';
+import BookmarkedModelsRow from '../cars/BookmarkedModelsRow';
+import { bookmarkRoute } from '../../utils/modelBookmark';
 import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
@@ -338,7 +340,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const displayName = userInfo?.username ?? '';
 
   return (
-    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={PANEL_BG}>
+    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={PANEL_BG} backdrop="summary">
       {({ closeThen: panelClose }) => {
         leave.current = panelClose;
         return (
@@ -471,6 +473,15 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     onPress={() => setMyEventsOpen(true)} />
                 </View>
               )}
+
+              {/* Your bookmarked car models — nothing until there's one. Each
+                  opens its model page in the Cars tab. */}
+              <BookmarkedModelsRow
+                onOpen={(b) => closeThen(() => navigation.navigate('MainTabs', {
+                  screen: 'CarsTab',
+                  params: { screen: 'ModelDetail', params: bookmarkRoute(b) },
+                } as any))}
+              />
 
               {/* Two-column grid — half the height of a stacked list, which is
                   what kept the log-out button pushed below the fold.
@@ -794,8 +805,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DIVIDER,
   },
   panelHeaderTint: { backgroundColor: 'rgba(0,0,0,0.62)' },
+  // A little air above it, clear of the panel's rounded top corners.
   titleRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 3,
   },
   // Takes whatever the wordmark and the pill leave, so the close X stays on
   // the edge rather than trailing the text.

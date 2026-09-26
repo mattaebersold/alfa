@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
 import { goBackToTop } from '../../hooks/useScrollTopOnBack';
-import { ChevronLeft, Menu } from 'lucide-react-native';
+import { ChevronLeft, Menu, Bookmark } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from './Avatar';
@@ -14,7 +14,9 @@ import GarageDoor from './GarageDoor';
 import GaragePanel from '../cars/GaragePanel';
 import GarageThumbs from '../cars/GarageThumbs';
 import { useAppSelector } from '../../store/store';
-import { useGetUserGarageQuery } from '../../api/apiService';
+import { useGetUserGarageQuery, useGetLoggedInUserQuery } from '../../api/apiService';
+import SummaryModal, { type SummaryOrigin } from './SummaryModal';
+import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
@@ -204,6 +206,17 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
 
+  // Bookmarked models, from the live profile — the button appears with the first.
+  const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !isLoggedIn });
+  const bookmarkCount = me?.modelBookmarks?.length ?? 0;
+  const bookmarksRef = useRef<View>(null);
+  const [bookmarks, setBookmarks] = useState<{ origin: SummaryOrigin | null } | null>(null);
+  const openBookmarks = useCallback(() => {
+    const node = bookmarksRef.current;
+    if (!node) { setBookmarks({ origin: null }); return; }
+    node.measureInWindow((x, y, w, h) => setBookmarks({ origin: { x, y, w, h } }));
+  }, []);
+
   const go = (screen: string, params?: object) =>
     (navigation as any).navigate('MainTabs', { screen, params });
 
@@ -315,6 +328,16 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
               present — only its count bubble comes and goes. */}
           <NotificationsBell />
 
+          {/* Your bookmarks — only once there's one. Opens in place, like the
+              bell and the garage. */}
+          {bookmarkCount > 0 && (
+            <View ref={bookmarksRef} collapsable={false}>
+              <FloatingButton label="Bookmarks" tint={tint} outlined onPress={openBookmarks}>
+                <Bookmark size={19} color="#FFFFFF" strokeWidth={2.4} />
+              </FloatingButton>
+            </View>
+          )}
+
           <FloatingButton
             label="Your profile"
             tint={tint}
@@ -369,6 +392,9 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
 
       <NavDrawer visible={drawerOpen} origin={drawerOrigin} onClose={() => setDrawerOpen(false)} />
       <GaragePanel visible={garageOpen} origin={garageOrigin} onClose={() => setGarageOpen(false)} />
+      <SummaryModal visible={!!bookmarks} origin={bookmarks?.origin} onClose={() => setBookmarks(null)}>
+        <BookmarksPanel />
+      </SummaryModal>
     </>
   );
 }

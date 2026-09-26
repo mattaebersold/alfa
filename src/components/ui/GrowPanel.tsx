@@ -8,9 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 /** A rectangle in window coordinates — where a button was when it was pressed. */
 export interface GrowOrigin { x: number; y: number; w: number; h: number }
 
-/** How much of the screen the open panel takes; the content scrolls inside. */
+/** How much of the screen the open panel takes — at most; the content scrolls inside. */
 export const GROW_PANEL_RATIO = 0.9;
-export const GROW_PANEL_RADIUS = 20;
+/** The shortest a panel sized to its content gets, so a near-empty one still reads as a panel. */
+const MIN_FIT_H = 220;
+export const GROW_PANEL_RADIUS = 32;
 /** The header buttons' corner radius, which the growing box starts from. */
 const BTN_RADIUS = 14;
 /** How long the box takes to grow — and so how long the contents wait. */
@@ -40,6 +42,14 @@ const CONTENT_RISE = 10;
  * is why it's a shade heavier than the bell's.
  */
 const BACKDROP = Platform.OS === 'ios' ? 'rgba(64,64,64,0.55)' : 'rgba(64,64,64,0.82)';
+/**
+ * SummaryModal's backdrop, for a panel that should read as one of those: a
+ * lighter blur that stays put while a black tint fades over it (see there).
+ */
+// Android has no blur to separate the panel from the screen behind, so a
+// lighter, heavier grey does it instead — against black the dark panels sank.
+const SUMMARY_BACKDROP = Platform.OS === 'ios' ? 'rgba(0,0,0,0.45)' : 'rgba(72,72,72,0.9)';
+const SUMMARY_BLUR = 24;
 
 /**
  * A panel that grows out of the button that opened it.
@@ -75,23 +85,39 @@ export default function GrowPanel({
   onClose,
   children,
   surface = '#000000',
+  backdrop = 'grey',
 }: {
   visible: boolean;
   /** The button's rect. Falls back to the header's right end when unmeasured. */
   origin?: GrowOrigin | null;
   onClose: () => void;
   /** Rendered inside the panel; gets `closeThen` to leave with. */
-  children: (api: { closeThen: (run?: () => void) => void; expanded: boolean }) => React.ReactNode;
+  children: (api: {
+    closeThen: (run?: () => void) => void;
+    expanded: boolean;
+    /**
+     * Size the panel to this — the content's own height — rather than the
+     * screen, like SummaryModal. Capped at GROW_PANEL_RATIO of the screen, past
+     * which the content scrolls. Never called, and the panel is full height.
+     */
+    fitHeight: (h: number) => void;
+  }) => React.ReactNode;
   /** The panel's own colour — the box wears it while it grows. */
   surface?: string;
+  /** `summary` borrows SummaryModal's backdrop, so the two look alike side by side. */
+  backdrop?: 'grey' | 'summary';
 }) {
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = Dimensions.get('window');
 
-  // Nine tenths of the screen, and never under the status bar — on a short
-  // phone the centred top edge would be.
+  // Nine tenths of the screen, or less when the content asked for less — and
+  // never under the status bar, where on a short phone the centred top edge
+  // would be.
+  const [fit, setFit] = useState<number | null>(null);
+  const fitHeight = useCallback((h: number) => setFit((prev) => (prev != null && Math.abs(prev - h) < 1 ? prev : h)), []);
+  const maxH = screenH * GROW_PANEL_RATIO;
   const panelW = screenW * GROW_PANEL_RATIO;
-  const panelH = screenH * GROW_PANEL_RATIO;
+  const panelH = fit != null ? Math.min(maxH, Math.max(MIN_FIT_H, fit)) : maxH;
   const panelX = (screenW - panelW) / 2;
   const panelY = Math.max(insets.top + 8, (screenH - panelH) / 2);
 
@@ -219,12 +245,24 @@ export default function GrowPanel({
             Blurred on iOS only: Android has no real backdrop blur without
             configuration the panel can't give it, and expo-blur's fallback
             there is a flat tint — which the scrim already is. */}
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: reveal }]} pointerEvents="none">
-          {Platform.OS === 'ios' && (
-            <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
-          )}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: BACKDROP }]} />
-        </Animated.View>
+        {backdrop === 'summary' ? (
+          <>
+            {Platform.OS === 'ios' && (
+              <BlurView tint="dark" intensity={SUMMARY_BLUR} style={StyleSheet.absoluteFill} pointerEvents="none" />
+            )}
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { backgroundColor: SUMMARY_BACKDROP, opacity: reveal }]}
+              pointerEvents="none"
+            />
+          </>
+        ) : (
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: reveal }]} pointerEvents="none">
+            {Platform.OS === 'ios' && (
+              <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
+            )}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: BACKDROP }]} />
+          </Animated.View>
+        )}
         <Pressable style={StyleSheet.absoluteFill} onPress={() => closeThen()} accessibilityLabel="Close" />
 
         {/* The box and the content ride one wrapper, so the close fades and
@@ -258,7 +296,7 @@ export default function GrowPanel({
           pointerEvents={expanded ? 'auto' : 'none'}
         >
           <Animated.View style={[styles.fill, { opacity: content, transform: [{ translateY: contentRise }] }]}>
-            {children({ closeThen, expanded })}
+            {children({ closeThen, expanded, fitHeight })}
           </Animated.View>
         </Animated.View>
         </Animated.View>

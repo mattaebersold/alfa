@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { X } from 'lucide-react-native';
@@ -80,13 +80,22 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
   // The cap bites in one place: the add button, which opens the upsell rather
   // than a form the server will refuse.
   const [upsell, setUpsell] = useState(false);
+  // The head's and the list's heights, which together size the panel.
+  const headH = useRef(0);
+  const listH = useRef(0);
   const atLimit = !isPro && cars.length >= CAR_LIMIT_BASIC;
 
   return (
-    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={SURFACE}>
-      {({ closeThen }) => {
+    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={SURFACE} backdrop="summary">
+      {({ closeThen, fitHeight }) => {
         const go = (name: string, params?: object) => closeThen(() => navigation.navigate(name, params));
         const addCar = () => (atLimit ? setUpsell(true) : go('CarCreate', {}));
+        // The panel is as tall as the head plus the list's own content — up to
+        // most of the screen, past which the list scrolls. A garage of one
+        // car no longer opens onto a screenful of empty panel.
+        const measure = () => {
+          if (headH.current && listH.current) fitHeight(headH.current + listH.current);
+        };
 
         return (
           <>
@@ -96,7 +105,7 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
                   is full of cars; a word saying "Garage" would be doing no
                   work. The count says what's left as well as what's there on
                   a basic account; Pro has no cap to count against. */}
-              <View style={styles.head}>
+              <View style={styles.head} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; measure(); }}>
                 <View style={styles.headText}>
                   {/* Someone else's garage does get a title: here the button
                       was theirs, and the panel should say whose cars these are. */}
@@ -127,7 +136,7 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
               </View>
 
               {isLoading ? (
-                <View style={styles.loading}><Spinner /></View>
+                <View style={styles.loading} onLayout={(e) => { listH.current = e.nativeEvent.layout.height; measure(); }}><Spinner /></View>
               ) : (
                 <FlatList
                   data={cars}
@@ -150,6 +159,7 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
                   // so a second one here would be the same control twice.
                   ListEmptyComponent={<EmptyState title="No cars yet" />}
                   contentContainerStyle={styles.list}
+                  onContentSizeChange={(_, h) => { listH.current = h; measure(); }}
                   showsVerticalScrollIndicator={false}
                 />
               )}
@@ -184,5 +194,7 @@ const styles = StyleSheet.create({
   countText:   { fontSize: 13, fontWeight: '800' },
   headActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   loading:     { paddingVertical: 60, alignItems: 'center' },
-  list:        { flexGrow: 1, paddingTop: 8, paddingBottom: 24 },
+  // No flexGrow: the list's content height is what sizes the panel, and
+  // stretched to fill it, it would only ever report the panel back.
+  list:        { paddingTop: 8, paddingBottom: 24 },
 });

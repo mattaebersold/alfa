@@ -1033,6 +1033,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     { label: 'Year',      value: car.year },
     { label: 'Make',      value: car.make },
     { label: 'Model',     value: car.model },
+    { label: 'Generation', value: car.generation ?? undefined },
     { label: 'Trim',      value: car.trim },
     { label: 'Color',     value: car.color },
     { label: 'Engine',    value: car.engine },

@@ -14,8 +14,17 @@ import type {
   ListingDetailResponse, MyListingsResponse,
   MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
   MarketplaceRoleFilter, MarketplaceUnreadCount,
-  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts,
-} from '../types/api';
+  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration } from '../types/api';
+import { carScopeKey } from '../utils/carScope';
+
+/** A generation of a model that cars on the site belong to — for the brand page's tiles. */
+export interface ModelGenerationCount {
+  generation: string;
+  generation_handle: string;
+  qty: number;
+  standalone?: boolean;
+  sample_photos?: string[];
+}
 
 /**
  * Where horacio mounts the lists router.
@@ -422,7 +431,7 @@ export const apiService = createApi({
     // against the handle forms (`make_handle`) rather than the display names.
     getCars: builder.query<
       PaginatedResponse<GarageCar>,
-      { page?: number; limit?: number; filter?: string; make?: string; model?: string; username?: string; user_id?: string; search?: string } & EventLocationParams
+      { page?: number; limit?: number; filter?: string; make?: string; model?: string; generation?: string; username?: string; user_id?: string; search?: string } & EventLocationParams
     >({
       query: (params = {}) => ({
         url: 'api/garage',
@@ -521,6 +530,16 @@ export const apiService = createApi({
       providesTags: ['ArchivedCars'],
     }),
 
+    /**
+     * A model's generations, oldest first — empty for a model with only one,
+     * which is the form's cue to leave its generation field out.
+     */
+    getCarGenerations: builder.query<CarGeneration[], { make: string; model: string }>({
+      query: (params) => ({ url: 'api/cars/generations', params }),
+      transformResponse: (r: { generations?: CarGeneration[] }) => r.generations ?? [],
+      keepUnusedDataFor: 3600,
+    }),
+
     /** Every make, with what the Brands screen's cards show. */
     getCarBrandSummaries: builder.query<{
       make: string; make_handle: string; qty: number;
@@ -541,10 +560,10 @@ export const apiService = createApi({
       providesTags: ['Brands'],
     }),
 
-    getCarModels: builder.query<{ model: string; model_handle: string; qty: number }[], string>({
+    getCarModels: builder.query<{ model: string; model_handle: string; qty: number; sample_photos?: string[]; generations?: ModelGenerationCount[] }[], string>({
       query: (brand) => `api/garage/brands/brand/${encodeURIComponent(brand)}/models`,
-      transformResponse: (response: { models: { model: string; model_handle: string; qty?: number }[] }) =>
-        response.models.map((m) => ({ model: m.model, model_handle: m.model_handle, qty: m.qty ?? 0 })),
+      transformResponse: (response: { models: { model: string; model_handle: string; qty?: number; sample_photos?: string[]; generations?: ModelGenerationCount[] }[] }) =>
+        response.models.map((m) => ({ model: m.model, model_handle: m.model_handle, qty: m.qty ?? 0, sample_photos: m.sample_photos, generations: m.generations ?? [] })),
       providesTags: (result, error, brand) => [{ type: 'Models', id: brand }],
     }),
 
@@ -1268,9 +1287,22 @@ export const apiService = createApi({
       providesTags: (result, error, { groupId }) => [{ type: 'GroupDiscussion', id: groupId }],
     }),
 
-    createGroupDiscussionPost: builder.mutation<void, { group_id: string; title: string; body: string; category?: string }>({
+    /**
+     * A car model's discussion — the group kind, on a make + model's page and
+     * open to anyone. Cached under carScopeKey so its mutations can refresh it.
+     */
+    getModelDiscussion: builder.query<{ entries: GroupDiscussionPost[] }, { make: string; model: string; page?: number; limit?: number }>({
+      query: ({ make, model, page = 0, limit = 50 }) => ({
+        url: `api/groupdiscussion/${page}/none/${limit}`,
+        params: { make, model },
+      }),
+      providesTags: (result, error, { make, model }) => [{ type: 'GroupDiscussion', id: carScopeKey(make, model) }],
+    }),
+
+    /** In a group (`group_id`) or on a car model (`make` + `model`) — one or the other. */
+    createGroupDiscussionPost: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; category?: string }>({
       query: (body) => ({ url: 'api/groupdiscussion/create', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupDiscussion', id: group_id ?? carScopeKey(make, model) }],
     }),
 
     // Author or group admin, enforced server-side. `group_id` is only for
@@ -1350,9 +1382,28 @@ export const apiService = createApi({
       providesTags: (result, error, { groupId }) => [{ type: 'GroupResources', id: groupId }],
     }),
 
-    createGroupResource: builder.mutation<void, { group_id: string; title: string; body: string; url?: string; category?: string }>({
+    /** A car model's resources — see getModelDiscussion. */
+    getModelResources: builder.query<{ entries: GroupResource[] }, { make: string; model: string; page?: number; limit?: number }>({
+      query: ({ make, model, page = 0, limit = 50 }) => ({
+        url: `api/groupresource/${page}/none/${limit}`,
+        params: { make, model },
+      }),
+      providesTags: (result, error, { make, model }) => [{ type: 'GroupResources', id: carScopeKey(make, model) }],
+    }),
+
+    /** In a group (`group_id`) or on a car model (`make` + `model`) — one or the other. */
+    createGroupResource: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; url?: string; category?: string }>({
       query: (body) => ({ url: 'api/groupresource/create', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
+      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupResources', id: group_id ?? carScopeKey(make, model) }],
+    }),
+
+    /**
+     * The groups about a make, or a make + model — model groups first, then
+     * make-wide ones. Public groups only.
+     */
+    getGroupsForCar: builder.query<{ entries: Group[] }, { make: string; model?: string }>({
+      query: (params) => ({ url: 'api/group/for-car', params }),
+      providesTags: ['Group'],
     }),
 
     // Same rules as the discussion pair. An empty `url` clears the link.
@@ -1757,6 +1808,35 @@ export const apiService = createApi({
      */
     requestCarPhotos: builder.mutation<{ success: boolean; already: boolean }, string>({
       query: (carId) => ({ url: `api/car/${encodeURIComponent(carId)}/request-photos`, method: 'POST' }),
+    }),
+
+    /**
+     * Bookmark a car model, or un-bookmark it — a toggle. Applied to the
+     * profile in the cache first, so the button and the menu's row change on
+     * the tap; undone if the server refuses.
+     */
+    toggleModelBookmark: builder.mutation<
+      { bookmarked: boolean; modelBookmarks: ModelBookmark[] },
+      { make: string; model: string; model_handle: string; generation?: string | null; generation_handle?: string | null; standalone?: boolean }
+    >({
+      query: (body) => ({ url: 'api/users/model-bookmarks', method: 'POST', body }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patch = dispatch(apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+          const list = draft.modelBookmarks ?? [];
+          const same = (b: ModelBookmark) => b.model_handle === arg.model_handle
+            && b.make.toLowerCase() === arg.make.toLowerCase()
+            && (b.generation_handle || null) === (arg.generation_handle || null);
+          draft.modelBookmarks = list.some(same) ? list.filter((b) => !same(b)) : [arg, ...list];
+        }));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+            draft.modelBookmarks = data.modelBookmarks;
+          }));
+        } catch {
+          patch.undo();
+        }
+      },
     }),
 
     /** The same ask, of a member with no profile photo. Once per asker per member. */
@@ -2460,6 +2540,7 @@ export const {
   useGetCommentCountQuery,
   useRequestCarPhotosMutation,
   useRequestProfilePhotoMutation,
+  useToggleModelBookmarkMutation,
   useCreateCommentMutation,
   useDeleteCommentMutation,
   useGetCarsQuery,
@@ -2480,6 +2561,7 @@ export const {
   useGetPendingCarTransfersQuery,
   useGetCarBrandsQuery,
   useGetCarBrandSummariesQuery,
+  useGetCarGenerationsQuery,
   useGetCarModelsQuery,
   useGetCarMakeOptionsQuery,
   useGetCarModelOptionsQuery,
@@ -2581,6 +2663,9 @@ export const {
   useGetGroupDiscussionQuery,
   useGetGroupNewsQuery,
   useGetGroupResourcesQuery,
+  useGetModelResourcesQuery,
+  useGetModelDiscussionQuery,
+  useGetGroupsForCarQuery,
   useGetFollowStatusQuery,
   useFollowUserMutation,
   useUnfollowUserMutation,

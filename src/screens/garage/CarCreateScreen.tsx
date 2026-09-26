@@ -28,6 +28,7 @@ import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import MakeModelFields from '../../components/cars/MakeModelFields';
+import GenerationField from '../../components/cars/GenerationField';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
@@ -179,7 +180,7 @@ const f = StyleSheet.create({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 type FormData = {
-  title: string; year: string; make: string; model: string;
+  title: string; year: string; make: string; model: string; generation: string;
   type: string; category: string;
   trim: string; color: string; engine: string; mileage: string;
   horsepower: string; torque: string; vin: string; condition: string; body: string;
@@ -189,7 +190,7 @@ type FormData = {
 };
 
 const EMPTY_FORM: FormData = {
-  title: '', year: '', make: '', model: '', type: 'daily', category: '',
+  title: '', year: '', make: '', model: '', generation: '', type: 'daily', category: '',
   trim: '', color: '', engine: '', mileage: '', horsepower: '', torque: '',
   vin: '', condition: CONDITIONS[0]?.key ?? '', body: '', group_id: '',
   mods: [], images: [],
@@ -327,6 +328,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
         year: existingCar.year ?? '',
         make: existingCar.make ?? '',
         model: existingCar.model ?? '',
+        generation: existingCar.generation ?? '',
         type: existingCar.type ?? 'daily',
         category: existingCar.category ?? '',
         trim: existingCar.trim ?? '',
@@ -520,6 +522,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
     fd.append('model', form.model);
     fd.append('make_handle', form.make.toLowerCase());
     fd.append('model_handle', form.model.toLowerCase());
+    // Always sent on an edit, so clearing it clears it.
+    if (isEditMode || form.generation.trim()) fd.append('generation', form.generation.trim());
     fd.append('type', form.type);
     fd.append('category', form.category);
     if (form.trim)       fd.append('trim', form.trim);
@@ -684,6 +688,15 @@ export function CarCreateSheet({ carId, onDismissed }: {
                 model={form.model}
                 onMakeChange={set('make')}
                 onModelChange={set('model')}
+              />
+
+              {/* Only for a model with generations — "993" of a 911. */}
+              <GenerationField
+                make={form.make}
+                model={form.model}
+                year={form.year}
+                value={form.generation}
+                onChange={set('generation')}
               />
 
               <ChipSelect

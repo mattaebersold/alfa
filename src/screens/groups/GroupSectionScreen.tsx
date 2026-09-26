@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Modal, Linking, Animated, useWindowDimensions,
 } from 'react-native';
+import { RESOURCE_CATEGORIES, DISCUSSION_CATEGORIES } from '../../constants/groupCategories';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
@@ -71,30 +72,10 @@ const TABS: { key: ActiveTab; label: string }[] = [
 
 const TABBAR_SENTINEL = { _t: 'tabbar' } as const;
 
-const RESOURCE_CATEGORIES: { key: string; label: string }[] = [
-  { key: 'general',     label: 'General' },
-  { key: 'exterior',    label: 'Exterior' },
-  { key: 'interior',    label: 'Interior' },
-  { key: 'engine',      label: 'Engine' },
-  { key: 'electrical',  label: 'Electrical' },
-  { key: 'performance', label: 'Performance' },
-  { key: 'suspension',  label: 'Suspension' },
-  { key: 'brakes',      label: 'Brakes' },
-  { key: 'visual',      label: 'Visual Mods' },
-  { key: 'mechanics',   label: 'Shop/Mechanic' },
-];
 const RESOURCE_CAT_LABEL: Record<string, string> = RESOURCE_CATEGORIES.reduce(
   (acc, cat) => { acc[cat.key] = cat.label; return acc; }, {} as Record<string, string>
 );
 
-const DISCUSSION_CATEGORIES: { key: string; label: string }[] = [
-  { key: 'general',    label: 'General' },
-  { key: 'engine',     label: 'Engine' },
-  { key: 'chassis',    label: 'Chassis' },
-  { key: 'electrical', label: 'Electrical' },
-  { key: 'body',       label: 'Body' },
-  { key: 'mods',       label: 'Mods' },
-];
 const NEWS_CATEGORIES: { key: string; label: string }[] = [
   { key: 'general',       label: 'General' },
   { key: 'meets',         label: 'Meets' },

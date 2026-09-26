@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, Dimensions, ActivityIndicator,
   TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
+import { carScopeKey } from '../../utils/carScope';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
@@ -117,6 +118,12 @@ export default function GroupItemDetailModal({
   }
 
   const d = item;
+  /**
+   * What this item's list is cached under: its group — or, for a post on a
+   * car model's page, that model (see utils/carScope). Mutations refresh it.
+   */
+  const scopeKey: string = d?.group_id || carScopeKey(d?.make, d?.model);
+  const carScope = !d?.group_id && d?.make && d?.model ? { make: d.make, model: d.model } : undefined;
   const gallery = d.gallery ?? [];
   const zoomUrls = (gallery.length > 0
     ? gallery.map((g: any) => imageUrl(g.filename))
@@ -140,7 +147,7 @@ export default function GroupItemDetailModal({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          const args = { internal_id: d.internal_id, group_id: d.group_id };
+          const args = { internal_id: d.internal_id, group_id: scopeKey };
           try {
             await (kind === 'resource' ? deleteResource(args) : deleteDiscussion(args)).unwrap();
             onClose();
@@ -225,7 +232,7 @@ export default function GroupItemDetailModal({
             <GroupVoteButtons
               kind={kind}
               internal_id={d.internal_id}
-              group_id={d.group_id}
+              group_id={scopeKey}
               upvotes={d.upvotes}
               downvotes={d.downvotes}
               votes={d.votes}
@@ -323,7 +330,8 @@ export default function GroupItemDetailModal({
       {canManage && (
         <GroupCreateSheet
           kind={kind === 'resource' ? 'resources' : 'discussion'}
-          groupId={d.group_id}
+          groupId={scopeKey}
+          scope={carScope}
           groupTitle={groupTitle}
           categories={categories}
           editing={{

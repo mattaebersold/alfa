@@ -12,8 +12,13 @@ import { useColors } from '../../hooks/useColors';
 import { COMMON_RADIUS } from '../../constants/radius';
 import type { SocietyEvent } from '../../types/api';
 
-/** How many event photos the tile lays side by side behind its label. */
-const TILE_SHOTS = 3;
+/**
+ * A dark, label-free street map (Portland), behind the tile's label — so the
+ * tile reads as a map you tap into. A static picture, not a live map: it's
+ * decoration, and a map view per render of the events list would be costly.
+ * Google's attribution is part of the image and has to stay.
+ */
+const TILE_MAP = require('../../../assets/events-map.jpg');
 
 /**
  * The upcoming events that can be put on a map: one per event, at its earliest
@@ -33,8 +38,8 @@ export function mappableEvents(events: SocietyEvent[]): SocietyEvent[] {
 /**
  * "View upcoming events on a map" — the way into the map sheet, styled after
  * the menu's Photography tile: full width, a hairline gradient frame, and a
- * few of the events' own photos behind the label, faded so it reads on any of
- * them. Nothing at all when no upcoming event has an address to pin.
+ * dark map behind the label. Nothing at all when no upcoming event has an
+ * address to pin.
  */
 export function EventsMapTile({ events, days, onPress }: {
   events: SocietyEvent[];
@@ -43,10 +48,6 @@ export function EventsMapTile({ events, days, onPress }: {
   onPress: () => void;
 }) {
   if (events.length === 0) return null;
-  const shots = events
-    .map((e) => firstGalleryUrl(e.gallery))
-    .filter((url): url is string => !!url)
-    .slice(0, TILE_SHOTS);
 
   return (
     <LinearGradient
@@ -62,21 +63,16 @@ export function EventsMapTile({ events, days, onPress }: {
         accessibilityRole="button"
         accessibilityLabel="View upcoming events on a map"
       >
-        {shots.length > 0 && (
-          <View style={[StyleSheet.absoluteFill, styles.tileShots]}>
-            {shots.map((url) => (
-              <Image key={url} source={{ uri: url }} style={styles.tileShot} contentFit="cover" transition={200} />
-            ))}
-          </View>
-        )}
+        <Image source={TILE_MAP} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {/* Lighter than over photos: the map is already dark, and should show. */}
         <LinearGradient
-          colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.85)']}
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
           locations={[0.35, 1]}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
         <LinearGradient
-          colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0)']}
+          colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0)']}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 0.7, y: 0.5 }}
           style={StyleSheet.absoluteFill}
@@ -211,8 +207,6 @@ const styles = StyleSheet.create({
     height: 112, borderRadius: 10.5, overflow: 'hidden',
     backgroundColor: '#0A0A0A', justifyContent: 'flex-end',
   },
-  tileShots: { flexDirection: 'row' },
-  tileShot:  { flex: 1, height: '100%' },
   tileText:  { paddingHorizontal: 14, paddingBottom: 12, gap: 3 },
   tileTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tileTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', flexShrink: 1 },

@@ -1,203 +1,221 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
-} from 'react-native';
-import { Image } from 'expo-image';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { Car, Search, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CarMosaic from '../../components/cars/CarMosaic';
+import ModelTile from '../../components/cars/ModelTile';
+import MakeTile from '../../components/cars/MakeTile';
+import CarGroupsRow from '../../components/cars/CarGroupsRow';
 import { useGetCarsQuery, useGetCarModelsQuery } from '../../api/apiService';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
-import EmptyState from '../../components/ui/EmptyState';
-import Avatar from '../../components/ui/Avatar';
-import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
-import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
 
+/**
+ * Whether a tile's name answers what's typed: every word, in any order, so
+ * "E46 M3" finds the M3's E46 tile and "m3" all of the M3's.
+ */
+const matches = (query: string, text: string) => {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const hay = text.toLowerCase();
+  return words.every((w) => hay.includes(w));
+};
+
+/** A pill under "All BMW cars" — a model, or one generation of it. */
+type Filter = { key: string; label: string; qty: number; model: string; generation?: string };
+
+/**
+ * One make: its models as tiles to browse into, then every car of it.
+ *
+ * A model with generations is shown by its generations alone — E30, E36 —
+ * not also as "3 Series", which would only be all of them again. The same
+ * set, as pills, narrows the grid below without leaving the page.
+ */
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
   const { brand } = route.params;
   const colors = useColors();
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [allCars, setAllCars] = useState<GarageCar[]>([]);
-
+  const [filter, setFilter] = useState<Filter | null>(null);
+  const [query, setQuery] = useState('');
   const { data: models = [] } = useGetCarModelsQuery(brand);
-  const selectedModelHandle = selectedModel?.toLowerCase().replace(/ /g, '-') ?? undefined;
-  const { data, isFetching, isLoading } = useGetCarsQuery({
-    page,
-    limit: 12,
-    make: brand.toLowerCase(),
-    model: selectedModelHandle,
-  });
+  // The make's total, for the bubble beside its name.
+  const { data: totalData } = useGetCarsQuery({ page: 0, limit: 1, make: brand.toLowerCase() });
+  const total = totalData?.total;
 
-  React.useEffect(() => {
-    if (data?.entries) {
-      if (page === 0) setAllCars(data.entries);
-      else setAllCars((prev) => {
-        const ids = new Set(prev.map((c) => c.internal_id));
-        return [...prev, ...data.entries.filter((c) => !ids.has(c.internal_id))];
-      });
-    }
-  }, [data, page]);
+  // Most-owned first: the models people actually have lead the row.
+  const sortedModels = [...models].sort((a, b) => b.qty - a.qty || a.model.localeCompare(b.model));
 
-  const handleModelChange = (model: string | null) => {
-    setSelectedModel(model === selectedModel ? null : model);
-    setPage(0);
-    setAllCars([]);
-  };
+  const tileCount = sortedModels.reduce((n, m) => n + (m.generations?.length
+    ? m.generations.filter((g) => matches(query, `${g.generation} ${m.model}`)).length
+    : matches(query, m.model) ? 1 : 0), 0);
 
-  const handleRefresh = useCallback(() => {
-    setPage(0);
-    setAllCars([]);
-  }, []);
+  const filters: Filter[] = sortedModels.flatMap((m) => m.generations?.length
+    ? m.generations.map((g) => ({
+      key: `${m.model_handle}-${g.generation_handle}`,
+      // "E30" reads on its own; "Mk2" needs its model.
+      label: g.standalone ? g.generation : `${m.model} ${g.generation}`,
+      qty: g.qty,
+      model: m.model_handle,
+      generation: g.generation_handle,
+    }))
+    : [{ key: m.model_handle, label: m.model, qty: m.qty, model: m.model_handle }]);
 
-  const handleLoadMore = useCallback(() => {
-    if (!isFetching && data && allCars.length < data.total) setPage((p) => p + 1);
-  }, [isFetching, data, allCars.length]);
-
-  return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
-      {/* Brand title */}
+  const header = (
+    <>
+      {/* The name, and how many of it there are as a bubble beside it. */}
       <View style={styles.brandHeader}>
-        <Text style={[styles.brandTitle, { color: colors.fg }]}>{brand}</Text>
-        {data?.total != null && (
-          <Text style={[styles.brandCount, { color: colors.grey }]}>
-            {data.total} {data.total === 1 ? 'car' : 'cars'}
-          </Text>
+        <Text style={[styles.brandTitle, { color: colors.fg }]} numberOfLines={1}>{brand}</Text>
+        {total != null && (
+          <View
+            style={[styles.brandCount, { backgroundColor: colors.segment }]}
+            accessibilityLabel={`${total} ${total === 1 ? 'car' : 'cars'}`}
+          >
+            <Car size={15} color={colors.fg} strokeWidth={2.2} />
+            <Text style={[styles.brandCountText, { color: colors.fg }]}>{total}</Text>
+          </View>
         )}
       </View>
 
-      {/* Model filter chips */}
-      {models.length > 0 && (
-        <View>
-          <FlatList
-            data={[{ model: 'All', model_handle: null as any, qty: data?.total ?? 0 }, ...models]}
-            keyExtractor={(item) => item.model}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.modelChips}
-            renderItem={({ item }) => {
-              const isAll = item.model_handle === null;
-              const active = isAll ? selectedModel === null : selectedModel === item.model;
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    { borderColor: colors.border, backgroundColor: colors.card },
-                    active && styles.chipActive,
-                  ]}
-                  onPress={() => handleModelChange(isAll ? null : item.model)}
-                >
-                  <Text style={[
-                    styles.chipText,
-                    { color: colors.fg },
-                    active && styles.chipTextActive,
-                  ]}>
-                    {item.model}
-                    {item.qty > 0 && (
-                      <Text style={[styles.chipCount, active && styles.chipTextActive]}>
-                        {' '}({item.qty})
-                      </Text>
-                    )}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
+      {sortedModels.length > 0 && (
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Search size={16} color={colors.grey} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.fg }]}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Filter models — E46 M3, 911…"
+            placeholderTextColor={colors.grey}
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="never"
           />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear">
+              <X size={16} color={colors.grey} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
-      {/* Cars grid */}
-      <FlatList
-        data={allCars}
-        keyExtractor={(item) => item.internal_id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        renderItem={({ item }) => {
-          const hero =
-            firstGalleryUrl(item.gallery) ??
-            (item.profile_image ? imageUrl(item.profile_image) : null);
-          return (
-            <TouchableOpacity
-              style={[styles.card, { backgroundColor: colors.card }]}
-              onPress={() => (navigation as any).navigate('CarDetail', { carId: item.internal_id })}
-              activeOpacity={0.9}
-            >
-              <View style={styles.cardImageContainer}>
-                <Image
-                  source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
-                  style={styles.cardImage}
-                  contentFit="cover"
-                />
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
-                  {item.year} {item.make} {item.model}
+      {sortedModels.length > 0 && tileCount === 0 && (
+        <Text style={[styles.noMatch, { color: colors.grey }]}>No {brand} models match “{query.trim()}”</Text>
+      )}
+
+      {tileCount > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.models}
+        >
+          {sortedModels.flatMap((m) => [
+            m.generations?.length || !matches(query, m.model) ? null : <ModelTile
+              key={m.model_handle}
+              brand={brand}
+              modelHandle={m.model_handle}
+              name={m.model}
+              photos={m.sample_photos}
+              count={m.qty}
+              countLabel={`${m.qty} ${m.qty === 1 ? 'car' : 'cars'}`}
+              fitName
+              onPress={() => navigation.navigate('ModelDetail', {
+                brand,
+                model: m.model,
+                modelHandle: m.model_handle,
+              })}
+            />,
+            // Then the model's generations that have cars — "993" after "911",
+            // each its own page.
+            ...(m.generations ?? []).filter((g) => matches(query, `${g.generation} ${m.model}`)).map((g) => (
+              <MakeTile
+                key={`${m.model_handle}-${g.generation_handle}`}
+                name={g.generation}
+                subtitle={m.model}
+                photos={g.sample_photos}
+                count={g.qty}
+                countLabel={`${g.qty} ${g.qty === 1 ? 'car' : 'cars'}`}
+                fitName
+                onPress={() => navigation.navigate('ModelDetail', {
+                  brand,
+                  model: m.model,
+                  modelHandle: m.model_handle,
+                  generation: g.generation,
+                  generationHandle: g.generation_handle,
+                  standalone: g.standalone,
+                })}
+              />
+            )),
+          ])}
+        </ScrollView>
+      )}
+
+      {/* Every group of this make — model groups and make-wide ones alike. */}
+      <CarGroupsRow make={brand} />
+
+      <Text style={[styles.section, { color: colors.fg }]}>All {brand} cars</Text>
+
+      {filters.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
+          {[null, ...filters].map((f) => {
+            const active = (filter?.key ?? null) === (f?.key ?? null);
+            return (
+              <TouchableOpacity
+                key={f?.key ?? 'all'}
+                style={[
+                  styles.pill,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                  active && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+                ]}
+                onPress={() => setFilter(f)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.pillText, { color: active ? '#FFFFFF' : colors.fg }]}>
+                  {f ? f.label : 'All'}
+                  {f?.qty ? <Text style={styles.pillCount}> {f.qty}</Text> : null}
                 </Text>
-                {item.user && (
-                  <View style={styles.ownerRow}>
-                    <Avatar
-                      user={item.user}
-                      size={18}
-                    />
-                    <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
-                      @{item.user.username}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={
-          isLoading ? (
-            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
-          ) : (
-            <EmptyState title={`No ${brand}s yet`} message="Be the first to add one." />
-          )
-        }
-        ListFooterComponent={
-          isFetching && page > 0 ? (
-            <ActivityIndicator size="small" color={colors.grey} style={{ padding: 20 }} />
-          ) : null
-        }
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+    </>
+  );
+
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <CarMosaic
+        make={brand}
+        model={filter?.model}
+        generation={filter?.generation}
+        header={header}
+        emptyTitle={filter ? `No ${brand} ${filter.label}s yet` : `No ${brand}s yet`}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  brandHeader: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 },
-  brandTitle:  { fontSize: 26, fontWeight: '800' },
-  brandCount:  { fontSize: 13, fontWeight: '600', marginTop: 2 },
-  modelChips: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-    borderWidth: 1.5,
+  brandHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2,
   },
-  chipActive: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-  chipText:      { fontSize: 13, fontWeight: '600' },
-  chipTextActive: { color: '#FFFFFF' },
-  chipCount:     { fontSize: 12, fontWeight: '400', opacity: 0.75 },
-  list:  { paddingHorizontal: 8, paddingBottom: 120 },
-  row:   { gap: 8, marginBottom: 8 },
-  card:  {
-    flex: 1, borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+  brandTitle:  { fontSize: 26, fontWeight: '800', flexShrink: 1 },
+  brandCount:  {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999,
   },
-  cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
-  cardImage: { width: '100%', height: '100%' },
-  cardInfo:  { padding: 8 },
-  carTitle:  { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  ownerRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ownerName: { fontSize: 11, flex: 1 },
+  brandCountText: { fontSize: 14, fontWeight: '800' },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 12, marginTop: 12, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1,
+  },
+  searchInput: { flex: 1, fontSize: 15 },
+  noMatch:   { fontSize: 14, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
+  // Stretched to the tallest tile; each centers its name in the extra height.
+  models:    { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6, gap: 10, alignItems: 'stretch' },
+  section:   { fontSize: 17, fontWeight: '800', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
+  pills:     { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+  pill:      { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5 },
+  pillText:  { fontSize: 13, fontWeight: '700' },
+  pillCount: { fontSize: 12, fontWeight: '500', opacity: 0.7 },
 });

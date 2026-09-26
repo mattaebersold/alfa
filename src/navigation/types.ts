@@ -86,7 +86,12 @@ export type CarsStackParamList = {
   UserDetail: { userId: string; username?: string };
   Brands: undefined;
   BrandDetail: { brand: string };
-  ModelDetail: { brand: string; model: string };
+  /** One model of a make — reached from a model tile on BrandDetail. */
+  /**
+   * One model of a make — or, with `generation`, one generation of it (the
+   * 993 of the 911). Reached from a tile on BrandDetail.
+   */
+  ModelDetail: { brand: string; model: string; modelHandle: string; generation?: string; generationHandle?: string; standalone?: boolean };
 };
 
 // ── Routes Stack ─────────────────────────────────────────────────────────────

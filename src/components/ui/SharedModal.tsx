@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
-import { KeyboardAvoidingView, HomeIndicatorSpacer } from '@ors/kit';
+import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost } from '@ors/kit';
 import { COMMON_RADIUS } from '../../constants/radius';
 
 // Near-black surfaces — matches the car-detail pane look.
@@ -148,6 +148,9 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      {/* A Modal is its own window, so the app root's layer is under it: a
+          layer of its own for lists that float over the sheet (autocompletes). */}
+      <PortalHost>
       <View style={styles.fill}>
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]} pointerEvents="none">
           <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
@@ -202,6 +205,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
         </Animated.View>
         </KeyboardAvoidingView>
       </View>
+      </PortalHost>
     </Modal>
   );
 }

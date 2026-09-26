@@ -6,6 +6,19 @@ export interface ProfileLink {
   url: string;
 }
 
+/** A bookmarked car model — see horacio's User.modelBookmarks. */
+export interface ModelBookmark {
+  make: string;
+  model: string;
+  model_handle: string;
+  /** One generation of the model — the 993 rather than every 911. */
+  generation?: string | null;
+  generation_handle?: string | null;
+  /** "<make> <generation>" reads on its own — for the title. */
+  standalone?: boolean;
+  created_at?: string;
+}
+
 export interface User {
   _id?: string;
   user_id: string;
@@ -56,6 +69,8 @@ export interface User {
   followingCount?: number;
   emailSettings?: EmailSettings;
   feedPreferences?: FeedPreferences;
+  /** Car models you've bookmarked, newest first — your own profile only. */
+  modelBookmarks?: ModelBookmark[];
   allowEmail?: boolean;
   memberNumber?: number;
   created_at?: string;
@@ -213,6 +228,9 @@ export interface GarageCar {
   make?: string;
   model?: string;
   trim?: string;
+  /** Which generation of its model — "993", "E30", "Mk2" — for models with more than one. */
+  generation?: string | null;
+  generation_handle?: string | null;
   make_handle?: string;
   model_handle?: string;
   color?: string;
@@ -774,6 +792,9 @@ export interface Group {
   _id?: string;
   internal_id: string;
   user_id: string;
+  /** The car make it's about, if any — and optionally one model of it. */
+  group_make?: string | null;
+  group_model?: string | null;
   title?: string;
   body?: string;
   subtitle?: string;
@@ -964,7 +985,13 @@ export interface GroupDiscussionPost {
   _id?: string;
   internal_id: string;
   user_id: string;
-  group_id: string;
+  /**
+   * The group it lives in — or null for a post on a car model's page, which
+   * carries `make` and `model` instead.
+   */
+  group_id?: string | null;
+  make?: string | null;
+  model?: string | null;
   title?: string;
   body?: string;
   gallery?: GalleryItem[];
@@ -1013,7 +1040,13 @@ export interface GroupResource {
   _id?: string;
   internal_id: string;
   user_id: string;
-  group_id: string;
+  /**
+   * The group it lives in — or null for a post on a car model's page, which
+   * carries `make` and `model` instead.
+   */
+  group_id?: string | null;
+  make?: string | null;
+  model?: string | null;
   title?: string;
   body?: string;
   gallery?: GalleryItem[];
@@ -1837,4 +1870,14 @@ export interface AlertWriteResponse {
   entry: Alert;
   counts?: AlertCounts;
   warnings?: string[];
+}
+
+/** One generation of a car model — see horacio's Car.generations. */
+export interface CarGeneration {
+  name: string;
+  code?: string | null;
+  start?: number | null;
+  end?: number | null;
+  /** "<make> <name>" reads on its own — "Porsche 993", "BMW E30". */
+  standalone?: boolean;
 }

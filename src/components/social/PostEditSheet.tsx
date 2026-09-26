@@ -3,7 +3,7 @@ import {
   Modal, View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert,
 } from 'react-native';
-import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP } from '@ors/kit';
+import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, PortalHost } from '@ors/kit';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
@@ -323,6 +323,8 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      {/* Its own layer for floating lists (autocompletes) — the app root's is under the Modal. */}
+      <PortalHost>
       {/* Gesture Handler needs its own root inside an RN Modal, or the gallery's
           drag-to-reorder never receives touches. */}
       <GestureHandlerRootView style={styles.overlay}>
@@ -436,6 +438,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
+      </PortalHost>
     </Modal>
   );
 }

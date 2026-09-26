@@ -104,7 +104,7 @@ const CLOSE_GAP = 10;
 
 /** A ceiling, not a size — a short summary gets a short panel. */
 const MAX_HEIGHT_RATIO = 0.9;
-const PANEL_RADIUS = 20;
+const PANEL_RADIUS = 32;
 /** The panel's border, which the content sits inside rather than over. */
 const PANEL_BORDER = 1;
 /** Height to assume before the content has been measured. */
@@ -576,8 +576,9 @@ const styles = StyleSheet.create({
   // Lighter than it would be on its own — the blur underneath is doing most of
   // the separating.
   scrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
-  // Doing the whole job on its own where there is no blur under it.
-  scrimOpaque: { backgroundColor: 'rgba(0,0,0,0.78)' },
+  // Android, with no blur under it: doing the whole job on its own, as a
+  // lighter, heavier grey. GrowPanel's `summary` backdrop matches it.
+  scrimOpaque: { backgroundColor: 'rgba(72,72,72,0.9)' },
 
   /**
    * Stacking, bottom to top: scrim, backdrop press, the box, the content, the

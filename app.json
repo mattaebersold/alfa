@@ -117,7 +117,8 @@
         }
       ],
       "expo-apple-authentication",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "react-native-compressor"
     ],
     "scheme": "openroadsociety",
     "extra": {

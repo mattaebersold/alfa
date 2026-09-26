@@ -7,6 +7,7 @@ import CarDetailScreen from '../screens/cars/CarDetailScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import BrandsScreen from '../screens/cars/BrandsScreen';
 import BrandDetailScreen from '../screens/cars/BrandDetailScreen';
+import ModelDetailScreen, { modelPageTitle } from '../screens/cars/ModelDetailScreen';
 import { colors } from '../constants/colors';
 
 const Stack = createNativeStackNavigator<CarsStackParamList>();
@@ -20,6 +21,8 @@ export default function CarsStackNavigator() {
         headerStyle: { backgroundColor: headerBg },
         headerTintColor: '#FFFFFF',
         headerTitleStyle: { fontWeight: '700' },
+        // Just the arrow on iOS — no "Cars" or "Brands" beside it.
+        headerBackButtonDisplayMode: 'minimal',
         animation: 'none',
       }}
     >
@@ -29,6 +32,7 @@ export default function CarsStackNavigator() {
       <Stack.Screen name="UserDetail" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Brands" component={BrandsScreen} options={{ title: 'Browse Brands' }} />
       <Stack.Screen name="BrandDetail" component={BrandDetailScreen} options={({ route }) => ({ title: route.params.brand })} />
+      <Stack.Screen name="ModelDetail" component={ModelDetailScreen} options={({ route }) => ({ title: modelPageTitle(route.params) })} />
     </Stack.Navigator>
   );
 }

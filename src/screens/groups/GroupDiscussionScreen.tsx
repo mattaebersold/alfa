@@ -37,7 +37,7 @@ function DiscussionRow({ post }: { post: GroupDiscussionPost }) {
           <GroupVoteButtons
             kind="discussion"
             internal_id={post.internal_id}
-            group_id={post.group_id}
+            group_id={post.group_id ?? ''}
             upvotes={post.upvotes}
             downvotes={post.downvotes}
             votes={post.votes}
