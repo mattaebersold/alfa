@@ -25,6 +25,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.51': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Fixes',
+        items: [
+          'Fixed an issue where you couldn\'t select a make or model in the car creation screen.',
+          'Fixed an issue where notification settings would drift.',
+          'Improved the reliability of video uploading.',
+        ],
+      },
+    ],
+  },
   '1.50': {
     date: 'September 2026',
     groups: [
@@ -85,8 +98,6 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'Text fields are no longer hidden behind the keyboard.',
           'Porsche no longer appears twice in the list of makes.',
           'Tidied up the car make and model list.',
-          'The make and model pickers stay open while you search, with suggestions above the field so the keyboard doesn\'t cover them.',
-          'Video uploads are more reliable: they show progress, retry on a shaky connection, and pick up where they left off if you tap Post again.',
         ],
       },
     ],
