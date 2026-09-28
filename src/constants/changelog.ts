@@ -25,7 +25,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
-  '1.6': {
+  '1.60': {
     date: 'September 2026',
     groups: [
       {
@@ -498,11 +498,14 @@ export function changelogFor(version: string): ChangelogEntry | null {
 export const EARLIEST_SHOWN = '1.42';
 
 /**
- * "1.47" → 1.47, for ordering. The minor part reads as a decimal — 1.6 comes
- * after 1.51, as the releases went — not as a whole number, which put 1.6
- * (minor 6) before 1.51 (minor 51).
+ * "1.47" → 1047, for ordering. Versions here are always major.minor, and the
+ * minor is a whole number — as Apple compares them, so 1.60 follows 1.51 and a
+ * "1.6" would come before it (Apple turned 1.6 and 1.7 away as older builds).
  */
-const ordinal = (version: string) => Number(version) || 0;
+const ordinal = (version: string) => {
+  const [major, minor] = version.split('.').map(Number);
+  return (major || 0) * 1000 + (minor || 0);
+};
 
 /**
  * Every written-up version older than `version` and no older than
