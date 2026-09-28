@@ -1,9 +1,11 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { MessageCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 interface Props {
   sellerId: string;
@@ -36,8 +38,8 @@ export default function MessageAboutListingButton({ sellerId, sellerUsername, li
       onPress={handlePress}
       activeOpacity={0.8}
     >
-      <MessageCircle size={size} color="#000000" />
-      <Text style={[styles.text, { color: '#000000' }]}>
+      <MessageCircle size={size} color={COLOR_BLACK} />
+      <Text style={[styles.text, { color: COLOR_BLACK }]}>
         Message {sellerUsername ? `@${sellerUsername}` : 'seller'} about this
       </Text>
     </TouchableOpacity>
@@ -49,5 +51,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 11, paddingHorizontal: 14, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
-  text: { fontSize: 14, fontWeight: '700' },
+  text: { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

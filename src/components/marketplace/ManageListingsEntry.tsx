@@ -1,11 +1,13 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Tag, MessageSquare, CheckCircle2, RotateCcw, Pencil, Trash2, ChevronRight,
+  MessageCircle, Megaphone, Check,
 } from 'lucide-react-native';
 import {
   useGetMyListingsQuery,
@@ -23,7 +25,8 @@ import { useColors } from '../../hooks/useColors';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Listing } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -290,14 +293,44 @@ export default function ManageListingsEntry({
     go?.();
   };
 
+  /**
+   * The numbers under the label, as small bubbles with icons rather than a
+   * line of "3 for sale · 1 sold" to read. Unread leads, in the brand colour,
+   * because it's the one waiting on you.
+   */
   const counts = data?.counts;
-  const summary = counts
-    ? [
-      counts.listings ? `${counts.listings} for sale` : null,
-      counts.wants ? `${counts.wants} wanted` : null,
-      counts.sold ? `${counts.sold} sold` : null,
-    ].filter(Boolean).join('  ·  ') || 'Nothing listed yet'
-    : ' ';
+  const stats = [
+    count > 0 ? { key: 'unread', Icon: MessageCircle, value: count, label: count === 1 ? 'unread message' : 'unread messages', lead: true } : null,
+    counts?.listings ? { key: 'sale', Icon: Tag, value: counts.listings, label: 'for sale' } : null,
+    counts?.wants ? { key: 'want', Icon: Megaphone, value: counts.wants, label: 'wanted' } : null,
+    // Green: sold is the good news of the lot.
+    counts?.sold ? { key: 'sold', Icon: Check, value: counts.sold, label: 'sold', ink: COLOR_GREEN } : null,
+  ].filter(Boolean) as { key: string; Icon: typeof Tag; value: number; label: string; lead?: boolean; ink?: string }[];
+
+  const statsView = (
+    stats.length > 0 ? (
+      <View style={[styles.stats, variant === 'card' && styles.statsRight]}>
+        {stats.map(({ key, Icon, value, label, lead, ink: own }) => {
+          // A dark pill set into the card, with light ink; unread keeps
+          // the brand fill, being the one waiting on you.
+          const fill = lead ? colors.primaryAlt : STAT_BG;
+          const ink = lead ? '#000000' : own ?? STAT_INK;
+          return (
+            <View
+              key={key}
+              style={[styles.stat, { backgroundColor: fill }]}
+              accessibilityLabel={`${value} ${label}`}
+            >
+              <Icon size={14} color={ink} strokeWidth={2.4} />
+              <Text style={[styles.statText, { color: ink }]}>{value}</Text>
+            </View>
+          );
+        })}
+      </View>
+    ) : counts ? (
+      <Text style={[styles.entrySummary, { color: colors.grey }]}>Nothing listed yet</Text>
+    ) : null
+  );
 
   return (
     <>
@@ -312,19 +345,26 @@ export default function ManageListingsEntry({
         accessibilityRole="button"
         accessibilityLabel="Manage your listings"
       >
-        <View style={styles.entryIcon}>
-          <Tag size={16} color={colors.primaryAlt} />
-          <MarketplaceUnreadBadge count={count} />
-        </View>
+        {/* The row keeps its icon, like the dashboard rows around it; the card
+            is its words — the unread count is one of the bubbles below. */}
+        {variant === 'row' ? (
+          <View style={styles.entryIcon}>
+            <Tag size={16} color={colors.primaryAlt} />
+            <MarketplaceUnreadBadge count={count} />
+          </View>
+        ) : null}
         <View style={styles.entryText}>
-          <Text style={[styles.entryLabel, { color: colors.fg }]}>Manage your listings</Text>
-          <Text style={[styles.entrySummary, { color: colors.grey }]} numberOfLines={1}>
-            {count > 0
-              ? `${count} unread ${count === 1 ? 'message' : 'messages'}  ·  ${summary}`
-              : summary}
+          <Text style={[styles.entryLabel, variant === 'card' && styles.entryLabelCard, { color: colors.fg }]}>
+            Manage your listings
           </Text>
+          {variant === 'row' ? statsView : null}
         </View>
-        <ChevronRight size={16} color={colors.grey} />
+        {/* On the card the stats sit on the right, level with the title; the
+            row keeps them under its title. */}
+        {variant === 'card' ? statsView : null}
+        {/* The row keeps its chevron, like the dashboard rows it sits among;
+            the card doesn't need one — the whole card is the button. */}
+        {variant === 'row' ? <ChevronRight size={16} color={colors.grey} /> : null}
       </TouchableOpacity>
 
       <SharedModal
@@ -340,6 +380,10 @@ export default function ManageListingsEntry({
   );
 }
 
+/** A stat bubble: darker than the card it sits on, with light ink. */
+const STAT_BG = 'rgba(0,0,0,0.4)';
+const STAT_INK = 'rgba(255,255,255,0.85)';
+
 const styles = StyleSheet.create({
   pane: { paddingHorizontal: 12, paddingBottom: 28 },
 
@@ -348,8 +392,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 4, paddingBottom: 8,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '800' },
-  sectionCount: { fontSize: 12, fontWeight: '700' },
+  sectionTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
+  sectionCount: { fontSize: 12, fontFamily: FONT_INTER.bold },
 
   row: {
     borderWidth: 1, borderRadius: 14,
@@ -363,7 +407,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 7,
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  actionText: { fontSize: 12, fontWeight: '700' },
+  actionText: { fontSize: 12, fontFamily: FONT_INTER.bold },
 
   // Matches the dashboard's quick-action rows, so it can sit among them.
   entryRow: {
@@ -372,13 +416,22 @@ const styles = StyleSheet.create({
   },
   entryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 12, marginTop: 12,
+    // On the app's GUTTER, like the rest of the marketplace browse around it.
+    marginHorizontal: GUTTER,
     paddingHorizontal: 14, paddingVertical: 13,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   // Positioned, so the badge has a corner to hang off.
   entryIcon:    { position: 'relative' },
   entryText:    { flex: 1, minWidth: 0 },
-  entryLabel:   { fontSize: 14, fontWeight: '700' },
+  entryLabel:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   entrySummary: { fontSize: 12, marginTop: 2 },
+  // The card's title — larger than the row's, in the body font.
+  entryLabelCard: { fontSize: 17, fontFamily: FONT_INTER.bold },
+  stats:    { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  // On the card, to the right of the title: no top margin, kept to one row.
+  statsRight: { flexWrap: 'nowrap', marginTop: 0, flexShrink: 0 },
+  // Tighter on the icon's side, so the icon sits near the bubble's round end.
+  stat:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 7, paddingRight: 9, paddingVertical: 5, borderRadius: 999 },
+  statText: { fontSize: 13.5, fontFamily: FONT_INTER.bold },
 });

@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Shown when we hold a token but can't turn it into an account.
@@ -49,7 +51,7 @@ export default function SessionRecovery({
           activeOpacity={0.85}
         >
           {retrying
-            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            ? <ActivityIndicator color={COLOR_WHITE} size="small" />
             : <Text style={styles.primaryLabel}>Try again</Text>}
         </TouchableOpacity>
 
@@ -64,7 +66,7 @@ export default function SessionRecovery({
 const styles = StyleSheet.create({
   fill:    { flex: 1 },
   body:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  title:   { fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' },
+  title:   { fontSize: 20, fontFamily: FONT_INTER.bold, marginBottom: 10, textAlign: 'center' },
   message: { fontSize: 14, lineHeight: 21, textAlign: 'center', marginBottom: 28 },
   primaryBtn: {
     backgroundColor: colors.primaryAlt,
@@ -72,7 +74,7 @@ const styles = StyleSheet.create({
     minWidth: 200, minHeight: 48, alignItems: 'center', justifyContent: 'center',
   },
   btnBusy:  { opacity: 0.7 },
-  primaryLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  primaryLabel: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
   secondaryBtn: { marginTop: 16, paddingVertical: 10, paddingHorizontal: 16 },
-  secondaryLabel: { fontSize: 14, fontWeight: '600' },
+  secondaryLabel: { fontSize: 14, fontFamily: FONT_INTER.semibold },
 });

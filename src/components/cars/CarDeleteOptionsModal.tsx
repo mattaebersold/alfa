@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, FlatList,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, FlatList,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Archive, ArrowRightLeft, Trash2, Search, ChevronLeft } from 'lucide-react-native';
 import SharedModal from '../ui/SharedModal';
 import Avatar from '../ui/Avatar';
@@ -16,6 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import type { GarageCar, User } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * What "delete this car" should actually mean.
@@ -308,13 +310,13 @@ const styles = StyleSheet.create({
   body: { padding: 16, paddingBottom: 32, gap: 10 },
   option: { borderWidth: 1, borderRadius: 12, padding: 14 },
   optionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  optionTitle: { fontSize: 15, fontWeight: '700' },
+  optionTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   optionHelp: { fontSize: 12, lineHeight: 17, marginTop: 5 },
   busy: { marginTop: 6 },
 
   transferBody: { flex: 1, padding: 16, paddingBottom: 24, gap: 12 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },
-  backText: { fontSize: 13, fontWeight: '600' },
+  backText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
@@ -326,6 +328,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 12, padding: 10,
   },
   rowText: { flex: 1 },
-  rowName: { fontSize: 14, fontWeight: '700' },
+  rowName: { fontSize: 14, fontFamily: FONT_INTER.bold },
   rowSub: { fontSize: 12, marginTop: 1 },
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { COLOR_BLACK } from '../../constants/config';
 
 /**
  * A 16:9 YouTube player.
@@ -38,6 +39,6 @@ export default function YouTubeEmbed({ videoId, style }: YouTubeEmbedProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap:   { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000', overflow: 'hidden' },
-  player: { flex: 1, backgroundColor: '#000' },
+  wrap:   { width: '100%', aspectRatio: 16 / 9, backgroundColor: COLOR_BLACK, overflow: 'hidden' },
+  player: { flex: 1, backgroundColor: COLOR_BLACK },
 });

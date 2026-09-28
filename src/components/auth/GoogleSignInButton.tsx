@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Text, StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
+import { Text } from '@ors/kit';
 import {
   GoogleSignin,
   statusCodes,
@@ -7,9 +8,9 @@ import {
 import { useAppDispatch } from '../../store/store';
 import { googleSignIn } from '../../store/authSlice';
 import { useColors } from '../../hooks/useColors';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, COMMON_RADIUS } from '../../constants/config';
 import GoogleGlyph from './GoogleGlyph';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * "Continue with Google", natively.
@@ -125,5 +126,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   inner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  label: { fontSize: 15, fontWeight: '700' },
+  label: { fontSize: 15, fontFamily: FONT_INTER.bold },
 });

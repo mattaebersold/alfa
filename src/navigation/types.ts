@@ -33,7 +33,17 @@ export type CarDetailAction = 'gallery';
 
 // ── Feed Stack ──────────────────────────────────────────────────────────────
 export type FeedStackParamList = {
-  Feed: undefined;
+  /**
+   * `tab` opens the home screen on that header tab, scrolled to the top.
+   * `at` is when it was asked for — a fresh value each time, so asking for
+   * the tab already showing still takes you back to its top.
+   */
+  Feed: {
+    tab?: 'feed' | 'events' | 'market' | 'groups' | 'photography';
+    at?: number;
+    /** With `tab: 'photography'`: a spot to open on the map. */
+    spotId?: string;
+  } | undefined;
   PostDetail: { postId: string; edit?: boolean };
   UserDetail: { userId: string; username?: string };
   CarDetail: { carId: string; action?: CarDetailAction };
@@ -55,7 +65,6 @@ export type FeedStackParamList = {
 
 // ── Society Stack ───────────────────────────────────────────────────────────
 export type SocietyStackParamList = {
-  Events: undefined;
   Rallys: undefined;
   RallyDetail: { rallyId: string };
 };
@@ -109,7 +118,6 @@ export type MainTabParamList = {
   GroupsTab: NavigatorScreenParams<GroupsStackParamList> | undefined;
   CarsTab: NavigatorScreenParams<CarsStackParamList> | undefined;
   /** The photo spot map. A real destination, unlike SearchTab below. */
-  PhotographyTab: undefined;
   /**
    * A button, not a destination — its press opens the search overlay and is
    * prevented before it can navigate. Declared so the tab is typed like its
@@ -192,7 +200,7 @@ export type AppStackParamList = {
     | { listingId: string; threadId?: undefined; listingTitle?: string; initialBody?: string };
   Shop: undefined;
   /**
-   * Pinning a spot. The map itself is a tab (`PhotographyTab`), but creating is
+   * Pinning a spot. The map itself is the home screen's Photography tab, but creating is
    * a modal over it, the way every other create flow in the app works.
    */
   /**

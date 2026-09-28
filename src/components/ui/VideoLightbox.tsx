@@ -3,7 +3,7 @@ import { View, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { muxStreamUrl } from '../../utils/postMedia';
 
 /** The close button's box, and the breathing room either side of it. */
@@ -81,7 +81,7 @@ function Viewer({ videoId, onClose }: { videoId: string; onClose: () => void }) 
         accessibilityRole="button"
         accessibilityLabel="Close video"
       >
-        <X size={20} color="#FFFFFF" />
+        <X size={20} color={COLOR_WHITE} />
       </TouchableOpacity>
     </View>
   );
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   // Solid black, unlike the photo viewer's near-black: a video's letterboxing
   // is black already, and a second, slightly lighter black around it would
   // draw the edge of the player as a visible box.
-  root:  { flex: 1, backgroundColor: '#000' },
+  root:  { flex: 1, backgroundColor: COLOR_BLACK },
   stage: { flex: 1 },
   closeBtn: {
     position: 'absolute', right: 14,

@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions,
+  View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { format } from 'date-fns';
 import { Car } from 'lucide-react-native';
@@ -20,6 +21,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -215,8 +217,8 @@ const styles = StyleSheet.create({
 
   hero:     { width: '100%', aspectRatio: 16 / 9 },
   header:   { paddingHorizontal: 20, paddingTop: 18, gap: 8 },
-  category: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  title:    { fontSize: 25, fontWeight: '800', lineHeight: 32, letterSpacing: -0.3 },
+  category: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 1 },
+  title:    { fontSize: 25, fontFamily: FONT_INTER.bold, lineHeight: 32, letterSpacing: -0.3 },
   date:     { fontSize: 12 },
 
   badges: {
@@ -234,8 +236,8 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
   },
-  metaLabel: { fontSize: 11, fontWeight: '600', marginBottom: 1 },
-  metaValue: { fontSize: 14, fontWeight: '700' },
+  metaLabel: { fontSize: 11, fontFamily: FONT_INTER.semibold, marginBottom: 1 },
+  metaValue: { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   // Copy is inset for readability; images run edge-to-edge against it.
   copyBlock:  { paddingHorizontal: 20, paddingTop: 22 },

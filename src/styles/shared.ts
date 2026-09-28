@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { COMMON_RADIUS } from '../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../constants/config';
+import { FONT_INTER } from '../constants/fonts'
 
 export const ss = StyleSheet.create({
   // Layout
@@ -11,18 +12,18 @@ export const ss = StyleSheet.create({
   // Cards
   card:   { borderRadius: COMMON_RADIUS, borderWidth: 1 },
   shadow: {
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
 
   // Underline tab bars (Profile, UserDetail, EventDetail, Marketplace)
   tabBar:     { flexDirection: 'row', borderBottomWidth: 1 },
   tabItem:    { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText:    { fontSize: 14, fontWeight: '600' },
+  tabText:    { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   // Section headers (search results, feed sections, etc.)
   sectionHeader: { paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1 },
-  sectionTitle:  { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle:  { fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   // Inputs
   input: {
@@ -44,9 +45,9 @@ export const ss = StyleSheet.create({
   },
 
   // Typography
-  h1:      { fontSize: 22, fontWeight: '800' },
-  h2:      { fontSize: 18, fontWeight: '700' },
-  label:   { fontSize: 15, fontWeight: '600' },
+  h1:      { fontSize: 22, fontFamily: FONT_INTER.bold },
+  h2:      { fontSize: 18, fontFamily: FONT_INTER.bold },
+  label:   { fontSize: 15, fontFamily: FONT_INTER.semibold },
   body:    { fontSize: 15 },
   small:   { fontSize: 13 },
   caption: { fontSize: 12 },

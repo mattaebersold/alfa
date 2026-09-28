@@ -1,17 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
-  useWindowDimensions, Platform,
+  View, TouchableOpacity, StyleSheet, Modal, Animated, Easing, useWindowDimensions, Platform,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList, { DeleteAllButton } from '../notifications/NotificationsList';
 import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_RED, COLOR_WHITE } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { PILL_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 42;
@@ -284,7 +284,7 @@ export default function NotificationsBell() {
         accessibilityRole="button"
         accessibilityLabel={`Notifications, ${count} unread`}
       >
-        <Bell size={22} color="#FFFFFF" strokeWidth={2.2} />
+        <Bell size={22} color={COLOR_WHITE} strokeWidth={2.2} />
         {/* Not while the panel is up: the copy riding the box carries the
             bubble then, and by the tail of the collapse the scrim has faded
             enough to show this one too — two badges, a few pixels apart,
@@ -380,7 +380,7 @@ export default function NotificationsBell() {
               "Style property 'left' is not supported by native animated module"
               followed by the JS animation refusing to run at all. */}
           <Animated.View style={[styles.ghostFace, { opacity: ghost }]}>
-            <Bell size={22} color="#FFFFFF" strokeWidth={2.2} />
+            <Bell size={22} color={COLOR_WHITE} strokeWidth={2.2} />
             {count > 0 && (
               <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
                 <Text style={styles.badgeText}>
@@ -419,14 +419,14 @@ export default function NotificationsBell() {
                   on the right: both act on the panel rather than on a
                   notification, and apart they can't be hit one for the other. */}
               <View style={styles.panelHeader}>
-                <DeleteAllButton color="#FFFFFF" />
+                <DeleteAllButton color={COLOR_WHITE} />
                 <TouchableOpacity
                   onPress={() => closePanel()}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   accessibilityRole="button"
                   accessibilityLabel="Close notifications"
                 >
-                  <X size={30} color="#FFFFFF" strokeWidth={2.4} />
+                  <X size={30} color={COLOR_WHITE} strokeWidth={2.4} />
                 </TouchableOpacity>
               </View>
 
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   btn: {
     width: BTN, height: BTN,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLOR_BLACK,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
@@ -514,10 +514,10 @@ const styles = StyleSheet.create({
     minWidth: 19, height: 19, borderRadius: PILL_RADIUS,
     paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#EC4632',
+    backgroundColor: COLOR_RED,
     zIndex: 10, elevation: 12,
   },
-  badgeText: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF' },
+  badgeText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 
   messagesRow: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   messagesText:  { flex: 1 },
-  messagesTitle: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  messagesTitle: { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   messagesHint:  { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
 
   // Lighter than it was: the panel itself is near-black, and against a
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   morphBox: {
     position: 'absolute',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLOR_BLACK,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     width: '100%', height: '100%',
     alignItems: 'center', justifyContent: 'center',
   },
-  morphBlack: { backgroundColor: '#000000' },
+  morphBlack: { backgroundColor: COLOR_BLACK },
   // Fades off the black beneath it — colour can't be interpolated natively, and
   // two layers cross-fading is the same picture without the bridge traffic. The
   // fill itself is passed in, so the box leaves as whatever the button was.

@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { rallyDayDate } from '../../utils/rally';
 import type { RallyDay } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The rally's itinerary: each day a self-contained card in one column.
@@ -82,12 +84,12 @@ function RallyDayImage({ uri, alt }: { uri: string; alt: string }) {
 
 const styles = StyleSheet.create({
   section:  { paddingHorizontal: 16, paddingTop: 28 },
-  heading:  { fontSize: 20, fontWeight: '800', marginBottom: 12 },
+  heading:  { fontSize: 20, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   list:     { gap: 12 },
   card:     { borderRadius: COMMON_RADIUS, padding: 16, borderWidth: StyleSheet.hairlineWidth },
-  dayLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  title:    { fontSize: 20, fontWeight: '800', marginTop: 4 },
-  subtitle: { fontSize: 15, fontWeight: '700', marginTop: 3 },
+  dayLabel: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 1 },
+  title:    { fontSize: 20, fontFamily: FONT_INTER.bold, marginTop: 4 },
+  subtitle: { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 3 },
   description: { fontSize: 14.5, lineHeight: 21, marginTop: 10 },
   dayImage: { width: '100%', borderRadius: 10, marginTop: 14 },
 });

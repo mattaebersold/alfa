@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, type LayoutChangeEvent } from 'react-native';
+import { View, TouchableOpacity, ScrollView, StyleSheet, Dimensions, type LayoutChangeEvent } from 'react-native';
+import { Text } from '@ors/kit';
 import { Check, Globe, Users } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 export interface PostToGroup { internal_id: string; title?: string }
 
@@ -33,8 +35,8 @@ const CARD_HEIGHT = 96;
  * the shelves elsewhere in the app (ListShelf, RouteStrip, GroupsScreen).
  *
  * Public stays first: it's the default, and the one every post is deciding
- * for or against. Selection is carried by the whole card — brand border,
- * tinted ground and a filled check — as it was on the tiles.
+ * for or against. Selection is carried by the whole card — tinted ground and
+ * a filled check — with no border on either state.
  */
 export default function PostToSelector({
   isPublic,
@@ -42,18 +44,26 @@ export default function PostToSelector({
   groups,
   selectedGroupIds,
   onToggleGroup,
+  bleed = 0,
 }: {
   isPublic: boolean;
   onTogglePublic: () => void;
   groups: PostToGroup[];
   selectedGroupIds: string[];
   onToggleGroup: (groupId: string) => void;
+  /**
+   * The padding of whatever it sits in. The row reaches out past it to that
+   * container's edges, so the cards scroll edge to edge, and the first one
+   * still starts on the padding line — like the garage strip.
+   */
+  bleed?: number;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
   const [rowWidth, setRowWidth] = useState(0);
   const cardWidth = rowWidth > 0 ? Math.round(rowWidth * CARD_FRACTION) : FALLBACK_WIDTH;
-  const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width);
+  // Sized against the space inside the padding, as before the row bled out.
+  const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width - bleed * 2);
 
   const card = (
     key: string,
@@ -66,8 +76,9 @@ export default function PostToSelector({
       key={key}
       style={[
         styles.card,
-        { width: cardWidth, backgroundColor: colors.inputBg, borderColor: colors.inputBorder },
-        active && { borderColor: brand, backgroundColor: brand + '1F' },
+        { width: cardWidth, backgroundColor: colors.inputBg },
+        // No border either way: chosen is the brand tint and the filled check.
+        active && { backgroundColor: brand + '1F' },
       ]}
       onPress={onPress}
       activeOpacity={0.8}
@@ -98,7 +109,8 @@ export default function PostToSelector({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.row}
+      style={{ marginHorizontal: -bleed }}
+      contentContainerStyle={[styles.row, { paddingHorizontal: bleed }]}
       // Card by card, so the peek stays put wherever the row is left.
       snapToInterval={cardWidth + CARD_GAP}
       snapToAlignment="start"
@@ -124,7 +136,7 @@ const styles = StyleSheet.create({
   row: { gap: CARD_GAP },
   card: {
     height: CARD_HEIGHT,
-    borderRadius: COMMON_RADIUS, borderWidth: 1.5,
+    borderRadius: COMMON_RADIUS,
     paddingHorizontal: 12, paddingVertical: 12,
     justifyContent: 'space-between',
   },
@@ -133,5 +145,5 @@ const styles = StyleSheet.create({
     width: 20, height: 20, borderRadius: 6, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  cardLabel: { fontSize: 13.5, fontWeight: '700', lineHeight: 18 },
+  cardLabel: { fontSize: 13.5, fontFamily: FONT_INTER.bold, lineHeight: 18 },
 });

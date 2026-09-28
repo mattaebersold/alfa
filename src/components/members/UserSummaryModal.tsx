@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -24,6 +25,8 @@ import { useColors } from '../../hooks/useColors';
 import { stripHtml } from '../../utils/text';
 import { imageUrl } from '../../utils/image';
 import SummaryMessageButton from './SummaryMessageButton';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_BLACK, COLOR_GRAY_138 } from '../../constants/config';
 
 /**
  * Enough of a member to decide whether you want their profile.
@@ -212,17 +215,17 @@ const styles = StyleSheet.create({
 
   head:     { flexDirection: 'row', alignItems: 'center', gap: 14 },
   headText: { flex: 1, alignItems: 'flex-start', gap: 4 },
-  username: { fontSize: 19, fontWeight: '800', flexShrink: 1 },
+  username: { fontSize: 19, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
-  place: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  place: { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
   // Neutral rather than brand-filled: a member number is a fact about the
   // account, not a status, and in the brand colour it read as loudly as the
   // username beside it.
   memberBadge: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
-    backgroundColor: '#8A8A8A',
+    backgroundColor: COLOR_GRAY_138,
   },
-  memberBadgeText: { fontSize: 11, fontWeight: '500', color: '#000000' },
+  memberBadgeText: { fontSize: 11, fontFamily: FONT_INTER.medium, color: COLOR_BLACK },
 
   // Four equal cells across the panel. `flex: 1` rather than sizing to their
   // contents, so a member with 1 follower and 1,204 posts still gets an even
@@ -234,8 +237,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10, paddingHorizontal: 4,
     borderRadius: 12,
   },
-  statValue: { fontSize: 17, fontWeight: '800' },
-  statLabel: { fontSize: 10, fontWeight: '600' },
+  statValue: { fontSize: 17, fontFamily: FONT_INTER.bold },
+  statLabel: { fontSize: 10, fontFamily: FONT_INTER.semibold },
   bio: { fontSize: 13, lineHeight: 19 },
 
   actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -1,8 +1,8 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  Alert, StatusBar, ActivityIndicator, Dimensions,
+  View, TouchableOpacity, StyleSheet, Alert, StatusBar, ActivityIndicator, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -11,7 +11,15 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_DANGER,
+  COLOR_GRAY_10,
+  COLOR_WHITE,
+  COLOR_BORDER,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -33,7 +41,7 @@ const pb = StyleSheet.create({
     height: 3, backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 2, overflow: 'hidden',
   },
-  fill: { height: '100%', backgroundColor: '#ef4444', borderRadius: 2 },
+  fill: { height: '100%', backgroundColor: COLOR_DANGER, borderRadius: 2 },
 });
 
 // ─── Recorded preview ─────────────────────────────────────────────────────────
@@ -68,7 +76,7 @@ function RecordedPreview({
 
       {!ready && (
         <View style={styles.overlay}>
-          <ActivityIndicator color="#fff" size="large" />
+          <ActivityIndicator color={COLOR_WHITE} size="large" />
         </View>
       )}
 
@@ -94,7 +102,7 @@ function RecordedPreview({
           style={[styles.nextBtn, (processing || !ready) && { opacity: 0.5 }]}
         >
           {processing
-            ? <ActivityIndicator color="#000" size="small" />
+            ? <ActivityIndicator color={COLOR_BLACK} size="small" />
             : <Text style={styles.nextBtnText}>Use Video →</Text>
           }
         </TouchableOpacity>
@@ -296,28 +304,28 @@ export default function CreateStoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: COLOR_BLACK },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#000',
+    backgroundColor: COLOR_BLACK,
     alignItems: 'center', justifyContent: 'center',
   },
 
   // Permission gate
   permGate: {
-    flex: 1, backgroundColor: '#0a0a0a',
+    flex: 1, backgroundColor: COLOR_GRAY_10,
     alignItems: 'center', justifyContent: 'center', padding: 36,
   },
-  permTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginBottom: 12, textAlign: 'center' },
+  permTitle: { color: COLOR_WHITE, fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 12, textAlign: 'center' },
   permSub: {
     color: 'rgba(255,255,255,0.55)', fontSize: 14, textAlign: 'center',
     lineHeight: 21, marginBottom: 36,
   },
   permBtn: {
-    backgroundColor: '#fff', borderRadius: COMMON_RADIUS,
+    backgroundColor: COLOR_WHITE, borderRadius: COMMON_RADIUS,
     paddingHorizontal: 36, paddingVertical: 15, marginBottom: 14,
   },
-  permBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
+  permBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: 'rgba(255,255,255,0.45)', fontSize: 14 },
 
@@ -333,7 +341,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
-  circleBtnText: { color: '#fff', fontSize: 18 },
+  circleBtnText: { color: COLOR_WHITE, fontSize: 18 },
   recordingInfo: {
     flex: 1, gap: 6,
   },
@@ -341,36 +349,36 @@ const styles = StyleSheet.create({
   timerBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'center',
   },
-  recDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#ef4444' },
-  timerText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  recDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: COLOR_DANGER },
+  timerText: { color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   // Footer
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
     alignItems: 'center', paddingBottom: 32, gap: 14,
   },
-  hint: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '500' },
+  hint: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontFamily: FONT_INTER.medium },
   // The camera's record control stays round — that shape is the convention
   // everywhere a camera has one, and it pairs with the stop glyph inside it.
   recordBtnOuter: {
     width: 80, height: 80, borderRadius: 40,
-    borderWidth: 4, borderColor: '#fff',
+    borderWidth: 4, borderColor: COLOR_WHITE,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   recordBtnInner: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff',
+    width: 56, height: 56, borderRadius: 28, backgroundColor: COLOR_WHITE,
   },
   recordBtnInnerActive: {
     // Not chrome — this is the stop glyph inside the record button, and its
     // slight rounding is part of the shape, not a button corner.
-    width: 28, height: 28, borderRadius: 6, backgroundColor: '#ef4444',
+    width: 28, height: 28, borderRadius: 6, backgroundColor: COLOR_DANGER,
   },
   recordBtnDisabled: { opacity: 0.4 },
 
   // Preview
   previewLabel: { flex: 1, alignItems: 'center' },
-  previewLabelText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  previewLabelText: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
   previewFooter: {
     position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
     flexDirection: 'row', gap: 12, padding: 16,
@@ -379,13 +387,13 @@ const styles = StyleSheet.create({
   discardBtn: {
     flex: 1, borderRadius: COMMON_RADIUS, paddingVertical: 15,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+    borderWidth: 1, borderColor: COLOR_BORDER,
   },
-  discardBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  discardBtnText: { color: COLOR_WHITE, fontFamily: FONT_INTER.semibold, fontSize: 15 },
   nextBtn: {
     flex: 2, borderRadius: COMMON_RADIUS, paddingVertical: 15,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLOR_WHITE,
   },
-  nextBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
+  nextBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 15 },
 });

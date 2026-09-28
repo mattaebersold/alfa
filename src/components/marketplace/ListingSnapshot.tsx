@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem, ListingPriceMode } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * What a listing costs, in words.
@@ -120,8 +122,8 @@ const styles = StyleSheet.create({
   thumb:   { borderRadius: COMMON_RADIUS },
   faded:   { opacity: 0.45 },
   text:    { flex: 1, minWidth: 0 },
-  title:   { fontSize: 14, fontWeight: '700' },
+  title:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  price:   { fontSize: 13, fontWeight: '800' },
-  state:   { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  price:   { fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  state:   { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
 });

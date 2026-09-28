@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ScrollView,
+  View, StyleSheet, FlatList, TouchableOpacity, ScrollView,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {Search, MapPin} from 'lucide-react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -29,6 +30,8 @@ import { ss } from '../../styles/shared';
 import MemberRow from '../../components/members/MemberRow';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_GRAY_17, GUTTER } from '../../constants/config';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -70,12 +73,9 @@ export default function MembersScreen() {
    * and ask for a page the cache already holds, and with the same data coming
    * back the effect that refills the list never runs — an empty screen.
    */
-  const applyLocation = useCallback((next: { choice: string; radius: number }) => {
-    const choiceChanged = next.choice !== location.choice;
-    const radiusChanged = next.radius !== location.radius;
-    if (!choiceChanged && !radiusChanged) return;
-    if (choiceChanged) location.choose(next.choice);
-    if (radiusChanged) location.setRadius(next.radius);
+  const applyLocation = useCallback((next: string) => {
+    if (next === location.choice) return;
+    location.choose(next);
     setPage(0);
     setAllUsers([]);
   }, [location]);
@@ -129,35 +129,31 @@ export default function MembersScreen() {
         // one button inside it.
         onMemberPress={(userId, _username, origin) => setSummary({ userId, origin })}
       />
-      <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: colors.border }]}>
-        <Search size={16} color={colors.grey} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.fg }]}
-          value={query}
-          onChangeText={handleQueryChange}
-          placeholder="Search members..."
-          placeholderTextColor={colors.grey}
-          autoCapitalize="none"
-        />
-      </View>
-
-      {/* Folded into one row that opens a panel, as on events — the chips
-          took a line and a half above the list for a choice made once. */}
-      <FilterSummaryRow
-        value={{ choice: location.choice, radius: location.radius }}
-        onApply={applyLocation}
-        pills={[locationPill(location.choice, location.radius)]}
-        style={[styles.filterRow, { backgroundColor: CONTROL_BG }]}
-      >
-        {(draft, setDraft) => (
-          <LocationFilterRow
-            choice={draft.choice}
-            onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
-            radius={draft.radius}
-            onRadius={(radius) => setDraft((d) => ({ ...d, radius }))}
+      {/* Search on the left, the filter on the right — the pattern events,
+          the marketplace, groups and cars share. */}
+      <View style={styles.toolsRow}>
+        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: colors.border }]}>
+          <Search size={16} color={colors.grey} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.fg }]}
+            value={query}
+            onChangeText={handleQueryChange}
+            placeholder="Search members..."
+            placeholderTextColor={colors.grey}
+            autoCapitalize="none"
           />
-        )}
-      </FilterSummaryRow>
+        </View>
+        <FilterSummaryRow<string>
+          value={location.choice}
+          onApply={applyLocation}
+          pills={[locationPill(location.choice)]}
+          compact
+        >
+          {(choice, setDraft) => (
+            <LocationFilterRow choice={choice} onChoose={setDraft} />
+          )}
+        </FilterSummaryRow>
+      </View>
       {/* Stays on the screen rather than in the panel: it explains the list
           you're looking at, not an option you're choosing. */}
       {location.fellBack && (
@@ -219,18 +215,20 @@ export default function MembersScreen() {
  * member rows now unfilled, the full-brightness controls were the loudest
  * thing on the screen.
  */
-const CONTROL_BG = '#111111';
+const CONTROL_BG = COLOR_GRAY_17;
 
 const styles = StyleSheet.create({
   content:     { flex: 1 },
+  // The search and the filter pill, side by side.
+  toolsRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, margin: GUTTER },
+  // A pill, the filter's height, taking the rest of the row.
   searchBar:   {
+    flex: 1, minWidth: 0, height: 44,
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    margin: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 14,
+    borderRadius: 999, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 15 },
-  // The search bar above already leaves 12 under itself.
-  filterRow:   { marginTop: 0, marginBottom: 10 },
   note:        { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginBottom: 10 },
 
   regionRow:  { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
@@ -239,6 +237,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: 999, borderWidth: 1,
   },
-  regionChipText: { fontSize: 13, fontWeight: '700' },
+  regionChipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
   list:        { paddingBottom: 80, flexGrow: 1 },
 });

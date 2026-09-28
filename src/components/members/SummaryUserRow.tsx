@@ -1,9 +1,11 @@
 import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_42, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * One person, in a list that lives inside a summary panel — a group's members,
@@ -74,13 +76,13 @@ export default function SummaryUserRow({
 
 const styles = StyleSheet.create({
   row:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
-  name: { flex: 1, fontSize: 14, fontWeight: '600' },
+  name: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
   // The same grey as the summaries' other secondary buttons (Message, Follow):
   // it's something you can do to this row, not the panel's main action.
   viewBtn: {
     paddingHorizontal: 12, paddingVertical: 5,
     borderRadius: COMMON_RADIUS,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: COLOR_GRAY_42,
   },
-  viewText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  viewText: { fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 });

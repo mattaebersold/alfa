@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Car, Search, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
@@ -10,6 +11,8 @@ import { useGetCarsQuery, useGetCarModelsQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_WHITE } from '../../constants/config';
 
 /**
  * Whether a tile's name answers what's typed: every word, in any order, so
@@ -168,7 +171,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
-                <Text style={[styles.pillText, { color: active ? '#FFFFFF' : colors.fg }]}>
+                <Text style={[styles.pillText, { color: active ? COLOR_WHITE : colors.fg }]}>
                   {f ? f.label : 'All'}
                   {f?.qty ? <Text style={styles.pillCount}> {f.qty}</Text> : null}
                 </Text>
@@ -198,12 +201,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2,
   },
-  brandTitle:  { fontSize: 26, fontWeight: '800', flexShrink: 1 },
+  brandTitle:  { fontSize: 26, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   brandCount:  {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999,
   },
-  brandCountText: { fontSize: 14, fontWeight: '800' },
+  brandCountText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 12, marginTop: 12, paddingHorizontal: 14, paddingVertical: 10,
@@ -213,9 +216,9 @@ const styles = StyleSheet.create({
   noMatch:   { fontSize: 14, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
   // Stretched to the tallest tile; each centers its name in the extra height.
   models:    { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6, gap: 10, alignItems: 'stretch' },
-  section:   { fontSize: 17, fontWeight: '800', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
+  section:   { fontSize: 17, fontFamily: FONT_INTER.bold, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
   pills:     { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
   pill:      { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5 },
-  pillText:  { fontSize: 13, fontWeight: '700' },
-  pillCount: { fontSize: 12, fontWeight: '500', opacity: 0.7 },
+  pillText:  { fontSize: 13, fontFamily: FONT_INTER.bold },
+  pillCount: { fontSize: 12, fontFamily: FONT_INTER.medium, opacity: 0.7 },
 });

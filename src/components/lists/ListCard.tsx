@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Lock } from 'lucide-react-native';
 import ListPreviewMosaic from './ListPreviewMosaic';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import type { List } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Shorter than the shelf card's preview: this card is full width, so at 104
@@ -90,7 +92,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FONT_INTER.semibold,
     flex: 1,
   },
   lockIcon: {

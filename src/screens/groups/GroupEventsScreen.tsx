@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -18,6 +19,7 @@ import type { Event } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate } from '../../utils/calendarDate';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -76,7 +78,7 @@ const styles = StyleSheet.create({
   thumb:            { width: 72, height: 54, borderRadius: 8 },
   thumbPlaceholder: { backgroundColor: colors.primaryAlt },
   info:             { flex: 1 },
-  date:             { fontSize: 11, fontWeight: '700', color: colors.primaryAlt, marginBottom: 2 },
-  title:            { fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  date:             { fontSize: 11, fontFamily: FONT_INTER.bold, color: colors.primaryAlt, marginBottom: 2 },
+  title:            { fontSize: 14, fontFamily: FONT_INTER.bold, lineHeight: 20 },
   location:         { fontSize: 12, marginTop: 2 },
 });

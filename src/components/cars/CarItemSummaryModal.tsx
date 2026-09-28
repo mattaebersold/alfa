@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity,
+  View, StyleSheet, ScrollView, Dimensions, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images } from 'lucide-react-native';
@@ -14,6 +15,8 @@ import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import type { GalleryItem } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_WHITE } from '../../constants/config';
 
 /** The panel is 90% of the screen; its gallery matches so pages land square. */
 const PAGE_WIDTH = Dimensions.get('window').width * 0.9;
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
     width: 6, height: 6, borderRadius: 3,
     backgroundColor: 'rgba(255,255,255,0.45)',
   },
-  dotOn: { backgroundColor: '#FFFFFF' },
+  dotOn: { backgroundColor: COLOR_WHITE },
 
   body:    { padding: 18, paddingBottom: 20, gap: 6 },
   kindRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -209,9 +212,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
   },
   kindText: {
-    fontSize: 10, fontWeight: '700',
+    fontSize: 10, fontFamily: FONT_INTER.bold,
   },
-  title: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3, marginTop: 2 },
+  title: { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3, marginTop: 2 },
   car:   { fontSize: 13, marginTop: -2 },
   desc:  { fontSize: 14, lineHeight: 20, marginTop: 6 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: -6 },

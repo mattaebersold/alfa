@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View, StyleProp, ViewStyle, ImageSourcePropType } from 'react-native';
 import { Image } from 'expo-image';
+import { COLOR_BLACK } from '../../constants/config';
 
 // Fisher–Yates shuffle (returns a new array).
 function shuffle<T>(arr: T[]): T[] {
@@ -72,5 +73,5 @@ export default function CrossfadeBackground({
 
 const styles = StyleSheet.create({
   // Black base so any load gap reads as a dark splash, not a white flash.
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: COLOR_BLACK },
 });

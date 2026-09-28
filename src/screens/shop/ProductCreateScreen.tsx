@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity, Alert,
-  ActivityIndicator, Platform, Switch,
+  View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform, Switch,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +22,8 @@ import { imageUrl } from '../../utils/image';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import EmptyState from '../../components/ui/EmptyState';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** A variant as it's being typed. Everything is text until submit. */
 interface DraftVariant {
@@ -347,7 +348,7 @@ export default function ProductCreateScreen() {
                   hitSlop={6}
                   accessibilityLabel="Remove photo"
                 >
-                  <X size={13} color="#FFFFFF" />
+                  <X size={13} color={COLOR_WHITE} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -384,7 +385,7 @@ export default function ProductCreateScreen() {
           activeOpacity={0.85}
         >
           {isLoading
-            ? <ActivityIndicator size="small" color="#000000" />
+            ? <ActivityIndicator size="small" color={COLOR_BLACK} />
             : <Text style={styles.submitText}>{editingId ? 'Save Changes' : 'Add Product'}</Text>}
         </TouchableOpacity>
       </FormScrollView>
@@ -410,7 +411,7 @@ function ToggleRow({
 }
 
 const styles = StyleSheet.create({
-  fieldLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 16 },
+  fieldLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 6, marginTop: 16 },
   input: {
     borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 12 : 9,
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 110, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 12 },
 
-  sectionTitle: { fontSize: 19, fontWeight: '800', marginTop: 28 },
+  sectionTitle: { fontSize: 19, fontFamily: FONT_INTER.bold, marginTop: 28 },
   sectionHint:  { fontSize: 13, lineHeight: 18, marginTop: 4 },
 
   variantCard: {
@@ -427,12 +428,12 @@ const styles = StyleSheet.create({
     padding: 12, marginTop: 12, gap: 10,
   },
   variantHead:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  variantLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  variantLabel: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 1 },
   addVariant: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 44, borderRadius: COMMON_RADIUS, borderWidth: 1, borderStyle: 'dashed', marginTop: 12,
   },
-  addVariantText: { fontSize: 14, fontWeight: '700' },
+  addVariantText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   photoWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
   photoItem: { position: 'relative' },
@@ -448,12 +449,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  toggleLabel: { fontSize: 15, fontWeight: '700' },
+  toggleLabel: { fontSize: 15, fontFamily: FONT_INTER.bold },
   toggleHint:  { fontSize: 12.5, lineHeight: 17, marginTop: 2 },
 
   submit: {
     height: 52, borderRadius: COMMON_RADIUS, marginTop: 28,
     alignItems: 'center', justifyContent: 'center',
   },
-  submitText: { fontSize: 16, fontWeight: '800', color: '#000000' },
+  submitText: { fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
 });

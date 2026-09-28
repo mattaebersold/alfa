@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { Car } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
@@ -11,6 +12,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_GRAY_208, COLOR_GRAY_46, COLOR_WHITE } from '../../constants/config';
 
 type Tab = 'cars' | 'discussion' | 'resources';
 
@@ -57,13 +60,13 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
           <Text style={styles.headerTitleText} numberOfLines={1}>{title}</Text>
           {total != null && (
             <View style={styles.count} accessibilityLabel={`${total} ${total === 1 ? 'car' : 'cars'}`}>
-              <Car size={13} color="#FFFFFF" strokeWidth={2.2} />
+              <Car size={13} color={COLOR_WHITE} strokeWidth={2.2} />
               <Text style={styles.countText}>{total}</Text>
             </View>
           )}
         </View>
       ),
-      // Saved to the menu's row — see BookmarkedModelsRow.
+      // Saved to the header's Bookmarks › Cars — see BookmarksPanel.
       headerRight: () => (
         <ModelBookmarkButton
           make={brand}
@@ -121,13 +124,13 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
 
 const styles = StyleSheet.create({
   headerTitle: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 240 },
-  headerTitleText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', flexShrink: 1 },
+  headerTitleText: { color: COLOR_WHITE, fontSize: 17, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   count: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
-  countText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  countText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   // A switch between the page's three sections, under the groups.
   tabs: {
     flexDirection: 'row', marginTop: 16, marginBottom: 12, marginHorizontal: 12,
@@ -137,11 +140,11 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  tabText: { fontSize: 14, fontWeight: '800' },
+  tabText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
   tabCount: {
     minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5,
-    backgroundColor: '#2E2E2E', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLOR_GRAY_46, alignItems: 'center', justifyContent: 'center',
   },
-  tabCountText: { fontSize: 11, fontWeight: '800', color: '#D0D0D0' },
+  tabCountText: { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_GRAY_208 },
   scroll: { paddingBottom: 120 },
 });

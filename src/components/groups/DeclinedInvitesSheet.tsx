@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert,
+  View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Users, RotateCcw } from 'lucide-react-native';
 import {
@@ -14,7 +15,8 @@ import Spinner from '../ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import type { DeclinedInvite } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The groups you said no to, and the way to change your mind.
@@ -163,7 +165,7 @@ const styles = StyleSheet.create({
   thumb:      { width: 46, height: 46, borderRadius: 8 },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
   rowText:    { flex: 1, minWidth: 0 },
-  title:      { fontSize: 15, fontWeight: '700' },
+  title:      { fontSize: 15, fontFamily: FONT_INTER.bold },
   sub:        { fontSize: 12, marginTop: 2 },
   undoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -171,5 +173,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  undoText: { fontSize: 13, fontWeight: '700' },
+  undoText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, FlatList,
-  StatusBar, SafeAreaView as RNSafeAreaView, type ImageSourcePropType,
+  View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, FlatList, StatusBar, SafeAreaView as RNSafeAreaView, type ImageSourcePropType,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import { HISTORY_IMAGES } from './historyImages';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -109,11 +111,11 @@ function Lightbox({ index, onClose }: { index: number; onClose: () => void }) {
   return (
     <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <RNSafeAreaView style={styles.lightboxSafe}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <StatusBar barStyle="light-content" backgroundColor={COLOR_BLACK} />
         <View style={styles.lightboxHeader}>
           <Text style={styles.lightboxCount}>{current + 1} / {HISTORY_IMAGES.length}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.lightboxClose}>
-            <X size={22} color="#FFFFFF" />
+            <X size={22} color={COLOR_WHITE} />
           </TouchableOpacity>
         </View>
         <FlatList
@@ -255,9 +257,9 @@ const styles = StyleSheet.create({
   marqueeScrim:  { position: 'absolute', top: 0, left: 0, right: 0, height: '45%' },
 
   intro:   { paddingHorizontal: 16, paddingTop: 20, gap: 14 },
-  title:   { fontSize: 30, fontWeight: '800', letterSpacing: -0.6, textAlign: 'center' },
+  title:   { fontSize: 30, fontFamily: FONT_INTER.bold, letterSpacing: -0.6, textAlign: 'center' },
   body:    { fontSize: 15, lineHeight: 22 },
-  quote:   { fontSize: 16, lineHeight: 23, fontWeight: '700', fontStyle: 'italic' },
+  quote:   { fontSize: 16, lineHeight: 23, fontFamily: FONT_INTER.bold, fontStyle: 'italic' },
 
   founderBlock: {
     marginTop: 24, marginHorizontal: 12,
@@ -265,31 +267,31 @@ const styles = StyleSheet.create({
   },
   founderPhoto: { width: '100%', aspectRatio: 4 / 3 },
   founderCopy:  { padding: 16, gap: 10 },
-  founderName:  { fontSize: 22, fontWeight: '800' },
+  founderName:  { fontSize: 22, fontFamily: FONT_INTER.bold },
   roleBadge:    {
     alignSelf: 'flex-start',
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
   },
   roleBadgeText: {
-    fontSize: 11, fontWeight: '800', color: '#000000',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
   blankCheck: { fontSize: 13 },
   profileLink:     { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: -2 },
-  profileLinkText: { fontSize: 14, fontWeight: '800' },
+  profileLinkText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
 
   historyHead: { paddingHorizontal: 16, paddingTop: 36, paddingBottom: 12, gap: 4 },
-  sectionTitle:{ fontSize: 24, fontWeight: '800', letterSpacing: -0.4 },
+  sectionTitle:{ fontSize: 24, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
   sectionSub:  { fontSize: 13, lineHeight: 19 },
 
   mosaic:    { flexDirection: 'row', gap: MOSAIC_GUTTER, paddingHorizontal: MOSAIC_GUTTER },
   mosaicCol: { width: MOSAIC_COL_WIDTH, gap: MOSAIC_GUTTER },
   mosaicImg: { width: '100%', borderRadius: 10 },
 
-  lightboxSafe:   { flex: 1, backgroundColor: '#000000' },
+  lightboxSafe:   { flex: 1, backgroundColor: COLOR_BLACK },
   lightboxHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
   },
-  lightboxCount:  { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
+  lightboxCount:  { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontFamily: FONT_INTER.semibold },
   lightboxClose:  { padding: 4 },
 });

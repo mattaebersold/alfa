@@ -1,10 +1,11 @@
 import React from 'react';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import {
-  TouchableOpacity, Text, ActivityIndicator, StyleSheet,
-  StyleProp, ViewStyle, TextStyle,
+  TouchableOpacity, ActivityIndicator, StyleSheet, StyleProp, ViewStyle, TextStyle,
 } from 'react-native';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { Text } from '@ors/kit';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 // The app's accent blue (kept literal so it never picks up the pro/gold remap).
 export const SHARED_BLUE = 'rgb(37, 162, 211)';
@@ -79,5 +80,5 @@ const styles = StyleSheet.create({
   },
   full:     { alignSelf: 'stretch' },
   disabled: { opacity: 0.5 },
-  label:    { fontSize: 15, fontWeight: '800' },
+  label:    { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 });

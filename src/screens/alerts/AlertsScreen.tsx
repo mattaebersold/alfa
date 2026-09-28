@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert as RNAlert,
+  View, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert as RNAlert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BellRing, Plus, Settings2 } from 'lucide-react-native';
 import Spinner from '../../components/ui/Spinner';
@@ -12,7 +13,7 @@ import {
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import {
   alertAllowance, alertCapCopy, alertSentence, alertSentencePlain,
   groupNameOf, normalizeAlertMeta,
@@ -20,6 +21,7 @@ import {
 import AlertSentence from '../../components/alerts/AlertSentence';
 import type { AppScreenProps } from '../../navigation/types';
 import type { Alert as AlertRule } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The rules a member has standing, and the way to add another.
@@ -199,7 +201,7 @@ export default function AlertsScreen({ navigation }: AppScreenProps<'Alerts'>) {
           accessibilityRole="button"
           accessibilityLabel="New alert"
         >
-          <Plus size={22} color="#000000" strokeWidth={2.8} />
+          <Plus size={22} color={COLOR_BLACK} strokeWidth={2.8} />
         </TouchableOpacity>
       )}
 
@@ -245,7 +247,7 @@ function AlertRow({ alert, meta, groupName, colors, brand, onToggle, onManage }:
           value={alert.enabled}
           onValueChange={onToggle}
           trackColor={{ false: colors.segment, true: brand }}
-          thumbColor="#FFFFFF"
+          thumbColor={COLOR_WHITE}
           accessibilityLabel={alert.enabled ? 'Turn this alert off' : 'Turn this alert on'}
         />
       </View>
@@ -322,7 +324,7 @@ function EmptyState({ colors, brand, onAdd }: {
         activeOpacity={0.85}
         accessibilityRole="button"
       >
-        <Plus size={16} color="#000000" strokeWidth={2.8} />
+        <Plus size={16} color={COLOR_BLACK} strokeWidth={2.8} />
         <Text style={styles.emptyBtnText}>Create your first alert</Text>
       </TouchableOpacity>
     </View>
@@ -340,8 +342,8 @@ const styles = StyleSheet.create({
   // Green while there's room, brand-coloured at the cap — the state readable
   // before the words are.
   countDot:    { width: 7, height: 7, borderRadius: PILL_RADIUS },
-  countStrong: { fontSize: 13, fontWeight: '800' },
-  countText:   { fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  countStrong: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  countText:   { fontSize: 12, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
 
   card: {
     borderRadius: 12, borderWidth: 1,
@@ -353,15 +355,15 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   cardText: { flex: 1, minWidth: 0 },
   customName: {
-    fontSize: 11, fontWeight: '800', textTransform: 'uppercase',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase',
     letterSpacing: 0.6, marginBottom: 4,
   },
-  sentence: { fontSize: 15, lineHeight: 21, fontWeight: '500' },
+  sentence: { fontSize: 15, lineHeight: 21, fontFamily: FONT_INTER.medium },
   strong:   { fontWeight: '800' },
 
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   channels:   { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
-  matches:  { fontSize: 11, fontWeight: '600', marginLeft: 2 },
+  matches:  { fontSize: 11, fontFamily: FONT_INTER.semibold, marginLeft: 2 },
 
   iconBtn: {
     width: 30, height: 30, borderRadius: 8, borderWidth: 1,
@@ -372,7 +374,7 @@ const styles = StyleSheet.create({
     position: 'absolute', right: 18, bottom: 26,
     width: 52, height: 52, borderRadius: PILL_RADIUS,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8,
+    shadowColor: COLOR_BLACK, shadowOpacity: 0.3, shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 }, elevation: 5,
   },
 
@@ -381,7 +383,7 @@ const styles = StyleSheet.create({
     width: 58, height: 58, borderRadius: PILL_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
-  emptyTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
+  emptyTitle: { fontSize: 19, fontFamily: FONT_INTER.bold, letterSpacing: -0.3, textAlign: 'center' },
   emptyBody:  { fontSize: 13.5, lineHeight: 20, textAlign: 'center', marginTop: 8 },
 
   example: {
@@ -389,7 +391,7 @@ const styles = StyleSheet.create({
     padding: 14, marginTop: 20, gap: 7,
   },
   exampleLabel: {
-    fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8,
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.8,
   },
   exampleNote: { fontSize: 12, lineHeight: 17 },
 
@@ -398,14 +400,14 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch', marginTop: 20,
     paddingVertical: 14, borderRadius: COMMON_RADIUS,
   },
-  emptyBtnText: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  emptyBtnText: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   notice: {
     borderRadius: 12, borderWidth: 1,
     paddingVertical: 20, paddingHorizontal: 16, alignItems: 'center',
   },
-  noticeTitle: { fontSize: 15, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
+  noticeTitle: { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 6, textAlign: 'center' },
   noticeBody:  { fontSize: 13, lineHeight: 19, textAlign: 'center', marginBottom: 14 },
   retry:       { borderWidth: 1, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 18 },
-  retryText:   { fontSize: 13, fontWeight: '700' },
+  retryText:   { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

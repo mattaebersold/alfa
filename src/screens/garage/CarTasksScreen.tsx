@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, RefreshControl,
-  TextInput, Modal, Alert, Linking,
+  View, StyleSheet, TouchableOpacity, Pressable, Animated, RefreshControl, Modal, Alert, Linking,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView } from '@ors/kit';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -25,7 +25,15 @@ import { useColors } from '../../hooks/useColors';
 import type { AppScreenProps } from '../../navigation/types';
 import type { CarTask } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_74,
+  COLOR_PURE_RED,
+  COLOR_TANGERINE,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 type Priority = typeof PRIORITIES[number];
@@ -51,7 +59,7 @@ const CAT_ORDER = (key?: string) => {
  * The rule between tasks inside a category — a step lighter than `borderDark`,
  * which sat too close to the row colour to register.
  */
-const TASK_DIVIDER = '#4A4A4A';
+const TASK_DIVIDER = COLOR_GRAY_74;
 
 /** How far a category card is held off the screen edges, and its corner radius. */
 const GROUP_INSET = 12;
@@ -113,8 +121,8 @@ function buildRows(open: CarTask[], collapsed: Record<string, boolean> = {}): Ro
 }
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  critical: '#FF0000',
-  high:     '#FA7921',
+  critical: COLOR_PURE_RED,
+  high:     COLOR_TANGERINE,
   medium:   colors.primaryAlt,
   low:      colors.grey,
 };
@@ -140,7 +148,7 @@ function parseColor(c: string): [number, number, number] | null {
  */
 function priorityTextColor(bg: string): string {
   const rgb = parseColor(bg);
-  if (!rgb) return '#FFFFFF';
+  if (!rgb) return COLOR_WHITE;
   const [r, g, b] = rgb.map((v) => Math.round(v * 0.26));
   return `rgb(${r}, ${g}, ${b})`;
 }
@@ -244,7 +252,7 @@ function TaskDialog({
           <Text style={[dialog.heading, { color: colors.fg }]}>{isEdit ? 'Edit Task' : 'New Task'}</Text>
 
           <TextInput
-            style={[dialog.input, { borderColor: TASK_DIVIDER, color: '#FFFFFF' }]}
+            style={[dialog.input, { borderColor: TASK_DIVIDER, color: COLOR_WHITE }]}
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. Replace brake pads"
@@ -298,7 +306,7 @@ function TaskDialog({
                       : { borderColor: TASK_DIVIDER },
                   ]}
                 >
-                  <Text style={[dialog.chipText, { color: on ? '#000000' : colors.grey }]}>
+                  <Text style={[dialog.chipText, { color: on ? COLOR_BLACK : colors.grey }]}>
                     {cat.label}
                   </Text>
                 </TouchableOpacity>
@@ -325,7 +333,7 @@ function TaskDialog({
             <View style={dialog.accordionBody}>
               <Text style={[dialog.label, dialog.labelTight, { color: colors.grey }]}>Description</Text>
               <TextInput
-                style={[dialog.input, dialog.textarea, { borderColor: TASK_DIVIDER, color: '#FFFFFF' }]}
+                style={[dialog.input, dialog.textarea, { borderColor: TASK_DIVIDER, color: COLOR_WHITE }]}
                 value={body}
                 onChangeText={setBody}
                 placeholder="Details, part numbers, etc."
@@ -336,7 +344,7 @@ function TaskDialog({
 
               <Text style={[dialog.label, { color: colors.grey }]}>Link</Text>
               <TextInput
-                style={[dialog.input, { borderColor: TASK_DIVIDER, color: '#FFFFFF' }]}
+                style={[dialog.input, { borderColor: TASK_DIVIDER, color: COLOR_WHITE }]}
                 value={link}
                 onChangeText={setLink}
                 placeholder="https://..."
@@ -394,7 +402,7 @@ const dialog = StyleSheet.create({
   scroll:        { flexGrow: 0, width: '100%', maxWidth: 400 },
   scrollContent: { flexGrow: 1, justifyContent: 'center' },
   card:       { width: '100%', maxWidth: 400, borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 18 },
-  heading:    { fontSize: 17, fontWeight: '800', marginBottom: 14 },
+  heading:    { fontSize: 17, fontFamily: FONT_INTER.bold, marginBottom: 14 },
   input:      {
     height: 44, borderWidth: 1, borderRadius: 10,
     paddingHorizontal: 12, fontSize: 15,
@@ -405,23 +413,23 @@ const dialog = StyleSheet.create({
     marginTop: 16, paddingVertical: 10, paddingHorizontal: 12,
     borderWidth: 1, borderRadius: 10,
   },
-  accordionText: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  accordionText: { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   accordionBody: { marginTop: 10, gap: 6 },
   // The first label inside the accordion doesn't need the gap the shared label
   // style adds — the accordion header already spaced it.
   labelTight:    { marginTop: 0 },
-  label:      { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
+  label:      { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 16, marginBottom: 8 },
   chips:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
-  chipText:   { fontSize: 12, fontWeight: '700' },
+  chipText:   { fontSize: 12, fontFamily: FONT_INTER.bold },
   actions:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
   deleteBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 10, paddingRight: 8 },
-  deleteText: { fontSize: 15, fontWeight: '700' },
+  deleteText: { fontSize: 15, fontFamily: FONT_INTER.bold },
   cancelBtn:  { paddingHorizontal: 14, paddingVertical: 10 },
-  cancelText: { fontSize: 15, fontWeight: '600' },
+  cancelText: { fontSize: 15, fontFamily: FONT_INTER.semibold },
   addBtn:     { paddingHorizontal: 22, paddingVertical: 10, borderRadius: COMMON_RADIUS },
   addBtnOff:  { opacity: 0.4 },
-  addText:    { fontSize: 15, fontWeight: '800', color: '#000000' },
+  addText:    { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 });
 
 // ── Task Row ──────────────────────────────────────────────────────────────────
@@ -529,7 +537,7 @@ function TaskRow({
           accessibilityState={{ checked: !!task.completed }}
           accessibilityLabel={task.title}
         >
-          {task.completed && <Check size={11} color="#FFFFFF" />}
+          {task.completed && <Check size={11} color={COLOR_WHITE} />}
         </TouchableOpacity>
       </Animated.View>
 
@@ -537,7 +545,7 @@ function TaskRow({
       {/* Content */}
       <View style={taskRow.content}>
         <View style={taskRow.titleRow}>
-          <Text style={[taskRow.title, { color: '#FFFFFF' }, task.completed && { textDecorationLine: 'line-through', color: colors.grey }]} numberOfLines={1}>
+          <Text style={[taskRow.title, { color: COLOR_WHITE }, task.completed && { textDecorationLine: 'line-through', color: colors.grey }]} numberOfLines={1}>
             {task.title}
           </Text>
           {task.priority && (
@@ -619,7 +627,7 @@ const taskRow = StyleSheet.create({
   // Clipped to the row's own rounding so the wash can't spill past a group's
   // bottom corners.
   flash:   { borderRadius: GROUP_RADIUS },
-  rowActive: { opacity: 0.95, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  rowActive: { opacity: 0.95, shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   check: {
     // Dimmed white while empty — present without competing with the title.
     // `checkDone` takes it to the brand once ticked, so the filled state is
@@ -633,10 +641,10 @@ const taskRow = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // Shrinks rather than fills, so the pill sits against the end of the title
   // instead of being pushed out to the far edge of the row.
-  title:    { flexShrink: 1, fontSize: 14, fontWeight: '400' },
+  title:    { flexShrink: 1, fontSize: 14, fontFamily: FONT_INTER.regular },
   body:     { fontSize: 13, lineHeight: 18, marginTop: 3 },
   linkRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  linkText: { flexShrink: 1, fontSize: 12, fontWeight: '600' },
+  linkText: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.semibold },
   // Filled pill rather than loose text — it reads as a label at this size, and
   // matches the priority chips in the add/edit sheet. `flexShrink: 0` stops the
   // row's squeeze landing on the pill rather than on the title.
@@ -645,7 +653,7 @@ const taskRow = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 1,
     borderRadius: 999,
   },
-  priorityText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.2 },
+  priorityText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.2 },
   del:      { padding: 2 },
 });
 
@@ -995,7 +1003,7 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
         style={styles.fab}
         onPress={() => openNewTask()}
       >
-        <Plus size={24} color="#000000" strokeWidth={3} />
+        <Plus size={24} color={COLOR_BLACK} strokeWidth={3} />
       </TouchableOpacity>
 
       <TaskDialog
@@ -1025,10 +1033,10 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  topBarTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  topBarTitle: { fontSize: 22, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
   topBarSub:   { fontSize: 12, marginTop: 1 },
   counts:      { alignItems: 'flex-end' },
-  countOpen:   { fontSize: 15, fontWeight: '800' },
+  countOpen:   { fontSize: 15, fontFamily: FONT_INTER.extrabold },
   countDone:   { fontSize: 11, marginTop: 1 },
 
   // Clears the FAB (56 tall, 24 from the bottom) plus room to scroll the last
@@ -1047,12 +1055,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: GROUP_RADIUS,
     borderBottomRightRadius: GROUP_RADIUS,
   },
-  dividerText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  dividerText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.6 },
   dividerCount: {
     minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  dividerCountText: { fontSize: 11, fontWeight: '800' },
+  dividerCountText: { fontSize: 11, fontFamily: FONT_INTER.extrabold },
   // Each category is a card: a lighter cap, its tasks below, and the last row
   // rounding off the bottom. Inset from the edges so the group reads as one
   // object sitting on the screen rather than a full-bleed band.
@@ -1066,13 +1074,13 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: GROUP_RADIUS,
     borderBottomRightRadius: GROUP_RADIUS,
   },
-  catHeaderText: { fontSize: 15, fontWeight: '600', letterSpacing: 0.1 },
+  catHeaderText: { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.1 },
   // Same badge as the Completed / Archived bands use.
   catCount: {
     minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  catCountText: { fontSize: 11, fontWeight: '800' },
+  catCountText: { fontSize: 11, fontFamily: FONT_INTER.extrabold },
   catAdd: {
     width: 22, height: 22, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
@@ -1085,6 +1093,6 @@ const styles = StyleSheet.create({
     width: 46, height: 46, borderRadius: COMMON_RADIUS,
     backgroundColor: colors.pro,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,
   },
 });

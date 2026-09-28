@@ -1,3 +1,4 @@
+import { COLOR_DIECAST_BLUE, COLOR_DIECAST_BLUE_DARK } from './config';
 // Diecast listing constants — mirrors Murray's CreateDiecast options.
 
 export const DIECAST_BRANDS = [
@@ -28,5 +29,5 @@ export const DIECAST_CONDITION_LEVEL: Record<string, number> = {
 export const DIECAST_RARITIES = ['Common', 'Uncommon', 'Rare', 'Super Rare', 'Limited Edition'];
 
 // Blue used across Murray for diecast listings (gated on category === 'diecast').
-export const DIECAST_BLUE = '#284682';
-export const DIECAST_BLUE_DARK = '#1a2f5a';
+export const DIECAST_BLUE = COLOR_DIECAST_BLUE;
+export const DIECAST_BLUE_DARK = COLOR_DIECAST_BLUE_DARK;

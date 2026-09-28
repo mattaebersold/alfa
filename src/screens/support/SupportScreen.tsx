@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform,
+  View, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, MessageCircle, ChevronRight } from 'lucide-react-native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -13,7 +14,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Who to write to when something's wrong.
@@ -152,7 +154,7 @@ export default function SupportScreen() {
 
 const styles = StyleSheet.create({
   scroll:   { paddingHorizontal: 14, paddingBottom: 48 },
-  title:    { fontSize: 26, fontWeight: '800', letterSpacing: 0.3, marginBottom: 6 },
+  title:    { fontSize: 26, fontFamily: FONT_INTER.bold, letterSpacing: 0.3, marginBottom: 6 },
   intro:    { fontSize: 14, lineHeight: 20, marginBottom: 18 },
 
   card: {
@@ -161,14 +163,14 @@ const styles = StyleSheet.create({
   },
   cardTop:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardText: { flex: 1 },
-  cardName: { fontSize: 17, fontWeight: '800' },
-  cardRole: { fontSize: 12, fontWeight: '600', marginTop: 1 },
+  cardName: { fontSize: 17, fontFamily: FONT_INTER.bold },
+  cardRole: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   cardBlurb:{ fontSize: 13, lineHeight: 19, marginTop: 12 },
   mailBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, borderRadius: COMMON_RADIUS, marginTop: 14,
   },
-  mailBtnText: { fontSize: 15, fontWeight: '800' },
+  mailBtnText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
   cardEmail: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 
   tipCard: {

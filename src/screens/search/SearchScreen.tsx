@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
+  View, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search as SearchIcon } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +21,7 @@ import type { User, Post, GarageCar } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -190,6 +192,6 @@ const styles = StyleSheet.create({
   },
   resultThumb: { width: 40, height: 40, borderRadius: 6 },
   resultInfo:  { flex: 1 },
-  resultTitle: { fontSize: 15, fontWeight: '600' },
+  resultTitle: { fontSize: 15, fontFamily: FONT_INTER.semibold },
   resultSub:   { fontSize: 13, marginTop: 2 },
 });

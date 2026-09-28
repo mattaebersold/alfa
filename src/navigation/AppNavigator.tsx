@@ -5,14 +5,15 @@ import { X } from 'lucide-react-native';
 import type { AppStackParamList } from './types';
 import MainTabNavigator from './MainTabNavigator';
 import { colors } from '../constants/colors';
+import { COLOR_GRAY_32, COLOR_WHITE } from '../constants/config';
 
-const MODAL_HEADER_BG = '#202020';
+const MODAL_HEADER_BG = COLOR_GRAY_32;
 
 function CloseButton({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} hitSlop={10}>
       <View style={{ width: 30, height: 30, borderRadius: 15, marginLeft: 2, alignItems: 'center', justifyContent: 'center' }}>
-        <X size={22} color="#FFFFFF" />
+        <X size={22} color={COLOR_WHITE} />
       </View>
     </TouchableOpacity>
   );
@@ -96,6 +97,7 @@ import SocietyEventCreateScreen from '../screens/society/SocietyEventCreateScree
 import GroupResourcesScreen from '../screens/groups/GroupResourcesScreen';
 import GroupSettingsScreen from '../screens/groups/GroupSettingsScreen';
 import GroupSectionScreen from '../screens/groups/GroupSectionScreen';
+import { FONT_INTER } from '../constants/fonts'
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
@@ -104,8 +106,8 @@ export default function AppNavigator() {
 
   const headerOptions = {
     headerStyle: { backgroundColor: headerBg },
-    headerTintColor: '#FFFFFF' as string,
-    headerTitleStyle: { fontWeight: '700' as const },
+    headerTintColor: COLOR_WHITE as string,
+    headerTitleStyle: { fontFamily: FONT_INTER.bold },
     headerBackTitle: '',
   };
 
@@ -118,17 +120,21 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Notifications"
         component={NotificationsScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Notifications', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Notifications', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="Messages"
         component={MessagesScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Messages', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Messages', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="Create"
         component={CreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Create', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        // No stack header: the screen draws its own title bar and close (see
+        // CreateScreen). Turned off here, where the header is decided, rather
+        // than from inside the screen — a setOptions from the screen lost to
+        // these options after a cold start, and the form showed both.
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       {/* Recording takes the whole screen — a live map with no chrome competing
           with it — and the save step follows as a normal modal. */}
@@ -150,17 +156,17 @@ export default function AppNavigator() {
       <Stack.Screen
         name="RouteDetailModal"
         component={RouteDetailScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Route', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Route', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="RouteSave"
         component={RouteSaveScreen}
-        options={{ headerShown: true, title: 'Save Route', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '' }}
+        options={{ headerShown: true, title: 'Save Route', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '' }}
       />
       <Stack.Screen
         name="DiecastCreate"
         component={DiecastCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Diecast Listing', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: DIECAST_BLUE }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Diecast Listing', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: DIECAST_BLUE }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CarCreate"
@@ -172,17 +178,17 @@ export default function AppNavigator() {
       <Stack.Screen
         name="ModCreate"
         component={ModCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Add Mod', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Add Mod', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CreateList"
         component={CreateListScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'New List', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'New List', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="EventCreate"
         component={EventCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Create Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Create Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
 
       {/* ── Full-screen camera/viewer flows ───────────────────────────────── */}
@@ -211,7 +217,7 @@ export default function AppNavigator() {
       <Stack.Screen
         name="MarketplaceMessages"
         component={MarketplaceMessagesScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Marketplace', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Marketplace', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="MarketplaceThread"
@@ -300,7 +306,7 @@ export default function AppNavigator() {
       <Stack.Screen
         name="SocietyEventCreate"
         component={SocietyEventCreateScreen}
-        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.eventId ? 'Edit Event' : 'New Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.eventId ? 'Edit Event' : 'New Event', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="Shop"
@@ -310,12 +316,12 @@ export default function AppNavigator() {
       <Stack.Screen
         name="PhotoSpotCreate"
         component={PhotoSpotCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Pin a Spot', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation }) => ({ headerShown: true, title: 'Pin a Spot', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="ProductCreate"
         component={ProductCreateScreen}
-        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.productId ? 'Edit Product' : 'New Product', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: '#FFFFFF', headerTitleStyle: { fontWeight: '700' as const }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.productId ? 'Edit Product' : 'New Product', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CarTasks"

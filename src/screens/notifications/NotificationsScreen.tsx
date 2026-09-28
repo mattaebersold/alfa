@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import NotificationsList from '../../components/notifications/NotificationsList';
 import { ss } from '../../styles/shared';
+import { COLOR_BLACK } from '../../constants/config';
 
 /**
  * Notifications as a full-screen modal route.
@@ -15,7 +16,7 @@ export default function NotificationsScreen() {
   const navigation = useNavigation();
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: '#000' }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: COLOR_BLACK }]} edges={['bottom']}>
       <NotificationsList
         onDismiss={(go) => {
           navigation.goBack();

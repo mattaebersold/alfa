@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated,
+  View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
@@ -30,7 +31,8 @@ import type { RoutesStackParamList } from '../../navigation/types';
 import { isPlottedRoute, type RoutePitStop } from '../../types/api';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type DetailRoute = RouteProp<RoutesStackParamList, 'RouteDetail'>;
 
@@ -368,7 +370,7 @@ export default function RouteDetailScreen() {
             accessibilityRole="button"
             accessibilityLabel="Open the route map full screen"
           >
-            <Maximize2 size={16} color="#FFFFFF" />
+            <Maximize2 size={16} color={COLOR_WHITE} />
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -520,7 +522,7 @@ const styles = StyleSheet.create({
   },
 
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  title: { flex: 1, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  title: { flex: 1, fontSize: 22, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
   place: { fontSize: 14 },
 
   // The badges carry a 12 inset and a 16 top of their own, for sitting in a
@@ -538,14 +540,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingHorizontal: 16, height: 42, borderRadius: COMMON_RADIUS,
   },
-  followLabel: { fontSize: 15, fontWeight: '800' },
+  followLabel: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 
   statsGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
     borderWidth: 1, borderRadius: 12, padding: 4, marginTop: 4,
   },
   gridStat:  { width: '33.33%', paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' },
-  gridValue: { fontSize: 16, fontWeight: '800' },
+  gridValue: { fontSize: 16, fontFamily: FONT_INTER.bold },
   gridLabel: { fontSize: 11, marginTop: 2 },
 
   meta:        { fontSize: 13 },
@@ -555,7 +557,7 @@ const styles = StyleSheet.create({
   // The banners inset themselves 8 for a feed card's edge; the body already
   // has its gutter, so that's cancelled here.
   groupBanners: { marginHorizontal: -8, marginTop: -12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  sectionTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   step:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   stepRoad:     { fontSize: 14, lineHeight: 19 },
   stepDistance: { fontSize: 12, marginTop: 1 },
@@ -570,7 +572,7 @@ const styles = StyleSheet.create({
   // Fills whatever the row turned out to be — a stop with a note is taller.
   itinLine:  { flex: 1, width: 2, marginTop: 2, marginBottom: -2 },
   itinBody:  { flex: 1, paddingVertical: 10 },
-  itinLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  itinPlace: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+  itinLabel: { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  itinPlace: { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 2 },
   itinNote:  { fontSize: 13, lineHeight: 18, marginTop: 2 },
 });

@@ -1,11 +1,13 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal,
+  View, StyleSheet, TouchableOpacity, ScrollView, Modal,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_224, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type Props = {
   visible: boolean;
@@ -127,19 +129,19 @@ export default function TermsModal({ visible, onClose, onAccept }: Props) {
 }
 
 const styles = StyleSheet.create({
-  modal:  { flex: 1, backgroundColor: '#FFFFFF' },
+  modal:  { flex: 1, backgroundColor: COLOR_WHITE },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E0E0E0',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLOR_GRAY_224,
   },
-  title:  { fontSize: 17, fontWeight: '700', color: '#000' },
+  title:  { fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32 },
   meta:   { fontSize: 13, marginBottom: 16 },
-  h2:     { fontSize: 15, fontWeight: '700', marginTop: 20, marginBottom: 6 },
+  h2:     { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 20, marginBottom: 6 },
   body:   { fontSize: 14, lineHeight: 22 },
   footer: { paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
   acceptBtn: { borderRadius: COMMON_RADIUS, paddingVertical: 14, alignItems: 'center' },
-  acceptBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  acceptBtnText: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
 });

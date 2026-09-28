@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { REGION_SHAPES, REGION_VIEWBOX, REGION_ASPECT, US_OUTLINE } from '../../constants/regionShapes';
 import { regionKey } from '../../constants/regions';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 
 /**
  * Where in the country this is: the United States in outline, with one region
@@ -25,7 +25,7 @@ export default function RegionBadge({
   region,
   size = 36,
   color,
-  outline = '#FFFFFF',
+  outline = COLOR_WHITE,
   backdrop = true,
   style,
 }: {

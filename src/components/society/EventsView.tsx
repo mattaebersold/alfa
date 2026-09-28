@@ -1,12 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { View, ScrollView, StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import ScreenHeading from '../../components/ui/ScreenHeading';
-import HeadingActionButton from '../../components/ui/HeadingActionButton';
 import SharedModal from '../../components/ui/SharedModal';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
@@ -15,22 +11,21 @@ import { UpcomingEventCard, UPCOMING_CARD_WIDTH } from '../../components/cards/U
 import EventMonthCalendar from '../../components/society/EventMonthCalendar';
 import RallyCarousel from '../../components/society/RallyCarousel';
 import { EventsMapTile, EventsMapSheet, mappableEvents } from '../../components/society/EventsMap';
-import { useHeaderScroll } from '../../hooks/useHeaderScroll';
-import { useGetUpcomingEventsQuery, useGetUsageQuery, useGetEventRegionsQuery } from '../../api/apiService';
+import { useGetUpcomingEventsQuery, useGetEventRegionsQuery } from '../../api/apiService';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
 import { NO_ZIP_NOTE } from '../../components/ui/LocationFilterRow';
 import EventFilters from '../../components/society/EventFilters';
+import EventSearchField from './EventSearchField';
+import { GUTTER } from '../../constants/config';
 import { collapseMultiDay } from '../../constants/eventTypes';
 import { useColors } from '../../hooks/useColors';
-import { useIsPro } from '../../hooks/useBrandColor';
-import { ProUpsellModal } from '../../components/pro/ProUpsell';
-import { EVENT_LIMIT_BASIC } from '../../constants/limits';
 import { categoryFor } from '../../constants/eventTypes';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { ss } from '../../styles/shared';
 import type { SocietyEvent } from '../../types/api';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts'
 
 // Shared with the feed's row, so an event is one size in both places.
 const CARD_WIDTH = UPCOMING_CARD_WIDTH;
@@ -43,17 +38,24 @@ const UPCOMING_SHOWN = 20;
  * Events: the next 30 days as a carousel, then the month calendar. Tapping a
  * day opens the day's stack; tapping an event there closes the sheet and opens
  * the detail screen.
+ *
+ * Not a screen of its own any more: it's the home screen's Events tab, shown
+ * under that screen's header. `headerPad` is the space the header takes
+ * (content starts under it), and `onScroll` is the header's hide-on-scroll
+ * handler.
  */
-export default function EventsScreen() {
+export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
+  headerPad: number;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** For a host that needs to move the scroll itself — the home screen's jump to the top. */
+  scrollRef?: React.RefObject<ScrollView | null>;
+}) {
   // The header's back button lands here at the top — see useScrollTopOnBack.
-  const scrollRef = useRef<ScrollView>(null);
+  const ownRef = useRef<ScrollView>(null);
+  const scrollRef = givenRef ?? ownRef;
   useScrollTopOnBack(scrollRef);
   const colors = useColors();
-  const isPro = useIsPro();
-  const nav = useNavigation();
   const insets = useSafeAreaInsets();
-  const headerPad = useHeaderPad();
-  const onScroll = useHeaderScroll(headerPad);
 
   const { openEventSheet } = useEventSheet();
   const [category, setCategory] = useState<string | null>(null);
@@ -104,21 +106,8 @@ export default function EventsScreen() {
   const openEvent = (event: SocietyEvent) =>
     openEventSheet({ eventId: event.internal_id, occurrenceDate: event.occurrence_date });
 
-  // Pro has nothing to count, so it doesn't ask. `events` is missing from a
-  // server older than the limit, and then the button just adds.
-  const { data: usage } = useGetUsageQuery(undefined, { skip: isPro });
-  const eventAllowance = !isPro && usage?.events?.limit != null ? usage.events : null;
-  // At the limit the button opens the upsell rather than a form the server
-  // will refuse after it's been filled in.
-  const [upsell, setUpsell] = useState(false);
-  const addEvent = () =>
-    eventAllowance?.reached
-      ? setUpsell(true)
-      : (nav as any).navigate('SocietyEventCreate');
-
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
-      <AppHeader />
+    <>
       <ScrollView
         ref={scrollRef}
         refreshControl={refreshControl}
@@ -127,46 +116,6 @@ export default function EventsScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        {/* ScreenHeading sits at zero and every screen supplies its own
-            gutter — this one had none, so the title ran out to the edge while
-            the chips and carousel below it started at 12. */}
-        <View style={styles.headingWrap}>
-          <ScreenHeading
-            title="Events"
-            inline
-            right={
-              <HeadingActionButton
-                label="Add new event"
-                onPress={addEvent}
-                // A basic member's allowance, on the button that spends it — the
-                // count is seen every time before it matters, not only when the
-                // server refuses the fourth. Just the fraction: beside the title
-                // there isn't room for "this month", so that's left to the label
-                // read aloud.
-                badge={eventAllowance ? `${eventAllowance.used}/${eventAllowance.limit}` : undefined}
-                accessibilityLabel={
-                  eventAllowance
-                    ? `Add new event, ${eventAllowance.used} of ${eventAllowance.limit} used this month`
-                    : 'Add new event'
-                }
-              />
-            }
-          />
-        </View>
-
-        <EventFilters
-          location={location}
-          regions={regions}
-          category={category}
-          onCategory={setCategory}
-          presentCategories={presentCategories}
-        />
-        {/* Stays on the screen rather than in the panel: it explains the list
-            you're looking at, not an option you're choosing. */}
-        {location.fellBack && (
-          <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
-        )}
-
         {/* Upcoming carousel — the next 30 days, from today forward */}
         <View style={styles.sectionHead}>
           <Text style={[styles.sectionTitle, { color: colors.fg }]}>Upcoming Events</Text>
@@ -202,6 +151,33 @@ export default function EventsScreen() {
             ))}
             <RowEndSpacer />
           </ScrollView>
+        )}
+
+        {/* The filter, under the carousel rather than above it: the next few
+            weeks lead the screen, and the filter follows for whoever wants to
+            narrow them. It still filters everything — the carousel above, the
+            map and the calendar below. */}
+        {/* Search an event by name on the left, the filter on the right —
+            the photography map's pattern. Raised above the map tile below so
+            the search's results drop over it. */}
+        <View style={[styles.filtersBelow, styles.toolsRow]}>
+          <EventSearchField
+            style={styles.toolsSearch}
+            onPick={(eventId) => openEventSheet({ eventId })}
+          />
+          <EventFilters
+            location={location}
+            regions={regions}
+            category={category}
+            onCategory={setCategory}
+            presentCategories={presentCategories}
+            compact
+          />
+        </View>
+        {/* Stays on the screen rather than in the panel: it explains the list
+            you're looking at, not an option you're choosing. */}
+        {location.fellBack && (
+          <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
         )}
 
         {/* The same events, on a map — a sheet over this screen. Nothing when
@@ -266,30 +242,30 @@ export default function EventsScreen() {
         </ScrollView>
       </SharedModal>
 
-      <ProUpsellModal
-        visible={upsell}
-        onClose={() => setUpsell(false)}
-        title="Unlimited events with Pro"
-        message={`A basic membership includes ${EVENT_LIMIT_BASIC} new events a month. Pro removes the limit, so you can put every meet on the calendar.`}
-      />
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  headingWrap: { paddingHorizontal: 12, marginBottom: 4 },
 
-  note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginBottom: 6 },
+  note: { fontSize: 12, lineHeight: 17, paddingHorizontal: GUTTER, marginBottom: 6 },
 
+  filtersBelow: { marginTop: 12 },
+  toolsRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    paddingHorizontal: GUTTER,
+    zIndex: 20, elevation: 20,
+  },
+  toolsSearch: { flex: 1 },
   sectionHead: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 20, paddingBottom: 10,
+    paddingHorizontal: GUTTER, paddingTop: 20, paddingBottom: 10,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '800' },
-  sectionSub:   { fontSize: 13, fontWeight: '600' },
+  sectionTitle: { fontSize: 20, fontFamily: FONT_INTER.bold },
+  sectionSub:   { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   // Top-aligned, so a card is never stretched to a neighbour's height.
-  carousel: { paddingLeft: 12, gap: 12, alignItems: 'flex-start' },
+  carousel: { paddingLeft: GUTTER, gap: 12, alignItems: 'flex-start' },
 
   sheetBody: { padding: 12, gap: 12, paddingBottom: 32 },
 });

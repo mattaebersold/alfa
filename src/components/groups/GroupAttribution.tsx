@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight, Users } from 'lucide-react-native';
 import { useGetGroupQuery } from '../../api/apiService';
@@ -7,7 +8,8 @@ import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { firstGalleryUrl } from '../../utils/image';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * "Posted in <group>", as a way into the group.
@@ -175,13 +177,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   bannerBadgeText: {
-    fontSize: 9, fontWeight: '800', color: '#000000',
+    fontSize: 9, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
   // The shadow went with the gradient — an even scrim gives the text a
   // consistent ground, and a shadow on top of that just muddies it.
   bannerName: {
     flex: 1, minWidth: 0,
-    fontSize: 13.5, fontWeight: '700', color: 'rgba(255,255,255,0.95)',
+    fontSize: 13.5, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.95)',
   },
 
   pillBadge: {
@@ -189,7 +191,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.badgeGroup,
   },
   pillBadgeText: {
-    fontSize: 8.5, fontWeight: '800', color: '#000000',
+    fontSize: 8.5, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
@@ -199,5 +201,5 @@ const styles = StyleSheet.create({
   },
   pillThumb: { width: 22, height: 22, borderRadius: PILL_RADIUS },
   blank:     { alignItems: 'center', justifyContent: 'center' },
-  pillName:  { fontSize: 12, fontWeight: '800', flexShrink: 1 },
+  pillName:  { fontSize: 12, fontFamily: FONT_INTER.extrabold, flexShrink: 1 },
 });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Users } from 'lucide-react-native';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
@@ -7,7 +8,8 @@ import GroupSummaryModal from '../groups/GroupSummaryModal';
 import { useGetGroupsForCarQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_17, COLOR_GRAY_22 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const CARD_WIDTH = 150;
 
@@ -57,15 +59,15 @@ export default function CarGroupsRow({ make, model }: { make: string; model?: st
 
 const styles = StyleSheet.create({
   wrap: { paddingTop: 16 },
-  heading: { fontSize: 17, fontWeight: '800', paddingHorizontal: 16, paddingBottom: 10 },
+  heading: { fontSize: 17, fontFamily: FONT_INTER.bold, paddingHorizontal: 16, paddingBottom: 10 },
   row: { paddingHorizontal: 12, gap: 10, alignItems: 'flex-start' },
   card: {
     width: CARD_WIDTH, borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth, backgroundColor: '#111111',
+    borderWidth: StyleSheet.hairlineWidth, backgroundColor: COLOR_GRAY_17,
   },
-  cover: { width: '100%', aspectRatio: 16 / 10, backgroundColor: '#161616' },
+  cover: { width: '100%', aspectRatio: 16 / 10, backgroundColor: COLOR_GRAY_22 },
   coverBlank: { alignItems: 'center', justifyContent: 'center' },
   text: { padding: 10, gap: 2 },
-  title: { fontSize: 14, fontWeight: '800' },
-  sub: { fontSize: 11.5, fontWeight: '600' },
+  title: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
+  sub: { fontSize: 11.5, fontFamily: FONT_INTER.semibold },
 });

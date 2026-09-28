@@ -1,7 +1,8 @@
 import React, { useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, RefreshControl,
+  View, StyleSheet, FlatList, TouchableOpacity, Linking, RefreshControl,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +18,8 @@ import { useGetProductsQuery, useGetAdminProductsQuery } from '../../api/apiServ
 import { ss } from '../../styles/shared';
 import { firstGalleryUrl } from '../../utils/image';
 import type { ShopProduct } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Where a product is bought.
@@ -76,7 +78,7 @@ function ProductCard({ product, onPress, onEdit }: {
       ) : null}
       {onEdit && (
         <TouchableOpacity style={styles.editBtn} onPress={onEdit} hitSlop={8} accessibilityLabel={`Edit ${product.title}`}>
-          <Pencil size={13} color="#FFFFFF" />
+          <Pencil size={13} color={COLOR_WHITE} />
         </TouchableOpacity>
       )}
       <View style={styles.cardBody}>
@@ -146,7 +148,7 @@ export default function ShopScreen() {
                   onPress={() => nav.navigate('ProductCreate')}
                   activeOpacity={0.85}
                 >
-                  <Plus size={15} color="#000000" />
+                  <Plus size={15} color={COLOR_BLACK} />
                   <Text style={styles.addBtnText}>Add Product</Text>
                 </TouchableOpacity>
               )}
@@ -182,21 +184,21 @@ const styles = StyleSheet.create({
     // of the app uses without pushing the cards in with it.
     paddingHorizontal: 4, paddingTop: 14, paddingBottom: 6,
   },
-  introTitle:{ fontSize: 22, fontWeight: '800' },
+  introTitle:{ fontSize: 22, fontFamily: FONT_INTER.bold },
   introSub:  { fontSize: 13, marginTop: 4, lineHeight: 18 },
   card:      {
     // One product per row: at full width the photo is the pitch, so the grid's
     // two-up crop was costing the merch more than the density was worth.
     width: '100%', marginBottom: 12,
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImg:   { width: '100%', aspectRatio: 4 / 3 },
   badge:     {
     position: 'absolute', top: 8, left: 8,
     backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,
   },
-  badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  badgeText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.bold },
   editBtn:   {
     position: 'absolute', top: 6, right: 6,
     width: 26, height: 26, borderRadius: COMMON_RADIUS,
@@ -207,10 +209,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: COMMON_RADIUS,
   },
-  addBtnText:{ fontSize: 13, fontWeight: '800', color: '#000000' },
+  addBtnText:{ fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   cardBody:  { padding: 14, gap: 6 },
-  cardTitle: { fontSize: 17, fontWeight: '700', lineHeight: 22 },
+  cardTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 22 },
   cardMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardPrice: { fontSize: 16, fontWeight: '800' },
+  cardPrice: { fontSize: 16, fontFamily: FONT_INTER.bold },
   emptyWrap: { paddingTop: 40 },
 });

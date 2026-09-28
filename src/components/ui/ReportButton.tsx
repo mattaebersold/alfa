@@ -4,7 +4,6 @@ import { MoreVertical } from 'lucide-react-native';
 import { useCreateReportMutation } from '../../api/apiService';
 import { useAppDispatch } from '../../store/store';
 import { hideContent } from '../../store/moderationSlice';
-import { useColors } from '../../hooks/useColors';
 import type { ReportableType } from '../../types/api';
 
 interface ReportButtonProps {
@@ -14,12 +13,16 @@ interface ReportButtonProps {
   color?: string;
 }
 
-export default function ReportButton({ contentType, contentId, size = 20, color }: ReportButtonProps) {
-  const colors = useColors();
+/**
+ * Report something: confirm, hide it for you straight away, then tell the
+ * moderators. The whole flow, for anywhere that offers "Report" — this
+ * button, and menus that list it among other options (PostOptionsButton).
+ */
+export function useReportContent(contentType: ReportableType, contentId: string) {
   const dispatch = useAppDispatch();
   const [createReport] = useCreateReportMutation();
 
-  const handlePress = () => {
+  return () => {
     Alert.alert(
       'Report as inappropriate?',
       'This content will be hidden and sent to our moderation team.',
@@ -42,6 +45,10 @@ export default function ReportButton({ contentType, contentId, size = 20, color 
       ]
     );
   };
+}
+
+export default function ReportButton({ contentType, contentId, size = 20, color }: ReportButtonProps) {
+  const handlePress = useReportContent(contentType, contentId);
 
   return (
     <TouchableOpacity onPress={handlePress} hitSlop={8} style={styles.btn}>

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import * as Haptics from 'expo-haptics';
 import { formatDistanceToNow } from 'date-fns';
 import { MapPin } from 'lucide-react-native';
@@ -10,7 +11,8 @@ import { useApproveGroupMemberMutation, useRejectGroupMemberMutation } from '../
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { GroupMember } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * One person asking to join, with the two answers beside them.
@@ -98,7 +100,7 @@ function JoinRequestRow({ groupId, member, onOpenUser }: {
           accessibilityLabel={`Approve @${username ?? 'member'}`}
         >
           {busy === 'approve'
-            ? <ActivityIndicator size="small" color="#000000" />
+            ? <ActivityIndicator size="small" color={COLOR_BLACK} />
             : <Text style={styles.approveText}>Approve</Text>}
         </TouchableOpacity>
         <TouchableOpacity
@@ -179,7 +181,7 @@ export default function JoinRequestsPanel({ groupId, pending, visible, origin, o
 
 const styles = StyleSheet.create({
   head:  { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12, gap: 4 },
-  title: { fontSize: 19, fontWeight: '800' },
+  title: { fontSize: 19, fontFamily: FONT_INTER.bold },
   sub:   { fontSize: 12.5, lineHeight: 17 },
   empty: { fontSize: 13, paddingHorizontal: 16, paddingVertical: 18 },
   foot:  { height: 10 },
@@ -191,21 +193,21 @@ const styles = StyleSheet.create({
   },
   who:     { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   whoText: { flex: 1, minWidth: 0, gap: 1 },
-  name:    { fontSize: 15, fontWeight: '700' },
+  name:    { fontSize: 15, fontFamily: FONT_INTER.bold },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   place:   { fontSize: 12, flexShrink: 1 },
-  viewHint: { fontSize: 11.5, fontWeight: '600', marginTop: 1 },
+  viewHint: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, marginTop: 1 },
 
   answers: { flexDirection: 'row', gap: 6 },
   approveBtn: {
     minWidth: 74, paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center',
   },
-  approveText: { fontSize: 13, fontWeight: '800', color: '#000000' },
+  approveText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   denyBtn: {
     minWidth: 58, paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: COMMON_RADIUS, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
-  denyText: { fontSize: 13, fontWeight: '700' },
+  denyText: { fontSize: 13, fontFamily: FONT_INTER.bold },
   btnOff:  { opacity: 0.55 },
 });

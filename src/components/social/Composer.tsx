@@ -1,8 +1,8 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, ScrollView, type StyleProp, type ViewStyle,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, type StyleProp, type ViewStyle,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import Reanimated from 'react-native-reanimated';
 import { useKeyboardPadding } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -12,7 +12,8 @@ import MentionInput from '../ui/MentionInput';
 import { useColors } from '../../hooks/useColors';
 import type { ComposerPhotos, PhotoSource } from '../../hooks/useComposerPhotos';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * The colours a composer takes from the surface it sits on.
@@ -105,7 +106,7 @@ function useTone(tone?: ComposerTone) {
     border:   tone?.border   ?? c.border,
     text:     tone?.text     ?? c.fg,
     accent:   tone?.accent   ?? c.primaryAlt,
-    onAccent: tone?.onAccent ?? '#FFFFFF',
+    onAccent: tone?.onAccent ?? COLOR_WHITE,
     grey:     c.grey,
   };
 }
@@ -135,7 +136,7 @@ export function ComposerPhotoStrip({ photos, borderColor }: { photos: ComposerPh
             accessibilityRole="button"
             accessibilityLabel="Remove photo"
           >
-            <X size={12} color="#FFFFFF" />
+            <X size={12} color={COLOR_WHITE} />
           </TouchableOpacity>
         </View>
       ))}
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  sendText: { fontWeight: '700', fontSize: 13 },
+  sendText: { fontFamily: FONT_INTER.bold, fontSize: 13 },
   sendOff:  { opacity: 0.4 },
   iconBtn:  { width: 36, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   iconBtnOff: { opacity: 0.35 },

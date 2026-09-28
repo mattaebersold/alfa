@@ -1,15 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
-  Platform, useWindowDimensions, type StyleProp, type ViewStyle,
+  View, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing, Platform, useWindowDimensions, type StyleProp, type ViewStyle,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { useKeyboardOverlap } from '../../hooks/useKeyboardHeight';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** The rectangle a summary grows out of, in window coordinates. */
 export interface SummaryOrigin { x: number; y: number; w: number; h: number }
@@ -102,8 +103,6 @@ const CLOSE_SIZE = 38;
 /** Space between the close button and the panel, and between it and the status bar. */
 const CLOSE_GAP = 10;
 
-/** A ceiling, not a size — a short summary gets a short panel. */
-const MAX_HEIGHT_RATIO = 0.9;
 const PANEL_RADIUS = 32;
 /** The panel's border, which the content sits inside rather than over. */
 const PANEL_BORDER = 1;
@@ -198,6 +197,8 @@ export default function SummaryModal({
   origin,
   actionLabel = 'View more',
   onAction,
+  actionIcon: ActionIcon,
+  actionPill = false,
   stacked,
   children,
 }: {
@@ -213,6 +214,14 @@ export default function SummaryModal({
    * navigation.
    */
   onAction?: () => void;
+  /** An icon before the bottom button's label — a message bubble, say. */
+  actionIcon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  /**
+   * The bottom button as a pill in the body font, rather than the rounded
+   * rectangle in the heading face — for an action phrased as a sentence
+   * ("Message @matt about this") rather than a word.
+   */
+  actionPill?: boolean;
   /**
    * A second summary to present over this one — see "Stacking" above. Render
    * it here rather than next to this panel, or it won't appear on iOS.
@@ -276,7 +285,14 @@ export default function SummaryModal({
    * the button landed on the clock and the battery, where it can't be tapped.
    */
   const closeClearance = insets.top + CLOSE_SIZE + CLOSE_GAP * 2;
-  const maxH = Math.min(screenH * MAX_HEIGHT_RATIO, screenH - closeClearance * 2);
+  /**
+   * Room kept at the foot: clear of the home indicator, and no more. The top
+   * has to leave the close button its room, but the bottom has nothing to
+   * leave room for — so a tall panel uses it, rather than stopping as far
+   * from the bottom as it does from the top.
+   */
+  const footClearance = insets.bottom + CLOSE_GAP * 2;
+  const maxH = screenH - closeClearance - footClearance;
 
   /**
    * The panel's height: the scroller's content plus the footer.
@@ -292,7 +308,9 @@ export default function SummaryModal({
   const [footerH, setFooterH] = useState(0);
   const measured = scrollH == null ? null : scrollH + footerH + PANEL_BORDER * 2;
   const settledH = Math.min(measured ?? maxH * UNMEASURED_RATIO, maxH);
-  const panelY = (screenH - settledH) / 2;
+  // Centred while it fits; past that, pinned under the close button and
+  // growing down toward the foot.
+  const panelY = Math.max(closeClearance, (screenH - settledH) / 2);
 
   // Held for the life of the animation: `origin` belongs to a row that may well
   // unmount while the panel is open, and the panel still has to shrink back to
@@ -438,7 +456,7 @@ export default function SummaryModal({
           To rule the blur out as a cost, delete these three lines; nothing else
           depends on it. */}
       {Platform.OS === 'ios' && (
-        <BlurView tint="dark" intensity={24} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        <BlurView tint="dark" intensity={40} style={StyleSheet.absoluteFill} pointerEvents="none" />
       )}
       <Animated.View
         style={[
@@ -518,7 +536,7 @@ export default function SummaryModal({
               onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
             >
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: brand }]}
+                style={[styles.actionBtn, actionPill && styles.actionPill, { backgroundColor: brand }]}
                 onPress={runAction}
                 activeOpacity={0.85}
                 accessibilityRole="button"
@@ -527,7 +545,13 @@ export default function SummaryModal({
                     light — a mid blue and a gold — and the automatic contrast
                     picked white on the blue, which read as thin against it.
                     Black is the deliberate answer on both. */}
-                <Text style={[styles.actionText, styles.onBrand]}>{actionLabel}</Text>
+                {ActionIcon ? <ActionIcon size={16} color={COLOR_BLACK} strokeWidth={2.4} /> : null}
+                <Text
+                  style={[actionPill ? styles.actionPillText : styles.actionText, styles.onBrand]}
+                  numberOfLines={1}
+                >
+                  {actionLabel}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -556,7 +580,7 @@ export default function SummaryModal({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <X size={22} color="#FFFFFF" strokeWidth={2.2} />
+            <X size={22} color={COLOR_WHITE} strokeWidth={2.2} />
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -575,10 +599,12 @@ export default function SummaryModal({
 const styles = StyleSheet.create({
   // Lighter than it would be on its own — the blur underneath is doing most of
   // the separating.
-  scrim: { backgroundColor: 'rgba(0,0,0,0.45)' },
+  // A light grey over a stronger blur — the screen behind reads as frosted
+  // grey rather than darkened, so the panel stands forward of it.
+  scrim: { backgroundColor: 'rgba(120,120,120,0.28)' },
   // Android, with no blur under it: doing the whole job on its own, as a
   // lighter, heavier grey. GrowPanel's `summary` backdrop matches it.
-  scrimOpaque: { backgroundColor: 'rgba(72,72,72,0.9)' },
+  scrimOpaque: { backgroundColor: 'rgba(40,40,40,0.9)' },
 
   /**
    * Stacking, bottom to top: scrim, backdrop press, the box, the content, the
@@ -591,8 +617,8 @@ const styles = StyleSheet.create({
     borderWidth: PANEL_BORDER,
     // Opaque: the blurred screen behind must not read through the panel that
     // is covering it.
-    backgroundColor: '#000000',
-    shadowColor: '#000',
+    backgroundColor: COLOR_BLACK,
+    shadowColor: COLOR_BLACK,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -622,7 +648,12 @@ const styles = StyleSheet.create({
   },
 
   footer:    { padding: 14, borderTopWidth: StyleSheet.hairlineWidth },
-  actionBtn: { borderRadius: COMMON_RADIUS, paddingVertical: 14, alignItems: 'center' },
-  actionText:{ fontSize: 16, fontWeight: '600' },
-  onBrand:   { color: '#000000' },
+  actionBtn: {
+    borderRadius: COMMON_RADIUS, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+  },
+  actionPill: { borderRadius: 999, paddingVertical: 13, paddingHorizontal: 16 },
+  actionPillText: { fontSize: 14.5, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  actionText:{ fontSize: 16, fontFamily: FONT_INTER.semibold },
+  onBrand:   { color: COLOR_BLACK },
 });

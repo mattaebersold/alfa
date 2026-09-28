@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import {
   useGetMessageThreadQuery,
   useSendMessageMutation,
@@ -16,12 +17,13 @@ import SharedModal from '../../components/ui/SharedModal';
 import ThreadBubble from '../../components/messages/ThreadBubble';
 import Composer from '../../components/social/Composer';
 import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, COLOR_WHITE } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** The server's ceiling for photos on one message — see uploadMessageGallery. */
 const MAX_PHOTOS = 4;
@@ -235,5 +237,5 @@ const styles = StyleSheet.create({
   replyBar: { borderTopWidth: 1 },
 
   headerTitleRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitleText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', maxWidth: 180 },
+  headerTitleText: { color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold, maxWidth: 180 },
 });

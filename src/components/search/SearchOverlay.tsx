@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Pressable,
-  FlatList, ActivityIndicator, Keyboard, Platform,
+  View, TouchableOpacity, StyleSheet, Modal, Pressable, FlatList, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
@@ -20,7 +20,8 @@ import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { priceLabel } from '../marketplace/listingFormat';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -159,15 +160,15 @@ const SECTIONS: {
  * members, cars, routes — take brand colours that aren't already spoken for.
  */
 const KIND_COLORS: Record<string, { bg: string; fg: string }> = {
-  Member:  { bg: colors.badgeGarage,  fg: '#000000' },
-  Car:     { bg: colors.badgeRecord,  fg: '#000000' },
-  Post:    { bg: colors.badgeDefault, fg: '#000000' },
-  Event:   { bg: colors.badgeEvent,   fg: '#000000' },
-  Rally:   { bg: colors.tangerine,    fg: '#000000' },
-  Group:   { bg: colors.badgeGroup,   fg: '#000000' },
-  Route:   { bg: colors.green,        fg: '#000000' },
-  Article: { bg: colors.badgeUpdate,  fg: '#FFFFFF' },
-  Listing: { bg: colors.badgeListing, fg: '#000000' },
+  Member:  { bg: colors.badgeGarage,  fg: COLOR_BLACK },
+  Car:     { bg: colors.badgeRecord,  fg: COLOR_BLACK },
+  Post:    { bg: colors.badgeDefault, fg: COLOR_BLACK },
+  Event:   { bg: colors.badgeEvent,   fg: COLOR_BLACK },
+  Rally:   { bg: colors.tangerine,    fg: COLOR_BLACK },
+  Group:   { bg: colors.badgeGroup,   fg: COLOR_BLACK },
+  Route:   { bg: colors.green,        fg: COLOR_BLACK },
+  Article: { bg: colors.badgeUpdate,  fg: COLOR_WHITE },
+  Listing: { bg: colors.badgeListing, fg: COLOR_BLACK },
 };
 
 const isProUser = (u: any) => u?.accountType === 'pro' || u?.accountType === 'admin';
@@ -385,7 +386,7 @@ export default function SearchOverlay({
             accessibilityRole="button"
             accessibilityLabel="Close search"
           >
-            <X size={22} color="#FFFFFF" strokeWidth={2.4} />
+            <X size={22} color={COLOR_WHITE} strokeWidth={2.4} />
           </TouchableOpacity>
         </View>
 
@@ -467,7 +468,7 @@ export default function SearchOverlay({
                   <Avatar user={item.user} size={isProUser(item.user) ? 87 : 99} />
                   {isProUser(item.user) && (
                     <View style={styles.proWheel}>
-                      <SteeringWheel size={16} color="#000000" strokeWidth={2.5} />
+                      <SteeringWheel size={16} color={COLOR_BLACK} strokeWidth={2.5} />
                     </View>
                   )}
                 </View>
@@ -554,7 +555,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13, height: 46,
     borderRadius: 12, borderWidth: 1,
   },
-  input: { flex: 1, fontSize: 15, fontWeight: '600', padding: 0 },
+  input: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.semibold, padding: 0 },
 
   listFlex: { flex: 1 },
   list: { paddingTop: 12, gap: 8 },
@@ -572,7 +573,7 @@ const styles = StyleSheet.create({
     // Lifted off the blur, so the rows read as floating over the page rather
     // than as part of it.
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
+      ios: { shadowColor: COLOR_BLACK, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
       android: { elevation: 5 },
     }),
   },
@@ -599,15 +600,15 @@ const styles = StyleSheet.create({
     height: 30, justifyContent: 'center',
     paddingHorizontal: 12, borderRadius: 999, borderWidth: 1,
   },
-  chipText:  { fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
+  chipText:  { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
   rowText:  { flex: 1, minWidth: 0, gap: 3 },
-  rowTitle: { fontSize: 14.5, fontWeight: '700' },
+  rowTitle: { fontSize: 14.5, fontFamily: FONT_INTER.bold },
   // The badge sizes to its word rather than filling the row.
   kindRow:   { flexDirection: 'row' },
   kindBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
   // Not bold — it's a label on the row, and at weight 800 it was reading as
   // loudly as the title next to it.
-  kindText:  { fontSize: 10, fontWeight: '600' },
+  kindText:  { fontSize: 10, fontFamily: FONT_INTER.semibold },
   rowSub:   { fontSize: 12, flexShrink: 1 },
   go: {
     width: 28, height: 28, borderRadius: 14,
@@ -616,6 +617,6 @@ const styles = StyleSheet.create({
 
   empty: {
     textAlign: 'center', marginTop: 40,
-    fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.55)',
+    fontSize: 14, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.55)',
   },
 });

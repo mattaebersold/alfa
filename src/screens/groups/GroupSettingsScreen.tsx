@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { regionLabel } from '../../constants/regions';
 import type { GroupsScreenProps, GroupsStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<GroupsStackParamList>;
 
@@ -100,14 +102,14 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
 const styles = StyleSheet.create({
   scroll:      { paddingBottom: 40 },
   section:     { marginBottom: 0, borderBottomWidth: 1 },
-  sectionTitle:{ paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle:{ paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
   infoRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1 },
   infoLabel:   { fontSize: 14 },
-  infoValue:   { fontSize: 14, fontWeight: '600' },
+  infoValue:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
   memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
   memberInfo:  { flex: 1 },
-  memberName:  { fontSize: 14, fontWeight: '600' },
+  memberName:  { fontSize: 14, fontFamily: FONT_INTER.semibold },
   memberHandle:{ fontSize: 12 },
   dangerBtn:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1 },
-  dangerText:  { fontSize: 15, fontWeight: '600', color: colors.red },
+  dangerText:  { fontSize: 15, fontFamily: FONT_INTER.semibold, color: colors.red },
 });

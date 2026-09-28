@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import { contrastText } from '../../hooks/useBrandColor';
 import { useColors } from '../../hooks/useColors';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * The badges above an event card's copy: what kind of thing this is, and which
@@ -62,5 +64,5 @@ const styles = StyleSheet.create({
   // The category is the longest label ("Cars & Coffee") and the most
   // recognisable by colour alone, so it's the one that truncates.
   pillShrink: { flexShrink: 1 },
-  text: { fontSize: 11, fontWeight: '800' },
+  text: { fontSize: 11, fontFamily: FONT_INTER.extrabold },
 });

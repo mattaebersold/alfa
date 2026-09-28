@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Dimensions,
+  View, ScrollView, StyleSheet, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Car } from 'lucide-react-native';
 import SteeringWheel from '../ui/SteeringWheel';
@@ -9,8 +10,16 @@ import { shuffle } from '../../utils/array';
 import { useGetSiteSettingsQuery, useGetCarsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_17,
+  COLOR_GRAY_34,
+  COLOR_PRO,
+  COLOR_WHITE,
+} from '../../constants/config';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.40;
@@ -33,7 +42,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: (origin: Summar
       {photo ? (
         <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#222' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: COLOR_GRAY_34 }]} />
       )}
       <View style={styles.overlay} />
       <View style={styles.info}>
@@ -41,7 +50,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: (origin: Summar
             read as a selection state. */}
         {isPro && (
           <View style={styles.proWheelBadge}>
-            <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />
+            <SteeringWheel size={12} color={COLOR_BLACK} strokeWidth={2.5} />
           </View>
         )}
         <Text style={styles.username} numberOfLines={1}>@{member.username}</Text>
@@ -90,15 +99,15 @@ export default function FeaturedMembersRow({ onMemberPress }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container:  { backgroundColor: '#000', paddingTop: 14, paddingBottom: 14 },
-  heading:    { fontSize: 16, fontWeight: '800', letterSpacing: 0.4, paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF' },
+  container:  { backgroundColor: COLOR_BLACK, paddingTop: 14, paddingBottom: 14 },
+  heading:    { fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: 0.4, paddingHorizontal: 14, marginBottom: 10, color: COLOR_WHITE },
   scroll:     { gap: CARD_GAP, paddingLeft: ROW_PAD },
   card:       {
     width: CARD_WIDTH,
     aspectRatio: 1,
     borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
-    backgroundColor: '#111',
+    backgroundColor: COLOR_GRAY_17,
   },
   overlay:    {
     ...StyleSheet.absoluteFill,
@@ -110,12 +119,12 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  username:   { flex: 1, fontSize: 12, fontWeight: '700', color: '#fff' },
+  username:   { flex: 1, fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   carRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  carCount:   { fontSize: 14, color: 'rgba(255,255,255,0.9)', fontWeight: '700' },
+  carCount:   { fontSize: 14, color: 'rgba(255,255,255,0.9)', fontFamily: FONT_INTER.bold },
   proWheelBadge: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#CDA96F',
+    backgroundColor: COLOR_PRO,
     alignItems: 'center', justifyContent: 'center',
   },
 });

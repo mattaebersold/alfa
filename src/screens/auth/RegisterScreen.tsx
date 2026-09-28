@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity,
-  Alert,
-  Image, Dimensions,
+  View, StyleSheet, TouchableOpacity, Alert, Image, Dimensions,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -26,7 +25,14 @@ import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import AppleSignInButton from '../../components/auth/AppleSignInButton';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_ERROR_BG,
+  COLOR_ERROR_TEXT_LIGHT,
+  COLOR_WHITE,
+  COLOR_BORDER,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
@@ -197,7 +203,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
           hitSlop={8}
           activeOpacity={0.7}
         >
-          <ChevronLeft size={18} color="#FFFFFF" />
+          <ChevronLeft size={18} color={COLOR_WHITE} />
           <Text style={styles.backToLogin}>Back to login</Text>
         </TouchableOpacity>
 
@@ -291,7 +297,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                   activeOpacity={0.7}
                 >
                   <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                    {termsAccepted && <Check size={11} color="#FFF" />}
+                    {termsAccepted && <Check size={11} color={COLOR_WHITE} />}
                   </View>
                   <Text style={styles.termsText}>
                     By creating an account you're accepting the{' '}
@@ -384,25 +390,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 2,
   },
-  backToLogin: { fontSize: 14, color: '#FFFFFF', fontWeight: '500' },
+  backToLogin: { fontSize: 14, color: COLOR_WHITE, fontFamily: FONT_INTER.medium },
   form: {
     borderRadius: 24,
     padding: 18,
     overflow: 'hidden',
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 16 },
+  title: { fontSize: 18, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 16 },
   altRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
   altLine:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
-  altLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
-  errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
-  errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
+  altLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.7)' },
+  errorBox: { backgroundColor: COLOR_ERROR_BG, borderRadius: 8, padding: 12, marginBottom: 16 },
+  errorText: { color: colors.red, fontSize: 14, fontFamily: FONT_INTER.medium },
   field: { marginBottom: 12 },
-  label: { fontSize: 12, fontWeight: '600', marginBottom: 4, color: '#FFFFFF' },
+  label: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginBottom: 4, color: COLOR_WHITE },
   // Sits under the username field: the hint while it's fine, the reason when
   // it isn't. Same slot either way, so the form doesn't jump as you type.
   fieldHint:  { fontSize: 11, marginTop: 5, lineHeight: 15, color: 'rgba(255,255,255,0.6)' },
-  fieldError: { fontSize: 11, marginTop: 5, lineHeight: 15, color: '#FFB4A8', fontWeight: '600' },
+  fieldError: { fontSize: 11, marginTop: 5, lineHeight: 15, color: COLOR_ERROR_TEXT_LIGHT, fontFamily: FONT_INTER.semibold },
   inputWrap: { position: 'relative' },
   inputWithEye: { paddingRight: 44 },
   eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
@@ -441,11 +447,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: COMMON_RADIUS,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: COLOR_BORDER,
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
   },
-  photoBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  photoBtnText: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
   removePhotoBtn: { alignSelf: 'center', marginBottom: 8 },
   removePhotoText: { fontSize: 13, color: 'rgba(255,255,255,0.55)' },
 
@@ -458,5 +464,5 @@ const styles = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
   termsText: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 19 },
-  termsLink: { color: '#FFFFFF', textDecorationLine: 'underline', fontWeight: '600' },
+  termsLink: { color: COLOR_WHITE, textDecorationLine: 'underline', fontWeight: '600' },
 });

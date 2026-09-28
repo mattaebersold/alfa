@@ -1,12 +1,14 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
+  View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { ChevronRight } from 'lucide-react-native';
 import FeedItemCard from '../cards/FeedItemCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import type { Post } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer — same as PostStrip. */
 export const POLL_SHELF_PREVIEW_COUNT = 6;
@@ -99,9 +101,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 10,
   },
-  title:       { fontSize: 17, fontWeight: '800' },
+  title:       { fontSize: 17, fontFamily: FONT_INTER.bold },
   viewAll:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: { fontSize: 13, fontWeight: '700' },
+  viewAllText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   item: { width: CARD_WIDTH },

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
+import { GUTTER } from '../../constants/config';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery,
@@ -298,15 +299,22 @@ export default function FeedList({
           ) : row.kind === 'groupActivity' ? (
             <GroupActivityCard item={row.item} onPress={() => setGroupItem(row.item)} />
           ) : row.kind === 'route' ? (
-            <RouteCard route={row.route} />
+            <View style={styles.gutter}>
+              <RouteCard route={row.route} />
+            </View>
           ) : (
-            <FeedItemCard
-              post={row.post}
-              isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
-              onPress={() => onPostPress?.(row.post)}
-              onCommentPress={() => setCommentPost(row.post)}
-              visible={visibleIds.includes(row.post.internal_id)}
-            />
+            // Post and route cards are full-bleed wherever else they're used;
+            // here they sit in the same GUTTER as the car and group cards
+            // around them, so the feed's left and right edges line up.
+            <View style={styles.gutter}>
+              <FeedItemCard
+                post={row.post}
+                isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
+                onPress={() => onPostPress?.(row.post)}
+                onCommentPress={() => setCommentPost(row.post)}
+                visible={visibleIds.includes(row.post.internal_id)}
+              />
+            </View>
           )
         )}
         ListHeaderComponent={ListHeaderComponent}
@@ -366,4 +374,5 @@ const styles = StyleSheet.create({
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   list:          { paddingTop: 0, paddingBottom: 8, flexGrow: 1 },
   footer:        { padding: 20, alignItems: 'center' },
+  gutter:        { paddingHorizontal: GUTTER },
 });

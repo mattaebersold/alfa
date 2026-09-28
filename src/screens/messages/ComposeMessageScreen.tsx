@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search } from 'lucide-react-native';
@@ -22,7 +22,8 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -223,7 +224,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
           activeOpacity={0.8}
         >
           {sending
-            ? <ActivityIndicator size="small" color="#FFFFFF" />
+            ? <ActivityIndicator size="small" color={COLOR_WHITE} />
             : <Text style={styles.sendBtnText}>Send Message</Text>
           }
         </TouchableOpacity>
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
   bodyField:     { minHeight: 160 },
   // The label with the attach button across from it.
   bodyHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label:         { fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label:         { fontSize: 11, fontFamily: FONT_INTER.bold, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   textInput:     { fontSize: 15, padding: 0 },
   bodyInput:     { minHeight: 120, textAlignVertical: 'top' },
 
@@ -257,14 +258,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
   },
-  userName:      { fontSize: 14, fontWeight: '600' },
+  userName:      { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   recipientPill: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: PILL_RADIUS, paddingHorizontal: 10, paddingVertical: 6,
     alignSelf: 'flex-start', gap: 8,
   },
-  recipientName: { fontSize: 14, fontWeight: '600' },
+  recipientName: { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   footer: {
     paddingHorizontal: 16, paddingTop: 12,
@@ -275,5 +276,5 @@ const styles = StyleSheet.create({
     paddingVertical: 15, alignItems: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },
-  sendBtnText:     { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  sendBtnText:     { fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 });

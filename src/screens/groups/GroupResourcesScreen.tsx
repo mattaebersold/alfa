@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { FileText } from 'lucide-react-native';
@@ -13,6 +14,7 @@ import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupResource } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
 
 function ResourceRow({ resource }: { resource: GroupResource }) {
   const colors = useColors();
@@ -69,7 +71,7 @@ const styles = StyleSheet.create({
   list:     { flexGrow: 1, paddingBottom: 24 },
   iconWrap: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   info:     { flex: 1 },
-  title:    { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  title:    { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 4 },
   body:     { fontSize: 13, lineHeight: 18, marginBottom: 6 },
   meta:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: 12 },

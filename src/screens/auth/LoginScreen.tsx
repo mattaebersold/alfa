@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity,
-  Alert, Image,
-  Dimensions,
+  View, StyleSheet, TouchableOpacity, Alert, Image, Dimensions,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Eye, EyeOff } from 'lucide-react-native';
+import { COLOR_ERROR_BG, COLOR_WHITE } from '../../constants/config';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useAppDispatch, useAppSelector } from '../../store/store';
@@ -21,6 +21,7 @@ import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import AppleSignInButton from '../../components/auth/AppleSignInButton';
+import { FONT_INTER } from '../../constants/fonts';
 
 export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const dispatch = useAppDispatch();
@@ -184,9 +185,9 @@ const styles = StyleSheet.create({
     height: 80,
   },
   logoTitle: {
-    color: '#FFFFFF',
+    color: COLOR_WHITE,
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FONT_INTER.semibold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     textAlign: 'center',
@@ -206,15 +207,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   noticeText: {
-    color: '#FFFFFF',
+    color: COLOR_WHITE,
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: FONT_INTER.medium,
   },
   altRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18, marginBottom: 14 },
   altLine:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
-  altLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
+  altLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.7)' },
   errorBox: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: COLOR_ERROR_BG,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.red,
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: FONT_INTER.medium,
   },
   field: { marginBottom: 12 },
   inputWrap: { position: 'relative' },
@@ -230,9 +231,9 @@ const styles = StyleSheet.create({
   eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
   label: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: FONT_INTER.semibold,
     marginBottom: 4,
-    color: '#FFFFFF',
+    color: COLOR_WHITE,
   },
   forgotLink: {
     alignSelf: 'flex-end',
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
   forgotText: {
     fontSize: 13,
     color: colors.cream,
-    fontWeight: '500',
+    fontFamily: FONT_INTER.medium,
   },
   actionRow: {
     flexDirection: 'row',
@@ -253,6 +254,6 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: 14,
     color: colors.cream,
-    fontWeight: '500',
+    fontFamily: FONT_INTER.medium,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@ors/kit';
 import { formatDistanceToNow } from 'date-fns';
 import { Plus, ArrowUp, Link2 } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
@@ -13,7 +14,8 @@ import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import { DISCUSSION_CATEGORIES, RESOURCE_CATEGORIES } from '../../constants/groupCategories';
 import { carScopeKey } from '../../utils/carScope';
 import { stripHtml } from '../../utils/text';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_17 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type Kind = 'discussion' | 'resource';
 
@@ -135,18 +137,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingVertical: 12, borderRadius: COMMON_RADIUS,
   },
-  newText: { fontSize: 14, fontWeight: '800' },
+  newText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
   row: {
     padding: 12, gap: 6,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: '#111111',
+    backgroundColor: COLOR_GRAY_17,
   },
   rowHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   catPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  catText: { fontSize: 11, fontWeight: '700' },
+  catText: { fontSize: 11, fontFamily: FONT_INTER.bold },
   score: { flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 'auto' },
-  scoreText: { fontSize: 12, fontWeight: '700' },
-  title: { fontSize: 15, fontWeight: '800' },
+  scoreText: { fontSize: 12, fontFamily: FONT_INTER.bold },
+  title: { fontSize: 15, fontFamily: FONT_INTER.bold },
   preview: { fontSize: 13, lineHeight: 18 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   metaText: { fontSize: 12, flexShrink: 1 },

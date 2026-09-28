@@ -1,16 +1,23 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { SOURCE_APPS, openSourceApp } from '../../constants/sourceApps';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_GRAY_10,
+  COLOR_RED,
+  COLOR_SPOTTER_GREEN,
+} from '../../constants/config';
 import type { CarSpotSummary } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** The game's own right/wrong colours, so the grid reads the same as in Car Spotter. */
-const HIT = '#2FA84F';
-const MISS = '#EC4632';
+const HIT = COLOR_SPOTTER_GREEN;
+const MISS = COLOR_RED;
 const MAX_ATTEMPTS = 5;
 
 /** The server clamps zoom to 1.5–8; clamped again here so a bad row can't blow the image up. */
@@ -139,21 +146,21 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     overflow: 'hidden',
-    backgroundColor: '#0A0A0A',
+    backgroundColor: COLOR_GRAY_10,
   },
   info: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     paddingTop: 12,
   },
   textCol: { flex: 1, minWidth: 0 },
-  title:   { fontSize: 18, fontWeight: '800', letterSpacing: 0.2 },
-  result:  { fontSize: 14, fontWeight: '600', marginTop: 3 },
+  title:   { fontSize: 18, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
+  result:  { fontSize: 14, fontFamily: FONT_INTER.semibold, marginTop: 3 },
   grid:    { gap: 4, alignItems: 'center' },
   gridRow: { flexDirection: 'row', gap: 4 },
   // As wide as a cell, so each label sits over its own column.
   colLabel: {
     width: CELL + 12, textAlign: 'center',
-    fontSize: 9, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase',
+    fontSize: 9, fontFamily: FONT_INTER.bold, letterSpacing: 0.4, textTransform: 'uppercase',
     marginHorizontal: -6,
   },
   cell: { width: CELL, height: CELL, borderRadius: COMMON_RADIUS / 2 },
@@ -162,5 +169,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 2,
     paddingTop: 10,
   },
-  playLinkText: { fontSize: 13, fontWeight: '700' },
+  playLinkText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

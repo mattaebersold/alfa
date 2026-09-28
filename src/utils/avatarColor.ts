@@ -1,3 +1,19 @@
+import {
+  COLOR_AVATAR_BRICK,
+  COLOR_AVATAR_INDIGO,
+  COLOR_AVATAR_MAGENTA,
+  COLOR_AVATAR_OCHRE,
+  COLOR_AVATAR_OLIVE,
+  COLOR_AVATAR_PINE,
+  COLOR_AVATAR_PLUM,
+  COLOR_AVATAR_RUST,
+  COLOR_AVATAR_SADDLE,
+  COLOR_AVATAR_SLATE_BLUE,
+  COLOR_AVATAR_STEEL,
+  COLOR_AVATAR_TEAL,
+  COLOR_AVATAR_UMBER,
+  COLOR_AVATAR_VIOLET,
+} from '../constants/config';
 /**
  * The colour behind a member's initials when they have no photo.
  *
@@ -11,20 +27,20 @@
  * every un-stamped member and leave the stamped ones where they were.
  */
 export const AVATAR_COLORS = [
-  '#8E3B46', // brick
-  '#A64B2A', // rust
-  '#9C6644', // saddle
-  '#8A6B1F', // ochre
-  '#5B7B3A', // olive
-  '#2E6B4F', // pine
-  '#1F6F6B', // teal
-  '#2B5F7E', // slate blue
-  '#3F4E8C', // indigo
-  '#5D4A8C', // violet
-  '#7A3E77', // plum
-  '#A03A63', // magenta
-  '#7A4A3A', // umber
-  '#4A5A6B', // steel
+  COLOR_AVATAR_BRICK, // brick
+  COLOR_AVATAR_RUST, // rust
+  COLOR_AVATAR_SADDLE, // saddle
+  COLOR_AVATAR_OCHRE, // ochre
+  COLOR_AVATAR_OLIVE, // olive
+  COLOR_AVATAR_PINE, // pine
+  COLOR_AVATAR_TEAL, // teal
+  COLOR_AVATAR_SLATE_BLUE, // slate blue
+  COLOR_AVATAR_INDIGO, // indigo
+  COLOR_AVATAR_VIOLET, // violet
+  COLOR_AVATAR_PLUM, // plum
+  COLOR_AVATAR_MAGENTA, // magenta
+  COLOR_AVATAR_UMBER, // umber
+  COLOR_AVATAR_STEEL, // steel
 ];
 
 /**

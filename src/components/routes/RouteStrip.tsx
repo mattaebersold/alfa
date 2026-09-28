@@ -1,13 +1,15 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
+  View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { ChevronRight } from 'lucide-react-native';
 import RouteCard from '../cards/RouteCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import type { DrivingRoute } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_23 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer — same as PostStrip. */
 export const ROUTE_STRIP_PREVIEW_COUNT = 6;
@@ -113,9 +115,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 10,
   },
-  title:       { fontSize: 17, fontWeight: '800' },
+  title:       { fontSize: 17, fontFamily: FONT_INTER.bold },
   viewAll:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: { fontSize: 13, fontWeight: '700' },
+  viewAllText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   item: { width: CARD_WIDTH },
@@ -124,7 +126,7 @@ const styles = StyleSheet.create({
   card: {
     marginVertical: 0, paddingBottom: 12,
     // The darker card shade the car page and profile shelves share.
-    backgroundColor: '#171717',
+    backgroundColor: COLOR_GRAY_23,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },

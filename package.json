@@ -1,6 +1,6 @@
 {
   "name": "alfa",
-  "version": "1.51",
+  "version": "1.6",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -10,6 +10,7 @@
     "bump": "node scripts/bump-version.js"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
     "@ors/kit": "file:./kit",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-google-signin/google-signin": "^16.1.5",

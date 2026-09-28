@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
+  View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Lock } from 'lucide-react-native';
 import Spinner from '../../components/ui/Spinner';
@@ -14,7 +15,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import type { NotificationSettings } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * What you get told about, and how.
@@ -59,7 +61,7 @@ function Box({ on, locked, onPress, brand, colors }: {
       {locked
         ? <Lock size={10} color={colors.grey} />
         : on
-          ? <Check size={12} color="#000000" strokeWidth={3.5} />
+          ? <Check size={12} color={COLOR_BLACK} strokeWidth={3.5} />
           : null}
     </TouchableOpacity>
   );
@@ -256,7 +258,7 @@ export default function NotificationSettingsScreen() {
               activeOpacity={0.85}
             >
               {saving
-                ? <ActivityIndicator size="small" color="#000000" />
+                ? <ActivityIndicator size="small" color={COLOR_BLACK} />
                 : <Text style={styles.saveText}>Save changes</Text>}
             </TouchableOpacity>
           )}
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
   },
   headText: {
     width: CELL_W, textAlign: 'center',
-    fontSize: 11, fontWeight: '700',
+    fontSize: 11, fontFamily: FONT_INTER.bold,
   },
 
   groupRow: {
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
   // own, so the two never sit against each other unseparated.
   groupRowTop: { borderTopWidth: StyleSheet.hairlineWidth },
   groupText: {
-    fontSize: 11, fontWeight: '700',
+    fontSize: 11, fontFamily: FONT_INTER.bold,
     textTransform: 'uppercase', letterSpacing: 0.6,
   },
 
@@ -303,7 +305,7 @@ const styles = StyleSheet.create({
   // Takes the row so the two checkbox columns stay a fixed width and line up
   // down the table however long a label runs.
   labelCell: { flex: 1, minWidth: 0, paddingRight: 8 },
-  label:     { fontSize: 12.5, fontWeight: '600' },
+  label:     { fontSize: 12.5, fontFamily: FONT_INTER.semibold },
   cell:      { width: CELL_W, alignItems: 'center' },
 
   box: {
@@ -317,13 +319,13 @@ const styles = StyleSheet.create({
     paddingVertical: 20, paddingHorizontal: 16,
     alignItems: 'center',
   },
-  noticeTitle: { fontSize: 15, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
+  noticeTitle: { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 6, textAlign: 'center' },
   noticeBody:  { fontSize: 13, lineHeight: 19, textAlign: 'center', marginBottom: 14 },
   retry: {
     borderWidth: 1, borderRadius: 8,
     paddingVertical: 9, paddingHorizontal: 18,
   },
-  retryText: { fontSize: 13, fontWeight: '700' },
+  retryText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   footnote: { fontSize: 12, lineHeight: 17, marginTop: 12, paddingHorizontal: 2 },
 
@@ -331,5 +333,5 @@ const styles = StyleSheet.create({
     marginTop: 20, paddingVertical: 14, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
-  saveText: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  saveText: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { Users, Lock, MapPin, ChevronUp, Plus } from 'lucide-react-native';
@@ -16,7 +17,8 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { regionLabel } from '../../constants/regions';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * A group, answered in place.
@@ -137,10 +139,10 @@ export default function GroupSummaryModal({
                     accessibilityLabel={isInvited ? 'Accept invitation and join' : 'Request to join'}
                   >
                     {joining ? (
-                      <ActivityIndicator size="small" color="#000000" />
+                      <ActivityIndicator size="small" color={COLOR_BLACK} />
                     ) : (
                       <>
-                        <Plus size={14} color="#000000" strokeWidth={2.8} />
+                        <Plus size={14} color={COLOR_BLACK} strokeWidth={2.8} />
                         <Text style={[styles.joinText, styles.onBrand]}>Join</Text>
                       </>
                     )}
@@ -208,7 +210,7 @@ export default function GroupSummaryModal({
                     </>
                   ) : (
                     // Ringed in the panel's own black — see SummaryModal.
-                    <AvatarStack users={roster.map((m) => m.user)} ringColor="#000000" />
+                    <AvatarStack users={roster.map((m) => m.user)} ringColor={COLOR_BLACK} />
                   )}
                 </TouchableOpacity>
 
@@ -256,21 +258,21 @@ const styles = StyleSheet.create({
   blank:   { alignItems: 'center', justifyContent: 'center' },
   body:    { padding: 18, paddingBottom: 22, gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  title:    { flex: 1, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  title:    { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
   joinBtn:  {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
     minWidth: 76, paddingHorizontal: 12, paddingVertical: 7, marginTop: 1,
     borderRadius: COMMON_RADIUS,
   },
-  joinText: { fontSize: 13, fontWeight: '800' },
-  onBrand:  { color: '#000000' },
+  joinText: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  onBrand:  { color: COLOR_BLACK },
   subtitle: { fontSize: 14, lineHeight: 19, marginTop: -2 },
   badges:   { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
   },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeText: { fontSize: 11, fontFamily: FONT_INTER.bold },
   about:     { fontSize: 13.5, lineHeight: 19, marginTop: 4 },
   messageRow: { flexDirection: 'row', marginTop: 6 },
 
@@ -279,10 +281,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 12, paddingBottom: 4, minHeight: 46,
   },
-  membersLabel:  { fontSize: 14, fontWeight: '700' },
+  membersLabel:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   // A ceiling, like the panel's: a short roster gets a short list.
   memberList:    { maxHeight: 300 },
   memberRow:     { borderTopWidth: StyleSheet.hairlineWidth },
   adminPill:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS },
-  adminPillText: { fontSize: 10, fontWeight: '800' },
+  adminPillText: { fontSize: 10, fontFamily: FONT_INTER.extrabold },
 });

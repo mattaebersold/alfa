@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator,
-  Keyboard,
+  View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,7 +24,8 @@ import { contrastText } from '../../hooks/useBrandColor';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * "New <whatever you're looking at>" for a group section.
@@ -263,7 +264,7 @@ export default function GroupCreateSheet({
                       active && { backgroundColor: color, borderColor: color },
                     ]}
                   >
-                    <Text style={[styles.chipText, { color: active ? '#FFFFFF' : c.fg }]}>{label}</Text>
+                    <Text style={[styles.chipText, { color: active ? COLOR_WHITE : c.fg }]}>{label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -355,7 +356,7 @@ export default function GroupCreateSheet({
                       accessibilityRole="button"
                       accessibilityLabel="Remove photo"
                     >
-                      <X size={11} color="#FFFFFF" />
+                      <X size={11} color={COLOR_WHITE} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -396,7 +397,7 @@ export default function GroupCreateSheet({
           {saving || imageProgress
             ? (
               <View style={styles.submitBusy}>
-                <ActivityIndicator color="#000000" />
+                <ActivityIndicator color={COLOR_BLACK} />
                 {imageProgress && (
                   <Text style={styles.submitText}>
                     Uploading {imageProgress.current} of {imageProgress.total}…
@@ -428,18 +429,18 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999,
     paddingHorizontal: 12, paddingVertical: 6, marginBottom: 4,
   },
-  groupChipLabel: { fontSize: 11, fontWeight: '700' },
-  groupChipName:  { fontSize: 13, fontWeight: '700' },
-  label:       { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 6 },
+  groupChipLabel: { fontSize: 11, fontFamily: FONT_INTER.bold },
+  groupChipName:  { fontSize: 13, fontFamily: FONT_INTER.bold },
+  label:       { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 6 },
   input:       { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
   inputMulti:  { height: 120, paddingTop: 12, textAlignVertical: 'top' },
   chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:        { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
-  chipText:    { fontSize: 12, fontWeight: '700' },
+  chipText:    { fontSize: 12, fontFamily: FONT_INTER.bold },
   publicRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 22 },
   checkbox:    { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  checkMark:   { fontSize: 13, fontWeight: '900' },
-  publicLabel: { fontSize: 15, fontWeight: '600' },
+  checkMark:   { fontSize: 13, fontFamily: FONT_INTER.black },
+  publicLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold },
   publicHint:  { fontSize: 12, marginTop: 2 },
   thumbRow:    { marginTop: 10 },
   thumbWrap:   { marginRight: 8, position: 'relative' },
@@ -452,5 +453,5 @@ const styles = StyleSheet.create({
   submitBusy:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   submit:      { height: 50, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', marginTop: 26 },
   submitOff:   { opacity: 0.4 },
-  submitText:  { fontSize: 16, fontWeight: '800', color: '#000000' },
+  submitText:  { fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
 });

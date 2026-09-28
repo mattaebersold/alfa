@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import SummaryUserRow from '../members/SummaryUserRow';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { useColors } from '../../hooks/useColors';
 import type { PollOptionSummary } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Who picked one option of a poll.
@@ -77,8 +79,8 @@ export default function PollVotersSheet({
 
 const styles = StyleSheet.create({
   body:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12 },
-  kicker: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  title:  { fontSize: 19, fontWeight: '800', marginBottom: 6 },
+  kicker: { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  title:  { fontSize: 19, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   empty:  { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
   row:    { gap: 12, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth },
   more:   { fontSize: 13, paddingTop: 12, textAlign: 'center' },

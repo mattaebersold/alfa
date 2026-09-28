@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Search, X, Check, UserPlus } from 'lucide-react-native';
 import { useSearchQuery } from '../../api/apiService';
 import Avatar from '../ui/Avatar';
@@ -11,7 +12,8 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useAppSelector } from '../../store/store';
 import type { User } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Below this a search matches half the club, so it doesn't run. */
 const MIN_QUERY = 2;
@@ -142,7 +144,7 @@ export default function GroupInvitePicker({
                   </>
                 ) : (
                   <>
-                    <UserPlus size={13} color="#000000" strokeWidth={2.6} />
+                    <UserPlus size={13} color={COLOR_BLACK} strokeWidth={2.6} />
                     <Text style={[styles.addText, styles.onBrand]}>Invite</Text>
                   </>
                 )}
@@ -162,7 +164,7 @@ const styles = StyleSheet.create({
     paddingLeft: 4, paddingRight: 10, paddingVertical: 4,
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  chipText: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold, flexShrink: 1 },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
@@ -178,13 +180,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowText:  { flex: 1, minWidth: 0 },
-  username: { fontSize: 15, fontWeight: '800' },
+  username: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
   fullName: { fontSize: 12, marginTop: 1 },
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     minWidth: 84, paddingHorizontal: 11, paddingVertical: 7, borderRadius: COMMON_RADIUS,
   },
-  addText: { fontSize: 13, fontWeight: '800' },
-  onBrand: { color: '#000000' },
+  addText: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  onBrand: { color: COLOR_BLACK },
 });

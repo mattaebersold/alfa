@@ -1,7 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
+  View, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,13 +17,13 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingSnapshot from '../../components/marketplace/ListingSnapshot';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
 import type { MarketplaceRoleFilter, MarketplaceThread } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -241,7 +242,7 @@ export default function MarketplaceMessagesScreen({ route }: AppScreenProps<'Mar
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
-                <Text style={[styles.filterText, { color: active ? '#FFFFFF' : colors.grey }]}>
+                <Text style={[styles.filterText, { color: active ? COLOR_WHITE : colors.grey }]}>
                   {f.label}
                 </Text>
               </TouchableOpacity>
@@ -290,15 +291,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7,
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  filterText: { fontSize: 13, fontWeight: '700' },
+  filterText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   scopeBar: {
     marginHorizontal: 12, marginTop: 12,
     paddingHorizontal: 14, paddingVertical: 10,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  scopeLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  scopeTitle: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+  scopeLabel: { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  scopeTitle: { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 2 },
 
   // Each conversation is its own card, the way the inbox draws its rows: a
   // hairline divider disappears on this palette.
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
   },
   snapshot:   { marginBottom: 8 },
   personRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  person:     { flex: 1, fontSize: 12, fontWeight: '600' },
+  person:     { flex: 1, fontSize: 12, fontFamily: FONT_INTER.semibold },
   role:       { fontWeight: '400' },
   time:       { fontSize: 10, marginLeft: 8 },
   previewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
@@ -320,6 +321,6 @@ const styles = StyleSheet.create({
     minWidth: 18, height: 18, borderRadius: PILL_RADIUS,
     paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center',
   },
-  unreadPillText: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF' },
+  unreadPillText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   unreadBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
 });

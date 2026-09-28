@@ -1,6 +1,7 @@
 import { useAppSelector } from '../store/store';
 import { colors } from '../constants/colors';
 import { useColors } from './useColors';
+import { COLOR_BLACK, COLOR_WHITE } from '../constants/config';
 
 export function useIsPro(): boolean {
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -33,8 +34,8 @@ function perceivedBrightness(color: string): number {
  * Readable foreground for text/icons sitting on `bg`. Light fills like the gold
  * brand color get black; dark fills get white.
  */
-export function contrastText(bg: string): '#FFFFFF' | '#000000' {
-  return perceivedBrightness(bg) < 140 ? '#FFFFFF' : '#000000';
+export function contrastText(bg: string): typeof COLOR_WHITE | typeof COLOR_BLACK {
+  return perceivedBrightness(bg) < 140 ? COLOR_WHITE : COLOR_BLACK;
 }
 
 /** Returns the active brand color — gold for pro/admin users, primaryAlt otherwise. */
@@ -45,7 +46,7 @@ export function useBrandColor(): string {
 }
 
 /** Returns white or black depending on perceived brightness of the brand color. */
-export function useBrandTextColor(): '#FFFFFF' | '#000000' {
+export function useBrandTextColor(): typeof COLOR_WHITE | typeof COLOR_BLACK {
   const brand = useBrandColor();
-  return perceivedBrightness(brand) < 128 ? '#FFFFFF' : '#000000';
+  return perceivedBrightness(brand) < 128 ? COLOR_WHITE : COLOR_BLACK;
 }

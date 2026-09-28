@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  Switch, Alert, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, Switch, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,7 +28,8 @@ import { imageUrl } from '../../utils/image';
 import { validateUsername } from '../../utils/username';
 import type { ProfileLink } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 function SectionHeader({ title }: { title: string }) {
   const colors = useColors();
@@ -455,7 +456,7 @@ export default function SettingsScreen() {
               value={contentFilterEnabled}
               onValueChange={(v) => { dispatch(setContentFilter(v)); }}
               trackColor={{ false: colors.greyLight, true: colors.primaryAlt }}
-              thumbColor="#FFFFFF"
+              thumbColor={COLOR_WHITE}
             />
           </View>
         </View>
@@ -491,7 +492,7 @@ function SaveButton({ label, onPress, loading, secondary }: { label: string; onP
       disabled={loading}
     >
       {loading
-        ? <ActivityIndicator size="small" color={secondary ? colors.primaryAlt : '#FFFFFF'} />
+        ? <ActivityIndicator size="small" color={secondary ? colors.primaryAlt : COLOR_WHITE} />
         : <Text style={[styles.saveBtnText, secondary && { color: colors.primaryAlt }]}>{label}</Text>
       }
     </TouchableOpacity>
@@ -514,19 +515,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingVertical: 11, borderRadius: COMMON_RADIUS, borderWidth: 1.5, marginTop: 8,
   },
-  addLinkText:  { fontSize: 14, fontWeight: '700' },
+  addLinkText:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   card:         { marginBottom: 0 },
   cardPad:      { padding: 16, gap: 4 },
 
   fieldWrap:    { marginBottom: 12 },
-  fieldLabel:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  fieldLabel:   { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   fieldError:   { fontSize: 12, marginTop: 4 },
   fieldHint:    { fontSize: 12, marginTop: 4, lineHeight: 16 },
 
   photoRow:     { flexDirection: 'row', gap: 16, padding: 16, borderBottomWidth: 1, position: 'relative' },
   photoItem:    { alignItems: 'center', gap: 6 },
   photoBanner:  { flex: 1, alignItems: 'center', gap: 6 },
-  photoLabel:   { fontSize: 12, fontWeight: '600' },
+  photoLabel:   { fontSize: 12, fontFamily: FONT_INTER.semibold },
   bannerPreview:{ width: '100%', height: 60, borderRadius: 8 },
   uploadingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -536,11 +537,11 @@ const styles = StyleSheet.create({
 
   saveBtn:      { margin: 16, marginTop: 4, backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS, paddingVertical: 13, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText:  { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  saveBtnText:  { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 
   switchRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  switchLabel:  { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  switchLabel:  { fontSize: 14, fontFamily: FONT_INTER.semibold, marginBottom: 2 },
   switchHint:   { fontSize: 12, lineHeight: 16 },
   dangerRow:    { paddingHorizontal: 16, paddingVertical: 14 },
-  dangerText:   { fontSize: 15, fontWeight: '600' },
+  dangerText:   { fontSize: 15, fontFamily: FONT_INTER.semibold },
 });

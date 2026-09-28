@@ -1,8 +1,10 @@
 import React from 'react';
-import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Plus } from 'lucide-react-native';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 interface HeadingActionButtonProps {
   label: string;
@@ -50,11 +52,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderRadius: COMMON_RADIUS,
     flexShrink: 0,
   },
-  label: { fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },
+  label: { fontSize: 13, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
   badge: {
     marginLeft: 2,
     paddingHorizontal: 6, paddingVertical: 1,
     borderRadius: COMMON_RADIUS,
   },
-  badgeText: { fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  badgeText: { fontSize: 11, fontFamily: FONT_INTER.bold, fontVariant: ['tabular-nums'] },
 });

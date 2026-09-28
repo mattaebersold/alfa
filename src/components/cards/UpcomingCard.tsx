@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Text } from '@ors/kit';
 import EventImage from '../society/EventImage';
 import RegionBadge from '../ui/RegionBadge';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -9,7 +10,14 @@ import {
 } from '../../constants/eventTypes';
 import { contrastText } from '../../hooks/useBrandColor';
 import type { Rally, SocietyEvent } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_26,
+  COLOR_GRAY_38,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Square thumbnail edge, and so the height of every card. */
 const THUMB = 90;
@@ -73,7 +81,7 @@ function UpcomingCard({ tag, color, badge, title, when, image, region, width, on
           </View>
           {badge ? (
             <View style={[styles.pill, { backgroundColor: ORS_EVENT_COLOR }]}>
-              <Text style={[styles.pillText, { color: '#000000' }]}>{badge}</Text>
+              <Text style={[styles.pillText, { color: COLOR_BLACK }]}>{badge}</Text>
             </View>
           ) : null}
         </View>
@@ -146,11 +154,11 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
     padding: 10,
-    borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: '#1A1A1A',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: COLOR_GRAY_26,
   },
   thumb: {
     width: THUMB, height: THUMB, borderRadius: 8, overflow: 'hidden',
-    backgroundColor: '#262626',
+    backgroundColor: COLOR_GRAY_38,
   },
   regionBadge: { position: 'absolute', top: 4, right: 4 },
   // Three lines at most — pills 18, title 32, the day 15 — centred in the
@@ -161,7 +169,7 @@ const styles = StyleSheet.create({
   // The category gives way before the ORS badge does — the badge is short and
   // is the rarer, more telling of the two.
   tagPill: { flexShrink: 1 },
-  pillText: { fontSize: 10.5, fontWeight: '800' },
-  title: { fontSize: 12.5, lineHeight: 16, fontWeight: '800', color: '#FFFFFF' },
-  meta: { fontSize: 12, lineHeight: 15, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  pillText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold },
+  title: { fontSize: 12.5, lineHeight: 16, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  meta: { fontSize: 12, lineHeight: 15, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.6)' },
 });

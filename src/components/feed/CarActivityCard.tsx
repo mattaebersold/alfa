@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,7 +22,15 @@ import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import CommentsSheet from '../social/CommentsSheet';
 import type { CarActivityItem } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  GUTTER,
+  COLOR_BLACK,
+  COLOR_GRAY_17,
+  COLOR_GRAY_20,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Feed row for something added to a car you follow — a mod, or a set of photos.
@@ -224,7 +233,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           {/* The mark, at size, on its own — it's the one thing that says at a
               glance which of the two kinds this is, and shrunk into the badge
               it was competing with the word beside it. */}
-          <Mark size={34} color="#FFFFFF" strokeWidth={1.6} />
+          <Mark size={34} color={COLOR_WHITE} strokeWidth={1.6} />
           {/* A mod wears the mod colour the category badges use elsewhere;
               a gallery keeps the plain white pill. */}
           <View style={[styles.kindPill, isMod && { backgroundColor: CATEGORY_BADGE_COLORS.mod.bg }]}>
@@ -260,13 +269,13 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
             ownerId={car?.user_id}
             initialCount={item.like_count ?? 0}
             initialLiked={item.isLiked ?? false}
-            color="#FFFFFF"
+            color={COLOR_WHITE}
           />
           <CommentButton
             count={item.comment_count ?? 0}
             documentId={item.internal_id}
             onPress={() => setCommentsOpen(true)}
-            color="#FFFFFF"
+            color={COLOR_WHITE}
           />
         </View>
       </View>
@@ -315,7 +324,7 @@ const styles = StyleSheet.create({
   },
   bylineWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
   bylineText: { flex: 1, minWidth: 0 },
-  bylineName: { fontSize: 14, fontWeight: '700' },
+  bylineName: { fontSize: 14, fontFamily: FONT_INTER.bold },
   bylineSub:  { fontSize: 12, marginTop: 1 },
   time:       { fontSize: 11, fontStyle: 'italic' },
 
@@ -333,17 +342,17 @@ const styles = StyleSheet.create({
    */
   card: {
     position: 'relative',
-    marginHorizontal: 12,
+    marginHorizontal: GUTTER,
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
     borderWidth: 1,
-    backgroundColor: '#111111',
+    backgroundColor: COLOR_GRAY_17,
   },
   // Written out rather than spreading `StyleSheet.absoluteFillObject`, which
   // RN 0.86 removed — spreading it yields {} and the image loses its position
   // entirely, silently.
   image: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // A photo-less mod: no picture to be, so a dark grey ground for the plate.
-  cardBare: { backgroundColor: '#141414' },
+  cardBare: { backgroundColor: COLOR_GRAY_20 },
   // In the flow rather than pinned to the foot, so the card sizes to it.
   plateBare: { position: 'relative', paddingTop: 16 },
   titleRow:  { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -362,14 +371,14 @@ const styles = StyleSheet.create({
     // A little clear of the mark above it — the plate's gap alone had the two
     // touching visually, the glyph's stroke running to its box's edge.
     marginTop: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLOR_WHITE,
     paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999,
   },
   kindText: {
-    fontSize: 10, fontWeight: '800', color: '#000000',
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
   title: {
-    fontSize: 22, fontWeight: '800', color: '#FFFFFF',
+    fontSize: 22, fontFamily: FONT_INTER.bold, color: COLOR_WHITE,
     letterSpacing: -0.3,
     textShadowColor: 'rgba(0,0,0,0.55)',
     textShadowOffset: { width: 0, height: 1 },
@@ -388,7 +397,7 @@ const styles = StyleSheet.create({
     paddingLeft: 4, paddingRight: 11, paddingVertical: 4,
     borderRadius: 999,
   },
-  carChipText: { flexShrink: 1, fontSize: 13.5, fontWeight: '700', color: '#FFFFFF' },
+  carChipText: { flexShrink: 1, fontSize: 13.5, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   carThumb: { width: 28, height: 28, borderRadius: 14 },
   carThumbBlank: {
     backgroundColor: 'rgba(255,255,255,0.15)',

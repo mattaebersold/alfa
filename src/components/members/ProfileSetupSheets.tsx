@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ImageIcon } from 'lucide-react-native';
@@ -15,7 +16,8 @@ import {
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * The two setup steps that can be finished on the spot.
@@ -128,7 +130,7 @@ export function ProfilePhotoSheet({ visible, onClose }: {
             activeOpacity={0.85}
           >
             {uploading
-              ? <ActivityIndicator size="small" color="#000000" />
+              ? <ActivityIndicator size="small" color={COLOR_BLACK} />
               : <Text style={styles.saveText}>Save photo</Text>}
           </TouchableOpacity>
         )}
@@ -217,7 +219,7 @@ export function BannerSheet({ visible, onClose }: {
             activeOpacity={0.85}
           >
             {uploading
-              ? <ActivityIndicator size="small" color="#000000" />
+              ? <ActivityIndicator size="small" color={COLOR_BLACK} />
               : <Text style={styles.saveText}>Save cover photo</Text>}
           </TouchableOpacity>
         )}
@@ -274,7 +276,7 @@ export function BioSheet({ visible, onClose }: {
           activeOpacity={0.85}
         >
           {saving
-            ? <ActivityIndicator size="small" color="#000000" />
+            ? <ActivityIndicator size="small" color={COLOR_BLACK} />
             : <Text style={styles.saveText}>Save bio</Text>}
         </TouchableOpacity>
       </View>
@@ -294,7 +296,7 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  pickText: { fontSize: 14, fontWeight: '700' },
+  pickText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   hint: { fontSize: 13, lineHeight: 18 },
   textarea: {
@@ -308,5 +310,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   saveDisabled: { opacity: 0.5 },
-  saveText: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  saveText: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 });

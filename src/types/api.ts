@@ -71,6 +71,8 @@ export interface User {
   feedPreferences?: FeedPreferences;
   /** Car models you've bookmarked, newest first — your own profile only. */
   modelBookmarks?: ModelBookmark[];
+  /** internal_ids of the posts you've bookmarked, newest first — your own profile only. */
+  postBookmarks?: string[];
   allowEmail?: boolean;
   memberNumber?: number;
   created_at?: string;
@@ -375,6 +377,8 @@ export interface Post {
   // snake_case from feed/list endpoints
   like_count?: number;
   comment_count?: number;
+  /** How many members have it bookmarked — see horacio's Post.bookmark_count. */
+  bookmark_count?: number;
   // camelCase aliases (some endpoints may use these)
   likeCount?: number;
   commentCount?: number;

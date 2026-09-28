@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +22,8 @@ import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * One person on the car — the owner, or the second name on a shared one.
@@ -207,7 +209,7 @@ export default function CarSummaryModal({
                   ) : null}
                   {categoryLabel ? (
                     <View style={[styles.badge, styles.badgeDark]}>
-                      <Text style={[styles.badgeText, { color: '#FFFFFF' }]}>{categoryLabel}</Text>
+                      <Text style={[styles.badgeText, { color: COLOR_WHITE }]}>{categoryLabel}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -254,8 +256,8 @@ export default function CarSummaryModal({
                     dark segment instead and keeps the foreground colour. */}
                 {isFollowing
                   ? <Check size={14} color={colors.fg} strokeWidth={3} />
-                  : <Plus size={14} color="#000000" strokeWidth={3} />}
-                <Text style={[styles.followText, { color: isFollowing ? colors.fg : '#000000' }]}>
+                  : <Plus size={14} color={COLOR_BLACK} strokeWidth={3} />}
+                <Text style={[styles.followText, { color: isFollowing ? colors.fg : COLOR_BLACK }]}>
                   {isFollowing ? 'Following' : 'Follow'}
                 </Text>
               </TouchableOpacity>
@@ -303,17 +305,17 @@ const styles = StyleSheet.create({
   heroWrap: { position: 'relative' },
   // The ratio comes from the photo — see usePosterRatio. A fixed 16:9 cropped
   // a portrait shot down to a letterbox, which on a car is usually the car.
-  hero:     { width: '100%', backgroundColor: '#161616' },
+  hero:     { width: '100%', backgroundColor: COLOR_GRAY_22 },
   heroText: { position: 'absolute', left: 16, right: 16, bottom: 12, alignItems: 'flex-start', gap: 4 },
   heroTitle: {
-    fontSize: 21, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3,
+    fontSize: 21, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, letterSpacing: -0.3,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
   // The car card's subtitle treatment: small, tracked out, quieter than the name.
   heroSub: {
-    fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.82)',
+    fontSize: 11, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.82)',
     textTransform: 'uppercase', letterSpacing: 1,
   },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 3 },
@@ -323,7 +325,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.3)',
   },
   badgeText: {
-    fontSize: 10, fontWeight: '800',
+    fontSize: 10, fontFamily: FONT_INTER.extrabold,
   },
 
   row: {
@@ -337,15 +339,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6,
   },
   ownerChip: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
-  ownerName: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  ownerName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   coTag:     { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3 },
-  coTagText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  coTagText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.4 },
   followerBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: 999,
   },
-  followerBadgeText: { fontSize: 11, fontWeight: '600' },
+  followerBadgeText: { fontSize: 11, fontFamily: FONT_INTER.semibold },
 
   followBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   followBtnBusy: { opacity: 0.6 },
-  followText: { fontSize: 13, fontWeight: '600' },
+  followText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   specsScroll: { flexGrow: 0, flexShrink: 0 },
   specs: {
@@ -362,8 +364,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 12,
   },
   spec: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, minWidth: 84 },
-  specLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  specValue: { fontSize: 14, fontWeight: '600', marginTop: 2 },
+  specLabel: { fontSize: 10, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  specValue: { fontSize: 14, fontFamily: FONT_INTER.semibold, marginTop: 2 },
 
   body: { fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingTop: 16 },
 });

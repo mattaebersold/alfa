@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { Check } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import { useAppSelector } from '../../store/store';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_BLACK } from '../../constants/config';
 
 /**
  * The "ORS sponsored event" switch on the event form.
@@ -39,7 +42,7 @@ export default function OrsSponsoredToggle({
           value && { backgroundColor: ORS_EVENT_COLOR, borderColor: ORS_EVENT_COLOR },
         ]}
       >
-        {value ? <Check size={13} color="#000000" /> : null}
+        {value ? <Check size={13} color={COLOR_BLACK} /> : null}
       </View>
       <View style={styles.copy}>
         <Text style={[styles.title, { color: colors.fg }]}>ORS sponsored event</Text>
@@ -61,6 +64,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   copy:  { flex: 1, gap: 2 },
-  title: { fontSize: 14, fontWeight: '700' },
+  title: { fontSize: 14, fontFamily: FONT_INTER.bold },
   sub:   { fontSize: 12, lineHeight: 16 },
 });

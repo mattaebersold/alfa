@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Linking,
+  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { MapPin, Clock, Navigation, Users, Trash2 } from 'lucide-react-native';
@@ -21,7 +21,8 @@ import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange, RALLY_DATE_TBA } 
 import { stripHtml } from '../../utils/text';
 import { colors as palette } from '../../constants/colors';
 import { useRallyDelete } from '../../hooks/useRallyDelete';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 interface Props {
   rallyId: string | null;
@@ -263,19 +264,19 @@ const styles = StyleSheet.create({
   galleryThumb: { width: 80, height: 60, borderRadius: 6 },
   body:    { padding: 16 },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  title:   { fontSize: 22, fontWeight: '800', marginBottom: 12, flex: 1 },
+  title:   { fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 12, flex: 1 },
   deleteBtn: {
     width: 36, height: 36, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center', justifyContent: 'center',
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:{ fontSize: 14 },
-  slots:   { fontSize: 13, fontWeight: '700', marginBottom: 12 },
+  slots:   { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   description: { fontSize: 15, lineHeight: 22 },
 
   // Shared shape with RallyDays/RallyFaq, so the sheet reads as one rhythm.
   section:  { paddingHorizontal: 16, paddingTop: 28 },
-  heading:  { fontSize: 20, fontWeight: '800', marginBottom: 12 },
+  heading:  { fontSize: 20, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   hint:     { fontSize: 12, marginTop: 8 },
   mapImageWrap: { borderRadius: 12, overflow: 'hidden' },
   mapImage: { width: '100%', aspectRatio: 4 / 3 },
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
     paddingLeft: 6, paddingRight: 12, paddingVertical: 6,
     borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, maxWidth: '100%',
   },
-  memberName: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  memberName: { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
 
   mapSection: { paddingHorizontal: 16, gap: 10 },
   // The map is a picture of where this is, not something to pan around inside a
@@ -298,5 +299,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  directionsText: { fontSize: 14, fontWeight: '700' },
+  directionsText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

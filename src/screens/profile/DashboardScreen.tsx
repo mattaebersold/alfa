@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -49,7 +50,18 @@ import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
-import { CAR_LIMIT_BASIC } from '../../constants/limits';
+import {
+  CAR_LIMIT_BASIC,
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_MUTED_BLUE,
+  COLOR_MUTED_GREEN,
+  COLOR_MUTED_ORANGE,
+  COLOR_MUTED_PURPLE,
+  COLOR_MUTED_RED,
+  COLOR_WHITE,
+} from '../../constants/config';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -59,7 +71,7 @@ import MemberRow from '../../components/members/MemberRow';
 import UsagePanel from '../../components/pro/UsagePanel';
 import { ManageListingsPane } from '../../components/marketplace/ManageListingsEntry';
 import MarketplaceUnreadBadge, { useMarketplaceUnread } from '../../components/marketplace/MarketplaceUnreadBadge';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | 'marketplace' | null;
@@ -183,7 +195,7 @@ function ArchivedCarRow({ car, incoming, colors, onOpen }: {
             disabled={busy}
             activeOpacity={0.8}
           >
-            <RotateCcw size={13} color="#000000" />
+            <RotateCcw size={13} color={COLOR_BLACK} />
             <Text style={archivedStyles.btnText}>Restore</Text>
           </TouchableOpacity>
         )}
@@ -197,20 +209,20 @@ const archivedStyles = StyleSheet.create({
   main: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   thumb: { width: 56, height: 42, borderRadius: 7 },
   text: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '700' },
+  name: { fontSize: 14, fontFamily: FONT_INTER.bold },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  pending: { fontSize: 11, fontWeight: '600' },
+  pending: { fontSize: 11, fontFamily: FONT_INTER.semibold },
   actions: { flexDirection: 'row', gap: 8 },
   btn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     paddingVertical: 9, borderRadius: COMMON_RADIUS,
   },
-  btnText: { fontSize: 13, fontWeight: '800', color: '#000000' },
+  btnText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   btnGhost: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingVertical: 9, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  btnGhostText: { fontSize: 13, fontWeight: '700' },
+  btnGhostText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });
 
 function FlaggedRow({
@@ -284,13 +296,13 @@ const sheetStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingBottom: 16, paddingTop: 20,
   },
-  title: { fontSize: 17, fontWeight: '700' },
+  title: { fontSize: 17, fontFamily: FONT_INTER.bold },
   addCarBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginHorizontal: 16, marginVertical: 14,
     paddingVertical: 13, borderRadius: COMMON_RADIUS,
   },
-  addCarBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  addCarBtnText: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
 });
 
 export default function DashboardScreen() {
@@ -509,16 +521,16 @@ export default function DashboardScreen() {
       label: 'Posts',
       count: stats?.postsCount ?? posts.length,
       Icon: FileText,
-      bg: '#e07b3922',
-      color: '#e07b39',
+      bg: COLOR_MUTED_ORANGE + '22',
+      color: COLOR_MUTED_ORANGE,
       onPress: () => setSheet('posts'),
     },
     {
       label: 'Listings',
       count: myListings?.counts.total,
       Icon: ShoppingBag,
-      bg: '#3a8a5c22',
-      color: '#3a8a5c',
+      bg: COLOR_MUTED_GREEN + '22',
+      color: COLOR_MUTED_GREEN,
       badge: marketplaceUnread,
       onPress: () => setSheet('marketplace'),
     },
@@ -526,32 +538,32 @@ export default function DashboardScreen() {
       label: 'Followers',
       count: stats?.followersCount,
       Icon: Users,
-      bg: '#5b7fa622',
-      color: '#5b7fa6',
+      bg: COLOR_MUTED_BLUE + '22',
+      color: COLOR_MUTED_BLUE,
       onPress: () => setListModal('followers'),
     },
     {
       label: 'Following',
       count: stats?.followingCount,
       Icon: UserPlus,
-      bg: '#7a6abf22',
-      color: '#7a6abf',
+      bg: COLOR_MUTED_PURPLE + '22',
+      color: COLOR_MUTED_PURPLE,
       onPress: () => setListModal('following'),
     },
     {
       label: 'Events',
       count: stats?.eventsCount,
       Icon: Flag,
-      bg: '#c25f5f22',
-      color: '#c25f5f',
-      onPress: () => navigation.navigate('MainTabs', { screen: 'SocietyTab' }),
+      bg: COLOR_MUTED_RED + '22',
+      color: COLOR_MUTED_RED,
+      onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } } } as any),
     },
     {
       label: 'Groups',
       count: stats?.groupsCount,
       Icon: UserCheck,
-      bg: '#3a8a5c22',
-      color: '#3a8a5c',
+      bg: COLOR_MUTED_GREEN + '22',
+      color: COLOR_MUTED_GREEN,
       onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Groups' } } as any),
     },
   ];
@@ -730,33 +742,33 @@ export default function DashboardScreen() {
         {isAdmin && (
           <>
             <TouchableOpacity
-              style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+              style={[styles.flaggedRow, { borderColor: COLOR_MUTED_ORANGE + '40', backgroundColor: COLOR_MUTED_ORANGE + '10' }]}
               onPress={() => setSheet('flagged')}
               activeOpacity={0.75}
             >
-              <ShieldAlert size={15} color="#e07b39" />
-              <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+              <ShieldAlert size={15} color={COLOR_MUTED_ORANGE} />
+              <Text style={[styles.flaggedLabel, { color: COLOR_MUTED_ORANGE }]}>
                 ADMIN: View Flagged Content
                 {totalFlagged > 0 ? ` (${totalFlagged})` : ''}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+              style={[styles.flaggedRow, { borderColor: COLOR_MUTED_ORANGE + '40', backgroundColor: COLOR_MUTED_ORANGE + '10' }]}
               onPress={() => setSheet('homeBanner')}
               activeOpacity={0.75}
             >
-              <ImageIcon size={15} color="#e07b39" />
-              <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+              <ImageIcon size={15} color={COLOR_MUTED_ORANGE} />
+              <Text style={[styles.flaggedLabel, { color: COLOR_MUTED_ORANGE }]}>
                 ADMIN: Home Feature Banner
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.flaggedRow, { borderColor: '#e07b3940', backgroundColor: '#e07b3910' }]}
+              style={[styles.flaggedRow, { borderColor: COLOR_MUTED_ORANGE + '40', backgroundColor: COLOR_MUTED_ORANGE + '10' }]}
               onPress={() => setSheet('featured')}
               activeOpacity={0.75}
             >
-              <Star size={15} color="#e07b39" />
-              <Text style={[styles.flaggedLabel, { color: '#e07b39' }]}>
+              <Star size={15} color={COLOR_MUTED_ORANGE} />
+              <Text style={[styles.flaggedLabel, { color: COLOR_MUTED_ORANGE }]}>
                 ADMIN: Featured Members & Cars
               </Text>
             </TouchableOpacity>
@@ -1061,7 +1073,7 @@ const styles = StyleSheet.create({
     padding: 16, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   profileText:    { flex: 1 },
-  profileName:    { fontSize: 18, fontWeight: '800' },
+  profileName:    { fontSize: 18, fontFamily: FONT_INTER.bold },
   profileUsername: { fontSize: 14, marginTop: 2 },
   profileBio:     { fontSize: 13, marginTop: 6, lineHeight: 18 },
   profileBioAdd:  { fontSize: 13, marginTop: 6 },
@@ -1075,25 +1087,25 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  statCount:      { fontSize: 28, fontWeight: '800', lineHeight: 32 },
-  statLabel:      { fontSize: 14, fontWeight: '700' },
+  statCount:      { fontSize: 28, fontFamily: FONT_INTER.bold, lineHeight: 32 },
+  statLabel:      { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   actions:        { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   actionRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
-  actionLabel:    { fontSize: 15, fontWeight: '600', flex: 1 },
+  actionLabel:    { fontSize: 15, fontFamily: FONT_INTER.semibold, flex: 1 },
   actionDivider:  { height: 1, marginHorizontal: 16 },
   deleteRow:      {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 12, borderWidth: 1,
   },
-  deleteLabel:    { fontSize: 14, fontWeight: '600' },
+  deleteLabel:    { fontSize: 14, fontFamily: FONT_INTER.semibold },
   flaggedRow:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 12, borderWidth: 1,
   },
-  flaggedLabel:   { fontSize: 14, fontWeight: '600' },
+  flaggedLabel:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
   countBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: PILL_RADIUS },
-  countBadgeText: { fontSize: 12, fontWeight: '700' },
+  countBadgeText: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });
 
 const blockedStyles = StyleSheet.create({
@@ -1101,15 +1113,15 @@ const blockedStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
   },
-  name:        { fontSize: 15, fontWeight: '600' },
+  name:        { fontSize: 15, fontFamily: FONT_INTER.semibold },
   unblockBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1 },
-  unblockText: { fontSize: 13, fontWeight: '700' },
+  unblockText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });
 
 
 const flaggedStyles = StyleSheet.create({
   sectionHeader: {
-    fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase',
+    fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.5, textTransform: 'uppercase',
     paddingHorizontal: 16, paddingVertical: 8,
   },
   item: {
@@ -1119,7 +1131,7 @@ const flaggedStyles = StyleSheet.create({
   thumb:     { width: 52, height: 52, borderRadius: 8 },
   thumbRound: { borderRadius: 26 },
   body:      { flex: 1, gap: 4 },
-  itemTitle: { fontSize: 14, fontWeight: '600' },
+  itemTitle: { fontSize: 14, fontFamily: FONT_INTER.semibold },
   userRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemMeta:  { fontSize: 12, flex: 1 },
   actions:   { flexDirection: 'row', gap: 8 },
@@ -1128,5 +1140,5 @@ const flaggedStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     paddingVertical: 10, borderRadius: COMMON_RADIUS,
   },
-  actionBtnText: { fontSize: 12, fontWeight: '700' },
+  actionBtnText: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

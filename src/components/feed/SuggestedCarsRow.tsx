@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
+  View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -16,6 +17,8 @@ import { shuffle } from '../../utils/array';
 import type { GarageCar } from '../../types/api';
 import CarSummaryModal from '../cars/CarSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_GRAY_17 } from '../../constants/config';
 
 /**
  * "Suggested Cars" — cars you don't follow that share a make (better, a model)
@@ -164,7 +167,6 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
   return (
     <SuggestionCard
       title="Suggested Cars"
-      bare
       action={{
         label: 'View all',
         onPress: () => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } }),
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
   card:      { width: CARD_WIDTH, gap: 5 },
   thumb:     {
     width: CARD_WIDTH, height: CARD_WIDTH * 0.62,
-    borderRadius: 8, overflow: 'hidden', backgroundColor: '#111',
+    borderRadius: 8, overflow: 'hidden', backgroundColor: COLOR_GRAY_17,
   },
-  carName:   { fontSize: 10.5, fontWeight: '600' },
+  carName:   { fontSize: 10.5, fontFamily: FONT_INTER.semibold },
 });

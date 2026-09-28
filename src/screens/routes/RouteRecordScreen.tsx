@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Linking } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Linking } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +16,8 @@ import { formatDistanceToNow } from 'date-fns';
 import PitStopSheet from '../../components/routes/PitStopSheet';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -204,7 +206,7 @@ export default function RouteRecordScreen() {
         accessibilityRole="button"
         accessibilityLabel="Close"
       >
-        <X size={22} color="#FFFFFF" />
+        <X size={22} color={COLOR_WHITE} />
       </TouchableOpacity>
 
       {error ? (
@@ -296,7 +298,7 @@ export default function RouteRecordScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Finish recording"
               >
-                <Square size={17} color="#FFFFFF" fill="#FFFFFF" />
+                <Square size={17} color={COLOR_WHITE} fill={COLOR_WHITE} />
               </TouchableOpacity>
             </>
           )}
@@ -362,13 +364,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     zIndex: 10,
   },
-  errorText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  errorText: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   panel: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
     borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingTop: 18, paddingHorizontal: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25, shadowRadius: 10, elevation: 12,
   },
 
@@ -384,8 +386,8 @@ const styles = StyleSheet.create({
 
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
   stat: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
-  statLabel: { fontSize: 12, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
+  statValue: { fontSize: 24, fontFamily: FONT_INTER.bold, letterSpacing: -0.5 },
+  statLabel: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: 2, letterSpacing: 0.3 },
 
   controls: { flexDirection: 'row', gap: 12 },
 
@@ -394,14 +396,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     height: 54, borderRadius: COMMON_RADIUS,
   },
-  primaryLabel: { fontSize: 16, fontWeight: '800' },
+  primaryLabel: { fontSize: 16, fontFamily: FONT_INTER.bold },
   stopBtn: { backgroundColor: palette.red },
 
   iconBtn: {
     width: 54, height: 54, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
-  paused: { fontSize: 13, fontWeight: '700', textAlign: 'center', marginTop: 12 },
+  paused: { fontSize: 13, fontFamily: FONT_INTER.bold, textAlign: 'center', marginTop: 12 },
 
   hint: { fontSize: 12, textAlign: 'center', marginTop: 12 },
 });

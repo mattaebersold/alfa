@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
+  View, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
@@ -19,13 +20,13 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Message } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -266,7 +267,7 @@ export default function MessagesScreen() {
         style={styles.fab}
         onPress={() => navigation.navigate('ComposeMessage', {})}
       >
-        <Plus size={24} color="#FFFFFF" />
+        <Plus size={24} color={COLOR_WHITE} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
   },
   rowContent:  { flex: 1, minWidth: 0 },
   rowHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name:        { flex: 1, fontSize: 15, fontWeight: '600' },
+  name:        { flex: 1, fontSize: 15, fontFamily: FONT_INTER.semibold },
   nameBold:    { fontWeight: '800' },
   time:        { fontSize: 10, marginLeft: 8 },
   preview:     { fontSize: 13, marginTop: 2 },
@@ -298,13 +299,13 @@ const styles = StyleSheet.create({
     minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center',
   },
-  unreadBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  unreadBadgeText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: COMMON_RADIUS,
     backgroundColor: colors.primaryAlt,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2, shadowRadius: 6, elevation: 6,
   },
 });

@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { BADGE_COLORS } from '../../constants/colors';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 interface BadgeProps {
   variant: string;
@@ -71,6 +73,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 11,
-    fontWeight: '700'
+    fontFamily: FONT_INTER.bold
   },
 });

@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { X } from 'lucide-react-native';
 import GrowPanel, { type GrowOrigin } from '../ui/GrowPanel';
 import SettingsScreen from '../../screens/profile/SettingsScreen';
 import { useColors } from '../../hooks/useColors';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Settings, grown out of the cog on your profile banner.
@@ -48,5 +50,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
   },
-  title: { fontSize: 18, fontWeight: '800' },
+  title: { fontSize: 18, fontFamily: FONT_INTER.bold },
 });

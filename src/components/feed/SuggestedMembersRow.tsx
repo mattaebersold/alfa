@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Text, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -10,6 +11,7 @@ import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * "Suggested Members" — recent joiners you don't already follow.
@@ -93,7 +95,6 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
   return (
     <SuggestionCard
       title="Suggested Members"
-      bare
       action={{
         label: 'View all',
         onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Members' } }),
@@ -129,5 +130,5 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
 const styles = StyleSheet.create({
   scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
   card:      { width: CARD_WIDTH, alignItems: 'center', gap: 4 },
-  username:  { fontSize: 9.5, fontWeight: '600', maxWidth: CARD_WIDTH },
+  username:  { fontSize: 9.5, fontFamily: FONT_INTER.semibold, maxWidth: CARD_WIDTH },
 });

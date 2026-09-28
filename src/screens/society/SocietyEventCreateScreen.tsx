@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity, Alert,
-  ActivityIndicator, Platform,
+  View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +25,8 @@ import OrsSponsoredToggle from '../../components/society/OrsSponsoredToggle';
 import AddressField from '../../components/ui/AddressField';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const FREQUENCIES = [
   { key: 'single',   label: 'Single Day' },
@@ -60,7 +61,7 @@ function Pill({ active, label, color, onPress }: { active: boolean; label: strin
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <Text style={[styles.pillText, { color: active ? '#000000' : colors.fg }]}>{label}</Text>
+      <Text style={[styles.pillText, { color: active ? COLOR_BLACK : colors.fg }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -345,7 +346,7 @@ export default function SocietyEventCreateScreen() {
           <View style={styles.imageWrap}>
             <Image source={{ uri: image }} style={styles.image} contentFit="cover" />
             <TouchableOpacity style={styles.imageRemove} onPress={() => setImage(null)} hitSlop={6}>
-              <X size={13} color="#FFFFFF" />
+              <X size={13} color={COLOR_WHITE} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -365,7 +366,7 @@ export default function SocietyEventCreateScreen() {
           activeOpacity={0.85}
         >
           {isLoading
-            ? <ActivityIndicator size="small" color="#000000" />
+            ? <ActivityIndicator size="small" color={COLOR_BLACK} />
             : <Text style={styles.submitText}>{editingId ? 'Save Changes' : 'Create Event'}</Text>}
         </TouchableOpacity>
       </FormScrollView>
@@ -374,7 +375,7 @@ export default function SocietyEventCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  fieldLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 16 },
+  fieldLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 6, marginTop: 16 },
   hint: { fontSize: 12, lineHeight: 17, marginTop: 6 },
   input: {
     borderWidth: 1, borderRadius: 10,
@@ -383,11 +384,11 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 110, textAlignVertical: 'top' },
 
-  sectionTitle: { fontSize: 19, fontWeight: '800', marginTop: 28 },
+  sectionTitle: { fontSize: 19, fontFamily: FONT_INTER.bold, marginTop: 28 },
 
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill:    { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
-  pillText:{ fontSize: 13, fontWeight: '700' },
+  pillText:{ fontSize: 13, fontFamily: FONT_INTER.bold },
 
   timeRow: { flexDirection: 'row', gap: 12 },
 
@@ -403,11 +404,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 92, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed',
   },
-  imagePickerText: { fontSize: 14, fontWeight: '600' },
+  imagePickerText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   submit: {
     height: 52, borderRadius: COMMON_RADIUS, marginTop: 28,
     alignItems: 'center', justifyContent: 'center',
   },
-  submitText: { fontSize: 16, fontWeight: '800', color: '#000000' },
+  submitText: { fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
 });

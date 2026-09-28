@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import MakeModelFields from '../cars/MakeModelFields';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -26,7 +27,8 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { uploadFile } from '../../utils/upload';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type PickedImage = { uri: string; name: string; type: string };
 
@@ -88,7 +90,7 @@ function ImageSlot({
         accessibilityRole="button"
         accessibilityLabel={`Change ${label}`}
       >
-        <Camera size={13} color="#FFFFFF" />
+        <Camera size={13} color={COLOR_WHITE} />
         <Text style={styles.imageChangeText}>Change</Text>
       </TouchableOpacity>
       {onClear && (
@@ -98,7 +100,7 @@ function ImageSlot({
           accessibilityRole="button"
           accessibilityLabel={`Undo ${label} change`}
         >
-          <X size={13} color="#FFFFFF" />
+          <X size={13} color={COLOR_WHITE} />
         </TouchableOpacity>
       )}
     </View>
@@ -443,7 +445,7 @@ export default function GroupSettingsSheet({
                 activeOpacity={0.85}
               >
                 {isSaving
-                  ? <ActivityIndicator color="#FFFFFF" size="small" />
+                  ? <ActivityIndicator color={COLOR_WHITE} size="small" />
                   : <Text style={styles.saveText}>Save Changes</Text>}
               </TouchableOpacity>
             </View>
@@ -561,7 +563,7 @@ export default function GroupSettingsSheet({
                   activeOpacity={0.85}
                 >
                   {isDeleting
-                    ? <ActivityIndicator color="#FFFFFF" size="small" />
+                    ? <ActivityIndicator color={COLOR_WHITE} size="small" />
                     : <Text style={styles.deleteText}>Delete Group Permanently</Text>}
                 </TouchableOpacity>
               </View>
@@ -580,17 +582,17 @@ export default function GroupSettingsSheet({
 const styles = StyleSheet.create({
   scroll:      { paddingBottom: 40 },
   section:     { borderBottomWidth: StyleSheet.hairlineWidth },
-  sectionTitle:{ paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle:{ paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
   infoRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
   infoLabel:   { fontSize: 14 },
-  infoValue:   { fontSize: 14, fontWeight: '600' },
+  infoValue:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   editBlock:   { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 },
-  fieldLabel:  { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
+  fieldLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
   input:       { paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderRadius: 10 },
 
   imageSlot:   { paddingHorizontal: 16, paddingBottom: 14, position: 'relative' },
-  imagePreview:{ width: '100%', height: 150, borderRadius: 10, backgroundColor: '#000' },
+  imagePreview:{ width: '100%', height: 150, borderRadius: 10, backgroundColor: COLOR_BLACK },
   bannerPreview: { height: 110 },
   imageChange: {
     position: 'absolute', bottom: 24, right: 26,
@@ -598,7 +600,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6,
     borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.65)',
   },
-  imageChangeText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  imageChangeText: { fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   imageClear: {
     position: 'absolute', top: 8, right: 26,
     width: 26, height: 26, borderRadius: 13,
@@ -609,30 +611,30 @@ const styles = StyleSheet.create({
   saveWrap:    { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   saveBtn:     { paddingVertical: 12, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.45 },
-  saveText:    { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  saveText:    { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 
   memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   memberInfo:  { flex: 1 },
-  memberName:  { fontSize: 14, fontWeight: '600' },
+  memberName:  { fontSize: 14, fontFamily: FONT_INTER.semibold },
   memberRole:  { fontSize: 11, marginTop: 1 },
   roleBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 6,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  roleText:    { fontSize: 12, fontWeight: '700' },
+  roleText:    { fontSize: 12, fontFamily: FONT_INTER.bold },
   removeBtn: {
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 9, paddingVertical: 6,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   dangerBlock:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
-  dangerHeading: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
+  dangerHeading: { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   dangerBody:    { fontSize: 13, lineHeight: 19 },
   deleteBtn: {
     marginTop: 14, paddingVertical: 12, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.red,
   },
-  deleteText:  { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  deleteText:  { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 });

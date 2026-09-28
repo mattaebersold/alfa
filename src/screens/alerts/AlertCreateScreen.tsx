@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  Alert as RNAlert, Platform, Switch,
+  View, StyleSheet, TouchableOpacity, Alert as RNAlert, Platform, Switch,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Check, Mail, Smartphone } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
@@ -19,7 +19,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { handleize } from '../../utils/handleize';
 import { ss } from '../../styles/shared';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import {
   ALERT_EVENTS, ALERT_SECTIONS, alertAllowance, alertCapCopy, alertSentence,
   categoryOptionsFor, filtersFor, groupNameOf, kindOptionsFor,
@@ -28,6 +28,7 @@ import {
 import AlertSentence from '../../components/alerts/AlertSentence';
 import type { AppScreenProps } from '../../navigation/types';
 import type { AlertEvent, AlertFilterKey, AlertFilters, AlertInput } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Three steps, named in the header: what to watch, what to narrow it to, and
@@ -395,7 +396,7 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
                           styles.check,
                           { borderColor: on ? brand : colors.borderDark, backgroundColor: on ? brand : 'transparent' },
                         ]}>
-                          {on && <Check size={13} color="#000000" strokeWidth={3.5} />}
+                          {on && <Check size={13} color={COLOR_BLACK} strokeWidth={3.5} />}
                         </View>
                       </TouchableOpacity>
                     );
@@ -840,7 +841,7 @@ function ChannelRow({ label, Icon, value, onChange, colors, brand }: {
         value={value}
         onValueChange={onChange}
         trackColor={{ false: colors.segment, true: brand }}
-        thumbColor="#FFFFFF"
+        thumbColor={COLOR_WHITE}
         accessibilityLabel={label}
       />
     </View>
@@ -856,18 +857,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13, paddingVertical: 11, gap: 4,
   },
   previewLabel: {
-    fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8,
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.8,
   },
 
   label: {
-    fontSize: 11, fontWeight: '800', textTransform: 'uppercase',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase',
     letterSpacing: 0.6, marginTop: 20, marginBottom: 8,
   },
   labelFirst: { marginTop: 0 },
   hint: { fontSize: 12.5, lineHeight: 18, marginBottom: 10, marginTop: -2 },
-  smallLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  smallLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   spaced: { marginTop: 10 },
-  warn: { fontSize: 12.5, lineHeight: 18, marginTop: 10, fontWeight: '600' },
+  warn: { fontSize: 12.5, lineHeight: 18, marginTop: 10, fontFamily: FONT_INTER.semibold },
 
   eventList: { gap: 8 },
   eventTile: {
@@ -875,7 +876,7 @@ const styles = StyleSheet.create({
     borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 13, paddingVertical: 11,
   },
   eventText:  { flex: 1, minWidth: 0 },
-  eventTitle: { fontSize: 15, fontWeight: '800' },
+  eventTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   check: {
     width: 20, height: 20, borderRadius: 6, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
@@ -886,7 +887,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: PILL_RADIUS, borderWidth: 1, maxWidth: '100%',
   },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   channelRow: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
@@ -894,6 +895,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13, paddingVertical: 11, marginBottom: 9,
   },
   channelText:  { flex: 1, minWidth: 0 },
-  channelLabel: { fontSize: 14.5, fontWeight: '700' },
+  channelLabel: { fontSize: 14.5, fontFamily: FONT_INTER.bold },
   channelHint:  { fontSize: 12, lineHeight: 17, marginTop: 1 },
 });

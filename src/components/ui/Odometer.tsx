@@ -1,6 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FONT_INTER } from '../../constants/fonts'
+import {
+  COLOR_GRAY_138,
+  COLOR_GRAY_14,
+  COLOR_GRAY_244,
+  COLOR_GRAY_26,
+  COLOR_GRAY_60,
+  COLOR_GRAY_74,
+} from '../../constants/config';
 
 /**
  * A number on a mechanical odometer.
@@ -71,9 +81,9 @@ const styles = StyleSheet.create({
 
   housing: {
     flexDirection: 'row',
-    backgroundColor: '#0E0E0E',
+    backgroundColor: COLOR_GRAY_14,
     borderRadius: 4,
-    borderWidth: 1, borderColor: '#3C3C3C',
+    borderWidth: 1, borderColor: COLOR_GRAY_60,
     overflow: 'hidden',
   },
   housingSm: { borderRadius: 3 },
@@ -81,22 +91,22 @@ const styles = StyleSheet.create({
   cell:   { width: 24, height: 36, alignItems: 'center', justifyContent: 'center' },
   cellSm: { width: 17, height: 26, alignItems: 'center', justifyContent: 'center' },
   // The tenths wheel: paler housing, as on the instrument itself.
-  cellLast: { backgroundColor: '#1A1A1A' },
-  divider:  { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#4A4A4A' },
+  cellLast: { backgroundColor: COLOR_GRAY_26 },
+  divider:  { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: COLOR_GRAY_74 },
 
   digit: {
-    fontSize: 22, fontWeight: '700', color: '#F4F4F4',
+    fontSize: 22, fontFamily: FONT_INTER.bold, color: COLOR_GRAY_244,
     fontVariant: ['tabular-nums'], letterSpacing: 0.5,
   },
   digitSm: {
-    fontSize: 15, fontWeight: '700', color: '#F4F4F4',
+    fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_GRAY_244,
     fontVariant: ['tabular-nums'], letterSpacing: 0.3,
   },
   // Caught mid-turn.
   digitLast: { transform: [{ translateY: 2 }] },
 
   unit: {
-    fontSize: 11, fontWeight: '700', color: '#8A8A8A',
+    fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_GRAY_138,
     textTransform: 'uppercase', letterSpacing: 0.8,
   },
 });

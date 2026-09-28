@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { ExternalLink } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { ProfileLink } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * A member's own links, as buttons under their bio.
@@ -55,5 +57,5 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     maxWidth: '100%',
   },
-  label:  { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  label:  { fontSize: 13, fontFamily: FONT_INTER.bold, flexShrink: 1 },
 });

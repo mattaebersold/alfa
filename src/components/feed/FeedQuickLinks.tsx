@@ -1,9 +1,11 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { Warehouse, Users, Calendar, Route, Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string }>;
 
@@ -29,7 +31,7 @@ export default function FeedQuickLinks() {
     {
       label: 'All Events',
       Icon: Calendar,
-      onPress: () => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Events' } }),
+      onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } } } as any),
     },
     {
       label: 'ORS Rallys',
@@ -73,5 +75,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 9,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  pillText: { fontSize: 13, fontWeight: '600' },
+  pillText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 });

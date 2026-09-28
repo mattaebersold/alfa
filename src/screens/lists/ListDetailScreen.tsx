@@ -13,6 +13,7 @@ import ListSummaryContent from '../../components/lists/ListSummaryContent';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { COLOR_WHITE } from '../../constants/config';
 
 type RouteType = RouteProp<AppStackParamList, 'ListDetail'>;
 
@@ -56,7 +57,7 @@ export default function ListDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel="Edit list"
         >
-          <Pencil size={18} color="#fff" />
+          <Pencil size={18} color={COLOR_WHITE} />
         </TouchableOpacity>
       ),
     });

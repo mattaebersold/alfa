@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import Avatar, { type AvatarUser } from './Avatar';
 import { useColors } from '../../hooks/useColors';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Faces shown before the rest collapse into the "+N" circle. */
 export const AVATAR_STACK_MAX = 8;

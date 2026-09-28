@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import MakeModelFields from '../cars/MakeModelFields';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -17,8 +18,9 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { uploadFile } from '../../utils/upload';
 import { GROUP_TYPES, groupCategoriesFor } from '../../constants/groupTypes';
 import { REGIONS } from '../../constants/regions';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import type { User } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 interface PickedImage { uri: string; name: string; type: string }
 
@@ -404,7 +406,7 @@ export default function NewGroupSheet({
                   accessibilityRole="button"
                   accessibilityLabel="Remove cover photo"
                 >
-                  <X size={15} color="#FFFFFF" />
+                  <X size={15} color={COLOR_WHITE} />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -426,7 +428,7 @@ export default function NewGroupSheet({
                 value={isPrivate}
                 onValueChange={setIsPrivate}
                 trackColor={{ true: brand, false: colors.border }}
-                thumbColor="#FFFFFF"
+                thumbColor={COLOR_WHITE}
               />
             </View>
 
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
   carHint: { fontSize: 12, lineHeight: 17, marginBottom: 8 },
   content: { paddingHorizontal: 16, paddingBottom: 40 },
   label: {
-    fontSize: 11, fontWeight: '700', textTransform: 'uppercase',
+    fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase',
     letterSpacing: 0.5, marginTop: 18, marginBottom: 8,
   },
   labelFirst: { marginTop: 0 },
@@ -501,7 +503,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13, paddingVertical: 8,
     borderRadius: 999, borderWidth: 1.5,
   },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   coverWrap: { position: 'relative' },
   cover:     { width: '100%', height: 150, borderRadius: 12 },
@@ -518,7 +520,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 12,
   },
   privateText:  { flex: 1 },
-  privateTitle: { fontSize: 15, fontWeight: '700' },
+  privateTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   privateHint:  { fontSize: 12, marginTop: 2, lineHeight: 16 },
 
   submit: {
@@ -526,5 +528,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   submitOff:  { opacity: 0.45 },
-  submitText: { fontSize: 16, fontWeight: '800' },
+  submitText: { fontSize: 16, fontFamily: FONT_INTER.bold },
 });

@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Info, X, Check, Bell } from 'lucide-react-native';
 import SteeringWheel from '../ui/SteeringWheel';
 import { useRegisterProInterestMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_ERROR_TEXT_DARK,
+  COLOR_ON_GOLD,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * What Pro includes — the same list murray's membership page shows.
@@ -35,7 +42,7 @@ export const PRO_BENEFITS = [
 ];
 
 /** Ink for everything sitting on the gold. */
-const ON_GOLD = '#14110B';
+const ON_GOLD = COLOR_ON_GOLD;
 const ON_GOLD_MUTED = 'rgba(20,17,11,0.62)';
 const ON_GOLD_RULE = 'rgba(20,17,11,0.22)';
 
@@ -53,7 +60,7 @@ export function GetProButton({ onPress, style }: { onPress: () => void; style?: 
       accessibilityRole="button"
       accessibilityLabel="Get Pro"
     >
-      <Info size={13} color="#000000" />
+      <Info size={13} color={COLOR_BLACK} />
       <Text style={styles.getProText}>Get Pro</Text>
     </TouchableOpacity>
   );
@@ -217,7 +224,7 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS,
     backgroundColor: colors.pro,
   },
-  getProText: { fontSize: 12, fontWeight: '800', color: '#000000', letterSpacing: 0.2 },
+  getProText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: 0.2 },
 
   backdrop: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.78)',
@@ -237,11 +244,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   eyebrow: {
-    fontSize: 11, fontWeight: '800', letterSpacing: 1.1,
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 1.1,
     textTransform: 'uppercase', color: ON_GOLD_MUTED,
   },
 
-  title: { fontSize: 24, fontWeight: '800', color: ON_GOLD, letterSpacing: -0.3, paddingRight: 20 },
+  title: { fontSize: 24, fontFamily: FONT_INTER.bold, color: ON_GOLD, letterSpacing: -0.3, paddingRight: 20 },
   body:  { fontSize: 14, lineHeight: 20, color: ON_GOLD_MUTED, marginTop: 7 },
 
   listScroll: {
@@ -256,7 +263,7 @@ const styles = StyleSheet.create({
     backgroundColor: ON_GOLD,
     alignItems: 'center', justifyContent: 'center',
   },
-  listText: { flex: 1, fontSize: 12, fontWeight: '600', color: ON_GOLD },
+  listText: { flex: 1, fontSize: 12, fontFamily: FONT_INTER.semibold, color: ON_GOLD },
 
   cta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -264,8 +271,8 @@ const styles = StyleSheet.create({
     backgroundColor: ON_GOLD,
   },
   ctaBusy:  { opacity: 0.75 },
-  ctaText:  { fontSize: 15, fontWeight: '800', color: colors.pro },
-  error:    { fontSize: 12, fontWeight: '600', color: '#7A1508', textAlign: 'center', marginTop: 8 },
+  ctaText:  { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: colors.pro },
+  error:    { fontSize: 12, fontFamily: FONT_INTER.semibold, color: COLOR_ERROR_TEXT_DARK, textAlign: 'center', marginTop: 8 },
 
   done: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
@@ -273,8 +280,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5, borderColor: ON_GOLD,
   },
-  doneText: { flex: 1, fontSize: 13, fontWeight: '700', color: ON_GOLD, lineHeight: 18 },
+  doneText: { flex: 1, fontSize: 13, fontFamily: FONT_INTER.bold, color: ON_GOLD, lineHeight: 18 },
 
   dismiss:     { alignSelf: 'center', marginTop: 12, paddingVertical: 4 },
-  dismissText: { fontSize: 13, fontWeight: '700', color: ON_GOLD_MUTED },
+  dismissText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: ON_GOLD_MUTED },
 });

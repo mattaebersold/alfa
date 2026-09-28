@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,7 +24,8 @@ import {
 } from '../../utils/routeGeometry';
 import type { RoutesStackParamList } from '../../navigation/types';
 import { isPlottedRoute, type DrivingRoute } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<RoutesStackParamList>;
 
@@ -196,12 +198,12 @@ const styles = StyleSheet.create({
   trace: { width: 96, height: 96 },
   info:  { flex: 1, gap: 4 },
 
-  title: { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
+  title: { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
   place: { fontSize: 12 },
 
   metrics:     { flexDirection: 'row', gap: 12, marginTop: 2 },
   metric:      { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  metricValue: { fontSize: 13, fontWeight: '700' },
+  metricValue: { fontSize: 13, fontFamily: FONT_INTER.bold },
   technical:   { fontSize: 11 },
 
   social: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },

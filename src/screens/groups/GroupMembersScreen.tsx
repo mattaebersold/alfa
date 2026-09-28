@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search } from 'lucide-react-native';
 import { useGetGroupMembersQuery } from '../../api/apiService';
@@ -16,7 +17,8 @@ import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 function MemberRow({ member, onPress }: {
   member: GroupMember;
@@ -116,10 +118,10 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14 },
   listHeader:  { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
-  listHeaderText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  listHeaderText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
   info:        { flex: 1 },
-  name:        { fontSize: 15, fontWeight: '600' },
+  name:        { fontSize: 15, fontFamily: FONT_INTER.semibold },
   username:    { fontSize: 13, marginTop: 1 },
   adminBadge:  { backgroundColor: colors.primaryAlt, borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3 },
-  adminText:   { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  adminText:   { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 });

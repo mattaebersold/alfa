@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
+  View, ScrollView, TouchableOpacity, StyleSheet, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { formatDistanceToNow } from 'date-fns';
 import { ChevronRight, MessageSquare } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
@@ -12,7 +12,8 @@ import { postMediaList } from '../../utils/postMedia';
 import PostMediaCarousel from '../media/PostMediaCarousel';
 import { stripHtml } from '../../utils/text';
 import type { Post } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer. */
 export const STRIP_PREVIEW_COUNT = 6;
@@ -224,9 +225,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 10,
   },
-  title:    { fontSize: 17, fontWeight: '800' },
+  title:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   viewAll:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: { fontSize: 13, fontWeight: '700' },
+  viewAllText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   // Every card as tall as the tallest, so the row reads as one shelf.
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
   image: { width: '100%', aspectRatio: MEDIA_RATIO },
   imageBlank: { alignItems: 'center', justifyContent: 'center' },
   imageText:  { padding: 12, justifyContent: 'center' },
-  leadText:   { fontSize: 16, fontWeight: '700', lineHeight: 21 },
+  leadText:   { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 21 },
   // Grows to the card's height, and pins the byline to the bottom: the extra
   // height a shorter card takes on goes between the caption and the byline,
   // not in a block of empty card beneath it.
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
   // `auto` rather than space-between on the body, which would lift a lone
   // byline (a text post's, with its words up in the preview) to the top.
   pinBottom: { marginTop: 'auto' },
-  caption: { fontSize: 13, fontWeight: '600', lineHeight: 17 },
+  caption: { fontSize: 13, fontFamily: FONT_INTER.semibold, lineHeight: 17 },
   captionLarge: { fontSize: 15, lineHeight: 20 },
   byline:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   bylineText: { fontSize: 11, flexShrink: 1 },

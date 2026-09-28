@@ -1,4 +1,5 @@
 import { colors } from './colors';
+import { COLOR_BADGE_WANT, COLOR_LISTING_GREEN } from './config';
 
 /**
  * What a post can be, and what it can be about.
@@ -14,8 +15,8 @@ export type PostType = 'general' | 'record' | 'listing' | 'want' | 'spot';
 export const POST_TYPES: { type: PostType; label: string; color: string }[] = [
   { type: 'general',  label: 'General',    color: colors.primaryAlt },
   { type: 'record',   label: 'Car Record', color: colors.teal },
-  { type: 'listing',  label: 'Listing',    color: '#00C851' },
-  { type: 'want',     label: 'Want Ad',    color: '#F1184C' },
+  { type: 'listing',  label: 'Listing',    color: COLOR_LISTING_GREEN },
+  { type: 'want',     label: 'Want Ad',    color: COLOR_BADGE_WANT },
   { type: 'spot',     label: 'Spotted',    color: colors.tangerine },
 ];
 

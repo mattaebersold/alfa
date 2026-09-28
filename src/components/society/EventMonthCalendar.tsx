@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useGetEventCalendarQuery, useGetRallysQuery } from '../../api/apiService';
@@ -10,7 +11,8 @@ import { categoryFor, toDayKey } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
 import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_79, COLOR_ORS_EVENT_GRADIENT_END, COLOR_ORS_EVENT_GRADIENT_START, GUTTER } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const WEEK_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -19,7 +21,7 @@ const WEEK_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
  * sat close enough to the near-white of a busy day that the month read as one
  * even block of numbers. Still clear on the card, just clearly secondary.
  */
-const EMPTY_DAY = '#4F4F4F';
+const EMPTY_DAY = COLOR_GRAY_79;
 
 /** More rallys than a month will ever hold, so one page always covers it. */
 const RALLY_LIMIT = 50;
@@ -31,7 +33,7 @@ const RALLY_LIMIT = 50;
  * deliberately nothing like any rally's, so the two kinds of painted day never
  * read as the same thing. Both are dark enough to take white.
  */
-const ORS_EVENT_GRADIENT: [string, string] = ['#1E8E4E', '#6B3FA0'];
+const ORS_EVENT_GRADIENT: [string, string] = [COLOR_ORS_EVENT_GRADIENT_START, COLOR_ORS_EVENT_GRADIENT_END];
 
 /**
  * A day given over to one thing.
@@ -254,7 +256,7 @@ export default function EventMonthCalendar({
                     styles.dayText,
                     // An empty day steps well back, so the days with something
                     // on them are the ones the eye lands on.
-                    { color: isToday ? '#000000' : hasEvents ? colors.fg : EMPTY_DAY },
+                    { color: isToday ? COLOR_BLACK : hasEvents ? colors.fg : EMPTY_DAY },
                     (isToday || hasEvents) && { fontWeight: '800' },
                   ]}
                 >
@@ -283,7 +285,7 @@ export default function EventMonthCalendar({
 }
 
 const styles = StyleSheet.create({
-  wrap:   { borderRadius: 14, padding: 12, marginHorizontal: 12 },
+  wrap:   { borderRadius: 14, padding: 12, marginHorizontal: GUTTER },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   // Translucent black rather than a solid grey, so the circle reads as a dip in
   // the card instead of a second surface on it.
@@ -291,12 +293,12 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  monthLabel: { fontSize: 17, fontWeight: '800' },
+  monthLabel: { fontSize: 17, fontFamily: FONT_INTER.bold },
 
   weekHeader: { flexDirection: 'row', marginBottom: 6 },
   weekHeaderText: {
     flex: 1, textAlign: 'center',
-    fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5,
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5,
   },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -315,7 +317,7 @@ const styles = StyleSheet.create({
     borderRadius: 9, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  paintedDayText: { fontSize: 12, fontWeight: '800' },
+  paintedDayText: { fontSize: 12, fontFamily: FONT_INTER.extrabold },
   paintedLogo:    { width: 16, height: 16, opacity: 0.95 },
   paintedDots:    { flexDirection: 'row', gap: 3, marginTop: 1 },
   paintedDot:     { width: 4, height: 4, borderRadius: 2, opacity: 0.85 },

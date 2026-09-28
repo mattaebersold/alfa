@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
-  Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView,
-  ActivityIndicator, Alert, Animated, TextInput, Platform,
+  View, StyleSheet, ScrollView, TouchableOpacity, Pressable, Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView, ActivityIndicator, Alert, Animated, Platform,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
@@ -75,8 +74,25 @@ import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { handleize } from '../../utils/handleize';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BADGE_DEFAULT,
+  COLOR_BADGE_GARAGE,
+  COLOR_BADGE_LISTING,
+  COLOR_BADGE_RECORD,
+  COLOR_BADGE_SPOT,
+  COLOR_BLACK,
+  COLOR_GRAY_11,
+  COLOR_GRAY_22,
+  COLOR_GRAY_236,
+  COLOR_GRAY_26,
+  COLOR_GRAY_42,
+  COLOR_ON_GOLD,
+  COLOR_WHITE,
+} from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
+import { FONT_INTER } from '../../constants/fonts'
 
 const ALL_CATEGORIES = Object.values(CAR_CATEGORIES).flat();
 function carTypeLabel(key?: string) {
@@ -102,20 +118,20 @@ type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherM
 const ACCENT_BLUE = 'rgb(37, 162, 211)';
 
 // Near-black surfaces for the shared bottom-sheet / pane modal.
-const SHEET_BG = '#161616';
-const SHEET_HEADER_BG = '#0B0B0B';
-const SHEET_FG = '#ECECEC';
-const SHEET_BORDER = '#2A2A2A';
-const SHEET_PLACEHOLDER = '#2A2A2A';
+const SHEET_BG = COLOR_GRAY_22;
+const SHEET_HEADER_BG = COLOR_GRAY_11;
+const SHEET_FG = COLOR_GRAY_236;
+const SHEET_BORDER = COLOR_GRAY_42;
+const SHEET_PLACEHOLDER = COLOR_GRAY_42;
 
 // Car-type badge colors — mirrors CarPosterCard so type badges read the same everywhere.
 const CAR_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  'daily':        { bg: '#F0D689', text: '#000' },
-  'weekend':      { bg: '#35B5FF', text: '#000' },
-  'project':      { bg: '#F36943', text: '#000' },
-  'garage-queen': { bg: '#FF479C', text: '#000' },
-  'part-out':     { bg: '#00FF3F', text: '#000' },
-  'other':        { bg: '#F0D689', text: '#000' },
+  'daily':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
+  'weekend':      { bg: COLOR_BADGE_RECORD, text: COLOR_BLACK },
+  'project':      { bg: COLOR_BADGE_SPOT, text: COLOR_BLACK },
+  'garage-queen': { bg: COLOR_BADGE_GARAGE, text: COLOR_BLACK },
+  'part-out':     { bg: COLOR_BADGE_LISTING, text: COLOR_BLACK },
+  'other':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
 };
 
 const CAR_TILES: {
@@ -173,7 +189,7 @@ function Lightbox({
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <GestureHandlerRootView style={{ flex: 1 }}>
       <RNSafeAreaView style={styles.lightboxSafe}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <StatusBar barStyle="light-content" backgroundColor={COLOR_BLACK} />
         <View style={[styles.lightboxHeader, androidTop > 0 && { paddingTop: 12 + androidTop }]}>
           <View style={{ flex: 1 }}>
             {title ? <Text style={styles.lightboxTitle}>{title}</Text> : null}
@@ -181,11 +197,11 @@ function Lightbox({
           </View>
           {onManage && (
             <TouchableOpacity onPress={onManage} style={styles.lightboxClose} hitSlop={6}>
-              <MoreHorizontal size={22} color="#FFFFFF" />
+              <MoreHorizontal size={22} color={COLOR_WHITE} />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={onClose} style={styles.lightboxClose}>
-            <X size={22} color="#FFFFFF" />
+            <X size={22} color={COLOR_WHITE} />
           </TouchableOpacity>
         </View>
         <FlatList
@@ -435,9 +451,9 @@ const modStyles = StyleSheet.create({
   thumb:     { width: '100%', height: 180 },
   body:      { padding: 12 },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' },
-  title:     { flex: 1, fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  title:     { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold, lineHeight: 20 },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, flexShrink: 0 },
-  typeText:  { fontSize: 11, fontWeight: '700' },
+  typeText:  { fontSize: 11, fontFamily: FONT_INTER.bold },
   optionsBtn:{ padding: 2, marginLeft: 2 },
   desc:      { fontSize: 13, lineHeight: 18, marginTop: 6 },
 });
@@ -644,7 +660,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         {taskTotal > 0 && (
           <>
             <View style={[styles.taskCount, { backgroundColor: colors.pro }]}>
-              <Text style={[styles.taskCountText, { color: '#14110B' }]}>
+              <Text style={[styles.taskCountText, { color: COLOR_ON_GOLD }]}>
                 {tasksOpen}
               </Text>
             </View>
@@ -1183,7 +1199,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" />
                 : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
               <View style={{ flex: 1 }}>
-                <Text style={{ color: SHEET_FG, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
+                <Text style={{ color: SHEET_FG, fontSize: 15, fontFamily: FONT_INTER.bold }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
                 <Text style={{ color: colors.grey, fontSize: 12, marginTop: 2 }}>{album.gallery?.length ?? 0} photos</Text>
                 {/* Same reasoning as ModCard: an album is likeable from the
                     feed, so it has to show that here too. */}
@@ -1224,7 +1240,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             activeOpacity={0.7}
           >
             <Avatar user={u} size={40} />
-            <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '600' }}>@{u.username}</Text>
+            <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontFamily: FONT_INTER.semibold }}>@{u.username}</Text>
           </TouchableOpacity>
         ));
       case 'otherModel':
@@ -1254,7 +1270,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               {banner
                 ? <Image source={{ uri: banner }} style={styles.recordThumb} contentFit="cover" />
                 : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
-              <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontWeight: '700' }}>{g.title}</Text>
+              <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontFamily: FONT_INTER.bold }}>{g.title}</Text>
               <ChevronRight size={18} color={colors.grey} />
             </TouchableOpacity>
           );
@@ -1332,7 +1348,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               ) : null}
               {car.category ? (
                 <View style={[styles.carBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-                  <Text style={[styles.carBadgeText, { color: '#FFFFFF' }]}>{carCategoryLabel(car.category)}</Text>
+                  <Text style={[styles.carBadgeText, { color: COLOR_WHITE }]}>{carCategoryLabel(car.category)}</Text>
                 </View>
               ) : null}
               </View>
@@ -1380,7 +1396,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                       <Avatar user={coOwnerData} size={30} />
                       <Text style={[styles.ownerChipName, { color: colors.fgDark }]} numberOfLines={1}>@{coOwnerName}</Text>
                       <View style={[styles.coOwnerBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-                        <Text style={[styles.coOwnerBadgeText, { color: '#FFFFFF' }]}>co</Text>
+                        <Text style={[styles.coOwnerBadgeText, { color: COLOR_WHITE }]}>co</Text>
                       </View>
                     </TouchableOpacity>
                   )}
@@ -1419,12 +1435,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                     : 'Follow this car'}
                 >
                   {carFollowBusy ? (
-                    <ActivityIndicator size="small" color={isFollowingCar ? '#000000' : colors.fg} />
+                    <ActivityIndicator size="small" color={isFollowingCar ? COLOR_BLACK : colors.fg} />
                   ) : (
                     <Text
                       style={[
                         styles.followingBtnText,
-                        { color: isFollowingCar ? '#000000' : colors.fg },
+                        { color: isFollowingCar ? COLOR_BLACK : colors.fg },
                       ]}
                     >
                       {isFollowingCar ? 'Following' : 'Follow'}
@@ -1697,7 +1713,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 style={[styles.modTypeChip, { borderColor: colors.border, backgroundColor: colors.card }, editModType === t.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
                 onPress={() => setEditModType(t.key)}
               >
-                <Text style={[styles.modTypeChipText, { color: colors.fg }, editModType === t.key && { color: '#FFFFFF' }]}>{t.label}</Text>
+                <Text style={[styles.modTypeChipText, { color: colors.fg }, editModType === t.key && { color: COLOR_WHITE }]}>{t.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1729,7 +1745,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               activeOpacity={0.85}
             >
               {updatingMod
-                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                ? <ActivityIndicator size="small" color={COLOR_WHITE} />
                 : <Text style={styles.sheetCreateBtnText}>Save Changes</Text>
               }
             </TouchableOpacity>
@@ -1816,7 +1832,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               <View key={i} style={styles.galleryThumbWrap}>
                 <Image source={{ uri: img.uri }} style={styles.galleryThumb} contentFit="cover" />
                 <TouchableOpacity style={styles.galleryThumbRemove} onPress={() => setGalleryImages((prev) => prev.filter((_, idx) => idx !== i))} hitSlop={4}>
-                  <X size={12} color="#FFFFFF" />
+                  <X size={12} color={COLOR_WHITE} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1834,14 +1850,14 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           >
             {creatingGallery
               ? <>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={COLOR_WHITE} />
                   <Text style={styles.sheetCreateBtnText}>
                     {galleryProgress && galleryProgress.total > 0
                       ? `Uploading ${galleryProgress.current} of ${galleryProgress.total}…`
                       : 'Creating…'}
                   </Text>
                 </>
-              : <><Plus size={16} color="#FFFFFF" /><Text style={styles.sheetCreateBtnText}>Create Gallery</Text></>
+              : <><Plus size={16} color={COLOR_WHITE} /><Text style={styles.sheetCreateBtnText}>Create Gallery</Text></>
             }
           </TouchableOpacity>
         </FormScrollView>
@@ -1876,7 +1892,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                     onPress={() => img.filename && setEditAlbumRemovedFilenames((prev) => [...prev, img.filename!])}
                     hitSlop={4}
                   >
-                    <X size={12} color="#FFFFFF" />
+                    <X size={12} color={COLOR_WHITE} />
                   </TouchableOpacity>
                 </View>
               ))
@@ -1890,7 +1906,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                   onPress={() => setEditAlbumNewImages((prev) => prev.filter((_, idx) => idx !== i))}
                   hitSlop={4}
                 >
-                  <X size={12} color="#FFFFFF" />
+                  <X size={12} color={COLOR_WHITE} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1917,7 +1933,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             >
               {updatingGallery
                 ? <>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={COLOR_WHITE} />
                     <Text style={styles.sheetCreateBtnText}>
                       {editProgress && editProgress.total > 0
                         ? `Saving ${editProgress.current} of ${editProgress.total}…`
@@ -2028,7 +2044,7 @@ const styles = StyleSheet.create({
    * a band of black under it. The strip's own children carry explicit heights,
    * so it still measures correctly without this.
    */
-  galleryWrap:    { backgroundColor: '#000' },
+  galleryWrap:    { backgroundColor: COLOR_BLACK },
   galleryStrip:   { paddingVertical: 12, paddingLeft: 12, gap: 10, alignItems: 'flex-start' },
   heroSlide:      { width: HERO_WIDTH, height: GALLERY_HEIGHT, borderRadius: 12, overflow: 'hidden' },
   // A lone photo is inset and rounded rather than run to the edges: with no
@@ -2050,16 +2066,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: COMMON_RADIUS,
   },
-  addGalleryOverlayText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700' },
+  addGalleryOverlayText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontFamily: FONT_INTER.bold },
   albumCol:       { gap: 10 },
   albumCard:      { width: ALBUM_COL_WIDTH, height: (GALLERY_HEIGHT - 10) / 2, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   albumOverlay:   {
     position: 'absolute', bottom: 0, left: 0, right: 0, padding: 8,
     backgroundColor: 'rgba(0,0,0,0.55)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  albumTitle:     { flex: 1, color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginRight: 6 },
+  albumTitle:     { flex: 1, color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.bold, marginRight: 6 },
   albumCountRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  albumCount:     { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' },
+  albumCount:     { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontFamily: FONT_INTER.semibold },
 
   albumManageBtn: {
     position: 'absolute', top: 6, right: 6,
@@ -2067,25 +2083,25 @@ const styles = StyleSheet.create({
   },
 
   modTypeChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  modTypeChipText: { fontSize: 13, fontWeight: '600' },
+  modTypeChipText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   addGalleryCard: {
     width: ALBUM_COL_WIDTH, height: GALLERY_HEIGHT, borderRadius: COMMON_RADIUS,
     borderWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  addGalleryText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
+  addGalleryText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontFamily: FONT_INTER.semibold },
 
-  gallerySheetLabel:  { fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  gallerySheetLabel:  { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   galleryImageGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   galleryThumbWrap:   { position: 'relative' },
   galleryThumb:       { width: 72, height: 72, borderRadius: 8 },
   galleryThumbRemove: { position: 'absolute', top: 3, right: 3, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 999, padding: 3 },
   galleryAddPhoto:    { width: 72, height: 72, borderRadius: 8, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
 
-  lightboxSafe:   { flex: 1, backgroundColor: '#000' },
+  lightboxSafe:   { flex: 1, backgroundColor: COLOR_BLACK },
   lightboxHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  lightboxTitle:  { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  lightboxTitle:  { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
   lightboxCount:  { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 },
   lightboxClose:  { padding: 8 },
 
@@ -2114,7 +2130,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 16,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  tasksBtnText:   { fontSize: 16, fontWeight: '800' },
+  tasksBtnText:   { fontSize: 16, fontFamily: FONT_INTER.bold },
   tasksBtnLabel:  { flex: 1, textAlign: 'center' },
   // Matched widths on both flanks — wide enough for the badge and pie together.
   tasksBtnSide:   { minWidth: 56, flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -2124,14 +2140,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  taskCountText:  { fontSize: 12, fontWeight: '800' },
+  taskCountText:  { fontSize: 12, fontFamily: FONT_INTER.extrabold },
   // Above-gallery placement supplies its own gutters; the in-row copy inherits
   // the action row's padding.
   followersBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginTop: 10, paddingVertical: 13, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
-  followersBtnText: { fontSize: 15, fontWeight: '800' },
+  followersBtnText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
   // `flexShrink` on the left group only: a long spec truncates before it can
   // push the type and category chips off the row.
   metaLeft:       { flexShrink: 1, minWidth: 0 },
@@ -2140,18 +2156,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
   },
-  specChipText:   { fontSize: 11, fontWeight: '700' },
+  specChipText:   { fontSize: 11, fontFamily: FONT_INTER.bold },
   carBadge:       { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
-  carBadgeText:   { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  carBadgeText:   { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'capitalize' },
   descWrap:       { marginTop: 12 },
   todosAboveDesc: { marginTop: 8 },
   addContentBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     marginTop: 16, paddingVertical: 12, borderRadius: COMMON_RADIUS,
   },
-  addContentText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
+  addContentText: { fontSize: 14, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.2 },
   carDescription: { fontSize: 14, lineHeight: 20 },
-  moreLink:       { fontSize: 13, fontWeight: '900', textDecorationLine: 'underline', marginTop: 4 },
+  moreLink:       { fontSize: 13, fontFamily: FONT_INTER.black, textDecorationLine: 'underline', marginTop: 4 },
   // No rule across the top: the row already reads as its own thing, and the
   // line under a description looked like the end of the page rather than the
   // start of a control.
@@ -2164,21 +2180,21 @@ const styles = StyleSheet.create({
   },
   // Wider than a square icon button: it holds a word, not a glyph.
   followingBtn:     { paddingHorizontal: 12 },
-  followingBtnText: { fontSize: 13, fontWeight: '700', color: '#000000' },
+  followingBtnText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
 
 
   ownersRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   ownerChip:       { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
-  ownerChipName:   { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  ownerChipName:   { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   coOwnerAvatarWrap: { marginLeft: -8 },
   ownerCard:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, borderRadius: COMMON_RADIUS },
   coOwnerCard:     { marginTop: 8, borderTopWidth: 1 },
   ownerInfo:       { flex: 1 },
-  ownerName:       { fontSize: 15, fontWeight: '700' },
+  ownerName:       { fontSize: 15, fontFamily: FONT_INTER.bold },
   ownerUsername:   { fontSize: 12, marginTop: 1 },
   coOwnerLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   coOwnerBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
-  coOwnerBadgeText: { fontSize: 11, fontWeight: '700' },
+  coOwnerBadgeText: { fontSize: 11, fontFamily: FONT_INTER.bold },
 
   modsSection:          { borderTopWidth: 1 },
   modsSectionPadding:   { padding: 16 },
@@ -2187,7 +2203,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  modsAccordionBtnText: { fontSize: 16, fontWeight: '700' },
+  modsAccordionBtnText: { fontSize: 16, fontFamily: FONT_INTER.bold },
   modsSectionRight:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
   modsContainer:        { marginTop: 10, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   modRow:               {
@@ -2197,13 +2213,13 @@ const styles = StyleSheet.create({
   },
   modRowThumb:          { width: 54, height: 54, borderRadius: 8 },
   modRowInfo:           { flex: 1 },
-  modRowTitle:          { fontSize: 14, fontWeight: '600' },
+  modRowTitle:          { fontSize: 14, fontFamily: FONT_INTER.semibold },
   modRowType:           { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
 
   recordFilters:   { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, gap: 8 },
   recordFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
-  filterChipText:  { fontSize: 12, fontWeight: '700' },
+  filterChipText:  { fontSize: 12, fontFamily: FONT_INTER.bold },
 
   // No box of its own — the cells are the boxes, and a border around a set of
   // bordered cells was a frame around a frame. This just holds the margins and
@@ -2221,12 +2237,12 @@ const styles = StyleSheet.create({
     flex: 1, minWidth: 0,
     paddingVertical: 8, paddingHorizontal: 9, gap: 2,
     borderRadius: 9,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLOR_GRAY_26,
   },
   specsSpacer: { flex: 1, minWidth: 0 },
   // A shade smaller than at two columns — a third of a phone is not much room.
-  specsLabel:  { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  specsValue:  { fontSize: 14, fontWeight: '700' },
+  specsLabel:  { fontSize: 10, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  specsValue:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   // 12, to line the tiles up with the specs table and the heading above them —
   // they were the one block on the page still inset at 16.
   tilesWrap:       { paddingHorizontal: 12, paddingBottom: 20 },
@@ -2247,8 +2263,8 @@ const styles = StyleSheet.create({
   },
   // Takes the middle, so the chevron stays pinned right whatever the label.
   carTileText:     { flex: 1, minWidth: 0, gap: 1 },
-  carTileLabel:    { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
-  carTileCount:    { fontSize: 12.5, fontWeight: '600' },
+  carTileLabel:    { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: 0.1 },
+  carTileCount:    { fontSize: 12.5, fontFamily: FONT_INTER.semibold },
   carTileGo: {
     width: 32, height: 32, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
@@ -2265,13 +2281,13 @@ const styles = StyleSheet.create({
   // rather than sharing a row.
   postsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   inlineCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: COMMON_RADIUS },
-  inlineCreateBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  sectionTitle:    { fontSize: 15, fontWeight: '700', marginBottom: 12 },
+  inlineCreateBtnText: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.bold },
+  sectionTitle:    { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   specGrid:        { borderRadius: 10, overflow: 'hidden' },
   specGridRow:     { flexDirection: 'row' },
   specCell:        { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  specCellLabel:   { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
-  specCellValue:   { fontSize: 15, fontWeight: '700' },
+  specCellLabel:   { fontSize: 11, fontFamily: FONT_INTER.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
+  specCellValue:   { fontSize: 15, fontFamily: FONT_INTER.bold },
   emptyText:       { fontSize: 14, textAlign: 'center', paddingVertical: 24 },
 
   sheet:          { minHeight: SCREEN_HEIGHT * 0.5, maxHeight: '90%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
@@ -2279,10 +2295,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
-  sheetTitle:     { fontSize: 17, fontWeight: '700' },
+  sheetTitle:     { fontSize: 17, fontFamily: FONT_INTER.bold },
   sheetCreateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, margin: 12, padding: 12, borderRadius: COMMON_RADIUS,
   },
-  sheetCreateBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  sheetCreateBtnText: { color: COLOR_WHITE, fontSize: 14, fontFamily: FONT_INTER.bold },
 });

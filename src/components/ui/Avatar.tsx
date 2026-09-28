@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { imageUrl } from '../../utils/image';
 import { avatarColorFor, initialsFor } from '../../utils/avatarColor';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Only the fields an avatar reads.
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
   },
   initials: {
     color: 'rgba(255,255,255,0.8)',
-    fontWeight: '500',
+    fontFamily: FONT_INTER.medium,
     // The palette is built to clear 4.5:1 against white, but an avatar can land
     // on a photo or a pale card, so the letters carry their own edge.
     textShadowColor: 'rgba(0,0,0,0.35)',

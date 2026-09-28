@@ -1,10 +1,12 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { MessageCircle } from 'lucide-react-native';
+import { MessageCircle, MessageSquareMore } from 'lucide-react-native';
 import { apiService, useGetCommentCountQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { formatActionCount } from '../../utils/text';
+import { FONT_INTER } from '../../constants/fonts';
 
 interface CommentButtonProps {
   /** The count from whatever list payload drew this — a snapshot. */
@@ -17,9 +19,11 @@ interface CommentButtonProps {
   onPress?: () => void;
   /** Ink for the icon and count. Defaults to the muted grey. */
   color?: string;
+  /** Stacked and bigger, a speech bubble with dots — the action rail's (PostActionRail). */
+  vertical?: boolean;
 }
 
-export default function CommentButton({ count = 0, documentId, onPress, color }: CommentButtonProps) {
+export default function CommentButton({ count = 0, documentId, onPress, color, vertical = false }: CommentButtonProps) {
   const colors = useColors();
   // Callers placing this over a photo pass white; everywhere else keeps the
   // muted grey it has always used.
@@ -50,14 +54,41 @@ export default function CommentButton({ count = 0, documentId, onPress, color }:
   const shown = liveCount ?? count;
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.container} activeOpacity={0.7}>
-      <MessageCircle size={18} color={ink} />
-      {shown > 0 && <Text style={[styles.count, { color: ink }]}>{formatActionCount(shown)}</Text>}
+    <TouchableOpacity
+      onPress={onPress}
+      style={vertical ? styles.vertical : styles.container}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Comments"
+    >
+      {vertical
+        ? <MessageSquareMore size={21} color={ink} strokeWidth={1.8} />
+        : <MessageCircle size={18} color={ink} />}
+      {shown > 0 && (
+        vertical ? (
+          // To the icon's left, hanging off the rail like the like count, so
+          // the rail stays one icon wide.
+          <View style={styles.railCountWrap} pointerEvents="none">
+            <Text style={[styles.railCount, { color: ink }]}>{formatActionCount(shown)}</Text>
+          </View>
+        ) : (
+          <Text style={[styles.count, { color: ink }]}>{formatActionCount(shown)}</Text>
+        )
+      )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 4 },
-  count:     { fontSize: 13, fontWeight: '500' },
+  count:     { fontSize: 13, fontFamily: FONT_INTER.medium },
+  vertical:  { alignItems: 'center', gap: 3, padding: 4 },
+  railCountWrap: {
+    position: 'absolute', right: '100%', top: 0, bottom: 0,
+    marginRight: 2, justifyContent: 'center',
+  },
+  railCount: {
+    fontSize: 12, fontFamily: FONT_INTER.bold,
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+  },
 });

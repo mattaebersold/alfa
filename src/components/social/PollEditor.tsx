@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { BarChart3, Plus, X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { PollInput, StoredPoll } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_46, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** What the server accepts — see horacio's helpers/polls. */
 export const POLL_MIN_OPTIONS = 2;
@@ -123,9 +125,10 @@ export default function PollEditor({
   const fieldStyle = [styles.field, { color: colors.fg, backgroundColor: colors.inputBg, borderColor: colors.inputBorder }];
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
       <View style={styles.headRow}>
-        <BarChart3 size={16} color={draft.enabled ? brand : colors.grey} />
+        {/* White, like the tag cards' icons — the switch says whether it's on. */}
+        <BarChart3 size={15} color={COLOR_WHITE} />
         <Text style={[styles.headLabel, { color: colors.fg }]}>Add a poll</Text>
         <Switch
           value={draft.enabled}
@@ -203,11 +206,12 @@ const styles = StyleSheet.create({
   // as one set of sections.
   card: {
     marginHorizontal: 12, marginTop: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
+    paddingHorizontal: 14, paddingVertical: 12,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  headRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
+  headRow:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  // The form's section title — Optional Details, the tag cards, Post To.
+  headLabel: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
   body:      { paddingTop: 10, gap: 8 },
   field: {
     fontSize: 14, paddingHorizontal: 12, paddingVertical: 10,
@@ -221,10 +225,10 @@ const styles = StyleSheet.create({
   },
   removeBtnOff: { opacity: 0.3 },
   addBtn:  { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6 },
-  addText: { fontSize: 13, fontWeight: '700' },
+  addText: { fontSize: 13, fontFamily: FONT_INTER.bold },
   settingRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 10, marginTop: 2, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  settingLabel: { fontSize: 14, fontWeight: '600' },
+  settingLabel: { fontSize: 14, fontFamily: FONT_INTER.semibold },
 });

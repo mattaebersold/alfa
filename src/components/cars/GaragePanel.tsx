@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { X } from 'lucide-react-native';
 import GrowPanel, { type GrowOrigin } from '../ui/GrowPanel';
@@ -12,11 +13,11 @@ import { useGetUserGarageQuery, useGetCarTasksQuery, useGetCarsQuery } from '../
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
-import { CAR_LIMIT_BASIC } from '../../constants/limits';
-import { PILL_RADIUS } from '../../constants/radius';
+import { CAR_LIMIT_BASIC, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** The panel's ground — true black, the same as the menu. */
-const SURFACE = '#000000';
+const SURFACE = COLOR_BLACK;
 
 /**
  * A garage card that knows how many tasks are open on it — the same wrapper
@@ -186,12 +187,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
   },
   headText:    { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  title:       { fontSize: 18, fontWeight: '800', flexShrink: 1 },
+  title:       { fontSize: 18, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   countPill: {
     minWidth: 28, height: 28, borderRadius: PILL_RADIUS, paddingHorizontal: 7,
     alignItems: 'center', justifyContent: 'center',
   },
-  countText:   { fontSize: 13, fontWeight: '800' },
+  countText:   { fontSize: 13, fontFamily: FONT_INTER.extrabold },
   headActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   loading:     { paddingVertical: 60, alignItems: 'center' },
   // No flexGrow: the list's content height is what sizes the panel, and

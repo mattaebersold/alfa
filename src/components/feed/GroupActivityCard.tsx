@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { MessageSquare, Newspaper, BookMarked, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { colors as palette } from '../../constants/colors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GroupActivityItem } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, GUTTER, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Something posted in a group you're in, on the home feed.
@@ -62,7 +64,7 @@ export default function GroupActivityCard({ item, onPress }: {
             <View style={[styles.groupImg, { backgroundColor: colors.segment }]} />
           )}
           <View style={[styles.badge, { backgroundColor: spec.color }]}>
-            <Icon size={10} color="#FFFFFF" />
+            <Icon size={10} color={COLOR_WHITE} />
             {/* Never uppercase, no letter-spacing — house rule for badges. */}
             <Text style={styles.badgeText}>{spec.label}</Text>
           </View>
@@ -93,7 +95,7 @@ export default function GroupActivityCard({ item, onPress }: {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 12, marginBottom: 10,
+    marginHorizontal: GUTTER, marginBottom: 10,
     borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
   stripe: { width: 4, alignSelf: 'stretch' },
@@ -105,14 +107,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
   },
-  badgeText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0 },
-  group:     { flex: 1, fontSize: 11, fontWeight: '600' },
+  badgeText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, letterSpacing: 0 },
+  group:     { flex: 1, fontSize: 11, fontFamily: FONT_INTER.semibold },
 
-  title: { fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  title: { fontSize: 15, fontFamily: FONT_INTER.bold, lineHeight: 20 },
 
   byline:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   avatar:     { width: 16, height: 16, borderRadius: 8 },
-  bylineText: { fontSize: 11, fontWeight: '600' },
+  bylineText: { fontSize: 11, fontFamily: FONT_INTER.semibold },
 
   chevron: { marginHorizontal: 10 },
 });

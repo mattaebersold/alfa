@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, ActivityIndicator, Alert,
+  View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, ActivityIndicator, Alert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { Clock, Repeat, MapPin, Check, Plus, CalendarPlus, MoreHorizontal } from 'lucide-react-native';
@@ -27,7 +28,8 @@ import EventDateBadge from './EventDateBadge';
 import EventImage from './EventImage';
 import { googleCalendarUrl } from '../../utils/calendarLinks';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Three tiles across the padded section, so a fourth peeks from the slider.
@@ -184,7 +186,7 @@ export function EventDetailBody({
             hitSlop={8}
             accessibilityLabel="Event options"
           >
-            <MoreHorizontal size={20} color="#FFFFFF" />
+            <MoreHorizontal size={20} color={COLOR_WHITE} />
           </TouchableOpacity>
         )}
       </View>
@@ -195,7 +197,7 @@ export function EventDetailBody({
           than reading as one more attribute of it. */}
       {event.ors_sponsored && (
         <View style={[styles.orsBanner, { backgroundColor: ORS_EVENT_COLOR }]}>
-          <CheckeredFlag size={14} color="#000000" />
+          <CheckeredFlag size={14} color={COLOR_BLACK} />
           <Text style={styles.orsBannerText}>ORS Sponsored Event</Text>
         </View>
       )}
@@ -364,9 +366,9 @@ export function EventInterestBar({ eventId }: { eventId: string }) {
       activeOpacity={0.85}
     >
       {toggling
-        ? <ActivityIndicator size="small" color={event.is_interested ? '#000000' : colors.fg} />
-        : event.is_interested ? <Check size={17} color="#000000" /> : <Plus size={17} color={colors.fg} />}
-      <Text style={[styles.interestText, { color: event.is_interested ? '#000000' : colors.fg }]}>
+        ? <ActivityIndicator size="small" color={event.is_interested ? COLOR_BLACK : colors.fg} />
+        : event.is_interested ? <Check size={17} color={COLOR_BLACK} /> : <Plus size={17} color={colors.fg} />}
+      <Text style={[styles.interestText, { color: event.is_interested ? COLOR_BLACK : colors.fg }]}>
         {event.is_interested ? 'Interested' : "I'm Interested"}
       </Text>
     </TouchableOpacity>
@@ -389,10 +391,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999,
   },
   categoryText: {
-    fontSize: 10, fontWeight: '800', color: '#000000',
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
   heroTitle: {
-    fontSize: 26, fontWeight: '800',
+    fontSize: 26, fontFamily: FONT_INTER.bold,
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, letterSpacing: -0.5,
   },
 
@@ -401,32 +403,32 @@ const styles = StyleSheet.create({
     marginHorizontal: 16, marginTop: 10, paddingVertical: 9, borderRadius: 10,
   },
   orsBannerText: {
-    fontSize: 12, fontWeight: '800', color: '#000000',
+    fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
     textTransform: 'uppercase', letterSpacing: 0.8,
   },
 
   tiles: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, marginTop: 6 },
 
   tileHead:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tileLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  tileValue: { fontSize: 13, fontWeight: '800' },
-  tileValueLarge: { fontSize: 20, fontWeight: '800' },
+  tileLabel: { fontSize: 9, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  tileValue: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  tileValueLarge: { fontSize: 20, fontFamily: FONT_INTER.bold },
 
   calendarBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     marginHorizontal: 16, marginTop: 16, height: 44, borderRadius: COMMON_RADIUS,
   },
-  calendarBtnText: { fontSize: 14, fontWeight: '800' },
+  calendarBtnText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
 
   section: { paddingHorizontal: 16, paddingTop: 24, gap: 12 },
   body:      { fontSize: 15, lineHeight: 22 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', marginTop: 10 },
+  sectionTitle: { fontSize: 18, fontFamily: FONT_INTER.bold, marginTop: 10 },
   quiet:     { fontSize: 13, fontStyle: 'italic' },
   avatarRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   organizerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start' },
   organizerText: { flexShrink: 1 },
-  organizerLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  organizerHandle: { fontSize: 15, fontWeight: '700', marginTop: 1 },
+  organizerLabel: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, textTransform: 'uppercase' },
+  organizerHandle: { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 1 },
 
   locationRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
   locationText: { fontSize: 14, flex: 1 },
@@ -444,5 +446,5 @@ const styles = StyleSheet.create({
     height: 50, borderRadius: COMMON_RADIUS,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  interestText: { fontSize: 15, fontWeight: '800' },
+  interestText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 });

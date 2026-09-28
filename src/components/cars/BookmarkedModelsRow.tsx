@@ -1,10 +1,13 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { Bookmark } from 'lucide-react-native';
 import { useGetLoggedInUserQuery } from '../../api/apiService';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { ModelBookmark } from '../../types/api';
 import { bookmarkTitle, bookmarkRoute } from '../../utils/modelBookmark';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_GRAY_26, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
 
 /**
  * Your bookmarked car models, as a row of pills — in the menu, above the main
@@ -45,12 +48,12 @@ export default function BookmarkedModelsRow({ onOpen }: {
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: 10 },
-  heading: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
+  heading: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: 'rgba(255,255,255,0.7)', marginBottom: 8 },
   row: { gap: 8, paddingRight: 4 },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: COLOR_GRAY_26, borderWidth: 1, borderColor: COLOR_BORDER,
   },
-  pillText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  pillText: { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 });

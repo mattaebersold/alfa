@@ -1,3 +1,4 @@
+import type { StyleProp, ViewStyle } from 'react-native';
 import React from 'react';
 import FilterSummaryRow, { FilterChoiceRow } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { locationPill } from '../ui/LocationFilterRow';
@@ -8,20 +9,20 @@ interface EventFiltersProps {
   location: {
     choice: LocationChoice;
     choose: (next: LocationChoice) => void;
-    radius: number;
-    setRadius: (miles: number) => void;
   };
   /** Regions with something coming up. */
   regions: { key: string; label: string }[];
   category: string | null;
   onCategory: (key: string | null) => void;
-  /** Category keys with something in the window — see EventsScreen. */
+  /** Category keys with something in the window — see EventsView. */
   presentCategories: Set<string>;
+  /** The small pill beside the search, rather than the full row. */
+  compact?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 interface EventFilterValue {
   choice: LocationChoice;
-  radius: number;
   category: string | null;
 }
 
@@ -30,45 +31,50 @@ interface EventFilterValue {
  *
  * The two chip rows took a third of the screen above the events they filter,
  * and most visits never touch them. The row says what's applied; tapping it
- * opens both in a panel, and nothing changes until Apply — so trying a
- * combination doesn't refetch the screen behind you on every chip.
+ * opens both in a panel; taps there mark a draft, and Apply applies it.
  *
- * The row, the panel and the draft are FilterSummaryRow's, shared with groups,
+ * The two combine — Northwest *and* Cars & Coffee — and the row names each
+ * that's applied.
+ *
+ * The row and the panel are FilterSummaryRow's, shared with groups,
  * members and cars; what's here is only what events filter by.
  */
 export default function EventFilters({
-  location, regions, category, onCategory, presentCategories,
+  location, regions, category, onCategory, presentCategories, compact, style,
 }: EventFiltersProps) {
   const activeCategory = category ? EVENT_CATEGORIES.find((c) => c.key === category) : undefined;
   const typeLabel = category ? activeCategory?.label ?? category : 'All types';
-  const where = locationPill(location.choice, location.radius, regions);
+  const where = locationPill(location.choice, regions);
+  // The place, and the type when there is one. The type keeps its own
+  // colour, as it has in the panel.
+  const applied = [
+    where,
+    ...(category ? [{ key: 'type', label: typeLabel, color: activeCategory?.color }] : []),
+  ];
 
   return (
     <FilterSummaryRow<EventFilterValue>
-      value={{ choice: location.choice, radius: location.radius, category }}
-      onApply={(draft) => {
-        location.choose(draft.choice);
-        location.setRadius(draft.radius);
-        onCategory(draft.category);
+      value={{ choice: location.choice, category }}
+      onApply={(next) => {
+        location.choose(next.choice);
+        onCategory(next.category);
       }}
-      // Brand for location, the type's own colour for type — the same fills
-      // the panel gives them when selected.
-      pills={[where, { key: 'type', label: typeLabel, color: activeCategory?.color }]}
-      accessibilityLabel={`Filter events: ${where.label}, ${typeLabel}`}
+      pills={applied}
+      compact={compact}
+      style={style}
+      accessibilityLabel={`Filter events: ${applied.map((p) => p.label).join(', ')}`}
     >
       {(draft, setDraft) => {
         // Only types with something coming up, as before — plus whichever is
-        // picked, applied or drafted, so a choice can't vanish from under you.
+        // applied, so a choice can't vanish from under you.
         const categories = EVENT_CATEGORIES.filter(
-          (c) => presentCategories.has(c.key) || c.key === category || c.key === draft.category,
+          (c) => presentCategories.has(c.key) || c.key === category,
         );
         return (
           <>
             <LocationFilterRow
               choice={draft.choice}
               onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
-              radius={draft.radius}
-              onRadius={(radius) => setDraft((d) => ({ ...d, radius }))}
               regions={regions}
             />
 
@@ -79,8 +85,11 @@ export default function EventFilters({
                 ...categories.map((c) => ({ key: c.key, label: c.label, color: c.color })),
               ]}
               selected={draft.category}
-              // A second tap on a type goes back to All.
-              onSelect={(key) => setDraft((d) => ({ ...d, category: key === d.category ? null : key }))}
+              // A second tap on the chosen type, or All, clears it.
+              onSelect={(key) => setDraft((d) => ({
+                ...d,
+                category: key === d.category ? null : key,
+              }))}
             />
           </>
         );

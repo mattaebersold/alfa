@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Keyboard,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator, Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { MailCheck, UserPlus } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import { useInviteFriendMutation } from '../../api/apiService';
@@ -9,7 +10,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { colors as palette } from '../../constants/colors';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,8 +80,8 @@ export default function InviteFriendModal({
       <View style={styles.body}>
         <View style={[styles.iconDisc, { backgroundColor: brand }]}>
           {sentTo
-            ? <MailCheck size={22} color="#000000" strokeWidth={2.2} />
-            : <UserPlus size={22} color="#000000" strokeWidth={2.2} />}
+            ? <MailCheck size={22} color={COLOR_BLACK} strokeWidth={2.2} />
+            : <UserPlus size={22} color={COLOR_BLACK} strokeWidth={2.2} />}
         </View>
 
         {sentTo ? (
@@ -142,7 +144,7 @@ export default function InviteFriendModal({
               accessibilityLabel="Send invite"
             >
               {isLoading
-                ? <ActivityIndicator color="#000000" />
+                ? <ActivityIndicator color={COLOR_BLACK} />
                 : <Text style={styles.buttonText}>Send invite</Text>}
             </TouchableOpacity>
           </>
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 4,
   },
-  title:    { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  title:    { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
   copy:     { fontSize: 14, lineHeight: 20 },
   input:    { marginTop: 6 },
   error:    { fontSize: 13, color: palette.red, marginTop: -2 },
@@ -170,5 +172,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   // Black on both brand fills — see SummaryModal's action button.
-  buttonText: { fontSize: 16, fontWeight: '600', color: '#000000' },
+  buttonText: { fontSize: 16, fontFamily: FONT_INTER.semibold, color: COLOR_BLACK },
 });

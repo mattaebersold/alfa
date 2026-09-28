@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
+  View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
@@ -10,7 +11,15 @@ import { useGetListingsQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { Listing, ListingKind } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_DANGER,
+  COLOR_GRAY_22,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer — as PostStrip has it. */
 export const LISTING_STRIP_PREVIEW_COUNT = 6;
@@ -160,9 +169,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 10,
   },
-  heading:     { fontSize: 17, fontWeight: '800' },
+  heading:     { fontSize: 17, fontFamily: FONT_INTER.bold },
   viewAll:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: { fontSize: 13, fontWeight: '700' },
+  viewAllText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   item: { width: CARD_WIDTH },
@@ -171,23 +180,23 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
   thumbWrap: { width: '100%', aspectRatio: 1 },
-  thumb:     { width: '100%', height: '100%', backgroundColor: '#161616' },
+  thumb:     { width: '100%', height: '100%', backgroundColor: COLOR_GRAY_22 },
   soldScrim: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   soldPill: {
-    backgroundColor: '#EF4444',
+    backgroundColor: COLOR_DANGER,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS,
   },
-  soldText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
+  soldText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6 },
 
   info:  { padding: 10, gap: 3 },
-  title: { fontSize: 13, fontWeight: '700', lineHeight: 17 },
+  title: { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 17 },
   pricePill: {
     alignSelf: 'flex-start', marginTop: 3,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
   },
-  price: { fontSize: 13, fontWeight: '800', letterSpacing: -0.2, color: '#000000' },
+  price: { fontSize: 13, fontFamily: FONT_INTER.extrabold, letterSpacing: -0.2, color: COLOR_BLACK },
 });

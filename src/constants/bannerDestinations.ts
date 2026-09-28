@@ -44,7 +44,8 @@ const tab = (
 export const BANNER_DESTINATIONS: BannerDestination[] = [
   // ── Society ───────────────────────────────────────────────────────────────
   { key: 'rallys',        label: 'ORS Rallys',        group: 'Society', target: () => tab('SocietyTab', 'Rallys') },
-  { key: 'events',        label: 'All Events',        group: 'Society', target: () => tab('SocietyTab', 'Events') },
+  // Home, on its Events tab — there's no Events screen of its own.
+  { key: 'events',        label: 'All Events',        group: 'Society', target: () => tab('FeedTab', 'Feed', { tab: 'events', at: Date.now() }) },
   {
     key: 'rally_detail',
     label: 'A specific rally',

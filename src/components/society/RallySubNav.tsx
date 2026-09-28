@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
+import { FONT_INTER } from '../../constants/fonts';
 
 export interface RallySection {
   id: string;
@@ -70,5 +72,5 @@ const styles = StyleSheet.create({
   bar:     { borderBottomWidth: StyleSheet.hairlineWidth },
   row:     { paddingHorizontal: 12 },
   tab:     { paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: 2 },
-  tabText: { fontSize: 14, fontWeight: '700' },
+  tabText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

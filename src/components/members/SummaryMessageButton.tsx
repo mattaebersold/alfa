@@ -1,9 +1,11 @@
 import React from 'react';
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { Mail } from 'lucide-react-native';
 import { useSummaryPanel } from '../ui/SummaryModal';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_42, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * "Message" from inside a summary panel — a person's own, or a group's admin.
@@ -34,7 +36,7 @@ export default function SummaryMessageButton({
       activeOpacity={0.85}
       accessibilityRole="button"
     >
-      <Mail size={14} color="#FFFFFF" />
+      <Mail size={14} color={COLOR_WHITE} />
       <Text style={styles.text}>{label}</Text>
     </TouchableOpacity>
   );
@@ -48,7 +50,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 6,
     borderRadius: COMMON_RADIUS,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: COLOR_GRAY_42,
   },
-  text: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  text: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
 });

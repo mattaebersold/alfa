@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity,
-  useWindowDimensions,
+  View, StyleSheet, Modal, ScrollView, TouchableOpacity, useWindowDimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -10,7 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Past this, the image is "zoomed" — the pager stops and the pan moves it. */
 const ZOOM_THRESHOLD = 1.01;
@@ -435,7 +436,7 @@ export default function ImageLightbox({
           accessibilityRole="button"
           accessibilityLabel="Close photo"
         >
-          <X size={20} color="#FFFFFF" />
+          <X size={20} color={COLOR_WHITE} />
         </TouchableOpacity>
 
         {/* Swiping is the fast way through; these are the discoverable one.
@@ -453,7 +454,7 @@ export default function ImageLightbox({
               accessibilityRole="button"
               accessibilityLabel="Previous photo"
             >
-              <ChevronLeft size={22} color="#FFFFFF" />
+              <ChevronLeft size={22} color={COLOR_WHITE} />
             </TouchableOpacity>
 
             {/* White on a translucent black lozenge, so it reads over a light
@@ -470,7 +471,7 @@ export default function ImageLightbox({
               accessibilityRole="button"
               accessibilityLabel="Next photo"
             >
-              <ChevronRight size={22} color="#FFFFFF" />
+              <ChevronRight size={22} color={COLOR_WHITE} />
             </TouchableOpacity>
           </View>
         )}
@@ -506,5 +507,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  counterText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  counterText: { color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.bold },
 });

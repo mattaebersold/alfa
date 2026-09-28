@@ -3,7 +3,7 @@ import { Alert, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-na
 import { UserPlus, UserMinus, MoreHorizontal } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { useFollowUserMutation, useUnfollowUserMutation, useGetFollowStatusQuery } from '../../api/apiService';
 import Button from '../ui/Button';
 
@@ -120,7 +120,7 @@ export default function FollowButton({ username, isFollowing: known, variant, ra
             accessibilityRole="button"
             accessibilityLabel={`Options for @${username}`}
           >
-            {busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : <MoreHorizontal size={20} color="#FFFFFF" />}
+            {busy ? <ActivityIndicator size="small" color={COLOR_WHITE} /> : <MoreHorizontal size={20} color={COLOR_WHITE} />}
           </TouchableOpacity>
           <ActionSheet
             visible={menuOpen}

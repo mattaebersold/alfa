@@ -1,3 +1,4 @@
+import { COLOR_BADGE_DEFAULT, COLOR_BADGE_GARAGE, COLOR_BADGE_LISTING, COLOR_BADGE_RECORD, COLOR_BADGE_SPOT, COLOR_BLACK } from './config';
 export const CAR_TYPES = [
   { key: 'daily',        label: 'Daily Driver' },
   { key: 'weekend',      label: 'Weekend Warrior' },
@@ -61,12 +62,12 @@ export const CONDITIONS = [
 // draws them: the summary modal badges a car the same way, and the card
 // already renders that modal — owning the palette too closed a require cycle.
 export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  'daily':        { bg: '#F0D689', text: '#000' },
-  'weekend':      { bg: '#35B5FF', text: '#000' },
-  'project':      { bg: '#F36943', text: '#000' },
-  'garage-queen': { bg: '#FF479C', text: '#000' },
-  'part-out':     { bg: '#00FF3F', text: '#000' },
-  'other':        { bg: '#F0D689', text: '#000' },
+  'daily':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
+  'weekend':      { bg: COLOR_BADGE_RECORD, text: COLOR_BLACK },
+  'project':      { bg: COLOR_BADGE_SPOT, text: COLOR_BLACK },
+  'garage-queen': { bg: COLOR_BADGE_GARAGE, text: COLOR_BLACK },
+  'part-out':     { bg: COLOR_BADGE_LISTING, text: COLOR_BLACK },
+  'other':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
 };
 
 /** Every car type and category label, keyed the way they're stored. */

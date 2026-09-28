@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, FlatList,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, FlatList,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Search, X, Check, UserPlus, Clock, Ban } from 'lucide-react-native';
 import {
   useGetUsersQuery,
@@ -14,7 +15,8 @@ import EmptyState from '../ui/EmptyState';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import type { User } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Long enough that each keystroke doesn't fire a request, short enough to feel live. */
 const DEBOUNCE_MS = 300;
@@ -199,10 +201,10 @@ export default function GroupInviteModal({
             accessibilityLabel={`Invite @${user.username}`}
           >
             {busy
-              ? <ActivityIndicator size="small" color="#000000" />
+              ? <ActivityIndicator size="small" color={COLOR_BLACK} />
               : (
                 <>
-                  <UserPlus size={14} color="#000000" strokeWidth={2.6} />
+                  <UserPlus size={14} color={COLOR_BLACK} strokeWidth={2.6} />
                   <Text style={styles.inviteText}>Invite</Text>
                 </>
               )}
@@ -286,7 +288,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowText:  { flex: 1, minWidth: 0 },
-  username: { fontSize: 15, fontWeight: '800' },
+  username: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
   fullName: { fontSize: 12, marginTop: 1 },
 
   inviteBtn: {
@@ -294,11 +296,11 @@ const styles = StyleSheet.create({
     minWidth: 92, paddingHorizontal: 14, paddingVertical: 9, borderRadius: COMMON_RADIUS,
   },
   inviteBtnBusy: { opacity: 0.7 },
-  inviteText: { fontSize: 13, fontWeight: '800', color: '#000000' },
+  inviteText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
   },
-  statusText: { fontSize: 12, fontWeight: '700' },
+  statusText: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

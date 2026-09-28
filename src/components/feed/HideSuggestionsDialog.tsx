@@ -1,9 +1,11 @@
 import React from 'react';
 import {
-  View, Text, Modal, Pressable, TouchableOpacity, StyleSheet,
+  View, Modal, Pressable, TouchableOpacity, StyleSheet,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Asked when someone closes a suggestion row: gone for a month, or gone for
@@ -72,11 +74,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', padding: 24,
   },
   card:        { width: '100%', maxWidth: 400, borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 18 },
-  heading:     { fontSize: 17, fontWeight: '800' },
+  heading:     { fontSize: 17, fontFamily: FONT_INTER.bold },
   blurb:       { fontSize: 13, lineHeight: 18, marginTop: 6, marginBottom: 16 },
   option:      { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10 },
-  optionTitle: { fontSize: 15, fontWeight: '700' },
+  optionTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   optionSub:   { fontSize: 12, marginTop: 3 },
   cancel:      { alignItems: 'center', paddingVertical: 10, marginTop: 2 },
-  cancelText:  { fontSize: 15, fontWeight: '600' },
+  cancelText:  { fontSize: 15, fontFamily: FONT_INTER.semibold },
 });

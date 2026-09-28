@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { MoreVertical, Play } from 'lucide-react-native';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { CATEGORY_LABELS } from '../ui/Badge';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { useColors } from '../../hooks/useColors';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * One row of a record-style list: photo, title, a line of meta, a category pill.
@@ -77,7 +79,7 @@ export default function RecordRow({
           <Image source={{ uri: imageUri! }} style={styles.thumb} contentFit="cover" />
           {isVideo && (
             <View style={styles.playBadge} pointerEvents="none">
-              <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+              <Play size={14} color={COLOR_WHITE} fill={COLOR_WHITE} />
             </View>
           )}
         </View>
@@ -141,13 +143,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   content:  { flex: 1, minWidth: 0, gap: 6 },
-  title:    { fontSize: 16, fontWeight: '600', lineHeight: 21 },
+  title:    { fontSize: 16, fontFamily: FONT_INTER.semibold, lineHeight: 21 },
   // The picture-less variant: larger, and given a little more room to run.
-  titleAlone: { fontSize: 19, fontWeight: '700', lineHeight: 25 },
+  titleAlone: { fontSize: 19, fontFamily: FONT_INTER.bold, lineHeight: 25 },
   metaRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
   meta:     { fontSize: 11, flexShrink: 1 },
   // `alignSelf` keeps the pill hugging its label instead of stretching the row.
   pill:     { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
-  pillText: { fontSize: 11, fontWeight: '700' },
+  pillText: { fontSize: 11, fontFamily: FONT_INTER.bold },
   menuBtn:  { padding: 2 },
 });

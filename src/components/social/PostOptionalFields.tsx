@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_46 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** Every optional field a post can carry. */
 export interface OptionalFieldValues {
@@ -78,7 +80,8 @@ export default function PostOptionalFields({
   );
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+    // The form's own grey, marked off by a border a step lighter.
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
       <TouchableOpacity
         style={styles.header}
         onPress={() => setOpen((v) => !v)}
@@ -86,9 +89,6 @@ export default function PostOptionalFields({
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
       >
-        <View style={[styles.headerIcon, { backgroundColor: brand + '22' }]}>
-          <SlidersHorizontal size={15} color={brand} />
-        </View>
         <View style={styles.headerText}>
           <Text style={[styles.headerTitle, { color: colors.fg }]}>Optional Details</Text>
           <Text style={[styles.headerHint, { color: colors.grey }]}>
@@ -135,18 +135,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 14, paddingVertical: 14,
   },
-  headerIcon: {
-    width: 30, height: 30, borderRadius: 15,
-    alignItems: 'center', justifyContent: 'center',
-  },
   headerText:  { flex: 1, minWidth: 0 },
-  headerTitle: { fontSize: 15, fontWeight: '800' },
+  headerTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   headerHint:  { fontSize: 11.5, marginTop: 2 },
 
   // The brand-coloured rule is what separates the open block from the header
   // above it — a plain hairline read as one more divider in a stack of them.
   body:  { borderTopWidth: 2, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16 },
   field: { marginBottom: 14 },
-  label: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  label: { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   input: { height: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
 });

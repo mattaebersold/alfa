@@ -3,18 +3,19 @@
  * so an event reads the same on both platforms.
  */
 import { calendarDate } from '../utils/calendarDate';
+import { COLOR_BADGE_RECORD, COLOR_EVENT_CARS_AND_COFFEE, COLOR_EVENT_MISC, COLOR_EVENT_MOTORSPORTS, COLOR_EVENT_SHOW, COLOR_EVENT_TECH_SESSION, COLOR_PRO } from './config';
 
 // One hex per category, used by the card's category pill and the calendar dots
 // so a colour means the same thing in both places. Kept deliberately distinct and
 // light enough for black text. Mirrored in murray's helpers/eventHelpers.js —
 // change both together.
 export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] = [
-  { key: 'cars-and-coffee',   label: 'Cars & Coffee',  color: '#C6F24E' },
-  { key: 'drive',             label: 'Drive',          color: '#35B5FF' },
-  { key: 'show',              label: 'Show',           color: '#FF6FA5' },
-  { key: 'tech-session',      label: 'Tech Session',   color: '#FFB020' },
-  { key: 'motorsports',       label: 'Motorsports',    color: '#FF5C39' },
-  { key: 'misc',              label: 'Misc',           color: '#B8C0C8' },
+  { key: 'cars-and-coffee',   label: 'Cars & Coffee',  color: COLOR_EVENT_CARS_AND_COFFEE },
+  { key: 'drive',             label: 'Drive',          color: COLOR_BADGE_RECORD },
+  { key: 'show',              label: 'Show',           color: COLOR_EVENT_SHOW },
+  { key: 'tech-session',      label: 'Tech Session',   color: COLOR_EVENT_TECH_SESSION },
+  { key: 'motorsports',       label: 'Motorsports',    color: COLOR_EVENT_MOTORSPORTS },
+  { key: 'misc',              label: 'Misc',           color: COLOR_EVENT_MISC },
 ];
 
 /**
@@ -22,7 +23,7 @@ export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] =
  * outside the category palette so it never reads as another category.
  * Mirrored in murray's helpers/eventHelpers.js — change both together.
  */
-export const ORS_EVENT_COLOR = '#CDA96F';
+export const ORS_EVENT_COLOR = COLOR_PRO;
 
 /**
  * Bounds on an event card's photo, which otherwise takes the photo's own shape.

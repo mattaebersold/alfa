@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Modal, Pressable, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../../hooks/useColors';
+import { FONT_INTER } from '../../constants/fonts'
 
 export interface ActionSheetOption {
   label: string;
@@ -122,7 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: 8,
   },
   head:    { paddingHorizontal: 6, paddingVertical: 10 },
-  title:   { fontSize: 15, fontWeight: '800' },
+  title:   { fontSize: 15, fontFamily: FONT_INTER.bold },
   message: { fontSize: 13, marginTop: 3, lineHeight: 18 },
 
   option: {
@@ -131,11 +133,11 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   optionFirst: { borderTopWidth: 0 },
-  optionText:  { fontSize: 16, fontWeight: '600' },
+  optionText:  { fontSize: 16, fontFamily: FONT_INTER.semibold },
 
   cancel: {
     marginTop: 10, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',
   },
-  cancelText: { fontSize: 16, fontWeight: '700' },
+  cancelText: { fontSize: 16, fontFamily: FONT_INTER.bold },
 });

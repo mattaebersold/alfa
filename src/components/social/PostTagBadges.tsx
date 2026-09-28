@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,7 +17,8 @@ import { format } from 'date-fns';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Event } from '../../types/api';
 import { calendarDate } from '../../utils/calendarDate';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -275,7 +277,7 @@ const styles = StyleSheet.create({
   // Matches the card inset either side of it, so the tags line up with the
   // sections above and below rather than sitting in their own margin.
   section:      { paddingHorizontal: 12, paddingTop: 16 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 },
+  sectionLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 },
   /**
    * Two columns, always.
    *
@@ -300,12 +302,12 @@ const styles = StyleSheet.create({
   badge:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingLeft: 7, paddingRight: 10, borderRadius: PILL_RADIUS, borderWidth: 1 },
   badgeThumb:   { width: 28, height: 28, borderRadius: PILL_RADIUS },
   badgeThumbFallback: { alignItems: 'center', justifyContent: 'center' },
-  badgeName:    { flex: 1, fontSize: 13, fontWeight: '600' },
+  badgeName:    { flex: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   eventHero:    { width: '100%', height: 160, borderRadius: 12, marginBottom: 14 },
   eventRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  eventRowText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  eventRowText: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
   eventBody:    { fontSize: 14, lineHeight: 21, marginTop: 4, marginBottom: 16 },
   viewBtn:      { paddingVertical: 13, borderRadius: COMMON_RADIUS, alignItems: 'center', marginTop: 4 },
-  viewBtnText:  { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  viewBtnText:  { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
 });

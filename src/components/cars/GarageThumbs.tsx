@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image as ExpoImage } from 'expo-image';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_GRAY_58, COLOR_WHITE } from '../../constants/config';
 
 /**
  * Up to `max` overlapping car photos from the user's garage, followed by a
@@ -56,6 +59,6 @@ const styles = StyleSheet.create({
   // Solid dark grey rather than 75% black: the button behind it is now a 10%
   // black wash, so a translucent chip picked up whatever photo was underneath
   // and the count sat on a moving ground.
-  thumbMore:    { backgroundColor: '#3A3A3A', alignItems: 'center', justifyContent: 'center' },
-  thumbMoreText:{ fontWeight: '800', color: '#FFFFFF' },
+  thumbMore:    { backgroundColor: COLOR_GRAY_58, alignItems: 'center', justifyContent: 'center' },
+  thumbMoreText:{ fontWeight: '800', color: COLOR_WHITE },
 });

@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
 import { bannerDestination } from '../../constants/bannerDestinations';
+import { COLOR_GRAY_17 } from '../../constants/config';
 
 /**
  * The admin-managed feature banner at the top of the home feed.
@@ -61,5 +62,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 8, marginTop: 8,
     borderRadius: 12, overflow: 'hidden',
   },
-  image: { width: '100%', aspectRatio: 2.2, backgroundColor: '#111' },
+  image: { width: '100%', aspectRatio: 2.2, backgroundColor: COLOR_GRAY_17 },
 });

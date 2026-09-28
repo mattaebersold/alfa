@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +22,8 @@ import type { Podcast } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -106,14 +108,14 @@ const styles = StyleSheet.create({
   row:                { gap: 8 },
   card:               {
     flex: 1, borderRadius: COMMON_RADIUS, margin: 4, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   artwork:            { width: '100%', aspectRatio: 1 },
   artworkImg:         { width: '100%', height: '100%' },
   artworkPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   artworkIcon:        { fontSize: 32 },
   cardBody:           { padding: 10, gap: 3 },
-  title:              { fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  title:              { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 18 },
   author:             { fontSize: 11 },
   description:        { fontSize: 11, lineHeight: 16 },
 });

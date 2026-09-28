@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@ors/kit';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import SummaryUserRow from '../members/SummaryUserRow';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { useGetLikeUsersQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * One liker. Handle only — see SummaryUserRow. The like list is ids, so each
@@ -94,7 +96,7 @@ export default function LikersSheet({
 
 const styles = StyleSheet.create({
   body:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12 },
-  title:  { fontSize: 19, fontWeight: '800', marginBottom: 6 },
+  title:  { fontSize: 19, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   loader: { marginTop: 30 },
   empty:  { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
 

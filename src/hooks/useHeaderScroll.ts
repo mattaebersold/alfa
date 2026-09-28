@@ -37,6 +37,22 @@ function setHidden(next: boolean, hideDistance: number) {
   animation.start();
 }
 
+/**
+ * Bring the header back into view, animated — the same slide it makes when
+ * you scroll up, from wherever it is. Always runs, whatever it thinks its
+ * state is, so it can't be left part-way.
+ */
+export function showHeader() {
+  hidden = false;
+  animation?.stop();
+  animation = Animated.timing(headerOffset, {
+    toValue: 0,
+    duration: 220,
+    useNativeDriver: true,
+  });
+  animation.start();
+}
+
 /** Snap the header back into view without animating — used on screen mount. */
 export function resetHeader() {
   animation?.stop();

@@ -174,7 +174,7 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
      */
     case 'photospot':
       return id
-        ? { name: 'MainTabs', params: { screen: 'PhotographyTab', params: { spotId: id } } }
+        ? { name: 'MainTabs', params: { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'photography', spotId: id, at: Date.now() } } } }
         : null;
 
     /**

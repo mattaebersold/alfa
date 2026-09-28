@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,7 +9,8 @@ import { imageUrl } from '../../utils/image';
 import { normalizePickedAssets } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import type { GalleryItem } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * One slot in the editor. `existing` images are already on the server and are
@@ -99,7 +101,7 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
             accessibilityRole="button"
             accessibilityLabel="Remove image"
           >
-            <X size={17} color="#FFFFFF" />
+            <X size={17} color={COLOR_WHITE} />
           </TouchableOpacity>
         </TouchableOpacity>
       </ScaleDecorator>
@@ -146,7 +148,7 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
 const styles = StyleSheet.create({
   wrap:     { marginBottom: 18 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  label:    { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  label:    { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.5 },
   hint:     { fontSize: 11 },
 
   listContainer: { height: THUMB + 8 },
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 5, left: 5,
     paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
   },
-  newTagText: { fontSize: 9, fontWeight: '800', color: '#000000', letterSpacing: 0.4 },
+  newTagText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: 0.4 },
 
   empty: { fontSize: 13, fontStyle: 'italic', paddingVertical: 12 },
 
@@ -175,5 +177,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingVertical: 11, borderRadius: COMMON_RADIUS, borderWidth: 1, marginTop: 10,
   },
-  addBtnText: { fontSize: 14, fontWeight: '700' },
+  addBtnText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

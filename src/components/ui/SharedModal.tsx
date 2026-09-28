@@ -1,16 +1,17 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Pressable,
-  PanResponder, useWindowDimensions,
+  View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, PanResponder, useWindowDimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost } from '@ors/kit';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 // Near-black surfaces — matches the car-detail pane look.
-const SHEET_BG = '#161616';
+const SHEET_BG = COLOR_GRAY_22;
 // The header used to be pure black against the body's #161616, which read as a
 // separate bar stuck on top of the sheet rather than part of it. One ground,
 // with a hairline to mark the edge.
@@ -254,6 +255,6 @@ const styles = StyleSheet.create({
     // No rule under it: the header shares the sheet's ground now, so a line
     // only redraws a seam the colour change already removed.
   },
-  title:       { flex: 1, fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  title:       { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

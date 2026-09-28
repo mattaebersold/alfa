@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
@@ -9,7 +10,8 @@ import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import type { GarageCar } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_23, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The overlay card's two shapes, from its photo: a little wider or a little
@@ -19,7 +21,7 @@ import { COMMON_RADIUS } from '../../constants/radius';
 const OVERLAY_SHAPES = { landscape: 3 / 2.5, portrait: 2.5 / 3 };
 
 /** The grid cards' fill — the darker shade the profile's shelves use. */
-const CARD_BG = '#171717';
+const CARD_BG = COLOR_GRAY_23;
 
 /**
  * One car in a two-up grid: its photo (or the dimmed stand-in), its name with
@@ -55,7 +57,7 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
     // the right — the name would be a third line on a card with no room for it.
     <View style={[styles.cardInfo, styles.cardInfoOverlay]} pointerEvents="none">
       <View style={styles.overlayText}>
-        <Text style={[styles.carTitle, { color: '#FFFFFF' }]} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.carTitle, { color: COLOR_WHITE }]} numberOfLines={1}>{title}</Text>
         {subtitle ? (
           <Text style={[styles.carSubtitle, { color: 'rgba(255,255,255,0.8)' }]} numberOfLines={1}>{subtitle}</Text>
         ) : null}
@@ -113,7 +115,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImageContainer: { width: '100%', aspectRatio: 4 / 3 },
   cardImage: { width: '100%', height: '100%' },
@@ -132,8 +134,8 @@ const styles = StyleSheet.create({
   },
   overlayText: { flex: 1, minWidth: 0 },
   // The car's own name leads, a clear step above the year/make/model under it.
-  carTitle: { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
-  carSubtitle: { fontSize: 11, fontWeight: '600', marginTop: 1 },
+  carTitle: { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
+  carSubtitle: { fontSize: 11, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   ownerName: { fontSize: 11, flex: 1 },
 });

@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 interface ScreenHeadingProps {
   title: string;
@@ -75,15 +77,15 @@ const styles = StyleSheet.create({
   wrapDense: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
   row:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  title:      { fontSize: 30, fontWeight: '800', letterSpacing: -0.6, flexShrink: 1 },
+  title:      { fontSize: 30, fontFamily: FONT_INTER.bold, letterSpacing: -0.6, flexShrink: 1 },
   titleDense: { fontSize: 25, letterSpacing: -0.4 },
-  titleInline: { fontSize: 24, fontWeight: '600', letterSpacing: -0.3 },
+  titleInline: { fontSize: 24, fontFamily: FONT_INTER.semibold, letterSpacing: -0.3 },
   countBadge: {
     minWidth: 28, height: 28, borderRadius: PILL_RADIUS,
     paddingHorizontal: 7,
     alignItems: 'center', justifyContent: 'center',
   },
-  countText:  { fontSize: 13, fontWeight: '800' },
+  countText:  { fontSize: 13, fontFamily: FONT_INTER.extrabold },
   // Two groups pushed to opposite ends. Callers supply them; this only decides
   // that the row has ends rather than being one run of chips.
   metaRow: {

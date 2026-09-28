@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, Switch,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Switch,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,7 +34,8 @@ import {
 import { isPlottedRoute } from '../../types/api';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type SaveRoute = RouteProp<AppStackParamList, 'RouteSave'>;
@@ -733,20 +734,20 @@ function Stat({ label, value, colors }: { label: string; value: string; colors: 
 
 const styles = StyleSheet.create({
   center:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
-  emptyTitle: { fontSize: 18, fontWeight: '800' },
+  emptyTitle: { fontSize: 18, fontFamily: FONT_INTER.bold },
   emptyBody:  { fontSize: 14, textAlign: 'center', marginTop: 8 },
 
   mapWrap:   { height: 240, width: '100%', position: 'relative' },
 
   statsRow:  { flexDirection: 'row', paddingVertical: 16, borderBottomWidth: 1 },
   stat:      { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
-  statLabel: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  statValue: { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
+  statLabel: { fontSize: 11, fontFamily: FONT_INTER.semibold, marginTop: 2 },
 
   pitSummary: { fontSize: 12, paddingHorizontal: 16, paddingTop: 12 },
   form:       { padding: 16, gap: 20 },
   field:      { gap: 8 },
-  fieldLabel: { fontSize: 14, fontWeight: '700' },
+  fieldLabel: { fontSize: 14, fontFamily: FONT_INTER.bold },
   input:      { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
   textarea:   { minHeight: 96 },
   helper:     { fontSize: 12, lineHeight: 16 },
@@ -754,11 +755,11 @@ const styles = StyleSheet.create({
   pillRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   ratingPill:  { width: 48, height: 44, borderRadius: PILL_RADIUS, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   surfacePill: { paddingHorizontal: 18, height: 44, borderRadius: PILL_RADIUS, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  pillText:    { fontSize: 15, fontWeight: '700' },
+  pillText:    { fontSize: 15, fontFamily: FONT_INTER.bold },
 
   tagSection:  { paddingTop: 18, borderTopWidth: 1, gap: 4, marginHorizontal: -16, paddingHorizontal: 16 },
   switchRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 18, borderTopWidth: 1 },
-  switchLabel: { fontSize: 15, fontWeight: '700' },
+  switchLabel: { fontSize: 15, fontFamily: FONT_INTER.bold },
   // The same card the post form puts its "Post To" choice in.
   postToCard:  { borderWidth: 1, borderRadius: COMMON_RADIUS, padding: 14 },
 
@@ -768,7 +769,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   primaryBtn:     { height: 52, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  primaryLabel:   { fontSize: 16, fontWeight: '800' },
+  primaryLabel:   { fontSize: 16, fontFamily: FONT_INTER.bold },
   secondaryBtn:   { height: 52, borderRadius: COMMON_RADIUS, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
-  secondaryLabel: { fontSize: 16, fontWeight: '700' },
+  secondaryLabel: { fontSize: 16, fontFamily: FONT_INTER.bold },
 });

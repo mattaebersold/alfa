@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity, Modal,
+  View, StyleSheet, TouchableOpacity, Modal,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { KeyboardAvoidingView } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { useAppSelector } from '../../store/store';
@@ -10,6 +11,8 @@ import Button from '../ui/Button';
 import { validateZip, sanitizeZip } from '../../utils/zip';
 import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_ERROR_TEXT_LIGHT, COLOR_WHITE } from '../../constants/config';
 
 /** An account this young, with no zip, is one Google or Apple just made. */
 const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
@@ -118,11 +121,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  title: { fontSize: 18, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 8 },
   body: { fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.75)', marginBottom: 16 },
-  label: { fontSize: 12, fontWeight: '600', marginBottom: 4, color: '#FFFFFF' },
-  error: { fontSize: 11, marginTop: 5, lineHeight: 15, color: '#FFB4A8', fontWeight: '600' },
+  label: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginBottom: 4, color: COLOR_WHITE },
+  error: { fontSize: 11, marginTop: 5, lineHeight: 15, color: COLOR_ERROR_TEXT_LIGHT, fontFamily: FONT_INTER.semibold },
   gap: { height: 16 },
   later: { alignSelf: 'center', marginTop: 12, paddingVertical: 6, paddingHorizontal: 16 },
-  laterLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  laterLabel: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.7)' },
 });

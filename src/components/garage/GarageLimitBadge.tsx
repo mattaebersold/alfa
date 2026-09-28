@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { GetProButton, ProUpsellModal } from '../pro/ProUpsell';
-import { CAR_LIMIT_BASIC } from '../../constants/limits';
+import { CAR_LIMIT_BASIC } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * How much of the garage is used, and what Pro would change about that.
@@ -70,5 +72,5 @@ export default function GarageLimitBadge({
 const styles = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'center', gap: 7 },
   chip:     { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
-  chipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
+  chipText: { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
 });

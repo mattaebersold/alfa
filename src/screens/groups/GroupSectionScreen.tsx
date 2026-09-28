@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Modal, Linking, Animated, useWindowDimensions,
+  View, StyleSheet, FlatList, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Linking, Animated, useWindowDimensions,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { RESOURCE_CATEGORIES, DISCUSSION_CATEGORIES } from '../../constants/groupCategories';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -53,7 +53,8 @@ import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type ActiveTab = 'posts' | 'discussion' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
@@ -358,7 +359,7 @@ export default function GroupSectionScreen() {
           accessibilityRole="button"
           accessibilityLabel={tab === 'market' ? `New listing in ${groupTitle}` : `New ${sectionLabel}`}
         >
-          <Plus size={22} color="#000000" strokeWidth={3} />
+          <Plus size={22} color={COLOR_BLACK} strokeWidth={3} />
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -1023,7 +1024,7 @@ const styles = StyleSheet.create({
     position: 'absolute', right: 16, bottom: 12,
     width: 44, height: 44, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35, shadowRadius: 6, elevation: 6,
   },
   headerContent:  { paddingHorizontal: 16, paddingBottom: 12, alignItems: 'flex-start' },
@@ -1037,12 +1038,12 @@ const styles = StyleSheet.create({
   },
   // Explicit lineHeights: HEADER_TITLES_H is derived from them, so a font that
   // measured differently would leave the box short or slack.
-  groupName:      { fontSize: 13, lineHeight: 17, fontWeight: '700', letterSpacing: 0.3 },
-  sectionTitle:   { fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.4 },
+  groupName:      { fontSize: 13, lineHeight: 17, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
+  sectionTitle:   { fontSize: 26, lineHeight: 32, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
 
   tabRow:         { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
   tabPill:        { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
-  tabPillText:    { fontSize: 13, fontWeight: '700' },
+  tabPillText:    { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   // The name column absorbs the squeeze so the follow button and menu keep
   // their full width on a long username.
@@ -1057,12 +1058,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: GROUP_RADIUS, borderTopRightRadius: GROUP_RADIUS,
   },
   catHeaderClosed:{ borderBottomLeftRadius: GROUP_RADIUS, borderBottomRightRadius: GROUP_RADIUS },
-  catHeaderText:  { fontSize: 15, fontWeight: '600', letterSpacing: 0.1 },
+  catHeaderText:  { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.1 },
   catCount:       {
     minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  catCountText:   { fontSize: 11, fontWeight: '800' },
+  catCountText:   { fontSize: 11, fontFamily: FONT_INTER.extrabold },
   catAdd:         {
     width: 22, height: 22, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
@@ -1079,7 +1080,7 @@ const styles = StyleSheet.create({
 
   loader:         { marginVertical: 40 },
 
-  rowTitle:       { fontSize: 15, fontWeight: '700', marginBottom: 3 },
+  rowTitle:       { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 3 },
   rowBody:        { fontSize: 13, lineHeight: 18, marginBottom: 3 },
   rowMeta:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metaText:       { fontSize: 12 },
@@ -1117,32 +1118,32 @@ const styles = StyleSheet.create({
   filterBar:      { flexGrow: 0, borderTopWidth: StyleSheet.hairlineWidth },
   filterRow:      { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   filterChip:     { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
-  filterChipText: { fontSize: 12, fontWeight: '700' },
+  filterChipText: { fontSize: 12, fontFamily: FONT_INTER.bold },
 
-  ytWrap:         { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
-  ytPlayer:       { flex: 1, backgroundColor: '#000' },
+  ytWrap:         { width: '100%', aspectRatio: 16 / 9, backgroundColor: COLOR_BLACK },
+  ytPlayer:       { flex: 1, backgroundColor: COLOR_BLACK },
   linkBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 13, borderRadius: COMMON_RADIUS },
-  linkBtnText:    { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  linkBtnText:    { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
   adminBadge:     { borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3 },
-  adminText:      { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  adminText:      { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 
   carsCta:        { margin: 12, marginBottom: 0, padding: 14, borderRadius: COMMON_RADIUS, borderWidth: 1.5, alignItems: 'center' },
-  carsCtaText:    { fontSize: 14, fontWeight: '700' },
+  carsCtaText:    { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   modalHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  modalTitle:     { fontSize: 17, fontWeight: '700' },
-  modalDone:      { fontSize: 15, fontWeight: '600' },
+  modalTitle:     { fontSize: 17, fontFamily: FONT_INTER.bold },
+  modalDone:      { fontSize: 15, fontFamily: FONT_INTER.semibold },
   modalSub:       { fontSize: 13, paddingHorizontal: 16, paddingVertical: 10 },
 
   toggleDot:      { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  toggleCheck:    { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFFFFF' },
+  toggleCheck:    { width: 10, height: 10, borderRadius: 5, backgroundColor: COLOR_WHITE },
 
   detailHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  detailKind:     { fontSize: 13, fontWeight: '700' },
+  detailKind:     { fontSize: 13, fontFamily: FONT_INTER.bold },
   detailScroll:   { paddingBottom: 60 },
   detailHero:     { width: '100%', aspectRatio: 16 / 9 },
   detailBody:     { padding: 16 },
-  detailTitle:    { fontSize: 20, fontWeight: '800', lineHeight: 26, marginBottom: 12 },
+  detailTitle:    { fontSize: 20, fontFamily: FONT_INTER.bold, lineHeight: 26, marginBottom: 12 },
   detailMeta:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   detailText:     { fontSize: 15, lineHeight: 24 },
 });

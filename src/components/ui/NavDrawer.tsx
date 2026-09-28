@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView,
-  Linking, Dimensions, Platform, Alert,
+  View, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Dimensions, Platform, Alert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,13 +22,22 @@ import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
 import { InstagramIcon, DiscordIcon, YouTubeIcon } from './BrandIcons';
-import { CONFIG } from '../../constants/config';
+import {
+  CONFIG,
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_18,
+  COLOR_GRAY_38,
+  COLOR_GRAY_90,
+  COLOR_LOGO_CREAM,
+  COLOR_WHITE,
+  COLOR_BORDER,
+} from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import InviteFriendModal from '../members/InviteFriendModal';
 import ProfileSetupCard from '../members/ProfileSetupCard';
-import BookmarkedModelsRow from '../cars/BookmarkedModelsRow';
-import { bookmarkRoute } from '../../utils/modelBookmark';
 import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
@@ -38,7 +47,7 @@ import { logout } from '../../store/authSlice';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -97,8 +106,8 @@ const SHOW_SHOP = true;
  * reading as a flat black box.
  */
 const PRO_GOLD  = colors.pro;
-const PANEL_BG  = '#000000';
-const TEXT_HI   = '#FFFFFF';
+const PANEL_BG  = COLOR_BLACK;
+const TEXT_HI   = COLOR_WHITE;
 const TEXT_MID  = 'rgba(255,255,255,0.6)';
 const TEXT_FAINT= 'rgba(255,255,255,0.45)';
 const DIVIDER   = 'rgba(255,255,255,0.1)';
@@ -110,7 +119,7 @@ const CHIP_BG   = 'rgba(255,255,255,0.1)';
  * The wordmark beside it was pure white, which next to a warm cream read as
  * two different marks rather than one lockup.
  */
-const LOGO_CREAM = '#F7F1D9';
+const LOGO_CREAM = COLOR_LOGO_CREAM;
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
 function NavTile({ label, Icon, onPress, count, wide, flex }: {
@@ -140,7 +149,7 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
     >
       {/* Larger and white: the mark is how a tile is found at a glance, and at
           mid grey it sat behind its own label. */}
-      <Icon size={24} color="#FFFFFF" />
+      <Icon size={24} color={COLOR_WHITE} />
       <Text style={styles.navTileLabel} numberOfLines={1}>{label}</Text>
       {/* Pinned to the corner rather than trailing the label — stacked, there
           is no end of the line for it to sit at. */}
@@ -178,7 +187,7 @@ function PhotographyTile({ onPress }: { onPress: () => void }) {
     // A hairline of grey gradient around the tile, lit from the bottom-right: the
     // gradient is the frame, and the tile is inset by the frame's width.
     <LinearGradient
-      colors={['#262626', '#5A5A5A']}
+      colors={[COLOR_GRAY_38, COLOR_GRAY_90]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.photoTileFrame}
@@ -368,7 +377,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   accessibilityLabel="Upgrade to Pro"
                 >
                   <View style={styles.proCalloutIcon}>
-                    <SteeringWheel size={26} color="#000000" strokeWidth={2.4} />
+                    <SteeringWheel size={26} color={COLOR_BLACK} strokeWidth={2.4} />
                   </View>
                   <View style={styles.proCalloutText}>
                     <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
@@ -474,15 +483,6 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 </View>
               )}
 
-              {/* Your bookmarked car models — nothing until there's one. Each
-                  opens its model page in the Cars tab. */}
-              <BookmarkedModelsRow
-                onOpen={(b) => closeThen(() => navigation.navigate('MainTabs', {
-                  screen: 'CarsTab',
-                  params: { screen: 'ModelDetail', params: bookmarkRoute(b) },
-                } as any))}
-              />
-
               {/* Two-column grid — half the height of a stacked list, which is
                   what kept the log-out button pushed below the fold.
 
@@ -491,14 +491,23 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   grid is already the only run of tiles in the menu, and a
                   label naming it was saying what the shapes had said. */}
               <View style={styles.grid}>
+                {/* Home, on its Events tab — where events live now — rather
+                    than the stand-alone Events screen. */}
                 <NavTile label="Events" Icon={Flag}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Events' } } as any))} />
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } },
+                  } as any))} />
                 <NavTile label="ORS Rallys" Icon={Route}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
                 <NavTile label="Cars" Icon={Car}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } } as any))} />
+                {/* Home, on its Groups tab — like Events and Marketplace. */}
                 <NavTile label="Groups" Icon={Users}
-                  onPress={() => goFeed('Groups')} />
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'groups', at: Date.now() } },
+                  } as any))} />
                 <NavTile label="Members" Icon={UserRound}
                   onPress={() => goFeed('Members')} />
                 <NavTile label="Articles" Icon={BookOpen}
@@ -511,9 +520,14 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     everything else. It had a SHOP heading of its own next to
                     the merch shop; with that parked, the heading was left
                     naming a section that no longer had two things in it. */}
+                {/* Home, on its Marketplace tab — where the marketplace
+                    lives now — rather than a screen of its own. */}
                 <NavTile label="Marketplace" Icon={ShoppingBag}
                   count={marketplaceUnread}
-                  onPress={() => goFeed('Marketplace')} />
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'market', at: Date.now() } },
+                  } as any))} />
                 {/* The header's + used to be the only way to list a diecast; it
                     goes straight to a new post now, so the entry point lives
                     here beside the marketplace it lists into. Pro-only, as
@@ -530,7 +544,11 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   the map is a place you go, and a few of its photos say so
                   better than a camera glyph did. */}
               <PhotographyTile
-                onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'PhotographyTab' } as any))}
+                // Home, on its Photography tab — the map lives there now.
+                onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                  screen: 'FeedTab',
+                  params: { screen: 'Feed', params: { tab: 'photography', at: Date.now() } },
+                } as any))}
               />
 
               {/* The shop leads the three slabs at the foot of the menu.
@@ -545,9 +563,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   onPress={() => closeThen(() => navigation.navigate('Shop'))}
                   activeOpacity={0.85}
                 >
-                  <Store size={20} color="#000000" />
+                  <Store size={20} color={COLOR_BLACK} />
                   <Text style={styles.aboutBtnText}>Shop</Text>
-                  <ChevronRight size={18} color="#000000" />
+                  <ChevronRight size={18} color={COLOR_BLACK} />
                 </TouchableOpacity>
               )}
 
@@ -567,9 +585,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 onPress={() => closeThen(() => navigation.navigate('About'))}
                 activeOpacity={0.85}
               >
-                <Info size={20} color="#000000" />
+                <Info size={20} color={COLOR_BLACK} />
                 <Text style={styles.aboutBtnText}>About Open Road Society</Text>
-                <ChevronRight size={18} color="#000000" />
+                <ChevronRight size={18} color={COLOR_BLACK} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -577,9 +595,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 onPress={() => closeThen(() => navigation.navigate('Support'))}
                 activeOpacity={0.85}
               >
-                <LifeBuoy size={20} color="#000000" />
+                <LifeBuoy size={20} color={COLOR_BLACK} />
                 <Text style={styles.aboutBtnText}>Support</Text>
-                <ChevronRight size={18} color="#000000" />
+                <ChevronRight size={18} color={COLOR_BLACK} />
               </TouchableOpacity>
 
               {/* Last of the slabs — another way into the society, only for
@@ -591,9 +609,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 onPress={(origin) => setInvite({ origin })}
                 accessibilityLabel="Invite a friend"
               >
-                <UserPlus size={20} color="#000000" />
+                <UserPlus size={20} color={COLOR_BLACK} />
                 <Text style={styles.aboutBtnText}>Invite a Friend</Text>
-                <ChevronRight size={18} color="#000000" />
+                <ChevronRight size={18} color={COLOR_BLACK} />
               </SummaryTouchable>
 
               <View style={styles.footer}>
@@ -818,14 +836,14 @@ const styles = StyleSheet.create({
   // `flexShrink`, not `flex: 1` — with the pill beside it the wordmark takes
   // the room it needs and gives way first, instead of claiming the whole gap
   // and pushing the pill against the X.
-  panelLogo:  { flexShrink: 1, fontSize: 19, fontWeight: '600', letterSpacing: 0.3, color: LOGO_CREAM },
+  panelLogo:  { flexShrink: 1, fontSize: 19, fontFamily: FONT_INTER.semibold, letterSpacing: 0.3, color: LOGO_CREAM },
   proPill: {
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: 999,
     backgroundColor: PRO_GOLD,
   },
   proPillText: {
-    fontSize: 10, fontWeight: '800', color: '#000000',
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
     letterSpacing: 0.8,
   },
   // Light on dark — the one cream surface in the drawer, so it leads the eye.
@@ -837,13 +855,13 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, backgroundColor: LOGO_CREAM,
   },
   userCardText: { flex: 1, minWidth: 0 },
-  userCardName: { fontSize: 15, fontWeight: '800', color: '#000000' },
-  userCardSub:  { fontSize: 13, fontWeight: '600', color: 'rgba(0,0,0,0.6)', marginTop: 1 },
+  userCardName: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
+  userCardSub:  { fontSize: 13, fontFamily: FONT_INTER.semibold, color: 'rgba(0,0,0,0.6)', marginTop: 1 },
   // Dark chip, cream cog — the card's colours swapped, so the icon reads as the
   // button's mark rather than a stray glyph on the cream.
   userCardCog: {
     width: 36, height: 36, borderRadius: COMMON_RADIUS,
-    backgroundColor: '#121212',
+    backgroundColor: COLOR_GRAY_18,
     alignItems: 'center', justifyContent: 'center',
   },
   scroll:        { flex: 1 },
@@ -857,11 +875,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingHorizontal: 12, paddingVertical: 9,
     borderRadius: 999,
-    borderWidth: 1, borderColor: DIVIDER,
+    borderWidth: 1, borderColor: COLOR_BORDER,
   },
   // Lighter than a tile's label — these sit above the grid and shouldn't
   // outweigh it.
-  inboxPillLabel: { fontSize: 13, fontWeight: '600', color: TEXT_HI, flexShrink: 1 },
+  inboxPillLabel: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: TEXT_HI, flexShrink: 1 },
 
   // `paddingTop` picks up the separation the removed section heading used to
   // provide between the inbox pills and the tiles.
@@ -888,10 +906,10 @@ const styles = StyleSheet.create({
   photoTileShot:  { flex: 1, height: '100%' },
   photoTileText:  { paddingHorizontal: 14, paddingBottom: 12, gap: 3 },
   photoTileTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  photoTileTitle: { fontSize: 17, fontWeight: '800', color: TEXT_HI },
-  photoTileSub:   { fontSize: 12, fontWeight: '600', color: TEXT_MID },
+  photoTileTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, color: TEXT_HI },
+  photoTileSub:   { fontSize: 12, fontFamily: FONT_INTER.semibold, color: TEXT_MID },
   navTileLabel: {
-    fontSize: 12.5, fontWeight: '700', color: TEXT_HI,
+    fontSize: 12.5, fontFamily: FONT_INTER.bold, color: TEXT_HI,
     textAlign: 'center', flexShrink: 1,
   },
   rowGap:       { marginTop: 8 },
@@ -905,14 +923,14 @@ const styles = StyleSheet.create({
   // On a tile, pinned in the corner — far enough in that it sits on the tile
   // rather than on its edge. In an inbox pill it's inline, after the label.
   unreadPillCorner: { position: 'absolute', top: 11, right: 11 },
-  unreadPillText: { fontSize: 11.5, fontWeight: '800', color: '#FFFFFF' },
+  unreadPillText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 
   aboutBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginTop: 20,
     paddingHorizontal: 16, paddingVertical: 14, borderRadius: COMMON_RADIUS,
   },
-  aboutBtnText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#000000' },
+  aboutBtnText: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.medium, color: COLOR_BLACK },
   supportBtn:   { marginTop: 8 },
 
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -928,7 +946,7 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
     paddingHorizontal: 4, paddingVertical: 8,
   },
-  logoutText: { fontSize: 13, fontWeight: '600', color: TEXT_MID },
+  logoutText: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: TEXT_MID },
   footer:        {
     // Last thing in the list rather than a band pinned under it. The rule
     // still marks it off as small print — it just arrives when you reach the
@@ -958,7 +976,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   proCalloutText:  { flex: 1 },
-  proCalloutTitle: { fontSize: 14, fontWeight: '800', color: '#000000' },
+  proCalloutTitle: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   proCalloutSub:   { fontSize: 11.5, color: 'rgba(0,0,0,0.65)', marginTop: 1 },
 
   footerVersion: {
@@ -967,10 +985,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9, paddingVertical: 3,
     borderRadius: 999,
     backgroundColor: CHIP_BG,
-    // No mono is loaded, and the two platforms don't share a built-in name —
-    // Android resolves anything it doesn't know to its default sans, so naming
-    // one font here would quietly be mono on iOS only.
-    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+    // Inter, like all small text — the app uses Inter throughout.
+    // Tabular figures keep the version's digits evenly spaced, which is all
+    // the monospace face was doing here.
+    fontFamily: FONT_INTER.medium,
+    fontVariant: ['tabular-nums'],
     fontSize: 11,
     letterSpacing: 0.2,
     color: TEXT_MID,

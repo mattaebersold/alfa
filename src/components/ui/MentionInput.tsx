@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, forwardRef } from 'react';
 import {
-  View, TextInput, TouchableOpacity, Text, StyleSheet,
+  View, TouchableOpacity, StyleSheet,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Car as CarIcon } from 'lucide-react-native';
 import { useSearchUsersQuery, useGetCarsQuery } from '../../api/apiService';
@@ -10,6 +11,7 @@ import { useColors } from '../../hooks/useColors';
 import { buildCarMention, carDisplayName } from '../../utils/mentions';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 interface MentionInputProps {
   value: string;
@@ -212,9 +214,9 @@ const styles = StyleSheet.create({
     gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  label:      { fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  label:      { fontSize: 14, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
   sectionLabel: {
-    fontSize: 10, fontWeight: '800', letterSpacing: 0.7,
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.7,
     paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
   },

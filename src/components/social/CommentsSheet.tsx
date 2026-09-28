@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Pressable, Alert, ActivityIndicator,
-  Keyboard,
+  View, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Pressable, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { Dimensions } from 'react-native';
@@ -18,6 +18,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../constants/colors';
 import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
+import { FONT_INTER } from '../../constants/fonts'
+import {
+  COLOR_BLACK,
+  COLOR_GRAY_236,
+  COLOR_GRAY_30,
+  COLOR_GRAY_42,
+  COLOR_WHITE,
+} from '../../constants/config';
 
 /**
  * One ground for the whole sheet — header, list and composer alike.
@@ -139,7 +147,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
         >
           {/* Header */}
           <View style={[styles.header, { backgroundColor: SHEET_BG }]}>
-            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Comments</Text>
+            <Text style={[styles.headerTitle, { color: COLOR_WHITE }]}>Comments</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
               <X size={22} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
@@ -195,13 +203,13 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             sending={submitting}
             mentions
             sendLabel="Post"
-            tone={{ surface: SHEET_BG, field: SHEET_BG, border: '#2A2A2A', text: '#ECECEC', accent: colors.primaryAlt }}
+            tone={{ surface: SHEET_BG, field: SHEET_BG, border: COLOR_GRAY_42, text: COLOR_GRAY_236, accent: colors.primaryAlt }}
             barStyle={{ paddingHorizontal: 4, paddingTop: 4 }}
             bottomInset={Math.max(insets.bottom, 12)}
             banner={replyingTo ? (
-              <View style={[styles.replyBanner, { backgroundColor: '#1E1E1E', borderBottomColor: '#000000' }]}>
+              <View style={[styles.replyBanner, { backgroundColor: COLOR_GRAY_30, borderBottomColor: COLOR_BLACK }]}>
                 <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
-                  Replying to <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>@{replyingTo.username}</Text>
+                  Replying to <Text style={{ fontWeight: '700', color: COLOR_WHITE }}>@{replyingTo.username}</Text>
                 </Text>
                 <TouchableOpacity
                   onPress={() => { setReplyingTo(null); setCommentText(''); }}
@@ -236,7 +244,7 @@ const styles = StyleSheet.create({
   // No rules against the list: header, comments and composer are one surface,
   // and a line across it made them read as separate panels again.
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
-  headerTitle: { fontSize: 17, fontWeight: '700' },
+  headerTitle: { fontSize: 17, fontFamily: FONT_INTER.bold },
   list:        { paddingTop: 4, paddingBottom: 16 },
   empty:       { textAlign: 'center', padding: 32, fontSize: 14 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 7, borderBottomWidth: 1 },

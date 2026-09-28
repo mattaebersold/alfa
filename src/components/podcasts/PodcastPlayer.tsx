@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { Podcast, PodcastEpisode } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const SPEED_STEPS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
@@ -153,12 +155,12 @@ const styles = StyleSheet.create({
   artwork:          { width: 44, height: 44, borderRadius: 6 },
   artworkPlaceholder: { width: 44, height: 44, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   info:             { flex: 1, gap: 1 },
-  episodeTitle:     { fontSize: 12, fontWeight: '700' },
+  episodeTitle:     { fontSize: 12, fontFamily: FONT_INTER.bold },
   showTitle:        { fontSize: 11 },
   time:             { fontSize: 10 },
   controls:         { flexDirection: 'row', alignItems: 'center', gap: 6 },
   iconBtn:          { padding: 4 },
-  skipLabel:        { fontSize: 11, fontWeight: '700' },
+  skipLabel:        { fontSize: 11, fontFamily: FONT_INTER.bold },
   playBtn:          {
     width: 36, height: 36, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
@@ -172,7 +174,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   speedBtn:         { borderWidth: 1, borderRadius: COMMON_RADIUS, paddingHorizontal: 5, paddingVertical: 2 },
-  speedText:        { fontSize: 10, fontWeight: '700' },
+  speedText:        { fontSize: 10, fontFamily: FONT_INTER.bold },
   closeBtn:         { padding: 4 },
   closeText:        { fontSize: 16 },
 });

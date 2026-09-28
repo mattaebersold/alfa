@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Modal,
+  View, TouchableOpacity, StyleSheet, Modal,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView } from '@ors/kit';
 import { ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +10,8 @@ import { MapPin } from 'lucide-react-native';
 import { useGetNearbyPlacesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Names a pit stop.
@@ -165,17 +167,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden',
   },
   body:  { padding: 20, gap: 10 },
-  title:    { fontSize: 18, fontWeight: '800' },
+  title:    { fontSize: 18, fontFamily: FONT_INTER.bold },
   subtitle: { fontSize: 13, marginTop: -6 },
 
   chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 4 },
   chip:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1.5 },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   nearby:      { gap: 2, maxHeight: 210 },
-  nearbyLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  nearbyLabel: { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.5 },
   placeRow:    { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth },
-  placeName:   { fontSize: 14, fontWeight: '700' },
+  placeName:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   placeMeta:   { fontSize: 11, marginTop: 1 },
 
   input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
@@ -184,6 +186,6 @@ const styles = StyleSheet.create({
   actions:    { flexDirection: 'row', gap: 10, marginTop: 6 },
   btn:        { height: 50, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   cancel:     { borderWidth: 1.5 },
-  cancelText: { fontSize: 15, fontWeight: '700' },
-  submitText: { fontSize: 15, fontWeight: '800' },
+  cancelText: { fontSize: 15, fontFamily: FONT_INTER.bold },
+  submitText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 });

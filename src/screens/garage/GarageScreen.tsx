@@ -21,7 +21,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { GetProButton, ProUpsellModal } from '../../components/pro/ProUpsell';
-import { CAR_LIMIT_BASIC } from '../../constants/limits';
+import { CAR_LIMIT_BASIC } from '../../constants/config';
 import type { CarsStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 

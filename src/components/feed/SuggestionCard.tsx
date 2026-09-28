@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, GUTTER, COLOR_GRAY_22 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The shell both suggestion rows sit in.
@@ -25,7 +26,7 @@ interface SuggestionCardProps {
   /**
    * No card: full screen width, straight on the feed's ground. For a row whose
    * own cards already carry a surface — boxing cards inside a card is one frame
-   * too many. The heading and the row keep the same 12 inset either way.
+   * too many. The heading and the row keep the same GUTTER inset either way.
    */
   bare?: boolean;
   /** A small text link beside the heading — "View all". */
@@ -33,14 +34,14 @@ interface SuggestionCardProps {
   children: React.ReactNode;
 }
 
-export const SUGGESTION_CARD_PAD = 12;
+/** The rows' inset — the app's GUTTER, so the headings line up with the feed's cards. */
+export const SUGGESTION_CARD_PAD = GUTTER;
 
 export default function SuggestionCard({ title, onClose, bare, action, children }: SuggestionCardProps) {
   const colors = useColors();
-  const brand = useBrandColor();
 
   return (
-    <View style={[styles.card, bare ? styles.bare : { backgroundColor: colors.card }]}>
+    <View style={[styles.card, bare && styles.bare]}>
       <View style={styles.header}>
         <Text style={[styles.heading, { color: colors.fg }]}>{title}</Text>
         <View style={styles.headerEnd}>
@@ -50,7 +51,9 @@ export default function SuggestionCard({ title, onClose, bare, action, children 
               hitSlop={12}
               accessibilityRole="link"
             >
-              <Text style={[styles.action, { color: brand }]}>{action.label}</Text>
+              {/* Grey, not the brand colour: a way through to the full list,
+                  not the row's point — the members and cars are. */}
+              <Text style={[styles.action, { color: colors.grey }]}>{action.label}</Text>
             </TouchableOpacity>
           )}
           {onClose && (
@@ -63,7 +66,7 @@ export default function SuggestionCard({ title, onClose, bare, action, children 
               accessibilityRole="button"
               accessibilityLabel={`Hide ${title}`}
             >
-              <X size={13} color={colors.fg} strokeWidth={2.5} />
+              <X size={16} color={colors.fg} strokeWidth={2.5} />
             </TouchableOpacity>
           )}
         </View>
@@ -74,22 +77,27 @@ export default function SuggestionCard({ title, onClose, bare, action, children 
 }
 
 const styles = StyleSheet.create({
+  // The same grey box as the feed's post cards (FeedItemCard), on the same
+  // GUTTER, so a suggestion row reads as one more card in the feed. Clipped,
+  // so the row scrolling sideways inside stops at the box's rounded edge.
   card: {
-    marginHorizontal: 8,
+    marginHorizontal: GUTTER,
     marginTop: 8,
     paddingTop: 12,
     paddingBottom: 12,
     borderRadius: COMMON_RADIUS,
+    backgroundColor: COLOR_GRAY_22,
+    overflow: 'hidden',
   },
   // With no surface to sit inside, the card's padding was only empty space
   // above the heading and below the row.
-  bare: { marginHorizontal: 0, marginTop: 4, borderRadius: 0, paddingTop: 4, paddingBottom: 4 },
+  bare: { marginHorizontal: 0, marginTop: 4, borderRadius: 0, paddingTop: 4, paddingBottom: 4, backgroundColor: 'transparent', overflow: 'visible' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SUGGESTION_CARD_PAD, marginBottom: 10,
   },
-  heading: { fontSize: 15, fontWeight: '800', letterSpacing: 0.3 },
+  heading: { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
   headerEnd: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  close: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  action: { fontSize: 12, fontWeight: '700' },
+  close: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  action: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

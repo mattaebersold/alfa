@@ -1,8 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, TextInput, Dimensions,
+  View, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, Dimensions,
+  type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
+import OilSheen from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Users, MapPin, Ban } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -71,25 +74,29 @@ interface GroupFilterValue {
   type: string | null;
 }
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_PRO, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY, COLOR_GRAY_58,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** Side margin on the My Groups container, matching the 12 gutter below it. */
-const MY_SECTION_MARGIN = 12;
+// The app's GUTTER — every section on this screen sits on it.
+const MY_SECTION_MARGIN = GUTTER;
 const MY_CARD_GAP = 8;
-// A shelf you scan rather than cards you page through: a little over two fit
-// inside the container, and the part of the third says the row goes on.
-const MY_CARD_WIDTH = Math.round((SCREEN_WIDTH - MY_SECTION_MARGIN * 2) * 0.42);
+// 70% of the screen: one card to look at, and the edge of the next saying
+// the row goes on.
+const MY_CARD_WIDTH = Math.round(SCREEN_WIDTH * 0.7);
 /** The shelf's whole inner width — a lone group has nothing to share it with. */
 const MY_CARD_WIDTH_SOLO = SCREEN_WIDTH - MY_SECTION_MARGIN * 2 - 12 * 2;
-const MY_CARD_HEIGHT = 118;
-/** Taller too, so a full-width banner isn't a letterbox strip. */
-const MY_CARD_HEIGHT_SOLO = 170;
 
-const ADMIN_BADGE = { label: 'ADMIN', bg: '#CDA96F', fg: '#000000' };
-const MEMBER_BADGE = { label: 'MEMBER', bg: '#2F6FED', fg: '#FFFFFF' };
+/** Your groups' cards — lighter than the grid's `COLOR_GRAY_40`. */
+const MY_CARD_BG = COLOR_GRAY_58;
+
+const ADMIN_BADGE = { label: 'ADMIN', bg: COLOR_PRO, fg: COLOR_BLACK };
+const MEMBER_BADGE = { label: 'MEMBER', bg: COLOR_MEMBER_BLUE, fg: COLOR_WHITE };
 
 /**
  * A group you're not in.
@@ -101,34 +108,63 @@ const MEMBER_BADGE = { label: 'MEMBER', bg: '#2F6FED', fg: '#FFFFFF' };
  * position you'd scrolled to, and the panel carries a View Group button for
  * when the answer is yes.
  */
+/**
+ * A region's badge colour — steady per region, from the app's hue palette,
+ * hashed from the key so a region added later still gets one.
+ */
+const REGION_HUES = [
+  COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID,
+  COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
+];
+function regionColor(key?: string | null): string {
+  if (!key) return COLOR_HUE_STEEL;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return REGION_HUES[h % REGION_HUES.length];
+}
+
 function GroupCard({ group, onPress }: {
   group: Group;
   onPress: (origin: SummaryOrigin | null) => void;
 }) {
   const colors = useColors();
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
+  const region = regionLabel(group.region);
   return (
+    // Built like a marketplace card: a bordered card, its picture rounded
+    // all round, and the words on a lighter panel under it.
     <SummaryTouchable
-      style={[styles.card, { backgroundColor: colors.card }]}
+      // One ground for the whole card — the words' panel colour, so it shows
+      // the same around the picture's rounded corners as under it.
+      style={[styles.card, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.9}
       accessibilityLabel={group.title ?? 'Group'}
     >
-      {banner
-        ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
-        : <View style={[styles.cardBanner, { backgroundColor: colors.primaryAlt + '55' }]} />
-      }
+      <View style={styles.cardBannerWrap}>
+        {banner
+          ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
+          : <View style={[styles.cardBanner, { backgroundColor: colors.primaryAlt + '55' }]} />
+        }
+        {/* Where it is, on the picture's bottom left — each region its own
+            colour, as a listing's category is. */}
+        {region ? (
+          <View style={[styles.cardRegion, { backgroundColor: regionColor(group.region) }]}>
+            <MapPin size={10} color={COLOR_BLACK} strokeWidth={2.4} />
+            <Text style={styles.cardRegionText} numberOfLines={1}>{region}</Text>
+          </View>
+        ) : null}
+        {/* How many are in it, bottom right — as on your own groups' cards. */}
+        {typeof group.member_count === 'number' ? (
+          <View style={styles.cardMembers}>
+            <Users size={11} color={COLOR_WHITE} />
+            <Text style={styles.cardMembersText}>{group.member_count}</Text>
+          </View>
+        ) : null}
+      </View>
       <View style={styles.cardBody}>
         <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
         {group.subtitle && <Text style={[styles.cardSub, { color: colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>}
-        {regionLabel(group.region) && (
-          <View style={[styles.cardRegion, { backgroundColor: colors.segment }]}>
-            <MapPin size={10} color={colors.grey} strokeWidth={2.4} />
-            <Text style={[styles.cardRegionText, { color: colors.fg }]} numberOfLines={1}>
-              {regionLabel(group.region)}
-            </Text>
-          </View>
-        )}
       </View>
     </SummaryTouchable>
   );
@@ -140,47 +176,80 @@ function MyGroupCard({ group, onPress, solo = false }: { group: Group; onPress: 
   const isAdmin = group.membership?.member_type === 'admin';
   const badge = isAdmin ? ADMIN_BADGE : MEMBER_BADGE;
   return (
+    // The same card as the groups grid below — picture, badges on it, the
+    // name on the panel under it — so your groups and everyone's read alike.
+    // No region: you know where your own groups are.
     <TouchableOpacity
       style={[
+        styles.card,
         styles.myCard,
-        solo
-          ? { width: MY_CARD_WIDTH_SOLO, height: MY_CARD_HEIGHT_SOLO }
-          : { width: MY_CARD_WIDTH, height: MY_CARD_HEIGHT },
-        { borderColor: badge.bg },
+        { width: solo ? MY_CARD_WIDTH_SOLO : MY_CARD_WIDTH },
+        // A step lighter than the grid's cards — your own groups, set forward.
+        { backgroundColor: MY_CARD_BG, borderColor: colors.border },
       ]}
       onPress={onPress}
-      activeOpacity={0.95}
+      activeOpacity={0.9}
+      accessibilityLabel={`${group.title ?? 'Group'}, ${badge.label.toLowerCase()}`}
     >
-      {banner
-        ? <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" />
-        : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primaryAlt }]} />
-      }
-      <View style={styles.myCardOverlay} />
-      <View style={[styles.myCardBadge, { backgroundColor: badge.bg }]}>
-        <Text style={[styles.myCardBadgeText, { color: badge.fg }]}>{badge.label}</Text>
-      </View>
-      <View style={styles.myCardInfo}>
-        <Text style={styles.myCardTitle} numberOfLines={1}>{group.title}</Text>
-        {typeof group.member_count === 'number' && (
-          <View style={styles.myCardMembers}>
-            <Users size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.myCardMembersText}>{group.member_count}</Text>
+      <View style={styles.cardBannerWrap}>
+        {banner
+          ? <Image source={{ uri: banner }} style={[styles.cardBanner, solo && styles.myCardBannerSolo]} contentFit="cover" />
+          : <View style={[styles.cardBanner, solo && styles.myCardBannerSolo, { backgroundColor: colors.primaryAlt + '55' }]} />
+        }
+        {/* Your part in it, top left. A group you run wears the gold with
+            the oil-slick film; one you're in, the member blue. */}
+        <View style={[styles.myCardBadge, { backgroundColor: badge.bg }]}>
+          {isAdmin ? <OilSheen tone="warm" radius={PILL_RADIUS} /> : null}
+          <Text style={[styles.myCardBadgeText, { color: badge.fg }]}>{badge.label}</Text>
+        </View>
+        {typeof group.member_count === 'number' ? (
+          <View style={styles.cardMembers}>
+            <Users size={11} color={COLOR_WHITE} />
+            <Text style={styles.cardMembersText}>{group.member_count}</Text>
           </View>
-        )}
+        ) : null}
+      </View>
+      <View style={[styles.cardBody, { backgroundColor: MY_CARD_BG }]}>
+        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
+/**
+ * The groups list as a screen of its own: just the header around GroupsView.
+ * The home screen shows the same view under its "Groups" tab, in place.
+ */
 export default function GroupsScreen() {
+  const colors = useColors();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <AppHeader />
+      <GroupsView headerPad={headerPad} onScroll={onScroll} />
+    </SafeAreaView>
+  );
+}
+
+/**
+ * Everything on the Groups screen below the header, for any screen that
+ * brings its own: `headerPad` is the space its header takes (the list starts
+ * under it), and `onScroll` is its header's hide-on-scroll handler.
+ */
+export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
+  headerPad: number;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** For a host that needs to move the scroll itself — the home screen's jump to the top. */
+  scrollRef?: React.RefObject<FlatList<any> | null>;
+}) {
   // The header's back button lands here at the top — see useScrollTopOnBack.
-  const scrollRef = useRef<FlatList<any>>(null);
+  const ownRef = useRef<FlatList<any>>(null);
+  const scrollRef = givenRef ?? ownRef;
   useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
-  const headerPad = useHeaderPad();
-  const onScroll = useHeaderScroll(headerPad);
   const { userInfo } = useAppSelector((s) => s.auth);
   const brandTextColor = useBrandTextColor();
   const [search, setSearch] = useState('');
@@ -280,8 +349,7 @@ export default function GroupsScreen() {
   if (userGroupsLoading || allGroupsLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
-      <AppHeader />
+    <>
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
           ref={scrollRef}
@@ -372,43 +440,39 @@ export default function GroupsScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
+                {/* The filter beside the search, as a pill naming what's
+                    applied — the pattern events and the marketplace share.
+                    Region and type, together: both run over what's already
+                    loaded, so Apply is instant. */}
+                <FilterSummaryRow<GroupFilterValue>
+                  value={{ region, type }}
+                  onApply={(next) => { setRegion(next.region); setType(next.type); }}
+                  pills={[
+                    { key: 'region', label: regionButtonLabel(region) },
+                    ...(type ? [{ key: 'type', label: typeButtonLabel(type) }] : []),
+                  ]}
+                  accessibilityLabel={`Filter groups: ${[regionButtonLabel(region), ...(type ? [typeButtonLabel(type)] : [])].join(', ')}`}
+                  compact
+                >
+                  {(draft, setDraft) => (
+                    <>
+                      <FilterChoiceRow<string | null>
+                        label="Region"
+                        options={REGION_CHOICES}
+                        selected={draft.region}
+                        onSelect={(region) => setDraft((d) => ({ ...d, region }))}
+                      />
+                      <FilterChoiceRow<string | null>
+                        label="Type"
+                        options={TYPE_CHOICES}
+                        selected={draft.type}
+                        onSelect={(type) => setDraft((d) => ({ ...d, type }))}
+                      />
+                    </>
+                  )}
+                </FilterSummaryRow>
               </View>
 
-              {/* The same filter row events, members and cars have, rather
-                  than a region button of its own beside the search field. Both
-                  filters run over what's already loaded, so Apply is instant.
-
-                  Where and what kind are separate questions — a Northwest
-                  single-make register and a Northwest regional club are not the
-                  same thing to be looking for — and events already asks both in
-                  one panel, so groups does too. */}
-              <FilterSummaryRow<GroupFilterValue>
-                value={{ region, type }}
-                onApply={(draft) => { setRegion(draft.region); setType(draft.type); }}
-                pills={[
-                  { key: 'region', label: regionButtonLabel(region) },
-                  { key: 'type', label: typeButtonLabel(type) },
-                ]}
-                accessibilityLabel={`Filter groups: ${regionButtonLabel(region)}, ${typeButtonLabel(type)}`}
-                style={styles.filterRow}
-              >
-                {(draft, setDraft) => (
-                  <>
-                    <FilterChoiceRow<string | null>
-                      label="Region"
-                      options={REGION_CHOICES}
-                      selected={draft.region}
-                      onSelect={(region) => setDraft((d) => ({ ...d, region }))}
-                    />
-                    <FilterChoiceRow<string | null>
-                      label="Type"
-                      options={TYPE_CHOICES}
-                      selected={draft.type}
-                      onSelect={(type) => setDraft((d) => ({ ...d, type }))}
-                    />
-                  </>
-                )}
-              </FilterSummaryRow>
 
               {/* The only way back from a decline. It lives here rather than in
                   settings because it's a fact about groups, and this is the
@@ -464,9 +528,12 @@ export default function GroupsScreen() {
         // is nothing to do with it from this list.
         onCreated={(groupId) => goToGroup(groupId)}
       />
-    </SafeAreaView>
+    </>
   );
 }
+
+/** A card's corners, and its picture's — a touch tighter than the app's radius at this size. */
+const CARD_RADIUS = 14;
 
 const styles = StyleSheet.create({
   content: { flex: 1 },
@@ -476,7 +543,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  screenTitle: { fontSize: 20, fontWeight: '800', letterSpacing: 0.3 },
+  screenTitle: { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
 
   /**
    * Your groups sit on their own ground.
@@ -500,87 +567,79 @@ const styles = StyleSheet.create({
   },
   // Uppercase and small, like a section label rather than a page title — the
   // page title is "Groups", and two headings at the same weight competed.
-  myGroupsHeading: {
-    fontSize: 12, fontWeight: '800', letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
+  // A section heading, in the form's heading face — not a small caps label.
+  myGroupsHeading: { fontSize: 17, fontFamily: FONT_INTER.bold },
   myGroupsCount: {
     minWidth: 20, height: 20, borderRadius: 10,
     paddingHorizontal: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  myGroupsCountText: { fontSize: 11, fontWeight: '800' },
+  myGroupsCountText: { fontSize: 11, fontFamily: FONT_INTER.extrabold },
   myGroupsList: { paddingHorizontal: 12, gap: MY_CARD_GAP },
-  myCard: {
-    borderRadius: COMMON_RADIUS,
-    overflow: 'hidden',
-    backgroundColor: '#111',
-    // Edged in the same colour as its role badge — gold for a group you run,
-    // blue for one you're in. Which of your groups is which reads at a glance,
-    // and a browse card has no edge at all.
-    borderWidth: 1.5,
-  },
-  myCardOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  myCardInfo: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 9, paddingVertical: 7,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  myCardTitle:  { flex: 1, fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
-  myCardMembers: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  myCardMembersText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
+  // A grid card, at the shelf's width — `card` gives it the rest.
+  myCard: { flex: 0 },
+  // Wider, shallower picture when yours is the only one.
+  myCardBannerSolo: { aspectRatio: 2 / 1 },
   myCardBadge:  {
-    position: 'absolute', top: 7, left: 7,
-    paddingHorizontal: 6, paddingVertical: 2,
-    borderRadius: PILL_RADIUS,
+    position: 'absolute', top: 6, left: 6,
+    paddingHorizontal: 7, paddingVertical: 2.5,
+    borderRadius: PILL_RADIUS, overflow: 'hidden',
   },
-  myCardBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  myCardBadgeText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.5 },
 
+  // The search and the filter pill, side by side.
   searchRow: {
-    flexDirection: 'row', alignItems: 'stretch', gap: 8,
-    marginHorizontal: 12, marginTop: 10, marginBottom: 4,
-  },
-  // Tucked up under the search field; the declined row below brings its own gap.
-  filterRow: { marginTop: 4, marginBottom: 10 },
-  searchBar: {
-    flex: 1, minWidth: 0,
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 10, borderWidth: 1,
+    marginHorizontal: GUTTER, marginTop: 10, marginBottom: 10,
+  },
+  // A pill, the filter's height, taking the rest of the row.
+  searchBar: {
+    flex: 1, minWidth: 0, height: 44,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: PILL_RADIUS, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
   declinedRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 12, marginBottom: 10,
+    marginHorizontal: GUTTER, marginBottom: 10,
     paddingHorizontal: 12, paddingVertical: 10,
     borderRadius: 10, borderWidth: 1,
   },
-  declinedText:   { flex: 1, fontSize: 13, fontWeight: '600' },
-  declinedAction: { fontSize: 13, fontWeight: '800' },
+  declinedText:   { flex: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
+  declinedAction: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
 
   // The same 12 gutter as My Groups and the search row above.
   cardRow:  { gap: 8, marginBottom: 8, paddingHorizontal: MY_SECTION_MARGIN },
+  // The marketplace card's frame.
   card: {
-    flex: 1, borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    flex: 1, borderRadius: CARD_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
+  // Rounded all round, the card's radius — a tile set into the card.
+  cardBannerWrap: { borderRadius: CARD_RADIUS, overflow: 'hidden' },
   cardBanner: { width: '100%', aspectRatio: 3 / 2 },
-  cardBody:   { padding: 8 },
-  cardTitle:  { fontSize: 13, fontWeight: '700' },
+  // The lighter panel the words sit on, filling to the card's foot.
+  cardBody:   { flexGrow: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
+  cardTitle:  { fontSize: 13, fontFamily: FONT_INTER.bold },
   cardSub:    { fontSize: 12, marginTop: 2 },
+  // On the picture's bottom left, lifted off it like the marketplace's price.
   cardRegion: {
+    position: 'absolute', left: 6, bottom: 6, maxWidth: '62%',
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    alignSelf: 'flex-start', maxWidth: '100%',
-    marginTop: 6, paddingHorizontal: 7, paddingVertical: 3,
-    borderRadius: PILL_RADIUS,
+    paddingHorizontal: 8, paddingVertical: 3.5, borderRadius: PILL_RADIUS,
+    boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
   },
-  cardRegionText: { fontSize: 10.5, fontWeight: '700', flexShrink: 1 },
+  cardRegionText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_BLACK, flexShrink: 1 },
+  // Bottom right, on a dark disc so it reads over any picture.
+  cardMembers: {
+    position: 'absolute', right: 6, bottom: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 7, paddingVertical: 3.5, borderRadius: PILL_RADIUS,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  cardMembersText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 
   emptyWrap: { paddingTop: 20 },
 
-  headingWrap: { paddingHorizontal: 12, marginBottom: 4 },
+  headingWrap: { paddingHorizontal: GUTTER, marginBottom: 4 },
 });

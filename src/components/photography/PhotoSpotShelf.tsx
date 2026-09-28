@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight, Images } from 'lucide-react-native';
 import type { PhotoSpot } from '@ors/kit';
@@ -7,7 +8,14 @@ import { spotTypeLabel, spotTypeColor } from '@ors/kit/src/photography/constants
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_17,
+  COLOR_GRAY_23,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer — same as PostStrip. */
 export const PHOTO_SPOT_SHELF_COUNT = 6;
@@ -16,7 +24,7 @@ const CARD_GAP = 10;
 const ROW_PAD_LEFT = 16;
 const MEDIA_RATIO = 4 / 3;
 /** The profile shelves' card shade — see PostStrip and ListShelf. */
-const CARD_BG = '#171717';
+const CARD_BG = COLOR_GRAY_23;
 
 /**
  * The photography pins a member has dropped, as a shelf on their profile.
@@ -94,7 +102,7 @@ export default function PhotoSpotShelf({ spots, total, onSpotPress, onViewAll }:
                 ) : null}
                 {photos > 0 ? (
                   <View style={styles.photoBadge}>
-                    <Images size={10} color="#FFFFFF" />
+                    <Images size={10} color={COLOR_WHITE} />
                     <Text style={styles.photoText}>{photos}</Text>
                   </View>
                 ) : null}
@@ -119,28 +127,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 10,
   },
-  title:       { fontSize: 17, fontWeight: '800' },
+  title:       { fontSize: 17, fontFamily: FONT_INTER.bold },
   viewAll:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: { fontSize: 13, fontWeight: '700' },
+  viewAllText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   card: {
     width: CARD_WIDTH, borderRadius: COMMON_RADIUS, overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth, backgroundColor: CARD_BG,
   },
-  image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: '#111111' },
+  image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: COLOR_GRAY_17 },
   typeBadge: {
     position: 'absolute', left: 8, bottom: 8, maxWidth: CARD_WIDTH - 60,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
   },
-  typeText:  { fontSize: 11, fontWeight: '800', color: '#000000' },
+  typeText:  { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   photoBadge: {
     position: 'absolute', right: 8, bottom: 8,
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
   },
-  photoText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  photoText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   body: { padding: 10 },
-  name: { fontSize: 13, fontWeight: '600', lineHeight: 17 },
+  name: { fontSize: 13, fontFamily: FONT_INTER.semibold, lineHeight: 17 },
 });

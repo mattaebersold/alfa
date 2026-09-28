@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator, Keyboard,
+  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +19,8 @@ import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import AddressField from '../../components/ui/AddressField';
 import type { PlaceDetail } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -149,7 +150,7 @@ export default function EventCreateScreen() {
                 style={[styles.typeBtn, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
                 onPress={() => handleTypeChange(key)}
               >
-                <Text style={[styles.typeBtnText, { color: active ? '#FFFFFF' : colors.grey }]}>
+                <Text style={[styles.typeBtnText, { color: active ? COLOR_WHITE : colors.grey }]}>
                   {label}
                 </Text>
               </TouchableOpacity>
@@ -168,7 +169,7 @@ export default function EventCreateScreen() {
                   style={[styles.catChip, { borderColor: active ? colors.primaryAlt : colors.border }, active && { backgroundColor: colors.primaryAlt }]}
                   onPress={() => setCategory(active ? '' : key)}
                 >
-                  <Text style={[styles.catChipText, { color: active ? '#FFFFFF' : colors.grey }]}>
+                  <Text style={[styles.catChipText, { color: active ? COLOR_WHITE : colors.grey }]}>
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -235,7 +236,7 @@ export default function EventCreateScreen() {
                 <View key={idx} style={styles.thumbWrap}>
                   <Image source={{ uri: img.uri }} style={styles.thumb} contentFit="cover" />
                   <TouchableOpacity style={styles.thumbRemove} onPress={() => removeImage(idx)}>
-                    <X size={11} color="#FFF" />
+                    <X size={11} color={COLOR_WHITE} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -252,7 +253,7 @@ export default function EventCreateScreen() {
           disabled={isLoading}
         >
           {isLoading
-            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            ? <ActivityIndicator color={COLOR_WHITE} size="small" />
             : <Text style={styles.submitText}>Create Event</Text>
           }
         </TouchableOpacity>
@@ -272,16 +273,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: COMMON_RADIUS, borderWidth: 1.5,
   },
-  typeBtnText: { fontSize: 12, fontWeight: '700' },
+  typeBtnText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   catChip: {
     paddingHorizontal: 11, paddingVertical: 5,
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  catChipText: { fontSize: 12, fontWeight: '600' },
+  catChipText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   titleInput: {
     paddingHorizontal: 14, paddingVertical: 13,
-    fontSize: 17, fontWeight: '700', borderBottomWidth: 1,
+    fontSize: 17, fontFamily: FONT_INTER.bold, borderBottomWidth: 1,
   },
   bodyInput: {
     paddingHorizontal: 14, paddingVertical: 13,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
 
   fieldSection: { borderBottomWidth: 1, paddingBottom: 4 },
   sectionLabel: {
-    fontSize: 11, fontWeight: '700', letterSpacing: 0.6,
+    fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.6,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6,
   },
   // The picker fields carry their own border, so the row only spaces them.
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 12,
   },
-  addPhotoText: { fontSize: 14, fontWeight: '600' },
+  addPhotoText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
   thumbRow:  { paddingHorizontal: 14 },
   thumbWrap: { marginRight: 8 },
   thumb:     { width: 72, height: 72, borderRadius: 8 },
@@ -322,5 +323,5 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  submitText: { color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold },
 });

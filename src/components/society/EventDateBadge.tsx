@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { colors } from '../../constants/colors';
 import { calendarDate } from '../../utils/calendarDate';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_GRAY_20, COLOR_WHITE } from '../../constants/config';
 
 /**
  * Torn-off calendar page: red month strip over a big day number and weekday on
@@ -49,7 +52,7 @@ export default function EventDateBadge({
 const styles = StyleSheet.create({
   wrap: {
     width: 62, borderRadius: 12, overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLOR_WHITE,
     // On a photo the badge defines itself; on the event detail's own white
     // sheet it would otherwise be a red strip floating over nothing.
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.18)',
@@ -58,7 +61,7 @@ const styles = StyleSheet.create({
 
   month:      { paddingVertical: 3, alignItems: 'center', backgroundColor: colors.guards },
   monthText:  {
-    fontSize: 10, fontWeight: '800', color: '#FFFFFF',
+    fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE,
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   monthTextSm: { fontSize: 9 },
@@ -66,8 +69,8 @@ const styles = StyleSheet.create({
   body:   { paddingVertical: 5, alignItems: 'center' },
   bodySm: { paddingVertical: 3, alignItems: 'center' },
 
-  day:    { fontSize: 24, fontWeight: '800', lineHeight: 26, color: '#141414' },
-  daySm:  { fontSize: 19, fontWeight: '800', lineHeight: 21, color: '#141414' },
+  day:    { fontSize: 24, fontFamily: FONT_INTER.bold, lineHeight: 26, color: COLOR_GRAY_20 },
+  daySm:  { fontSize: 19, fontFamily: FONT_INTER.bold, lineHeight: 21, color: COLOR_GRAY_20 },
 
   weekday: {
     fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 1,

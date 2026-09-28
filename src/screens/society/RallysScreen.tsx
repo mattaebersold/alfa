@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl,
-  Dimensions,
+  View, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -20,7 +20,8 @@ import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate, calendarTime } from '../../utils/calendarDate';
 import { RALLY_DATE_TBA } from '../../utils/rally';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** A past rally in the scroller — wide enough to read, narrow enough that the
@@ -190,27 +191,27 @@ export default function RallysScreen() {
 const styles = StyleSheet.create({
   list:         { paddingBottom: 24 },
   sectionHeading: {
-    fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6,
+    fontSize: 13, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.6,
     paddingHorizontal: 12, paddingTop: 18, paddingBottom: 2,
   },
 
   card:         {
     marginHorizontal: 12, marginTop: 12,
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardPlaceholder: { backgroundColor: colors.primaryAlt },
   cardBody:     { padding: 12 },
-  date:         { fontSize: 12, fontWeight: '700', color: colors.primaryAlt, marginTop: 8, marginBottom: 4 },
-  title:        { fontSize: 16, fontWeight: '800', lineHeight: 22 },
+  date:         { fontSize: 12, fontFamily: FONT_INTER.bold, color: colors.primaryAlt, marginTop: 8, marginBottom: 4 },
+  title:        { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 22 },
   location:     { fontSize: 13, marginTop: 4 },
-  slots:        { fontSize: 12, color: colors.primaryAlt, fontWeight: '700', marginTop: 6 },
+  slots:        { fontSize: 12, color: colors.primaryAlt, fontFamily: FONT_INTER.bold, marginTop: 6 },
 
   pastSection:  { marginTop: 6 },
   pastScroll:   { paddingHorizontal: 12, paddingTop: 10, gap: 10 },
   pastCard:     { width: PAST_CARD_WIDTH, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   pastImage:    { width: '100%', aspectRatio: 16 / 9 },
   pastBody:     { padding: 10 },
-  pastDate:     { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  pastTitle:    { fontSize: 13, fontWeight: '700', lineHeight: 17, marginTop: 3 },
+  pastDate:     { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  pastTitle:    { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 17, marginTop: 3 },
 });

@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { useGetGroupDiscussionQuery } from '../../api/apiService';
@@ -15,6 +16,7 @@ import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupDiscussionPost } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
 
 function DiscussionRow({ post }: { post: GroupDiscussionPost }) {
   const colors = useColors();
@@ -76,7 +78,7 @@ export default function GroupDiscussionScreen({ route }: GroupsScreenProps<'Grou
 const styles = StyleSheet.create({
   list:        { flexGrow: 1, paddingBottom: 24 },
   rowContent:  { flex: 1 },
-  rowTitle:    { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  rowTitle:    { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 4 },
   rowBody:     { fontSize: 13, lineHeight: 18, marginBottom: 6 },
   rowMeta:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   rowTime:     { fontSize: 12 },

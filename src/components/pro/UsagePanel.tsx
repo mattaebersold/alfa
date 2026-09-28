@@ -1,15 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import {
-  ALERT_LIMIT_BASIC, CAR_LIMIT_BASIC, EVENT_LIMIT_BASIC, LISTING_LIMIT_BASIC, POST_LIMIT_BASIC,
-} from '../../constants/limits';
+  ALERT_LIMIT_BASIC,
+  CAR_LIMIT_BASIC,
+  EVENT_LIMIT_BASIC,
+  LISTING_LIMIT_BASIC,
+  POST_LIMIT_BASIC,
+  COLOR_BLACK,
+} from '../../constants/config';
 import type { MonthlyUsage } from '../../types/api';
 import { ProUpsell } from './ProUpsell';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** Black on the brand fill, gold or blue — see GarageScreen's addBtn. */
-const INK = '#000000';
+const INK = COLOR_BLACK;
 const INK_SOFT = 'rgba(0,0,0,0.62)';
 
 /**
@@ -146,9 +153,9 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
 const styles = StyleSheet.create({
   wrap: { borderRadius: 14, padding: 16, gap: 14 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { color: INK, fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
+  title: { color: INK, fontSize: 17, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
   tier: {
-    color: INK, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase',
+    color: INK, fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, textTransform: 'uppercase',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.12)', overflow: 'hidden',
   },
@@ -157,14 +164,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     marginTop: 4,
   },
-  sectionTitle: { color: INK, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
-  sectionSub: { color: INK_SOFT, fontSize: 12, fontWeight: '600' },
+  sectionTitle: { color: INK, fontSize: 12, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8, textTransform: 'uppercase' },
+  sectionSub: { color: INK_SOFT, fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   row: { gap: 7 },
   rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowLabel: { color: INK, fontSize: 14, fontWeight: '700' },
-  rowCount: { color: INK_SOFT, fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  rowNote: { color: INK_SOFT, fontSize: 12, fontWeight: '600', marginTop: -6 },
+  rowLabel: { color: INK, fontSize: 14, fontFamily: FONT_INTER.bold },
+  rowCount: { color: INK_SOFT, fontSize: 13, fontFamily: FONT_INTER.bold, fontVariant: ['tabular-nums'] },
+  rowNote: { color: INK_SOFT, fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: -6 },
   track: { height: 8, borderRadius: 999, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.16)' },
   fill: { height: '100%', borderRadius: 999 },
 
@@ -172,6 +179,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     marginTop: 2,
   },
-  footText: { color: INK_SOFT, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  footText: { color: INK_SOFT, fontSize: 12, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
   upsellBtn: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.35)' },
 });

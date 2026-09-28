@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Text } from '@ors/kit';
 import { format } from 'date-fns';
 import { MapPin } from 'lucide-react-native';
 import RallyDetailSheet from './RallyDetailSheet';
@@ -13,7 +14,8 @@ import type { Rally } from '../../types/api';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { calendarDate } from '../../utils/calendarDate';
 import { RALLY_DATE_TBA } from '../../utils/rally';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BADGE_DEFAULT, COLOR_BLACK, GUTTER } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks, matching the events row.
@@ -111,21 +113,21 @@ function RallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
 const FALLBACK_RATIO = 16 / 10;
 
 const styles = StyleSheet.create({
-  head:    { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 10 },
-  heading: { fontSize: 20, fontWeight: '800' },
+  head:    { paddingHorizontal: GUTTER, paddingTop: 24, paddingBottom: 10 },
+  heading: { fontSize: 20, fontFamily: FONT_INTER.bold },
 
   // Top-aligned: photos of different shapes make cards of different heights,
   // and none should stretch to match a taller neighbour.
-  row:  { paddingLeft: 12, gap: 12, alignItems: 'flex-start' },
+  row:  { paddingLeft: GUTTER, gap: 12, alignItems: 'flex-start' },
   card: {
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
 
   body:  { padding: 12, gap: 5 },
   // ORS gold, like the pill above it — the one colour a rally has.
-  date:  { fontSize: 11, fontWeight: '800', color: '#F0D689', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
-  title: { fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  date:  { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BADGE_DEFAULT, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  title: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.extrabold },
   meta:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 12, flexShrink: 1 },
 });

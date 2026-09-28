@@ -1,29 +1,39 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Text } from '@ors/kit';
 import { Sparkles, ChevronRight } from 'lucide-react-native';
 import SharedModal from './SharedModal';
 import OilSheen from './OilSheen';
 import { APP_VERSION } from '../../utils/appVersion';
 import { changelogFor, changelogBefore, EARLIEST_SHOWN, type ChangelogEntry } from '../../constants/changelog';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_10,
+  COLOR_GRAY_42,
+  COLOR_GRAY_60,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_MONO } from '../../constants/fonts';
 
 /**
  * The white surface, and the ink on it. Deliberately not from `useColors`: the
  * drawer is white-on-dark throughout, and this is the one light slab in its
  * footer, so its colours are the button's rather than the theme's.
  */
-const BTN_BG = '#FFFFFF';
-const BTN_FG = '#0A0A0A';
+const BTN_BG = COLOR_WHITE;
+const BTN_FG = COLOR_GRAY_10;
 const BTN_FG_MID = 'rgba(0,0,0,0.55)';
 
 /** Sheet colours, matched to SharedModal's near-black ground. */
-const TEXT_HI = '#FFFFFF';
+const TEXT_HI = COLOR_WHITE;
 const TEXT_MID = 'rgba(255,255,255,0.72)';
 const TEXT_FAINT = 'rgba(255,255,255,0.45)';
 /** The sheet is true black, so its rules are solid greys rather than white at low alpha. */
-const SHEET_BG = '#000000';
-const DIVIDER = '#2A2A2A';
-const DIVIDER_STRONG = '#3C3C3C';
+const SHEET_BG = COLOR_BLACK;
+const DIVIDER = COLOR_GRAY_42;
+const DIVIDER_STRONG = COLOR_GRAY_60;
 
 /**
  * "What's new in 1.42", at the foot of the menu, and the panel it opens.
@@ -181,12 +191,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   btnText:  { flex: 1, minWidth: 0 },
-  btnLabel: { fontSize: 14, fontWeight: '600', color: BTN_FG },
+  btnLabel: { fontSize: 14, fontFamily: FONT_MONO, fontWeight: '600', color: BTN_FG },
 
   headerSpacer:  { flex: 1 },
   // At the top of the scroll, ahead of the latest release's date and notes.
   headerRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  headerTitle:   { flexShrink: 1, fontSize: 22, fontWeight: '800', color: TEXT_HI },
+  headerTitle:   { flexShrink: 1, fontSize: 22, fontFamily: FONT_MONO, fontWeight: '700', color: TEXT_HI },
   // The button's surface, at pill size. Clips the sheen to the corners.
   versionPill: {
     paddingHorizontal: 11, paddingVertical: 4,
@@ -195,13 +205,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   versionText: {
-    fontSize: 13, fontWeight: '800', letterSpacing: 0.2, color: BTN_FG,
+    fontSize: 13, fontFamily: FONT_MONO, fontWeight: '800', letterSpacing: 0.2, color: BTN_FG,
     fontVariant: ['tabular-nums'],
   },
 
   scrollContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32 },
   date: {
-    fontSize: 12, fontWeight: '600',
+    fontSize: 12, fontFamily: FONT_MONO, fontWeight: '600',
     color: TEXT_FAINT,
     marginBottom: 14,
   },
@@ -214,7 +224,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: DIVIDER,
   },
   groupTitle: {
-    fontSize: 16, fontWeight: '800', letterSpacing: -0.2,
+    fontSize: 16, fontFamily: FONT_MONO, fontWeight: '700', letterSpacing: -0.2,
     color: TEXT_HI,
     marginBottom: 2,
   },
@@ -225,7 +235,7 @@ const styles = StyleSheet.create({
     width: 10, height: 1, marginTop: 9,
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
-  itemText: { flex: 1, fontSize: 14, lineHeight: 20, color: TEXT_MID },
+  itemText: { flex: 1, fontFamily: FONT_MONO, fontSize: 14, lineHeight: 20, color: TEXT_MID },
 
   // The break between this release and the ones before it: a heavier rule
   // than the one between sections, and a heading, so the eye knows the
@@ -233,7 +243,7 @@ const styles = StyleSheet.create({
   earlierTitle: {
     marginTop: 28, paddingTop: 18,
     borderTopWidth: 1, borderTopColor: DIVIDER_STRONG,
-    fontSize: 12, fontWeight: '700', letterSpacing: 0.6,
+    fontSize: 12, fontFamily: FONT_MONO, fontWeight: '700', letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: TEXT_FAINT,
   },
@@ -241,13 +251,13 @@ const styles = StyleSheet.create({
   // The pill, and the month under it.
   earlierHead: { alignItems: 'flex-start', gap: 6, marginBottom: 12 },
   earlierDate: {
-    fontSize: 12, fontWeight: '600',
+    fontSize: 12, fontFamily: FONT_MONO, fontWeight: '600',
     color: TEXT_FAINT,
   },
 
   footNote: {
     marginTop: 22, paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: DIVIDER,
-    fontSize: 12, color: TEXT_FAINT,
+    fontFamily: FONT_MONO, fontSize: 12, color: TEXT_FAINT,
   },
 });

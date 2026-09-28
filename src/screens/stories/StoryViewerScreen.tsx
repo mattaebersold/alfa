@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -11,7 +12,8 @@ import { imageUrl } from '../../utils/image';
 import LikeButton from '../../components/social/LikeButton';
 import type { AppScreenProps } from '../../navigation/types';
 import type { StoryGroup, Post } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type Props = AppScreenProps<'StoryViewer'>;
 
@@ -258,7 +260,7 @@ export default function StoryViewerScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: '#000' },
+  container:       { flex: 1, backgroundColor: COLOR_BLACK },
   noVideo:         { alignItems: 'center', justifyContent: 'center' },
   noVideoText:     { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
   bufferingOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLOR_WHITE,
     borderRadius: 2,
   },
 
@@ -297,11 +299,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarFallbackText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  username:     { color: '#fff', fontWeight: '600', fontSize: 13 },
+  avatarFallbackText: { color: COLOR_WHITE, fontFamily: FONT_INTER.bold, fontSize: 15 },
+  username:     { color: COLOR_WHITE, fontFamily: FONT_INTER.semibold, fontSize: 13 },
   storyTitle:   { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
   closeBtn:     { padding: 6 },
-  closeText:    { color: '#fff', fontSize: 20, fontWeight: '300' },
+  closeText:    { color: COLOR_WHITE, fontSize: 20, fontFamily: FONT_INTER.light },
 
   // Tap zones
   tapZones:     { ...StyleSheet.absoluteFill, flexDirection: 'row', zIndex: 5 },
@@ -322,6 +324,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: COMMON_RADIUS,
   },
   navBtnDisabled: { opacity: 0.3 },
-  navText:        { color: '#fff', fontSize: 14, fontWeight: '600' },
+  navText:        { color: COLOR_WHITE, fontSize: 14, fontFamily: FONT_INTER.semibold },
   likeWrapper:    { alignItems: 'center' },
 });

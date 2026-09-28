@@ -1,6 +1,17 @@
 // useColorScheme intentionally unused — app is dark-only
 import { colors } from '../constants/colors';
 import { useAppSelector } from '../store/store';
+import {
+  COLOR_GRAY_10,
+  COLOR_GRAY_13,
+  COLOR_GRAY_160,
+  COLOR_GRAY_180,
+  COLOR_GRAY_224,
+  COLOR_GRAY_30,
+  COLOR_GRAY_32,
+  COLOR_GRAY_40,
+  COLOR_GRAY_85,
+} from '../constants/config';
 
 // Dark-mode overrides — only surfaces that need to change from the light palette
 export const DarkColors = {
@@ -10,22 +21,22 @@ export const DarkColors = {
   // Darker than the cards that sit on it (#1e1e1e) by a wider margin than
   // before: at #121212 the two were close enough that a card read as a slightly
   // different patch of background rather than as an object on it.
-  cream:    '#0A0A0A',
-  bg:       '#0A0A0A',
-  segment:  '#1E1E1E',
-  secondary:'#282828',
-  inputBg:  '#0D0D0D',
+  cream:    COLOR_GRAY_10,
+  bg:       COLOR_GRAY_10,
+  segment:  COLOR_GRAY_30,
+  secondary:COLOR_GRAY_40,
+  inputBg:  COLOR_GRAY_13,
   // Cards / surfaces
-  card:     '#1e1e1e',
+  card:     COLOR_GRAY_30,
   // Text
-  fg:       '#E0E0E0',
-  muted:    '#A0A0A0',
+  fg:       COLOR_GRAY_224,
+  muted:    COLOR_GRAY_160,
   // Borders
-  border:   '#202020',
+  border:   COLOR_GRAY_32,
   // Input
-  inputBorder: '#555555',
+  inputBorder: COLOR_GRAY_85,
   // Grey — lighter on dark surfaces
-  grey:     '#B4B4B4',
+  grey:     COLOR_GRAY_180,
 } as const;
 
 export type ThemeColors = typeof colors;

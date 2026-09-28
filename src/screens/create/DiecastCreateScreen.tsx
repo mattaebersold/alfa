@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +21,8 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { DiecastAnalysis } from '../../types/api';
 import { uploadFile } from '../../utils/upload';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type Photo = { uri: string; name: string; type: string };
@@ -66,7 +67,7 @@ function ChipSelect({
               style={[styles.chip, { borderColor: active ? DIECAST_BLUE : colors.border }, active && { backgroundColor: DIECAST_BLUE }]}
               onPress={() => onChange(active ? '' : opt)}
             >
-              <Text style={[styles.chipText, { color: active ? '#FFFFFF' : colors.fg }]}>{opt}</Text>
+              <Text style={[styles.chipText, { color: active ? COLOR_WHITE : colors.fg }]}>{opt}</Text>
             </TouchableOpacity>
           );
         })}
@@ -80,7 +81,7 @@ function CheckRow({ label, value, onToggle }: { label: string; value: boolean; o
   return (
     <TouchableOpacity style={styles.checkRow} onPress={onToggle} activeOpacity={0.7}>
       <View style={[styles.checkbox, { borderColor: DIECAST_BLUE }, value && { backgroundColor: DIECAST_BLUE }]}>
-        {value && <Check size={12} color="#FFF" />}
+        {value && <Check size={12} color={COLOR_WHITE} />}
       </View>
       <Text style={[styles.checkLabel, { color: colors.fg }]}>{label}</Text>
     </TouchableOpacity>
@@ -218,7 +219,7 @@ export default function DiecastCreateScreen() {
       <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.photoStep}>
           <View style={[styles.hero, { backgroundColor: DIECAST_BLUE }]}>
-            <Sparkles size={26} color="#FFFFFF" />
+            <Sparkles size={26} color={COLOR_WHITE} />
             <Text style={styles.heroTitle}>Diecast Listing</Text>
             <Text style={styles.heroSub}>Snap a photo and we'll identify the brand, model, and suggest a price.</Text>
           </View>
@@ -255,7 +256,7 @@ export default function DiecastCreateScreen() {
           >
             {busy ? (
               <View style={styles.analyzingRow}>
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={COLOR_WHITE} size="small" />
                 <Text style={styles.primaryBtnText}>Analyzing photo…</Text>
               </View>
             ) : (
@@ -365,7 +366,7 @@ export default function DiecastCreateScreen() {
           onPress={handlePublish}
           disabled={publishing}
         >
-          {publishing ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.primaryBtnText}>Publish Listing</Text>}
+          {publishing ? <ActivityIndicator color={COLOR_WHITE} size="small" /> : <Text style={styles.primaryBtnText}>Publish Listing</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -375,26 +376,26 @@ export default function DiecastCreateScreen() {
 const styles = StyleSheet.create({
   photoStep:   { padding: 16, gap: 16 },
   hero:        { borderRadius: 16, padding: 20, alignItems: 'center', gap: 8 },
-  heroTitle:   { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  heroTitle:   { color: COLOR_WHITE, fontSize: 20, fontFamily: FONT_INTER.bold },
   heroSub:     { color: 'rgba(255,255,255,0.85)', fontSize: 13, textAlign: 'center', lineHeight: 19 },
 
   photoDrop:   { height: 260, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', overflow: 'hidden' },
   photoPreview: { width: '100%', height: '100%' },
   photoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  photoPlaceholderText: { fontSize: 14, fontWeight: '600' },
+  photoPlaceholderText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1 },
-  secondaryBtnText: { fontSize: 14, fontWeight: '700' },
+  secondaryBtnText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   summaryCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
   summaryThumb: { width: 64, height: 64, borderRadius: 10, overflow: 'hidden' },
   summaryInfo: { flex: 1 },
-  summaryTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  summaryMeta: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 3, fontWeight: '600' },
+  summaryTitle: { color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold },
+  summaryMeta: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 3, fontFamily: FONT_INTER.semibold },
 
   fields:      { padding: 16, gap: 16 },
   field:       { gap: 7 },
-  fieldLabel:  { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  fieldLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
   input:       { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
   inputMulti:  { minHeight: 90, paddingTop: 11 },
 
@@ -403,19 +404,19 @@ const styles = StyleSheet.create({
 
   chipWrap:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  chipText:    { fontSize: 13, fontWeight: '600' },
+  chipText:    { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   checkRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   checkbox:    { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  checkLabel:  { fontSize: 15, fontWeight: '600' },
+  checkLabel:  { fontSize: 15, fontFamily: FONT_INTER.semibold },
 
   notesCard:   { borderRadius: COMMON_RADIUS, borderWidth: 1, padding: 12, gap: 5 },
-  notesLabel:  { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  notesLabel:  { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.5 },
   notesText:   { fontSize: 13, lineHeight: 19 },
 
   footer:      { borderTopWidth: 1, paddingHorizontal: 16, paddingVertical: 12 },
   primaryBtn:  { borderRadius: COMMON_RADIUS, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  primaryBtnText: { color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold },
   btnDisabled: { opacity: 0.5 },
   analyzingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });

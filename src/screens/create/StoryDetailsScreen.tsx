@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,8 @@ import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_DANGER, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 type Props = AppScreenProps<'StoryDetails'>;
 
@@ -136,7 +137,7 @@ export default function StoryDetailsScreen({ route }: Props) {
             ]}
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={COLOR_WHITE} size="small" />
             ) : (
               <Text style={styles.submitText}>Post Story</Text>
             )}
@@ -156,8 +157,8 @@ const styles = StyleSheet.create({
 
   form:             { marginTop: 16, marginHorizontal: 16, borderRadius: 12, padding: 16, gap: 16 },
   field:            { gap: 6 },
-  label:            { fontSize: 13, fontWeight: '500' },
-  required:         { color: '#ef4444' },
+  label:            { fontSize: 13, fontFamily: FONT_INTER.medium },
+  required:         { color: COLOR_DANGER },
   textArea:         { minHeight: 90, paddingTop: 10 },
 
   footer:           {
@@ -168,5 +169,5 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, paddingVertical: 14, alignItems: 'center',
   },
   submitBtnDisabled: { opacity: 0.5 },
-  submitText:       { color: '#fff', fontWeight: '700', fontSize: 15 },
+  submitText:       { color: COLOR_WHITE, fontFamily: FONT_INTER.bold, fontSize: 15 },
 });

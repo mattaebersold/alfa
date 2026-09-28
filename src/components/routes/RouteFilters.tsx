@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import type { RouteSort } from '../../types/api';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Filter controls for the Routes list.
@@ -196,9 +198,9 @@ const styles = StyleSheet.create({
 
   rows:     { paddingHorizontal: 14, gap: 12 },
   row:      { gap: 6 },
-  rowLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+  rowLabel: { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.5, textTransform: 'uppercase' },
   rowPills: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
 
   pill:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1.5 },
-  pillText: { fontSize: 13, fontWeight: '700' },
+  pillText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

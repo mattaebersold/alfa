@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
+import { Text } from '@ors/kit';
 import { ChevronDown } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { RallyFaqItem } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The rally's FAQ as expandable rows, in the order the admin arranged them.
@@ -75,13 +77,13 @@ export default function RallyFaq({ faqs = [] }: { faqs?: RallyFaqItem[] }) {
 
 const styles = StyleSheet.create({
   section:  { paddingHorizontal: 16, paddingTop: 28 },
-  heading:  { fontSize: 20, fontWeight: '800', marginBottom: 12 },
+  heading:  { fontSize: 20, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   list:     { borderRadius: 14, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
   item:     {},
   question: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     gap: 12, paddingHorizontal: 16, paddingVertical: 15,
   },
-  questionText: { flex: 1, fontSize: 15, fontWeight: '700' },
+  questionText: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
   answer:       { fontSize: 14, lineHeight: 21, paddingHorizontal: 16, paddingBottom: 16, marginTop: -2 },
 });

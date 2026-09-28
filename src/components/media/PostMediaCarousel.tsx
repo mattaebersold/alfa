@@ -1,13 +1,15 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, FlatList, Pressable,
-  type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
+  View, TouchableOpacity, StyleSheet, FlatList, Pressable, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { NavigationContext } from '@react-navigation/native';
 import Svg, { Polygon } from 'react-native-svg';
 import VideoLightbox from '../ui/VideoLightbox';
 import { clampMediaRatio, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config';
 
 /**
  * A post's photos and videos in one swipeable strip.
@@ -50,8 +52,12 @@ export default function PostMediaCarousel({
    * viewer rather than leaving the post — unless `videoOpensItem` says otherwise.
    */
   onPressItem?: (index: number) => void;
-  /** Badges and counters drawn over the media, in the strip's own box. */
-  overlay?: React.ReactNode;
+  /**
+   * Badges and counters drawn over the media, in the strip's own box. A
+   * function gets the page on show, for a host that draws its own dots
+   * (PageDots) somewhere other than the foot's centre.
+   */
+  overlay?: React.ReactNode | ((page: { active: number; count: number }) => React.ReactNode);
   showPageIndicator?: boolean;
   /**
    * Whether the post this belongs to is on screen.
@@ -189,7 +195,7 @@ export default function PostMediaCarousel({
                   toward its base, so centring it geometrically leaves it
                   looking like it has drifted left inside the circle. */}
               <Svg width={22} height={22} viewBox="0 0 22 22" style={styles.playGlyph}>
-                <Polygon points="6,3 19,11 6,19" fill="#FFFFFF" />
+                <Polygon points="6,3 19,11 6,19" fill={COLOR_WHITE} />
               </Svg>
             </View>
           ) : (
@@ -234,7 +240,7 @@ export default function PostMediaCarousel({
         )
       )}
 
-      {overlay}
+      {typeof overlay === 'function' ? overlay({ active, count: media.length }) : overlay}
 
       {showPageIndicator && media.length > 1 && (
         <View style={styles.dots} pointerEvents="none">
@@ -249,8 +255,24 @@ export default function PostMediaCarousel({
   );
 }
 
+/**
+ * The page dots on their own, for a host placing them — see `overlay`. The
+ * same small white/translucent row the strip draws at its foot's centre.
+ */
+export function PageDots({ count, active }: { count: number; active: number }) {
+  if (count < 2) return null;
+  return (
+    <View style={styles.dotsInline} pointerEvents="none">
+      {Array.from({ length: count }, (_, i) => (
+        <View key={i} style={[styles.dot, i === active && styles.dotActive]} />
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap:        { width: '100%', overflow: 'hidden', position: 'relative', backgroundColor: '#000' },
+  dotsInline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  wrap:        { width: '100%', overflow: 'hidden', position: 'relative', backgroundColor: COLOR_BLACK },
   playOverlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center', justifyContent: 'center',
@@ -262,16 +284,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playGlyph:   { marginLeft: 3 },
-  processingBg:   { backgroundColor: '#1A1A1A' },
+  processingBg:   { backgroundColor: COLOR_GRAY_26 },
   processingPill: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  processingText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  processingText: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.semibold },
   dots: {
     position: 'absolute', bottom: 10, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
   },
   dot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.45)' },
-  dotActive: { backgroundColor: '#FFFFFF' },
+  dotActive: { backgroundColor: COLOR_WHITE },
 });

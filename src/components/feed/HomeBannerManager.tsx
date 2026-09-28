@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
-  ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,7 +19,8 @@ import {
   BANNER_DESTINATIONS, bannerDestination,
 } from '../../constants/bannerDestinations';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** The order destination groups appear in the picker. */
 const GROUPS = ['Society', 'Cars', 'Community', 'Content', 'Other'] as const;
@@ -270,27 +271,27 @@ const styles = StyleSheet.create({
   blurb:        { fontSize: 13, lineHeight: 18 },
   preview:      { width: '100%', aspectRatio: 2.2, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   previewEmpty: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  previewText:  { fontSize: 13, fontWeight: '600' },
+  previewText:  { fontSize: 13, fontFamily: FONT_INTER.semibold },
   changeRow:    { alignSelf: 'flex-start' },
-  changeText:   { fontSize: 14, fontWeight: '700' },
-  label:        { fontSize: 13, fontWeight: '700', marginTop: 4 },
+  changeText:   { fontSize: 14, fontFamily: FONT_INTER.bold },
+  label:        { fontSize: 13, fontFamily: FONT_INTER.bold, marginTop: 4 },
   hint:         { fontSize: 12, lineHeight: 16, marginTop: -6 },
   destBox:      { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
   destGroup:    {
-    fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5,
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5,
     paddingHorizontal: 14, paddingVertical: 6,
   },
   destRow:      {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  destLabel:    { fontSize: 14, fontWeight: '600' },
+  destLabel:    { fontSize: 14, fontFamily: FONT_INTER.semibold },
   saveBtn:      { paddingVertical: 13, borderRadius: COMMON_RADIUS, alignItems: 'center', marginTop: 6 },
-  saveText:     { color: '#000000', fontSize: 15, fontWeight: '800' },
+  saveText:     { color: COLOR_BLACK, fontSize: 15, fontFamily: FONT_INTER.extrabold },
   btnOff:       { opacity: 0.5 },
   removeBtn:    {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  removeText:   { fontSize: 14, fontWeight: '700' },
+  removeText:   { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

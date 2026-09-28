@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator, RefreshControl,
-  type NativeScrollEvent, type NativeSyntheticEvent,
-  type StyleProp, type ViewStyle,
+  View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
-import { Search, X, Plus } from 'lucide-react-native';
+import { Text, TextInput } from '@ors/kit';
+import { Search, X, Plus, Tag, Megaphone } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
@@ -18,26 +16,27 @@ import { categoryLabel } from './listingFormat';
 import type { SummaryOrigin } from '../ui/SummaryModal';
 import { useGetListingsQuery, useGetListingMetaQuery, useGetUsageQuery } from '../../api/apiService';
 import { ProUpsellModal } from '../pro/ProUpsell';
-import { LISTING_LIMIT_UPSELL } from '../../constants/limits';
+import {
+  LISTING_LIMIT_UPSELL,
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK, GUTTER,
+} from '../../constants/config';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 import type { Listing, ListingKind, ListingShipping, ListingSort } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 const PAGE_SIZE = 12;
 
 /**
- * Everything the panel asks, other than where — that's LocationFilterRow's.
- *
- * Held as one object so FilterSummaryRow can hand the whole set to the panel as
- * a draft and apply it in one go: a filter that refetched on every chip meant
- * trying a combination reran the screen four times on the way to it.
+ * Everything the panel asks — where, category, condition, shipping and price,
+ * in any combination — plus the sort, which orders rather than filters.
  */
 interface MarketFilters {
   /** A LocationChoice: 'near', 'all' or a region key. */
   location: string;
-  radius: number;
   /** One category key, or null for all of them. */
   category: string | null;
   /** A floor on the 0-5 scale — "Good or better". */
@@ -147,7 +146,6 @@ export default function MarketplaceBrowse({
   const location = useLocationFilter();
   const [filters, setFilters] = useState<MarketFilters>({
     location: 'near',
-    radius: 100,
     category: null,
     conditionMin: null,
     shipping: null,
@@ -208,7 +206,6 @@ export default function MarketplaceBrowse({
     // that fills it.
     const same =
       draft.location === location.choice
-      && draft.radius === location.radius
       && draft.category === filters.category
       && draft.conditionMin === filters.conditionMin
       && draft.shipping === filters.shipping
@@ -218,7 +215,6 @@ export default function MarketplaceBrowse({
     if (same) return;
 
     if (draft.location !== location.choice) location.choose(draft.location);
-    if (draft.radius !== location.radius) location.setRadius(draft.radius);
     setFilters(draft);
     restart();
   }, [location, filters, restart]);
@@ -252,22 +248,25 @@ export default function MarketplaceBrowse({
     refetch();
   }, [restart, refetch]);
 
-  /** What the row shows as applied — the current value, never the draft. */
+  /**
+   * What the row shows as applied: where, then each filter that's on, and
+   * the sort when it isn't the default.
+   */
   const pills: FilterPill[] = useMemo(() => {
-    const out: FilterPill[] = [locationPill(location.choice, location.radius)];
+    const out: FilterPill[] = [];
+    const min = asPrice(filters.minPrice);
+    const max = asPrice(filters.maxPrice);
+    const conditionLabel = kind === 'sale' && filters.conditionMin !== null
+      ? meta?.conditions?.[filters.conditionMin] : undefined;
+    out.push(locationPill(location.choice));
     if (filters.category) out.push({ key: 'category', label: categoryLabel(filters.category) });
-    if (kind === 'sale' && filters.conditionMin !== null) {
-      const label = meta?.conditions?.[filters.conditionMin];
-      if (label) out.push({ key: 'condition', label: `${label}+` });
-    }
+    if (conditionLabel) out.push({ key: 'condition', label: `${conditionLabel}+` });
     if (filters.shipping) {
       out.push({
         key: 'shipping',
         label: SHIPPING_OPTIONS.find((s) => s.key === filters.shipping)?.label ?? filters.shipping,
       });
     }
-    const min = asPrice(filters.minPrice);
-    const max = asPrice(filters.maxPrice);
     if (min !== undefined || max !== undefined) {
       out.push({
         key: 'price',
@@ -283,7 +282,7 @@ export default function MarketplaceBrowse({
       });
     }
     return out;
-  }, [location.choice, location.radius, filters, kind, meta]);
+  }, [location.choice, filters, kind, meta]);
 
   const categoryOptions = useMemo(() => [
     { key: null as string | null, label: 'All' },
@@ -293,7 +292,6 @@ export default function MarketplaceBrowse({
   const filterValue: MarketFilters = {
     ...filters,
     location: location.choice,
-    radius: location.radius,
   };
 
   return (
@@ -324,32 +322,36 @@ export default function MarketplaceBrowse({
                 two screens, so the filters above apply to whichever you're
                 looking at. */}
             <View style={styles.kindRow}>
-              {([
-                { key: 'sale' as const, label: 'For sale' },
-                { key: 'want' as const, label: 'Want ads' },
-              ]).map((opt) => {
-                const on = kind === opt.key;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[
-                      styles.kindBtn,
-                      { borderColor: colors.border, backgroundColor: colors.card },
-                      on && { backgroundColor: brand, borderColor: brand },
-                    ]}
-                    onPress={() => switchKind(opt.key)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                  >
-                    <Text style={[styles.kindText, { color: on ? '#000000' : colors.fg }]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-              {/* Listing something is the other reason to be here. Inside a
-                  group, the group comes with it — see the create form's
-                  "Where to post" step. */}
+              {/* A switch, the width of the row — the same two-sided pill as
+                  the photography map's Map / List: a track, and the side
+                  you're on filled in the brand colour. */}
+              <View style={[styles.kindSwitch, { backgroundColor: colors.segment }]} accessibilityRole="tablist">
+                {([
+                  { key: 'sale' as const, label: 'For sale', Icon: Tag },
+                  { key: 'want' as const, label: 'Want ads', Icon: Megaphone },
+                ]).map(({ key, label, Icon }) => {
+                  const on = kind === key;
+                  const ink = on ? COLOR_BLACK : colors.grey;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.kindBtn, on && { backgroundColor: brand }]}
+                      onPress={() => switchKind(key)}
+                      activeOpacity={0.8}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: on }}
+                    >
+                      <Icon size={16} color={ink} strokeWidth={2.4} />
+                      <Text style={[styles.kindText, { color: ink }]}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {/* Listing something, inside a group — the group comes with it
+                  (see the create form's "Where to post" step). On the main
+                  marketplace this lives on the app's + instead (CreateFab),
+                  beside a new post. */}
+              {groupId ? (
               <TouchableOpacity
                 style={[styles.newBtn, { backgroundColor: brand }]}
                 onPress={() => (listingAllowance?.reached
@@ -364,10 +366,14 @@ export default function MarketplaceBrowse({
                     : kind === 'want' ? 'Post a want ad' : 'List something for sale'
                 }
               >
-                <Plus size={16} color="#000000" strokeWidth={2.8} />
+                <Plus size={16} color={COLOR_BLACK} strokeWidth={2.8} />
               </TouchableOpacity>
+              ) : null}
             </View>
 
+            {/* Search on the left, the filter on the right — the pattern the
+                photography map and the Events tab share. */}
+            <View style={styles.toolsRow}>
             <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Search size={15} color={colors.grey} />
               <TextInput
@@ -392,21 +398,19 @@ export default function MarketplaceBrowse({
               value={filterValue}
               onApply={applyFilters}
               pills={pills}
-              style={styles.filterRow}
+              compact
             >
               {(draft, setDraft) => (
                 <>
+                  {/* Nearest-first means nothing once you've stopped
+                      measuring from anywhere, so leaving near me drops it. */}
                   <LocationFilterRow
                     choice={draft.location}
                     onChoose={(choice) => setDraft((d) => ({
                       ...d,
                       location: choice,
-                      // Nearest means nothing once you've stopped measuring
-                      // from anywhere — fall back to the default order.
                       sort: choice === 'near' || d.sort !== 'distance' ? d.sort : 'match',
                     }))}
-                    radius={draft.radius}
-                    onRadius={(radius) => setDraft((d) => ({ ...d, radius }))}
                   />
 
                   <FilterChoiceRow
@@ -443,27 +447,16 @@ export default function MarketplaceBrowse({
                     onSelect={(shipping) => setDraft((d) => ({ ...d, shipping }))}
                   />
 
+                  {/* Typed into the draft as you go, so Apply takes it
+                      without a Done first. Either end can be left empty. */}
                   <FilterLabel>Price</FilterLabel>
-                  <View style={styles.priceRow}>
-                    <TextInput
-                      style={[styles.priceInput, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                      value={draft.minPrice}
-                      onChangeText={(minPrice) => setDraft((d) => ({ ...d, minPrice }))}
-                      placeholder="Min"
-                      placeholderTextColor={colors.grey}
-                      keyboardType="numeric"
-                    />
-                    <Text style={[styles.priceDash, { color: colors.grey }]}>to</Text>
-                    <TextInput
-                      style={[styles.priceInput, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
-                      value={draft.maxPrice}
-                      onChangeText={(maxPrice) => setDraft((d) => ({ ...d, maxPrice }))}
-                      placeholder="Max"
-                      placeholderTextColor={colors.grey}
-                      keyboardType="numeric"
-                    />
-                  </View>
+                  <PriceFilter
+                    min={draft.minPrice}
+                    max={draft.maxPrice}
+                    onChange={(minPrice, maxPrice) => setDraft((d) => ({ ...d, minPrice, maxPrice }))}
+                  />
 
+                  {/* Ordering, not filtering. */}
                   <FilterChoiceRow
                     label="Sort"
                     options={SORT_OPTIONS
@@ -475,6 +468,7 @@ export default function MarketplaceBrowse({
                 </>
               )}
             </FilterSummaryRow>
+            </View>
 
             {/* On the screen, not in the panel — it explains the list below. */}
             {location.fellBack && (
@@ -533,33 +527,83 @@ export default function MarketplaceBrowse({
   );
 }
 
+/** The price range, typed straight into the panel's draft. */
+/**
+ * iOS's number pad has no return key to put the keyboard away — so iOS gets
+ * the numbers-and-punctuation keyboard, which has one. Android's number pad
+ * has its own.
+ */
+const PRICE_KEYBOARD = Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric';
+
+function PriceFilter({ min, max, onChange }: {
+  min: string;
+  max: string;
+  onChange: (min: string, max: string) => void;
+}) {
+  const colors = useColors();
+  const inputStyle = [styles.priceInput, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }];
+  return (
+    <View style={styles.priceRow}>
+      <TextInput
+        style={inputStyle}
+        value={min}
+        onChangeText={(lo) => onChange(lo.trim(), max)}
+        placeholder="Min"
+        placeholderTextColor={colors.grey}
+        keyboardType={PRICE_KEYBOARD}
+        returnKeyType="done"
+      />
+      <Text style={[styles.priceDash, { color: colors.grey }]}>to</Text>
+      <TextInput
+        style={inputStyle}
+        value={max}
+        onChangeText={(hi) => onChange(min, hi.trim())}
+        placeholder="Max"
+        placeholderTextColor={colors.grey}
+        keyboardType={PRICE_KEYBOARD}
+        returnKeyType="done"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  kindRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
+  // Every row's edge inset is the app's GUTTER, so the browse lines up with
+  // the header's tabs and the rest of the home screen.
+  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 10 },
+  // The track; each side takes half of it.
+  kindSwitch: { flex: 1, flexDirection: 'row', padding: 4, borderRadius: PILL_RADIUS },
   kindBtn: {
-    flex: 1, alignItems: 'center',
-    paddingVertical: 9, borderRadius: PILL_RADIUS, borderWidth: 1,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 10, borderRadius: PILL_RADIUS,
   },
-  kindText: { fontSize: 13, fontWeight: '800' },
+  kindText: { fontSize: 14, fontFamily: FONT_INTER.bold },
+  // Inside a group only — the switch's height, round like it.
   newBtn: {
-    width: 38, alignItems: 'center', justifyContent: 'center',
-    borderRadius: COMMON_RADIUS,
+    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+    borderRadius: PILL_RADIUS,
   },
 
-  searchBar: {
+  // The search and the filter pill, side by side.
+  toolsRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 12, marginBottom: 8,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
+    marginHorizontal: GUTTER, marginBottom: 10,
+  },
+  // A pill, the height of the filter beside it, taking the rest of the row.
+  searchBar: {
+    flex: 1, height: 44,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: PILL_RADIUS, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14 },
 
-  filterRow: { marginHorizontal: 12, marginTop: 0, marginBottom: 10 },
-  note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 14, marginBottom: 10 },
+  note: { fontSize: 12, lineHeight: 17, paddingHorizontal: GUTTER, marginBottom: 10 },
 
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, marginBottom: 6 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, marginBottom: 6 },
   priceInput: {
     flex: 1, minHeight: 40, borderWidth: 1, borderRadius: COMMON_RADIUS,
     paddingHorizontal: 12, fontSize: 14,
   },
-  priceDash: { fontSize: 12, fontWeight: '700' },
+  priceDash: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

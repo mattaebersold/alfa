@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import {
   useUpvoteGroupDiscussionPostMutation,
@@ -11,6 +12,7 @@ import {
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * The thumbs on group discussions, resources and news.
@@ -133,5 +135,5 @@ export default function GroupVoteButtons({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   side: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  num: { fontSize: 12, fontWeight: '700' },
+  num: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

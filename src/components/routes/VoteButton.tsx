@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useUpvoteRouteMutation, useDownvoteRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import type { RouteVote } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The vote control for a route: thumbs up, the score, thumbs down.
@@ -145,6 +147,6 @@ const styles = StyleSheet.create({
   sideLarge:  { paddingHorizontal: 13 },
   // A minimum width so the pill doesn't change size as the score gains a digit
   // or a minus sign under your thumb.
-  score:      { minWidth: 16, textAlign: 'center', fontSize: 14, fontWeight: '800' },
-  scoreLarge: { minWidth: 22, textAlign: 'center', fontSize: 16, fontWeight: '800' },
+  score:      { minWidth: 16, textAlign: 'center', fontSize: 14, fontFamily: FONT_INTER.extrabold },
+  scoreLarge: { minWidth: 22, textAlign: 'center', fontSize: 16, fontFamily: FONT_INTER.bold },
 });

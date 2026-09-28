@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import RouteCard from '../cards/RouteCard';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import { useGetRoutesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import type { DrivingRoute, RouteListParams } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 const PAGE_SIZE = 12;
 
@@ -93,5 +95,5 @@ const styles = StyleSheet.create({
     borderRadius: 999, borderWidth: 1,
     alignItems: 'center', marginTop: 6,
   },
-  moreText: { fontSize: 14, fontWeight: '800' },
+  moreText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
 });

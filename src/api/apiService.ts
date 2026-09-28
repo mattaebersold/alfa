@@ -50,7 +50,7 @@ export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
   tagTypes: [
-    'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment',
+    'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment', 'PostBookmarks',
     'SocietyEvent', 'EventInterest',
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
@@ -1839,6 +1839,41 @@ export const apiService = createApi({
       },
     }),
 
+    /**
+     * Bookmark a post, or un-bookmark it — a toggle, like the model bookmarks.
+     * Applied to the profile's list in the cache first, so the icon fills on
+     * the tap; undone if the server refuses. The menu's list refetches.
+     */
+    togglePostBookmark: builder.mutation<
+      { bookmarked: boolean; bookmark_count: number; postBookmarks: string[] },
+      { post_id: string }
+    >({
+      query: (body) => ({ url: 'api/users/post-bookmarks', method: 'POST', body }),
+      invalidatesTags: ['PostBookmarks'],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patch = dispatch(apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+          const list = draft.postBookmarks ?? [];
+          draft.postBookmarks = list.includes(arg.post_id)
+            ? list.filter((id) => id !== arg.post_id)
+            : [arg.post_id, ...list];
+        }));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+            draft.postBookmarks = data.postBookmarks;
+          }));
+        } catch {
+          patch.undo();
+        }
+      },
+    }),
+
+    /** The posts you've bookmarked, newest bookmark first — the menu's Bookmarks › Posts. */
+    getPostBookmarks: builder.query<{ entries: Post[] }, void>({
+      query: () => 'api/users/post-bookmarks',
+      providesTags: ['PostBookmarks'],
+    }),
+
     /** The same ask, of a member with no profile photo. Once per asker per member. */
     requestProfilePhoto: builder.mutation<{ success: boolean; already: boolean }, string>({
       query: (userId) => ({ url: `api/users/request-photo/${encodeURIComponent(userId)}`, method: 'POST' }),
@@ -2541,6 +2576,8 @@ export const {
   useRequestCarPhotosMutation,
   useRequestProfilePhotoMutation,
   useToggleModelBookmarkMutation,
+  useTogglePostBookmarkMutation,
+  useGetPostBookmarksQuery,
   useCreateCommentMutation,
   useDeleteCommentMutation,
   useGetCarsQuery,

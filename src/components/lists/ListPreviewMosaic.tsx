@@ -5,6 +5,7 @@ import { ListOrdered } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { List } from '../../types/api';
+import { COLOR_GRAY_22 } from '../../constants/config';
 
 /** The most tiles a preview shows; past three they're too small to read. */
 export const LIST_PREVIEW_MAX = 3;
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
   box:   { width: '100%', overflow: 'hidden' },
   blank: { alignItems: 'center', justifyContent: 'center' },
   row:   { flexDirection: 'row', gap: SEAM },
-  tile:  { backgroundColor: '#161616' },
+  tile:  { backgroundColor: COLOR_GRAY_22 },
   fill:  { flex: 1 },
   // Wider than tall on the left so the pair on the right stays near square.
   hero:  { flex: 2 },

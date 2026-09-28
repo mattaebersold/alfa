@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,7 +13,8 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
 import { LINK_LABEL_MAX, listLinkLabel, normalizeListLink } from '../../utils/listLinks';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * One list item as the form holds it — the same shape whether it's a brand-new
@@ -179,7 +181,7 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
                 accessibilityRole="button"
                 accessibilityLabel="Remove photo"
               >
-                <X size={15} color="#fff" />
+                <X size={15} color={COLOR_WHITE} />
               </TouchableOpacity>
             </>
           ) : (
@@ -254,7 +256,7 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
           accessibilityRole="button"
         >
           {saving
-            ? <ActivityIndicator size="small" color="#000000" />
+            ? <ActivityIndicator size="small" color={COLOR_BLACK} />
             : <Text style={styles.saveText}>{initial ? 'Save item' : 'Add to list'}</Text>}
         </TouchableOpacity>
       </FormScrollView>
@@ -276,17 +278,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 4,
   },
   photoBlank:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  photoBlankText: { fontSize: 12, fontWeight: '600' },
+  photoBlankText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   label: {
-    fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 6,
+    fontSize: 13, fontFamily: FONT_INTER.semibold, marginTop: 14, marginBottom: 6,
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
   multi: { minHeight: 76 },
   hint:  { fontSize: 12.5, lineHeight: 18, marginTop: 6 },
-  error: { fontSize: 12.5, lineHeight: 18, marginTop: 6, fontWeight: '600' },
+  error: { fontSize: 12.5, lineHeight: 18, marginTop: 6, fontFamily: FONT_INTER.semibold },
 
   saveBtn:    { marginTop: 22, paddingVertical: 14, borderRadius: COMMON_RADIUS, alignItems: 'center' },
   saveBtnOff: { opacity: 0.5 },
-  saveText:   { color: '#000000', fontSize: 15, fontWeight: '800' },
+  saveText:   { color: COLOR_BLACK, fontSize: 15, fontFamily: FONT_INTER.extrabold },
 });

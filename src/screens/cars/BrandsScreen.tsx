@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
 import MakeTile from '../../components/cars/MakeTile';
@@ -12,6 +13,7 @@ import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
   const colors = useColors();

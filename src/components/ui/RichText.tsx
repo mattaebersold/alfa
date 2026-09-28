@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { Text, View, StyleSheet, Linking, TextStyle } from 'react-native';
+import { View, StyleSheet, Linking, TextStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Minimal HTML → React Native renderer for WYSIWYG-authored article copy.
@@ -288,7 +290,8 @@ const inline = StyleSheet.create({
   italic:    { fontStyle: 'italic' },
   underline: { textDecorationLine: 'underline' },
   strike:    { textDecorationLine: 'line-through' },
-  code:      { fontFamily: 'Courier', fontSize: 15 },
+  // Inter rather than a monospace face — the app uses Inter throughout.
+  code:      { fontSize: 15 },
 });
 
 const styles = StyleSheet.create({

@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { Aperture, ScanSearch, ArrowUpRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { sourceAppFor, openSourceApp, type SourceAppId } from '../../constants/sourceApps';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 interface SourceAppChipProps {
   /** The post's `source_app`. Anything we don't recognise draws nothing. */
@@ -24,7 +26,7 @@ function AppIconTile({ app, tile }: { app: SourceAppId; tile: string }) {
   const Glyph = app === 'photo' ? Aperture : ScanSearch;
   return (
     <View style={[styles.tile, { backgroundColor: tile }]}>
-      <Glyph size={12} color="#FFFFFF" strokeWidth={2.25} />
+      <Glyph size={12} color={COLOR_WHITE} strokeWidth={2.25} />
     </View>
   );
 }
@@ -76,6 +78,6 @@ const styles = StyleSheet.create({
     width: 18, height: 18, borderRadius: 5,
     alignItems: 'center', justifyContent: 'center',
   },
-  label: { fontSize: 12, fontWeight: '500' },
+  label: { fontSize: 12, fontFamily: FONT_INTER.medium },
   name:  { fontWeight: '700' },
 });

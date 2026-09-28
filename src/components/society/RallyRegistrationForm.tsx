@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
+import { Text } from '@ors/kit';
 import { WebView } from 'react-native-webview';
 import { useColors } from '../../hooks/useColors';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_WHITE } from '../../constants/config';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -99,8 +102,8 @@ export default function RallyRegistrationForm({ url }: { url: string }) {
 
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20, gap: 10 },
-  heading: { fontSize: 18, fontWeight: '800' },
+  heading: { fontSize: 18, fontFamily: FONT_INTER.bold },
   frame:   { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  web:     { flex: 1, backgroundColor: '#FFFFFF' },
+  web:     { flex: 1, backgroundColor: COLOR_WHITE },
   loading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
 });

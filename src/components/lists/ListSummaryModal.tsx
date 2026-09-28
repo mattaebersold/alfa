@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
@@ -9,6 +10,7 @@ import { useGetListQuery, useDeleteListMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import type { List } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * The list, inside the panel.
@@ -131,5 +133,5 @@ export default function ListSummaryModal({ listId, origin, onClose, hideCar }: {
 
 const styles = StyleSheet.create({
   loading: { height: 240, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  gone:    { fontSize: 14, fontWeight: '600', textAlign: 'center' },
+  gone:    { fontSize: 14, fontFamily: FONT_INTER.semibold, textAlign: 'center' },
 });

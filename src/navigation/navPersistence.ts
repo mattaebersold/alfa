@@ -14,6 +14,30 @@ import type { NavigationState } from '@react-navigation/native';
  */
 const FILENAME = 'nav-state.json';
 
+/**
+ * The state as it should be kept: minus the home screen's tab request.
+ *
+ * The menu opens Events, Marketplace or Groups by navigating to the home
+ * screen with `{ tab, at }` params — an instruction, not a place. Kept, it
+ * would replay on the next launch and open that tab, where a reload should
+ * always land on Your Feed. Walks every nested navigator, since the home
+ * screen sits a few levels down.
+ */
+function withoutTabRequests(state: any): any {
+  if (!state || !Array.isArray(state.routes)) return state;
+  return {
+    ...state,
+    routes: state.routes.map((route: any) => {
+      let next = route;
+      if (route.name === 'Feed' && route.params && ('tab' in route.params || 'at' in route.params)) {
+        const { tab: _tab, at: _at, spotId: _spotId, ...rest } = route.params;
+        next = { ...route, params: Object.keys(rest).length ? rest : undefined };
+      }
+      return next.state ? { ...next, state: withoutTabRequests(next.state) } : next;
+    }),
+  };
+}
+
 function navFile() {
   return new File(Paths.document, FILENAME);
 }
@@ -25,7 +49,7 @@ export function readNavState(): NavigationState | undefined {
     // Marked stale so the navigator that receives it checks it against its
     // own screens instead of trusting it — if the session expired, that's the
     // sign-in stack, and routes it doesn't have are dropped, not rendered.
-    return { ...JSON.parse(file.textSync()), stale: true };
+    return { ...withoutTabRequests(JSON.parse(file.textSync())), stale: true };
   } catch {
     return undefined;
   }
@@ -36,7 +60,7 @@ export function writeNavState(state: NavigationState | undefined) {
   try {
     const file = navFile();
     if (!file.exists) file.create({ intermediates: true, overwrite: true });
-    file.write(JSON.stringify(state));
+    file.write(JSON.stringify(withoutTabRequests(state)));
   } catch {
     // Next change tries again.
   }

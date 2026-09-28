@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, AppState } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, AppState } from 'react-native';
+import { Text } from '@ors/kit';
 import { WifiOff } from 'lucide-react-native';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { connectionLost, connectionRestored, offlineNoticeDismissed } from '../../store/connectivitySlice';
 import { probeInternet } from '../../utils/connectivity';
 import { colors } from '../../constants/colors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** How often to check back while the device has no network. */
 const RETRY_INTERVAL_MS = 8000;
@@ -109,7 +111,7 @@ export default function OfflineOverlay() {
           {/* The label holds its place under the spinner so the button keeps
               its size while a check is in flight. */}
           <Text style={[styles.retryText, checking && styles.labelHidden]}>Try again</Text>
-          {checking && <ActivityIndicator size="small" color="#000000" style={StyleSheet.absoluteFill} />}
+          {checking && <ActivityIndicator size="small" color={COLOR_BLACK} style={StyleSheet.absoluteFill} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -140,7 +142,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(205,169,111,0.35)',
     marginBottom: 18,
   },
-  title: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  title: { fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 8 },
   body: {
     fontSize: 14, lineHeight: 20, color: colors.greyLight,
     textAlign: 'center', marginBottom: 22,
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28, paddingVertical: 12,
     justifyContent: 'center', marginBottom: 14,
   },
-  retryText: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  retryText: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   labelHidden: { opacity: 0 },
-  dismiss: { fontSize: 13, fontWeight: '600', color: colors.grey },
+  dismiss: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: colors.grey },
 });

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Modal, View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert,
+  Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, PortalHost } from '@ors/kit';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
@@ -23,7 +23,8 @@ import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import type { Post } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const TYPES = [
   { key: 'general', label: 'Post' },
@@ -465,28 +466,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700' },
+  headerTitle: { fontSize: 17, fontFamily: FONT_INTER.bold },
   form:        { padding: 16, gap: 6, paddingBottom: 120 },
-  label:       { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 4 },
+  label:       { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 4 },
   input:       { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
   bodyInput:   { minHeight: 100, textAlignVertical: 'top' },
   pills:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  pillText:    { fontSize: 13, fontWeight: '600' },
+  pillText:    { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   selectedTags:   { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   tagChip:        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  tagChipText:    { fontSize: 12, fontWeight: '600', maxWidth: 140 },
+  tagChipText:    { fontSize: 12, fontFamily: FONT_INTER.semibold, maxWidth: 140 },
   tagSearchRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, marginTop: 8 },
   tagSearchInput: { flex: 1, fontSize: 14 },
   tagGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 10, paddingBottom: 6 },
-  tagGroupLabel:  { fontSize: 11, fontWeight: '700' },
+  tagGroupLabel:  { fontSize: 11, fontFamily: FONT_INTER.bold },
   tagResultRow:   { paddingVertical: 2, gap: 8 },
   tagResultChip:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  tagResultText:  { fontSize: 13, fontWeight: '600', maxWidth: 160 },
+  tagResultText:  { fontSize: 13, fontFamily: FONT_INTER.semibold, maxWidth: 160 },
 
   postToRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
-  postToLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
+  postToLabel: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.semibold },
   postToEmpty: { paddingVertical: 8, fontSize: 13 },
   checkbox:    { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
@@ -496,5 +497,5 @@ const styles = StyleSheet.create({
     paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
+  saveBtnText: { color: COLOR_WHITE, fontFamily: FONT_INTER.extrabold, fontSize: 15 },
 });

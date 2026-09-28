@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
+  View, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import {
   useGetMarketplaceThreadQuery,
   useGetMarketplaceThreadsQuery,
@@ -17,11 +18,12 @@ import ListingSnapshot from '../../components/marketplace/ListingSnapshot';
 import ThreadBubble from '../../components/messages/ThreadBubble';
 import Composer from '../../components/social/Composer';
 import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, COLOR_WHITE } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** How many messages a page holds, and how many more "earlier" adds. */
 const PAGE_SIZE = 30;
@@ -316,10 +318,10 @@ const styles = StyleSheet.create({
 
   header:           { gap: 6, flex: 1 },
   headerPerson:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerPersonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', maxWidth: 180 },
+  headerPersonText: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.bold, maxWidth: 180 },
 
   earlier:     { alignItems: 'center', paddingVertical: 10 },
-  earlierText: { fontSize: 13, fontWeight: '700' },
+  earlierText: { fontSize: 13, fontFamily: FONT_INTER.bold },
   intro:       { paddingHorizontal: 24, paddingTop: 24 },
   introText:   { fontSize: 14, lineHeight: 20, textAlign: 'center' },
 

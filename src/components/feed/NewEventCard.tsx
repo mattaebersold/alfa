@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -7,6 +8,7 @@ import Avatar from '../ui/Avatar';
 import EventCard from '../cards/EventCard';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import type { SocietyEvent } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Feed row for an event someone you follow just added. The attribution line

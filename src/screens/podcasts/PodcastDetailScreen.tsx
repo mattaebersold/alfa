@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetPodcastQuery } from '../../api/apiService';
@@ -15,6 +16,7 @@ import type { PodcastEpisode } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { FONT_INTER } from '../../constants/fonts'
 
 type Props = AppScreenProps<'PodcastDetail'>;
 
@@ -165,14 +167,14 @@ const styles = StyleSheet.create({
   artwork:            { width: '100%', height: '100%' },
   artworkPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerInfo:         { flex: 1, gap: 4 },
-  podcastTitle:       { fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  podcastTitle:       { fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 22 },
   podcastAuthor:      { fontSize: 13 },
   podcastCategories:  { fontSize: 12 },
 
   description:        { fontSize: 13, lineHeight: 20, paddingHorizontal: 16, paddingVertical: 12 },
 
   sectionLabel:       {
-    fontSize: 11, fontWeight: '800', letterSpacing: 0.8,
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8,
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
   },
 
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
   episodeInfo:        { flex: 1 },
   episodeTitleRow:    { flexDirection: 'row', flexWrap: 'wrap' },
   epNum:              { fontSize: 12 },
-  epTitle:            { fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  epTitle:            { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 18 },
   epDesc:             { fontSize: 12, lineHeight: 17, marginTop: 3 },
   epDuration:         { fontSize: 11, flexShrink: 0, marginTop: 2 },
 

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLOR_BLACK } from '../../constants/config';
 
 /** A rectangle in window coordinates — where a button was when it was pressed. */
 export interface GrowOrigin { x: number; y: number; w: number; h: number }
@@ -48,8 +49,8 @@ const BACKDROP = Platform.OS === 'ios' ? 'rgba(64,64,64,0.55)' : 'rgba(64,64,64,
  */
 // Android has no blur to separate the panel from the screen behind, so a
 // lighter, heavier grey does it instead — against black the dark panels sank.
-const SUMMARY_BACKDROP = Platform.OS === 'ios' ? 'rgba(0,0,0,0.45)' : 'rgba(72,72,72,0.9)';
-const SUMMARY_BLUR = 24;
+const SUMMARY_BACKDROP = Platform.OS === 'ios' ? 'rgba(120,120,120,0.28)' : 'rgba(40,40,40,0.9)';
+const SUMMARY_BLUR = 40;
 
 /**
  * A panel that grows out of the button that opened it.
@@ -84,7 +85,7 @@ export default function GrowPanel({
   origin,
   onClose,
   children,
-  surface = '#000000',
+  surface = COLOR_BLACK,
   backdrop = 'grey',
 }: {
   visible: boolean;
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
   morphBox: {
     position: 'absolute',
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5, shadowRadius: 20,
     zIndex: 10, elevation: 20,
   },

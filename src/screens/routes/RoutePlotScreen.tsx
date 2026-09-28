@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,13 @@ import { useBrandColor, useIsPro, contrastText } from '../../hooks/useBrandColor
 import { decodePolyline, formatDistance, haversine, curvinessLabel } from '../../utils/routeGeometry';
 import type { AppStackParamList } from '../../navigation/types';
 import type { RoutePlotPreview } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_ROUTE_FINISH,
+  COLOR_ROUTE_START,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -25,8 +32,8 @@ const PLOT_DEBOUNCE_MS = 450;
 const DEFAULT_CENTER: LatLng = { lat: 39.5, lng: -98.35 };
 const HERE_ZOOM = 11;
 
-const START_COLOR = '#2E9E4F';
-const FINISH_COLOR = '#E23B3B';
+const START_COLOR = COLOR_ROUTE_START;
+const FINISH_COLOR = COLOR_ROUTE_FINISH;
 
 /**
  * Plotting a drive you've already done.
@@ -258,7 +265,7 @@ export default function RoutePlotScreen() {
         accessibilityRole="button"
         accessibilityLabel="Close"
       >
-        <X size={22} color="#FFFFFF" />
+        <X size={22} color={COLOR_WHITE} />
       </TouchableOpacity>
 
       {waypoints.length > 0 && (
@@ -269,7 +276,7 @@ export default function RoutePlotScreen() {
           accessibilityRole="button"
           accessibilityLabel="Remove the last pin"
         >
-          <Undo2 size={18} color="#FFFFFF" />
+          <Undo2 size={18} color={COLOR_WHITE} />
           <Text style={styles.undoText}>Undo</Text>
         </TouchableOpacity>
       )}
@@ -296,7 +303,7 @@ export default function RoutePlotScreen() {
               <Text style={[styles.readoutText, { color: colors.grey }]}>Finding the roads…</Text>
             </View>
           ) : plotError ? (
-            <Text style={[styles.readoutText, { color: '#E23B3B' }]}>{plotError}</Text>
+            <Text style={[styles.readoutText, { color: COLOR_ROUTE_FINISH }]}>{plotError}</Text>
           ) : preview ? (
             <View style={styles.readoutRow}>
               <Text style={[styles.distance, { color: colors.fg }]}>{formatDistance(preview.stats.distance_meters)}</Text>
@@ -353,7 +360,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     zIndex: 10,
   },
-  undoText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  undoText: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.bold },
 
   panel: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
@@ -361,24 +368,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 18,
     gap: 6,
   },
-  title: { fontSize: 18, fontWeight: '800' },
+  title: { fontSize: 18, fontFamily: FONT_INTER.bold },
   hint:  { fontSize: 13.5, lineHeight: 18 },
 
   legend:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendOff:  { opacity: 0.35 },
-  legendText: { fontSize: 12.5, fontWeight: '700' },
+  legendText: { fontSize: 12.5, fontFamily: FONT_INTER.bold },
   viaCount:   { fontSize: 12.5 },
 
   readout:     { minHeight: 28, justifyContent: 'center', marginTop: 4 },
   readoutRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   readoutText: { fontSize: 13.5 },
-  distance:    { fontSize: 20, fontWeight: '800' },
+  distance:    { fontSize: 20, fontFamily: FONT_INTER.bold },
 
   nextBtn: {
     marginTop: 10, height: 50, borderRadius: COMMON_RADIUS,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   nextOff:   { opacity: 0.45 },
-  nextLabel: { fontSize: 16, fontWeight: '800' },
+  nextLabel: { fontSize: 16, fontFamily: FONT_INTER.bold },
 });

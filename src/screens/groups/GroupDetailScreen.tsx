@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Pressable, FlatList, Alert,
-  Animated, useWindowDimensions,
+  View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, Pressable, FlatList, Alert, Animated, useWindowDimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,8 +43,26 @@ import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import JoinRequestsPanel from '../../components/groups/JoinRequests';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_102,
+  COLOR_GRAY_20,
+  COLOR_GRAY_31,
+  COLOR_GROUP_TAB_CARS,
+  COLOR_GROUP_TAB_DISCUSSION,
+  COLOR_GROUP_TAB_EVENTS,
+  COLOR_GROUP_TAB_MARKET,
+  COLOR_GROUP_TAB_MEMBERS,
+  COLOR_GROUP_TAB_NEWS,
+  COLOR_GROUP_TAB_POSTS,
+  COLOR_GROUP_TAB_RESOURCES,
+  COLOR_GROUP_TAB_ROUTES,
+  COLOR_RED,
+  COLOR_WHITE,
+} from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -58,27 +76,27 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  * that whole block back from the content beneath it. The banner's bottom fade
  * has to land on exactly this value or the seam it exists to hide comes back.
  */
-const HERO_SURFACE = '#141414';
+const HERO_SURFACE = COLOR_GRAY_20;
 /** Controls sitting on the banner — one step up, so they read as raised. */
-const HERO_CONTROL = '#1F1F1F';
+const HERO_CONTROL = COLOR_GRAY_31;
 const TILE_GAP = 12;
 /** Rows added each time the roster list reaches its end. */
 const MEMBER_PAGE_SIZE = 25;
 const TILE_WIDTH = (SCREEN_WIDTH - TILE_GAP * 3) / 2;
 
 const SECTIONS = [
-  { key: 'posts',     label: 'Posts',     Icon: MessageSquare, color: '#4A90D9' },
-  { key: 'discussion',     label: 'Discussion', Icon: MessageCircle, color: '#7B68EE' },
-  { key: 'news',      label: 'News',      Icon: Newspaper,     color: '#E67E22' },
-  { key: 'members',   label: 'Members',   Icon: Users,         color: '#2ECC71' },
-  { key: 'cars',      label: 'Cars',      Icon: Car,           color: '#E74C3C' },
-  { key: 'events',    label: 'Events',    Icon: Calendar,      color: '#F39C12' },
+  { key: 'posts',     label: 'Posts',     Icon: MessageSquare, color: COLOR_GROUP_TAB_POSTS },
+  { key: 'discussion',     label: 'Discussion', Icon: MessageCircle, color: COLOR_GROUP_TAB_DISCUSSION },
+  { key: 'news',      label: 'News',      Icon: Newspaper,     color: COLOR_GROUP_TAB_NEWS },
+  { key: 'members',   label: 'Members',   Icon: Users,         color: COLOR_GROUP_TAB_MEMBERS },
+  { key: 'cars',      label: 'Cars',      Icon: Car,           color: COLOR_GROUP_TAB_CARS },
+  { key: 'events',    label: 'Events',    Icon: Calendar,      color: COLOR_GROUP_TAB_EVENTS },
   // Drives members shared into the group — GroupSectionScreen's routes tab.
-  { key: 'routes',    label: 'Routes',    Icon: RouteIcon,     color: '#E056A0' },
+  { key: 'routes',    label: 'Routes',    Icon: RouteIcon,     color: COLOR_GROUP_TAB_ROUTES },
   // The group's own marketplace — GroupSectionScreen's market tab, which is
   // MarketplaceBrowse scoped to this group. Keyed to match that tab.
-  { key: 'market',    label: 'Marketplace', Icon: ShoppingBag, color: '#1ABC9C' },
-  { key: 'resources', label: 'Resources', Icon: BookOpen,      color: '#95A5A6' },
+  { key: 'market',    label: 'Marketplace', Icon: ShoppingBag, color: COLOR_GROUP_TAB_MARKET },
+  { key: 'resources', label: 'Resources', Icon: BookOpen,      color: COLOR_GROUP_TAB_RESOURCES },
 ];
 
 export default function GroupDetailScreen() {
@@ -221,7 +239,7 @@ export default function GroupDetailScreen() {
 
   const tiles = [
     ...SECTIONS,
-    ...(isAdmin ? [{ key: 'settings', label: 'Settings', Icon: Settings, color: '#666' }] : []),
+    ...(isAdmin ? [{ key: 'settings', label: 'Settings', Icon: Settings, color: COLOR_GRAY_102 }] : []),
   ];
 
   // Whoever runs the group, for "Message admin". First active admin — a group
@@ -408,7 +426,7 @@ export default function GroupDetailScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Invite someone to this group"
                 >
-                  <UserPlus size={14} color="#000000" strokeWidth={2.6} />
+                  <UserPlus size={14} color={COLOR_BLACK} strokeWidth={2.6} />
                   <Text style={styles.stripInviteText}>Invite</Text>
                 </TouchableOpacity>
               )}
@@ -435,7 +453,7 @@ export default function GroupDetailScreen() {
                 onPress={() => setCarModalOpen(true)}
                 activeOpacity={0.85}
               >
-                <Plus size={13} color="#000000" strokeWidth={3} />
+                <Plus size={13} color={COLOR_BLACK} strokeWidth={3} />
                 <Text style={styles.associateBtnText}>Add car</Text>
               </TouchableOpacity>
             )}
@@ -542,7 +560,7 @@ export default function GroupDetailScreen() {
                       {[item.year, item.make, item.model].filter(Boolean).join(' ') || item.title || 'Car'}
                     </Text>
                     <View style={[styles.carCheck, { borderColor: associated ? c.primaryAlt : c.border }, associated && { backgroundColor: c.primaryAlt }]}>
-                      {associated && <Check size={14} color="#000000" strokeWidth={3} />}
+                      {associated && <Check size={14} color={COLOR_BLACK} strokeWidth={3} />}
                     </View>
                   </TouchableOpacity>
                 );
@@ -677,9 +695,9 @@ const styles = StyleSheet.create({
     // Clear of the panel's floating close button (38pt, inset 12).
     paddingRight: 62,
   },
-  rosterTitle:   { fontSize: 19, fontWeight: '800' },
+  rosterTitle:   { fontSize: 19, fontFamily: FONT_INTER.bold },
   rosterMore:    { paddingVertical: 16, alignItems: 'center' },
-  rosterMoreText:{ fontSize: 14, fontWeight: '700' },
+  rosterMoreText:{ fontSize: 14, fontFamily: FONT_INTER.bold },
 
   bannerWrap:   { position: 'relative' },
   // Short enough to stay a header rather than a hero, while leaving the
@@ -699,7 +717,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start', borderWidth: 1,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
   },
-  taglineText:  { fontSize: 12, fontWeight: '600' },
+  taglineText:  { fontSize: 12, fontFamily: FONT_INTER.semibold },
   // In flow above the title now, not floating over the top-left of the image.
   backBtn:      {
     width: 34, height: 34, borderRadius: COMMON_RADIUS, borderWidth: 1,
@@ -711,7 +729,7 @@ const styles = StyleSheet.create({
     // Above the floating app header's own 20, so nothing in the row can paint
     // over it on the frame it fades in.
     zIndex: 25, elevation: 25,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35, shadowRadius: 6,
   },
   bannerMenuBtn: {
@@ -720,7 +738,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  groupTitle:   { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
+  groupTitle:   { fontSize: 26, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
 
   requestsBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -730,15 +748,15 @@ const styles = StyleSheet.create({
   // on you".
   requestsCount: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: '#EC4632',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_RED,
   },
-  requestsCountText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
-  requestsText:   { flex: 1, fontSize: 14, fontWeight: '700' },
-  requestsAction: { fontSize: 13, fontWeight: '800' },
+  requestsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  requestsText:   { flex: 1, fontSize: 14, fontFamily: FONT_INTER.bold },
+  requestsAction: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
 
   membersStrip: { padding: 14, paddingTop: 0, borderBottomWidth: 1 },
   membersHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  memberCount:  { fontSize: 12, marginBottom: 6, fontWeight: '700' },
+  memberCount:  { fontSize: 12, marginBottom: 6, fontFamily: FONT_INTER.bold },
   // The faces take what they need and the button holds the right edge, so a
   // group of two doesn't leave it floating in the middle of the strip.
   stripRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -747,7 +765,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
   },
-  stripInviteText: { fontSize: 12, fontWeight: '800', color: '#000000' },
+  stripInviteText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   memberRow:    {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -757,45 +775,45 @@ const styles = StyleSheet.create({
   // The name column absorbs the squeeze so the follow button and menu keep
   // their full width on a long username.
   memberNameWrap: { flex: 1, minWidth: 0, gap: 3, alignItems: 'flex-start' },
-  memberName:   { fontSize: 15, fontWeight: '600' },
+  memberName:   { fontSize: 15, fontFamily: FONT_INTER.semibold },
   memberMenuBtn:{ padding: 2 },
   adminPill:    { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  adminPillText:{ fontSize: 10, fontWeight: '800' },
+  adminPillText:{ fontSize: 10, fontFamily: FONT_INTER.extrabold },
 
   bodyBlock:    { padding: 16, borderBottomWidth: 1 },
   bodyText:     { fontSize: 15, lineHeight: 22 },
 
   carsSection:   { paddingTop: 18 },
   carsHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: TILE_GAP, marginBottom: 10 },
-  carsHeading:   { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  carsHeading:   { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8 },
   associateBtn:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: COMMON_RADIUS },
-  associateBtnText: { color: '#000000', fontSize: 12, fontWeight: '700' },
+  associateBtnText: { color: COLOR_BLACK, fontSize: 12, fontFamily: FONT_INTER.bold },
   carsEmpty:     { paddingHorizontal: TILE_GAP, fontSize: 13, paddingVertical: 4 },
   carsScroll:    { paddingHorizontal: TILE_GAP, gap: 10 },
   groupCarCard:  { width: 150, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   groupCarImg:   { width: '100%', height: 100 },
-  groupCarTitle: { fontSize: 13, fontWeight: '700', padding: 8 },
+  groupCarTitle: { fontSize: 13, fontFamily: FONT_INTER.bold, padding: 8 },
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet:         { maxHeight: '80%', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
   sheetHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  sheetTitle:    { fontSize: 17, fontWeight: '800' },
+  sheetTitle:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   sheetHint:     { fontSize: 13, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   carPickRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   carPickThumb:  { width: 54, height: 40, borderRadius: 6 },
-  carPickTitle:  { flex: 1, fontSize: 14, fontWeight: '600' },
+  carPickTitle:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
   carCheck:      { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
   tilesSection: { paddingHorizontal: TILE_GAP, paddingTop: 20 },
-  tilesHeading: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginBottom: 12 },
+  tilesHeading: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8, marginBottom: 12 },
   tilesGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP },
   tile:         {
     width: TILE_WIDTH,
     paddingVertical: 20, paddingHorizontal: 16,
     borderRadius: 14, alignItems: 'center', gap: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   tileIconWrap: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  tileLabel:    { fontSize: 15, fontWeight: '700' },
+  tileLabel:    { fontSize: 15, fontFamily: FONT_INTER.bold },
 });

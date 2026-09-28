@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Platform,
+  View, StyleSheet, TouchableOpacity, Modal, Pressable, Platform,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Calendar, Clock, X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { parseDayKey, toDayKey, formatTime } from '../../constants/eventTypes';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * Native date and time fields for the event forms.
@@ -248,7 +250,7 @@ export function TimeField({ label, value, onChange, placeholder = 'Pick a time',
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 16 },
+  label: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 6, marginTop: 16 },
   face: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
     borderWidth: 1, borderRadius: 10,
@@ -263,6 +265,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  sheetTitle:  { fontSize: 15, fontWeight: '800' },
-  sheetAction: { fontSize: 15, fontWeight: '700' },
+  sheetTitle:  { fontSize: 15, fontFamily: FONT_INTER.bold },
+  sheetAction: { fontSize: 15, fontFamily: FONT_INTER.bold },
 });

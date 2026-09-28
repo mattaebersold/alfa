@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Svg, { Defs, Stop, Rect, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { Users, Car, ShoppingBag, Search, Camera } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import CheckeredFlag from '../components/ui/CheckeredFlag';
 import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
+import { GUTTER, COLOR_BLACK } from '../constants/config';
 import { useSearch } from '../providers/SearchProvider';
 import type { MainTabParamList } from './types';
 import FeedStackNavigator from './FeedStackNavigator';
@@ -13,10 +12,10 @@ import SocietyStackNavigator from './SocietyStackNavigator';
 import GroupsStackNavigator from './GroupsStackNavigator';
 import CarsStackNavigator from './CarsStackNavigator';
 import MarketStackNavigator from './MarketStackNavigator';
-import PhotographyScreen from '../screens/photography/PhotographyScreen';
 import { colors } from '../constants/colors';
 import { useBrandColor } from '../hooks/useBrandColor';
 import { isImmersiveScreen, useFocusedRouteName } from './immersiveScreens';
+import { FONT_INTER } from '../constants/fonts';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -25,37 +24,6 @@ function perceivedBrightness(hex: string): number {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return (r * 299 + g * 587 + b * 114) / 1000;
-}
-
-// Tab-bar background: a vertical gradient that's dark at the bottom and fades
-// fully to transparent at the top. Measured in pixels (onLayout) so it reliably
-// fills the bar. It extends ABOVE the bar (negative top) so the fade rises over
-// the content behind the icons. pointerEvents none so it never blocks touches.
-// No blur — a blur can't fade without the native MaskedView.
-const TAB_FADE_RISE = 56; // px the gradient extends above the tab bar top
-
-function TabBarFade() {
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  return (
-    <View
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFill, { top: -TAB_FADE_RISE }]}
-      onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
-    >
-      {size.w > 0 && (
-        <Svg width={size.w} height={size.h}>
-          <Defs>
-            <SvgLinearGradient id="tabFade" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#000000" stopOpacity={0} />
-              <Stop offset="0.5" stopColor="#000000" stopOpacity={0.55} />
-              <Stop offset="1" stopColor="#000000" stopOpacity={0.97} />
-            </SvgLinearGradient>
-          </Defs>
-          <Rect x={0} y={0} width={size.w} height={size.h} fill="url(#tabFade)" />
-        </Svg>
-      )}
-    </View>
-  );
 }
 
 function TabIcon({
@@ -71,7 +39,7 @@ function TabIcon({
     <View style={[styles.iconWrap, focused && { backgroundColor: brandColor }]}>
       {/* `size - 1` where it was `size - 5`: about 10% larger, and the wrap is
           still 38pt so the selected pill and the touch target don't move. */}
-      <Icon color={focused ? '#000000' : color} size={size - 1} strokeWidth={focused ? 2.7 : 2} />
+      <Icon color={focused ? COLOR_BLACK : color} size={size - 1} strokeWidth={focused ? 2.7 : 2} />
     </View>
   );
 }
@@ -115,18 +83,24 @@ export default function MainTabNavigator() {
           height: tabBarHeight,
           paddingBottom: insets.bottom + 4 + extraTabPad,
           paddingTop: 12,
-          paddingHorizontal: 12,
+          paddingHorizontal: GUTTER,
           // The create button sits in the bottom-right corner now, over this
           // bar. Reserving its lane is what keeps it from covering the last
           // tab rather than floating beside it.
           paddingRight: FAB_LANE,
+          // Every tab button is hidden, so the bar is an invisible strip across
+          // the bottom — it mustn't take the taps meant for the content under
+          // it. The corner circles aren't in it (CreateFab), so they still work.
+          pointerEvents: 'none',
         },
-        tabBarBackground: () => <TabBarFade />,
+        // Nothing behind it: the bar's only buttons are the floating circles in
+        // the corner (CreateFab), which carry their own ground and shadow.
+        tabBarBackground: () => null,
         tabBarActiveTintColor: brandColor,
         tabBarInactiveTintColor: 'rgba(255,255,255,0.9)',
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '700',
+          fontFamily: FONT_INTER.bold,
           marginTop: 7,
         },
         tabBarItemStyle: {
@@ -150,90 +124,50 @@ export default function MainTabNavigator() {
           tabBarItemStyle: { display: 'none' },
         }}
       />
+      {/* Registered but not shown, like the feed's. Events is a tab of the
+          home screen now; this stack is what's left of the society section —
+          Rallys and a rally's page — and the menu navigates into it by name. */}
       <Tab.Screen
         name="SocietyTab"
         component={SocietyStackNavigator}
         options={{
-          title: 'Events',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={CheckeredFlag} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
+          title: 'Rallys',
+          tabBarButton: () => null,
         }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('SocietyTab', { screen: 'Events' });
-          },
-        })}
       />
 
-      {/* The marketplace earns the lane routes had: buying and selling is a
-          weekly errand, where recording a drive is an occasional one. Routes
-          moved to the menu. */}
+      {/* Registered but not shown. The marketplace is a tab of the home
+          screen now; this stack stays because listings and the app's links
+          still navigate into it by name. */}
       <Tab.Screen
         name="MarketTab"
         component={MarketStackNavigator}
         options={{
           title: 'Market',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={ShoppingBag} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
+          tabBarButton: () => null,
         }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('MarketTab', { screen: 'Marketplace' });
-          },
-        })}
       />
 
+      {/* Registered but not shown. Groups is a tab of the home screen now;
+          this stack stays because a group's own page lives in it, and the app
+          navigates into it by name. */}
       <Tab.Screen
         name="GroupsTab"
         component={GroupsStackNavigator}
         options={{
           title: 'Groups',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={Users} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
+          tabBarButton: () => null,
         }}
       />
+      {/* Registered but not shown. The garage, brands, model pages and every
+          car's page live in this stack, and the app navigates into it by name
+          from the menu and the header — it just has no footer button. */}
       <Tab.Screen
         name="CarsTab"
         component={CarsStackNavigator}
         options={{
           title: 'Cars',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={Car} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
-        }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('CarsTab', { screen: 'Cars' });
-          },
-        })}
-      />
-
-      {/* The photo spot map — registered, but its button is hidden for now.
-          Same arrangement as FeedTab above: the route stays so the drawer's
-          Photography tile (and anything else that navigates by name) keeps
-          working and the screen keeps its place in the tab state. Restoring it
-          to the bar is deleting the two `tabBar*` lines below.
-
-          It was labelled "Photos" rather than "Photography" because the bar
-          shares its width between its tabs, and the full word sets about half
-          again as wide as the space one tab gets — it would arrive truncated.
-          Worth keeping in mind if it comes back. */}
-      <Tab.Screen
-        name="PhotographyTab"
-        component={PhotographyScreen}
-        options={{
-          title: 'Photos',
           tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={Camera} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
         }}
       />
 
@@ -251,9 +185,8 @@ export default function MainTabNavigator() {
         component={NoopScreen}
         options={{
           title: 'Search',
-          tabBarIcon: ({ color, size, focused }) => (
-            <TabIcon Icon={Search} color={color} size={size} focused={focused} brandColor={brandColor} />
-          ),
+          // Its button is the circle beside the + now — see CreateFab.
+          tabBarButton: () => null,
         }}
         listeners={() => ({
           tabPress: (e) => {

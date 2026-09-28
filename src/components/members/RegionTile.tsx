@@ -1,11 +1,14 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import RegionBadge from '../ui/RegionBadge';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_GRAY_23, COLOR_GRAY_29, COLOR_WHITE } from '../../constants/config';
 
 /** Both tiles' height: a band under the bio, not a panel. */
 const TILE_HEIGHT = 92;
@@ -96,7 +99,7 @@ export default function RegionTile({
 
         {cityState ? (
           <View style={styles.label}>
-            <MapPin size={13} color="#FFFFFF" />
+            <MapPin size={13} color={COLOR_WHITE} />
             <Text style={styles.labelText} numberOfLines={1}>{cityState}</Text>
             {/* Only where there's somewhere to go — otherwise the chevron is a
                 promise the tile can't keep. */}
@@ -128,7 +131,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11, paddingVertical: 7,
     borderRadius: 999, borderWidth: StyleSheet.hairlineWidth,
   },
-  plainText: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  plainText: { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
 
   // Everything positional: the inset from the page, the corners, and the clip
   // that keeps the map inside them.
@@ -144,12 +147,12 @@ const styles = StyleSheet.create({
   usTile: {
     flex: 1,
     // The profile's tile shade — the white outline and lit region carry it.
-    backgroundColor: '#171717',
+    backgroundColor: COLOR_GRAY_23,
     alignItems: 'center', justifyContent: 'center',
   },
   tile: {
     flex: 1,
-    backgroundColor: '#1D1D1D',
+    backgroundColor: COLOR_GRAY_29,
     justifyContent: 'flex-end',
   },
   // Just enough to carry the label. Any more and it dims the map twice, since
@@ -160,7 +163,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingBottom: 12,
   },
   labelText: {
-    fontSize: 13, fontWeight: '800', color: '#FFFFFF', flexShrink: 1,
+    fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, flexShrink: 1,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },

@@ -2,6 +2,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import { File, Paths } from 'expo-file-system';
 import type { RouteSample } from '../utils/routeGeometry';
+import { COLOR_PRO } from '../constants/config';
 
 /**
  * The background half of route recording.
@@ -174,7 +175,7 @@ export async function startBackgroundUpdates(): Promise<boolean> {
       foregroundService: {
         notificationTitle: 'Recording your route',
         notificationBody: 'Open Road Society is tracking this drive.',
-        notificationColor: '#CDA96F',
+        notificationColor: COLOR_PRO,
       },
       // iOS: keep the blue bar visible so it's never recording invisibly.
       showsBackgroundLocationIndicator: true,

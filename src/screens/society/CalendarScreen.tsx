@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, ChevronRight, Flag } from 'lucide-react-native';
@@ -19,7 +20,8 @@ import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate } from '../../utils/calendarDate';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -197,7 +199,7 @@ export default function CalendarScreen() {
               ]}>
                 {day.getDate()}
               </Text>
-              {hasEvents && <View style={[styles.eventDot, isSelected && { backgroundColor: '#FFFFFF' }]} />}
+              {hasEvents && <View style={[styles.eventDot, isSelected && { backgroundColor: COLOR_WHITE }]} />}
             </TouchableOpacity>
           );
         })}
@@ -298,16 +300,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   navBtn:       { padding: 6 },
-  monthLabel:   { fontSize: 18, fontWeight: '800' },
+  monthLabel:   { fontSize: 18, fontFamily: FONT_INTER.bold },
   dayLabels:    {
     flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 6,
   },
-  dayLabel:     { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700' },
+  dayLabel:     { flex: 1, textAlign: 'center', fontSize: 11, fontFamily: FONT_INTER.bold },
   grid:         { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, paddingBottom: 8 },
   dayCell:      { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 100 },
   dayCellSelected: { backgroundColor: colors.primaryAlt },
-  dayNum:          { fontSize: 14, fontWeight: '600' },
-  dayNumSelected:  { color: '#FFFFFF', fontWeight: '800' },
+  dayNum:          { fontSize: 14, fontFamily: FONT_INTER.semibold },
+  dayNumSelected:  { color: COLOR_WHITE, fontWeight: '800' },
   eventDot:        { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.primaryAlt, marginTop: 2 },
   // Inset inside the cell so neighbouring tiles don't touch, and square-ish
   // rather than round — a filled circle at this size reads as a badge stuck to
@@ -317,21 +319,21 @@ const styles = StyleSheet.create({
     borderRadius: 8, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
   },
-  rallyDayNum:     { fontSize: 14, fontWeight: '800' },
+  rallyDayNum:     { fontSize: 14, fontFamily: FONT_INTER.extrabold },
   rallyFlag:       { marginTop: 1, opacity: 0.9 },
 
   rallyCards:      { paddingHorizontal: 12, paddingTop: 12, gap: 8 },
   rallyCard:       { borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   rallyCardFill:   { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
-  rallyCardLabel:  { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, opacity: 0.85 },
-  rallyCardTitle:  { fontSize: 15, fontWeight: '800', marginTop: 2 },
+  rallyCardLabel:  { fontSize: 10, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.8, opacity: 0.85 },
+  rallyCardTitle:  { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 2 },
   listHeader:   {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 1, borderBottomWidth: 1,
   },
-  listHeaderText: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  clearDate:      { fontSize: 13, color: colors.primaryAlt, fontWeight: '600' },
+  listHeaderText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  clearDate:      { fontSize: 13, color: colors.primaryAlt, fontFamily: FONT_INTER.semibold },
   eventList:    { paddingBottom: 24 },
   eventRow:     {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -339,9 +341,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   eventDateBadge: { alignItems: 'center', width: 36 },
-  eventDay:       { fontSize: 18, fontWeight: '800', color: colors.primaryAlt },
-  eventMon:       { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  eventDay:       { fontSize: 18, fontFamily: FONT_INTER.bold, color: colors.primaryAlt },
+  eventMon:       { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase' },
   eventInfo:      { flex: 1 },
-  eventTitle:     { fontSize: 15, fontWeight: '600' },
+  eventTitle:     { fontSize: 15, fontFamily: FONT_INTER.semibold },
   eventLocation:  { fontSize: 13, marginTop: 2 },
 });

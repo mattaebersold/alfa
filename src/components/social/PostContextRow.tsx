@@ -1,8 +1,10 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Dimensions,
+  View, StyleSheet, ScrollView, Dimensions, type DimensionValue,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import UserSummaryModal from '../members/UserSummaryModal';
 import CarSummaryModal from '../cars/CarSummaryModal';
 import GroupSummaryModal from '../groups/GroupSummaryModal';
@@ -19,7 +21,8 @@ import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { Post } from '../../types/api';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_58 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 /** The card's own horizontal inset — tiles line up with everything else on it. */
@@ -27,18 +30,20 @@ const GUTTER = 8;
 const GAP = 8;
 
 /**
- * How wide each tile is, given how many there are.
+ * How wide each tile is, given how many there are — or undefined to share the
+ * row evenly.
  *
- * One fills the row: there's nothing to scroll to, and a lone tile floating at
- * 40% next to empty space reads as a loading state. Two split it evenly, for
- * the same reason. Past that the row genuinely scrolls, and the tiles go
- * narrower than half so the next one is visibly cut off by the edge — the peek
- * is the only thing that says there is more.
+ * One takes half the row. Two share its width, however wide the card is, so
+ * the inset is the same on both sides. (Sized off the screen they ran past the card's right
+ * edge once the feed gave cards a side margin.) Past two the row genuinely
+ * scrolls, and the tiles go narrower than half so the next one is visibly cut
+ * off by the edge — the peek is the only thing that says there is more.
  */
-function tileWidth(count: number): number {
-  const inner = SCREEN_WIDTH - GUTTER * 2;
-  if (count <= 1) return inner;
-  if (count === 2) return (inner - GAP) / 2;
+function tileWidth(count: number): DimensionValue | undefined {
+  // One alone takes half the row — full width, a single tag read as a banner
+  // across the card rather than a note about it.
+  if (count === 1) return '50%';
+  if (count === 2) return undefined;
   return SCREEN_WIDTH * 0.4;
 }
 
@@ -73,7 +78,8 @@ function Tile({ kind, name, image, width, onPress }: {
   kind: Kind;
   name: string;
   image?: string | null;
-  width: number;
+  /** Undefined: take an even share of the row (see tileWidth). */
+  width?: DimensionValue;
   onPress: (origin: SummaryOrigin | null) => void;
 }) {
   const c = useColors();
@@ -85,7 +91,7 @@ function Tile({ kind, name, image, width, onPress }: {
     // press handler so the panel it opens can grow out of this tile rather
     // than appearing from nowhere.
     <SummaryTouchable
-      style={[styles.tile, { width }]}
+      style={[styles.tile, width != null ? { width } : styles.tileShare]}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityLabel={`${badge.label}: ${name}`}
@@ -98,11 +104,17 @@ function Tile({ kind, name, image, width, onPress }: {
         </View>
       )}
 
-      {/* An even wash rather than a gradient. These are footnotes to the post
-          above them, and a flat scrim pushes the picture back far enough that
-          the tile reads as a label with a texture behind it instead of as a
-          second photo competing with the post's own. */}
-      <View style={[StyleSheet.absoluteFill, styles.scrim]} pointerEvents="none" />
+      {/* A wash from left to right — heavy behind the badge and name, which
+          sit on the left, thinning out across the tile so the photo shows
+          through on the right. Enough to keep the tile a label with a picture
+          behind it, rather than a second photo competing with the post's. */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.1)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
       <View style={styles.row}>
         <View style={styles.body}>
@@ -127,7 +139,7 @@ function Tile({ kind, name, image, width, onPress }: {
 
 type Open = (origin: SummaryOrigin | null) => void;
 
-function GroupTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
+function GroupTile({ id, width, onOpen }: { id: string; width?: DimensionValue; onOpen: Open }) {
   const { data: group } = useGetGroupQuery(id, { skip: !id });
   if (!group) return null;
   return (
@@ -141,7 +153,7 @@ function GroupTile({ id, width, onOpen }: { id: string; width: number; onOpen: O
   );
 }
 
-function SpotTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
+function SpotTile({ id, width, onOpen }: { id: string; width?: DimensionValue; onOpen: Open }) {
   const { data: spot } = useGetPhotoSpotQuery(id, { skip: !id });
   if (!spot) return null;
   return (
@@ -155,7 +167,7 @@ function SpotTile({ id, width, onOpen }: { id: string; width: number; onOpen: Op
   );
 }
 
-function UserTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
+function UserTile({ id, width, onOpen }: { id: string; width?: DimensionValue; onOpen: Open }) {
   const { data: user } = useGetUserByIdQuery(id, { skip: !id });
   if (!user) return null;
   return (
@@ -169,7 +181,7 @@ function UserTile({ id, width, onOpen }: { id: string; width: number; onOpen: Op
   );
 }
 
-function CarTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
+function CarTile({ id, width, onOpen }: { id: string; width?: DimensionValue; onOpen: Open }) {
   const { data: car } = useGetCarQuery(id, { skip: !id });
   if (!car) return null;
   const name = car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car';
@@ -184,7 +196,7 @@ function CarTile({ id, width, onOpen }: { id: string; width: number; onOpen: Ope
   );
 }
 
-function EventTile({ id, width, onOpen }: { id: string; width: number; onOpen: Open }) {
+function EventTile({ id, width, onOpen }: { id: string; width?: DimensionValue; onOpen: Open }) {
   /**
    * A society event, not the legacy `Event`.
    *
@@ -370,15 +382,21 @@ const styles = StyleSheet.create({
   scroller: { flexGrow: 0, flexShrink: 0 },
   strip: {
     flexDirection: 'row', alignItems: 'center', gap: GAP,
-    paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: 1,
+    // Room under the tiles too, now the card can end on them — the likes row
+    // that followed moved onto the photo. With nothing tagged the row isn't
+    // drawn at all, so the card ends on its image, flush.
+    paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: 12,
   },
+  // A hairline of dark grey around each, so a dark photo still has an edge
+  // against the card.
   tile: {
     height: 58,
     borderRadius: 10, overflow: 'hidden',
+    borderWidth: 1, borderColor: COLOR_GRAY_58,
     justifyContent: 'center',
   },
+  tileShare: { flex: 1 },
   blank: { alignItems: 'center', justifyContent: 'center' },
-  scrim: { backgroundColor: 'rgba(0,0,0,0.62)' },
   // The tile's contents: the stacked badge-and-name on the left, the chevron
   // pinned right.
   row: {
@@ -391,18 +409,20 @@ const styles = StyleSheet.create({
   },
   // `alignSelf` keeps the badge the width of its word rather than the width of
   // the name under it.
+  // At 80%, like the type and category pills on the post's photo.
   badge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: PILL_RADIUS,
+    opacity: 0.8,
   },
   badgeText: {
-    fontSize: 8, fontWeight: '800', color: '#000000',
+    fontSize: 8, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
   // Regular weight: the badge above it is already doing the emphasis, and two
   // bold things stacked read as one loud block.
   name: {
     maxWidth: '100%',
-    fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.95)',
+    fontSize: 13, fontFamily: FONT_INTER.medium, color: 'rgba(255,255,255,0.95)',
   },
   chevron: {
     width: 24, height: 24, borderRadius: 6,

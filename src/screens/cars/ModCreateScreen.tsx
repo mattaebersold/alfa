@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  TextInput, Alert,
+  View, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,8 @@ import { colors } from '../../constants/colors';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_WHITE } from '../../constants/config';
 
 type ImageAsset = { uri: string; name: string; type: string };
 
@@ -49,12 +51,12 @@ function ChipSelect({ items, value, onChange, label }: {
 }
 const chip = StyleSheet.create({
   wrapper:    { marginBottom: 20 },
-  label:      { fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  label:      { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 8 },
   chips:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
   active:     { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-  text:       { fontSize: 13, fontWeight: '600' },
-  activeText: { color: '#FFFFFF' },
+  text:       { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  activeText: { color: COLOR_WHITE },
 });
 
 export default function ModCreateScreen({ navigation, route }: AppScreenProps<'ModCreate'>) {
@@ -191,7 +193,7 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
                   onPress={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
                   hitSlop={4}
                 >
-                  <X size={12} color="#FFFFFF" />
+                  <X size={12} color={COLOR_WHITE} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -220,10 +222,10 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
 
 const styles = StyleSheet.create({
   scroll:         { padding: 16 },
-  carLabel:       { fontSize: 13, fontWeight: '600', marginBottom: 16 },
+  carLabel:       { fontSize: 13, fontFamily: FONT_INTER.semibold, marginBottom: 16 },
   fieldWrap:      { marginBottom: 20 },
-  fieldLabel:     { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  optional:       { fontWeight: '400', fontSize: 12 },
+  fieldLabel:     { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
+  optional:       { fontSize: 12 },
   imageGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   imageThumbWrap: { position: 'relative' },
   imageThumb:     { width: 80, height: 80, borderRadius: 8 },

@@ -1,5 +1,15 @@
 import { REGIONS } from '../../constants/regions';
-import { ALERT_LIMIT_BASIC, ALERT_LIMIT_PRO, ALERT_LIMIT_UPSELL } from '../../constants/limits';
+import {
+  ALERT_LIMIT_BASIC,
+  ALERT_LIMIT_PRO,
+  ALERT_LIMIT_UPSELL,
+  COLOR_ALERT_ACTION,
+  COLOR_ALERT_CONDITION,
+  COLOR_ALERT_KEYWORD,
+  COLOR_ALERT_PLACE,
+  COLOR_ALERT_PRICE,
+  COLOR_BADGE_GROUP,
+} from '../../constants/config';
 import { categoryLabel, LISTING_CONDITIONS } from '../marketplace/listingFormat';
 import type {
   Alert, AlertEvent, AlertFilterKey, AlertFilters, AlertMeta, AlertEventMeta,
@@ -662,12 +672,12 @@ export function sentenceToneColor(
 ): string {
   switch (tone) {
     case 'subject':   return palette.brand;
-    case 'action':    return '#7FD1F7';   // what happens — cool, and never a value
-    case 'price':     return '#00E070';   // the marketplace's green, legible on black
-    case 'condition': return '#F5A623';
-    case 'group':     return '#F89CFA';   // the group badge
-    case 'place':     return '#E9D26A';
-    case 'keyword':   return '#C6A0F6';
+    case 'action':    return COLOR_ALERT_ACTION;   // what happens — cool, and never a value
+    case 'price':     return COLOR_ALERT_PRICE;   // the marketplace's green, legible on black
+    case 'condition': return COLOR_ALERT_CONDITION;
+    case 'group':     return COLOR_BADGE_GROUP;   // the group badge
+    case 'place':     return COLOR_ALERT_PLACE;
+    case 'keyword':   return COLOR_ALERT_KEYWORD;
     default:          return palette.fg;
   }
 }

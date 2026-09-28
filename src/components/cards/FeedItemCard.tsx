@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -9,9 +10,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from '../ui/Avatar';
 import MentionText from '../ui/MentionText';
 import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../ui/Badge';
-import LikeButton from '../social/LikeButton';
-import CommentButton from '../social/CommentButton';
-import ReportButton from '../ui/ReportButton';
+import PostActionRail from '../social/PostActionRail';
+import { usePostLike } from '../../hooks/usePostLike';
+import PostOptionsButton from '../social/PostOptionsButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
 import ImageLightbox from '../ui/ImageLightbox';
 import UserSummaryModal from '../members/UserSummaryModal';
@@ -21,7 +22,8 @@ import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService'
 import { useAppSelector } from '../../store/store';
 import { imageUrl } from '../../utils/image';
 import { postMediaList, type PostMedia } from '../../utils/postMedia';
-import PostMediaCarousel from '../media/PostMediaCarousel';
+import { LinearGradient } from 'expo-linear-gradient';
+import PostMediaCarousel, { PageDots } from '../media/PostMediaCarousel';
 import SourceAppChip from '../social/SourceAppChip';
 import SpotResultBody from '../feed/SpotResultBody';
 
@@ -37,7 +39,7 @@ import { DIECAST_BLUE } from '../../constants/diecast';
  * sat a shade above `card`, which made the posts the brightest things on the
  * page, and the photos in them should be.
  */
-const FEED_CARD_BG = '#161616';
+const FEED_CARD_BG = COLOR_GRAY_22;
 
 /** Lines of description a card shows before it offers "more". */
 const BODY_LINES = 2;
@@ -48,8 +50,16 @@ import { stripHtml } from '../../utils/text';
 import PostContextRow from '../social/PostContextRow';
 import LikersSheet from '../social/LikersSheet';
 import PostPoll from '../social/PostPoll';
-import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { type SummaryOrigin } from '../ui/SummaryModal';
+import {
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_FOREST,
+  COLOR_GRAY_22,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -70,6 +80,7 @@ interface FeedItemCardProps {
    * that car's record pane, which is not this post on another screen.
    */
   onPress?: () => void;
+  /** No longer used — the comment button opens its own panel (PostActionRail). Kept so hosts still compile. */
   onCommentPress?: () => void;
   /**
    * Whether this card is on screen. Forwarded to the media carousel so a
@@ -77,104 +88,6 @@ interface FeedItemCardProps {
    * it" — surfaces without a list leave playback alone.
    */
   visible?: boolean;
-}
-
-// "Liked by matt and 3 others" — resolves the username of a representative liker
-// (preferring someone other than the viewer) and appends the remaining count.
-function LikedByLine({ likers, total, myId, names, onPressUser, color, style }: {
-  likers: string[]; total: number; myId?: string;
-  /** id -> username, when whatever loaded this post already resolved them. */
-  names?: Record<string, string>;
-  /**
-   * A name was tapped.
-   *
-   * The line doesn't navigate any more — pushing a whole profile screen to
-   * answer "who is that" meant leaving the feed and scrolling back to where you
-   * were. The card opens a summary panel over the feed instead, and this is how
-   * it hears which person.
-   */
-  onPressUser: (userId: string) => void;
-  color: string; style: any;
-}) {
-  const colors = useColors();
-
-  /**
-   * Up to three names, other people first.
-   *
-   * Your own like is the one you already know about, so it goes to the back of
-   * the queue — "liked by you and 4 others" tells you nothing you didn't do
-   * yourself a second ago.
-   */
-  const candidates = [
-    ...likers.filter((id) => id !== myId),
-    ...likers.filter((id) => id === myId),
-  ].slice(0, 3);
-
-  // Three fixed lookups rather than a loop: hooks have to be called the same
-  // number of times on every render, and a list of them is how that breaks.
-  // The feed resolves these names server-side and sends them with the post, so
-  // in the feed all three lookups sit out. Cards drawn from endpoints that
-  // don't do that still fetch for themselves.
-  const known = (id?: string) => (id && names?.[id]) || undefined;
-  const q0 = useGetUserByIdQuery(candidates[0] ?? '', { skip: !candidates[0] || !!known(candidates[0]) });
-  const q1 = useGetUserByIdQuery(candidates[1] ?? '', { skip: !candidates[1] || !!known(candidates[1]) });
-  const q2 = useGetUserByIdQuery(candidates[2] ?? '', { skip: !candidates[2] || !!known(candidates[2]) });
-
-  if (total <= 0) return null;
-
-  const named = candidates
-    .map((id, i) => {
-      const username = known(id);
-      if (username) return { user_id: id, username };
-      return [q0.data, q1.data, q2.data][i];
-    })
-    .filter((u): u is NonNullable<typeof u> => !!u?.username);
-
-  // Nothing resolved yet — the count is still true, and it beats an empty line
-  // that pops into a sentence a moment later.
-  if (named.length === 0) {
-    return (
-      <Text style={[style, { color }]}>
-        {total === 1 ? 'Liked by someone' : `Liked by ${total} people`}
-      </Text>
-    );
-  }
-
-  const others = Math.max(0, total - named.length);
-
-  /**
-   * The separator before a name: nothing, a comma, or "and".
-   *
-   * "and" is only the last joint when nothing follows the names — with others
-   * still to come, the last name takes a comma and "and" belongs to the tail.
-   */
-  const joint = (i: number) => {
-    if (i === 0) return '';
-    if (i === named.length - 1 && others === 0) return ' and ';
-    return ', ';
-  };
-
-  return (
-    <Text style={[style, { color }]}>
-      Liked by{' '}
-      {named.map((u, i) => (
-        <Text key={u.user_id}>
-          {joint(i)}
-          {/* The names are the part of this line that lead somewhere, so they
-              are the part you can press. Colour alone says so — it keeps the
-              weight of the sentence they sit in. */}
-          <Text
-            style={{ color: colors.blueLight }}
-            onPress={() => onPressUser(u.user_id)}
-            suppressHighlighting
-          >
-            {u.username}
-          </Text>
-        </Text>
-      ))}
-      {others > 0 ? ` and ${others} ${others === 1 ? 'other' : 'others'}` : ''}
-    </Text>
-  );
 }
 
 export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible }: FeedItemCardProps) {
@@ -276,39 +189,39 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   });
 
   /**
-   * Like and comment.
-   *
-   * Over the photo when there is one: they belong to the post, and the photo is
-   * the post — down in the card they were a strip of chrome the eye had to
-   * travel to. Over an unknown image they need their own ground, which is what
-   * the pill is for.
+   * Like, comment, share, bookmark — a column over the photo, or a row in the
+   * footer when there's no photo to float over. See PostActionRail.
    */
-  const actionsRow = (
-    <>
-      <LikeButton
-        documentId={post.internal_id}
-        entryType={entryType}
-        ownerId={post.user_id}
-        initialCount={likeCount}
-        initialLiked={iLiked}
-        // Switches this card off the feed's snapshot and onto the live query,
-        // so the liked-by line below reflects what you just did.
-        onToggle={() => setLikeTouched(true)}
-        color="#FFFFFF"
-      />
-      <CommentButton
-        count={post.comment_count ?? post.commentCount ?? 0}
-        documentId={post.internal_id}
-        onPress={onCommentPress}
-        color="#FFFFFF"
-      />
-    </>
+  /**
+   * The like, held once for both hearts — the rail's and the likes row's —
+   * so tapping either moves both. See usePostLike.
+   */
+  const like = usePostLike({
+    postId: post.internal_id,
+    entryType,
+    ownerId: post.user_id,
+    initialLiked: iLiked,
+    initialCount: likeCount,
+    // Switches this card off the feed's snapshot and onto the live query, so
+    // the faces in the likes row catch up with what you just did.
+    onToggle: () => setLikeTouched(true),
+  });
+
+  const rail = (vertical: boolean) => (
+    <PostActionRail
+      post={post}
+      entryType={entryType}
+      like={like}
+      likers={likers}
+      onOpenLikers={(origin) => setLikersOrigin(origin)}
+      vertical={vertical}
+    />
   );
 
   const isListing = post.type === 'listing' || post.type === 'want';
   const isDiecast = post.category === 'diecast';
   const cardBg = isDiecast ? DIECAST_BLUE : FEED_CARD_BG;
-  const fgColor = isDiecast ? '#FFFFFF' : colors.fg;
+  const fgColor = isDiecast ? COLOR_WHITE : colors.fg;
   const mutedColor = isDiecast ? 'rgba(255,255,255,0.7)' : colors.muted;
   const timeColor = isDiecast ? 'rgba(255,255,255,0.6)' : colors.grey;
   const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
@@ -354,9 +267,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         </TouchableOpacity>
         <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
         {userInfo?.user_id === post.user_id ? (
-          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? '#FFFFFF' : colors.grey} />
+          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? COLOR_WHITE : colors.grey} />
         ) : (
-          <ReportButton contentType="post" contentId={post.internal_id} size={18} />
+          <PostOptionsButton postId={post.internal_id} author={user} size={18} />
         )}
       </View>
 
@@ -462,13 +375,14 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
               // you're on, and without that a swipe gave no sign it had
               // landed anywhere. The carousel's dots are the same small
               // white/translucent row this card drew before it had one.
-              showPageIndicator
               visible={visible}
               // With no destination to go to, a tap on a photo opens the photo
               // — the same viewer the gallery badge opens. A video's first tap
               // is still its own: it starts playback.
               onPressItem={onPress ?? (() => setZoomIndex(0))}
-              overlay={
+              // Dots drawn here, beside the gallery count, not at the foot's centre.
+              showPageIndicator={false}
+              overlay={({ active }) =>
                 <>
                   {/* Type + category badges — top left, color coded */}
                   <View style={styles.imageBadgesLeft} pointerEvents="none">
@@ -481,7 +395,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
                       </View>
                     ) : null}
                   </View>
-                  {/* Price + media count — top right column.
+                  {/* Price — top right.
                       `box-none` rather than `none`: the gallery count is a
                       button now, so the column has to let touches reach it
                       while still passing everything else through to the
@@ -492,11 +406,24 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
                         <Text style={styles.priceBadgeText}>${Number(post.price).toLocaleString()}</Text>
                       </View>
                     ) : null}
-                    {mediaCount > 1 && (
-                      /* The count was a label saying there were more photos,
-                         with no way to get to them but a pinch nobody guesses.
-                         It opens the viewer now — a badge that states a number
-                         you can act on should be the thing you act on. */
+                  </View>
+                  {/* A wash from the bottom-right corner, black fading to
+                      nothing along the diagonal, so the rail's white icons
+                      read over a bright photo. Under the controls. */}
+                  <LinearGradient
+                    colors={['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0)']}
+                    locations={[0, 0.45, 1]}
+                    start={{ x: 1, y: 1 }}
+                    end={{ x: 0.2, y: 0.2 }}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                  />
+                  {/* Bottom left: the gallery count, and the page dots
+                      straight after it. */}
+                  {mediaCount > 1 && (
+                    <View style={styles.galleryRow} pointerEvents="box-none">
+                      {/* The count opens the viewer — a badge that states a
+                          number you can act on should be the thing you act on. */}
                       <TouchableOpacity
                         style={styles.multiImgBadge}
                         onPress={() => setZoomIndex(0)}
@@ -505,11 +432,15 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
                         accessibilityRole="button"
                         accessibilityLabel={`View all ${mediaCount} photos`}
                       >
-                        <Images size={16} color="#FFFFFF" strokeWidth={2} />
-                        <Text style={styles.multiImgCount}>{mediaCount}</Text>
+                        <Images size={16} color={COLOR_WHITE} strokeWidth={2} />
+                        {/* The dots, in the pill — one per photo, so they're
+                            the count too, and say which one you're on. */}
+                        <PageDots count={mediaCount} active={active} />
                       </TouchableOpacity>
-                    )}
-                  </View>
+                    </View>
+                  )}
+                  {/* The actions, down the right of the photo. */}
+                  <View style={styles.rail} pointerEvents="box-none">{rail(true)}</View>
                 </>
               }
             />
@@ -539,31 +470,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           actions they came from. */}
       <PostContextRow post={post} />
 
-      {/* The line opens the full list; the name inside it still goes straight
-          to that person, since a nested Text's own press wins. */}
-      <View style={styles.footerRow}>
-        {/* The pill keeps the translucent ground and rounded shape it had over
-            the photo; it just shares the line now. */}
-        <View style={styles.actionsPill}>{actionsRow}</View>
-        <View style={styles.footerLeft}>
-          {likeCount > 0 && (
-            <SummaryTouchable
-              onPress={(origin) => setLikersOrigin(origin)}
-              accessibilityLabel={`See everyone who liked this`}
-            >
-              <LikedByLine
-                likers={likers}
-                total={likeCount}
-                myId={userInfo?.user_id}
-                names={likeData ? undefined : post.liker_names}
-                onPressUser={setSummaryUserId}
-                color={mutedColor}
-                style={styles.likedBy}
-              />
-            </SummaryTouchable>
-          )}
-        </View>
-      </View>
+      {/* No photo to carry the actions: they end the card in a row of their
+          own instead, right-aligned. */}
+      {!hasMedia && <View style={styles.footerRow}>{rail(false)}</View>}
 
       <UserSummaryModal
         userId={summaryUserId}
@@ -589,19 +498,19 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS,
     marginVertical: 6,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 10, gap: 8 },
   // Takes the row, so the timestamp and the menu stay pinned right.
   headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerText:  { flex: 1, minWidth: 0 },
-  author:      { fontSize: 14, fontWeight: '700' },
+  author:      { fontSize: 14, fontFamily: FONT_INTER.bold },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
   titleWrap:      { paddingHorizontal: 8, paddingBottom: 10 },
-  title:          { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  title:          { fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 20 },
   titleAloneWrap: { paddingHorizontal: 8, paddingTop: 2, paddingBottom: 12 },
-  titleAlone:     { fontSize: 18, fontWeight: '700', lineHeight: 24 },
+  titleAlone:     { fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24 },
   bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -4 },
   bodyPreview:    { fontSize: 13, lineHeight: 18 },
   /**
@@ -619,7 +528,7 @@ const styles = StyleSheet.create({
   // Underlined and on its own line: inline it would have to sit inside the
   // clamped Text, where it'd be the first thing the clamp cut off.
   moreLink: {
-    fontSize: 13, lineHeight: 18, fontWeight: '700',
+    fontSize: 13, lineHeight: 18, fontFamily: FONT_INTER.bold,
     textDecorationLine: 'underline',
     alignSelf: 'flex-start', marginTop: 1,
   },
@@ -629,21 +538,29 @@ const styles = StyleSheet.create({
   imageBadgesLeft: {
     position: 'absolute', top: 10, left: 10, flexDirection: 'row', gap: 5, flexWrap: 'wrap',
   },
+  // At 80%, so the photo shows a little through the type and category.
   imgBadge:   {
     backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS,
+    opacity: 0.8,
   },
-  imgBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  imgBadgeText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.4 },
 
+  // Bottom left: the gallery count, then the page dots.
+  galleryRow: {
+    position: 'absolute', left: 10, bottom: 10,
+    // Tight: the dots belong to the count beside them.
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+  },
   imageBadgesRight: {
     position: 'absolute', top: 10, right: 10, alignItems: 'flex-end', gap: 5,
   },
   priceBadge:    {
-    backgroundColor: '#3a8a3a',
+    backgroundColor: COLOR_FOREST,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4
   },
-  priceBadgeText: { fontSize: 13, fontWeight: '800', color: '#000' },
+  priceBadgeText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   multiImgBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -654,29 +571,17 @@ const styles = StyleSheet.create({
     borderRadius: PILL_RADIUS,
   },
   // Not bold: at 800 the count read as loudly as the post's own title.
-  multiImgCount: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
 
   messageWrap: { paddingHorizontal: 8, paddingTop: 10 },
   // Tucked up under the author row; the card's own inset on the left.
   sourceChip:  { marginLeft: 8, marginTop: -2, marginBottom: 10 },
   poll:        { paddingHorizontal: 8, paddingBottom: 10 },
   footerRow: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,
   },
   // Takes the row so the menu stays pinned right on a card with no likes.
   footerLeft:  { flex: 1, minWidth: 0 },
-  likedBy:     { fontSize: 12, fontWeight: '600' },
-  // No rule above the actions: the card already ends here, and a line across
-  // it read as a divider between two things rather than as the foot of one.
-  // The row is full width so the pill can sit at its left edge; the pill keeps
-  // the shape and ground it had over the photo.
-  actionsPill: {
-    // Never squeezed by a long list of likers — the names truncate, not this.
-    flexShrink: 0,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
+  // Over the photo, anchored at its bottom right.
+  rail: { position: 'absolute', right: 8, bottom: 8 },
 });

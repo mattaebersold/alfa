@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Linking, Dimensions, Modal,
+  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking, Dimensions, Modal,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -17,7 +17,8 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { calendarDate } from '../../utils/calendarDate';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -129,8 +130,8 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
                   onPress={() => attendEvent({ event_id: event.internal_id })}
                   disabled={attending}
                 >
-                  <Check size={16} color="#000000" />
-                  <Text style={[styles.rsvpBtnText, { color: '#000000' }]}>Attend</Text>
+                  <Check size={16} color={COLOR_BLACK} />
+                  <Text style={[styles.rsvpBtnText, { color: COLOR_BLACK }]}>Attend</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.rsvpBtn, { backgroundColor: colors.segment, borderWidth: 1, borderColor: colors.border }]}
@@ -164,17 +165,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, gap: 12,
   },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700' },
+  headerTitle: { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold },
   scroll:  { paddingBottom: 40 },
   dotRow:  { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 8 },
   dot:     { width: 6, height: 6, borderRadius: 3 },
   infoBlock: { padding: 16, borderBottomWidth: 1 },
-  title:   { fontSize: 22, fontWeight: '800', marginBottom: 10 },
+  title:   { fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 10 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   metaText:{ fontSize: 14 },
   rsvpRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   rsvpBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: COMMON_RADIUS },
-  rsvpBtnText: { fontSize: 15, fontWeight: '700' },
+  rsvpBtnText: { fontSize: 15, fontFamily: FONT_INTER.bold },
   bodyBlock: { padding: 16 },
   body:    { fontSize: 15, lineHeight: 22 },
   muted:   { fontSize: 15, fontStyle: 'italic' },

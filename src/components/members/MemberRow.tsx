@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Car, FileText } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import RegionBadge from '../ui/RegionBadge';
@@ -12,6 +13,8 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
 import type { User } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_BLACK, COLOR_GRAY_26, COLOR_PRO } from '../../constants/config';
 
 /**
  * One member, in a list of them.
@@ -71,7 +74,7 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
       style={[
         ss.listRow,
         plain
-          ? { borderBottomColor: '#1A1A1A', borderBottomWidth: StyleSheet.hairlineWidth }
+          ? { borderBottomColor: COLOR_GRAY_26, borderBottomWidth: StyleSheet.hairlineWidth }
           : { backgroundColor: colors.card, borderBottomColor: colors.border },
       ]}
       onPress={onPress}
@@ -80,7 +83,7 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
         <Avatar user={user} size={44} />
         {isPro && (
           <View style={styles.proWheelBadge}>
-            <SteeringWheel size={12} color="#000000" strokeWidth={2.5} />
+            <SteeringWheel size={12} color={COLOR_BLACK} strokeWidth={2.5} />
           </View>
         )}
       </View>
@@ -131,16 +134,16 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
 
 const styles = StyleSheet.create({
   info:      { flex: 1, minWidth: 0 },
-  name:      { fontSize: 15, fontWeight: '700' },
+  name:      { fontSize: 15, fontFamily: FONT_INTER.bold },
   statsRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
   statChip:  { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  statText:  { fontSize: 11, fontWeight: '600' },
+  statText:  { fontSize: 11, fontFamily: FONT_INTER.semibold },
   avatarWrap:{ position: 'relative' },
-  proRing:   { borderWidth: 2.5, borderColor: '#CDA96F', borderRadius: 26, padding: 2 },
+  proRing:   { borderWidth: 2.5, borderColor: COLOR_PRO, borderRadius: 26, padding: 2 },
   proWheelBadge: {
     position: 'absolute', bottom: -1, right: -1,
     width: 20, height: 20, borderRadius: 10,
-    backgroundColor: '#CDA96F',
+    backgroundColor: COLOR_PRO,
     alignItems: 'center', justifyContent: 'center',
   },
 });

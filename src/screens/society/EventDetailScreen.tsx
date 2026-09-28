@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Linking, Dimensions,
+  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking, Dimensions,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -28,7 +28,8 @@ import { ss } from '../../styles/shared';
 import { calendarDate } from '../../utils/calendarDate';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useViewableIds } from '../../hooks/useViewableIds';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
@@ -130,7 +131,7 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
             onPress={() => attendEvent({ event_id: eventId })}
             disabled={attending}
           >
-            <Check size={16} color="#FFFFFF" />
+            <Check size={16} color={COLOR_WHITE} />
             <Text style={styles.rsvpBtnText}>Attend</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -211,14 +212,14 @@ const styles = StyleSheet.create({
   dot:             { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.greyLight },
   dotActive:       { backgroundColor: colors.primaryAlt },
   infoBlock:       { padding: 16, borderBottomWidth: 1 },
-  title:           { fontSize: 22, fontWeight: '800', marginBottom: 10 },
+  title:           { fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 10 },
   metaRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   metaText:        { fontSize: 14 },
   metaLink:        { color: colors.primaryAlt, fontWeight: '600' },
   rsvpRow:         { flexDirection: 'row', gap: 10, marginTop: 14 },
   rsvpBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: COMMON_RADIUS },
   rsvpAttend:      { backgroundColor: colors.primaryAlt },
-  rsvpBtnText:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  rsvpBtnText:     { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   tabItemActive:   { borderBottomColor: colors.primaryAlt },
   tabTextActive:   { color: colors.primaryAlt },
   bodyBlock:       { padding: 16 },

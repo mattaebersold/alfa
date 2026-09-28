@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Car, ExternalLink, Lock, Settings, PenSquare, Trash2 } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
@@ -10,7 +11,8 @@ import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { isOpenableLink, listLinkLabel } from '../../utils/listLinks';
 import type { List, ListItem } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_22 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** What a list calls its car: the owner's own name for it, else year make model. */
 export function listCarLabel(car?: List['car']): string {
@@ -239,10 +241,10 @@ export default function ListSummaryContent({
 }
 
 const styles = StyleSheet.create({
-  cover: { width: '100%', height: 140, backgroundColor: '#161616' },
+  cover: { width: '100%', height: 140, backgroundColor: COLOR_GRAY_22 },
   body:  { padding: 18, paddingBottom: 22, gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  title: { flex: 1, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  title: { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
   cogBtn: {
     width: 34, height: 34, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
@@ -253,25 +255,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: PILL_RADIUS,
   },
-  badgeText:  { fontSize: 11, fontWeight: '700' },
+  badgeText:  { fontSize: 11, fontFamily: FONT_INTER.bold },
   capitalize: { textTransform: 'capitalize' },
 
   about: { fontSize: 13.5, lineHeight: 19, marginTop: 2 },
 
   authorRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 2 },
-  authorName: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  authorName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
 
   carRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 8, borderRadius: COMMON_RADIUS, marginTop: 4,
   },
   carGlyph: {
-    width: 44, height: 34, borderRadius: 6, backgroundColor: '#161616',
+    width: 44, height: 34, borderRadius: 6, backgroundColor: COLOR_GRAY_22,
     alignItems: 'center', justifyContent: 'center',
   },
   carText:  { flex: 1, minWidth: 0 },
-  carLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  carTitle: { fontSize: 14, fontWeight: '700', marginTop: 1 },
+  carLabel: { fontSize: 10, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  carTitle: { fontSize: 14, fontFamily: FONT_INTER.bold, marginTop: 1 },
 
   items: { marginTop: 8 },
   item: {
@@ -283,13 +285,13 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
   },
-  rankText:    { fontSize: 13, fontWeight: '800' },
+  rankText:    { fontSize: 13, fontFamily: FONT_INTER.extrabold },
   rankOnPhoto: { position: 'absolute', top: 8, left: 8 },
   // The panel's full width: the car is the point of the entry.
-  itemPhoto: { width: '100%', aspectRatio: 16 / 10, borderRadius: COMMON_RADIUS, backgroundColor: '#161616' },
+  itemPhoto: { width: '100%', aspectRatio: 16 / 10, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
   itemText:  { minWidth: 0, gap: 3 },
   itemTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  itemTitle: { flex: 1, fontSize: 15, fontWeight: '700' },
+  itemTitle: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
   itemDesc:  { fontSize: 13, lineHeight: 18 },
   // Small, and the panel's secondary grey: it's a way out of the list, not the
   // thing the list is for.
@@ -298,6 +300,6 @@ const styles = StyleSheet.create({
     maxWidth: '100%', marginTop: 5,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS,
   },
-  linkText: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  linkText: { fontSize: 12, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   empty:    { fontSize: 13, marginTop: 8 },
 });

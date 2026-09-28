@@ -1,9 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { Text } from '@ors/kit';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import CarPosterCard from '../cards/CarPosterCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { shuffle } from '../../utils/array';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 10;
@@ -74,10 +77,10 @@ function FeaturedCarsRow({ onCarPress }: Props) {
 export default FeaturedCarsRow;
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: '#000', paddingTop: 14, paddingBottom: 4 },
+  container: { backgroundColor: COLOR_BLACK, paddingTop: 14, paddingBottom: 4 },
   heading: {
-    fontSize: 16, fontWeight: '800', letterSpacing: 0.4,
-    paddingHorizontal: 14, marginBottom: 10, color: '#FFFFFF',
+    fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: 0.4,
+    paddingHorizontal: 14, marginBottom: 10, color: COLOR_WHITE,
   },
   // Padding rather than margin on the cards: a horizontal ScrollView clips at
   // its content bounds, so the glow needs the room to be inside them.

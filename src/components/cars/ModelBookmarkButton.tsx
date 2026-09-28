@@ -3,10 +3,11 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { Bookmark } from 'lucide-react-native';
 import { useGetLoggedInUserQuery, useToggleModelBookmarkMutation } from '../../api/apiService';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import { COLOR_BLACK, COLOR_GRAY_42, COLOR_WHITE } from '../../constants/config';
 
 /**
  * Bookmark this model — a round button; filled once it's saved. Bookmarked
- * models are a row in the menu (BookmarkedModelsRow), each straight back here.
+ * models are the Cars tab of the header's Bookmarks (BookmarksPanel), each straight back here.
  */
 export default function ModelBookmarkButton({ make, model, modelHandle, generation, generationHandle, standalone }: {
   make: string;
@@ -43,12 +44,12 @@ export default function ModelBookmarkButton({ make, model, modelHandle, generati
       accessibilityState={{ selected: saved }}
       accessibilityLabel={saved ? `Remove ${label} from bookmarks` : `Bookmark ${label}`}
     >
-      <Bookmark size={17} color={saved ? '#000000' : '#FFFFFF'} fill={saved ? '#000000' : 'transparent'} strokeWidth={2.2} />
+      <Bookmark size={17} color={saved ? COLOR_BLACK : COLOR_WHITE} fill={saved ? COLOR_BLACK : 'transparent'} strokeWidth={2.2} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   btn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  btnOff: { backgroundColor: '#2A2A2A' },
+  btnOff: { backgroundColor: COLOR_GRAY_42 },
 });

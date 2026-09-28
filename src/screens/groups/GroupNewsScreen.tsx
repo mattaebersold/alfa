@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, FlatList,
+  View, StyleSheet, FlatList,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { Image } from 'expo-image';
@@ -16,7 +17,8 @@ import type { GroupsScreenProps } from '../../navigation/types';
 import type { GroupNewsPost } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 function NewsCard({ post }: { post: GroupNewsPost }) {
   const colors = useColors();
@@ -75,11 +77,11 @@ const styles = StyleSheet.create({
   card:      {
     marginHorizontal: 12, marginTop: 12,
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardImage: { width: '100%', aspectRatio: 16 / 9 },
   cardBody:  { padding: 12 },
-  cardTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6, lineHeight: 22 },
+  cardTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, marginBottom: 6, lineHeight: 22 },
   cardText:  { fontSize: 14, lineHeight: 20, marginBottom: 10 },
   cardMeta:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText:  { fontSize: 12 },

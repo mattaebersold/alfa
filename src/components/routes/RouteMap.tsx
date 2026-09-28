@@ -3,6 +3,7 @@ import { Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native
 import type { StyleProp, ViewStyle } from 'react-native';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
 import { normalizeSpeeds, speedColor, fitCamera } from '../../utils/routeGeometry';
+import { COLOR_ROUTE_FINISH, COLOR_ROUTE_START } from '../../constants/config';
 
 /**
  * The route line on a map.
@@ -184,8 +185,8 @@ export default function RouteMap({
     ];
     if (Platform.OS !== 'ios') return base;
     return [
-      { ...base[0], systemImage: 'location.fill', tintColor: '#2E9E4F' },
-      { ...base[1], systemImage: 'flag.checkered', tintColor: '#E23B3B' },
+      { ...base[0], systemImage: 'location.fill', tintColor: COLOR_ROUTE_START },
+      { ...base[1], systemImage: 'flag.checkered', tintColor: COLOR_ROUTE_FINISH },
     ];
   }, [coordinates, showEndpoints, center]);
 

@@ -2,6 +2,26 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIsPro } from '../../hooks/useBrandColor';
+import {
+  COLOR_SHEEN_BUTTER,
+  COLOR_SHEEN_COPPER,
+  COLOR_SHEEN_CRIMSON,
+  COLOR_SHEEN_GOLD,
+  COLOR_SHEEN_LIME,
+  COLOR_SHEEN_MAGENTA,
+  COLOR_SHEEN_MINT,
+  COLOR_SHEEN_ORANGE,
+  COLOR_SHEEN_PALE_BLUE,
+  COLOR_SHEEN_PALE_LAVENDER,
+  COLOR_SHEEN_PALE_MINT,
+  COLOR_SHEEN_PALE_PINK,
+  COLOR_SHEEN_PALE_YELLOW,
+  COLOR_SHEEN_PEACH,
+  COLOR_SHEEN_PINK,
+  COLOR_SHEEN_SKY,
+  COLOR_SHEEN_VIOLET,
+  COLOR_SHEEN_YELLOW,
+} from '../../constants/config';
 
 export type SheenTone = 'cool' | 'warm' | 'pearl';
 
@@ -25,7 +45,7 @@ type SheenLayer = {
 const SHEEN: Record<SheenTone, SheenLayer[]> = {
   cool: [
     {
-      colors: ['#FF4FD8', '#FFD24F', '#4FFFA1', '#4FC3FF', '#9B5CFF', '#FF4FD8'],
+      colors: [COLOR_SHEEN_MAGENTA, COLOR_SHEEN_YELLOW, COLOR_SHEEN_MINT, COLOR_SHEEN_SKY, COLOR_SHEEN_VIOLET, COLOR_SHEEN_MAGENTA],
       locations: [0, 0.2, 0.4, 0.6, 0.8, 1],
       start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
     },
@@ -37,7 +57,7 @@ const SHEEN: Record<SheenTone, SheenLayer[]> = {
   ],
   warm: [
     {
-      colors: ['#E84A5F', '#FFB8A0', '#FF9A3C', '#FFE9A8', '#B8D64A', '#C8702E', '#FF5E87', '#F7D774'],
+      colors: [COLOR_SHEEN_CRIMSON, COLOR_SHEEN_PEACH, COLOR_SHEEN_ORANGE, COLOR_SHEEN_BUTTER, COLOR_SHEEN_LIME, COLOR_SHEEN_COPPER, COLOR_SHEEN_PINK, COLOR_SHEEN_GOLD],
       locations: [0, 0.14, 0.28, 0.42, 0.56, 0.7, 0.85, 1],
       start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
     },
@@ -64,7 +84,7 @@ const SHEEN: Record<SheenTone, SheenLayer[]> = {
    */
   pearl: [
     {
-      colors: ['#BBD5FF', '#FFD0EE', '#FFF0C2', '#C6F2E2', '#D8CCFF', '#BBD5FF'],
+      colors: [COLOR_SHEEN_PALE_BLUE, COLOR_SHEEN_PALE_PINK, COLOR_SHEEN_PALE_YELLOW, COLOR_SHEEN_PALE_MINT, COLOR_SHEEN_PALE_LAVENDER, COLOR_SHEEN_PALE_BLUE],
       locations: [0, 0.2, 0.4, 0.6, 0.8, 1],
       start: { x: 0, y: 0 }, end: { x: 1, y: 1 },
     },

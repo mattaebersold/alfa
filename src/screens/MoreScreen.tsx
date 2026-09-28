@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking,
+  View, StyleSheet, TouchableOpacity, ScrollView, Linking,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +13,7 @@ import { useColors } from '../hooks/useColors';
 import { colors } from '../constants/colors';
 import type { AppStackParamList } from '../navigation/types';
 import { ss } from '../styles/shared';
+import { FONT_INTER } from '../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -67,7 +69,7 @@ const styles = StyleSheet.create({
   list:        { paddingVertical: 8 },
   footer:        { paddingHorizontal: 16, paddingTop: 32, paddingBottom: 8, gap: 6 },
   footerLinks:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footerLink:    { fontSize: 12, fontWeight: '600' },
+  footerLink:    { fontSize: 12, fontFamily: FONT_INTER.semibold },
   footerDivider: { fontSize: 12 },
   footerCopy:    { fontSize: 11 },
   iconWrap:    {
@@ -75,6 +77,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   rowText:     { flex: 1 },
-  label:       { fontSize: 15, fontWeight: '600' },
+  label:       { fontSize: 15, fontFamily: FONT_INTER.semibold },
   description: { fontSize: 12, marginTop: 1 },
 });

@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -24,7 +25,8 @@ import type { Article } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 
@@ -66,7 +68,7 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
             accessibilityRole="button"
             accessibilityLabel={`Open article: ${article.title}`}
           >
-            <ArrowUpRight size={18} color="#000000" />
+            <ArrowUpRight size={18} color={COLOR_BLACK} />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -115,7 +117,7 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
                 accessibilityRole="button"
                 accessibilityLabel={`Open article: ${article.title}`}
               >
-                <ArrowUpRight size={18} color="#000000" />
+                <ArrowUpRight size={18} color={COLOR_BLACK} />
               </TouchableOpacity>
             </>
           )}
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginVertical: 6,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   heroWrap:  { position: 'relative' },
   hero:      { width: '100%', aspectRatio: 16 / 9 },
@@ -192,11 +194,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryAlt,
     borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3,
   },
-  category:  { fontSize: 11, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.8 },
+  category:  { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, letterSpacing: 0.8 },
 
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  title:     { flex: 1, fontSize: 17, fontWeight: '800', lineHeight: 24 },
-  date:      { fontSize: 12, fontWeight: '600', marginTop: 4 },
+  title:     { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 24 },
+  date:      { fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: 4 },
 
   excerpt:   { fontSize: 13, lineHeight: 19 },
   meta:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
   },
   openBtnOnHero: {
     position: 'absolute', right: 10, bottom: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3, shadowRadius: 5, elevation: 4,
   },
 });

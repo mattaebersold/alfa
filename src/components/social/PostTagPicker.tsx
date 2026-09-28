@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon, MapPin } from 'lucide-react-native';
 import { SpotPicker } from '@ors/kit/src/photography';
 import { colors as palette } from '../../constants/colors';
@@ -8,7 +9,8 @@ import GarageCarStrip from './GarageCarStrip';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_WHITE, COMMON_RADIUS, COLOR_GRAY_46 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 export type TagKind = 'user' | 'car' | 'event' | 'group' | 'spot';
 export interface TagItem {
@@ -70,9 +72,9 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
     // A card per kind rather than three bands divided by hairlines: tagging a
     // person and tagging a car are separate jobs, and stacked rules made them
     // read as one long form you scroll through by accident.
-    <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
-      <View style={[styles.rowHeader, { borderBottomColor: accent }]}>
-        <Icon size={15} color={accent} />
+    <View style={[styles.row, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+      <View style={styles.rowHeader}>
+        <Icon size={15} color={COLOR_WHITE} />
         <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
         {selected.length > 0 && (
           <View style={[styles.countPill, { backgroundColor: accent }]}>
@@ -95,48 +97,53 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
 
       {above}
 
-      {/* Search input */}
-      <View style={[styles.inputBox, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}>
-        <Search size={15} color={colors.grey} />
-        <TextInput
-          style={[styles.input, { color: colors.fg }]}
-          value={query}
-          onChangeText={onQuery}
-          placeholder={placeholder}
-          placeholderTextColor={colors.grey}
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="search"
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => onQuery('')} hitSlop={6}>
-            <X size={15} color={colors.grey} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Autocomplete results, as a dropdown while typing */}
-      {query.trim().length === 1 ? (
-        <Text style={[styles.hint, { color: colors.grey }]}>Keep typing…</Text>
-      ) : typing ? (
-        list.length > 0 ? (
+      {/* Search input, with its results floating above it — above rather
+          than below so the keyboard can't cover them, and floating so they
+          never push the form around. Content that moved as you typed also
+          had the form re-scrolling under the field on every keystroke. */}
+      <View style={styles.searchWrap}>
+        {(query.trim().length === 1 || typing) && (
           <View style={[styles.suggestBox, { borderColor: colors.inputBorder, backgroundColor: colors.card }]}>
-            {list.map((s, i) => (
-              <TouchableOpacity
-                key={s.id}
-                style={[styles.suggestRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
-                onPress={() => onToggle(s)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.suggestText, { color: colors.fg }]} numberOfLines={1}>{s.label}</Text>
-                <Plus size={16} color={accent} />
-              </TouchableOpacity>
-            ))}
+            {query.trim().length === 1 ? (
+              <Text style={[styles.hint, { color: colors.grey }]}>Keep typing…</Text>
+            ) : list.length > 0 ? (
+              <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.suggestScroll}>
+                {list.map((s, i) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.suggestRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                    onPress={() => { onToggle(s); onQuery(''); }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.suggestText, { color: colors.fg }]} numberOfLines={1}>{s.label}</Text>
+                    <Plus size={16} color={accent} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={[styles.hint, { color: colors.grey }]}>No matches</Text>
+            )}
           </View>
-        ) : (
-          <Text style={[styles.hint, { color: colors.grey }]}>No matches</Text>
-        )
-      ) : null}
+        )}
+        <View style={[styles.inputBox, { backgroundColor: colors.inputBg }]}>
+          <Search size={15} color={colors.grey} />
+          <TextInput
+            style={[styles.input, { color: colors.fg }]}
+            value={query}
+            onChangeText={onQuery}
+            placeholder={placeholder}
+            placeholderTextColor={colors.grey}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="search"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => onQuery('')} hitSlop={6}>
+              <X size={15} color={colors.grey} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -184,9 +191,9 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
   const recentIds = (previous?.spots ?? []).map((s) => s.internal_id);
 
   return (
-    <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
-      <View style={[styles.rowHeader, { borderBottomColor: accent }]}>
-        <MapPin size={15} color={accent} />
+    <View style={[styles.row, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+      <View style={styles.rowHeader}>
+        <MapPin size={15} color={COLOR_WHITE} />
         <Text style={[styles.rowTitle, { color: colors.fg }]}>Tag Photo Spots</Text>
         {selected.length > 0 && (
           <View style={[styles.countPill, { backgroundColor: accent }]}>
@@ -217,7 +224,10 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
           onToggle({ id: spot.internal_id, label: spot.title || 'Photo spot', kind: 'spot' });
         }}
         onCreateNew={(name) => onCreate?.(name)}
-        inputStyle={[styles.inputBox, styles.spotInput, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.fg }]}
+        // The same box and search glyph as the other tag searches.
+        boxStyle={[styles.inputBox, { backgroundColor: colors.inputBg }]}
+        leading={<Search size={15} color={colors.grey} />}
+        inputStyle={[styles.input, { color: colors.fg }]}
       />
     </View>
   );
@@ -258,7 +268,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   return (
     <View>
       <TagRow
-        title="Tag People" placeholder="Search people…" Icon={UserIcon} accent={colors.primaryAlt}
+        title="Tag People" placeholder="Search members…" Icon={UserIcon} accent={colors.primaryAlt}
         query={userQ} onQuery={setUserQ} selected={users}
         suggestions={(userSearch?.users ?? []).map(toUser)}
         onToggle={onToggle}
@@ -266,13 +276,13 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
       <TagRow
         title="Tag Cars"
         // The field is for cars that aren't yours; yours are the row above it.
-        placeholder={showGarage ? 'Search other members’ cars…' : 'Search cars…'}
+        placeholder={showGarage ? 'Search other cars…' : 'Search cars…'}
         Icon={CarIcon} accent={colors.teal}
         query={carQ} onQuery={setCarQ} selected={cars}
         suggestions={(carSearch?.cars ?? []).map(toCar)}
         onToggle={onToggle}
         above={showGarage
-          ? <GarageCarStrip selectedIds={cars.map((c) => c.id)} onToggle={onToggle} />
+          ? <GarageCarStrip selectedIds={cars.map((c) => c.id)} onToggle={onToggle} bleed={ROW_PAD} />
           : undefined}
       />
       <TagRow
@@ -294,36 +304,48 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   );
 }
 
+/** A tag card's side padding — the garage strip bleeds out past it. */
+const ROW_PAD = 14;
+
 const styles = StyleSheet.create({
   row: {
     marginHorizontal: 12, marginTop: 12,
-    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12,
-    borderRadius: 14, borderWidth: 1,
+    paddingHorizontal: ROW_PAD, paddingTop: 12, paddingBottom: 12,
+    // Optional Details' frame: the app's radius, a border a step lighter.
+    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  // A rule in the row's own accent under its title — it's what tells the three
-  // cards apart at a glance.
+  // Just the title, in white — the accent colour lives on the chips and count
+  // now, where it marks what's been tagged rather than decorating the card.
   rowHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingBottom: 10, marginBottom: 12,
-    borderBottomWidth: 2,
+    marginBottom: 12,
   },
-  rowTitle:     { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  // The same as Optional Details' title above, so the form's section heads match.
+  rowTitle:     { fontSize: 15, fontFamily: FONT_INTER.bold },
   countPill:    { minWidth: 18, height: 18, borderRadius: PILL_RADIUS, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
-  countText:    { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  countText:    { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold },
 
   chips:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   chip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: PILL_RADIUS },
-  chipText:     { color: '#FFFFFF', fontSize: 12, fontWeight: '700', maxWidth: 150 },
+  chipText:     { color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.bold, maxWidth: 150 },
 
-  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1.5, borderRadius: 10 },
+  // No border: the field is its darker fill against the card.
+  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 0, borderRadius: 10 },
   input:        { flex: 1, fontSize: 14, padding: 0 },
-  // The kit's picker draws its own input; this gives it the row's field look.
-  spotInput:    { fontSize: 14 },
 
-  suggestBox:   { marginTop: 8, borderWidth: 1, borderRadius: 10, overflow: 'hidden' },
-  suggestHeader:{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
+  // Raised for good, not only while the list shows — a zIndex that changes
+  // re-orders the native views and the field loses focus mid-word.
+  searchWrap:   { zIndex: 20, elevation: 20 },
+  // Hangs off the top of the field, over whatever's above it.
+  suggestBox:   {
+    position: 'absolute', left: 0, right: 0, bottom: '100%', marginBottom: 6,
+    borderWidth: 1, borderRadius: 10, overflow: 'hidden',
+    boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.45)',
+  },
+  suggestScroll:{ maxHeight: 220 },
+  suggestHeader:{ fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
   suggestRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
-  suggestText:  { flex: 1, fontSize: 14, fontWeight: '600', marginRight: 10 },
+  suggestText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold, marginRight: 10 },
 
-  hint:         { fontSize: 13, paddingVertical: 10 },
+  hint:         { fontSize: 13, paddingVertical: 10, paddingHorizontal: 12 },
 });

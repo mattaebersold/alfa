@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,6 +12,7 @@ import Avatar from '../ui/Avatar';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
+import { FONT_INTER } from '../../constants/fonts';
 
 type Nav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
     borderRadius: 999, borderWidth: 1,
     maxWidth: '100%',
   },
-  pillLabel:     { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  pillLabel:     { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
   thumb:         { width: 22, height: 22, borderRadius: 11 },
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, Dimensions, ActivityIndicator,
-  TouchableOpacity, Alert, Keyboard,
+  View, StyleSheet, FlatList, Dimensions, ActivityIndicator, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { carScopeKey } from '../../utils/carScope';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -29,7 +29,17 @@ import GroupCreateSheet from './GroupCreateSheet';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_141,
+  COLOR_GRAY_180,
+  COLOR_GRAY_236,
+  COLOR_GRAY_42,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -251,7 +261,7 @@ export default function GroupItemDetailModal({
           {replyingTo && (
             <View style={styles.replyBanner}>
               <Text style={styles.replyBannerText}>
-                Replying to <Text style={{ fontWeight: '700', color: '#ECECEC' }}>@{replyingTo.username}</Text>
+                Replying to <Text style={{ fontWeight: '700', color: COLOR_GRAY_236 }}>@{replyingTo.username}</Text>
               </Text>
               <TouchableOpacity onPress={() => { setReplyingTo(null); setCommentText(''); }} hitSlop={8}>
                 <Text style={styles.replyCancel}>Cancel</Text>
@@ -262,11 +272,11 @@ export default function GroupItemDetailModal({
           <View style={styles.inputRow}>
             <MentionInput
               containerStyle={{ flex: 1 }}
-              style={[ss.chatInput, { borderColor: '#2A2A2A', color: '#ECECEC', maxHeight: 120 }]}
+              style={[ss.chatInput, { borderColor: COLOR_GRAY_42, color: COLOR_GRAY_236, maxHeight: 120 }]}
               value={commentText}
               onChangeText={(t, ids) => { setCommentText(t); setMentionedIds(ids); }}
               placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-              placeholderTextColor="#8D8D8D"
+              placeholderTextColor={COLOR_GRAY_141}
               multiline
             />
             <TouchableOpacity
@@ -279,7 +289,7 @@ export default function GroupItemDetailModal({
           </View>
 
           {isFetching && comments.length === 0 ? (
-            <ActivityIndicator size="small" color="#8D8D8D" style={{ marginTop: 16 }} />
+            <ActivityIndicator size="small" color={COLOR_GRAY_141} style={{ marginTop: 16 }} />
           ) : rows.length === 0 ? (
             <Text style={styles.empty}>No comments yet. Be the first!</Text>
           ) : (
@@ -356,34 +366,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 15, borderTopWidth: 1,
   },
-  viewMoreText: { fontSize: 15, fontWeight: '800' },
+  viewMoreText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 
   scroll:  { paddingBottom: 40 },
-  ytWrap:  { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
-  ytPlayer:{ flex: 1, backgroundColor: '#000' },
+  ytWrap:  { width: '100%', aspectRatio: 16 / 9, backgroundColor: COLOR_BLACK },
+  ytPlayer:{ flex: 1, backgroundColor: COLOR_BLACK },
   hero:    { width: '100%', aspectRatio: 16 / 9 },
   galleryImage: { width: SCREEN_WIDTH, aspectRatio: 16 / 9 },
   body:    { padding: 16 },
-  catChip: { alignSelf: 'flex-start', backgroundColor: '#2A2A2A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, marginBottom: 8 },
-  catChipText: { color: '#B4B4B4', fontSize: 10, fontWeight: '800' },
-  title:   { fontSize: 20, fontWeight: '800', color: '#FFFFFF', lineHeight: 26, marginBottom: 12 },
+  catChip: { alignSelf: 'flex-start', backgroundColor: COLOR_GRAY_42, paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, marginBottom: 8 },
+  catChipText: { color: COLOR_GRAY_180, fontSize: 10, fontFamily: FONT_INTER.extrabold },
+  title:   { fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, lineHeight: 26, marginBottom: 12 },
   meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  metaText:{ fontSize: 12, color: '#B4B4B4', flexShrink: 1 },
+  metaText:{ fontSize: 12, color: COLOR_GRAY_180, flexShrink: 1 },
   ownerActions: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   ownerBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  ownerBtnText: { fontSize: 12, fontWeight: '700' },
+  ownerBtnText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   voteRow:  { flexDirection: 'row', gap: 10, marginTop: 18 },
-  text:    { fontSize: 15, lineHeight: 24, color: '#ECECEC' },
-  commentsHeading: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 24, marginBottom: 12 },
+  text:    { fontSize: 15, lineHeight: 24, color: COLOR_GRAY_236 },
+  commentsHeading: { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginTop: 24, marginBottom: 12 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },
-  replyBannerText: { color: '#8D8D8D', fontSize: 13 },
-  replyCancel: { color: 'rgb(37, 162, 211)', fontSize: 13, fontWeight: '700' },
+  replyBannerText: { color: COLOR_GRAY_141, fontSize: 13 },
+  replyCancel: { color: 'rgb(37, 162, 211)', fontSize: 13, fontFamily: FONT_INTER.bold },
   inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
   postBtn: { backgroundColor: 'rgb(37, 162, 211)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
-  postBtnText: { color: '#000000', fontWeight: '700', fontSize: 14 },
-  empty:   { color: '#8D8D8D', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
+  postBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 14 },
+  empty:   { color: COLOR_GRAY_141, fontSize: 14, textAlign: 'center', paddingVertical: 20 },
 });

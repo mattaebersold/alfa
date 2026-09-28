@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity,
-  ImageBackground, Image,
+  View, StyleSheet, TouchableOpacity, ImageBackground, Image,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -12,6 +12,8 @@ import Button from '../../components/ui/Button';
 import { colors } from '../../constants/colors';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_ERROR_BG, COLOR_WHITE } from '../../constants/config';
 
 const RESEND_COOLDOWN = 60;
 
@@ -188,9 +190,9 @@ const styles = StyleSheet.create({
   },
   logo: { width: 180, height: 80 },
   logoTitle: {
-    color: '#FFFFFF',
+    color: COLOR_WHITE,
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FONT_INTER.semibold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     textAlign: 'center',
@@ -203,17 +205,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   backBtn: { marginBottom: 12 },
-  back: { fontSize: 14, color: colors.primaryAlt, fontWeight: '600' },
-  title: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  back: { fontSize: 14, color: colors.primaryAlt, fontFamily: FONT_INTER.semibold },
+  title: { fontSize: 18, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 8 },
   subtitle: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 20,
     marginBottom: 24,
   },
-  emailText: { fontWeight: '700', color: '#FFFFFF' },
-  errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
-  errorText: { color: colors.red, fontSize: 14, fontWeight: '500' },
+  emailText: { fontWeight: '700', color: COLOR_WHITE },
+  errorBox: { backgroundColor: COLOR_ERROR_BG, borderRadius: 8, padding: 12, marginBottom: 16 },
+  errorText: { color: colors.red, fontSize: 14, fontFamily: FONT_INTER.medium },
   codeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -226,17 +228,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.3)',
     backgroundColor: 'rgba(255,255,255,0.1)',
-    color: '#FFFFFF',
+    color: COLOR_WHITE,
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: FONT_INTER.bold,
     textAlign: 'center',
   },
   codeBoxFilled: {
-    borderColor: '#FFFFFF',
+    borderColor: COLOR_WHITE,
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
   gap: { height: 20 },
   resendBtn: { alignItems: 'center', marginTop: 16 },
-  resendText: { fontSize: 14, color: colors.cream, fontWeight: '500' },
+  resendText: { fontSize: 14, color: colors.cream, fontFamily: FONT_INTER.medium },
   resendDisabled: { opacity: 0.45 },
 });

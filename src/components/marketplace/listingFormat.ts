@@ -1,4 +1,9 @@
 import type { Listing } from '../../types/api';
+import {
+  COLOR_RED, COLOR_TANGERINE, COLOR_PRO, COLOR_GREEN,
+  COLOR_HUE_CORNFLOWER, COLOR_HUE_SEAFOAM, COLOR_HUE_ORCHID, COLOR_HUE_CLAY,
+  COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
+} from '../../constants/config';
 
 /**
  * How a listing reads — the one place the marketplace turns a record into words.
@@ -46,6 +51,37 @@ export const conditionLabel = (
 ): string | null => {
   if (condition === null || condition === undefined) return null;
   return conditions[condition] ?? null;
+};
+
+/**
+ * A category's badge colour — steady for each category, from the app's hue
+ * palette. Hashed from the key rather than listed, so a category the server
+ * adds later still gets one, and always the same one.
+ */
+const CATEGORY_HUES = [
+  COLOR_HUE_CORNFLOWER, COLOR_HUE_SEAFOAM, COLOR_HUE_ORCHID, COLOR_HUE_CLAY,
+  COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
+];
+export const categoryColor = (key?: string | null): string => {
+  if (!key) return COLOR_HUE_STEEL;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return CATEGORY_HUES[h % CATEGORY_HUES.length];
+};
+
+/**
+ * A condition's badge colour, along its scale: red at the worst, through
+ * amber and gold, to green at the best — so "how good" reads before the word.
+ */
+const CONDITION_SCALE = [COLOR_RED, COLOR_TANGERINE, COLOR_PRO, COLOR_GREEN];
+export const conditionColor = (
+  condition?: number | null,
+  conditions: string[] = LISTING_CONDITIONS,
+): string | null => {
+  if (condition === null || condition === undefined || conditions.length === 0) return null;
+  const top = Math.max(1, conditions.length - 1);
+  const at = Math.round((Math.min(Math.max(condition, 0), top) / top) * (CONDITION_SCALE.length - 1));
+  return CONDITION_SCALE[at];
 };
 
 /** How a category's fields are shaped — what the create form asks for. */

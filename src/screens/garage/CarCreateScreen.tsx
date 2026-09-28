@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  TextInput, Alert, FlatList, Platform,
+  View, StyleSheet, TouchableOpacity, Alert, FlatList, Platform,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,10 +29,11 @@ import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import GenerationField from '../../components/cars/GenerationField';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The step names, which head the nav row rather than the scrolling content.
@@ -117,7 +118,7 @@ function ChipSelect<T extends { key: string; label: string }>({
               <Text
                 style={[
                   cs.chipText,
-                  tone ? { color: tone.text } : { color: on ? '#000000' : colors.fg },
+                  tone ? { color: tone.text } : { color: on ? COLOR_BLACK : colors.fg },
                 ]}
               >
                 {item.label}
@@ -134,13 +135,13 @@ const cs = StyleSheet.create({
   // continuation of the text inputs.
   wrapper: { marginTop: 34, marginBottom: 20 },
   tight:   { marginTop: 12 },
-  label:   { fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  label:   { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 8 },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:    { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS },
   chipOff: { opacity: 0.32 },
   // The uncoloured variant, for rows with no badge palette of their own.
   chipPlain:  { borderWidth: 1.5 },
-  chipText:   { fontSize: 13, fontWeight: '700' },
+  chipText:   { fontSize: 13, fontFamily: FONT_INTER.bold },
 });
 
 // ── Field ─────────────────────────────────────────────────────────────────────
@@ -174,8 +175,8 @@ function Field({
 }
 const f = StyleSheet.create({
   wrapper: { marginBottom: 16 },
-  label:   { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  opt:     { fontWeight: '400', fontSize: 12 },
+  label:   { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
+  opt:     { fontSize: 12 },
 });
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -659,7 +660,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
               accessibilityRole="button"
               accessibilityLabel="Start over"
             >
-              <Trash2 size={18} color="#FFFFFF" strokeWidth={2.4} />
+              <Trash2 size={18} color={COLOR_WHITE} strokeWidth={2.4} />
             </TouchableOpacity>
           ) : undefined}
         />
@@ -718,7 +719,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                   style={cs.tight}
                   // categoryColor is the same hash the record and post rows use,
                   // so a category keeps one colour across the whole app.
-                  colorFor={(k) => ({ bg: categoryColor(k), text: '#000000' })}
+                  colorFor={(k) => ({ bg: categoryColor(k), text: COLOR_BLACK })}
                 />
               ) : (
                 /**
@@ -783,7 +784,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                           }))
                         }
                       >
-                        <X size={12} color="#FFFFFF" />
+                        <X size={12} color={COLOR_WHITE} />
                       </TouchableOpacity>
                     </View>
                   )}
@@ -845,7 +846,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                         ]}
                         onPress={() => set('group_id')(active ? '' : g.internal_id)}
                       >
-                        <Text style={[cs.chipText, { color: active ? '#000000' : colors.fg }]}>
+                        <Text style={[cs.chipText, { color: active ? COLOR_BLACK : colors.fg }]}>
                           {g.title}
                         </Text>
                       </TouchableOpacity>
@@ -910,7 +911,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                             ? { backgroundColor: brand, borderColor: brand }
                             : { borderColor: colors.borderDark },
                         ]}>
-                          {picked && <Check size={12} color="#000000" strokeWidth={3} />}
+                          {picked && <Check size={12} color={COLOR_BLACK} strokeWidth={3} />}
                         </View>
                         <Text style={[styles.joinTitle, { color: colors.fg }]} numberOfLines={2}>
                           {g.title}
@@ -947,7 +948,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                       accessibilityRole="button"
                       accessibilityLabel="Remove this modification"
                     >
-                      <X size={14} color="#FFFFFF" strokeWidth={2.6} />
+                      <X size={14} color={COLOR_WHITE} strokeWidth={2.6} />
                     </TouchableOpacity>
                     <Field
                       label="Title"
@@ -992,7 +993,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                               accessibilityRole="button"
                               accessibilityLabel="Remove photo"
                             >
-                              <X size={11} color="#FFFFFF" strokeWidth={2.8} />
+                              <X size={11} color={COLOR_WHITE} strokeWidth={2.8} />
                             </TouchableOpacity>
                           </View>
                         ))}
@@ -1038,7 +1039,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                         accessibilityRole="button"
                         accessibilityLabel="Edit this modification"
                       >
-                        <PenSquare size={13} color="#FFFFFF" strokeWidth={2.4} />
+                        <PenSquare size={13} color={COLOR_WHITE} strokeWidth={2.4} />
                         <Text style={styles.modRowBtnText}>Edit</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
@@ -1048,7 +1049,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                         accessibilityRole="button"
                         accessibilityLabel="Remove this modification"
                       >
-                        <Trash2 size={13} color="#FFFFFF" strokeWidth={2.4} />
+                        <Trash2 size={13} color={COLOR_WHITE} strokeWidth={2.4} />
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
@@ -1108,20 +1109,20 @@ const styles = StyleSheet.create({
     gap: 8, paddingVertical: 14, borderRadius: COMMON_RADIUS,
     borderWidth: 1.5, borderStyle: 'dashed',
   },
-  addModText: { fontSize: 14, fontWeight: '700' },
+  addModText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   collapseMod: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     marginTop: 14, paddingVertical: 8,
   },
-  collapseModText: { fontSize: 13, fontWeight: '600' },
+  collapseModText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   modCollapsed: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 14, borderRadius: 10, marginBottom: 10, borderWidth: 1,
   },
   modCollapsedLeft: { flex: 1, marginRight: 12 },
-  modCollapsedTitle: { fontSize: 14, fontWeight: '700' },
+  modCollapsedTitle: { fontSize: 14, fontFamily: FONT_INTER.bold },
   modCollapsedType: { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   modCollapsedRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modRowBtn: {
@@ -1130,7 +1131,7 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  modRowBtnText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  modRowBtnText: { fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 
   photoPickerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -1138,9 +1139,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryAlt,
     marginBottom: 16,
   },
-  photoPickerText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  photoPickerText: { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   // Clear of the compact 'Add More Photos' bar above them.
-  joinHeading: { fontSize: 16, fontWeight: '800', marginTop: 26, marginBottom: 12 },
+  joinHeading: { fontSize: 16, fontFamily: FONT_INTER.bold, marginTop: 26, marginBottom: 12 },
   joinSearch: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderWidth: 1, borderRadius: 8,
@@ -1158,8 +1159,8 @@ const styles = StyleSheet.create({
     width: 20, height: 20, borderRadius: 6, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center', marginBottom: 8,
   },
-  joinTitle: { fontSize: 13, fontWeight: '700', lineHeight: 17 },
-  joinMake:  { fontSize: 11, fontWeight: '600', marginTop: 3 },
+  joinTitle: { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 17 },
+  joinMake:  { fontSize: 11, fontFamily: FONT_INTER.semibold, marginTop: 3 },
   specGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   specHalf: { width: '48%' },
   // Last in the grid, so it carries the gap down to Condition itself.
@@ -1174,7 +1175,7 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 4, left: 4,
     backgroundColor: colors.primaryAlt, borderRadius: PILL_RADIUS, paddingHorizontal: 5, paddingVertical: 2,
   },
-  coverText:   { fontSize: 9, fontWeight: '800', color: '#000' },
+  coverText:   { fontSize: 9, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   photoRemove: {
     position: 'absolute', top: 4, right: 4,
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10,
@@ -1188,7 +1189,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start', marginTop: 2,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS,
   },
-  customCatChipText: { fontSize: 13, fontWeight: '700', color: '#000000' },
+  customCatChipText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
   // The "start over" button handed to StepFormNav as its leading slot — sized
   // to match that header's own carets.
   navBtn: {

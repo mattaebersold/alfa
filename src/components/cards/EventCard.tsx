@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { MapPin } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import EventImage from '../society/EventImage';
@@ -11,7 +12,8 @@ import {
 import { useColors } from '../../hooks/useColors';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';
 import type { SocietyEvent, User } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The frame the card holds until the photo reports its own shape, and the
@@ -147,17 +149,17 @@ export default function EventCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
 
   body: { padding: 12, gap: 6 },
 
   when: {
-    fontSize: 11, fontWeight: '800',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold,
     textTransform: 'uppercase', letterSpacing: 0.5,
     marginTop: 2,
   },
-  title: { fontSize: 16, lineHeight: 20, fontWeight: '800' },
+  title: { fontSize: 16, lineHeight: 20, fontFamily: FONT_INTER.bold },
 
   meta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
   location: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -169,5 +171,5 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
   },
-  stackMoreText: { fontSize: 10, fontWeight: '800' },
+  stackMoreText: { fontSize: 10, fontFamily: FONT_INTER.extrabold },
 });

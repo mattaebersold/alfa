@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  Alert, Platform, Switch,
+  View, StyleSheet, TouchableOpacity, Alert, Platform, Switch,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,17 +21,25 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
-import { DIECAST_UPSELL, LISTING_LIMIT_UPSELL } from '../../constants/limits';
+import {
+  DIECAST_UPSELL,
+  LISTING_LIMIT_UPSELL,
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_22,
+  COLOR_WHITE,
+} from '../../constants/config';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import {
   categoryLabel, isDiecastCategory, isVehicleCategory, LISTING_CONDITIONS,
 } from '../../components/marketplace/listingFormat';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 import { ss } from '../../styles/shared';
 import type { AppScreenProps } from '../../navigation/types';
 import type { ListingKind, ListingPriceMode, ListingShipping } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The steps, named in the header rather than inside each one — the same
@@ -529,7 +537,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
                       { borderColor: on ? brand : colors.inputBorder },
                       on && { backgroundColor: brand },
                     ]}>
-                      {on && <Check size={11} color="#000000" strokeWidth={3.5} />}
+                      {on && <Check size={11} color={COLOR_BLACK} strokeWidth={3.5} />}
                     </View>
                   </View>
                   <Text style={[styles.kindTitle, { color: on ? colors.fg : colors.muted }]}>
@@ -580,7 +588,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={proOnly ? `${categoryLabel(c)}, a Pro category` : undefined}
                   >
-                    <Text style={[styles.chipText, { color: on ? '#000000' : colors.fg }]}>
+                    <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]}>
                       {categoryLabel(c)}
                     </Text>
                     {proOnly && (
@@ -613,7 +621,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
                       accessibilityRole="button"
                       accessibilityLabel="Remove photo"
                     >
-                      <X size={12} color="#FFFFFF" strokeWidth={3} />
+                      <X size={12} color={COLOR_WHITE} strokeWidth={3} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -673,7 +681,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
                         accessibilityRole="button"
                         accessibilityState={{ selected: on }}
                       >
-                        <Text style={[styles.chipText, { color: on ? '#000000' : colors.fg }]}>
+                        <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]}>
                           {m.label}
                         </Text>
                       </TouchableOpacity>
@@ -736,7 +744,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
                   >
-                    <Text style={[styles.chipText, { color: on ? '#000000' : colors.fg }]}>{s.label}</Text>
+                    <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]}>{s.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -813,7 +821,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
                       accessibilityRole="button"
                       accessibilityState={{ selected: on }}
                     >
-                      <Text style={[styles.chipText, { color: on ? '#000000' : colors.fg }]} numberOfLines={1}>
+                      <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>
                         {car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car'}
                       </Text>
                     </TouchableOpacity>
@@ -949,7 +957,7 @@ const cond = StyleSheet.create({
   bar:   { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
   stop:  { width: 14, height: 14, borderRadius: PILL_RADIUS, borderWidth: 2 },
   stopExact: { width: 20, height: 20 },
-  label: { fontSize: 13, fontWeight: '700', marginTop: 6 },
+  label: { fontSize: 13, fontFamily: FONT_INTER.bold, marginTop: 6 },
 });
 
 // ── Small pieces the steps share ─────────────────────────────────────────────
@@ -1007,7 +1015,7 @@ function ToggleRow({ colors, brand, label, value, onChange }: {
         value={value}
         onValueChange={onChange}
         trackColor={{ false: colors.segment, true: brand }}
-        thumbColor="#FFFFFF"
+        thumbColor={COLOR_WHITE}
       />
     </View>
   );
@@ -1017,7 +1025,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
 
   label: {
-    fontSize: 11, fontWeight: '800', textTransform: 'uppercase',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase',
     letterSpacing: 0.6, marginTop: 20, marginBottom: 8,
   },
   labelFirst: { marginTop: 0 },
@@ -1027,7 +1035,7 @@ const styles = StyleSheet.create({
   kindGrid: { gap: 12 },
   kindTile: { borderRadius: 12, borderWidth: 1.5, padding: 14, gap: 8 },
   kindTileTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  kindTitle: { fontSize: 16, fontWeight: '800' },
+  kindTitle: { fontSize: 16, fontFamily: FONT_INTER.bold },
   kindHint:  { fontSize: 12.5, lineHeight: 18 },
   check: {
     width: 20, height: 20, borderRadius: 6, borderWidth: 2,
@@ -1039,13 +1047,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1, maxWidth: '100%',
   },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
   /** The gold tag on a category a basic membership can't pick. */
-  chipPro: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  chipPro: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8 },
 
   thumbs:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 },
   thumbWrap: { position: 'relative' },
-  thumb:     { width: 74, height: 74, borderRadius: COMMON_RADIUS, backgroundColor: '#161616' },
+  thumb:     { width: 74, height: 74, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
   thumbX: {
     position: 'absolute', top: -5, right: -5,
     width: 20, height: 20, borderRadius: PILL_RADIUS,
@@ -1055,11 +1063,11 @@ const styles = StyleSheet.create({
 
   pairRow:  { flexDirection: 'row', gap: 10 },
   pairHalf: { flex: 1, marginBottom: 10 },
-  smallLabel: { fontSize: 12, fontWeight: '700', marginBottom: 5 },
+  smallLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 5 },
 
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginTop: 12, gap: 12,
   },
-  toggleLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
+  toggleLabel: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
 });

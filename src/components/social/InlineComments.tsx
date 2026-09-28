@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Keyboard,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Keyboard,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { X } from 'lucide-react-native';
 import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread } from '../../hooks/useCommentThread';
@@ -14,7 +15,8 @@ import UserSummaryModal from '../members/UserSummaryModal';
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 interface InlineCommentsProps {
   /** internal_id of the thing being commented on. */
@@ -170,12 +172,12 @@ const styles = StyleSheet.create({
   wrap:       { marginTop: 28, paddingTop: 20, borderTopWidth: 1 },
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 10 },
   // The same heading every shelf on the page wears — see PostStrip, ListShelf.
-  heading:    { fontSize: 17, fontWeight: '800' },
+  heading:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   countBadge: {
     minWidth: 22, height: 22, borderRadius: PILL_RADIUS, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center',
   },
-  countText:  { fontSize: 11, fontWeight: '800' },
+  countText:  { fontSize: 11, fontFamily: FONT_INTER.extrabold },
 
   empty:      { fontSize: 13, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
 

@@ -1,18 +1,18 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
+  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import { FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Camera, Images, Video } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Camera, Images, Video, Send } from 'lucide-react-native';
 import {
   useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
   useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
@@ -31,9 +31,11 @@ import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../cons
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
 import { useColors } from '../../hooks/useColors';
+import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_GRAY_46 } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -116,10 +118,10 @@ function MediaThumb({ item, onRemove }: { item: DraftMedia; onRemove: () => void
         <View style={[styles.thumb, styles.thumbPlaceholder]} />
       )}
       {item.kind === 'video' && (
-        <View style={styles.videoPlayBadge}><Play size={14} color="#FFFFFF" fill="#FFFFFF" /></View>
+        <View style={styles.videoPlayBadge}><Play size={14} color={COLOR_WHITE} fill={COLOR_WHITE} /></View>
       )}
       <TouchableOpacity style={styles.thumbRemove} onPress={onRemove} hitSlop={6}>
-        <X size={11} color="#FFF" />
+        <X size={11} color={COLOR_WHITE} />
       </TouchableOpacity>
     </View>
   );
@@ -131,6 +133,12 @@ export default function CreateScreen() {
   const appNav = useNavigation<AppNav>();
   const route = useRoute<RouteProp<AppStackParamList, 'Create'>>();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const brand = useBrandColor();
+
+  // No native header — this draws its own bar below, which sits lower and runs
+  // straight into the form in the same card colour. It's switched off where
+  // the route is registered (AppNavigator), not from here.
   const { userInfo } = useAppSelector((s) => s.auth);
 
   // Opened from a car ("New post" on your own car's card), the post starts with
@@ -141,7 +149,8 @@ export default function CreateScreen() {
 
   // Core
   const [postType, setPostType]   = useState<PostType>('general');
-  const [category, setCategory]   = useState('');
+  // The first of the type's categories, chosen up front — see handleTypeChange.
+  const [category, setCategory]   = useState(() => POST_CATEGORIES.general[0]?.key ?? '');
   const [title, setTitle]         = useState('');
   const [body, setBody]           = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
@@ -210,7 +219,11 @@ export default function CreateScreen() {
   // with the number on the clock.
   const showMileage  = true;
 
-  const handleTypeChange = (t: PostType) => { setPostType(t); setCategory(''); };
+  // A new type brings a new list of categories, with its first one chosen.
+  const handleTypeChange = (t: PostType) => {
+    setPostType(t);
+    setCategory(POST_CATEGORIES[t][0]?.key ?? '');
+  };
 
   /** Room left before the post hits its media limit. */
   const mediaRoom = useCallback(() => MAX_MEDIA - media.length, [media.length]);
@@ -530,7 +543,25 @@ export default function CreateScreen() {
   const busy = submitting || videoUploading || imageProgress !== null;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    // One ground from top to bottom: the card colour the type row and photos
+    // sit on, so the sections below don't read as a second surface.
+    // No bottom edge: the form runs to the foot of the screen, under the home
+    // indicator, and its own end padding (below) is what clears it.
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.card }]} edges={[]}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.card }}>
+        <View style={styles.headerBar}>
+          <Text style={[styles.headerTitle, { color: colors.fg }]}>Create a post</Text>
+          <TouchableOpacity
+            style={styles.headerClose}
+            onPress={() => appNav.goBack()}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <X size={22} color={colors.fg} />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <FormScrollView
         style={styles.scroll}
@@ -540,54 +571,52 @@ export default function CreateScreen() {
         // room for the Post button to scroll out from under it.
         bottomOffset={KEYBOARD_GAP + DONE_FOOTER_H}
         extraKeyboardSpace={DONE_FOOTER_H}
-        contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 40 : 20 }}
+        // Clear of the home indicator / navigation bar once scrolled to the end.
+        contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
       >
         {/* Type selector */}
-        <View style={[styles.typeRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.typeRow, { backgroundColor: colors.card }]}>
           {CREATABLE_POST_TYPES.map(({ type, label, color }) => {
             const active = postType === type;
+            const fill = active ? color : colors.inputBg;
             return (
               <TouchableOpacity
                 key={type}
-                style={[styles.typeBtn, {
-                  borderColor: active ? color : colors.inputBorder,
-                  backgroundColor: active ? color : colors.inputBg,
-                }]}
+                style={[styles.typeBtn, { backgroundColor: fill }]}
                 onPress={() => handleTypeChange(type)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.typeLabel, { color: active ? '#FFFFFF' : colors.fg }]}>{label}</Text>
+                <Text style={[styles.typeLabel, { color: contrastText(fill) }]}>{label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Category chips */}
+        {/* Category chips — straight under the types, no rule between */}
         {currentCategories.length > 0 && (
-          <View style={[styles.catRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <View style={[styles.catRow, { backgroundColor: colors.card }]}>
             {currentCategories.map(({ key, label }) => {
               const active = category === key;
+              const fill = active ? colors.primaryAlt : colors.inputBg;
               return (
                 <TouchableOpacity
                   key={key}
-                  style={[styles.catChip, {
-                    borderColor: active ? colors.primaryAlt : colors.inputBorder,
-                    backgroundColor: active ? colors.primaryAlt : colors.inputBg,
-                  }]}
+                  style={[styles.catChip, { backgroundColor: fill }]}
                   onPress={() => setCategory(active ? '' : key)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.catLabel, { color: active ? '#FFFFFF' : colors.fg }]}>{label}</Text>
+                  <Text style={[styles.catLabel, { color: contrastText(fill) }]}>{label}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         )}
 
+
         {/* Title */}
         <View style={[styles.inputBlock, { backgroundColor: colors.card }]}>
           <TextInput
-            style={[styles.titleInput, { backgroundColor: colors.inputBg, color: colors.fg, borderColor: colors.inputBorder }]}
+            style={[styles.titleInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={title}
             onChangeText={setTitle}
             placeholder="Title..."
@@ -599,7 +628,7 @@ export default function CreateScreen() {
         {/* Body */}
         <View style={[styles.inputBlock, { backgroundColor: colors.card, paddingBottom: 12 }]}>
           <MentionInput
-            style={[styles.bodyInput, { backgroundColor: colors.inputBg, color: colors.fg, borderColor: colors.inputBorder }]}
+            style={[styles.bodyInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={body}
             onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
             placeholder="What's on your mind?"
@@ -613,7 +642,8 @@ export default function CreateScreen() {
           <PhotoPickerField
             onPress={pickImage}
             title={media.length ? 'Add More Media' : 'Add Photos or Video'}
-            hint="Photos and video together, in the order you add them"
+            hint=""
+            muted
             compact={media.length > 0}
             style={styles.photoField}
           />
@@ -638,11 +668,9 @@ export default function CreateScreen() {
           showPrice={showPrice}
         />
 
-        {/* ── Tag people, cars & events — always visible (no accordion) ── */}
-        <View>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionLabel, { color: colors.fg }]}>Tag People, Cars, Events & Spots</Text>
-          </View>
+        {/* ── Tag people, cars & events — always visible (no accordion). No
+            label over it: the picker's own search says what it's for. ── */}
+        <View style={styles.tagSection}>
           <PostTagPicker
             users={taggedUsers}
             cars={taggedCars}
@@ -658,9 +686,14 @@ export default function CreateScreen() {
         <PollEditor draft={poll} onChange={setPoll} />
 
         {/* ── Post to ── */}
-        <View style={[styles.postToCard, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
-          <Text style={[styles.sectionLabel, { color: colors.fg, marginBottom: 12 }]}>Post To</Text>
+        {/* Framed and headed like the tag cards and Optional Details above it. */}
+        <View style={[styles.postToCard, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+          <View style={styles.postToHead}>
+            <Send size={15} color={COLOR_WHITE} />
+            <Text style={[styles.postToTitle, { color: colors.fg }]}>Post To</Text>
+          </View>
           <PostToSelector
+            bleed={POST_TO_PAD}
             isPublic={isPublic}
             onTogglePublic={() => setIsPublic((v) => !v)}
             groups={userGroups}
@@ -679,7 +712,9 @@ export default function CreateScreen() {
             the last thing you do here, after the fields above it, and pinned
             over the scroll it sat on top of whatever was being filled in. */}
         <TouchableOpacity
-          style={[styles.submitBtn, busy && styles.submitBtnDisabled]}
+          // The brand colour — Pro gold or blue — with black on it, like every
+          // other brand-filled button.
+          style={[styles.submitBtn, { backgroundColor: brand }, busy && styles.submitBtnDisabled]}
           onPress={handleSubmit}
           disabled={busy}
           accessibilityRole="button"
@@ -687,7 +722,7 @@ export default function CreateScreen() {
         >
           {busy ? (
             <>
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={COLOR_BLACK} size="small" />
               {videoUploading ? (
                 <Text style={[styles.submitText, { marginLeft: 8 }]}>
                   {videoProgress
@@ -710,7 +745,7 @@ export default function CreateScreen() {
           keyboard is up — the Post button no longer lives down here. */}
       {keyboardUp && (
         <KeyboardStickyView style={styles.doneDock}>
-        <StickyFormFooter color={colors.cream} bottomInset={10} style={styles.doneFooter}>
+        <StickyFormFooter color={colors.card} bottomInset={10} style={styles.doneFooter}>
           <View style={styles.footerRow}>
             <TouchableOpacity
               style={[styles.doneBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
@@ -744,27 +779,41 @@ export default function CreateScreen() {
 /** How tall the floating Done footer stands: its fade, the button, its gap. */
 const DONE_FOOTER_H = 76;
 
+/** The Post To card's padding — its group cards bleed out past it. */
+const POST_TO_PAD = 14;
+
 const styles = StyleSheet.create({
   scroll:       { flex: 1 },
 
-  typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12, borderBottomWidth: 1 },
-  typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS, borderWidth: 1.5 },
-  typeLabel:    { fontSize: 12, fontWeight: '700' },
+  // Lower than the stack's header: the title and the close, and no more.
+  headerBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    minHeight: 44, paddingHorizontal: 12, paddingVertical: 20,
+  },
+  headerClose: { position: 'absolute', right: 20, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontFamily: FONT_INTER.extrabold },
+  // Tight to the header above — the header's own padding is the gap.
+  typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 12 },
+  typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS },
+  typeLabel:    { fontSize: 12, fontFamily: FONT_INTER.bold },
 
-  catRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1 },
-  catChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1.5 },
-  catLabel:     { fontSize: 12, fontWeight: '600' },
+  catRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
+  // A step down from the type pills above: these refine the type.
+  catChip:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS },
+  catLabel:     { fontSize: 11, fontFamily: FONT_INTER.semibold },
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
-  titleInput:   { paddingHorizontal: 14, paddingVertical: 12, fontSize: 17, fontWeight: '700', borderWidth: 1, borderRadius: 10 },
-  bodyInput:    { paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, minHeight: 110, lineHeight: 22, borderWidth: 1, borderRadius: 10, textAlignVertical: 'top' as const },
+  titleInput:   { paddingHorizontal: 14, paddingVertical: 12, ...INPUT_TEXT, borderRadius: 10 },
+  bodyInput:    { paddingHorizontal: 14, paddingVertical: 12, ...INPUT_TEXT, lineHeight: INPUT_LINE_HEIGHT, minHeight: 110, borderRadius: 10, textAlignVertical: 'top' as const },
 
   photosSection:{ borderBottomWidth: 1, paddingBottom: 10 },
-  photoField:   { marginHorizontal: 14, marginTop: 12, marginBottom: 4 },
+  // The width of the form, like the fields under it — the well's own default
+  // is a narrower box centred on the page.
+  photoField:   { alignSelf: 'stretch', maxWidth: '100%', marginHorizontal: 14, marginTop: 12, marginBottom: 4 },
   thumbRow:     { paddingHorizontal: 14 },
   thumbWrap:    { marginRight: 8, position: 'relative' },
   thumb:        { width: 72, height: 72, borderRadius: 8 },
-  thumbPlaceholder: { backgroundColor: '#2A2A2A' },
+  thumbPlaceholder: { backgroundColor: COLOR_GRAY_42 },
   videoPlayBadge: {
     position: 'absolute', top: '50%', left: '50%', marginTop: -16, marginLeft: -16,
     width: 32, height: 32, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(0,0,0,0.5)',
@@ -777,29 +826,34 @@ const styles = StyleSheet.create({
   },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14 },
-  sectionLabel:  { fontSize: 14, fontWeight: '700' },
+  // The gap the label used to leave, without the label.
+  tagSection:    { marginTop: 12 },
+  sectionLabel:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   fieldRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7 },
-  fieldLabel:    { fontSize: 13, fontWeight: '600', width: 90 },
+  fieldLabel:    { fontSize: 13, fontFamily: FONT_INTER.semibold, width: 90 },
   fieldValue:    { flex: 1 },
   input:         { flex: 1, fontSize: 14, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 8 },
 
   postToCard: {
     marginHorizontal: 12, marginTop: 12,
-    padding: 14, borderRadius: COMMON_RADIUS, borderWidth: 1,
+    padding: POST_TO_PAD, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
+  // The tag cards' head: a white icon and a title.
+  postToHead:  { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  postToTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   postToEmpty: { paddingTop: 12, fontSize: 13 },
 
   // Tags
   selectedTags:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingTop: 10 },
   tagChip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  tagChipText:     { fontSize: 12, fontWeight: '600', maxWidth: 120 },
+  tagChipText:     { fontSize: 12, fontFamily: FONT_INTER.semibold, maxWidth: 120 },
   tagSearchRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   tagSearchInput:  { flex: 1, fontSize: 14 },
   tagGroupHeader:  { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth },
-  tagGroupLabel:   { fontSize: 11, fontWeight: '700' },
+  tagGroupLabel:   { fontSize: 11, fontFamily: FONT_INTER.bold },
   tagResultRow:    { paddingHorizontal: 14, paddingVertical: 8, gap: 8 },
   tagResultChip:   { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  tagResultText:   { fontSize: 13, fontWeight: '600', maxWidth: 160 },
+  tagResultText:   { fontSize: 13, fontFamily: FONT_INTER.semibold, maxWidth: 160 },
   tagEmpty:        { paddingHorizontal: 14, paddingVertical: 12, fontSize: 13 },
 
   // Checkbox
@@ -814,15 +868,15 @@ const styles = StyleSheet.create({
     paddingVertical: 11, paddingHorizontal: 18,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  doneText:        { fontSize: 15, fontWeight: '700' },
+  doneText:        { fontSize: 15, fontFamily: FONT_INTER.bold },
   // Full width at the end of the scroll. The old "sized to its word" rule was
   // about a bar floating over the form; in the flow it's the form's last row.
   submitBtn:       {
     marginHorizontal: 12, marginTop: 20,
-    backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
+    borderRadius: COMMON_RADIUS,
     paddingVertical: 14, paddingHorizontal: 28,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitText:      { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  submitText:      { color: COLOR_BLACK, fontSize: 17, fontFamily: FONT_INTER.extrabold },
 });

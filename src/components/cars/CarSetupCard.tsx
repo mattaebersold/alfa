@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
@@ -12,8 +13,15 @@ import { uploadFile } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { colors as palette } from '../../constants/colors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_18,
+  COLOR_GRAY_22,
+  COLOR_WHITE,
+} from '../../constants/config';
 import type { GarageCar } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 type Step = 'photo' | 'specs' | 'mod';
 
@@ -118,7 +126,7 @@ function SaveButton({ label, onPress, busy, disabled }: { label: string; onPress
       activeOpacity={0.85}
       accessibilityRole="button"
     >
-      {busy ? <ActivityIndicator size="small" color="#000000" /> : <Text style={styles.saveText}>{label}</Text>}
+      {busy ? <ActivityIndicator size="small" color={COLOR_BLACK} /> : <Text style={styles.saveText}>{label}</Text>}
     </TouchableOpacity>
   );
 }
@@ -150,7 +158,7 @@ function PickedStrip({ picked, onRemove }: { picked: Picked[]; onRemove: (uri: s
         <View key={p.uri}>
           <Image source={{ uri: p.uri }} style={styles.thumb} contentFit="cover" />
           <TouchableOpacity style={styles.thumbX} onPress={() => onRemove(p.uri)} hitSlop={6} accessibilityLabel="Remove photo">
-            <X size={12} color="#FFFFFF" strokeWidth={2.8} />
+            <X size={12} color={COLOR_WHITE} strokeWidth={2.8} />
           </TouchableOpacity>
         </View>
       ))}
@@ -294,7 +302,7 @@ function ModPanel({ car, visible, origin, onClose }: PanelProps) {
 }
 
 /** The help prompts' ground — shared look with ProfileHelpCard. */
-const HELP_BG = '#121212';
+const HELP_BG = COLOR_GRAY_18;
 
 const styles = StyleSheet.create({
   // The menu checklist's look (ProfileSetupCard), on the page's dark ground.
@@ -306,7 +314,7 @@ const styles = StyleSheet.create({
     // Darker than the menu's tile grey: on the page it's a note, not a panel.
     backgroundColor: HELP_BG,
   },
-  heading: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 },
+  heading: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, marginBottom: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 },
   rowDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
   bubble: {
@@ -314,25 +322,25 @@ const styles = StyleSheet.create({
     backgroundColor: palette.red,
     alignItems: 'center', justifyContent: 'center',
   },
-  bubbleText: { fontSize: 11.5, fontWeight: '800', color: '#FFFFFF' },
+  bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   rowText: { flex: 1, minWidth: 0 },
-  rowTitle: { fontSize: 13.5, fontWeight: '700', color: '#FFFFFF' },
+  rowTitle: { fontSize: 13.5, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   rowSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
 
   panelBody: { padding: 18, gap: 14 },
   panelHead: { gap: 4 },
-  panelTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  panelTitle: { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
   panelHint: { fontSize: 13, lineHeight: 18 },
   fields: { gap: 10 },
   field: { gap: 4 },
-  label: { fontSize: 12, fontWeight: '600' },
+  label: { fontSize: 12, fontFamily: FONT_INTER.semibold },
   input: {
     borderWidth: 1.5, borderRadius: COMMON_RADIUS,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 15,
   },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   strip: { gap: 8 },
-  thumb: { width: 72, height: 72, borderRadius: COMMON_RADIUS, backgroundColor: '#161616' },
+  thumb: { width: 72, height: 72, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
   thumbX: {
     position: 'absolute', top: 4, right: 4,
     width: 20, height: 20, borderRadius: 10,
@@ -344,5 +352,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', minHeight: 46,
   },
   saveDisabled: { opacity: 0.5 },
-  saveText: { fontSize: 15, fontWeight: '800', color: '#000000' },
+  saveText: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 });

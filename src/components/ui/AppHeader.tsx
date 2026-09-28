@@ -1,13 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, ScrollView } from 'react-native';
+import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
 import { goBackToTop } from '../../hooks/useScrollTopOnBack';
-import { ChevronLeft, Menu, Bookmark } from 'lucide-react-native';
+import { ChevronLeft, Bookmark, Search } from 'lucide-react-native';
+import { useSearch } from '../../providers/SearchProvider';
+import Svg, { Line } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Avatar from './Avatar';
 import NavDrawer from './NavDrawer';
 import NotificationsBell from './NotificationsBell';
 import GarageDoor from './GarageDoor';
@@ -20,7 +23,8 @@ import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -39,7 +43,16 @@ const ROW_PAD_V = 8;     // vertical padding around the button row
  */
 const TOP_OFFSET = Platform.OS === 'ios' ? 0 : ROW_PAD_V;
 
-const ICON = '#000000';
+const ICON = COLOR_BLACK;
+
+/**
+ * The back button beside the logo — off for now. With the sections moved into
+ * the home screen's tabs and the menu, there's little left to go back through,
+ * and a button that rarely appears read as clutter when it did. Everything
+ * behind it is intact: set this to true and it slides back in wherever
+ * there's history. Screens with a back of their own (a group's page) keep it.
+ */
+const SHOW_HEADER_BACK = false;
 
 /** The back button is narrower than the others — a chevron, not a destination. */
 const BACK_W = 30;
@@ -47,7 +60,7 @@ const BACK_W = 30;
 const BACK_GAP = 7;
 
 /** The bar's side padding — the back button's travel has to clear it too. */
-const BAR_PAD_H = 11;
+const BAR_PAD_H = GUTTER;
 /**
  * Where the back button starts: fully past the left edge of the screen, with
  * room for its shadow, so it arrives from outside rather than fading up in
@@ -72,9 +85,18 @@ export const APP_HEADER_HEIGHT = BTN + TOP_OFFSET + ROW_PAD_V;
  * the floating buttons. The bar is an absolute overlay and reserves no layout
  * space, so content scrolls up underneath it.
  */
-export function useHeaderPad(): number {
+export function useHeaderPad({ tabs = false }: { tabs?: boolean } = {}): number {
   const insets = useSafeAreaInsets();
-  return insets.top + APP_HEADER_HEIGHT;
+  return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0);
+}
+
+/** Height of the tab row under the buttons, on screens that have one. */
+export const HEADER_TABS_HEIGHT = 52;
+
+/** One entry in the header's tab row. */
+export interface HeaderTab {
+  key: string;
+  label: string;
 }
 
 /**
@@ -82,8 +104,169 @@ export function useHeaderPad(): number {
  * sitting below the status bar. `wide` relaxes the fixed width for buttons
  * that carry a label.
  */
+/**
+ * The menu glyph: two bars rather than lucide's three. Drawn on lucide's
+ * 24-unit grid with its bar length and round caps, so it sits beside the
+ * other header icons at the same weight — just one bar lighter.
+ */
+function MenuBars({ size, color, strokeWidth }: { size: number; color: string; strokeWidth: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Line x1={4} y1={9} x2={20} y2={9} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1={4} y1={15} x2={20} y2={15} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/**
+ * The tab row under the header's buttons.
+ *
+ * It rides the same `headerOffset` as the buttons, but only for the first
+ * APP_HEADER_HEIGHT of the trip: the buttons carry on off the top, and the
+ * row stops just under the status bar and sticks there, so it's always in
+ * reach. Its background is HeaderGround's, behind the whole header.
+ */
+/**
+ * The background behind the whole header — status bar, buttons and tabs — on
+ * a screen with tabs: a black-tinted blur.
+ *
+ * It rides up with the header for the same distance the tab row does, so
+ * once the row sticks it covers the status bar and the row and nothing more.
+ * It starts TABS_STUCK_RISE above the top of the screen for that reason:
+ * off-screen at rest, that's the part that slides down behind the status bar
+ * as the rest goes up. Moving a blur is fine on iOS where fading one isn't,
+ * so nothing here animates but its position.
+ */
+function HeaderGround({ height }: { height: number }) {
+  const lift = headerOffset.interpolate({
+    inputRange: [-TABS_STUCK_RISE, 0],
+    outputRange: [-TABS_STUCK_RISE, 0],
+    extrapolate: 'clamp',
+  });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.ground, { top: -TABS_STUCK_RISE, height: height + TABS_STUCK_RISE, transform: [{ translateY: lift }] }]}
+    >
+      <BlurView tint="dark" intensity={TABS_BLUR} style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, styles.groundTint]} />
+    </Animated.View>
+  );
+}
+
+function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
+  tabs: HeaderTab[];
+  activeTab?: string;
+  onTabPress?: (key: string) => void;
+  top: number;
+}) {
+  const brand = useBrandColor();
+
+  /**
+   * The lit tab, brought toward the front of the row — scrolled so it starts
+   * TABS_ACTIVE_LEFT in from the screen's edge, leaving the tab before it
+   * peeking in on the left so you can see there's somewhere to go back to.
+   * The first tab has nothing before it to show, so it stays anchored on the
+   * gutter. The row can't scroll past its end, so the last few stop short of
+   * the mark but are still all in view.
+   *
+   * Positions are each tab's own x within the row, measured as they lay out;
+   * the row's GUTTER padding is outside that, so it's added back to find
+   * where the tab sits against the screen.
+   */
+  const scrollRef = useRef<ScrollView>(null);
+  const tabX = useRef<Record<string, number>>({});
+  useEffect(() => {
+    if (!activeTab) return;
+    const x = tabX.current[activeTab];
+    if (x == null) return;
+    const first = activeTab === tabs[0]?.key;
+    const to = first ? 0 : Math.max(0, GUTTER + x - TABS_ACTIVE_LEFT);
+    scrollRef.current?.scrollTo({ x: to, animated: true });
+  }, [activeTab]);
+
+  const indent = headerOffset.interpolate({
+    inputRange: [-APP_HEADER_HEIGHT, 0],
+    outputRange: [TABS_STUCK_INDENT, 0],
+    extrapolate: 'clamp',
+  });
+  const shrink = headerOffset.interpolate({
+    inputRange: [-APP_HEADER_HEIGHT, 0],
+    outputRange: [TABS_STUCK_SCALE, 1],
+    extrapolate: 'clamp',
+  });
+  /**
+   * Whether the row has stuck — for the heavier weight it takes there: scaled
+   * down, a weight reads lighter, so the stuck tabs step up to Inter Black.
+   * A font can't ride the native driver, so this flips as the row arrives
+   * rather than easing with it.
+   */
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    let on = false;
+    const id = headerOffset.addListener(({ value }) => {
+      const next = value <= -APP_HEADER_HEIGHT + 1;
+      if (next !== on) { on = next; setStuck(next); }
+    });
+    return () => headerOffset.removeListener(id);
+  }, []);
+  const lift = headerOffset.interpolate({
+    inputRange: [-TABS_STUCK_RISE, 0],
+    outputRange: [-TABS_STUCK_RISE, 0],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View style={[styles.tabs, { top, transform: [{ translateY: lift }] }]}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        style={styles.tabsScroll}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabsRow}
+      >
+        {/* Slides further in as the row sticks — flush with the header's
+            buttons at rest, but on its own against the screen edge it read as
+            crammed into the corner. */}
+        {/* …and shrinks a little as it goes: under the status bar it's a
+            strip you reach for, not the screen's title. Scaled rather than
+            re-sized, so it rides the same native-driven offset — anchored at
+            the left, so the first tab keeps its place. */}
+        <Animated.View style={[styles.tabsItems, { transform: [{ translateX: indent }, { scale: shrink }] }]}>
+        {tabs.map((t) => {
+          const on = t.key === activeTab;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              onLayout={(e) => { tabX.current[t.key] = e.nativeEvent.layout.x; }}
+              onPress={() => onTabPress?.(t.key)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8 }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: on ? brand : TAB_IDLE },
+                  stuck && styles.tabLabelStuck,
+                ]}
+              >
+                {t.label}
+              </Text>
+              {/* Under the lit tab only, in its colour, the width of its word. */}
+              <View style={[styles.tabUnderline, { backgroundColor: on ? brand : 'transparent' }]} />
+            </TouchableOpacity>
+          );
+        })}
+        </Animated.View>
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
 function FloatingButton({
-  onPress, children, label, tint, wide, bare, outlined, sheen,
+  onPress, children, label, tint, wide, bare, outlined, sheen, round,
 }: {
   onPress: () => void;
   children: React.ReactNode;
@@ -106,6 +289,8 @@ function FloatingButton({
   outlined?: boolean;
   /** An oil-slick film over the fill — the home button's. See OilSheen. */
   sheen?: SheenTone;
+  /** A full circle rather than the rounded square — the profile photo's. */
+  round?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -119,13 +304,14 @@ function FloatingButton({
       style={[
         styles.btn,
         wide && styles.btnWide,
+        round && styles.btnRound,
         bare ? styles.btnBare
           : outlined ? styles.btnOutlined
           : { backgroundColor: tint },
       ]}
     >
       {sheen && !bare && !outlined && <OilSheen tone={sheen} radius={BTN_RADIUS} />}
-      <View style={[styles.btnIcon, wide && styles.btnIconWide]}>{children}</View>
+      <View style={[styles.btnIcon, wide && styles.btnIconWide, round && styles.btnRound]}>{children}</View>
     </TouchableOpacity>
   );
 }
@@ -137,12 +323,23 @@ interface AppHeaderProps {
    * their content passes under the buttons.
    */
   spacer?: boolean;
+  /**
+   * A row of tabs under the buttons — "Your Feed" on the home screen. When the
+   * header scrolls away the buttons leave, but this row stops at the top of
+   * the screen and stays, so it can be used however far down you are. A
+   * screen with tabs pads its content with `useHeaderPad({ tabs: true })`.
+   */
+  tabs?: HeaderTab[];
+  /** The tab that's lit — the one whose content is showing. */
+  activeTab?: string;
+  onTabPress?: (key: string) => void;
 }
 
-export default function AppHeader({ spacer }: AppHeaderProps = {}) {
+export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHeaderProps = {}) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
-  const { isLoggedIn, userInfo } = useAppSelector((s) => s.auth);
+  const { isLoggedIn } = useAppSelector((s) => s.auth);
+  const { openSearch } = useSearch();
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Where the menu button sits, captured at press time — the drawer grows out
   // of that rectangle, so it has to be measured, not assumed.
@@ -182,8 +379,9 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   // logo. `canGoBack` isn't reactive, so it's re-read whenever this screen comes
   // into focus — tab screens stay mounted, and the tab history behind them can
   // change while they're out of view.
-  const [canGoBack, setCanGoBack] = useState(() => navigation.canGoBack());
-  useFocusEffect(useCallback(() => { setCanGoBack(navigation.canGoBack()); }, [navigation]));
+  const [hasHistory, setHasHistory] = useState(() => navigation.canGoBack());
+  useFocusEffect(useCallback(() => { setHasHistory(navigation.canGoBack()); }, [navigation]));
+  const canGoBack = SHOW_HEADER_BACK && hasHistory;
 
   // Starts collapsed so arriving on a screen pushes the button in from the edge
   // and eases the logo over to make room, rather than the logo simply being
@@ -208,7 +406,8 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
 
   // Bookmarked models, from the live profile — the button appears with the first.
   const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !isLoggedIn });
-  const bookmarkCount = me?.modelBookmarks?.length ?? 0;
+  // Posts and car models together — the button's panel has a tab for each.
+  const bookmarkCount = (me?.modelBookmarks?.length ?? 0) + (me?.postBookmarks?.length ?? 0);
   const bookmarksRef = useRef<View>(null);
   const [bookmarks, setBookmarks] = useState<{ origin: SummaryOrigin | null } | null>(null);
   const openBookmarks = useCallback(() => {
@@ -216,6 +415,14 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
     if (!node) { setBookmarks({ origin: null }); return; }
     node.measureInWindow((x, y, w, h) => setBookmarks({ origin: { x, y, w, h } }));
   }, []);
+
+  // Fully faded by the time it's travelled its own height — about where the
+  // status bar would start to cut it off.
+  const barFade = headerOffset.interpolate({
+    inputRange: [-APP_HEADER_HEIGHT, 0],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   const go = (screen: string, params?: object) =>
     (navigation as any).navigate('MainTabs', { screen, params });
@@ -225,7 +432,9 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
       {/* The bar is transparent, so the status bar shows the screen behind it. */}
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT }} />}
+      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + (tabs?.length ? HEADER_TABS_HEIGHT : 0) }} />}
+
+      {tabs?.length ? <HeaderGround height={insets.top + APP_HEADER_HEIGHT + HEADER_TABS_HEIGHT} /> : null}
 
       {/* A scrim from the very top of the device down past the button row.
           The bar floats over whatever the screen is showing, and against a
@@ -258,6 +467,9 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           {
             top: insets.top + TOP_OFFSET,
             transform: [{ translateY: headerOffset }],
+            // Fades as it slides, over the same stretch, so the buttons dissolve
+            // on the way out rather than being cut off by the top of the screen.
+            opacity: barFade,
           },
         ]}
         pointerEvents="box-none"
@@ -285,7 +497,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
               accessibilityLabel="Back"
               style={[styles.btn, styles.btnOutlined, styles.backBtn]}
             >
-              <ChevronLeft size={22} color="#FFFFFF" strokeWidth={2.4} />
+              <ChevronLeft size={22} color={COLOR_WHITE} strokeWidth={2.4} />
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -333,26 +545,20 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
           {bookmarkCount > 0 && (
             <View ref={bookmarksRef} collapsable={false}>
               <FloatingButton label="Bookmarks" tint={tint} outlined onPress={openBookmarks}>
-                <Bookmark size={19} color="#FFFFFF" strokeWidth={2.4} />
+                <Bookmark size={19} color={COLOR_WHITE} strokeWidth={2.4} />
               </FloatingButton>
             </View>
           )}
 
+          {/* Search, where the profile photo was — the two swapped places: your
+              profile is the round photo in the bottom corner now (CreateFab). */}
           <FloatingButton
-            label="Your profile"
+            label="Search"
             tint={tint}
             outlined
-            onPress={() => go('FeedTab', { screen: 'Profile' })}
+            onPress={openSearch}
           >
-            {/* Sized inside the border rather than under it: the outer view's
-                content box loses 1pt each side to the stroke, and an avatar
-                still asking for the full width would be clipped to a slightly
-                wrong shape at the corners. */}
-            <Avatar
-              user={userInfo}
-              size={BTN - 2}
-              radius={BTN_RADIUS - 1}
-            />
+            <Search size={20} color={COLOR_WHITE} strokeWidth={2.4} />
           </FloatingButton>
 
           {/* A garage-door icon in place of the word: the row has five buttons
@@ -368,7 +574,7 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
               wide={garageCars.length > 0}
               onPress={openGarage}
             >
-              <GarageDoor size={21} color="#FFFFFF" strokeWidth={2.4} />
+              <GarageDoor size={21} color={COLOR_WHITE} strokeWidth={2.4} />
               <GarageThumbs cars={garageCars} />
             </FloatingButton>
           </View>
@@ -384,11 +590,20 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
               outlined
               onPress={openDrawer}
             >
-              <Menu size={22} color="#FFFFFF" strokeWidth={2.2} />
+              <MenuBars size={22} color={COLOR_WHITE} strokeWidth={2.2} />
             </FloatingButton>
           </View>
         </View>
       </Animated.View>
+
+      {tabs?.length ? (
+        <HeaderTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabPress={onTabPress}
+          top={insets.top + APP_HEADER_HEIGHT}
+        />
+      ) : null}
 
       <NavDrawer visible={drawerOpen} origin={drawerOrigin} onClose={() => setDrawerOpen(false)} />
       <GaragePanel visible={garageOpen} origin={garageOrigin} onClose={() => setGarageOpen(false)} />
@@ -399,7 +614,78 @@ export default function AppHeader({ spacer }: AppHeaderProps = {}) {
   );
 }
 
+/** Blur strength behind the tab row. */
+const TABS_BLUR = 60;
+
+/**
+ * Taken off the tab row's top padding once it sticks: under the status bar
+ * the full padding read as a gap, where under the buttons it was breathing
+ * room.
+ */
+const TABS_STUCK_TRIM = 6;
+/** How far the tab row (and the ground behind it) travels up before it sticks. */
+const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM;
+
+/** The tabs' size once stuck, against 1 at rest. */
+const TABS_STUCK_SCALE = 0.72;
+/** Clear space after the last tab, at the end of the row's scroll. */
+const TABS_END_SPACE = 24;
+/** How much further in from the edge the tabs sit once stuck. */
+const TABS_STUCK_INDENT = 12;
+/**
+ * Where a picked tab settles, in points from the screen's left edge — far
+ * enough in that the tab before it peeks into view. Not the first tab, which
+ * stays on the gutter.
+ */
+const TABS_ACTIVE_LEFT = 50;
+
+/** An unlit tab — white, stepped back so the lit one leads. */
+const TAB_IDLE = 'rgba(255,255,255,0.6)';
+
 const styles = StyleSheet.create({
+  // Over the scrim and level with the buttons, so it covers the content
+  // scrolling under it once it sticks.
+  tabs: {
+    position: 'absolute',
+    left: 0, right: 0,
+    height: HEADER_TABS_HEIGHT,
+    zIndex: 21,
+  },
+  // Scales from its left edge (see `shrink`), so the first tab stays put.
+  // Plain GUTTER on Android, where GUTTER itself is three times iOS's — any
+  // multiple of it spread the tabs there a thumb's width apart.
+  tabsItems: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: Platform.OS === 'android' ? GUTTER : GUTTER * 4,
+    transformOrigin: 'left center',
+  },
+  // Full width, edge to edge — the row scrolls under both sides of the screen.
+  tabsScroll: { width: '100%' },
+  // Under the scrim and the buttons, over the screen's content.
+  ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
+  // Black over the blur — enough that labels read over any photo, not so
+  // much that the blur stops showing through.
+  groundTint: { backgroundColor: 'rgba(0,0,0,0.7)' },
+  // The first tab starts on the app's GUTTER; the padding is on the content,
+  // not the scroll view, so the row itself still runs to both edges.
+  tabsRow: {
+    alignItems: 'center',
+    paddingLeft: GUTTER,
+    // Past the last tab: room for the stuck indent, so it can still scroll
+    // fully into view, plus clear space so it doesn't end hard against the
+    // screen edge when scrolled all the way along.
+    paddingRight: GUTTER + TABS_STUCK_INDENT + TABS_END_SPACE,
+    paddingVertical: 10,
+    minHeight: HEADER_TABS_HEIGHT,
+  },
+  // Semibold at rest.
+  tabLabel: { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  // Stuck, and scaled down: a step heavier, so it reads as the same weight.
+  tabLabelStuck: { fontFamily: FONT_INTER.bold },
+  // Always there, transparent when unlit, so every label sits at the same
+  // height whichever tab is active.
+  tabUnderline: { height: 2, borderRadius: 1, marginTop: 1 },
+
   // Behind the bar, and starting at the physical top of the screen rather than
   // below the safe-area inset — the status bar is translucent, so the content
   // runs underneath it too.
@@ -427,7 +713,7 @@ const styles = StyleSheet.create({
     borderRadius: BTN_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLOR_BLACK,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 6,
@@ -444,6 +730,7 @@ const styles = StyleSheet.create({
     borderRadius: BTN_RADIUS,
     overflow: 'hidden',
   },
+  btnRound: { borderRadius: BTN / 2 },
   // Labelled buttons size to their content instead of the fixed square.
   // Unfilled, and no rounded ground to fill — the radius would only show as a
   // pressed-state artefact on a button that has no surface.
@@ -453,7 +740,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     // 40% rather than solid: at full white the stroke was the brightest thing
     // in the bar and read as a focus ring rather than an edge.
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: COLOR_BORDER,
   },
   backBtn:     { width: BACK_W },
   btnWide:     { width: undefined, paddingHorizontal: 11 },
@@ -472,7 +759,7 @@ const styles = StyleSheet.create({
     marginLeft: -1,
   },
   proMarkText: {
-    fontSize: 9.5, fontWeight: '900', color: ICON,
+    fontSize: 9.5, fontFamily: FONT_INTER.black, color: ICON,
     letterSpacing: 0.8,
     // Reads top-to-bottom. The width is the word's own length, overflowing the
     // box before the rotation swings it onto the short axis; both are centred

@@ -1,7 +1,18 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
+import { FONT_INTER } from '../../constants/fonts';
+import {
+  COLOR_BLACK,
+  COLOR_CYAN,
+  COLOR_GRAY_187,
+  COLOR_GRAY_42,
+  COLOR_PURE_RED,
+  COLOR_WHITE,
+  COLOR_BORDER,
+} from '../../constants/config';
 
 type Variant = 'primary' | 'secondary' | 'dark' | 'outline' | 'destructive' | 'ghost' | 'link';
 type Size = 'sm' | 'default' | 'lg' | 'full';
@@ -47,13 +58,13 @@ export default function Button({
 
   const getStyles = (): { bg: string; fg: string; border?: string } => {
     switch (variant) {
-      case 'primary':     return { bg: '#08DEE3', fg: '#000000' };
-      case 'secondary':   return { bg: '#2A2A2A', fg: '#FFFFFF' };
+      case 'primary':     return { bg: COLOR_CYAN, fg: COLOR_BLACK };
+      case 'secondary':   return { bg: COLOR_GRAY_42, fg: COLOR_WHITE };
       case 'dark':        return { bg: brand, fg: brandText };
-      case 'outline':     return { bg: 'transparent', fg: '#FFFFFF', border: '#FFFFFF' };
-      case 'destructive': return { bg: '#FF0000', fg: '#FFFFFF' };
-      case 'ghost':       return { bg: 'transparent', fg: '#BBBBBB' };
-      case 'link':        return { bg: 'transparent', fg: '#08DEE3' };
+      case 'outline':     return { bg: 'transparent', fg: COLOR_WHITE, border: COLOR_BORDER };
+      case 'destructive': return { bg: COLOR_PURE_RED, fg: COLOR_WHITE };
+      case 'ghost':       return { bg: 'transparent', fg: COLOR_GRAY_187 };
+      case 'link':        return { bg: 'transparent', fg: COLOR_CYAN };
     }
   };
 

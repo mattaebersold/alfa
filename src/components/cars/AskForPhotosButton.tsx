@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { Camera } from 'lucide-react-native';
 import { useRequestCarPhotosMutation, useRequestProfilePhotoMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * "Ask for photos" — on someone else's car with none, or someone else's
@@ -75,5 +77,5 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   btnDone: { opacity: 0.6 },
-  text: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  text: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
 });

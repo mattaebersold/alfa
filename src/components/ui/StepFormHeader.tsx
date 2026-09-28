@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@ors/kit';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The chrome every multi-step form in the app wears.
@@ -75,7 +77,7 @@ export function StepFormNav({
           accessibilityRole="button"
           accessibilityLabel="Previous step"
         >
-          <ChevronLeft size={20} color="#000000" strokeWidth={2.6} />
+          <ChevronLeft size={20} color={COLOR_BLACK} strokeWidth={2.6} />
         </TouchableOpacity>
       ) : leading ?? <View style={styles.navBtn} />}
 
@@ -89,7 +91,7 @@ export function StepFormNav({
           accessibilityRole="button"
           accessibilityLabel="Next step"
         >
-          <ChevronRight size={20} color="#000000" strokeWidth={2.6} />
+          <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.6} />
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
@@ -102,7 +104,7 @@ export function StepFormNav({
           accessibilityLabel={submitAccessibilityLabel ?? submitLabel}
         >
           {submitting
-            ? <ActivityIndicator size="small" color="#000000" />
+            ? <ActivityIndicator size="small" color={COLOR_BLACK} />
             : <Text style={styles.navBtnText}>{submitLabel}</Text>}
         </TouchableOpacity>
       )}
@@ -139,7 +141,7 @@ const styles = StyleSheet.create({
   // sits on the pane's midline whatever the buttons show.
   navTitle: {
     flex: 1, textAlign: 'center',
-    fontSize: 17, fontWeight: '700', color: '#FFFFFF',
+    fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE,
   },
   // A black glyph on the account's own colour — blue, or gold for Pro. No
   // border: the fill is the shape. A disabled one fades rather than changing.
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
   navBtnOff: { opacity: 0.5 },
   // Wide enough for a word — the chevrons stay square.
   navBtnWide: { width: 'auto', paddingHorizontal: 12 },
-  navBtnText: { fontSize: 14, fontWeight: '800', color: '#000000' },
+  navBtnText: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   track: {
     height: 4, borderRadius: 2, overflow: 'hidden',
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
   },
   fill: { height: '100%', borderRadius: 2 },
   stepCaption: {
-    fontSize: 20, fontWeight: '800', letterSpacing: -0.3,
+    fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3,
     paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,7 +31,10 @@ import CommentsSheet from '../social/CommentsSheet';
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_BLACK, COLOR_GRAY_17, COLOR_WHITE, COLOR_GRAY_58,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 interface CarPosterCardProps {
   car: GarageCar;
@@ -290,15 +294,17 @@ export default function CarPosterCard({
         style,
       ]}
     >
+      {/* In the feed, a car added to a garage wears an angled frame — white
+          at the top left to grey at the bottom right — so a new car stands
+          out in a column of posts. Elsewhere the card is borderless: the
+          photo is the card. */}
+      <FeedFrame on={attribution}>
       <TouchableOpacity
         ref={cardRef}
         style={[
           styles.card,
           { aspectRatio: square ? 1 : ratio },
-          // In the feed, the same hairline the mod and photo cards wear, so a
-          // column of mixed cards reads as one kind of thing. Elsewhere the
-          // card is borderless — the photo is the card.
-          attribution && { borderWidth: 1, borderColor: c.borderDark },
+          attribution && styles.cardInFrame,
         ]}
         onPress={attribution || summaryOnPress ? openSummary : handlePress}
         activeOpacity={0.92}
@@ -327,18 +333,32 @@ export default function CarPosterCard({
             pointerEvents="none"
           />
         )}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
-          locations={[0, 0.5, 1]}
-          style={styles.scrimBottom}
-          pointerEvents="none"
-        />
+        {attribution ? (
+          // In the feed, an angled wash from the bottom-left corner — where the
+          // name sits — fading out toward the top right: the post card's
+          // corner shade, mirrored.
+          <LinearGradient
+            colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
+            locations={[0, 0.45, 1]}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 0.8, y: 0.2 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        ) : (
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
+            locations={[0, 0.5, 1]}
+            style={styles.scrimBottom}
+            pointerEvents="none"
+          />
+        )}
 
         {/* ── Top left: who, or what kind of card this is ── */}
         <View style={[styles.topLeft, compact && styles.topLeftCompact]}>
           {featured && (
             <View style={styles.featuredBadge}>
-              <Star size={10} color="#000" fill="#000" />
+              <Star size={10} color={COLOR_BLACK} fill={COLOR_BLACK} />
               <Text style={styles.featuredBadgeText}>Featured</Text>
             </View>
           )}
@@ -366,7 +386,7 @@ export default function CarPosterCard({
             {needOwner && <RegionBadge region={car.owner_region ?? regionForCityState(owner?.cityState)?.key} size={32} />}
             {onTasksPress && taskCount > 0 && !plain && (
               <TouchableOpacity style={styles.taskBadge} onPress={onTasksPress} hitSlop={4}>
-                <Wrench size={10} color="#000" />
+                <Wrench size={10} color={COLOR_BLACK} />
                 <Text style={styles.taskBadgeText}>Tasks · {taskCount}</Text>
               </TouchableOpacity>
             )}
@@ -381,7 +401,7 @@ export default function CarPosterCard({
                   accessibilityLabel={`Add to ${displayName}`}
                 >
                   <View style={[styles.circleBtn, plain && styles.circleBtnPlain]}>
-                    <Plus size={plain ? 20 : 16} color="#FFFFFF" strokeWidth={2.6} />
+                    <Plus size={plain ? 20 : 16} color={COLOR_WHITE} strokeWidth={2.6} />
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -391,7 +411,7 @@ export default function CarPosterCard({
                   accessibilityLabel={`Manage ${displayName}`}
                 >
                   <View style={[styles.circleBtn, plain && styles.circleBtnPlain]}>
-                    <Settings size={plain ? 18 : 14} color="#FFFFFF" />
+                    <Settings size={plain ? 18 : 14} color={COLOR_WHITE} />
                   </View>
                 </TouchableOpacity>
               </>
@@ -405,15 +425,17 @@ export default function CarPosterCard({
             styles.plate,
             compact && styles.plateCompact,
             plain && styles.platePlain,
+            attribution && styles.plateFeed,
           ]}
           pointerEvents="none"
         >
-          {!compact && <CarIcon size={plain ? 26 : 38} color="#FFFFFF" strokeWidth={1.6} />}
+          {!compact && <CarIcon size={plain ? 26 : attribution ? 30 : 38} color={COLOR_WHITE} strokeWidth={1.6} />}
           <Text
             style={[
               styles.title,
               compact && styles.titleCompact,
               plain && styles.titlePlain,
+              attribution && styles.titleFeed,
             ]}
             // One line, whatever the name: two lines of a long custom title
             // pushed the badges down and covered half the car.
@@ -442,15 +464,15 @@ export default function CarPosterCard({
               )}
               {categoryLabel && (
                 <View style={[styles.badge, styles.badgeDark]}>
-                  <Text style={[styles.badgeText, { color: '#FFFFFF' }]}>{categoryLabel}</Text>
+                  <Text style={[styles.badgeText, { color: COLOR_WHITE }]}>{categoryLabel}</Text>
                 </View>
               )}
               {/* Followers ride with the other badges rather than floating in a
                   corner of their own — it's another fact about the car. */}
               {followerCount > 0 && (
                 <View style={[styles.badge, styles.badgeDark, styles.followerBadge]}>
-                  <Users size={10} color="#FFFFFF" />
-                  <Text style={[styles.badgeText, { color: '#FFFFFF' }]}>{followerCount}</Text>
+                  <Users size={10} color={COLOR_WHITE} />
+                  <Text style={[styles.badgeText, { color: COLOR_WHITE }]}>{followerCount}</Text>
                 </View>
               )}
             </View>
@@ -541,6 +563,7 @@ export default function CarPosterCard({
           </>
         )}
       </TouchableOpacity>
+      </FeedFrame>
     </View>
 
       {/* Like and comment on the car itself — the same document the car's own
@@ -554,13 +577,13 @@ export default function CarPosterCard({
               ownerId={car.user_id}
               initialCount={car.like_count ?? 0}
               initialLiked={car.isLiked ?? false}
-              color="#FFFFFF"
+              color={COLOR_WHITE}
             />
             <CommentButton
               count={car.comment_count ?? 0}
               documentId={car.internal_id}
               onPress={() => setCommentsOpen(true)}
-              color="#FFFFFF"
+              color={COLOR_WHITE}
             />
           </View>
         </View>
@@ -589,6 +612,24 @@ export default function CarPosterCard({
   );
 }
 
+/** The feed frame's width. */
+const FRAME_W = 1.5;
+
+/** The feed's angled white-to-grey frame, around the card — or nothing. */
+function FeedFrame({ on, children }: { on: boolean; children: React.ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <LinearGradient
+      colors={['rgba(255,255,255,0.9)', COLOR_GRAY_58]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.feedFrame}
+    >
+      {children}
+    </LinearGradient>
+  );
+}
+
 const styles = StyleSheet.create({
   /**
    * The wrapper that used to carry the glow. No shadow now — the tinted pool
@@ -601,16 +642,23 @@ const styles = StyleSheet.create({
   card: {
     position: 'relative',
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    backgroundColor: '#111111',
+    backgroundColor: COLOR_GRAY_17,
   },
   feedWrap: { marginBottom: 6 },
+  // Inside the feed's frame: the frame's radius less its width.
+  cardInFrame: { borderRadius: COMMON_RADIUS - FRAME_W },
+  feedFrame: { padding: FRAME_W, borderRadius: COMMON_RADIUS },
+  // In the feed: the icon closer to the name, and the name in the body face,
+  // a size down — a line about the car, not a headline over it.
+  plateFeed: { gap: 3 },
+  titleFeed: { fontSize: 18, fontFamily: FONT_INTER.bold, letterSpacing: 0 },
   byline: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
   },
   bylineWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
   bylineText: { flex: 1, minWidth: 0 },
-  bylineName: { fontSize: 14, fontWeight: '700' },
+  bylineName: { fontSize: 14, fontFamily: FONT_INTER.bold },
   bylineSub:  { fontSize: 12, marginTop: 1 },
   bylineTime: { fontSize: 11, fontStyle: 'italic' },
 
@@ -623,7 +671,7 @@ const styles = StyleSheet.create({
    * the card and letting the image fill it leaves nothing to resolve twice.
    */
   imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  frameInFeed: { marginHorizontal: 12, marginVertical: 0 },
+  frameInFeed: { marginHorizontal: GUTTER, marginVertical: 0 },
 
   footer: { paddingHorizontal: 12, paddingTop: 8 },
   actionsPill: {
@@ -653,7 +701,7 @@ const styles = StyleSheet.create({
     paddingLeft: 3, paddingRight: 9, paddingVertical: 3,
     borderRadius: 999,
   },
-  ownerName: { flexShrink: 1, fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  ownerName: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 
   featuredBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -661,7 +709,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
   },
   featuredBadgeText: {
-    fontSize: 11, fontWeight: '800', color: '#000',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
 
   topRight: {
@@ -684,7 +732,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 4, gap: 3,
   },
-  taskBadgeText: { fontSize: 12, fontWeight: '800', color: '#000' },
+  taskBadgeText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   plate: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
@@ -695,7 +743,7 @@ const styles = StyleSheet.create({
   },
   plateCompact: { gap: 5, paddingHorizontal: 12, paddingBottom: 12 },
   title: {
-    fontSize: 24, fontWeight: '800', color: '#FFFFFF', textAlign: 'left',
+    fontSize: 24, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, textAlign: 'left',
     letterSpacing: -0.5,
     textShadowColor: 'rgba(0,0,0,0.55)',
     textShadowOffset: { width: 0, height: 1 },
@@ -708,7 +756,7 @@ const styles = StyleSheet.create({
   subtitlePlain: { fontSize: 11.5, marginTop: 0 },
   platePlain:    { gap: 3, paddingHorizontal: 14, paddingBottom: 14 },
   subtitle: {
-    fontSize: 12, fontWeight: '700', textAlign: 'left',
+    fontSize: 12, fontFamily: FONT_INTER.bold, textAlign: 'left',
     color: 'rgba(255,255,255,0.82)',
     marginTop: -2,
   },
@@ -720,5 +768,5 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.3)',
   },
   followerBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  badgeText: { fontSize: 10, fontWeight: '800' },
+  badgeText: { fontSize: 10, fontFamily: FONT_INTER.extrabold },
 });

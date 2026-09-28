@@ -4,8 +4,12 @@ import type { EventLocationParams } from '../types/api';
 /** 'near', 'all', or a region key from constants/regions. */
 export type LocationChoice = string;
 
-/** How far "near me" reaches, in miles. The middle one is the default. */
-export const RADIUS_OPTIONS = [50, 100, 500];
+/**
+ * How far "near me" reaches, in miles — always. It used to be a choice of
+ * three under the Near me chip, but nobody reads "50 mi" as a different place
+ * from "100 mi", and it was the one filter setting that wasn't a single tap.
+ */
+export const NEAR_ME_MILES = 100;
 
 /**
  * "Where" as a filter — events, members, their cars.
@@ -18,11 +22,10 @@ export const RADIUS_OPTIONS = [50, 100, 500];
  * A member with no zip gets `near_unavailable` back from the server, and the
  * screen calls `fallBack` to show everything instead, saying why.
  *
- * `radius` only means anything while near me is the choice.
+ * `radius` is NEAR_ME_MILES, returned for screens that say "within N miles".
  */
 export function useLocationFilter(initial: LocationChoice = 'near') {
   const [choice, setChoice] = useState<LocationChoice>(initial);
-  const [radius, setRadius] = useState(100);
   /** Set when near me couldn't be answered and the filter moved to All. */
   const [fellBack, setFellBack] = useState(false);
 
@@ -37,7 +40,7 @@ export function useLocationFilter(initial: LocationChoice = 'near') {
   }, []);
 
   const params: EventLocationParams =
-    choice === 'all' ? {} : choice === 'near' ? { near: 'me', radius } : { region: choice };
+    choice === 'all' ? {} : choice === 'near' ? { near: 'me', radius: NEAR_ME_MILES } : { region: choice };
 
-  return { choice, choose, params, radius, setRadius, fallBack, fellBack };
+  return { choice, choose, params, radius: NEAR_ME_MILES, fallBack, fellBack };
 }

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
@@ -9,8 +10,9 @@ import SharedModal from '../ui/SharedModal';
 import { categoryFor, parseDayKey } from '../../constants/eventTypes';
 import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_10, COLOR_GRAY_22, COLOR_GRAY_38, COLOR_GRAY_90, COLOR_WHITE, GUTTER } from '../../constants/config';
 import type { SocietyEvent } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * A dark, label-free street map (Portland), behind the tile's label — so the
@@ -51,7 +53,7 @@ export function EventsMapTile({ events, days, onPress }: {
 
   return (
     <LinearGradient
-      colors={['#262626', '#5A5A5A']}
+      colors={[COLOR_GRAY_38, COLOR_GRAY_90]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.tileFrame}
@@ -80,7 +82,7 @@ export function EventsMapTile({ events, days, onPress }: {
         />
         <View style={styles.tileText}>
           <View style={styles.tileTitleRow}>
-            <MapPin size={20} color="#FFFFFF" />
+            <MapPin size={20} color={COLOR_WHITE} />
             <Text style={styles.tileTitle}>View upcoming events on a map</Text>
           </View>
           <Text style={styles.tileSub} numberOfLines={1}>
@@ -181,7 +183,7 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
           >
             {photo
               ? <Image source={{ uri: photo }} style={styles.previewPhoto} contentFit="cover" />
-              : <View style={[styles.previewPhoto, { backgroundColor: '#161616' }]} />}
+              : <View style={[styles.previewPhoto, { backgroundColor: COLOR_GRAY_22 }]} />}
             <View style={styles.previewText}>
               {cat && (
                 <View style={[styles.catPill, { backgroundColor: cat.color }]}>
@@ -202,28 +204,28 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
 }
 
 const styles = StyleSheet.create({
-  tileFrame: { marginHorizontal: 12, marginTop: 24, padding: 1.5, borderRadius: 12 },
+  tileFrame: { marginHorizontal: GUTTER, marginTop: 24, padding: 1.5, borderRadius: 12 },
   tile: {
     height: 112, borderRadius: 10.5, overflow: 'hidden',
-    backgroundColor: '#0A0A0A', justifyContent: 'flex-end',
+    backgroundColor: COLOR_GRAY_10, justifyContent: 'flex-end',
   },
   tileText:  { paddingHorizontal: 14, paddingBottom: 12, gap: 3 },
   tileTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  tileTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', flexShrink: 1 },
-  tileSub:   { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  tileTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, flexShrink: 1 },
+  tileSub:   { fontSize: 12, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.7)' },
 
   mapWrap: { flex: 1, minHeight: 300 },
   preview: {
     position: 'absolute', left: 12, right: 12, bottom: 24,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 10, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    shadowColor: COLOR_BLACK, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
   previewPhoto: { width: 56, height: 56, borderRadius: 8 },
   previewText:  { flex: 1, minWidth: 0, gap: 3 },
   catPill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  catText: { fontSize: 10, fontWeight: '800', color: '#000000' },
-  previewTitle: { fontSize: 15, fontWeight: '800' },
-  previewMeta:  { fontSize: 12, fontWeight: '600' },
+  catText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
+  previewTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
+  previewMeta:  { fontSize: 12, fontFamily: FONT_INTER.semibold },
 });

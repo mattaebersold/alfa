@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { useGetUserGarageQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Which garage car a list is for — or none, which is the usual answer.
@@ -51,7 +53,7 @@ export default function ListCarPicker({ value, valueLabel, onChange }: {
               accessibilityRole="button"
               accessibilityState={{ selected: true }}
             >
-              <Text style={[styles.chipText, { color: '#000000' }]} numberOfLines={1}>
+              <Text style={[styles.chipText, { color: COLOR_BLACK }]} numberOfLines={1}>
                 {valueLabel || 'Selected car'}
               </Text>
             </TouchableOpacity>
@@ -70,7 +72,7 @@ export default function ListCarPicker({ value, valueLabel, onChange }: {
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.chipText, { color: on ? '#000000' : colors.fg }]} numberOfLines={1}>
+                <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>
                   {car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car'}
                 </Text>
               </TouchableOpacity>
@@ -84,12 +86,12 @@ export default function ListCarPicker({ value, valueLabel, onChange }: {
 
 const styles = StyleSheet.create({
   wrap:  { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 13, fontFamily: FONT_INTER.semibold, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   hint:  { fontSize: 12.5, lineHeight: 18, marginBottom: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

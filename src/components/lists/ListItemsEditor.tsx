@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Check, ChevronDown, ChevronUp, Link2, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { listLinkLabel } from '../../utils/listLinks';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** One entry as the editor shows it — a staged draft and a saved item both reduce to this. */
 export interface ListItemRowData {
@@ -162,30 +164,30 @@ export default function ListItemsEditor({
 const styles = StyleSheet.create({
   wrap: { marginBottom: 20 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, minHeight: 26 },
-  label: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 13, fontFamily: FONT_INTER.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
   hint:  { fontSize: 12.5, lineHeight: 18, marginBottom: 10 },
   saveOrder: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: COMMON_RADIUS,
   },
-  saveOrderText: { fontSize: 12, fontWeight: '800' },
+  saveOrderText: { fontSize: 12, fontFamily: FONT_INTER.extrabold },
 
   rows: { borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden', marginBottom: 10 },
   row:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingRight: 10 },
   arrows: { width: 40, alignItems: 'center' },
-  rank:   { fontSize: 12, fontWeight: '800' },
+  rank:   { fontSize: 12, fontFamily: FONT_INTER.extrabold },
   main:   { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   photo:  { width: 46, height: 46, borderRadius: 8 },
   text:   { flex: 1, minWidth: 0, gap: 1 },
-  title:  { fontSize: 14.5, fontWeight: '700' },
+  title:  { fontSize: 14.5, fontFamily: FONT_INTER.bold },
   desc:   { fontSize: 12.5 },
   linkLine: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  linkText: { fontSize: 11.5, fontWeight: '600', flexShrink: 1 },
+  linkText: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
   remove: { paddingLeft: 12, paddingVertical: 6 },
 
   add: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1, borderStyle: 'dashed',
   },
-  addText: { fontSize: 14, fontWeight: '700' },
+  addText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

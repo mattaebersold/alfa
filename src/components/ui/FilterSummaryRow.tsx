@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, type Insets, type StyleProp, type ViewStyle,
+  View, TouchableOpacity, StyleSheet, type Insets, type StyleProp, type ViewStyle,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Filter } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Reach for the panel's chips — half the 8pt gap between neighbours, so a
@@ -29,9 +31,11 @@ export interface FilterPill {
  *
  * Started life as the Events screen's own — chip rows took a third of the
  * screen above the list they filter, and most visits never touch them. The row
- * says what's applied; tapping it opens the options in a panel, and nothing
- * changes until Apply, so trying a combination doesn't refetch the screen
- * behind you on every chip.
+ * says what's applied; tapping it opens the options in a panel.
+ *
+ * Filters combine — a region *and* a type — so a tap only marks a chip, and
+ * nothing changes until Apply. That also means trying a combination doesn't
+ * refetch the screen behind you on every chip.
  *
  * Shared so that groups, members and cars ask "where" the same way events do.
  * The screen owns what the filters *are*: it hands over the applied value, the
@@ -40,8 +44,7 @@ export interface FilterPill {
  * starts from the applied value and every close without Apply throws away.
  *
  * `T` is whatever the screen's filters add up to — one key, or an object of
- * several. It is copied, not cloned, so treat it as immutable and replace it
- * through `setDraft` rather than editing it in place.
+ * several. Treat it as immutable and replace it through `setDraft`.
  */
 export default function FilterSummaryRow<T>({
   value,
@@ -51,6 +54,7 @@ export default function FilterSummaryRow<T>({
   label = 'Filter',
   accessibilityLabel,
   style,
+  compact = false,
 }: {
   /** What's applied now. The draft is reset to this on every open. */
   value: T;
@@ -65,6 +69,13 @@ export default function FilterSummaryRow<T>({
   accessibilityLabel?: string;
   /** For a screen whose gutter isn't 12. */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Just what's applied, as a small pill in the brand colour — "Near me ·
+   * Cars & Coffee" — for beside a search field, where the full row would cost
+   * too much room. Same panel behind it. The kit's FilterSummaryRow has the
+   * same, for the photography map.
+   */
+  compact?: boolean;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -81,6 +92,18 @@ export default function FilterSummaryRow<T>({
 
   return (
     <>
+      {compact ? (
+        <SummaryTouchable
+          style={[styles.compact, { backgroundColor: brand, borderColor: brand }, style]}
+          onPress={open}
+          activeOpacity={0.8}
+          accessibilityLabel={accessibilityLabel ?? `${label}: ${pills.map((p) => p.label).join(', ')}`}
+        >
+          <Text style={styles.compactText} numberOfLines={1}>
+            {pills.map((p) => p.label).join(' · ') || label}
+          </Text>
+        </SummaryTouchable>
+      ) : (
       <SummaryTouchable
         style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }, style]}
         onPress={open}
@@ -107,6 +130,7 @@ export default function FilterSummaryRow<T>({
           ))}
         </View>
       </SummaryTouchable>
+      )}
 
       <SummaryModal
         visible={origin !== undefined}
@@ -174,7 +198,7 @@ export function FilterChoiceRow<K extends string | null>({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.choiceText, { color: active ? '#000000' : colors.fg }]}>{opt.label}</Text>
+              <Text style={[styles.choiceText, { color: active ? COLOR_BLACK : colors.fg }]}>{opt.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -191,23 +215,31 @@ const styles = StyleSheet.create({
     minHeight: 44, paddingHorizontal: 12, paddingVertical: 10,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  rowLabel: { fontSize: 14, fontWeight: '600' },
+  rowLabel: { fontSize: 14, fontFamily: FONT_INTER.semibold },
+  // Sized to its words, capped so a long choice can't squeeze the search
+  // beside it down to nothing. A pill, like the search.
+  compact: {
+    height: 44, maxWidth: 190, paddingHorizontal: 16,
+    alignItems: 'center', justifyContent: 'center',
+    borderRadius: PILL_RADIUS, borderWidth: 1,
+  },
+  compactText: { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
   // Takes the rest of the row and gives way first — the chips truncate before
   // the label does.
   selected: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 6, overflow: 'hidden' },
   selectedChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 1 },
-  onFill: { color: '#000000', flexShrink: 1 },
+  onFill: { color: COLOR_BLACK, flexShrink: 1 },
 
   body: { paddingTop: 16, paddingBottom: 8 },
   label: {
-    fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase',
+    fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, textTransform: 'uppercase',
     paddingHorizontal: 12, marginBottom: 6, marginTop: 4,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, marginBottom: 12 },
   // Shared by the row's summary pills and the panel's choices; the panel's are
   // made tall enough to hit by `choiceChip`, the row's stay compact.
   chip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  chipText: { fontSize: 12, fontWeight: '700' },
+  chipText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   choiceChip: { minHeight: 44, paddingHorizontal: 16, paddingVertical: 0, justifyContent: 'center' },
-  choiceText: { fontSize: 14, fontWeight: '700' },
+  choiceText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 });

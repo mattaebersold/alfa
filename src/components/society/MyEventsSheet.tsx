@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import SharedModal from '../ui/SharedModal';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
@@ -7,6 +8,7 @@ import EventCard from '../cards/EventCard';
 import { useGetMyEventsQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import type { SocietyEvent } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * "Your Events" — everything you've flagged interest in, soonest first. Events
@@ -63,5 +65,5 @@ export default function MyEventsSheet({
 
 const styles = StyleSheet.create({
   body: { padding: 12, gap: 12, paddingBottom: 32 },
-  pastLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, marginTop: 12 },
+  pastLabel: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8, marginTop: 12 },
 });

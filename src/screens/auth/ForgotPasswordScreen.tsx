@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, StyleSheet, TouchableOpacity,
-  Alert,
+  View, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
@@ -12,6 +12,7 @@ import { useColors } from '../../hooks/useColors';
 import { CONFIG } from '../../constants/config';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts'
 
 export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'ForgotPassword'>) {
   const [email, setEmail] = useState('');
@@ -82,9 +83,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24 },
   backBtn: { marginBottom: 24 },
-  back: { fontSize: 14, color: colors.primaryAlt, fontWeight: '600' },
-  title: { fontSize: 26, fontWeight: '800', marginBottom: 8 },
+  back: { fontSize: 14, color: colors.primaryAlt, fontFamily: FONT_INTER.semibold },
+  title: { fontSize: 26, fontFamily: FONT_INTER.bold, marginBottom: 8 },
   sub: { fontSize: 14, lineHeight: 20, marginBottom: 28 },
   field: { marginBottom: 20 },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  label: { fontSize: 13, fontFamily: FONT_INTER.semibold, marginBottom: 6 },
 });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
 import { Lock, Mountain, PenLine, Route as RouteIcon } from 'lucide-react-native';
@@ -17,7 +18,8 @@ import {
   formatDistance, formatDuration, formatElevation, curvinessLabel,
 } from '../../utils/routeGeometry';
 import { isPlottedRoute, type DrivingRoute } from '../../types/api';
-import { PILL_RADIUS } from '../../constants/radius';
+import { PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * A recorded drive in the feed.
@@ -207,16 +209,16 @@ const styles = StyleSheet.create({
   header:     { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 8, gap: 10 },
   headerWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerText: { flex: 1 },
-  author:     { fontSize: 14, fontWeight: '700' },
+  author:     { fontSize: 14, fontFamily: FONT_INTER.bold },
   kicker:     { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
-  kickerText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
+  kickerText: { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
   time:       { fontSize: 11, fontStyle: 'italic' },
   reachPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: StyleSheet.hairlineWidth, borderRadius: PILL_RADIUS,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  reachPillText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
+  reachPillText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.3, textTransform: 'uppercase' },
 
   traceRow: { flexDirection: 'row', paddingHorizontal: 12, gap: 12, alignItems: 'center' },
   // Darker than the card it sits on, and rounded, so the trace is contained.
@@ -234,12 +236,12 @@ const styles = StyleSheet.create({
   traceCompact: { width: 90, height: 90 },
   info:     { flex: 1, gap: 5 },
 
-  title: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  title: { fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
   place: { fontSize: 12 },
 
   metrics:     { flexDirection: 'row', gap: 14, marginTop: 2 },
   metric:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metricValue: { fontSize: 13, fontWeight: '700' },
+  metricValue: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   technical:      {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 100,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  technicalText:  { fontSize: 12, fontWeight: '700' },
+  technicalText:  { fontSize: 12, fontFamily: FONT_INTER.bold },
   technicalIndex: { fontSize: 11 },
 
   actions: {

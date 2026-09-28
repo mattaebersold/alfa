@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Pressable, TextInput, Dimensions,
-  ActivityIndicator,
+  View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Pressable, Dimensions, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { formatDistanceToNow } from 'date-fns';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,7 +46,16 @@ import ListCard from '../../components/lists/ListCard';
 import ListShelf, { LIST_SHELF_PREVIEW_COUNT } from '../../components/lists/ListShelf';
 import ListSummaryModal from '../../components/lists/ListSummaryModal';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
-import { LIST_UPSELL } from '../../constants/limits';
+import {
+  LIST_UPSELL,
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_23,
+  COLOR_GRAY_30,
+  COLOR_WHITE,
+  COLOR_BORDER,
+} from '../../constants/config';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -74,7 +83,7 @@ import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import GroupAttribution from '../../components/groups/GroupAttribution';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // Cars and routes live on the page itself (see the garage section and the
@@ -190,7 +199,7 @@ function PostRow({ post, onPress, visible }: {
       <TouchableOpacity style={styles.postCardBody} onPress={onPress} activeOpacity={0.85}>
         {title ? (
           <Text
-            style={{ color: colors.fg, fontSize: hasMedia ? 15 : 17, fontWeight: '700', lineHeight: hasMedia ? 20 : 23 }}
+            style={{ color: colors.fg, fontSize: hasMedia ? 15 : 17, fontFamily: FONT_INTER.bold, lineHeight: hasMedia ? 20 : 23 }}
             numberOfLines={hasMedia ? 2 : 4}
           >
             {title}
@@ -818,7 +827,7 @@ export default function ProfileScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={isOwnProfile ? 'Your garage' : `@${user.username}'s garage`}
               >
-                <Warehouse size={19} color="#FFFFFF" />
+                <Warehouse size={19} color={COLOR_WHITE} />
                 <GarageThumbs cars={cars} />
               </TouchableOpacity>
             </View>
@@ -831,7 +840,7 @@ export default function ProfileScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Add a cover photo"
               >
-                <Camera size={19} color="#FFFFFF" />
+                <Camera size={19} color={COLOR_WHITE} />
               </TouchableOpacity>
             )}
             {isOwnProfile && (
@@ -842,7 +851,7 @@ export default function ProfileScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Settings"
                 >
-                  <Settings size={19} color="#FFFFFF" />
+                  <Settings size={19} color={COLOR_WHITE} />
                 </TouchableOpacity>
               </View>
             )}
@@ -875,7 +884,7 @@ export default function ProfileScreen() {
           )}
           {viewedIsPro && (
             <View style={styles.proWheel}>
-              <SteeringWheel size={24} color="#000000" strokeWidth={2.5} />
+              <SteeringWheel size={24} color={COLOR_BLACK} strokeWidth={2.5} />
             </View>
           )}
           {/* Membership number, worn on the photo like the pro wheel — opposite
@@ -887,7 +896,7 @@ export default function ProfileScreen() {
               { backgroundColor: viewedIsPro ? BADGE_PRO : BADGE_MEMBER },
             ]}>
               <Text
-                style={[styles.memberBadgeText, { color: '#000000' }]}
+                style={[styles.memberBadgeText, { color: COLOR_BLACK }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.6}
@@ -919,7 +928,7 @@ export default function ProfileScreen() {
                 Wrapped so it can take half the row: Button has no style prop,
                 and a column child stretches to its parent's width. */}
             <View style={styles.actionGrow}>
-              <FollowButton username={user.username} radius={8} followingBackground="#1E1E1E" />
+              <FollowButton username={user.username} radius={8} followingBackground={COLOR_GRAY_30} />
             </View>
             <TouchableOpacity
               style={[styles.msgBtn, styles.actionGrow, { borderColor: colors.border }]}
@@ -1173,7 +1182,7 @@ export default function ProfileScreen() {
                   style={[styles.newListBtn, { backgroundColor: colors.primaryAlt }]}
                   onPress={() => closePaneThen(startNewList)}
                 >
-                  <Plus size={16} color="#fff" />
+                  <Plus size={16} color={COLOR_WHITE} />
                   <Text style={styles.newListBtnText}>New List</Text>
                 </TouchableOpacity>
               ) : null
@@ -1219,7 +1228,7 @@ export default function ProfileScreen() {
           // the same name six times.
           showByline={false}
           // Same shade as the section tiles, so the page's surfaces agree.
-          cardBackground="#171717"
+          cardBackground={COLOR_GRAY_23}
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
         />
@@ -1393,7 +1402,7 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: COMMON_RADIUS,
     // Near-solid: at half black the buttons went muddy over a bright cover.
     backgroundColor: 'rgba(0,0,0,0.75)',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.28)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: COLOR_BORDER,
     alignItems: 'center', justifyContent: 'center',
   },
   // Widens to hold the car photos beside the door, as the header's does.
@@ -1412,7 +1421,7 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
     overflow: 'hidden',
     backgroundColor: colors.primaryAlt,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
   headerActions: { flexDirection: 'row', gap: 8 },
@@ -1424,10 +1433,10 @@ const styles = StyleSheet.create({
   followRow:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   actionGrow: { flex: 1 },
   msgBtn:     { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center' },
-  msgBtnText: { fontSize: 14, fontWeight: '600' },
+  msgBtnText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
   profileMenuBtn: { borderWidth: 1.5, borderRadius: COMMON_RADIUS, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   info:       { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 3 },
-  name:       { fontSize: 19, fontWeight: '600' },
+  name:       { fontSize: 19, fontFamily: FONT_INTER.semibold },
   // Bottom-left of the photo — the pro wheel owns the bottom-right. A true
   // circle: fixed on both axes rather than stretched by its padding, so a
   // three-digit number and a one-digit number are the same shape. Long numbers
@@ -1438,26 +1447,26 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   memberBadgeText: {
-    fontSize: 12, fontWeight: '800',
+    fontSize: 12, fontFamily: FONT_INTER.extrabold,
     textAlign: 'center', paddingHorizontal: 2,
   },
   username:   { fontSize: 14, marginTop: 2 },
   bioWrap:    { marginTop: 8, marginBottom: 14 },
   bio:        { fontSize: 14, lineHeight: 20 },
-  moreLink:   { fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
+  moreLink:   { fontSize: 13, fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
   location:   { fontSize: 13, marginTop: 4 },
   tilesRow:   { paddingLeft: 12, paddingTop: 4, gap: 10 },
   tile:       {
     width: TILE_WIDTH,
     // A step under the card colour (#1e1e1e): a row of them at full card
     // brightness outweighed the profile they sit under.
-    backgroundColor: '#171717',
+    backgroundColor: COLOR_GRAY_23,
     borderRadius: 12, borderWidth: 1,
     paddingVertical: 16, paddingHorizontal: 14,
     alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  tileCount:  { fontSize: 22, fontWeight: '800' },
-  tileLabel:  { fontSize: 12, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase' },
+  tileCount:  { fontSize: 22, fontFamily: FONT_INTER.bold },
+  tileLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.3, textTransform: 'uppercase' },
 
   modalBackdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet:         { height: '85%', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
@@ -1466,7 +1475,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
   },
-  sheetTitle:    { fontSize: 17, fontWeight: '800' },
+  sheetTitle:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   listFooter:    { paddingVertical: 18 },
   modalList:     { paddingBottom: 32 },
   userSearchBar: {
@@ -1488,8 +1497,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 16, marginBottom: 6,
   },
-  garageTitle:   { fontSize: 18, fontWeight: '800' },
-  garageCount:   { fontSize: 14, fontWeight: '700' },
+  garageTitle:   { fontSize: 18, fontFamily: FONT_INTER.bold },
+  garageCount:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   garageCarousel: {
     // Vertical padding so the glow under each card has somewhere to fall —
     // without it the ScrollView clips its content bounds and the shadow stops
@@ -1504,13 +1513,13 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12, marginTop: 12,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS,
   },
-  newListBtnText:  { color: '#fff', fontSize: 14, fontWeight: '600' },
+  newListBtnText:  { color: COLOR_WHITE, fontSize: 14, fontFamily: FONT_INTER.semibold },
   userRowText:     { flex: 1 },
-  userRowName:     { fontSize: 15, fontWeight: '600' },
+  userRowName:     { fontSize: 15, fontFamily: FONT_INTER.semibold },
   userRowUsername: { fontSize: 13, marginTop: 1 },
   moreBtn:         { padding: 4, marginLeft: 4 },
   blockedPill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS },
-  blockedPillText: { fontSize: 12, fontWeight: '700' },
+  blockedPillText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   unblockBtn:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1, marginLeft: 8 },
-  unblockBtnText:  { fontSize: 13, fontWeight: '700' },
+  unblockBtnText:  { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

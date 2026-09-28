@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard,
+  View, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
+import OilSheen from '../ui/OilSheen';
+import PostContextRow from '../social/PostContextRow';
 import { useNavigation } from '@react-navigation/native';
-import { Car, MapPin, Truck, Users, Sparkles } from 'lucide-react-native';
-import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
+import { MapPin, Truck, Sparkles, Settings, MessageCircle } from 'lucide-react-native';
+import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
 import Avatar from '../ui/Avatar';
 import LikeButton from '../social/LikeButton';
@@ -13,7 +16,6 @@ import CommentRow from '../social/CommentRow';
 import Composer from '../social/Composer';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
-import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { useStartListingThread } from '../../screens/marketplace/useStartListingThread';
 import {
   useGetListingQuery, useGetListingMetaQuery, useCreateCommentMutation,
@@ -22,13 +24,23 @@ import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThr
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
 import {
-  categoryLabel, conditionLabel, distanceLabel, matchLabel,
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_DANGER,
+  COLOR_GRAY_22,
+  COLOR_WHITE,
+  COLOR_PRO,
+  COLOR_GREEN,
+} from '../../constants/config';
+import {
+  categoryLabel, conditionLabel, distanceLabel, matchLabel, categoryColor, conditionColor,
   previousPriceLabel, priceLabel, shippingLabel,
 } from './listingFormat';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The entry type likes and comments on a listing are filed under.
@@ -60,9 +72,7 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
 }) {
   const colors = useColors();
   const brand = useBrandColor();
-  const nav = useNavigation<any>();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
-  const { openGroup } = useGroupSummary();
   const { startThread, isStarting } = useStartListingThread();
 
   const { data, isLoading } = useGetListingQuery(listingId ?? '', { skip: !listingId });
@@ -78,6 +88,8 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
   );
   const [createComment, { isLoading: posting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
+  /** A lone photo's width over height, once it has loaded — 4:3 until then. */
+  const [soloRatio, setSoloRatio] = useState(4 / 3);
   // The composer's attachments — not the listing's own `photos` below.
   const attachments = useComposerPhotos();
 
@@ -108,8 +120,6 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
    * wrapped to four rows made the panel taller than the photo in it.
    */
   const specs = listing ? ([
-    { label: 'Category', value: categoryLabel(listing.category) },
-    { label: 'Condition', value: condition },
     { label: 'Year', value: listing.year },
     { label: 'Make', value: listing.make },
     { label: 'Model', value: listing.model },
@@ -154,7 +164,10 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
    * person who posted it is the buyer, and "Message seller" there would name
    * the wrong side of the deal. Your own listing has nobody to write to.
    */
-  const contactLabel = listing?.kind === 'want' ? 'Message buyer' : 'Message seller';
+  // Who's on the other end, by name — "Message @matt about this".
+  const contactLabel = seller?.username
+    ? `Message @${seller.username} about this`
+    : listing?.kind === 'want' ? 'Message buyer' : 'Message seller';
 
   return (
     <SummaryModal
@@ -162,6 +175,8 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
       onClose={onClose}
       origin={origin}
       actionLabel={isStarting ? 'Opening…' : contactLabel}
+      actionIcon={MessageCircle}
+      actionPill
       // Runs once the panel has finished closing, which is exactly when a
       // navigation out of it is safe — see SummaryModal.
       onAction={listingId && !isMine && !isLoading
@@ -177,10 +192,24 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
         <View style={styles.loading}><Spinner /></View>
       ) : (
         <View>
+          <View>
           {/* Photos lead — on a listing they're most of the decision. One
               sideways strip rather than a carousel with dots: there are rarely
               more than four, and a swipe is the gesture either way. */}
-          {photos.length > 0 ? (
+          {photos.length === 1 ? (
+            // One photo: the whole width, at its own shape — nothing to swipe
+            // to, so no strip.
+            <Image
+              source={{ uri: photos[0] }}
+              style={[styles.photoSingle, { aspectRatio: soloRatio }]}
+              contentFit="cover"
+              transition={150}
+              onLoad={(e) => {
+                const { width, height } = e.source;
+                if (width > 0 && height > 0) setSoloRatio(Math.max(MIN_SOLO_RATIO, width / height));
+              }}
+            />
+          ) : photos.length > 1 ? (
             <ScrollView
               horizontal
               pagingEnabled={photos.length > 1}
@@ -197,13 +226,42 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
             </View>
           )}
 
+          {/* On the photo, as on the cards: the car it fits top left, gold
+              with the oil-slick film, and the price bottom left — bigger
+              here than on a card. */}
+          {match ? (
+            <View style={[styles.matchPill, styles.onPhoto, styles.matchOnPhoto, { backgroundColor: COLOR_PRO }]}>
+              <OilSheen tone="warm" radius={999} />
+              <Sparkles size={11} color={COLOR_BLACK} strokeWidth={2.6} />
+              <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
+            </View>
+          ) : null}
+        {/* What it is and how good, as coloured badges on the photo's
+            bottom right, across from the price — the category its own
+            steady colour, the condition red to green along its scale. */}
+          {(listing.category || condition) ? (
+            <View style={[styles.badges, styles.onPhotoRow]}>
+              {listing.category ? (
+                <View style={[styles.kindBadge, { backgroundColor: categoryColor(listing.category) }]}>
+                  <Text style={styles.kindBadgeText}>{categoryLabel(listing.category)}</Text>
+                </View>
+              ) : null}
+              {condition ? (
+                <View style={[styles.kindBadge, { backgroundColor: conditionColor(listing.condition, meta?.conditions) ?? colors.segment }]}>
+                  <Text style={styles.kindBadgeText}>{condition}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          {price ? (
+            <View style={[styles.priceBubble, styles.onPhoto]}>
+              <Text style={styles.priceBubbleText} numberOfLines={1}>{price}</Text>
+              {wasPrice ? <Text style={styles.priceBubbleWas} numberOfLines={1}>{wasPrice}</Text> : null}
+            </View>
+          ) : null}
+          </View>
+
           <View style={styles.body}>
-            {match ? (
-              <View style={[styles.matchPill, { backgroundColor: brand }]}>
-                <Sparkles size={11} color="#000000" strokeWidth={2.6} />
-                <Text style={styles.matchText}>{match}</Text>
-              </View>
-            ) : null}
 
             <View style={styles.titleRow}>
               <Text style={[styles.title, { color: colors.fg }]} numberOfLines={3}>
@@ -212,16 +270,11 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
               {listing.sold ? (
                 <View style={styles.soldPill}><Text style={styles.soldText}>SOLD</Text></View>
               ) : null}
+              {/* Yours: the way to change it, beside its title. */}
+              {isMine ? <EditListingCog listingId={listing.internal_id} /> : null}
             </View>
 
-            {price ? (
-              <View style={styles.priceRow}>
-                <Text style={[styles.price, { color: colors.fg }]}>{price}</Text>
-                {wasPrice ? (
-                  <Text style={[styles.wasPrice, { color: colors.grey }]}>{wasPrice}</Text>
-                ) : null}
-              </View>
-            ) : null}
+
 
             {/* Who's selling. The whole row opens their summary over this one
                 rather than leaving the listing behind. */}
@@ -265,61 +318,28 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
               >
                 {specs.map((spec) => (
                   <View key={spec.label} style={[styles.spec, { backgroundColor: colors.segment }]}>
-                    <Text style={[styles.specLabel, { color: colors.grey }]}>{spec.label}</Text>
+                    <Text style={styles.specLabel}>{spec.label}</Text>
                     <Text style={[styles.specValue, { color: colors.fg }]} numberOfLines={1}>{spec.value}</Text>
                   </View>
                 ))}
               </ScrollView>
             )}
 
-            {/* The car it's for. A part listed off a garage car can be checked
-                against the real thing, which is the fit question answered. */}
-            {car ? (
-              <TouchableOpacity
-                style={[styles.carRow, { backgroundColor: colors.segment }]}
-                onPress={() => nav.navigate('CarDetail', { carId: car.internal_id })}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="View the tagged car"
-              >
-                {firstGalleryUrl(car.gallery) ? (
-                  <Image source={{ uri: firstGalleryUrl(car.gallery)! }} style={styles.carThumb} contentFit="cover" />
-                ) : (
-                  <View style={[styles.carThumb, styles.carThumbBlank]}>
-                    <Car size={16} color={colors.grey} />
-                  </View>
-                )}
-                <View style={styles.carText}>
-                  <Text style={[styles.carLabel, { color: colors.grey }]}>Listed off</Text>
-                  <Text style={[styles.carTitle, { color: colors.fg }]} numberOfLines={1}>
-                    {car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* Where it was posted. Through the group summary provider, so a
-                member lands on the group and everyone else gets its summary
-                with Join in it. */}
-            {groups.length > 0 && (
-              <View style={styles.groups}>
-                {groups.map((g) => (
-                  <TouchableOpacity
-                    key={g.internal_id}
-                    style={[styles.groupChip, { backgroundColor: colors.segment }]}
-                    onPress={() => openGroup(g.internal_id)}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${g.title ?? 'group'}`}
-                  >
-                    <Users size={11} color={colors.grey} />
-                    <Text style={[styles.groupText, { color: colors.fg }]} numberOfLines={1}>
-                      {g.title ?? 'Group'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* The car it's listed off and the groups it's posted in, as the
+                same tiles a post in the home feed carries (PostContextRow):
+                one at half width, two sharing the row, three or more a
+                carousel. Each opens its own summary over this one. */}
+            {(car || groups.length > 0) ? (
+              <View style={styles.context}>
+                <PostContextRow
+                  post={{
+                    internal_id: listing.internal_id,
+                    group_ids: groups.map((g) => g.internal_id),
+                    tags: car ? [{ tag_entry_type: 'garagecar', tag_internal_id: car.internal_id }] as any : [],
+                  }}
+                />
               </View>
-            )}
+            ) : null}
 
             {/* Likes and comments, on the listing's own record — the generic
                 collections keyed by entry type 'listing'. */}
@@ -371,7 +391,7 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
               onSend={submitComment}
               sending={posting}
               sendLabel="Post"
-              tone={{ surface: '#000000', field: '#000000', border: colors.border, text: colors.fg, accent: brand, onAccent: '#000000' }}
+              tone={{ surface: COLOR_BLACK, field: COLOR_BLACK, border: colors.border, text: colors.fg, accent: brand, onAccent: COLOR_BLACK }}
               barStyle={styles.composer}
             />
           </View>
@@ -381,15 +401,72 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
   );
 }
 
+/**
+ * Edit, on your own listing — a cog over the photo. Inside the panel so it can
+ * close the panel first (useSummaryPanel), then open the form on this listing.
+ */
+function EditListingCog({ listingId }: { listingId: string }) {
+  const nav = useNavigation<any>();
+  const panel = useSummaryPanel();
+  const go = () => nav.navigate('ListingCreate', { listingId });
+  return (
+    <TouchableOpacity
+      style={styles.editCog}
+      onPress={() => (panel ? panel.closeThen(go) : go())}
+      hitSlop={8}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel="Edit listing"
+    >
+      <Settings size={16} color={COLOR_WHITE} strokeWidth={2.2} />
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * The tallest a lone photo is drawn — 3:4 portrait. Past that, a phone shot
+ * of a part held upright filled the panel before any of the listing showed.
+ */
+const MIN_SOLO_RATIO = 3 / 4;
+
 const styles = StyleSheet.create({
   loading: { height: 260, alignItems: 'center', justifyContent: 'center' },
 
   photoStrip: { flexGrow: 0 },
   // Square-ish: a listing photo is as likely to be a portrait shot of a part
   // as a landscape one of a car, and a letterbox crops the part out of it.
-  photo:      { width: 320, height: 240, backgroundColor: '#161616' },
+  photo:      { width: 320, height: 240, backgroundColor: COLOR_GRAY_22 },
+  photoSingle:{ width: '100%', backgroundColor: COLOR_GRAY_22 },
+  // The tile row brings its own 8 of inset and 12 above and below; pulled out
+  // by that much so the tiles line up with the words and sit in the body's gap.
+  context: { marginHorizontal: -8, marginVertical: -8 },
+  // Beside the title, at its end — the height of the title's first line, so
+  // the two sit on one centre.
+  editCog: {
+    width: 26, height: 26, borderRadius: 13, flexShrink: 0,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  // Badges laid over the photo, lifted off it by a soft shadow.
+  onPhoto: {
+    position: 'absolute', maxWidth: '70%',
+    boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
+  },
+  matchOnPhoto: { top: 10, left: 10, overflow: 'hidden' },
+  // As on the cards, a size up.
+  priceBubble: {
+    left: 10, bottom: 10,
+    flexDirection: 'row', alignItems: 'baseline', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: COLOR_GREEN,
+  },
+  priceBubbleText: { color: COLOR_BLACK, fontSize: 18, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
+  priceBubbleWas: {
+    color: 'rgba(0,0,0,0.6)', fontSize: 12.5, fontFamily: FONT_INTER.semibold,
+    textDecorationLine: 'line-through',
+  },
   noPhoto:    { width: '100%', alignItems: 'center', justifyContent: 'center' },
-  noPhotoText: { fontSize: 12, fontWeight: '600' },
+  noPhotoText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   body: { padding: 18, paddingBottom: 20, gap: 8 },
 
@@ -397,55 +474,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS,
   },
-  matchText: { fontSize: 11, fontWeight: '800', color: '#000000' },
+  matchText: { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  title:    { flex: 1, fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  soldPill: { backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS, marginTop: 2 },
-  soldText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
+  title:    { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
+  soldPill: { backgroundColor: COLOR_DANGER, paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS, marginTop: 2 },
+  soldText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6 },
 
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  price:    { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-  wasPrice: { fontSize: 14, fontWeight: '600', textDecorationLine: 'line-through' },
+  badges:    { flexDirection: 'row', gap: 6 },
+  // On the photo's bottom right, lifted off it like the price.
+  onPhotoRow: { position: 'absolute', right: 10, bottom: 10, maxWidth: '55%', justifyContent: 'flex-end' },
+  kindBadge: {
+    paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, flexShrink: 1,
+    boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
+  },
+  // Black on every fill — the palette is all mid-bright.
+  kindBadgeText: { color: '#000000', fontSize: 13, fontFamily: FONT_INTER.bold },
 
   sellerRow:  { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 2 },
-  sellerName: { fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  sellerName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,
   },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeText: { fontSize: 11, fontFamily: FONT_INTER.bold },
 
   about: { fontSize: 13.5, lineHeight: 19, marginTop: 4 },
 
   specsScroll: { flexGrow: 0, flexShrink: 0, marginHorizontal: -18 },
   specs: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingTop: 6 },
   spec:  { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, minWidth: 84 },
-  specLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  specValue: { fontSize: 14, fontWeight: '600', marginTop: 2 },
-
-  carRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 8, borderRadius: COMMON_RADIUS, marginTop: 6,
-  },
-  carThumb:      { width: 44, height: 34, borderRadius: 6, backgroundColor: '#161616' },
-  carThumbBlank: { alignItems: 'center', justifyContent: 'center' },
-  carText:  { flex: 1, minWidth: 0 },
-  carLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  carTitle: { fontSize: 14, fontWeight: '700', marginTop: 1 },
-
-  groups:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  groupChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS,
-  },
-  groupText: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  // Quiet, sentence case — the value is what you're reading for.
+  specLabel: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.4)' },
+  specValue: { fontSize: 14, fontFamily: FONT_INTER.semibold, marginTop: 2 },
 
   social: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     marginTop: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  commentCount: { fontSize: 12, fontWeight: '600' },
+  commentCount: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   // A ceiling, like the panel's: a short thread gets a short list.
   commentList: { maxHeight: 260, marginTop: 4 },

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { formatDistanceToNow } from 'date-fns';
 import Avatar from '../ui/Avatar';
@@ -8,7 +9,8 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem, User } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * One message in a conversation — a direct message or a marketplace one.
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
   },
   bubbleContentMe: { backgroundColor: colors.primaryAlt, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   bubbleText:      { fontSize: 15, lineHeight: 21 },
-  bubbleTextMe:    { color: '#FFFFFF' },
+  bubbleTextMe:    { color: COLOR_WHITE },
   bubbleTime:      { fontSize: 11, marginTop: 3, paddingHorizontal: 4 },
   photoGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 4, maxWidth: '85%', marginBottom: 4 },
   photo:      { width: 200, height: 200, borderRadius: COMMON_RADIUS },

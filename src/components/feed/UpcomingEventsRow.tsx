@@ -67,7 +67,7 @@ export default function UpcomingEventsRow() {
       bare
       action={{
         label: 'View all',
-        onPress: () => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Events' } }),
+        onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } } } as any),
       }}
     >
       <ScrollView

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator,
+  View, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
 import { Image } from 'expo-image';
@@ -19,7 +20,8 @@ import { colors as palette } from '../../constants/colors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { User, GarageCar } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * Admin: who and what is featured on the Members and Cars screens.
@@ -348,7 +350,7 @@ const styles = StyleSheet.create({
   controls:   { paddingHorizontal: 16, paddingTop: 14, gap: 10 },
   tabs:       { flexDirection: 'row', borderRadius: 10, padding: 3 },
   tab:        { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
-  tabText:    { fontSize: 14, fontWeight: '700' },
+  tabText:    { fontSize: 14, fontFamily: FONT_INTER.bold },
   search:     {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 12, height: 42, borderRadius: 10, borderWidth: 1,
@@ -356,16 +358,16 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, padding: 0 },
   statusRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingBottom: 6 },
   hint:       { flex: 1, fontSize: 12 },
-  status:     { fontSize: 12, fontWeight: '700' },
+  status:     { fontSize: 12, fontFamily: FONT_INTER.bold },
   listContent: { paddingBottom: 40 },
   row:        {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  position:   { width: 18, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  position:   { width: 18, fontSize: 13, fontFamily: FONT_INTER.bold, textAlign: 'center' },
   carThumb:   { width: 56, height: 40, borderRadius: 6, overflow: 'hidden' },
-  name:       { fontSize: 15, fontWeight: '600' },
+  name:       { fontSize: 15, fontFamily: FONT_INTER.semibold },
   sub:        { fontSize: 12, marginTop: 1 },
   iconBtn:    {
     width: 32, height: 32, borderRadius: COMMON_RADIUS, borderWidth: 1,
@@ -375,7 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  addText:    { fontSize: 12, fontWeight: '700' },
+  addText:    { fontSize: 12, fontFamily: FONT_INTER.bold },
   empty:      { marginTop: 40 },
   emptyText:  { fontSize: 14, textAlign: 'center', marginTop: 40, paddingHorizontal: 24 },
 });

@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { useGetMarketplaceUnreadCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { colors } from '../../constants/colors';
-import { PILL_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Past this the badge stops counting and starts saying "lots" — as the bell does. */
 export const BADGE_MAX = 10;
@@ -90,5 +91,5 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -6, right: -8,
     zIndex: 10, elevation: 12,
   },
-  text: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF' },
+  text: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 });

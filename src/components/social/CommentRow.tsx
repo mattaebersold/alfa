@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { MoreVertical, Trash2 } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,6 +15,8 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import ImageLightbox from '../ui/ImageLightbox';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_GRAY_11 } from '../../constants/config';
 
 /**
  * The ground comments sit on, wherever they appear.
@@ -22,7 +25,7 @@ import type { GalleryItem } from '../../types/api';
  * different greys (#161616 and #101010) for the same thing, alongside a third
  * for the composer and a fourth for the header.
  */
-export const COMMENT_SURFACE = '#0B0B0B';
+export const COMMENT_SURFACE = COLOR_GRAY_11;
 
 export interface CommentData {
   internal_id?: string;
@@ -324,8 +327,8 @@ const styles = StyleSheet.create({
   nameRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   // The comment is the thing being read; the name is a label on it and the
   // time is a footnote. The weights say so.
-  name:     { fontSize: 13, fontWeight: '500' },
-  text:     { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  name:     { fontSize: 13, fontFamily: FONT_INTER.medium },
+  text:     { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.semibold },
   // `alignItems: flex-start` so the row doesn't stretch its children on the
   // cross axis, which is the default and fights an aspect ratio.
   photoRow: {
@@ -340,5 +343,5 @@ const styles = StyleSheet.create({
   photo: { width: '100%', aspectRatio: 16 / 9 },
   footer:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   time:     { fontSize: 11, fontStyle: 'italic' },
-  replyBtn: { fontSize: 12, fontWeight: '700' },
+  replyBtn: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

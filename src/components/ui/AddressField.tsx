@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { MapPin } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import {
   useLazySearchPlacesQuery, useLazyGetPlaceDetailsQuery,
 } from '../../api/apiService';
 import type { PlaceDetail, PlacePrediction } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * A text input that suggests addresses as you type.
@@ -201,7 +203,7 @@ const styles = StyleSheet.create({
   },
   rowIcon:   { marginTop: 1 },
   rowText:   { flex: 1 },
-  primary:   { fontSize: 14, fontWeight: '600' },
+  primary:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
   secondary: { fontSize: 12, marginTop: 1 },
   spinnerRow: { paddingVertical: 10, alignItems: 'center' },
 });

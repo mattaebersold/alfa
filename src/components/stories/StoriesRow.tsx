@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +13,8 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Post, StoryGroup } from '../../types/api';
+import { FONT_INTER } from '../../constants/fonts'
+import { COLOR_STORY_RING, COLOR_WHITE } from '../../constants/config';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -60,7 +63,7 @@ function StoryBubble({
   const displayName = username.length > 8 ? username.slice(0, 7) + '…' : username;
   const profileFilename: string | undefined = user?.profile_image ?? user?.gallery?.[0]?.filename;
   const profileUri = profileFilename ? imageUrl(profileFilename) : null;
-  const ringColor = group.allSeen ? colors.border : '#22c55e';
+  const ringColor = group.allSeen ? colors.border : COLOR_STORY_RING;
 
   return (
     <TouchableOpacity style={styles.bubbleWrapper} onPress={onPress} activeOpacity={0.75}>
@@ -137,7 +140,7 @@ const styles = StyleSheet.create({
   },
   bubbleImage:      { width: '100%', height: '100%' },
   bubbleFallback:   { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  bubbleFallbackText: { color: '#fff', fontWeight: '700', fontSize: 20 },
+  bubbleFallbackText: { color: COLOR_WHITE, fontFamily: FONT_INTER.bold, fontSize: 20 },
   plusSign:         { fontSize: 28, lineHeight: 32 },
   label:            { fontSize: 10, marginTop: 3, textAlign: 'center', width: BUBBLE_SIZE + 8 },
 });

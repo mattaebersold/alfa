@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Animated,
-  View, Text, StyleSheet, FlatList,
-  TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler, Keyboard,
+  Animated, View, StyleSheet, FlatList, TouchableOpacity, Platform, Alert, Dimensions, Linking, Pressable, BackHandler, Keyboard,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -45,7 +44,8 @@ import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/Summar
 import Odometer from '../../components/ui/Odometer';
 import SourceAppChip from '../../components/social/SourceAppChip';
 import SpotResultBody from '../../components/feed/SpotResultBody';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   // actions off the edge.
   modalHeaderTitle: {
     flex: 1, minWidth: 0,
-    fontSize: 22, fontWeight: '800', letterSpacing: -0.3, lineHeight: 27,
+    fontSize: 22, fontFamily: FONT_INTER.bold, letterSpacing: -0.3, lineHeight: 27,
   },
   modalHeaderBtn:   { alignItems: 'flex-end' },
   list: { paddingBottom: 100 },
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 14,
     borderWidth: 1,
   },
-  actionRowText:   { flex: 1, fontSize: 15, fontWeight: '700' },
+  actionRowText:   { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
   /**
    * An outline button: the full width of a card, no fill, label centred.
    * Reads as something to press rather than as another row of information —
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: 'transparent',
   },
-  outlineBtnText:  { fontSize: 15, fontWeight: '700' },
+  outlineBtnText:  { fontSize: 15, fontFamily: FONT_INTER.bold },
 
   linkWrap:        { padding: 12, gap: 8 },
   linkBtn:         {
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 11,
     borderWidth: 1, borderRadius: COMMON_RADIUS,
   },
-  linkBtnText:     { flex: 1, fontSize: 14, fontWeight: '700' },
+  linkBtnText:     { flex: 1, fontSize: 14, fontFamily: FONT_INTER.bold },
   postHeader: {
     flexDirection: 'row', alignItems: 'center',
     padding: 14, gap: 12,
@@ -687,8 +687,8 @@ const styles = StyleSheet.create({
   },
   badgeRow:        { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   badge:           { paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS },
-  badgeText:       { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
-  author:          { fontSize: 15, fontWeight: '700' },
+  badgeText:       { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.4 },
+  author:          { fontSize: 15, fontFamily: FONT_INTER.bold },
   username:        { fontSize: 12 },
   // Full-bleed to the screen's own gutters, not inset in a card.
   postBody:        { fontSize: 15, lineHeight: 22, paddingHorizontal: 16, paddingVertical: 10 },
@@ -697,8 +697,8 @@ const styles = StyleSheet.create({
   poll:            { paddingHorizontal: 16, paddingBottom: 12 },
   postBodyAlone:   { fontSize: 19, lineHeight: 27, paddingHorizontal: 16, paddingVertical: 12 },
   priceWrap:       { padding: 14, gap: 2 },
-  priceLabel:      { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: colors.grey },
-  price:           { fontSize: 26, fontWeight: '800', color: colors.primaryAlt },
+  priceLabel:      { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5, color: colors.grey },
+  price:           { fontSize: 26, fontFamily: FONT_INTER.bold, color: colors.primaryAlt },
   // Empty spacer that starts the comments section — its background and top
   // border are what set it apart now that the label is gone.
   commentsDivider: {

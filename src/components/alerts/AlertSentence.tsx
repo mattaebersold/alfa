@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, type StyleProp, type TextStyle } from 'react-native';
+import { View, StyleSheet, type StyleProp, type TextStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { sentenceToneColor, type SentencePart } from './alertFormat';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { withAlpha } from '../../constants/colors';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /**
  * A rule, read as a sentence, with each choice as an inline badge.
@@ -69,5 +71,5 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, borderWidth: 1,
     maxWidth: '100%',
   },
-  badgeText: { fontSize: 14, lineHeight: 20, fontWeight: '800' },
+  badgeText: { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.extrabold },
 });

@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
+  View, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetCarsQuery } from '../../api/apiService';
@@ -16,6 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import type { GroupsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
+import { FONT_INTER } from '../../constants/fonts';
 
 function CarRow({ car, onPress }: { car: GarageCar; onPress: (origin: SummaryOrigin | null) => void }) {
   const colors = useColors();
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   list:             { flexGrow: 1, paddingBottom: 24 },
   thumb:            { width: 72, height: 54, borderRadius: 8 },
   info:             { flex: 1 },
-  carName:          { fontSize: 14, fontWeight: '700' },
+  carName:          { fontSize: 14, fontFamily: FONT_INTER.bold },
   ownerRow:         { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   ownerName:        { fontSize: 12, flex: 1 },
 });

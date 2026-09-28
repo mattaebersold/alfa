@@ -9,6 +9,8 @@ import BrandsScreen from '../screens/cars/BrandsScreen';
 import BrandDetailScreen from '../screens/cars/BrandDetailScreen';
 import ModelDetailScreen, { modelPageTitle } from '../screens/cars/ModelDetailScreen';
 import { colors } from '../constants/colors';
+import { FONT_INTER } from '../constants/fonts'
+import { COLOR_WHITE } from '../constants/config';
 
 const Stack = createNativeStackNavigator<CarsStackParamList>();
 
@@ -19,8 +21,8 @@ export default function CarsStackNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: headerBg },
-        headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTintColor: COLOR_WHITE,
+        headerTitleStyle: { fontFamily: FONT_INTER.bold },
         // Just the arrow on iOS — no "Cars" or "Brands" beside it.
         headerBackButtonDisplayMode: 'minimal',
         animation: 'none',

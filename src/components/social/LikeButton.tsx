@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@ors/kit';
 import { Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLikeEntryMutation, useUnlikeEntryMutation } from '../../api/apiService';
@@ -8,6 +9,8 @@ import { useColors } from '../../hooks/useColors';
 import { formatActionCount } from '../../utils/text';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import LikersSheet from './LikersSheet';
+import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_LIKE } from '../../constants/config';
 
 interface LikeButtonProps {
   documentId: string;
@@ -42,6 +45,11 @@ interface LikeButtonProps {
    * so a caller that doesn't know the owner loses nothing.
    */
   ownerId?: string;
+  /**
+   * Stacked — the heart over its count, bigger and with a shadow — for the
+   * action rail over a post's photo (PostActionRail).
+   */
+  vertical?: boolean;
 }
 
 export default function LikeButton({
@@ -54,6 +62,7 @@ export default function LikeButton({
   color,
   onToggle,
   ownerId,
+  vertical = false,
 }: LikeButtonProps) {
   const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
@@ -103,7 +112,7 @@ export default function LikeButton({
       <TouchableOpacity
         ref={btnRef}
         onPress={handlePress}
-        style={styles.container}
+        style={vertical ? styles.vertical : styles.container}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={
@@ -113,11 +122,12 @@ export default function LikeButton({
       >
         <Heart
           size={size}
-          color={liked ? '#FF4060' : resting}
-          fill={liked ? '#FF4060' : 'transparent'}
+          color={liked ? COLOR_LIKE : resting}
+          fill={liked ? COLOR_LIKE : 'transparent'}
+          strokeWidth={vertical ? 1.8 : 2}
         />
         {showCount && count > 0 && (
-          <Text style={[styles.count, liked ? styles.likedCount : { color: resting }]}>
+          <Text style={[vertical ? styles.railCount : styles.count, liked ? styles.likedCount : { color: resting }]}>
             {formatActionCount(count)}
           </Text>
         )}
@@ -138,6 +148,12 @@ export default function LikeButton({
 
 const styles = StyleSheet.create({
   container:  { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 4 },
-  count:      { fontSize: 13, fontWeight: '500' },
-  likedCount: { color: '#FF4060' },
+  count:      { fontSize: 13, fontFamily: FONT_INTER.medium },
+  likedCount: { color: COLOR_LIKE },
+  vertical:   { alignItems: 'center', gap: 3, padding: 4 },
+  // Over a photo: white-ish on anything, so a shadow under the digits.
+  railCount:  {
+    fontSize: 12, fontFamily: FONT_INTER.bold,
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+  },
 });

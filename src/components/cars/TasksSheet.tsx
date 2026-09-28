@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { ChevronRight, Check } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,7 +10,15 @@ import { useGetCarTasksQuery, useToggleCarTaskMutation } from '../../api/apiServ
 import { useColors } from '../../hooks/useColors';
 import SharedModal from '../ui/SharedModal';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_236,
+  COLOR_GRAY_42,
+  COLOR_MUTED_GREEN,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 interface TasksSheetProps {
   carId: string;
@@ -40,7 +49,7 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
       headerRight={
         <TouchableOpacity onPress={goToFull} style={styles.manageBtn} activeOpacity={0.7}>
           <Text style={styles.manageBtnText}>Manage</Text>
-          <ChevronRight size={14} color="#FFFFFF" />
+          <ChevronRight size={14} color={COLOR_WHITE} />
         </TouchableOpacity>
       }
     >
@@ -67,15 +76,15 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
               <View style={[
                 styles.check,
                 item.completed
-                  ? { backgroundColor: '#3a8a5c', borderColor: '#3a8a5c' }
+                  ? { backgroundColor: COLOR_MUTED_GREEN, borderColor: COLOR_MUTED_GREEN }
                   : { borderColor: colors.primaryAlt },
               ]}>
-                {item.completed && <Check size={13} color="#FFFFFF" />}
+                {item.completed && <Check size={13} color={COLOR_WHITE} />}
               </View>
               <View style={styles.rowText}>
                 <Text style={[
                   styles.taskTitle,
-                  { color: '#ECECEC' },
+                  { color: COLOR_GRAY_236 },
                   item.completed && { color: colors.grey, textDecorationLine: 'line-through' },
                 ]}>
                   {item.title}
@@ -94,22 +103,22 @@ export default function TasksSheet({ carId, carTitle, visible, onClose }: TasksS
 
 const styles = StyleSheet.create({
   manageBtn:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  manageBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  manageBtnText: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
   list:        { paddingBottom: 40 },
   row:         {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#2A2A2A',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLOR_GRAY_42,
   },
   check:       {
     width: 22, height: 22, borderRadius: 6, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
   rowText:     { flex: 1 },
-  taskTitle:   { fontSize: 15, fontWeight: '500' },
+  taskTitle:   { fontSize: 15, fontFamily: FONT_INTER.medium },
   priority:    { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   empty:       { alignItems: 'center', paddingTop: 60, gap: 16 },
   emptyText:   { fontSize: 15 },
   addBtn:      { paddingHorizontal: 20, paddingVertical: 10, borderRadius: COMMON_RADIUS },
-  addBtnText:  { color: '#000000', fontWeight: '700', fontSize: 14 },
+  addBtnText:  { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 14 },
 });

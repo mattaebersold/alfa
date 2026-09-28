@@ -1,5 +1,6 @@
 import React from 'react';
 import Svg, { Path, Rect, Circle, Polygon } from 'react-native-svg';
+import { COLOR_WHITE } from '../../constants/config';
 
 /**
  * The two brand marks the app links out to.
@@ -25,7 +26,7 @@ interface IconProps {
  * artwork rather than an approximation of it — and unlike a path string, each
  * number here is something you can reason about.
  */
-export function InstagramIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+export function InstagramIcon({ size = 20, color = COLOR_WHITE }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect
@@ -45,7 +46,7 @@ export function InstagramIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
  * would produce something that reads as a different logo. It sits beside the
  * outlined Instagram for that reason rather than by oversight.
  */
-export function DiscordIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+export function DiscordIcon({ size = 20, color = COLOR_WHITE }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -65,7 +66,7 @@ export function DiscordIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
  * filled form needs the triangle knocked out of the rectangle, and a knockout
  * has to know what colour is behind it.
  */
-export function YouTubeIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+export function YouTubeIcon({ size = 20, color = COLOR_WHITE }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect

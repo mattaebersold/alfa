@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator, TextInput,
+  View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { Search, Car, ChevronRight } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -25,7 +25,8 @@ import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 
 export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
@@ -61,12 +62,9 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
    * nothing different would empty the list and get the same cached page back,
    * which never re-runs the effect that fills it.
    */
-  const applyLocation = useCallback((next: { choice: string; radius: number }) => {
-    const choiceChanged = next.choice !== location.choice;
-    const radiusChanged = next.radius !== location.radius;
-    if (!choiceChanged && !radiusChanged) return;
-    if (choiceChanged) location.choose(next.choice);
-    if (radiusChanged) location.setRadius(next.radius);
+  const applyLocation = useCallback((next: string) => {
+    if (next === location.choice) return;
+    location.choose(next);
     setPage(0);
     setAllCars([]);
   }, [location]);
@@ -129,15 +127,18 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
                 accessibilityRole="button"
                 accessibilityLabel={brandCount ? `Browse by brand, ${brandCount} brands` : 'Browse by brand'}
               >
-                <Car size={22} color="#000000" strokeWidth={2.2} />
+                <Car size={22} color={COLOR_BLACK} strokeWidth={2.2} />
                 <Text style={styles.brandsBtnText}>Browse by Brand</Text>
                 {brandCount > 0 && (
                   <View style={styles.brandsCount}>
                     <Text style={[styles.brandsCountText, { color: brand }]}>{brandCount}</Text>
                   </View>
                 )}
-                <ChevronRight size={20} color="#000000" strokeWidth={2.4} style={styles.brandsChevron} />
+                <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.4} style={styles.brandsChevron} />
               </TouchableOpacity>
+              {/* Search on the left, the filter on the right — the pattern
+                  events, the marketplace and groups share. */}
+              <View style={styles.toolsRow}>
               <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Search size={15} color={colors.grey} />
                 <TextInput
@@ -155,26 +156,19 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
                   </TouchableOpacity>
                 )}
               </View>
-              
+              <FilterSummaryRow<string>
+                value={location.choice}
+                onApply={applyLocation}
+                pills={[locationPill(location.choice)]}
+                compact
+              >
+                {(choice, setDraft) => (
+                  <LocationFilterRow choice={choice} onChoose={setDraft} />
+                )}
+              </FilterSummaryRow>
+              </View>
             </View>
 
-            {/* One row that opens a panel, as on events and members, rather
-                than the chips inline above the grid. */}
-            <FilterSummaryRow
-              value={{ choice: location.choice, radius: location.radius }}
-              onApply={applyLocation}
-              pills={[locationPill(location.choice, location.radius)]}
-              style={styles.filterRow}
-            >
-              {(draft, setDraft) => (
-                <LocationFilterRow
-                  choice={draft.choice}
-                  onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
-                  radius={draft.radius}
-                  onRadius={(radius) => setDraft((d) => ({ ...d, radius }))}
-                />
-              )}
-            </FilterSummaryRow>
             {/* On the screen, not in the panel — it explains the grid below. */}
             {location.fellBack && (
               <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
@@ -227,14 +221,16 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     gap: 8,
   },
+  // The search and the filter pill, side by side.
+  toolsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // A pill, the filter's height, taking the rest of the row.
   searchBar: {
+    flex: 1, minWidth: 0, height: 44,
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 14,
+    borderRadius: 999, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14 },
-  // On the search row's 6 gutter, tucked under its bottom padding.
-  filterRow: { marginHorizontal: 6, marginTop: 0, marginBottom: 10 },
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 8, marginBottom: 10 },
   brandsBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -243,15 +239,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     width: '100%',
   },
-  brandsBtnText: { color: '#000000', fontWeight: '800', fontSize: 16 },
+  brandsBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 16 },
   // Black on the brand fill, with the number in the brand colour — reads as a
   // badge on the button rather than another word on it.
   brandsCount: {
     minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6,
-    backgroundColor: '#000000',
+    backgroundColor: COLOR_BLACK,
     alignItems: 'center', justifyContent: 'center',
   },
-  brandsCountText: { fontSize: 12, fontWeight: '800' },
+  brandsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold },
   brandsChevron: { marginLeft: 'auto' },
   list: { paddingBottom: 20 },
   row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Switch, Alert,
+  View, TouchableOpacity, StyleSheet, Switch, Alert,
 } from 'react-native';
+import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,10 +18,10 @@ import ListCarPicker from '../../components/lists/ListCarPicker';
 import ListItemsEditor from '../../components/lists/ListItemsEditor';
 import ListItemSheet, { appendItemDraft, type ListItemDraft } from '../../components/lists/ListItemSheet';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
-import { LIST_UPSELL } from '../../constants/limits';
+import { LIST_UPSELL, COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { FONT_INTER } from '../../constants/fonts'
 
 type RouteType = RouteProp<AppStackParamList, 'CreateList'>;
 
@@ -199,7 +199,7 @@ export default function CreateListScreen() {
                 style={styles.removeImage}
                 onPress={() => setImageUri(null)}
               >
-                <X size={16} color="#fff" />
+                <X size={16} color={COLOR_WHITE} />
               </TouchableOpacity>
             </>
           ) : (
@@ -335,15 +335,15 @@ const styles = StyleSheet.create({
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
   imagePlaceholderText: { fontSize: 14 },
   field: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 13, fontFamily: FONT_INTER.semibold, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 20,
   },
-  toggleLabel: { fontSize: 15, fontWeight: '600' },
+  toggleLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold },
   toggleSub: { fontSize: 12, marginTop: 2 },
   submitBtn: {
     paddingVertical: 15, borderRadius: COMMON_RADIUS, alignItems: 'center',
   },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  submitBtnText: { color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold },
 });

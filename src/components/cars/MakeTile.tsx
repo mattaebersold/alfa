@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_GRAY_17,
+  COLOR_GRAY_208,
+  COLOR_GRAY_26,
+  COLOR_GRAY_46,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /** The photo panel's height. */
 const PHOTO_H = 108;
@@ -113,27 +121,27 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
 const styles = StyleSheet.create({
   card: {
     borderRadius: COMMON_RADIUS, borderWidth: 1,
-    backgroundColor: '#111111',
+    backgroundColor: COLOR_GRAY_17,
     padding: 8, gap: 10,
   },
   // Sized by the name, but never narrower than a photo panel worth looking at.
   cardFit: { minWidth: 168 },
   photos: { height: PHOTO_H, width: '100%', borderRadius: 8, overflow: 'hidden' },
-  photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: '#1A1A1A' },
+  photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: COLOR_GRAY_26 },
   slice: { position: 'absolute', top: 0, height: PHOTO_H, overflow: 'hidden', borderRadius: 8 },
-  sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: '#1A1A1A' },
+  sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_26 },
   blank: { alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 14, right: 14, zIndex: 10 },
   nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 4, paddingBottom: 4 },
   // In a row stretched to its tallest tile, the name centers in what's left.
   nameRowFill: { flex: 1 },
   nameText: { flexShrink: 1, alignItems: 'center' },
-  name: { fontSize: 17, fontWeight: '800', textAlign: 'center', letterSpacing: -0.2 },
-  subtitle: { fontSize: 11.5, fontWeight: '600', marginTop: 1 },
+  name: { fontSize: 17, fontFamily: FONT_INTER.bold, textAlign: 'center', letterSpacing: -0.2 },
+  subtitle: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   countBubble: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
-    backgroundColor: '#2E2E2E',
+    backgroundColor: COLOR_GRAY_46,
     alignItems: 'center', justifyContent: 'center',
   },
-  countText: { fontSize: 11.5, fontWeight: '800', color: '#D0D0D0' },
+  countText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_GRAY_208 },
 });

@@ -25,6 +25,59 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.6': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Getting Around',
+        items: [
+          'Updated the footer navigation to clean things up and remove duplicate items.',
+          'Added a tab bar to the home view to easily move between the main sections.',
+        ],
+      },
+      {
+        title: 'Home Feed',
+        items: [
+          'Restyled the post cards on the home page.',
+          'Updated the styles of the car and mod cards on the home page.',
+          'Added the ability to bookmark posts.',
+        ],
+      },
+      {
+        title: 'Posting',
+        items: [
+          'Restyled the post creation forms.',
+        ],
+      },
+      {
+        title: 'Photography',
+        items: [
+          'Updated the layout and functionality of the photography section.',
+          'Added nearby places when you drop a custom photography pin.',
+        ],
+      },
+      {
+        title: 'Marketplace',
+        items: [
+          'Restyled the marketplace listings.',
+          'Better styling for the marketplace listing detail window.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'Updated the style of group cards.',
+        ],
+      },
+      {
+        title: 'Look & Feel',
+        items: [
+          'Better search and filtering for content across the app.',
+          'Updated the app\'s font.',
+        ],
+      },
+    ],
+  },
   '1.51': {
     date: 'September 2026',
     groups: [

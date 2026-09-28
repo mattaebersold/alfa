@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Modal, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import RouteMap, { type LatLng } from './RouteMap';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS, COLOR_GRAY_10, COLOR_WHITE } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
 
 /**
  * The route's map, filling the screen.
@@ -76,7 +78,7 @@ export default function RouteMapFullScreen({
             accessibilityRole="button"
             accessibilityLabel="Close the map"
           >
-            <X size={22} color="#FFFFFF" strokeWidth={2.5} />
+            <X size={22} color={COLOR_WHITE} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
       </View>
@@ -85,14 +87,14 @@ export default function RouteMapFullScreen({
 }
 
 const styles = StyleSheet.create({
-  fill:  { flex: 1, backgroundColor: '#0A0A0A' },
+  fill:  { flex: 1, backgroundColor: COLOR_GRAY_10 },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0 },
   bar: {
     position: 'absolute', left: 16, right: 16,
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   title: {
-    flex: 1, fontSize: 16, fontWeight: '800', color: '#FFFFFF',
+    flex: 1, fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_WHITE,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },

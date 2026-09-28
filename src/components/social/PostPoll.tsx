@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '@ors/kit';
 import * as Haptics from 'expo-haptics';
 import { Check, Lock } from 'lucide-react-native';
 import AvatarStack from '../ui/AvatarStack';
@@ -10,7 +11,8 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { Post, PollOptionSummary } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/radius';
+import { COMMON_RADIUS } from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 /** Faces shown on an option before the rest collapse into "+N". */
 const FACES_PER_OPTION = 5;
@@ -172,7 +174,7 @@ export default function PostPoll({ post, style }: {
 
 const styles = StyleSheet.create({
   wrap:     { gap: 6 },
-  question: { fontSize: 14, fontWeight: '700', lineHeight: 19, marginBottom: 2 },
+  question: { fontSize: 14, fontFamily: FONT_INTER.bold, lineHeight: 19, marginBottom: 2 },
   option: {
     borderRadius: COMMON_RADIUS, borderWidth: 1,
     overflow: 'hidden',
@@ -182,12 +184,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 12, paddingVertical: 10,
   },
-  optionLabel:     { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '600', lineHeight: 18 },
+  optionLabel:     { flex: 1, minWidth: 0, fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 18 },
   optionLabelMine: { fontWeight: '800' },
   // The ring adds 2px a side to each face, so the row leaves room for it.
   faces: { paddingRight: Math.round(FACE_SIZE * 0.22) + 2, paddingVertical: 2 },
-  pct:   { fontSize: 13, fontWeight: '800', minWidth: 36, textAlign: 'right' },
+  pct:   { fontSize: 13, fontFamily: FONT_INTER.extrabold, minWidth: 36, textAlign: 'right' },
   foot:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2 },
-  footText: { fontSize: 12, fontWeight: '600' },
+  footText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
   closed:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
 });

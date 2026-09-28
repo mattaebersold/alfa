@@ -2,6 +2,7 @@ import React from 'react';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../social/PostStrip';
 import { useGetCarTaggedPostsQuery } from '../../api/apiService';
 import type { Post } from '../../types/api';
+import { COLOR_GRAY_23 } from '../../constants/config';
 
 /**
  * "Tagged in Posts" — other people's posts that pointed at this car.
@@ -28,7 +29,7 @@ export default function TaggedPostsRow({
       total={data?.total}
       // Darker cards, a bigger two-line caption, and no "3 hours ago": what
       // matters here is who put the car in a story and what they said.
-      cardBackground="#171717"
+      cardBackground={COLOR_GRAY_23}
       largeCaption
       showTime={false}
       onPostPress={onPostPress}

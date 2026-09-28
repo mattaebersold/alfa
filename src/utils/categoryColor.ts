@@ -1,3 +1,20 @@
+import {
+  COLOR_BLACK,
+  COLOR_GRAY_141,
+  COLOR_GREEN,
+  COLOR_HUE_CLAY,
+  COLOR_HUE_CORNFLOWER,
+  COLOR_HUE_LAVENDER,
+  COLOR_HUE_ORCHID,
+  COLOR_HUE_RASPBERRY,
+  COLOR_HUE_ROSE,
+  COLOR_HUE_SEAFOAM,
+  COLOR_HUE_STEEL,
+  COLOR_PRIMARY,
+  COLOR_PRO,
+  COLOR_TANGERINE,
+  COLOR_WHITE,
+} from '../constants/config';
 /**
  * A stable colour per content category, for the pills on record and post rows.
  *
@@ -7,22 +24,22 @@
  * rather than defaulting to grey, and gets the *same* one on every render.
  */
 const CATEGORY_COLORS: Record<string, string> = {
-  mod:           '#25A2D3',
-  restoration:   '#FA7921',
-  maintenance:   '#85C27D',
-  detailing:     '#B57EDC',
-  show:          '#CDA96F',
-  meets:         '#5CB8A8',
-  announcements: '#D65C7A',
-  general:       '#7A8798',
-  misc:          '#8D8D8D',
-  other:         '#8D8D8D',
+  mod:           COLOR_PRIMARY,
+  restoration:   COLOR_TANGERINE,
+  maintenance:   COLOR_GREEN,
+  detailing:     COLOR_HUE_ORCHID,
+  show:          COLOR_PRO,
+  meets:         COLOR_HUE_SEAFOAM,
+  announcements: COLOR_HUE_RASPBERRY,
+  general:       COLOR_HUE_STEEL,
+  misc:          COLOR_GRAY_141,
+  other:         COLOR_GRAY_141,
 };
 
-const FALLBACK_HUES = ['#5C8FD6', '#D67A5C', '#5CB8A8', '#C05C8E', '#9A8FD6'];
+const FALLBACK_HUES = [COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_SEAFOAM, COLOR_HUE_ROSE, COLOR_HUE_LAVENDER];
 
 export function categoryColor(key?: string): string {
-  if (!key) return '#8D8D8D';
+  if (!key) return COLOR_GRAY_141;
   const named = CATEGORY_COLORS[key];
   if (named) return named;
   let hash = 0;
@@ -33,9 +50,9 @@ export function categoryColor(key?: string): string {
 /** Black or white, whichever the pill's fill can actually carry. */
 export function pillTextColor(bg: string): string {
   const m = bg.match(/^#([0-9a-f]{6})$/i);
-  if (!m) return '#000000';
+  if (!m) return COLOR_BLACK;
   const n = parseInt(m[1], 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   // Rec. 601 luma — good enough to pick a side, and cheap.
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#000000' : '#FFFFFF';
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? COLOR_BLACK : COLOR_WHITE;
 }

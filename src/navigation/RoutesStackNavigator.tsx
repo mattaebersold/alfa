@@ -5,6 +5,8 @@ import RoutesScreen from '../screens/routes/RoutesScreen';
 import RouteDetailScreen from '../screens/routes/RouteDetailScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import { colors } from '../constants/colors';
+import { FONT_INTER } from '../constants/fonts'
+import { COLOR_WHITE } from '../constants/config';
 
 const Stack = createNativeStackNavigator<RoutesStackParamList>();
 
@@ -13,8 +15,8 @@ export default function RoutesStackNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: colors.brgDark },
-        headerTintColor: '#FFFFFF',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTintColor: COLOR_WHITE,
+        headerTitleStyle: { fontFamily: FONT_INTER.bold },
         animation: 'none',
       }}
     >

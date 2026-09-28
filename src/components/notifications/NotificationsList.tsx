@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator,
-  Animated, Easing,
+  View, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Animated, Easing,
 } from 'react-native';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,7 +30,18 @@ import { notificationTarget } from '../../utils/notificationTarget';
 import type { Notification } from '../../types/api';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS } from '../../constants/radius';
+import {
+  COMMON_RADIUS,
+  COLOR_BLACK,
+  COLOR_GRAY_136,
+  COLOR_GRAY_184,
+  COLOR_GRAY_20,
+  COLOR_GRAY_236,
+  COLOR_GRAY_42,
+  COLOR_SUCCESS,
+  COLOR_WHITE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -200,10 +211,10 @@ function NotificationRow({
           // again. Muted, because it's a record rather than something to press.
           <View style={styles.resolvedChip}>
             {resolution === decision.yesResolution
-              ? <Check size={13} color="#4CAF50" strokeWidth={3} />
+              ? <Check size={13} color={COLOR_SUCCESS} strokeWidth={3} />
               : <X size={13} color={colors.grey} strokeWidth={3} />}
             <Text style={[styles.resolvedText, {
-              color: resolution === decision.yesResolution ? '#4CAF50' : colors.grey,
+              color: resolution === decision.yesResolution ? COLOR_SUCCESS : colors.grey,
             }]}>
               {decision.settled[resolution] ?? ''}
             </Text>
@@ -224,7 +235,7 @@ function NotificationRow({
                 {decision.yes}
               </Text>
               {busy === decision.yesResolution && (
-                <ActivityIndicator size="small" color="#000000" style={StyleSheet.absoluteFill} />
+                <ActivityIndicator size="small" color={COLOR_BLACK} style={StyleSheet.absoluteFill} />
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -239,7 +250,7 @@ function NotificationRow({
                 {decision.no}
               </Text>
               {busy === decision.noResolution && (
-                <ActivityIndicator size="small" color="#ECECEC" style={StyleSheet.absoluteFill} />
+                <ActivityIndicator size="small" color={COLOR_GRAY_236} style={StyleSheet.absoluteFill} />
               )}
             </TouchableOpacity>
           </View>
@@ -273,7 +284,7 @@ function NotificationRow({
           accessibilityRole="button"
           accessibilityLabel="Delete notification"
         >
-          <Trash2 size={18} color="#B8B8B8" />
+          <Trash2 size={18} color={COLOR_GRAY_184} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -553,7 +564,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  deleteAllText: { fontSize: 12, fontWeight: '700' },
+  deleteAllText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   list:        { flexGrow: 1, paddingTop: 8, paddingBottom: 24 },
   listFit:     { paddingTop: 8, paddingBottom: 16 },
 
@@ -574,7 +585,7 @@ const styles = StyleSheet.create({
     // Clips the unread bar to the card's own corners.
     overflow: 'hidden',
   },
-  cardRead:   { backgroundColor: '#141414', borderColor: 'rgba(255,255,255,0.07)' },
+  cardRead:   { backgroundColor: COLOR_GRAY_20, borderColor: 'rgba(255,255,255,0.07)' },
   // Unread is the brand's own colour laid over black rather than a step up the
   // greyscale. A card you haven't seen should be a different kind of card, not
   // a slightly paler one — at #1c1c1c against #000 the difference was
@@ -585,20 +596,20 @@ const styles = StyleSheet.create({
 
   rowContent:  { flex: 1 },
   message:     { fontSize: 13, lineHeight: 18 },
-  messageUnread: { color: '#FFFFFF', fontWeight: '600' },
+  messageUnread: { color: COLOR_WHITE, fontWeight: '600' },
   // Read rows step back rather than sit at full white — with the unread ones
   // now carrying colour, this is what makes the list scannable.
   messageRead:   { color: 'rgba(255,255,255,0.68)' },
   senderName:  { fontWeight: '800' },
-  time:        { fontSize: 11, marginTop: 3, color: '#888' },
+  time:        { fontSize: 11, marginTop: 3, color: COLOR_GRAY_136 },
   rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   joinReqActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   approveBtn:  { backgroundColor: 'rgb(37, 162, 211)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
-  approveText: { color: '#000000', fontSize: 13, fontWeight: '800' },
-  denyBtn:     { backgroundColor: '#2A2A2A', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
-  denyText:    { color: '#ECECEC', fontSize: 13, fontWeight: '700' },
+  approveText: { color: COLOR_BLACK, fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  denyBtn:     { backgroundColor: COLOR_GRAY_42, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
+  denyText:    { color: COLOR_GRAY_236, fontSize: 13, fontFamily: FONT_INTER.bold },
   btnDisabled: { opacity: 0.55 },
   labelHidden: { opacity: 0 },
   resolvedChip: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10 },
-  resolvedText: { fontSize: 13, fontWeight: '700' },
+  resolvedText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });
