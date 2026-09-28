@@ -23,6 +23,7 @@ import Avatar from '../ui/Avatar';
 import UserSummaryModal from '../members/UserSummaryModal';
 import CarSummaryModal from '../cars/CarSummaryModal';
 import RegionBadge from '../ui/RegionBadge';
+import OilSheen from '../ui/OilSheen';
 import { regionForCityState } from '../../constants/regions';
 import ReportButton from '../ui/ReportButton';
 import LikeButton from '../social/LikeButton';
@@ -219,6 +220,21 @@ export default function CarPosterCard({
   // Controls belong to the owner, and a carousel card is too small to hold them.
   const showControls = isOwner && !compact;
 
+  // The chip form: enough to say whose car this is, without the sentence the
+  // feed needs.
+  const ownerChip = showOwner && !attribution && owner ? (
+    <TouchableOpacity
+      style={styles.ownerChip}
+      onPress={() => setSummaryUserId(owner.user_id)}
+      activeOpacity={0.7}
+    >
+      <Avatar user={owner} size={20} />
+      <Text style={styles.ownerName} numberOfLines={1}>@{owner.username}</Text>
+    </TouchableOpacity>
+  ) : null;
+  // The top right is the owner's controls' when there are any.
+  const ownerTopRight = !showControls && !(onTasksPress && taskCount > 0);
+
 
   const handlePress = () => {
     if (onPress) return onPress();
@@ -357,25 +373,20 @@ export default function CarPosterCard({
         {/* ── Top left: who, or what kind of card this is ── */}
         <View style={[styles.topLeft, compact && styles.topLeftCompact]}>
           {featured && (
+            // Gold with the oil-slick film, as the marketplace's match pill.
             <View style={styles.featuredBadge}>
+              <OilSheen tone="warm" radius={999} />
               <Star size={10} color={COLOR_BLACK} fill={COLOR_BLACK} />
               <Text style={styles.featuredBadgeText}>Featured</Text>
             </View>
           )}
 
-          {/* The chip form: enough to say whose car this is, without the sentence
-              the feed needs. */}
-          {showOwner && !attribution && owner && (
-            <TouchableOpacity
-              style={styles.ownerChip}
-              onPress={() => setSummaryUserId(owner.user_id)}
-              activeOpacity={0.7}
-            >
-              <Avatar user={owner} size={20} />
-              <Text style={styles.ownerName} numberOfLines={1}>@{owner.username}</Text>
-            </TouchableOpacity>
-          )}
+          {!ownerTopRight && ownerChip}
         </View>
+
+        {/* Top right when the corner's free — the featured row, and other
+            people's cars; your own car keeps its controls there. */}
+        {ownerTopRight && ownerChip ? <View style={styles.ownerCorner}>{ownerChip}</View> : null}
 
         {/* ── Top right: what the owner can do to it ── */}
         {(showControls || (onTasksPress && taskCount > 0)) && (
@@ -707,11 +718,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: colors.pro,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
+    // Keeps the sheen inside the pill's round ends.
+    overflow: 'hidden',
   },
   featuredBadgeText: {
     fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
 
+  ownerCorner: { position: 'absolute', top: 12, right: 14, maxWidth: '55%' },
   topRight: {
     position: 'absolute', top: 12, right: 14,
     flexDirection: 'row', alignItems: 'center', gap: 6,

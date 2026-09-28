@@ -454,7 +454,10 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHe
         pointerEvents="none"
       >
         <LinearGradient
-          colors={['rgba(0,0,0,0.72)', 'rgba(0,0,0,0.45)', 'transparent']}
+          // The page's own ground (COLOR_GRAY_10) rather than black: over the
+          // page it vanishes, so the header area and the screen read as one
+          // surface, and over a photo it still darkens as before.
+          colors={['rgba(10,10,10,0.72)', 'rgba(10,10,10,0.45)', 'rgba(10,10,10,0)']}
           locations={[0, 0.6, 1]}
           style={StyleSheet.absoluteFill}
         />

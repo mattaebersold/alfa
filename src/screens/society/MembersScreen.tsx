@@ -123,7 +123,9 @@ export default function MembersScreen() {
   const ListHeader = (
     <>
       {/* Heading rides in the list so it scrolls away with the content. */}
-      <ScreenHeading title="Members" />
+      <View style={styles.heading}>
+        <ScreenHeading title="Members" />
+      </View>
       <FeaturedMembersRow
         // The same summary a row opens — a preview first, with the profile
         // one button inside it.
@@ -220,6 +222,8 @@ const CONTROL_BG = COLOR_GRAY_17;
 const styles = StyleSheet.create({
   content:     { flex: 1 },
   // The search and the filter pill, side by side.
+  // On the gutter, and nudged up a little under the header.
+  heading:     { paddingHorizontal: GUTTER, marginTop: -6 },
   toolsRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, margin: GUTTER },
   // A pill, the filter's height, taking the rest of the row.
   searchBar:   {

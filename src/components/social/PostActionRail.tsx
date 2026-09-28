@@ -109,13 +109,11 @@ export default function PostActionRail({
 const RAIL_ICON = 21;
 
 const styles = StyleSheet.create({
-  // A pill of faint black behind the column — barely there, enough to set the
-  // white icons off a bright photo — plus a shadow under the icons themselves.
+  // No pill behind the column — just a shadow under the icons themselves to
+  // set the white off a bright photo.
   column: {
     alignItems: 'center', gap: 8,
     paddingVertical: 8, paddingHorizontal: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.1)',
     shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
   },
   row:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -123,7 +121,7 @@ const styles = StyleSheet.create({
   likeWrap: { flexDirection: 'row', alignItems: 'center' },
   // The count, then the faces — together to the heart's left.
   likeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  // On the photo the faces hang off the column's left edge, so the pill stays
+  // On the photo the faces hang off the column's left edge, so the column stays
   // one icon wide; in the footer row they simply lead the heart.
   facesOut: { position: 'absolute', right: '100%', marginRight: 1 },
   facesIn:  { marginRight: 6 },

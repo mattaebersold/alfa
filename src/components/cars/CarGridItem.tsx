@@ -81,7 +81,7 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
 
   return (
     <SummaryTouchable style={[styles.card, overlay && styles.cardMosaic, { backgroundColor: CARD_BG }]} onPress={onPress}>
-      <View style={[styles.cardImageContainer, overlay && { aspectRatio: ratio }]}>
+      <View style={[styles.cardImageContainer, overlay ? { aspectRatio: ratio } : styles.cardImageTile]}>
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
           style={styles.cardImage}
@@ -121,7 +121,11 @@ const styles = StyleSheet.create({
   cardImage: { width: '100%', height: '100%' },
   // Written out: RN 0.86 dropped `StyleSheet.absoluteFillObject`.
   placeholderDim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
-  cardInfo: { padding: 8 },
+  // Laid out as the make and model tiles are: the photo full-bleed across the
+  // top, rounded at its foot to the card's radius, and the words under it on
+  // the left.
+  cardImageTile: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
+  cardInfo: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
   // In a column rather than a row: full column width, no stretching to a
   // neighbour, and the gap below instead of beside.
   cardMosaic: { flex: 0, marginBottom: 8 },
@@ -134,8 +138,8 @@ const styles = StyleSheet.create({
   },
   overlayText: { flex: 1, minWidth: 0 },
   // The car's own name leads, a clear step above the year/make/model under it.
-  carTitle: { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
-  carSubtitle: { fontSize: 11, fontFamily: FONT_INTER.semibold, marginTop: 1 },
+  carTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
+  carSubtitle: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   ownerName: { fontSize: 11, flex: 1 },
 });

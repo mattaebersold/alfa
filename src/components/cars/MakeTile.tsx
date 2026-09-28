@@ -20,8 +20,8 @@ const PHOTO_H = 108;
 const SKEW_DEG = 11;
 /** How far, in points, each slice's top edge sits right of its bottom. */
 const LEAN = PHOTO_H * Math.tan((SKEW_DEG * Math.PI) / 180);
-/** The dark seam between slices. */
-const SEAM = 4;
+/** The gap between slices — none: they meet, and a shadow marks the join (see sliceOver). */
+const SEAM = 0;
 const SKEW = `-${SKEW_DEG}deg`;
 const UNSKEW = `${SKEW_DEG}deg`;
 
@@ -57,7 +57,7 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
 
   return (
     <TouchableOpacity
-      style={[styles.card, fitName && styles.cardFit, { borderColor: colors.border }, style]}
+      style={[styles.card, fitName && styles.cardFit, style]}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
@@ -71,16 +71,16 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
         ) : shots.length === 1 ? (
           <Image source={{ uri: shots[0] }} style={styles.photo} contentFit="cover" transition={150} />
         ) : width > 0 ? (
-          // Each slice is a skewed, clipping, rounded band; its photo is
-          // skewed back inside it so the car stays upright. The outer two run
-          // past the panel's edges, which the panel's own rounded clip trims.
+          // Each slice is a skewed, clipping, square-cornered band; its photo
+          // is skewed back inside it so the car stays upright. The outer two
+          // run past the panel's edges, which the panel's own clip trims.
           shots.map((uri, i) => {
             const n = shots.length;
             const left = i === 0 ? -LEAN : (i * width) / n + SEAM / 2;
             const right = i === n - 1 ? width + LEAN : ((i + 1) * width) / n - SEAM / 2;
             const w = right - left;
             return (
-              <View key={uri} style={[styles.slice, { left, width: w, transform: [{ skewX: SKEW }] }]}>
+              <View key={uri} style={[styles.slice, i > 0 && styles.sliceOver, { left, width: w, transform: [{ skewX: SKEW }] }]}>
                 <Image
                   source={{ uri }}
                   style={[styles.sliceImage, { left: -LEAN / 2, width: w + LEAN, transform: [{ skewX: UNSKEW }] }]}
@@ -120,23 +120,36 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
-    backgroundColor: COLOR_GRAY_17,
-    padding: 8, gap: 10,
+    // No border; a step lighter than the page instead — the upcoming event
+    // cards' grey.
+    borderRadius: COMMON_RADIUS,
+    backgroundColor: COLOR_GRAY_26,
+    // No padding: the photos run to the card's edges, and the clip gives them
+    // its top corners. The name brings its own.
+    gap: 8, overflow: 'hidden',
   },
   // Sized by the name, but never narrower than a photo panel worth looking at.
   cardFit: { minWidth: 168 },
-  photos: { height: PHOTO_H, width: '100%', borderRadius: 8, overflow: 'hidden' },
-  photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: COLOR_GRAY_26 },
-  slice: { position: 'absolute', top: 0, height: PHOTO_H, overflow: 'hidden', borderRadius: 8 },
-  sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_26 },
+  // Rounded at the foot too, where it meets the name — the card's radius, as
+  // the listing and event cards' pictures are.
+  photos: {
+    height: PHOTO_H, width: '100%', overflow: 'hidden',
+    borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS,
+  },
+  photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: COLOR_GRAY_17 },
+  slice: { position: 'absolute', top: 0, height: PHOTO_H, overflow: 'hidden' },
+  // Every slice after the first casts a shadow back over the one before, so
+  // they read as photos laid overlapping rather than cut from one.
+  sliceOver: { boxShadow: '-4px 0px 10px rgba(0, 0, 0, 0.55)' },
+  sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_17 },
   blank: { alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: 14, right: 14, zIndex: 10 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 4, paddingBottom: 4 },
-  // In a row stretched to its tallest tile, the name centers in what's left.
+  badge: { position: 'absolute', top: 8, right: 8, zIndex: 10 },
+  // The name on the left, the count on the right.
+  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 7, paddingHorizontal: 12, paddingBottom: 8 },
+  // In a row stretched to its tallest tile, the name centres vertically in what's left.
   nameRowFill: { flex: 1 },
-  nameText: { flexShrink: 1, alignItems: 'center' },
-  name: { fontSize: 17, fontFamily: FONT_INTER.bold, textAlign: 'center', letterSpacing: -0.2 },
+  nameText: { flexShrink: 1, alignItems: 'flex-start' },
+  name: { fontSize: 17, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
   subtitle: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   countBubble: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,

@@ -46,6 +46,14 @@ export interface SendMessageArgs {
   parent_message_id?: string;
 }
 
+/** A model page's paragraph and stat tiles — see getModelProfile. */
+export interface ModelProfile {
+  description: string;
+  stats: { label: string; value: string }[];
+  source_title?: string;
+  source_url?: string;
+}
+
 /** One video on the society's YouTube channel — see getChannelVideos. */
 export interface ChannelVideo {
   id: string;
@@ -549,6 +557,16 @@ export const apiService = createApi({
     getCarGenerations: builder.query<CarGeneration[], { make: string; model: string }>({
       query: (params) => ({ url: 'api/cars/generations', params }),
       transformResponse: (r: { generations?: CarGeneration[] }) => r.generations ?? [],
+      keepUnusedDataFor: 3600,
+    }),
+
+    /**
+     * A model page's profile — a short factual paragraph and stat tiles, from
+     * Wikipedia (horacio's seed-model-profiles). Null until one's been written.
+     */
+    getModelProfile: builder.query<ModelProfile | null, { make: string; model: string; generation?: string }>({
+      query: (params) => ({ url: 'api/cars/profile', params }),
+      transformResponse: (r: { profile?: ModelProfile | null }) => r.profile ?? null,
       keepUnusedDataFor: 3600,
     }),
 
@@ -2619,6 +2637,7 @@ export const {
   useGetCarBrandsQuery,
   useGetCarBrandSummariesQuery,
   useGetCarGenerationsQuery,
+  useGetModelProfileQuery,
   useGetCarModelsQuery,
   useGetCarMakeOptionsQuery,
   useGetCarModelOptionsQuery,

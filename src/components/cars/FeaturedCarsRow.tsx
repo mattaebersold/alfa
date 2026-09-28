@@ -1,16 +1,15 @@
 import React, { useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
-import { Text } from '@ors/kit';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import CarPosterCard from '../cards/CarPosterCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { shuffle } from '../../utils/array';
-import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { GUTTER } from '../../constants/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = 10;
-const ROW_PAD = 14; // matches the section heading's inset
+/** The row's inset — the app's gutter, as the heading and tools around it. */
+const ROW_PAD = GUTTER;
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 
 interface Props {
@@ -44,7 +43,6 @@ function FeaturedCarsRow({ onCarPress }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Featured Cars</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -77,11 +75,8 @@ function FeaturedCarsRow({ onCarPress }: Props) {
 export default FeaturedCarsRow;
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: COLOR_BLACK, paddingTop: 14, paddingBottom: 4 },
-  heading: {
-    fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: 0.4,
-    paddingHorizontal: 14, marginBottom: 10, color: COLOR_WHITE,
-  },
+  // Transparent: on the page's own ground, not a black band across it.
+  container: {},
   // Padding rather than margin on the cards: a horizontal ScrollView clips at
   // its content bounds, so the glow needs the room to be inside them.
   scroll: { gap: CARD_GAP, paddingLeft: ROW_PAD, paddingTop: 4, paddingBottom: 18 },

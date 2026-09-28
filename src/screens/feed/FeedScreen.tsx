@@ -38,6 +38,8 @@ const FEED_TABS: HeaderTab[] = [
   { key: 'market', label: 'Marketplace' },
   { key: 'groups', label: 'Groups' },
   { key: 'photography', label: 'Photography' },
+  { key: 'cars', label: 'Cars' },
+  { key: 'members', label: 'Members' },
 ];
 type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography';
 /** How far below its place an arriving tab's content starts, in points. */
@@ -152,6 +154,15 @@ export default function FeedScreen() {
    * tap-to-top.
    */
   const selectTab = (key: string) => {
+    // Cars and Members aren't panes here — they're links to their own pages.
+    if (key === 'cars') {
+      (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } });
+      return;
+    }
+    if (key === 'members') {
+      (navigation as any).navigate('Members');
+      return;
+    }
     const next = key as FeedTab;
     // Slid back, not snapped — it's coming from wherever the last tab left it.
     showHeader();

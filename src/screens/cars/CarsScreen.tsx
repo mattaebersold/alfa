@@ -3,7 +3,7 @@ import {
   View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
-import { Search, Car, ChevronRight } from 'lucide-react-native';
+import { Search, Car, ChevronRight, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -16,7 +16,8 @@ import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
-import { useGetCarsQuery, useGetCarBrandsQuery } from '../../api/apiService';
+import { useGetCarsQuery, useGetCarBrandsQuery, useGetUserGarageQuery } from '../../api/apiService';
+import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import CarGridItem from '../../components/cars/CarGridItem';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -24,8 +25,8 @@ import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS, COLOR_BLACK, GUTTER, CAR_LIMIT_BASIC, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 
@@ -46,6 +47,15 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
   // The same list the Brands screen shows — its length is the count on the button.
   const { data: brands } = useGetCarBrandsQuery();
   const brandCount = brands?.length ?? 0;
+
+  // Add a car — or, at a basic account's limit, the upsell, as the garage's
+  // own add button does rather than opening a form the server will refuse.
+  const isPro = useIsPro();
+  const { data: garage } = useGetUserGarageQuery();
+  const [upsell, setUpsell] = useState(false);
+  const atLimit = !isPro && (garage?.entries?.length ?? 0) >= CAR_LIMIT_BASIC;
+  const addCar = () =>
+    atLimit ? setUpsell(true) : (navigation as any).navigate('CarCreate', {});
 
   // A car is where its owner is, so this filters on the member behind it —
   // near me by default, measured from the zip on your profile.
@@ -104,10 +114,13 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
         ref={scrollRef}
-        data={filteredCars}
-        keyExtractor={(item) => item.internal_id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
+        // One item, the whole mosaic: its cards take their photos' shapes
+        // (6:5 or 5:6), so they sit in two columns rather than rows — the
+        // brand page's grid (CarMosaic), where rows would leave gaps beside
+        // the short ones. Alternating, not balanced by height: a card's shape
+        // is only known once its photo loads.
+        data={filteredCars.length ? ['mosaic'] : []}
+        keyExtractor={(item) => item}
         contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }]}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -115,9 +128,24 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         ListHeaderComponent={
           <>
             {/* Heading rides in the list so it scrolls away with the content. */}
-            <ScreenHeading title="Cars" />
-            <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
-            <View style={styles.searchRow}>
+            <View style={styles.heading}>
+              <ScreenHeading
+                title="Cars"
+                right={
+                  <TouchableOpacity
+                    style={[styles.addBtn, { borderColor: colors.border }]}
+                    onPress={addCar}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add a car"
+                  >
+                    <Plus size={15} color={colors.fg} strokeWidth={2.4} />
+                    <Text style={[styles.addBtnText, { color: colors.fg }]}>Add car</Text>
+                  </TouchableOpacity>
+                }
+              />
+            </View>
+            <View style={styles.brandsRow}>
               {/* The way into the site by make — a real button now, not a
                   strip: the car, the words, how many makes there are to browse. */}
               <TouchableOpacity
@@ -136,6 +164,9 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
                 )}
                 <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.4} style={styles.brandsChevron} />
               </TouchableOpacity>
+            </View>
+            <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
+            <View style={styles.searchRow}>
               {/* Search on the left, the filter on the right — the pattern
                   events, the marketplace and groups share. */}
               <View style={styles.toolsRow}>
@@ -175,14 +206,24 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
             )}
           </>
         }
-        renderItem={({ item }) => (
-          <CarGridItem
-            item={item}
-            // A summary first, as the home feed's suggestions do: a grid of
-            // cars is a list of things to decide about, and the full page is
-            // one button inside the panel.
-            onPress={(origin) => setSummary({ carId: item.internal_id, origin })}
-          />
+        renderItem={() => (
+          <View style={styles.mosaic}>
+            {[0, 1].map((col) => (
+              <View key={col} style={styles.column}>
+                {filteredCars.filter((_, i) => i % 2 === col).map((item) => (
+                  <CarGridItem
+                    key={item.internal_id}
+                    item={item}
+                    overlay
+                    // A summary first, as the home feed's suggestions do: a
+                    // grid of cars is a list of things to decide about, and
+                    // the full page is one button inside the panel.
+                    onPress={(origin) => setSummary({ carId: item.internal_id, origin })}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
         )}
         ListEmptyComponent={
           isLoading ? (
@@ -209,15 +250,32 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         origin={summary?.origin}
         onClose={() => setSummary(null)}
       />
+
+      <ProUpsellModal
+        visible={upsell}
+        onClose={() => setUpsell(false)}
+        title="Unlimited garage with Pro"
+        message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   content: { flex: 1 },
+  heading: { paddingHorizontal: GUTTER },
+  // Outlined, beside the title — the Videos screen's "View channel" pill.
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1,
+  },
+  addBtnText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  // Browse by Brand, first under the heading — the same inset as the search row.
+  brandsRow: { paddingHorizontal: 6, paddingBottom: 12 },
   searchRow: {
     paddingHorizontal: 6,
-    paddingTop: 10,
+    // Nothing more: the featured row above already leaves room for its glow.
+    paddingTop: 0,
     paddingBottom: 10,
     gap: 8,
   },
@@ -250,5 +308,7 @@ const styles = StyleSheet.create({
   brandsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold },
   brandsChevron: { marginLeft: 'auto' },
   list: { paddingBottom: 20 },
-  row: { gap: 8, marginBottom: 8, paddingHorizontal: 8 },
+  // The brand page's mosaic (CarMosaic): two columns, each card its photo's shape.
+  mosaic: { flexDirection: 'row', gap: 8, paddingHorizontal: 8 },
+  column: { flex: 1 },
 });

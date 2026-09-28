@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { Car, Search, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,9 @@ import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK } from '../../constants/config';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 /**
  * Whether a tile's name answers what's typed: every word, in any order, so
@@ -85,7 +87,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
             style={[styles.searchInput, { color: colors.fg }]}
             value={query}
             onChangeText={setQuery}
-            placeholder="Filter models — E46 M3, 911…"
+            placeholder="Filter models"
             placeholderTextColor={colors.grey}
             autoCorrect={false}
             autoCapitalize="none"
@@ -118,7 +120,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
               photos={m.sample_photos}
               count={m.qty}
               countLabel={`${m.qty} ${m.qty === 1 ? 'car' : 'cars'}`}
-              fitName
+              style={styles.modelTile}
               onPress={() => navigation.navigate('ModelDetail', {
                 brand,
                 model: m.model,
@@ -131,11 +133,10 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
               <MakeTile
                 key={`${m.model_handle}-${g.generation_handle}`}
                 name={g.generation}
-                subtitle={m.model}
                 photos={g.sample_photos}
                 count={g.qty}
                 countLabel={`${g.qty} ${g.qty === 1 ? 'car' : 'cars'}`}
-                fitName
+                style={styles.modelTile}
                 onPress={() => navigation.navigate('ModelDetail', {
                   brand,
                   model: m.model,
@@ -171,10 +172,15 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
-                <Text style={[styles.pillText, { color: active ? COLOR_WHITE : colors.fg }]}>
+                {/* Black on the lit pill, as on every brand-filled pill. */}
+                <Text style={[styles.pillText, { color: active ? COLOR_BLACK : colors.fg }]}>
                   {f ? f.label : 'All'}
-                  {f?.qty ? <Text style={styles.pillCount}> {f.qty}</Text> : null}
                 </Text>
+                {f?.qty ? (
+                  <View style={[styles.pillCount, active && styles.pillCountActive]}>
+                    <Text style={[styles.pillCountText, { color: active ? COLOR_BLACK : colors.fg }]}>{f.qty}</Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -217,8 +223,21 @@ const styles = StyleSheet.create({
   // Stretched to the tallest tile; each centers its name in the extra height.
   models:    { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6, gap: 10, alignItems: 'stretch' },
   section:   { fontSize: 17, fontFamily: FONT_INTER.bold, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
+  // A fixed 60% of the screen, so the next peeks in. Two or three cars show as
+  // MakeTile's angled, shadowed slices; one fills the photo.
+  modelTile: { width: SCREEN_WIDTH * 0.6 },
   pills:     { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
-  pill:      { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5 },
+  pill:      {
+    flexDirection: 'row', alignItems: 'center',
+    minHeight: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5,
+  },
   pillText:  { fontSize: 13, fontFamily: FONT_INTER.bold },
-  pillCount: { fontSize: 12, fontFamily: FONT_INTER.medium, opacity: 0.7 },
+  // The count in its own small circle, centred on the label, set off from it.
+  pillCount: {
+    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, marginLeft: 8, marginRight: -6,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  pillCountActive: { backgroundColor: 'rgba(0,0,0,0.18)' },
+  pillCountText: { fontSize: 11, fontFamily: FONT_INTER.bold },
 });

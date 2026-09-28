@@ -313,10 +313,9 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  // The car card's subtitle treatment: small, tracked out, quieter than the name.
+  // Small and quieter than the name, in its own case — as the grid cards write it.
   heroSub: {
-    fontSize: 11, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.82)',
-    textTransform: 'uppercase', letterSpacing: 1,
+    fontSize: 13, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.82)',
   },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 3 },
   badge:  { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
