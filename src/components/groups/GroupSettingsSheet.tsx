@@ -501,7 +501,9 @@ export default function GroupSettingsSheet({
                         ? <ShieldOff size={13} color={c.grey} />
                         : <ShieldCheck size={13} color={c.grey} />}
                       <Text style={[styles.roleText, { color: c.grey }]}>
-                        {memberIsAdmin ? 'Demote' : 'Admin'}
+                        {/* An action, not a status — "Admin" alone read as a badge,
+                            as if every member were one. */}
+                        {memberIsAdmin ? 'Demote' : 'Make admin'}
                       </Text>
                     </TouchableOpacity>
 

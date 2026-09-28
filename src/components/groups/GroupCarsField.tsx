@@ -100,9 +100,13 @@ export default function GroupCarsField({ value, onChange }: {
   );
 }
 
+/** The list's and the add panel's ground — darker than the form's card. */
+const REPEATER_BG = 'rgba(0,0,0,0.35)';
+
 const styles = StyleSheet.create({
   wrap:     { gap: 12 },
-  list:     { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  // A shade darker than the form around it, so the repeater stands apart.
+  list:     { borderRadius: 14, borderWidth: 1, overflow: 'hidden', backgroundColor: REPEATER_BG },
   row:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
   index: {
     width: 24, height: 24, borderRadius: 12,
@@ -120,6 +124,7 @@ const styles = StyleSheet.create({
   adder: {
     gap: 10, padding: 12,
     borderRadius: 14, borderWidth: 1, borderStyle: 'dashed',
+    backgroundColor: REPEATER_BG,
   },
   adderTitle: { fontSize: 13, fontFamily: FONT_INTER.bold },
   // Full width in the panel — the one action it has.
