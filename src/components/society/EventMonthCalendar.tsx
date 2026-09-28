@@ -11,8 +11,12 @@ import { categoryFor, toDayKey } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
 import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_79, COLOR_ORS_EVENT_GRADIENT_END, COLOR_ORS_EVENT_GRADIENT_START, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_214, COLOR_GRAY_79, COLOR_ORS_EVENT_GRADIENT_END, COLOR_ORS_EVENT_GRADIENT_START, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+
+/** Dots shown under a day before the rest become a "+n". */
+const MAX_DAY_DOTS = 3;
+const DAY_DOT = 13;
 
 const WEEK_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -264,15 +268,21 @@ export default function EventMonthCalendar({
                 </Text>
               </View>
 
-              {/* One dot per event, coloured by its category, capped at three so
-                  a busy day doesn't grow the row. */}
+              {/* One dot per event, coloured by its category, overlapped like a
+                  stack of faces and capped at three, with a count for the rest,
+                  so a busy day doesn't grow the row. */}
               <View style={styles.dots}>
-                {dayEvents.slice(0, 3).map((e, idx) => (
+                {dayEvents.slice(0, MAX_DAY_DOTS).map((e, idx) => (
                   <View
                     key={`${e.internal_id}-${idx}`}
-                    style={[styles.dot, { backgroundColor: categoryFor(e.category).color }]}
+                    style={[styles.dot, idx > 0 && styles.dotStacked, { backgroundColor: categoryFor(e.category).color }]}
                   />
                 ))}
+                {dayEvents.length > MAX_DAY_DOTS ? (
+                  <View style={[styles.dot, styles.dotStacked, styles.dotMore]}>
+                    <Text style={styles.dotsMore}>+{dayEvents.length - MAX_DAY_DOTS}</Text>
+                  </View>
+                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -303,12 +313,25 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   // Seven per row; the fixed height keeps every week the same regardless of dots.
-  // Circle and dots need 43 of it; the rest is only the gap between weeks.
-  cell: { width: `${100 / 7}%`, height: 48, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
+  // Circle and dots need 48 of it; the rest is only the gap between weeks.
+  cell: { width: `${100 / 7}%`, height: 50, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   dayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontSize: 14 },
-  dots: { flexDirection: 'row', gap: 4, height: 9, alignItems: 'center' },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dots: { flexDirection: 'row', height: DAY_DOT + 1, alignItems: 'center' },
+  // Each one's shadow falls to the left, over the one it overlaps — so two
+  // of the same colour still read as two.
+  dot: {
+    width: DAY_DOT, height: DAY_DOT, borderRadius: DAY_DOT / 2,
+    boxShadow: '-1px 0px 3px rgba(0, 0, 0, 0.55)',
+  },
+  dotStacked: { marginLeft: -5 },
+  // The rest, as one more dot in the stack: light grey, the count in black.
+  // Stretches into a pill for a two-digit count.
+  dotMore: {
+    width: undefined, minWidth: DAY_DOT, paddingHorizontal: 1.5,
+    backgroundColor: COLOR_GRAY_214, alignItems: 'center', justifyContent: 'center',
+  },
+  dotsMore: { fontSize: 8, lineHeight: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: -0.3 },
 
   // A painted day fills its cell rather than sitting inside it — inset just
   // enough to stay a tile in a grid rather than a band across the week.

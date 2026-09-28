@@ -33,6 +33,8 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         items: [
           'Updated the footer navigation to clean things up and remove duplicate items.',
           'Added a tab bar to the home view to easily move between the main sections.',
+          'Re-organized the layout of the buttons in the footer of the menu.',
+          'The logo button in the header now takes you to the feed tab.',
         ],
       },
       {
@@ -70,10 +72,25 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         ],
       },
       {
+        title: 'Events',
+        items: [
+          'Cleaned up the upcoming events cards.',
+          'Capped the event dots on a calendar day at three, with a count for the rest.',
+          'Small updates to the layout of the events screen.',
+        ],
+      },
+      {
+        title: 'Videos',
+        items: [
+          'Added a feed of ORS videos to the menu.',
+        ],
+      },
+      {
         title: 'Look & Feel',
         items: [
           'Better search and filtering for content across the app.',
           'Updated the app\'s font.',
+          'Small color fixes on the main screens.',
         ],
       },
     ],

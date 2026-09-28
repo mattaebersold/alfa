@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
 import { format } from 'date-fns';
-import { MapPin } from 'lucide-react-native';
 import RallyDetailSheet from './RallyDetailSheet';
 import EventImage from './EventImage';
-import EventPills from './EventPills';
 import { useGetRallysQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';
@@ -14,12 +12,14 @@ import type { Rally } from '../../types/api';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { calendarDate } from '../../utils/calendarDate';
 import { RALLY_DATE_TBA } from '../../utils/rally';
-import { COMMON_RADIUS, COLOR_BADGE_DEFAULT, COLOR_BLACK, GUTTER } from '../../constants/config';
+import { COLOR_BLACK, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Cards stop short of full width so the next one peeks, matching the events row.
 const CARD_WIDTH = SCREEN_WIDTH * 0.72;
+/** A card's corners, and its picture's — tighter than the app's radius. */
+const CARD_RADIUS = 12;
 
 /**
  * ORS Rallys as a horizontal row, pulling the same list the Rallys section
@@ -68,8 +68,7 @@ export default function RallyCarousel() {
  * The photo takes its own shape rather than a fixed frame. Rally art is
  * usually a poster, and cropped to a landscape card — with the copy laid over
  * the bottom of it — it lost its own lettering under ours. Nothing sits on the
- * photo now; the gold "ORS Rally" pill, the day, the title and the place all
- * go under it, on the same card surface the event cards use, so a rally in
+ * photo now; the title and the day go under it, on the same card surface the event cards use, so a rally in
  * this row reads as one more event rather than a different kind of object.
  */
 function RallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
@@ -87,20 +86,13 @@ function RallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <View style={{ aspectRatio: ratio }}>
+      <View style={[styles.photo, { aspectRatio: ratio }]}>
         <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={onAspectRatio} />
       </View>
 
       <View style={styles.body}>
-        <EventPills />
-        <Text style={styles.date}>{date}</Text>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
-        {rally.location ? (
-          <View style={styles.meta}>
-            <MapPin size={11} color={colors.grey} />
-            <Text style={[styles.metaText, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>
-          </View>
-        ) : null}
+        <Text style={[styles.date, { color: colors.grey }]}>{date}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -116,18 +108,20 @@ const styles = StyleSheet.create({
   head:    { paddingHorizontal: GUTTER, paddingTop: 24, paddingBottom: 10 },
   heading: { fontSize: 20, fontFamily: FONT_INTER.bold },
 
-  // Top-aligned: photos of different shapes make cards of different heights,
-  // and none should stretch to match a taller neighbour.
-  row:  { paddingLeft: GUTTER, gap: 12, alignItems: 'flex-start' },
+  // Stretched: photos of different shapes make cards of different heights, and
+  // every card grows to the tallest's, so the row ends in one straight line.
+  row:  { paddingLeft: GUTTER, gap: 12, alignItems: 'stretch' },
   card: {
-    borderRadius: COMMON_RADIUS, overflow: 'hidden',
+    borderRadius: CARD_RADIUS, overflow: 'hidden',
     shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
 
-  body:  { padding: 12, gap: 5 },
-  // ORS gold, like the pill above it — the one colour a rally has.
-  date:  { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BADGE_DEFAULT, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  // Rounded at the foot too, where it meets the words — the card's radius, as
+  // the upcoming event cards' pictures are.
+  photo: { borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden' },
+
+  // Fills what's left of a stretched card: the title up top, the day at the foot.
+  body:  { flexGrow: 1, padding: 12, gap: 4, justifyContent: 'space-between' },
+  date:  { fontSize: 12, fontFamily: FONT_INTER.semibold },
   title: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.extrabold },
-  meta:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 12, flexShrink: 1 },
 });

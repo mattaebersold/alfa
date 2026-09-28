@@ -43,6 +43,9 @@ type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography';
 /** How far below its place an arriving tab's content starts, in points. */
 const TAB_ENTER_RISE = 60;
 
+/** Taken off the header's clearance on the Feed tab, to tuck its first item up under the tabs. */
+const FEED_TOP_TRIM = 8;
+
 function FeedHeader() {
   const colors = useColors();
   const isPro = useIsPro();
@@ -221,7 +224,7 @@ export default function FeedScreen() {
           excludeTypes={['story']}
           includeGarageAdditions
           ListHeaderComponent={FeedHeader}
-          paddingTop={headerPad}
+          paddingTop={headerPad - FEED_TOP_TRIM}
           // Only the showing pane moves the header: a list still coasting when
           // you switch away keeps sending scrolls, and they'd hide the header
           // again just after the tap brought it back.

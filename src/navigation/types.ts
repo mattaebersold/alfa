@@ -51,6 +51,8 @@ export type FeedStackParamList = {
   Groups: undefined;
   // `region` preselects a US region filter — see constants/regions.
   Members: { region?: string } | undefined;
+  /** ORS Videos — the YouTube channel. */
+  Videos: undefined;
   Articles: undefined;
   ArticleDetail: { articleId: string };
   Podcasts: undefined;

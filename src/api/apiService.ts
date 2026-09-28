@@ -46,6 +46,18 @@ export interface SendMessageArgs {
   parent_message_id?: string;
 }
 
+/** One video on the society's YouTube channel — see getChannelVideos. */
+export interface ChannelVideo {
+  id: string;
+  title: string;
+  description?: string;
+  /** Views on YouTube, from the channel feed; null when it didn't say. */
+  views?: number | null;
+  published_at?: string;
+  thumbnail: string;
+  url: string;
+}
+
 export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
@@ -1868,6 +1880,13 @@ export const apiService = createApi({
       },
     }),
 
+    /** The society's YouTube channel, newest first — the ORS Videos screen. See horacio's helpers/youtubeFeed. */
+    getChannelVideos: builder.query<{ channel_id: string; entries: ChannelVideo[] }, void>({
+      query: () => 'api/videos',
+      // The server caches for fifteen minutes; asking more often gets the same list.
+      keepUnusedDataFor: 900,
+    }),
+
     /** The posts you've bookmarked, newest bookmark first — the menu's Bookmarks › Posts. */
     getPostBookmarks: builder.query<{ entries: Post[] }, void>({
       query: () => 'api/users/post-bookmarks',
@@ -2578,6 +2597,7 @@ export const {
   useToggleModelBookmarkMutation,
   useTogglePostBookmarkMutation,
   useGetPostBookmarksQuery,
+  useGetChannelVideosQuery,
   useCreateCommentMutation,
   useDeleteCommentMutation,
   useGetCarsQuery,

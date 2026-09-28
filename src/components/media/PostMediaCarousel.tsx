@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, FlatList, Pressable, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
+  View, TouchableOpacity, StyleSheet, FlatList, Pressable, Animated, Easing, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -255,23 +255,65 @@ export default function PostMediaCarousel({
   );
 }
 
+/** At most this many dots show; past it, they slide under a window. */
+const MAX_DOTS = 3;
+const DOT_SIZE = 6;
+const DOT_GAP = 5;
+/** One dot and the gap after it — how far the row moves per page. */
+const DOT_STEP = DOT_SIZE + DOT_GAP;
+
 /**
  * The page dots on their own, for a host placing them — see `overlay`. The
  * same small white/translucent row the strip draws at its foot's centre.
  */
 export function PageDots({ count, active }: { count: number; active: number }) {
+  // Where the window of visible dots starts: the active one in the middle,
+  // except near the ends, where the window stops at the first or last dot.
+  const shown = Math.min(count, MAX_DOTS);
+  const first = Math.max(0, Math.min(active - Math.floor(MAX_DOTS / 2), count - shown));
+
+  // The row slides under a fixed window, one dot's step per page, so a swipe
+  // shows which way you went. Native-driven: it's only a translate.
+  const slide = useRef(new Animated.Value(-first * DOT_STEP)).current;
+  useEffect(() => {
+    Animated.timing(slide, {
+      toValue: -first * DOT_STEP,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [first, slide]);
+
   if (count < 2) return null;
+  const moreBefore = first > 0;
+  const moreAfter = first + shown < count;
   return (
-    <View style={styles.dotsInline} pointerEvents="none">
-      {Array.from({ length: count }, (_, i) => (
-        <View key={i} style={[styles.dot, i === active && styles.dotActive]} />
-      ))}
+    <View
+      style={[styles.dotsWindow, { width: shown * DOT_STEP - DOT_GAP }]}
+      pointerEvents="none"
+    >
+      <Animated.View style={[styles.dotsInline, { transform: [{ translateX: slide }] }]}>
+        {Array.from({ length: count }, (_, i) => {
+          // The dot at an edge of the window, with more beyond it, shrinks —
+          // it's the hint that the row goes on.
+          const edge = (moreBefore && i === first) || (moreAfter && i === first + shown - 1);
+          return (
+            <View
+              key={i}
+              style={[styles.dot, i === active && styles.dotActive, edge && styles.dotEdge]}
+            />
+          );
+        })}
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  dotsInline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  // A window three dots wide; the row inside slides under it.
+  dotsWindow: { overflow: 'hidden', height: DOT_SIZE + 2, justifyContent: 'center' },
+  dotsInline: { flexDirection: 'row', alignItems: 'center', gap: DOT_GAP },
+  dotEdge:    { transform: [{ scale: 0.6 }] },
   wrap:        { width: '100%', overflow: 'hidden', position: 'relative', backgroundColor: COLOR_BLACK },
   playOverlay: {
     ...StyleSheet.absoluteFill,

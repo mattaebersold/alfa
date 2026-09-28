@@ -91,6 +91,8 @@ const SHOW_YOUR_EVENTS = false;
  * horacio's /api/product and hands the buyer to the web to pay.
  */
 const SHOW_SHOP = true;
+/** The slabs' height — What's New, under them, matches it (see WhatsNew). */
+const SLAB_H = 48;
 
 /**
  * Dark palette, matched to the web drawer: white-on-dark rather than derived
@@ -538,6 +540,12 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   <NavTile label="List a Diecast" Icon={Package}
                     onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
                 )}
+                {/* The society's YouTube channel, watched in the app. */}
+                <NavTile label="ORS Videos" Icon={YouTubeIcon}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Videos' },
+                  } as any))} />
               </View>
 
               {/* Photography closes the grid on a full-width tile of its own —
@@ -557,14 +565,16 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   now wears the same size and fill as the two below it. Its own
                   brass and larger type made it the loudest thing in the drawer,
                   which is a lot of emphasis for a shop with a few shirts. */}
+              {/* Shop and About side by side, half the width each. */}
+              <View style={styles.slabPair}>
               {SHOW_SHOP && (
                 <TouchableOpacity
-                  style={[styles.aboutBtn, { backgroundColor: slabFill }]}
+                  style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
                   onPress={() => closeThen(() => navigation.navigate('Shop'))}
                   activeOpacity={0.85}
                 >
                   <Store size={20} color={COLOR_BLACK} />
-                  <Text style={styles.aboutBtnText}>Shop</Text>
+                  <Text style={styles.aboutBtnText} numberOfLines={1}>Shop</Text>
                   <ChevronRight size={18} color={COLOR_BLACK} />
                 </TouchableOpacity>
               )}
@@ -581,22 +591,27 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   for a pro member, blue otherwise — black text reads on both,
                   so only the ground changes. */}
               <TouchableOpacity
-                style={[styles.aboutBtn, SHOW_SHOP && styles.supportBtn, { backgroundColor: slabFill }]}
+                style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
                 onPress={() => closeThen(() => navigation.navigate('About'))}
                 activeOpacity={0.85}
+                accessibilityLabel="About Open Road Society"
               >
                 <Info size={20} color={COLOR_BLACK} />
-                <Text style={styles.aboutBtnText}>About Open Road Society</Text>
+                {/* Just "About" at half width — the full name ran out of room. */}
+                <Text style={styles.aboutBtnText} numberOfLines={1}>About</Text>
                 <ChevronRight size={18} color={COLOR_BLACK} />
               </TouchableOpacity>
+              </View>
 
+              {/* Support and Invite, the second pair. */}
+              <View style={[styles.slabPair, styles.slabPairNext]}>
               <TouchableOpacity
-                style={[styles.aboutBtn, styles.supportBtn, { backgroundColor: slabFill }]}
+                style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
                 onPress={() => closeThen(() => navigation.navigate('Support'))}
                 activeOpacity={0.85}
               >
                 <LifeBuoy size={20} color={COLOR_BLACK} />
-                <Text style={styles.aboutBtnText}>Support</Text>
+                <Text style={styles.aboutBtnText} numberOfLines={1}>Support</Text>
                 <ChevronRight size={18} color={COLOR_BLACK} />
               </TouchableOpacity>
 
@@ -605,14 +620,15 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   closing it, since it's one field and you're coming straight
                   back. */}
               <SummaryTouchable
-                style={[styles.aboutBtn, styles.supportBtn, { backgroundColor: slabFill }]}
+                style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
                 onPress={(origin) => setInvite({ origin })}
                 accessibilityLabel="Invite a friend"
               >
                 <UserPlus size={20} color={COLOR_BLACK} />
-                <Text style={styles.aboutBtnText}>Invite a Friend</Text>
+                <Text style={styles.aboutBtnText} numberOfLines={1}>Invite a Friend</Text>
                 <ChevronRight size={18} color={COLOR_BLACK} />
               </SummaryTouchable>
+              </View>
 
               <View style={styles.footer}>
                 {/* Leads the small print, above the version pill it's about.
@@ -621,17 +637,6 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     what it was rather than offering an empty panel. Its own
                     modal and its own unread dot live inside it. */}
                 <WhatsNewButton />
-
-                {/* Above the copyright, on its own line — it's the one piece of
-                    small print anyone actually goes looking for, usually to read
-                    it out when something's wrong. A pill in mono, because that's
-                    a build identifier rather than prose: the fixed widths make
-                    the digits easy to read back over a call, and the chip marks
-                    it as a value rather than a sentence. Tracks app.json, which
-                    is what `npm run bump` rewrites. */}
-                {APP_VERSION ? (
-                  <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
-                ) : null}
 
                 {/* The society's rooms elsewhere — above the small print,
                     below everything you can do in the app. As marks rather
@@ -675,17 +680,27 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                       a text button it's findable without announcing itself,
                       and the confirm dialog is still what actually protects
                       the tap. */}
-                  <TouchableOpacity
-                    style={styles.logoutBtn}
-                    onPress={handleLogout}
-                    activeOpacity={0.7}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Log out"
-                  >
-                    <LogOut size={14} color={TEXT_MID} />
-                    <Text style={styles.logoutText}>Log out</Text>
-                  </TouchableOpacity>
+                  {/* The version, then Log out, together at the row's end —
+                      two small chips in the same style. The version is the one
+                      piece of small print anyone goes looking for, usually to
+                      read it out when something's wrong; it tracks app.json,
+                      which `npm run bump` rewrites. */}
+                  <View style={styles.footerChips}>
+                    {APP_VERSION ? (
+                      <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
+                    ) : null}
+                    <TouchableOpacity
+                      style={styles.logoutBtn}
+                      onPress={handleLogout}
+                      activeOpacity={0.7}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Log out"
+                    >
+                      <LogOut size={11} color={TEXT_MID} />
+                      <Text style={styles.logoutText}>Log out</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.footerBottom}>
@@ -873,8 +888,9 @@ const styles = StyleSheet.create({
   inboxPill: {
     flex: 1, minWidth: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 999,
+    // The slab buttons' height and corners (Shop, About…), kept outlined.
+    minHeight: SLAB_H, paddingHorizontal: 12, paddingVertical: 14,
+    borderRadius: COMMON_RADIUS,
     borderWidth: 1, borderColor: COLOR_BORDER,
   },
   // Lighter than a tile's label — these sit above the grid and shouldn't
@@ -897,7 +913,8 @@ const styles = StyleSheet.create({
   },
   navTileWide:  { width: undefined, flex: 1 },
   // The frame's padding is the border's width; the tile's radius is the frame's less that.
-  photoTileFrame: { marginTop: 8, padding: 1.5, borderRadius: 12 },
+  // The same gap above it as below it, to the Shop and About row (slabPair).
+  photoTileFrame: { marginTop: 20, padding: 1.5, borderRadius: 12 },
   photoTile: {
     height: 128, borderRadius: 10.5, overflow: 'hidden',
     backgroundColor: PANEL_BG, justifyContent: 'flex-end',
@@ -927,11 +944,17 @@ const styles = StyleSheet.create({
 
   aboutBtn:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginTop: 20,
+    marginTop: 20, minHeight: SLAB_H,
     paddingHorizontal: 16, paddingVertical: 14, borderRadius: COMMON_RADIUS,
   },
   aboutBtnText: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.medium, color: COLOR_BLACK },
   supportBtn:   { marginTop: 8 },
+  // Shop and About: a row of two, the slabs' top margin on the row.
+  slabPair:     { flexDirection: 'row', gap: 8, marginTop: 20 },
+  // Half the row, inline as the full-width slabs were.
+  slabHalf:     { flex: 1, marginTop: 0, paddingHorizontal: 12, gap: 8 },
+  // The second pair, the slabs' usual gap below the first.
+  slabPairNext: { marginTop: 8 },
 
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   socialBtn: {
@@ -939,20 +962,21 @@ const styles = StyleSheet.create({
     backgroundColor: CHIP_BG,
     alignItems: 'center', justifyContent: 'center',
   },
-  // `marginLeft: auto` takes the gap between the marks and this, so the two
-  // sit at opposite ends of the row rather than bunched together.
+  // `marginLeft: auto` takes the gap between the marks and these, so the two
+  // groups sit at opposite ends of the row rather than bunched together.
+  footerChips: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
+  // The version chip's look (footerVersion), with its icon.
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginLeft: 'auto',
-    paddingHorizontal: 4, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 9, paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: CHIP_BG,
   },
-  logoutText: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: TEXT_MID },
+  logoutText: { fontSize: 11, fontFamily: FONT_INTER.medium, letterSpacing: 0.2, color: TEXT_MID },
   footer:        {
-    // Last thing in the list rather than a band pinned under it. The rule
-    // still marks it off as small print — it just arrives when you reach the
-    // end instead of holding a strip of the panel the whole time.
-    marginTop: 20, paddingTop: 16, gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: DIVIDER,
+    // Last thing in the list rather than a band pinned under it — no rule
+    // over it: it follows the slabs as one more row of them.
+    marginTop: 8, gap: 12,
   },
   footerBottom:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   footerLinks:   { flexDirection: 'row', gap: 12 },
@@ -980,8 +1004,6 @@ const styles = StyleSheet.create({
   proCalloutSub:   { fontSize: 11.5, color: 'rgba(0,0,0,0.65)', marginTop: 1 },
 
   footerVersion: {
-    alignSelf: 'flex-start',
-    marginBottom: 8,
     paddingHorizontal: 9, paddingVertical: 3,
     borderRadius: 999,
     backgroundColor: CHIP_BG,

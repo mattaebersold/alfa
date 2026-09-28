@@ -112,8 +112,8 @@ export interface HeaderTab {
 function MenuBars({ size, color, strokeWidth }: { size: number; color: string; strokeWidth: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Line x1={4} y1={9} x2={20} y2={9} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
-      <Line x1={4} y1={15} x2={20} y2={15} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1={4} y1={8} x2={20} y2={8} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1={4} y1={16} x2={20} y2={16} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -171,7 +171,7 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
    * the mark but are still all in view.
    *
    * Positions are each tab's own x within the row, measured as they lay out;
-   * the row's GUTTER padding is outside that, so it's added back to find
+   * the row's TABS_START_PAD is outside that, so it's added back to find
    * where the tab sits against the screen.
    */
   const scrollRef = useRef<ScrollView>(null);
@@ -181,7 +181,7 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
     const x = tabX.current[activeTab];
     if (x == null) return;
     const first = activeTab === tabs[0]?.key;
-    const to = first ? 0 : Math.max(0, GUTTER + x - TABS_ACTIVE_LEFT);
+    const to = first ? 0 : Math.max(0, TABS_START_PAD + x - TABS_ACTIVE_LEFT);
     scrollRef.current?.scrollTo({ x: to, animated: true });
   }, [activeTab]);
 
@@ -249,7 +249,8 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
                 style={[
                   styles.tabLabel,
                   { color: on ? brand : TAB_IDLE },
-                  stuck && styles.tabLabelStuck,
+                  !on && styles.tabLabelIdle,
+                  stuck && (on ? styles.tabLabelStuck : styles.tabLabelIdleStuck),
                 ]}
               >
                 {t.label}
@@ -502,7 +503,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHe
           </Animated.View>
         </Animated.View>
 
-        {/* Logo returns to the home feed */}
+        {/* Logo returns to the home feed — the Feed tab, at its top */}
         <FloatingButton
           label={isPro ? 'Home feed, Pro member' : 'Home feed'}
           tint={tint}
@@ -510,7 +511,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHe
           // keeps the square button it has always had.
           wide={isPro}
           sheen={sheenTone}
-          onPress={() => go('FeedTab', { screen: 'Feed' })}
+          onPress={() => go('FeedTab', { screen: 'Feed', params: { tab: 'feed', at: Date.now() } })}
         >
           <Image
             source={require('../../../assets/logo.png')}
@@ -639,6 +640,9 @@ const TABS_STUCK_INDENT = 12;
  */
 const TABS_ACTIVE_LEFT = 50;
 
+/** Room before the first tab — more than the GUTTER, so the row doesn't start hard on the edge. */
+const TABS_START_PAD = 20;
+
 /** An unlit tab — white, stepped back so the lit one leads. */
 const TAB_IDLE = 'rgba(255,255,255,0.6)';
 
@@ -665,12 +669,15 @@ const styles = StyleSheet.create({
   ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
   // Black over the blur — enough that labels read over any photo, not so
   // much that the blur stops showing through.
-  groundTint: { backgroundColor: 'rgba(0,0,0,0.7)' },
-  // The first tab starts on the app's GUTTER; the padding is on the content,
+  // The page's own ground (COLOR_GRAY_10), so at rest the header and the
+  // content under it read as one surface; still a tint, so the blur shows
+  // as things scroll beneath.
+  groundTint: { backgroundColor: 'rgba(10,10,10,0.88)' },
+  // The first tab starts TABS_START_PAD in; the padding is on the content,
   // not the scroll view, so the row itself still runs to both edges.
   tabsRow: {
     alignItems: 'center',
-    paddingLeft: GUTTER,
+    paddingLeft: TABS_START_PAD,
     // Past the last tab: room for the stuck indent, so it can still scroll
     // fully into view, plus clear space so it doesn't end hard against the
     // screen edge when scrolled all the way along.
@@ -682,9 +689,13 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // Stuck, and scaled down: a step heavier, so it reads as the same weight.
   tabLabelStuck: { fontFamily: FONT_INTER.bold },
+  // The unlit tabs a weight lighter, at rest and stuck, so the lit one leads.
+  tabLabelIdle: { fontFamily: FONT_INTER.medium },
+  tabLabelIdleStuck: { fontFamily: FONT_INTER.semibold },
   // Always there, transparent when unlit, so every label sits at the same
   // height whichever tab is active.
-  tabUnderline: { height: 2, borderRadius: 1, marginTop: 1 },
+  // A touch thicker than a hairline so its round ends show.
+  tabUnderline: { height: 3, borderRadius: 1.5, marginTop: 1 },
 
   // Behind the bar, and starting at the physical top of the screen rather than
   // below the safe-area inset — the status bar is translucent, so the content

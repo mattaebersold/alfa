@@ -145,7 +145,6 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 key={`${event.internal_id}-${event.day}-${i}`}
                 event={event}
                 width={CARD_WIDTH}
-                showRegion
                 onPress={openEvent}
               />
             ))}
@@ -185,7 +184,7 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
         <EventsMapTile events={mapped} days={UPCOMING_DAYS} onPress={() => setMapOpen(true)} />
 
         {/* Month calendar */}
-        <View style={{ marginTop: 24 }}>
+        <View style={{ marginTop: 12 }}>
           <EventMonthCalendar
             category={category ?? undefined}
             location={location.params}
@@ -259,7 +258,7 @@ const styles = StyleSheet.create({
   toolsSearch: { flex: 1 },
   sectionHead: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    paddingHorizontal: GUTTER, paddingTop: 20, paddingBottom: 10,
+    paddingHorizontal: GUTTER, paddingTop: 0, paddingBottom: 10,
   },
   sectionTitle: { fontSize: 20, fontFamily: FONT_INTER.bold },
   sectionSub:   { fontSize: 13, fontFamily: FONT_INTER.semibold },

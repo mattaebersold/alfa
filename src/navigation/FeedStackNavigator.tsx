@@ -4,6 +4,7 @@ import type { FeedStackParamList } from './types';
 import FeedScreen from '../screens/feed/FeedScreen';
 import PostDetailScreen from '../screens/feed/PostDetailScreen';
 import GroupsScreen from '../screens/groups/GroupsScreen';
+import VideosScreen from '../screens/videos/VideosScreen';
 import ArticlesScreen from '../screens/articles/ArticlesScreen';
 import ArticleDetailScreen from '../screens/articles/ArticleDetailScreen';
 import PodcastsScreen from '../screens/podcasts/PodcastsScreen';
@@ -37,6 +38,7 @@ export default function FeedStackNavigator() {
       <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Post' }} />
       <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Members" component={MembersScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Videos" component={VideosScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Articles" component={ArticlesScreen} options={{ headerShown: false }} />
       {/* Sheet-presented — see the matching entry in AppNavigator. */}
       <Stack.Screen

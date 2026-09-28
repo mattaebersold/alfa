@@ -85,8 +85,10 @@ function UpcomingCard({ tag, color, badge, title, when, image, region, width, on
             </View>
           ) : null}
         </View>
-        <Text style={styles.title} numberOfLines={2}>{title}</Text>
-        {when ? <Text style={styles.meta} numberOfLines={1}>{when}</Text> : null}
+        <View style={styles.foot}>
+          <Text style={styles.title} numberOfLines={2}>{title}</Text>
+          {when ? <Text style={styles.meta} numberOfLines={1}>{when}</Text> : null}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -153,23 +155,31 @@ export function UpcomingRallyCard({ rally, width, onPress }: {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
-    padding: 10,
+    // No padding on the picture's side: it runs to the card's top, bottom and
+    // left edges, and the card's clip rounds its left corners.
+    paddingRight: 10,
     borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: COLOR_GRAY_26,
   },
   thumb: {
-    width: THUMB, height: THUMB, borderRadius: 8, overflow: 'hidden',
+    // The card's full height (what the padding used to add), square.
+    width: THUMB + 20, height: THUMB + 20,
+    // Rounded only where it meets the words — the card's own radius.
+    borderTopRightRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden',
     backgroundColor: COLOR_GRAY_38,
   },
   regionBadge: { position: 'absolute', top: 4, right: 4 },
-  // Three lines at most — pills 18, title 32, the day 15 — centred in the
-  // thumb's height.
-  text: { flex: 1, minWidth: 0, height: THUMB, justifyContent: 'center', gap: 1 },
-  tags: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
-  pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  // The picture's full height: the pills up top, the title and day at the foot.
+  text: {
+    flex: 1, minWidth: 0, height: THUMB + 20, paddingVertical: 10,
+    justifyContent: 'space-between',
+  },
+  tags: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  foot: { gap: 1 },
+  pill: { borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
   // The category gives way before the ORS badge does — the badge is short and
   // is the rarer, more telling of the two.
   tagPill: { flexShrink: 1 },
-  pillText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold },
+  pillText: { fontSize: 9, fontFamily: FONT_INTER.extrabold },
   title: { fontSize: 12.5, lineHeight: 16, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   meta: { fontSize: 12, lineHeight: 15, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.6)' },
 });

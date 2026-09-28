@@ -204,7 +204,7 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
 }
 
 const styles = StyleSheet.create({
-  tileFrame: { marginHorizontal: GUTTER, marginTop: 24, padding: 1.5, borderRadius: 12 },
+  tileFrame: { marginHorizontal: GUTTER, marginTop: 12, padding: 1.5, borderRadius: 12 },
   tile: {
     height: 112, borderRadius: 10.5, overflow: 'hidden',
     backgroundColor: COLOR_GRAY_10, justifyContent: 'flex-end',

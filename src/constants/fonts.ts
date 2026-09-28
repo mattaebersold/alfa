@@ -27,6 +27,14 @@ export { FONT_INTER };
  */
 export const FONT_MONO = Platform.select({ ios: 'Menlo', default: 'monospace' });
 
+/**
+ * Android's `monospace` comes in one weight and draws thin, so there every
+ * mono style is set bold (the platform synthesises it) — the headings and the
+ * body alike. iOS's Menlo keeps the weight the style asks for.
+ */
+export const monoWeight = (w: '400' | '600' | '700' | '800' = '400') =>
+  (Platform.OS === 'android' ? 'bold' : w);
+
 /** What App.tsx loads before the first screen draws — keyed by the names above. */
 export const FONT_FILES = {
   [FONT_INTER.light]: Inter_300Light,
