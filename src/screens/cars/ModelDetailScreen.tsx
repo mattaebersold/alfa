@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Linking, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,7 +13,7 @@ import ModelDescriptionEditor from '../../components/cars/ModelDescriptionEditor
 import Avatar from '../../components/ui/Avatar';
 import {
   useGetCarsQuery, useGetModelDiscussionQuery, useGetModelResourcesQuery, useGetModelProfileQuery,
-  useGetModelProposalsQuery, useReviewModelProposalMutation, type ModelProposal,
+  useGetModelProposalsQuery, useReviewModelProposalMutation, useGetGroupsForCarQuery, type ModelProposal,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
@@ -24,7 +24,7 @@ import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_GRAY_26, COLOR_GREEN, COLOR_WHITE, GUTTER, PILL_RADIUS } from '../../constants/config';
 
-type Tab = 'cars' | 'discussion' | 'resources';
+type Tab = 'cars' | 'discussion' | 'resources' | 'groups';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** The banner photo's height — behind the status bar and the header's buttons too. */
@@ -50,9 +50,9 @@ export function modelPageTitle(p: { brand: string; model: string; generation?: s
  * that keeps only the back button and the bookmark. Then the way back up
  * (the make, and the model for a generation), the name and how many cars,
  * a short factual paragraph and stat tiles from Wikipedia (horacio's
- * seed-model-profiles — absent until one's written), the groups about it,
- * and three sections switched by tabs styled as the app header's: every car
- * of the model, its discussion, and its resources. Everything above the tabs
+ * seed-model-profiles — absent until one's written), and four sections
+ * switched by tabs styled as the app header's: every car of the model, its
+ * discussion, its resources, and the groups about it. Everything above the tabs
  * scrolls away with whichever section is showing.
  */
 export default function ModelDetailScreen({ route, navigation }: CarsScreenProps<'ModelDetail'>) {
@@ -66,6 +66,7 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
   // For the counts on the tabs; the sections read the same cached lists.
   const { data: discussion } = useGetModelDiscussionQuery({ make: brand, model });
   const { data: resources } = useGetModelResourcesQuery({ make: brand, model });
+  const { data: groupsData } = useGetGroupsForCarQuery({ make: brand, model });
   const { data: profile } = useGetModelProfileQuery({ make: brand, model: modelHandle, generation: generationHandle });
 
   // Members propose the description; admins review what's waiting, right here.
@@ -89,6 +90,7 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
     { key: 'cars', label: 'Cars', count: total },
     { key: 'discussion', label: 'Discussion', count: discussion?.entries?.length },
     { key: 'resources', label: 'Resources', count: resources?.entries?.length },
+    { key: 'groups', label: 'Groups', count: groupsData?.entries?.length },
   ];
 
   useLayoutEffect(() => {
@@ -112,13 +114,10 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
     });
   }, [navigation, brand, model, modelHandle, generationHandle, route.params.generation, route.params.standalone]);
 
+  // Straight back to the make — a model split into generations has no page of
+  // its own (BMW › E36, never BMW › 3 Series › E36).
   const crumbs: { label: string; onPress: () => void }[] = [
     { label: brand, onPress: () => navigation.navigate('BrandDetail', { brand }) },
-    // A generation's page goes up to its model's.
-    ...(route.params.generation ? [{
-      label: model,
-      onPress: () => navigation.push('ModelDetail', { brand, model, modelHandle }),
-    }] : []),
   ];
 
   const header = (
@@ -231,22 +230,9 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
         </ScrollView>
       ) : null}
 
-      {/* Wikipedia's text is CC BY-SA — it says where it's from. Once a
-          member's edit replaces the paragraph, only the stats are its. */}
-      {profile?.source_url ? (
-        <TouchableOpacity onPress={() => Linking.openURL(profile.source_url!)} style={styles.source} hitSlop={6}>
-          <Text style={[styles.sourceText, { color: colors.grey }]}>
-            {profile.description_edited ? 'Stats: Wikipedia' : 'Source: Wikipedia'}
-          </Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={styles.groups}>
-        <CarGroupsRow make={brand} model={model} />
-      </View>
-
-      {/* ── The sections, as the app header's tabs ── */}
-      <View style={styles.tabs}>
+      {/* ── The sections, as the app header's tabs — a row that scrolls
+          across, now there are four. ── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabs}>
         {tabs.map((t) => {
           const active = tab === t.key;
           return (
@@ -262,7 +248,9 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
               <View style={styles.tabLabelRow}>
                 <Text style={[styles.tabLabel, active ? { color: brandColor } : styles.tabLabelIdle]}>{t.label}</Text>
                 {t.count ? (
-                  <Text style={[styles.tabCount, { color: active ? brandColor : TAB_IDLE }]}>{t.count}</Text>
+                  <View style={[styles.tabCount, active && { backgroundColor: brandColor }]}>
+                    <Text style={[styles.tabCountText, { color: active ? COLOR_BLACK : COLOR_WHITE }]}>{t.count}</Text>
+                  </View>
                 ) : null}
               </View>
               {/* Under the lit tab only, in its colour, the width of its word. */}
@@ -270,12 +258,12 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </>
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <ModelDescriptionEditor
         visible={editing}
         onClose={() => setEditing(false)}
@@ -287,7 +275,9 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {header}
-          <ModelPostsSection kind={tab === 'discussion' ? 'discussion' : 'resource'} make={brand} model={model} />
+          {tab === 'groups'
+            ? <CarGroupsRow make={brand} model={model} layout="list" />
+            : <ModelPostsSection kind={tab === 'discussion' ? 'discussion' : 'resource'} make={brand} model={model} />}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -390,8 +380,6 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 11.5, fontFamily: FONT_INTER.semibold },
   statValue: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.bold },
-  source: { alignSelf: 'flex-start', paddingHorizontal: GUTTER + 8, paddingTop: 8 },
-  sourceText: { fontSize: 11.5, textDecorationLine: 'underline' },
 
   // Outlined, like the page's other small buttons.
   suggestBtn: {
@@ -417,19 +405,22 @@ const styles = StyleSheet.create({
   approveBtn: { backgroundColor: COLOR_GREEN, borderColor: COLOR_GREEN },
   reviewBtnText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
-  groups: { marginTop: 20 },
-
   // The app header's tabs: a row of words, the lit one in the brand colour
   // with a rounded bar the width of its word beneath it.
-  tabs: {
-    flexDirection: 'row', alignItems: 'center', gap: 22,
-    paddingHorizontal: GUTTER + 8, marginTop: 18, marginBottom: 12,
-  },
+  tabsScroll: { marginTop: 18, marginBottom: 12, flexGrow: 0 },
+  tabs: { flexDirection: 'row', alignItems: 'center', gap: 22, paddingHorizontal: GUTTER + 8 },
   tab: { alignItems: 'stretch' },
-  tabLabelRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
+  tabLabelRow: { flexDirection: 'row', alignItems: 'center' },
   tabLabel: { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   tabLabelIdle: { color: TAB_IDLE, fontFamily: FONT_INTER.medium },
-  tabCount: { fontSize: 12, fontFamily: FONT_INTER.bold },
+  // The count in a small circle, centred on the word and set off from it —
+  // brand-filled on the lit tab.
+  tabCount: {
+    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, marginLeft: 7,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  tabCountText: { fontSize: 11, fontFamily: FONT_INTER.bold },
   tabUnderline: { height: 3, borderRadius: 1.5, marginTop: 4 },
 
   scroll: { paddingBottom: 120 },

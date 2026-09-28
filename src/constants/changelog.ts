@@ -25,6 +25,47 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.61': {
+    date: 'September 2026',
+    groups: [
+      {
+        title: 'Home',
+        items: [
+          'Added Cars and Members as home tab options.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'Updated the styles of the car cards on the car, make and model pages.',
+          'Rearranged the layout of the Cars screen.',
+          'Added an Add Car button to the header of the Cars screen.',
+          'A cleaner featured cars section.',
+          'Makes and models that match cars in your garage are filtered to the top.',
+        ],
+      },
+      {
+        title: 'Makes & Models',
+        items: [
+          'A richer layout for make and model pages.',
+          'Request a description for a model — an admin approves or declines it.',
+          'Added a Groups tab to model pages.',
+        ],
+      },
+      {
+        title: 'Members',
+        items: [
+          'A cleaner featured members section.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'Groups can be associated with multiple makes and models.',
+        ],
+      },
+    ],
+  },
   '1.60': {
     date: 'September 2026',
     groups: [

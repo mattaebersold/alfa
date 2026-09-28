@@ -205,7 +205,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <CarMosaic
         make={brand}
         model={filter?.model}
