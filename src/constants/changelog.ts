@@ -497,11 +497,12 @@ export function changelogFor(version: string): ChangelogEntry | null {
  */
 export const EARLIEST_SHOWN = '1.42';
 
-/** "1.47" → 147, for ordering. Versions here are always major.minor. */
-const ordinal = (version: string) => {
-  const [major, minor] = version.split('.').map(Number);
-  return (major || 0) * 1000 + (minor || 0);
-};
+/**
+ * "1.47" → 1.47, for ordering. The minor part reads as a decimal — 1.6 comes
+ * after 1.51, as the releases went — not as a whole number, which put 1.6
+ * (minor 6) before 1.51 (minor 51).
+ */
+const ordinal = (version: string) => Number(version) || 0;
 
 /**
  * Every written-up version older than `version` and no older than
