@@ -3,7 +3,9 @@ import {
   View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
-import MakeModelFields from '../cars/MakeModelFields';
+import GroupCarsField from './GroupCarsField';
+import { groupCarsOf } from '../../utils/groupCars';
+import type { GroupCar } from '../../types/api';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -135,8 +137,7 @@ export default function GroupSettingsSheet({
 
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
-  const [groupMake, setGroupMake] = useState('');
-  const [groupModel, setGroupModel] = useState('');
+  const [groupCars, setGroupCars] = useState<GroupCar[]>([]);
   const [newImage, setNewImage] = useState<PickedImage | null>(null);
   const [newBanner, setNewBanner] = useState<PickedImage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -147,8 +148,7 @@ export default function GroupSettingsSheet({
     if (!visible || !group) return;
     setTitle(group.title ?? '');
     setSubtitle(group.subtitle ?? '');
-    setGroupMake(group.group_make ?? '');
-    setGroupModel(group.group_model ?? '');
+    setGroupCars(groupCarsOf(group));
     setNewImage(null);
     setNewBanner(null);
     setDeleteConfirm('');
@@ -165,10 +165,14 @@ export default function GroupSettingsSheet({
   const existingImage = imageUrl(group?.gallery?.[0]?.filename);
   const existingBanner = imageUrl(group?.banners?.[0]?.filename);
 
+  // The cars count too — they were left out, so an edit to only the make or
+  // model never enabled Save and had no way to be kept.
+  const carsKey = (cars: GroupCar[]) => JSON.stringify(cars.map((c) => [c.make ?? '', c.model ?? '']));
   const dirty =
     !!newImage || !!newBanner ||
     title.trim() !== (group?.title ?? '') ||
-    subtitle.trim() !== (group?.subtitle ?? '');
+    subtitle.trim() !== (group?.subtitle ?? '') ||
+    (!!group && carsKey(groupCars) !== carsKey(groupCarsOf(group)));
 
   const pick = (onPicked: (img: PickedImage) => void, label: string) => {
     const take = (asset: ImagePicker.ImagePickerAsset) => onPicked({
@@ -216,9 +220,11 @@ export default function GroupSettingsSheet({
     fd.append('internal_id', group.internal_id);
     fd.append('title', name);
     fd.append('subtitle', subtitle.trim());
-    // Always sent, so clearing them here clears them; the model only with a make.
-    fd.append('group_make', groupMake.trim());
-    fd.append('group_model', groupMake.trim() ? groupModel.trim() : '');
+    // Always sent, so removing them all here clears them. The first goes as
+    // the single pair too, for a server that predates the list.
+    fd.append('group_cars', JSON.stringify(groupCars));
+    fd.append('group_make', groupCars[0]?.make ?? '');
+    fd.append('group_model', groupCars[0]?.model ?? '');
 
     // Sent back as they are. The endpoint rewrites every field it names, so
     // leaving these out would clear them rather than leave them alone.
@@ -370,16 +376,10 @@ export default function GroupSettingsSheet({
                   placeholderTextColor={c.grey}
                 />
 
-                {/* The car it's about — puts it on that make's page, and the
-                    model's too when there is one. Both optional. */}
-                <Text style={[styles.fieldLabel, { color: c.grey, marginTop: 14 }]}>Car (optional)</Text>
-                <MakeModelFields
-                  make={groupMake}
-                  model={groupModel}
-                  onMakeChange={setGroupMake}
-                  onModelChange={setGroupModel}
-                  hideMissingLink
-                />
+                {/* The cars it's about — each puts it on that make's page, and
+                    the model's too when there is one. All optional. */}
+                <Text style={[styles.fieldLabel, { color: c.grey, marginTop: 14 }]}>Cars (optional)</Text>
+                <GroupCarsField value={groupCars} onChange={setGroupCars} />
               </View>
             ) : (
               <View style={[styles.infoRow, { borderTopColor: c.borderDark }]}>

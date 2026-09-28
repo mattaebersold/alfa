@@ -79,7 +79,7 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
             count={b.model_count}
             countLabel={b.model_count ? `${b.model_count} ${b.model_count === 1 ? 'model' : 'models'}` : undefined}
             style={styles.tile}
-            badge={owned(b) ? <GarageMatchBadge /> : undefined}
+            badgeLeft={owned(b) ? <GarageMatchBadge /> : undefined}
             onPress={() => navigation.navigate('BrandDetail', { brand: b.make })}
           />
         )}

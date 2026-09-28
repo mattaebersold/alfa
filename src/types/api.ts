@@ -792,13 +792,21 @@ export interface SocietyEvent {
   user?: User;
 }
 
+/** One car a group is about — a make, or one model of it. See horacio's helpers/groupCars. */
+export interface GroupCar {
+  make: string;
+  model?: string | null;
+}
+
 export interface Group {
   _id?: string;
   internal_id: string;
   user_id: string;
-  /** The car make it's about, if any — and optionally one model of it. */
+  /** The car make it's about, if any — and optionally one model of it. The first of `group_cars`, mirrored. */
   group_make?: string | null;
   group_model?: string | null;
+  /** Every car it's about — makes, each optionally one model. See utils/groupCars. */
+  group_cars?: GroupCar[];
   title?: string;
   body?: string;
   subtitle?: string;

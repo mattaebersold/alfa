@@ -134,7 +134,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
               count={m.qty}
               countLabel={`${m.qty} ${m.qty === 1 ? 'car' : 'cars'}`}
               style={styles.modelTile}
-              badge={ownsModel(brand, m.model_handle) ? <GarageMatchBadge /> : undefined}
+              badgeLeft={ownsModel(brand, m.model_handle) ? <GarageMatchBadge /> : undefined}
               onPress={() => navigation.navigate('ModelDetail', {
                 brand,
                 model: m.model,
@@ -151,7 +151,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                 count={g.qty}
                 countLabel={`${g.qty} ${g.qty === 1 ? 'car' : 'cars'}`}
                 style={styles.modelTile}
-                badge={ownsGen(m, g) ? <GarageMatchBadge /> : undefined}
+                badgeLeft={ownsGen(m, g) ? <GarageMatchBadge /> : undefined}
                 onPress={() => navigation.navigate('ModelDetail', {
                   brand,
                   model: m.model,

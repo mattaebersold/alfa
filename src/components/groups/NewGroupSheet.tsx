@@ -3,7 +3,7 @@ import {
   View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
-import MakeModelFields from '../cars/MakeModelFields';
+import GroupCarsField from './GroupCarsField';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,7 +19,7 @@ import { uploadFile } from '../../utils/upload';
 import { GROUP_TYPES, groupCategoriesFor } from '../../constants/groupTypes';
 import { REGIONS } from '../../constants/regions';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
-import type { User } from '../../types/api';
+import type { GroupCar, User } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 
 interface PickedImage { uri: string; name: string; type: string }
@@ -77,8 +77,7 @@ export default function NewGroupSheet({
   const [category, setCategory] = useState('');
   const [region, setRegion] = useState('');
   // Optional: the car this group is about. A make alone is a make-wide group.
-  const [groupMake, setGroupMake] = useState('');
-  const [groupModel, setGroupModel] = useState('');
+  const [groupCars, setGroupCars] = useState<GroupCar[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [image, setImage] = useState<PickedImage | null>(null);
   const [invitees, setInvitees] = useState<User[]>([]);
@@ -95,7 +94,7 @@ export default function NewGroupSheet({
   const reset = () => {
     setTitle(''); setSubtitle(''); setBody('');
     setType('regional'); setCategory(''); setRegion('');
-    setIsPrivate(false); setImage(null); setInvitees([]);
+    setIsPrivate(false); setImage(null); setInvitees([]); setGroupCars([]);
   };
 
   const close = () => { onClose(); };
@@ -164,9 +163,11 @@ export default function NewGroupSheet({
     // group would come out private.
     if (isPrivate) fd.append('private', 'true');
     // Lists the group on that make's page, and the model's when there is one.
-    if (groupMake.trim()) {
-      fd.append('group_make', groupMake.trim());
-      if (groupModel.trim()) fd.append('group_model', groupModel.trim());
+    if (groupCars.length) {
+      fd.append('group_cars', JSON.stringify(groupCars));
+      // The first, as the single pair — for a server that predates the list.
+      fd.append('group_make', groupCars[0].make);
+      if (groupCars[0].model) fd.append('group_model', groupCars[0].model);
     }
     if (image) fd.append('gallery', uploadFile(image.uri));
     // One JSON field, the way tags and group_ids travel in other multipart
@@ -372,15 +373,9 @@ export default function NewGroupSheet({
 
             <Label colors={colors}>Car</Label>
             <Text style={[styles.carHint, { color: colors.grey }]}>
-              Optional. A make puts the group on that make's page; add a model if it's about just one.
+              Optional. Add as many as it's about. A make puts the group on that make's page; with a model, on the model's too.
             </Text>
-            <MakeModelFields
-              make={groupMake}
-              model={groupModel}
-              onMakeChange={setGroupMake}
-              onModelChange={setGroupModel}
-              hideMissingLink
-            />
+            <GroupCarsField value={groupCars} onChange={setGroupCars} />
 
             <Label colors={colors}>About</Label>
             <TextInput

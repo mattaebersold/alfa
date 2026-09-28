@@ -1,24 +1,28 @@
 import React, { useLayoutEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Linking, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Linking, Dimensions, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Car, ChevronRight } from 'lucide-react-native';
+import { Car, ChevronRight, Pencil, Check, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
 import ModelBookmarkButton from '../../components/cars/ModelBookmarkButton';
 import ModelPostsSection from '../../components/cars/ModelPostsSection';
 import CarGroupsRow from '../../components/cars/CarGroupsRow';
+import ModelDescriptionEditor from '../../components/cars/ModelDescriptionEditor';
+import Avatar from '../../components/ui/Avatar';
 import {
   useGetCarsQuery, useGetModelDiscussionQuery, useGetModelResourcesQuery, useGetModelProfileQuery,
+  useGetModelProposalsQuery, useReviewModelProposalMutation, type ModelProposal,
 } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_26, COLOR_WHITE, GUTTER, PILL_RADIUS } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GRAY_26, COLOR_GREEN, COLOR_WHITE, GUTTER, PILL_RADIUS } from '../../constants/config';
 
 type Tab = 'cars' | 'discussion' | 'resources';
 
@@ -63,6 +67,14 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
   const { data: discussion } = useGetModelDiscussionQuery({ make: brand, model });
   const { data: resources } = useGetModelResourcesQuery({ make: brand, model });
   const { data: profile } = useGetModelProfileQuery({ make: brand, model: modelHandle, generation: generationHandle });
+
+  // Members propose the description; admins review what's waiting, right here.
+  const [editing, setEditing] = useState(false);
+  const isAdmin = useAppSelector((s) => s.auth.userInfo?.accountType === 'admin');
+  const { data: proposals } = useGetModelProposalsQuery(
+    { make: brand, model: modelHandle, generation: generationHandle },
+    { skip: !isAdmin },
+  );
 
   // The banner: a member's car of this model — its main photo, else its first.
   const car = firstCar?.entries?.[0];
@@ -192,6 +204,22 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
         ) : null}
       </View>
 
+      {/* Anyone can propose the text; an admin approves it. */}
+      <TouchableOpacity
+        style={[styles.suggestBtn, { borderColor: colors.border }]}
+        onPress={() => setEditing(true)}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+      >
+        <Pencil size={13} color={colors.fg} strokeWidth={2.2} />
+        <Text style={[styles.suggestText, { color: colors.fg }]}>
+          {profile?.description ? 'Suggest an edit' : 'Add model description'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* An admin sees what's waiting for this page, to approve or reject. */}
+      {isAdmin && proposals?.map((p) => <ProposalReview key={p.internal_id} proposal={p} />)}
+
       {profile?.stats?.length ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stats}>
           {profile.stats.map((s) => (
@@ -203,10 +231,13 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
         </ScrollView>
       ) : null}
 
-      {/* Wikipedia's text is CC BY-SA — it says where it's from. */}
+      {/* Wikipedia's text is CC BY-SA — it says where it's from. Once a
+          member's edit replaces the paragraph, only the stats are its. */}
       {profile?.source_url ? (
         <TouchableOpacity onPress={() => Linking.openURL(profile.source_url!)} style={styles.source} hitSlop={6}>
-          <Text style={[styles.sourceText, { color: colors.grey }]}>Source: Wikipedia</Text>
+          <Text style={[styles.sourceText, { color: colors.grey }]}>
+            {profile.description_edited ? 'Stats: Wikipedia' : 'Source: Wikipedia'}
+          </Text>
         </TouchableOpacity>
       ) : null}
 
@@ -245,6 +276,12 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <ModelDescriptionEditor
+        visible={editing}
+        onClose={() => setEditing(false)}
+        page={{ title, make: brand, model, generation: route.params.generation, standalone: route.params.standalone }}
+        current={profile?.description}
+      />
       {tab === 'cars' ? (
         <CarMosaic make={brand} model={modelHandle} generation={generationHandle} header={header} emptyTitle={`No ${title}s yet`} />
       ) : (
@@ -254,6 +291,62 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
         </ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+/**
+ * A proposed description waiting on an admin: who, what it would say, and
+ * Approve / Reject. Approving puts it on the page at once; either way the
+ * member who proposed it is notified (the server does both).
+ */
+function ProposalReview({ proposal }: { proposal: ModelProposal }) {
+  const colors = useColors();
+  const [review, { isLoading }] = useReviewModelProposalMutation();
+  const decide = (approve: boolean) => {
+    Alert.alert(
+      approve ? 'Approve this description?' : 'Reject this description?',
+      approve ? 'It replaces the page\'s description now.' : `@${proposal.proposer.username ?? 'The member'} will be told it wasn't accepted.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: approve ? 'Approve' : 'Reject',
+          style: approve ? 'default' : 'destructive',
+          onPress: async () => {
+            try { await review({ id: proposal.internal_id, approve }).unwrap(); }
+            catch (err: any) { Alert.alert("Couldn't save that", err?.data?.error ?? 'Please try again.'); }
+          },
+        },
+      ],
+    );
+  };
+  return (
+    <View style={[styles.review, { borderColor: colors.border }]}>
+      <View style={styles.reviewHead}>
+        <Avatar user={proposal.proposer as any} size={22} />
+        <Text style={[styles.reviewWho, { color: colors.fg }]} numberOfLines={1}>
+          @{proposal.proposer.username ?? 'member'} {proposal.current_description ? 'suggested an edit' : 'wrote a description'}
+        </Text>
+      </View>
+      <Text style={[styles.reviewText, { color: colors.fg }]}>{proposal.proposed_description}</Text>
+      <View style={styles.reviewBtns}>
+        <TouchableOpacity
+          style={[styles.reviewBtn, { borderColor: colors.border }]}
+          onPress={() => decide(false)}
+          disabled={isLoading}
+        >
+          <X size={14} color={colors.fg} strokeWidth={2.4} />
+          <Text style={[styles.reviewBtnText, { color: colors.fg }]}>Reject</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.reviewBtn, styles.approveBtn]}
+          onPress={() => decide(true)}
+          disabled={isLoading}
+        >
+          <Check size={14} color={COLOR_BLACK} strokeWidth={2.6} />
+          <Text style={[styles.reviewBtnText, { color: COLOR_BLACK }]}>Approve</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -299,6 +392,30 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.bold },
   source: { alignSelf: 'flex-start', paddingHorizontal: GUTTER + 8, paddingTop: 8 },
   sourceText: { fontSize: 11.5, textDecorationLine: 'underline' },
+
+  // Outlined, like the page's other small buttons.
+  suggestBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    marginHorizontal: GUTTER + 8, marginTop: 12,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1,
+  },
+  suggestText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
+
+  // An admin's review card — outlined, set apart from the page's own text.
+  review: {
+    marginHorizontal: GUTTER + 8, marginTop: 12, padding: 12, gap: 10,
+    borderRadius: 14, borderWidth: 1, borderStyle: 'dashed',
+  },
+  reviewHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  reviewWho: { flexShrink: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
+  reviewText: { fontSize: 14, lineHeight: 20 },
+  reviewBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  reviewBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: PILL_RADIUS, borderWidth: 1,
+  },
+  approveBtn: { backgroundColor: COLOR_GREEN, borderColor: COLOR_GREEN },
+  reviewBtnText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   groups: { marginTop: 20 },
 

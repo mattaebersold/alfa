@@ -33,6 +33,7 @@ import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../cons
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
+import { groupCarsLine } from '../../utils/groupCars';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -916,9 +917,9 @@ export function CarCreateSheet({ carId, onDismissed }: {
                         <Text style={[styles.joinTitle, { color: colors.fg }]} numberOfLines={2}>
                           {g.title}
                         </Text>
-                        {!!g.group_make && (
+                        {!!groupCarsLine(g) && (
                           <Text style={[styles.joinMake, { color: colors.grey }]} numberOfLines={1}>
-                            {[g.group_make, g.group_model].filter(Boolean).join(' ')}
+                            {groupCarsLine(g, form.make, form.model)}
                           </Text>
                         )}
                       </TouchableOpacity>

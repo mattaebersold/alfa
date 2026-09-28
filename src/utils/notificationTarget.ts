@@ -178,6 +178,33 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
         : null;
 
     /**
+     * A model page's description — a member proposed one (to an admin, who
+     * reviews it on the page), or heard it was approved or rejected. The page
+     * is in the metadata; it lives in the Cars tab, over the Cars screen.
+     */
+    case 'model_page':
+      return meta.make && meta.model
+        ? {
+          name: 'MainTabs',
+          params: {
+            screen: 'CarsTab',
+            params: {
+              screen: 'ModelDetail',
+              initial: false,
+              params: {
+                brand: meta.make,
+                model: meta.model,
+                modelHandle: meta.model_handle,
+                generation: meta.generation ?? undefined,
+                generationHandle: meta.generation_handle ?? undefined,
+                standalone: !!meta.standalone,
+              },
+            },
+          },
+        }
+        : null;
+
+    /**
      * A reply to a comment. The comment id opens nothing — what you want is the
      * thing being discussed, which the server attaches as the parent.
      */

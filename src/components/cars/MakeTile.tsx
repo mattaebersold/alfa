@@ -38,7 +38,7 @@ const UNSKEW = `${SKEW_DEG}deg`;
  * carousel (count = cars of that model). In the carousel (`fitName`) the tile
  * is as wide as its name needs, so a name never breaks across two lines.
  */
-export default function MakeTile({ name, subtitle, photos, count, countLabel, onPress, style, badge, fitName }: {
+export default function MakeTile({ name, subtitle, photos, count, countLabel, onPress, style, badge, badgeLeft, fitName }: {
   name: string;
   /** A second, quieter line — the model a generation tile belongs to. */
   subtitle?: string;
@@ -51,6 +51,8 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
   style?: StyleProp<ViewStyle>;
   /** Pinned to the tile's top-right corner — a bookmark mark, say. */
   badge?: React.ReactNode;
+  /** Pinned to the top-left corner — the garage sparkle. */
+  badgeLeft?: React.ReactNode;
   /** Size to the name rather than to the host — for a horizontal row. */
   fitName?: boolean;
 }) {
@@ -118,6 +120,7 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
       </View>
 
       {badge ? <View style={styles.badge} pointerEvents="none">{badge}</View> : null}
+      {badgeLeft ? <View style={styles.badgeLeft} pointerEvents="none">{badgeLeft}</View> : null}
 
       <View style={[styles.nameRow, fitName && styles.nameRowFill]}>
         <View style={styles.nameText}>
@@ -173,6 +176,7 @@ const styles = StyleSheet.create({
   sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_17 },
   blank: { alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 8, right: 8, zIndex: 10 },
+  badgeLeft: { position: 'absolute', top: 8, left: 8, zIndex: 10 },
   // The name on the left, the count on the right.
   nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 7, paddingHorizontal: 12, paddingBottom: 8 },
   // In a row stretched to its tallest tile, the name centres vertically in what's left.

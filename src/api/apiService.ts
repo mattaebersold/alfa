@@ -52,6 +52,18 @@ export interface ModelProfile {
   stats: { label: string; value: string }[];
   source_title?: string;
   source_url?: string;
+  /** Written by a member (and approved), not taken from the source. */
+  description_edited?: boolean;
+}
+
+/** A member's proposed description for a model page — see getModelProposals. */
+export interface ModelProposal {
+  internal_id: string;
+  proposer: { user_id: string; username?: string; profilePicture?: string; gallery?: any[] };
+  current_description: string | null;
+  proposed_description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
 }
 
 /** One video on the society's YouTube channel — see getChannelVideos. */
@@ -71,6 +83,7 @@ export const apiService = createApi({
   baseQuery,
   tagTypes: [
     'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment', 'PostBookmarks',
+    'ModelProfile', 'ModelProposals',
     'SocietyEvent', 'EventInterest',
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
     'Mods', 'CarGallery', 'CarTask', 'Message', 'Tags', 'Notifications',
@@ -568,6 +581,32 @@ export const apiService = createApi({
       query: (params) => ({ url: 'api/cars/profile', params }),
       transformResponse: (r: { profile?: ModelProfile | null }) => r.profile ?? null,
       keepUnusedDataFor: 3600,
+      providesTags: ['ModelProfile'],
+    }),
+
+    /**
+     * Propose a model page's description — a new one, or an edit. Reviewed by
+     * an admin, who's notified; the proposer hears the outcome.
+     */
+    proposeModelDescription: builder.mutation<
+      { success: boolean; proposal_id: string; replaced: boolean },
+      { make: string; model: string; generation?: string; standalone?: boolean; description: string }
+    >({
+      query: (body) => ({ url: 'api/model-proposals', method: 'POST', body }),
+      invalidatesTags: ['ModelProposals'],
+    }),
+
+    /** A model page's pending proposals — admins only. */
+    getModelProposals: builder.query<ModelProposal[], { make: string; model: string; generation?: string }>({
+      query: (params) => ({ url: 'api/model-proposals/page', params }),
+      transformResponse: (r: { proposals?: ModelProposal[] }) => r.proposals ?? [],
+      providesTags: ['ModelProposals'],
+    }),
+
+    /** Approve (writes the description to the page) or reject a proposal — admins only. */
+    reviewModelProposal: builder.mutation<{ success: boolean; status: string }, { id: string; approve: boolean }>({
+      query: ({ id, approve }) => ({ url: `api/model-proposals/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`, method: 'POST' }),
+      invalidatesTags: ['ModelProposals', 'ModelProfile'],
     }),
 
     /** Every make, with what the Brands screen's cards show. */
@@ -2638,6 +2677,9 @@ export const {
   useGetCarBrandSummariesQuery,
   useGetCarGenerationsQuery,
   useGetModelProfileQuery,
+  useProposeModelDescriptionMutation,
+  useGetModelProposalsQuery,
+  useReviewModelProposalMutation,
   useGetCarModelsQuery,
   useGetCarMakeOptionsQuery,
   useGetCarModelOptionsQuery,

@@ -8,6 +8,7 @@ import GroupSummaryModal from '../groups/GroupSummaryModal';
 import { useGetGroupsForCarQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
+import { groupCarsLine } from '../../utils/groupCars';
 import { COMMON_RADIUS, COLOR_GRAY_17, COLOR_GRAY_22 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -45,7 +46,7 @@ export default function CarGroupsRow({ make, model }: { make: string; model?: st
               <View style={styles.text}>
                 <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{g.title}</Text>
                 <Text style={[styles.sub, { color: colors.grey }]} numberOfLines={1}>
-                  {[g.group_make, g.group_model].filter(Boolean).join(' ')}
+                  {groupCarsLine(g, make, model)}
                 </Text>
               </View>
             </SummaryTouchable>
