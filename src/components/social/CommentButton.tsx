@@ -84,8 +84,9 @@ const styles = StyleSheet.create({
   count:     { fontSize: 13, fontFamily: FONT_INTER.medium },
   vertical:  { alignItems: 'center', gap: 3, padding: 4 },
   railCountWrap: {
+    // Well clear of the icon.
     position: 'absolute', right: '100%', top: 0, bottom: 0,
-    marginRight: 2, justifyContent: 'center',
+    marginRight: 10, justifyContent: 'center',
   },
   railCount: {
     fontSize: 12, fontFamily: FONT_INTER.bold,

@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   likeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // On the photo the faces hang off the column's left edge, so the pill stays
   // one icon wide; in the footer row they simply lead the heart.
-  facesOut: { position: 'absolute', right: '100%', marginRight: 6 },
+  facesOut: { position: 'absolute', right: '100%', marginRight: 1 },
   facesIn:  { marginRight: 6 },
   itemH:  { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 4 },
   count: {
