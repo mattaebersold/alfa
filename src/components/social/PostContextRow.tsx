@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   // against the card.
   tile: {
     height: 58,
-    borderRadius: 10, overflow: 'hidden',
+    borderRadius: 16, overflow: 'hidden',
     borderWidth: 1, borderColor: COLOR_GRAY_58,
     justifyContent: 'center',
   },

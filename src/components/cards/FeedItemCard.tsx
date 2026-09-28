@@ -367,7 +367,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           shape so swiping doesn't resize the card. */}
       {hasMedia && (
         <GestureDetector gesture={zoomGesture}>
-          <View>
+          <View style={styles.mediaFrame}>
             <PostMediaCarousel
               media={media}
               // Dots at the foot of the photo, back again. The count badge says
@@ -534,6 +534,9 @@ const styles = StyleSheet.create({
   },
 
   image:       { width: '100%' },
+  // Rounded all round, the card's radius — a tile set into the card between
+  // the words above it and what's under it.
+  mediaFrame: { borderRadius: COMMON_RADIUS, overflow: 'hidden' },
 
   imageBadgesLeft: {
     position: 'absolute', top: 10, left: 10, flexDirection: 'row', gap: 5, flexWrap: 'wrap',
