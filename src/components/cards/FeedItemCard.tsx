@@ -544,10 +544,10 @@ const styles = StyleSheet.create({
   // At 80%, so the photo shows a little through the type and category.
   imgBadge:   {
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,
     opacity: 0.8,
   },
-  imgBadgeText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.4 },
+  imgBadgeText: { color: COLOR_WHITE, fontSize: 10, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
 
   // Bottom left: the gallery count, then the page dots.
   galleryRow: {
@@ -586,5 +586,5 @@ const styles = StyleSheet.create({
   // Takes the row so the menu stays pinned right on a card with no likes.
   footerLeft:  { flex: 1, minWidth: 0 },
   // Over the photo, anchored at its bottom right.
-  rail: { position: 'absolute', right: 8, bottom: 8 },
+  rail: { position: 'absolute', right: 4, bottom: 4 },
 });

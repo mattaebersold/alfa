@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
 import ModelTile from '../../components/cars/ModelTile';
 import MakeTile from '../../components/cars/MakeTile';
+import GarageMatchBadge from '../../components/cars/GarageMatchBadge';
+import { useGarageMatch } from '../../hooks/useGarageMatch';
 import CarGroupsRow from '../../components/cars/CarGroupsRow';
 import { useGetCarsQuery, useGetCarModelsQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -46,8 +48,19 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   const { data: totalData } = useGetCarsQuery({ page: 0, limit: 1, make: brand.toLowerCase() });
   const total = totalData?.total;
 
-  // Most-owned first: the models people actually have lead the row.
-  const sortedModels = [...models].sort((a, b) => b.qty - a.qty || a.model.localeCompare(b.model));
+  const { ownsModel, ownsGeneration } = useGarageMatch();
+  const ownsGen = (m: { model_handle: string }, g: { generation_handle: string }) =>
+    ownsGeneration(brand, m.model_handle, g.generation_handle);
+
+  // Yours first — a model in your garage, or one of its generations — then
+  // most-owned: the models people actually have lead the row. Within a model,
+  // your generations lead too.
+  const sortedModels = [...models]
+    .map((m) => (m.generations?.length
+      ? { ...m, generations: [...m.generations].sort((a, b) => Number(ownsGen(m, b)) - Number(ownsGen(m, a))) }
+      : m))
+    .sort((a, b) => Number(ownsModel(brand, b.model_handle)) - Number(ownsModel(brand, a.model_handle))
+      || b.qty - a.qty || a.model.localeCompare(b.model));
 
   const tileCount = sortedModels.reduce((n, m) => n + (m.generations?.length
     ? m.generations.filter((g) => matches(query, `${g.generation} ${m.model}`)).length
@@ -121,6 +134,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
               count={m.qty}
               countLabel={`${m.qty} ${m.qty === 1 ? 'car' : 'cars'}`}
               style={styles.modelTile}
+              badge={ownsModel(brand, m.model_handle) ? <GarageMatchBadge /> : undefined}
               onPress={() => navigation.navigate('ModelDetail', {
                 brand,
                 model: m.model,
@@ -137,6 +151,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
                 count={g.qty}
                 countLabel={`${g.qty} ${g.qty === 1 ? 'car' : 'cars'}`}
                 style={styles.modelTile}
+                badge={ownsGen(m, g) ? <GarageMatchBadge /> : undefined}
                 onPress={() => navigation.navigate('ModelDetail', {
                   brand,
                   model: m.model,

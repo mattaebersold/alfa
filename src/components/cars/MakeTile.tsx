@@ -4,6 +4,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { imageUrl } from '../../utils/image';
 import {
   COMMON_RADIUS,
@@ -11,17 +12,20 @@ import {
   COLOR_GRAY_208,
   COLOR_GRAY_26,
   COLOR_GRAY_46,
+  COLOR_GRAY_64,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** The photo panel's height. */
 const PHOTO_H = 108;
 /** How far each slice leans — the same as the site's tiles. */
-const SKEW_DEG = 11;
+const SKEW_DEG = 21;
 /** How far, in points, each slice's top edge sits right of its bottom. */
 const LEAN = PHOTO_H * Math.tan((SKEW_DEG * Math.PI) / 180);
 /** The gap between slices — none: they meet, and a shadow marks the join (see sliceOver). */
 const SEAM = 0;
+/** How much wider an inner slice is than an outer one — the steeper cut eats into the middle. */
+const INNER_WEIGHT = 1.5;
 const SKEW = `-${SKEW_DEG}deg`;
 const UNSKEW = `${SKEW_DEG}deg`;
 
@@ -51,6 +55,7 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
   fitName?: boolean;
 }) {
   const colors = useColors();
+  const brand = useBrandColor();
   const shots = (photos ?? []).slice(0, 3).map((f) => imageUrl(f)).filter((u): u is string => !!u);
   // The slices are laid out in points, so they wait for the panel's width.
   const [width, setWidth] = useState(0);
@@ -66,7 +71,7 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
       <View style={styles.photos} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
         {shots.length === 0 ? (
           <View style={[styles.photo, styles.blank]}>
-            <Car size={26} color={colors.grey} />
+            <Car size={26} color={COLOR_GRAY_64} />
           </View>
         ) : shots.length === 1 ? (
           <Image source={{ uri: shots[0] }} style={styles.photo} contentFit="cover" transition={150} />
@@ -76,11 +81,20 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
           // run past the panel's edges, which the panel's own clip trims.
           shots.map((uri, i) => {
             const n = shots.length;
-            const left = i === 0 ? -LEAN : (i * width) / n + SEAM / 2;
-            const right = i === n - 1 ? width + LEAN : ((i + 1) * width) / n - SEAM / 2;
+            // Where slice k starts, as a share of the panel: outer slices
+            // weigh 1, inner ones INNER_WEIGHT.
+            const weight = (k: number) => (k === 0 || k === n - 1 ? 1 : INNER_WEIGHT);
+            const total = 2 + (n - 2) * INNER_WEIGHT;
+            const edge = (k: number) => {
+              let sum = 0;
+              for (let j = 0; j < k; j++) sum += weight(j);
+              return (sum / total) * width;
+            };
+            const left = i === 0 ? -LEAN : edge(i) + SEAM / 2;
+            const right = i === n - 1 ? width + LEAN : edge(i + 1) - SEAM / 2;
             const w = right - left;
             return (
-              <View key={uri} style={[styles.slice, i > 0 && styles.sliceOver, { left, width: w, transform: [{ skewX: SKEW }] }]}>
+              <View key={uri} style={[styles.slice, i < n - 1 && styles.sliceOver, { left, width: w, zIndex: n - i, transform: [{ skewX: SKEW }] }]}>
                 <Image
                   source={{ uri }}
                   style={[styles.sliceImage, { left: -LEAN / 2, width: w + LEAN, transform: [{ skewX: UNSKEW }] }]}
@@ -90,6 +104,16 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
               </View>
             );
           })
+        ) : null}
+        {/* A faint black wash over the slices, to even out the contrast between
+            photos that were never meant to sit side by side. */}
+        {shots.length === 1 || (shots.length > 1 && width > 0) ? (
+          <>
+            {/* Monotone: the brand color's hue laid over the photo, or every
+                slice — each keeping its own light and dark, so they read as a set. */}
+            <View style={[styles.sliceMono, { backgroundColor: brand }]} pointerEvents="none" />
+            <View style={styles.sliceTint} pointerEvents="none" />
+          </>
         ) : null}
       </View>
 
@@ -138,9 +162,14 @@ const styles = StyleSheet.create({
   },
   photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: COLOR_GRAY_17 },
   slice: { position: 'absolute', top: 0, height: PHOTO_H, overflow: 'hidden' },
-  // Every slice after the first casts a shadow back over the one before, so
-  // they read as photos laid overlapping rather than cut from one.
-  sliceOver: { boxShadow: '-4px 0px 10px rgba(0, 0, 0, 0.55)' },
+  // Every slice before the last sits above the next (zIndex) and casts a soft
+  // shadow forward over it, so the first photo reads as the top of the stack.
+  sliceOver: { boxShadow: '6px 0px 18px rgba(0, 0, 0, 0.5)' },
+  // Above every slice (their zIndex runs 1..n).
+  // `color` blend: hue and saturation from the layer, brightness from the
+  // photos. At part strength, so a little of each photo's own color survives.
+  sliceMono: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, mixBlendMode: 'color', opacity: 0.35, zIndex: 20 },
+  sliceTint: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.05)', zIndex: 21 },
   sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_17 },
   blank: { alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 8, right: 8, zIndex: 10 },

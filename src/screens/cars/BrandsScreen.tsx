@@ -6,6 +6,7 @@ import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
 import MakeTile from '../../components/cars/MakeTile';
+import GarageMatchBadge from '../../components/cars/GarageMatchBadge';
 import { useGetCarBrandSummariesQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -13,6 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useGarageMatch } from '../../hooks/useGarageMatch';
 import { FONT_INTER } from '../../constants/fonts';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
@@ -20,13 +22,17 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
   const [query, setQuery] = useState('');
   const { data: brands = [], isLoading, refetch } = useGetCarBrandSummariesQuery();
   const refreshControl = useRefreshControl(refetch);
+  const { ownsMake } = useGarageMatch();
+  const owned = (b: { make: string; make_handle: string }) => ownsMake(b.make_handle) || ownsMake(b.make);
 
+  // The makes in your garage first, then the rest; alphabetical within each.
   const filtered = useMemo(
     () =>
       brands
         .filter((b) => b.make.toLowerCase().includes(query.trim().toLowerCase()))
-        .sort((a, b) => a.make.localeCompare(b.make)),
-    [brands, query]
+        .sort((a, b) => Number(owned(b)) - Number(owned(a)) || a.make.localeCompare(b.make)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [brands, query, ownsMake]
   );
 
   if (isLoading) return <Spinner fullScreen />;
@@ -73,6 +79,7 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
             count={b.model_count}
             countLabel={b.model_count ? `${b.model_count} ${b.model_count === 1 ? 'model' : 'models'}` : undefined}
             style={styles.tile}
+            badge={owned(b) ? <GarageMatchBadge /> : undefined}
             onPress={() => navigation.navigate('BrandDetail', { brand: b.make })}
           />
         )}
