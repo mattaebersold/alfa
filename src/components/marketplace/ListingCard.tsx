@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
-import { MapPin, Sparkles } from 'lucide-react-native';
+import { MapPin, Check } from 'lucide-react-native';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
@@ -47,7 +47,7 @@ export default function ListingCard({ listing, onPress, conditions }: {
   const wasPrice = previousPriceLabel(listing);
   const condition = conditionLabel(listing.condition, conditions);
   const distance = distanceLabel(listing.distance_miles);
-  // Just the car it fits — the sparkle already says "matches your garage".
+  // Just the car it fits — the checkmark already says "matches your garage".
   // (The summary panel keeps the full sentence; see matchLabel.)
   const match = matchLabel(listing)
     ? ([listing.make, listing.model].filter(Boolean).join(' ') || 'Your garage')
@@ -76,7 +76,7 @@ export default function ListingCard({ listing, onPress, conditions }: {
           // the marketplace's highlight, not the member's brand colour.
           <View style={[styles.matchPill, styles.matchOnPhoto, { backgroundColor: COLOR_PRO }]}>
             <OilSheen tone="warm" radius={PILL_RADIUS} />
-            <Sparkles size={10} color={COLOR_BLACK} strokeWidth={2.6} />
+            <Check size={10} color={COLOR_BLACK} strokeWidth={3} />
             <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
           </View>
         ) : null}

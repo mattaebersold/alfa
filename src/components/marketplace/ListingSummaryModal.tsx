@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import OilSheen from '../ui/OilSheen';
 import PostContextRow from '../social/PostContextRow';
 import { useNavigation } from '@react-navigation/native';
-import { MapPin, Truck, Sparkles, Settings, MessageCircle } from 'lucide-react-native';
+import { MapPin, Truck, Settings, MessageCircle, Check } from 'lucide-react-native';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
 import Avatar from '../ui/Avatar';
@@ -232,7 +232,7 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
           {match ? (
             <View style={[styles.matchPill, styles.onPhoto, styles.matchOnPhoto, { backgroundColor: COLOR_PRO }]}>
               <OilSheen tone="warm" radius={999} />
-              <Sparkles size={11} color={COLOR_BLACK} strokeWidth={2.6} />
+              <Check size={11} color={COLOR_BLACK} strokeWidth={3} />
               <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
             </View>
           ) : null}

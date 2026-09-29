@@ -5,7 +5,7 @@ import {
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Car, Star } from 'lucide-react-native';
+import { Car, Check } from 'lucide-react-native';
 import OilSheen from '../ui/OilSheen';
 import SteeringWheel from '../ui/SteeringWheel';
 import { shuffle } from '../../utils/array';
@@ -52,7 +52,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: (origin: Summar
       {/* Gold with the oil-slick film, as on the featured car cards. */}
       <View style={styles.featuredBadge} pointerEvents="none">
         <OilSheen tone="warm" radius={999} />
-        <Star size={9} color={COLOR_BLACK} fill={COLOR_BLACK} />
+        <Check size={9} color={COLOR_BLACK} strokeWidth={3} />
         <Text style={styles.featuredBadgeText}>Featured</Text>
       </View>
       {/* Near-black at the foot, fading to nothing well up the photo, so the

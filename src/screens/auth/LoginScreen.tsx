@@ -11,7 +11,7 @@ import { COLOR_ERROR_BG, COLOR_WHITE } from '../../constants/config';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { userLogin, clearError } from '../../store/authSlice';
+import { userLogin, clearError, type LoginRejection } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
 import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
 import { SPLASH_IMAGES } from '../../constants/splash';
@@ -44,7 +44,20 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
     // as the app having forgotten, and the checkbox was one more thing between
     // a password and the feed.
     dispatch(clearError());
-    dispatch(userLogin({ email: email.trim().toLowerCase(), password }));
+    const result = await dispatch(userLogin({ email: email.trim().toLowerCase(), password }));
+    // Right password, unverified address — finish verifying rather than show
+    // an error. This is also how someone who closed the app mid-verification
+    // gets back to it.
+    if (userLogin.rejected.match(result)) {
+      const rejection = result.payload as LoginRejection | undefined;
+      if (rejection?.needsVerification && rejection.email) {
+        navigation.navigate('VerifyEmail', {
+          email: rejection.email,
+          password,
+          verificationSent: rejection.verificationSent,
+        });
+      }
+    }
   };
 
   return (

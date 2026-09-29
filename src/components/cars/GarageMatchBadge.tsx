@@ -1,11 +1,11 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import { COLOR_GOLD, COLOR_ON_GOLD, COLOR_SHEEN_BUTTER, COLOR_SHEEN_GOLD } from '../../constants/config';
 
 /**
- * A gold sparkle, for a make or model that's in your own garage — MakeTile's
+ * A gold checkmark, for a make or model that's in your own garage — MakeTile's
  * `badge`. The gradient runs light, deep, light across the diagonal, so it
  * reads as a sheen rather than a flat gold dot.
  */
@@ -20,7 +20,7 @@ export default function GarageMatchBadge() {
       accessible
       accessibilityLabel="In your garage"
     >
-      <Sparkles size={14} color={COLOR_ON_GOLD} strokeWidth={2.4} />
+      <Check size={14} color={COLOR_ON_GOLD} strokeWidth={3} />
     </LinearGradient>
   );
 }

@@ -5,10 +5,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
-import {
-  Car as CarIcon, Wrench, Settings, Users, Star, Plus,
-  PenSquare, Trash2, MessageSquarePlus, Images, ArrowRightLeft,
-} from 'lucide-react-native';
+import { Car as CarIcon, Wrench, Settings, Users, Plus, PenSquare, Trash2, MessageSquarePlus, Images, ArrowRightLeft, Check } from 'lucide-react-native';
 import {
   useGetUserByIdQuery, useGetCarFollowerCountQuery,
 } from '../../api/apiService';
@@ -376,7 +373,7 @@ export default function CarPosterCard({
             // Gold with the oil-slick film, as the marketplace's match pill.
             <View style={styles.featuredBadge}>
               <OilSheen tone="warm" radius={999} />
-              <Star size={10} color={COLOR_BLACK} fill={COLOR_BLACK} />
+              <Check size={10} color={COLOR_BLACK} strokeWidth={3} />
               <Text style={styles.featuredBadgeText}>Featured</Text>
             </View>
           )}

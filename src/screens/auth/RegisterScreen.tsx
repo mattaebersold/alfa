@@ -166,7 +166,13 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
     dispatch(clearError());
     const result = await dispatch(registerUser(fd));
     if (registerUser.fulfilled.match(result)) {
-      navigation.navigate('VerifyEmail', { email: form.email.trim().toLowerCase(), password: form.password });
+      // `replace`, not `navigate`: the account exists now, so going back from
+      // the verify screen to a "Create account" button could only ever 409.
+      navigation.replace('VerifyEmail', {
+        email: result.payload?.email ?? form.email.trim().toLowerCase(),
+        password: form.password,
+        verificationSent: result.payload?.verificationSent,
+      });
     } else {
       // Registration failed (e.g. username/email already taken) — return to the
       // form fields so the error is visible and they can change them.

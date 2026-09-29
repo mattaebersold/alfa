@@ -18,7 +18,11 @@ export interface RoutePlotDraft {
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
-  VerifyEmail: { email: string; password?: string };
+  /**
+   * `verificationSent: false` means the server made the account (or refused
+   * the login) but the email didn't go out — the screen says so up front.
+   */
+  VerifyEmail: { email: string; password?: string; verificationSent?: boolean };
   ForgotPassword: undefined;
   ResetPassword: { token: string };
 };

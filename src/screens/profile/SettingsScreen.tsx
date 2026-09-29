@@ -212,10 +212,11 @@ export default function SettingsScreen() {
     try {
       const { msg } = await checkEmail({ email }).unwrap();
       if (msg === 'true') { setEmailError('An account with that email already exists.'); return; }
-      await updateSetting({ type: 'email', userid, email }).unwrap();
-      Alert.alert('Saved', 'Email updated.');
-    } catch {
-      Alert.alert('Error', 'Failed to update email.');
+      const res = await updateSetting({ type: 'email', userid, email }).unwrap();
+      // The new address needs verifying — the server says so, and that a code went to it.
+      Alert.alert('Saved', res.message ?? 'Email updated.');
+    } catch (err: any) {
+      Alert.alert('Error', err?.data?.error ?? 'Failed to update email.');
     } finally {
       setSavingEmail(false);
     }

@@ -41,6 +41,37 @@ const initialState: AuthState = {
 
 // ── Async thunks ────────────────────────────────────────────────────────────
 
+/**
+ * Why a login was refused. `needsVerification` is the one the login screen
+ * acts on rather than shows: the password was right but the address isn't
+ * verified yet, so it goes to the verify screen with `email` — which may
+ * differ from what was typed, since a username signs in too.
+ */
+export interface LoginRejection {
+  message: string;
+  needsVerification?: boolean;
+  email?: string;
+  verificationSent?: boolean;
+}
+
+/** A verify or resend refusal, with what the verify screen needs to recover. */
+export interface VerifyRejection {
+  message: string;
+  /** The code can't be used any more — expired or out of attempts. */
+  expired?: boolean;
+  /** Seconds until the server will send another. */
+  retryAfter?: number;
+}
+
+const verifyRejection = (error: any, fallback: string): VerifyRejection => {
+  const body = error.response?.data;
+  return {
+    message: body?.error || body?.message || (error.response ? fallback : 'No connection. Check your internet and try again.'),
+    expired: !!body?.expired,
+    retryAfter: body?.retryAfter,
+  };
+};
+
 export const userLogin = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }, { rejectWithValue }) => {
@@ -53,9 +84,13 @@ export const userLogin = createAsyncThunk(
       await storeToken(data.userToken);
       return data;
     } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.error || error.response?.data?.message || 'Login failed'
-      );
+      const body = error.response?.data;
+      return rejectWithValue({
+        message: body?.error || body?.message || 'Login failed',
+        needsVerification: !!body?.needsVerification,
+        email: body?.email,
+        verificationSent: body?.verificationSent,
+      } as LoginRejection);
     }
   }
 );
@@ -152,11 +187,9 @@ export const verifyEmail = createAsyncThunk(
         { email, code },
         { headers: { 'Content-Type': 'application/json' } }
       );
-      return data;
+      return data as { success: boolean; alreadyVerified?: boolean };
     } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.error || error.response?.data?.message || 'Verification failed'
-      );
+      return rejectWithValue(verifyRejection(error, 'Verification failed'));
     }
   }
 );
@@ -165,15 +198,34 @@ export const resendVerification = createAsyncThunk(
   'auth/resendVerification',
   async (email: string, { rejectWithValue }) => {
     try {
-      await axios.post(
+      const { data } = await axios.post(
         `${CONFIG.API_BASE_URL}/api/users/resend-verification`,
         { email },
         { headers: { 'Content-Type': 'application/json' } }
       );
+      return data as { success: boolean; alreadyVerified?: boolean };
     } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.error || 'Failed to resend code'
+      return rejectWithValue(verifyRejection(error, 'Failed to resend code'));
+    }
+  }
+);
+
+/** Move an unverified account to a corrected address and send a code there. */
+export const changeVerificationEmail = createAsyncThunk(
+  'auth/changeVerificationEmail',
+  async (
+    { email, password, newEmail }: { email: string; password: string; newEmail: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const { data } = await axios.post(
+        `${CONFIG.API_BASE_URL}/api/users/change-verification-email`,
+        { email, password, newEmail },
+        { headers: { 'Content-Type': 'application/json' } }
       );
+      return data as { email: string; verificationSent: boolean };
+    } catch (error: any) {
+      return rejectWithValue(verifyRejection(error, 'Could not change email'));
     }
   }
 );
@@ -265,8 +317,11 @@ const authSlice = createSlice({
         state.error = payload as string;
       })
       .addCase(userLogin.rejected, (state, { payload }) => {
+        const rejection = payload as LoginRejection | undefined;
         state.loading = false;
-        state.error = payload as string;
+        // Unverified isn't an error to show: the login screen routes to the
+        // verify screen instead.
+        state.error = rejection?.needsVerification ? null : (rejection?.message ?? 'Login failed');
         state.isLoggedIn = false;
       })
       // Register
@@ -283,32 +338,9 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = payload as string;
       })
-      // Verify email
-      .addCase(verifyEmail.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(verifyEmail.fulfilled, (state) => {
-        state.loading = false;
-        state.error = null;
-      })
-      .addCase(verifyEmail.rejected, (state, { payload }) => {
-        state.loading = false;
-        state.error = payload as string;
-      })
-      // Resend verification
-      .addCase(resendVerification.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(resendVerification.fulfilled, (state) => {
-        state.loading = false;
-        state.error = null;
-      })
-      .addCase(resendVerification.rejected, (state, { payload }) => {
-        state.loading = false;
-        state.error = payload as string;
-      })
+      // Verify, resend and change-email keep their state on the verify screen.
+      // Through the slice, a failed verify's message outlived the screen and
+      // greeted the member on the login form they were sent back to.
       // Logout
       .addCase(logout.fulfilled, (state, { payload }) => {
         state.loading = false;
