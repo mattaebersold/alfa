@@ -14,6 +14,7 @@ import RallyDays from '../../components/society/RallyDays';
 import RallyFaq from '../../components/society/RallyFaq';
 import RallySubNav, { type RallySection } from '../../components/society/RallySubNav';
 import Avatar from '../../components/ui/Avatar';
+import GroupAttribution from '../../components/groups/GroupAttribution';
 import ImageLightbox from '../../components/ui/ImageLightbox';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
@@ -219,6 +220,14 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
             <Text style={styles.slots}>{rally.slots_available} slots available</Text>
           )}
 
+          {/* The group it's run with — the same "posted in" banner a post
+              carries, and a way into the group. */}
+          {rally.group_id ? (
+            <View style={styles.groupRow}>
+              <GroupAttribution groupId={rally.group_id} />
+            </View>
+          ) : null}
+
           {rally.body ? (
             <Text style={[styles.description, { color: c.fg }]}>{stripHtml(rally.body)}</Text>
           ) : null}
@@ -344,6 +353,7 @@ const styles = StyleSheet.create({
   description:     { fontSize: 15, lineHeight: 22 },
 
   // Shared shape with RallyDays/RallyFaq, so the page reads as one rhythm.
+  groupRow:        { marginTop: 14 },
   section:         { paddingHorizontal: 16, paddingTop: 28 },
   heading:         { fontSize: 20, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   hint:            { fontSize: 12, marginTop: 8 },

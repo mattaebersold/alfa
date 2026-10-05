@@ -3,11 +3,12 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
+  CarSpotToday, CarSpotDay, ConciergeRow,
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
   FeedPreferences, HomeBanner, CarActivityItem, PollSummary,
-  DeclinedInvite, ReportableType, ShopProduct, NotificationType, NotificationSettings,
+  DeclinedInvite, ReportableType, ShopProduct, ShopProductList, NotificationType, NotificationSettings,
   PlacePrediction, PlaceDetail, GroupActivityItem,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
   Listing, ListingMeta, ListingBrowseParams, ListingBrowseResponse,
@@ -325,6 +326,24 @@ export const apiService = createApi({
           undo();
         }
       },
+    }),
+
+    // ── Car Spotter ─────────────────────────────────────────────────────────
+    // The feed reads a shared result against the viewer's own game: whether
+    // they've played today, and how they did on the day the post is about.
+    // Both are protected routes any member may call; a member who hasn't
+    // joined Car Spotter simply has no plays (see User.accounts).
+    getCarSpotToday: builder.query<CarSpotToday, void>({
+      query: () => 'api/carspot/today',
+    }),
+    getCarSpotDay: builder.query<CarSpotDay, string>({
+      query: (date) => `api/carspot/days/${encodeURIComponent(date)}`,
+    }),
+
+    // ── Concierge ───────────────────────────────────────────────────────────
+    /** The concierge page's rows, in the admin's order. Managed from the web dashboard. */
+    getConciergeRows: builder.query<{ entries: ConciergeRow[] }, void>({
+      query: () => 'api/concierge',
     }),
 
     // ── Likes ────────────────────────────────────────────────────────────────
@@ -1266,13 +1285,16 @@ export const apiService = createApi({
       page?: number; limit?: number; time_filter?: 'upcoming' | 'past';
       /** Both required together — the server pairs them into a month range. */
       year?: number; month?: number;
+      /** Only the rallys attached to this group. */
+      group_id?: string;
     }>({
-      query: ({ page = 0, limit = 12, time_filter, year, month } = {}) => ({
+      query: ({ page = 0, limit = 12, time_filter, year, month, group_id } = {}) => ({
         url: 'api/rally',
         params: {
           page, limit,
           ...(time_filter ? { time_filter } : {}),
           ...(year && month ? { year, month } : {}),
+          ...(group_id ? { group_id } : {}),
         },
       }),
       providesTags: ['Rally'],
@@ -1306,37 +1328,23 @@ export const apiService = createApi({
     }),
 
     // ── Shop ─────────────────────────────────────────────────────────────────
-    // Reads are open — a product link is something you send someone, and the
-    // server serves it without a token. Writes are admin-only and enforced
-    // there; the screen only decides whether to offer them.
+    // Products come from the Shopify store, read through horacio's proxy
+    // (services/shopify.js there). Read-only: products are edited in the
+    // Shopify admin, and buying happens on Shopify at the URL each product
+    // carries — see ShopScreen for why the purchase leaves the app.
 
-    getProducts: builder.query<{ entries: ShopProduct[]; total: number }, { limit?: number; category?: string } | void>({
-      query: ({ limit = 100, category } = {}) => ({
-        url: 'api/product',
-        params: { limit, ...(category ? { category } : {}) },
+    getProducts: builder.query<ShopProductList, { limit?: number; collection?: string } | void>({
+      query: ({ limit = 100, collection } = {}) => ({
+        url: 'api/shop/products',
+        params: { limit, ...(collection ? { collection } : {}) },
       }),
       providesTags: ['Product'],
     }),
 
-    /** Drafts included. 403s for anyone who isn't an admin, so skip it for them. */
-    getAdminProducts: builder.query<{ entries: ShopProduct[]; total: number }, void>({
-      query: () => 'api/product/admin/all',
-      providesTags: ['Product'],
-    }),
-
-    createProduct: builder.mutation<{ entry: ShopProduct }, FormData>({
-      query: (body) => ({ url: 'api/product/create', method: 'POST', body }),
-      invalidatesTags: ['Product'],
-    }),
-
-    updateProduct: builder.mutation<{ entry: ShopProduct }, FormData>({
-      query: (body) => ({ url: 'api/product/update', method: 'POST', body }),
-      invalidatesTags: ['Product'],
-    }),
-
-    deleteProduct: builder.mutation<void, string>({
-      query: (internal_id) => ({ url: 'api/product/delete', method: 'POST', body: { internal_id } }),
-      invalidatesTags: ['Product'],
+    getProduct: builder.query<ShopProduct, string>({
+      query: (handle) => `api/shop/products/${handle}`,
+      transformResponse: (r: { entry: ShopProduct }) => r.entry,
+      providesTags: (_r, _e, handle) => [{ type: 'Product', id: handle }],
     }),
 
     // ── Calendar ──────────────────────────────────────────────────────────────
@@ -1371,6 +1379,16 @@ export const apiService = createApi({
     /** In a group (`group_id`) or on a car model (`make` + `model`) — one or the other. */
     createGroupDiscussionPost: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; category?: string }>({
       query: (body) => ({ url: 'api/groupdiscussion/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupDiscussion', id: group_id ?? carScopeKey(make, model) }],
+    }),
+
+    /**
+     * The same create, multipart — for a post with photos. The server reads
+     * the fields off the form and the files under `gallery`; the ids ride
+     * alongside only so the right list is invalidated.
+     */
+    createGroupDiscussionPostForm: builder.mutation<void, { group_id?: string; make?: string; model?: string; form: FormData }>({
+      query: ({ form }) => ({ url: 'api/groupdiscussion/create', method: 'POST', body: form }),
       invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupDiscussion', id: group_id ?? carScopeKey(make, model) }],
     }),
 
@@ -1440,6 +1458,11 @@ export const apiService = createApi({
       query: (body) => ({ url: 'api/groupnews/create', method: 'POST', body }),
       invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupNews', id: group_id }],
     }),
+    /** Multipart, with the item's one picture under `file` — see groupNews' uploadSingle. */
+    createGroupNewsPostForm: builder.mutation<void, { group_id: string; form: FormData }>({
+      query: ({ form }) => ({ url: 'api/groupnews/create', method: 'POST', body: form }),
+      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupNews', id: group_id }],
+    }),
 
     // ── Group Resources ───────────────────────────────────────────────────────
 
@@ -1463,6 +1486,11 @@ export const apiService = createApi({
     /** In a group (`group_id`) or on a car model (`make` + `model`) — one or the other. */
     createGroupResource: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; url?: string; category?: string }>({
       query: (body) => ({ url: 'api/groupresource/create', method: 'POST', body }),
+      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupResources', id: group_id ?? carScopeKey(make, model) }],
+    }),
+    /** Multipart, with photos under `gallery` — as the discussion's. */
+    createGroupResourceForm: builder.mutation<void, { group_id?: string; make?: string; model?: string; form: FormData }>({
+      query: ({ form }) => ({ url: 'api/groupresource/create', method: 'POST', body: form }),
       invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupResources', id: group_id ?? carScopeKey(make, model) }],
     }),
 
@@ -2646,6 +2674,9 @@ export const {
   useLikeEntryMutation,
   useUnlikeEntryMutation,
   useGetLikeUsersQuery,
+  useGetCarSpotTodayQuery,
+  useGetCarSpotDayQuery,
+  useGetConciergeRowsQuery,
   useGetCommentsQuery,
   useGetCommentRepliesQuery,
   useGetCommentCountQuery,
@@ -2768,10 +2799,7 @@ export const {
   useDeleteMessageThreadMutation,
   useSearchMessageUsersQuery,
   useGetProductsQuery,
-  useGetAdminProductsQuery,
-  useCreateProductMutation,
-  useUpdateProductMutation,
-  useDeleteProductMutation,
+  useGetProductQuery,
   useGetRallysQuery,
   useGetRallyQuery,
   useAttendRallyMutation,
@@ -2810,6 +2838,7 @@ export const {
   useGetGroupCarsQuery,
   useGetCarGroupsQuery,
   useCreateGroupDiscussionPostMutation,
+  useCreateGroupDiscussionPostFormMutation,
   useUpdateGroupDiscussionPostMutation,
   useDeleteGroupDiscussionPostMutation,
   useUpvoteGroupDiscussionPostMutation,
@@ -2819,7 +2848,9 @@ export const {
   useUpvoteGroupNewsMutation,
   useDownvoteGroupNewsMutation,
   useCreateGroupNewsPostMutation,
+  useCreateGroupNewsPostFormMutation,
   useCreateGroupResourceMutation,
+  useCreateGroupResourceFormMutation,
   useUpdateGroupResourceMutation,
   useDeleteGroupResourceMutation,
   useUpdateCarGroupMutation,

@@ -103,10 +103,16 @@ export default function PollEditor({
    * missing — so the remove button sits out for them.
    */
   lockedOptionIds,
+  fixed = false,
 }: {
   draft: PollDraft;
   onChange: (next: PollDraft) => void;
   lockedOptionIds?: Set<string>;
+  /**
+   * The poll is the point, not an add-on: no switch, always open. For the
+   * create screen's Poll tab, where the whole form is the poll.
+   */
+  fixed?: boolean;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -129,16 +135,18 @@ export default function PollEditor({
       <View style={styles.headRow}>
         {/* White, like the tag cards' icons — the switch says whether it's on. */}
         <BarChart3 size={15} color={COLOR_WHITE} />
-        <Text style={[styles.headLabel, { color: colors.fg }]}>Add a poll</Text>
-        <Switch
-          value={draft.enabled}
-          onValueChange={(enabled) => onChange({ ...draft, enabled })}
-          trackColor={{ true: brand }}
-          accessibilityLabel="Add a poll"
-        />
+        <Text style={[styles.headLabel, { color: colors.fg }]}>{fixed ? 'Poll' : 'Add a poll'}</Text>
+        {!fixed && (
+          <Switch
+            value={draft.enabled}
+            onValueChange={(enabled) => onChange({ ...draft, enabled })}
+            trackColor={{ true: brand }}
+            accessibilityLabel="Add a poll"
+          />
+        )}
       </View>
 
-      {draft.enabled && (
+      {(fixed || draft.enabled) && (
         <View style={styles.body}>
           <TextInput
             style={fieldStyle}

@@ -97,6 +97,8 @@ export const HEADER_TABS_HEIGHT = 52;
 export interface HeaderTab {
   key: string;
   label: string;
+  /** Before the label, in the label's colour — the group page's tabs wear them too. */
+  Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 }
 
 /**
@@ -245,16 +247,19 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
             >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: on ? brand : TAB_IDLE },
-                  !on && styles.tabLabelIdle,
-                  stuck && (on ? styles.tabLabelStuck : styles.tabLabelIdleStuck),
-                ]}
-              >
-                {t.label}
-              </Text>
+              <View style={styles.tabInner}>
+                {t.Icon ? <t.Icon size={16} color={on ? brand : TAB_IDLE} strokeWidth={on ? 2.4 : 2} /> : null}
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color: on ? brand : TAB_IDLE },
+                    !on && styles.tabLabelIdle,
+                    stuck && (on ? styles.tabLabelStuck : styles.tabLabelIdleStuck),
+                  ]}
+                >
+                  {t.label}
+                </Text>
+              </View>
               {/* Under the lit tab only, in its colour, the width of its word. */}
               <View style={[styles.tabUnderline, { backgroundColor: on ? brand : 'transparent' }]} />
             </TouchableOpacity>
@@ -643,8 +648,8 @@ const TABS_STUCK_INDENT = 12;
  */
 const TABS_ACTIVE_LEFT = 50;
 
-/** Room before the first tab — more than the GUTTER, so the row doesn't start hard on the edge. */
-const TABS_START_PAD = 20;
+/** Room before the first tab — a touch more than the GUTTER, so the row doesn't start hard on the edge. */
+const TABS_START_PAD = 12;
 
 /** An unlit tab — white, stepped back so the lit one leads. */
 const TAB_IDLE = 'rgba(255,255,255,0.6)';
@@ -689,6 +694,7 @@ const styles = StyleSheet.create({
     minHeight: HEADER_TABS_HEIGHT,
   },
   // Semibold at rest.
+  tabInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabLabel: { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // Stuck, and scaled down: a step heavier, so it reads as the same weight.
   tabLabelStuck: { fontFamily: FONT_INTER.bold },
@@ -698,7 +704,7 @@ const styles = StyleSheet.create({
   // Always there, transparent when unlit, so every label sits at the same
   // height whichever tab is active.
   // A touch thicker than a hairline so its round ends show.
-  tabUnderline: { height: 3, borderRadius: 1.5, marginTop: 1 },
+  tabUnderline: { height: 3, borderRadius: 999, marginTop: 1, overflow: 'hidden' },
 
   // Behind the bar, and starting at the physical top of the screen rather than
   // below the safe-area inset — the status bar is translucent, so the content

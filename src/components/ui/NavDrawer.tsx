@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useGetPhotoSpotsQuery } from '@ors/kit';
 import {
   Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings,
+
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -502,16 +503,24 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   } as any))} />
                 <NavTile label="ORS Rallys" Icon={Route}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
+                {/* Home, on its Cars tab — a pane there now, like Events. */}
                 <NavTile label="Cars" Icon={Car}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } } as any))} />
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'cars', at: Date.now() } },
+                  } as any))} />
                 {/* Home, on its Groups tab — like Events and Marketplace. */}
                 <NavTile label="Groups" Icon={Users}
                   onPress={() => closeThen(() => navigation.navigate('MainTabs', {
                     screen: 'FeedTab',
                     params: { screen: 'Feed', params: { tab: 'groups', at: Date.now() } },
                   } as any))} />
+                {/* Home, on its Members tab — a pane there now, like Events. */}
                 <NavTile label="Members" Icon={UserRound}
-                  onPress={() => goFeed('Members')} />
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'members', at: Date.now() } },
+                  } as any))} />
                 <NavTile label="Articles" Icon={BookOpen}
                   onPress={() => goFeed('Articles')} />
                 {/* Routes came out of the tab bar when the marketplace took
@@ -603,32 +612,18 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
               </TouchableOpacity>
               </View>
 
-              {/* Support and Invite, the second pair. */}
-              <View style={[styles.slabPair, styles.slabPairNext]}>
+              {/* Concierge, full width under the pair: the one slab that is
+                  a service the society offers rather than a page about it. */}
               <TouchableOpacity
-                style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
-                onPress={() => closeThen(() => navigation.navigate('Support'))}
+                style={[styles.aboutBtn, styles.slabWide, { backgroundColor: slabFill }]}
+                onPress={() => closeThen(() => navigation.navigate('Concierge'))}
                 activeOpacity={0.85}
+                accessibilityLabel="Concierge services"
               >
-                <LifeBuoy size={20} color={COLOR_BLACK} />
-                <Text style={styles.aboutBtnText} numberOfLines={1}>Support</Text>
+                <Car size={20} color={COLOR_BLACK} />
+                <Text style={styles.aboutBtnText} numberOfLines={1}>Concierge Services</Text>
                 <ChevronRight size={18} color={COLOR_BLACK} />
               </TouchableOpacity>
-
-              {/* Last of the slabs — another way into the society, only for
-                  someone who isn't in it yet. Opens over the menu rather than
-                  closing it, since it's one field and you're coming straight
-                  back. */}
-              <SummaryTouchable
-                style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
-                onPress={(origin) => setInvite({ origin })}
-                accessibilityLabel="Invite a friend"
-              >
-                <UserPlus size={20} color={COLOR_BLACK} />
-                <Text style={styles.aboutBtnText} numberOfLines={1}>Invite a Friend</Text>
-                <ChevronRight size={18} color={COLOR_BLACK} />
-              </SummaryTouchable>
-              </View>
 
               <View style={styles.footer}>
                 {/* Leads the small print, above the version pill it's about.
@@ -637,6 +632,26 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     what it was rather than offering an empty panel. Its own
                     modal and its own unread dot live inside it. */}
                 <WhatsNewButton />
+
+                {/* Support and Invite, as plain links under the release notes:
+                    ways to reach a person, not places to browse to, so they
+                    sit with the small print rather than among the slabs. */}
+                <View style={styles.footLinks}>
+                  <TouchableOpacity
+                    onPress={() => closeThen(() => navigation.navigate('Support'))}
+                    hitSlop={8}
+                    accessibilityRole="link"
+                  >
+                    <Text style={styles.footLink}>Support</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.footDot}>·</Text>
+                  <SummaryTouchable
+                    onPress={(origin) => setInvite({ origin })}
+                    accessibilityLabel="Invite a friend"
+                  >
+                    <Text style={styles.footLink}>Invite a friend</Text>
+                  </SummaryTouchable>
+                </View>
 
                 {/* The society's rooms elsewhere — above the small print,
                     below everything you can do in the app. As marks rather
@@ -953,6 +968,11 @@ const styles = StyleSheet.create({
   slabPair:     { flexDirection: 'row', gap: 8, marginTop: 20 },
   // Half the row, inline as the full-width slabs were.
   slabHalf:     { flex: 1, marginTop: 0, paddingHorizontal: 12, gap: 8 },
+  // The whole row, the pair's gap above it.
+  slabWide:     { marginTop: 8, paddingHorizontal: 12, gap: 8 },
+  footLinks:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  footLink:     { fontSize: 13, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.7)' },
+  footDot:      { fontSize: 13, color: 'rgba(255,255,255,0.35)' },
   // The second pair, the slabs' usual gap below the first.
   slabPairNext: { marginTop: 8 },
 

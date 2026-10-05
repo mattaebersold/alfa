@@ -19,6 +19,7 @@ import {
   useGetGroupNewsQuery,
   useGetGroupResourcesQuery,
   useGetEventsQuery,
+  useGetRallysQuery,
   useGetGroupCarsQuery,
   useGetRoutesQuery,
   useGetUserGarageQuery,
@@ -48,6 +49,7 @@ import RouteTrace from '../../components/routes/RouteTrace';
 import { formatDistance, curvinessLabel } from '../../utils/routeGeometry';
 import { ss } from '../../styles/shared';
 import { calendarDate } from '../../utils/calendarDate';
+import { rallyDateRange, RALLY_DATE_TBA } from '../../utils/rally';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
@@ -200,6 +202,8 @@ export default function GroupSectionScreen() {
   const { data: newsData,      isFetching: newsFetching,      refetch: refetchNews }      = useGetGroupNewsQuery({ groupId }, { skip: tab !== 'news' });
   const { data: resourcesData, isFetching: resourcesFetching, refetch: refetchResources } = useGetGroupResourcesQuery({ groupId }, { skip: tab !== 'resources' });
   const { data: eventsData,    isFetching: eventsFetching,    refetch: refetchEvents }    = useGetEventsQuery({ limit: 20, group_id: groupId }, { skip: tab !== 'events' });
+  // The club rallys attached to this group lead its events.
+  const { data: rallysData,    isFetching: rallysFetching,    refetch: refetchRallys }    = useGetRallysQuery({ group_id: groupId, limit: 20 }, { skip: tab !== 'events' });
   const { data: carsData,      isFetching: carsFetching,      refetch: refetchCars }      = useGetGroupCarsQuery(groupId, { skip: tab !== 'cars' });
   // Routes shared into this group — `group_ids` on the route, as on a post, plus
   // the earliest routes that were attached by a group tag. The API reads both.
@@ -213,7 +217,7 @@ export default function GroupSectionScreen() {
   // header and Members tab both read.
   const refetchTab: Record<string, (() => unknown) | undefined> = {
     posts: refetchPosts, discussion: refetchDiscussion, news: refetchNews,
-    resources: refetchResources, events: refetchEvents, cars: refetchCars,
+    resources: refetchResources, events: () => Promise.all([refetchEvents(), refetchRallys()]), cars: refetchCars,
     routes: refetchRoutes,
   };
   const refreshControl = useRefreshControl(() =>
@@ -371,7 +375,11 @@ export default function GroupSectionScreen() {
     case 'discussion':     rawItems = discussionData?.entries ?? [];     break;
     case 'news':      rawItems = newsData?.entries ?? [];      break;
     case 'resources': rawItems = resourcesData?.entries ?? []; break;
-    case 'events':    rawItems = eventsData?.entries ?? [];    break;
+    // Rallys first, marked so the renderer knows them from the group's own events.
+    case 'events':    rawItems = [
+      ...(rallysData?.entries ?? []).map((r) => ({ ...r, _rally: true })),
+      ...(eventsData?.entries ?? []),
+    ]; break;
     case 'cars':      rawItems = carsData?.entries ?? [];      break;
     case 'routes':    rawItems = routesData?.entries ?? [];    break;
     // 'market' has no rows here — MarketplaceBrowse renders that tab whole.
@@ -677,6 +685,26 @@ export default function GroupSectionScreen() {
       );
     }
 
+    if (item._tab === 'events' && d._rally) {
+      const hero = d.hero_image ? imageUrl(d.hero_image) : firstGalleryUrl(d.gallery);
+      return (
+        <TouchableOpacity
+          style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]}
+          onPress={() => (navigation as any).navigate('RallyDetailModal', { rallyId: d.internal_id })}
+          activeOpacity={0.8}
+        >
+          {hero
+            ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" />
+            : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.rallyTag, { color: c.primaryAlt }]}>ORS RALLY</Text>
+            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
+            <Text style={[styles.metaText, { color: c.grey }]}>{rallyDateRange(d) ?? RALLY_DATE_TBA}</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
     if (item._tab === 'events') {
       const hero = firstGalleryUrl(d.gallery);
       const eventDay = calendarDate(d.event_date);
@@ -760,7 +788,7 @@ export default function GroupSectionScreen() {
     (tab === 'discussion' && discussionFetching) ||
     (tab === 'news' && newsFetching) ||
     (tab === 'resources' && resourcesFetching) ||
-    (tab === 'events' && eventsFetching) ||
+    (tab === 'events' && (eventsFetching || rallysFetching)) ||
     (tab === 'cars' && carsFetching) ||
     (tab === 'routes' && routesFetching)
   );
@@ -1084,6 +1112,7 @@ const styles = StyleSheet.create({
   rowBody:        { fontSize: 13, lineHeight: 18, marginBottom: 3 },
   rowMeta:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metaText:       { fontSize: 12 },
+  rallyTag:       { fontSize: 10, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, marginBottom: 2 },
   rowThumb:       { width: 72, height: 52, borderRadius: 8 },
 
   /**

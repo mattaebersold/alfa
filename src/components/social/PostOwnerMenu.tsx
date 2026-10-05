@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Alert } from 'react-native';
-import { Ellipsis } from 'lucide-react-native';
+import { EllipsisVertical } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDeletePostMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -49,7 +49,7 @@ export default function PostOwnerMenu({ postId, size = 18, color, onEdit, onDele
 
   return (
     <TouchableOpacity onPress={openMenu} hitSlop={8}>
-      <Ellipsis size={size} color={color ?? colors.grey} />
+      <EllipsisVertical size={size} color={color ?? colors.grey} />
     </TouchableOpacity>
   );
 }

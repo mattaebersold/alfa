@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Tag, MessageSquare, CheckCircle2, RotateCcw, Pencil, Trash2, ChevronRight,
-  MessageCircle, Megaphone, Check,
+  MessageCircle, Megaphone, Check, Plus,
 } from 'lucide-react-native';
 import {
   useGetMyListingsQuery,
@@ -270,10 +270,17 @@ export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
 export default function ManageListingsEntry({
   variant = 'row',
   style,
+  onNew,
 }: {
   /** 'row' for a settings-style list; 'card' for a standalone block. */
   variant?: 'row' | 'card';
   style?: any;
+  /**
+   * List something new — a + at the end of the card's bubbles. The host
+   * owns what happens (the form, or the allowance pitch), so the entry stays
+   * ignorant of selling, as the dashboard's row needs it to be.
+   */
+  onNew?: () => void;
 }) {
   const colors = useColors();
   const { data } = useGetMyListingsQuery();
@@ -343,7 +350,7 @@ export default function ManageListingsEntry({
         onPress={() => setOpen(true)}
         activeOpacity={0.75}
         accessibilityRole="button"
-        accessibilityLabel="Manage your listings"
+        accessibilityLabel="Your listings"
       >
         {/* The row keeps its icon, like the dashboard rows around it; the card
             is its words — the unread count is one of the bubbles below. */}
@@ -355,13 +362,27 @@ export default function ManageListingsEntry({
         ) : null}
         <View style={styles.entryText}>
           <Text style={[styles.entryLabel, variant === 'card' && styles.entryLabelCard, { color: colors.fg }]}>
-            Manage your listings
+            Your Listings
           </Text>
           {variant === 'row' ? statsView : null}
         </View>
         {/* On the card the stats sit on the right, level with the title; the
             row keeps them under its title. */}
         {variant === 'card' ? statsView : null}
+        {/* New, as one more bubble after the counts — in the brand colour,
+            since it's the one that does something. */}
+        {variant === 'card' && onNew ? (
+          <TouchableOpacity
+            style={[styles.newBubble, { backgroundColor: colors.primaryAlt }]}
+            onPress={onNew}
+            hitSlop={6}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="New listing"
+          >
+            <Plus size={16} color="#000000" strokeWidth={3} />
+          </TouchableOpacity>
+        ) : null}
         {/* The row keeps its chevron, like the dashboard rows it sits among;
             the card doesn't need one — the whole card is the button. */}
         {variant === 'row' ? <ChevronRight size={16} color={colors.grey} /> : null}
@@ -434,4 +455,6 @@ const styles = StyleSheet.create({
   // Tighter on the icon's side, so the icon sits near the bubble's round end.
   stat:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 7, paddingRight: 9, paddingVertical: 5, borderRadius: 999 },
   statText: { fontSize: 13.5, fontFamily: FONT_INTER.bold },
+  // A bubble's height, round, pressable on its own inside the pressable card.
+  newBubble: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 });

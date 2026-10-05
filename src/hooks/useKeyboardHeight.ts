@@ -45,6 +45,9 @@ export interface KeyboardOverlap {
   onLayout: () => void;
 }
 
+/** A keyboard whose top moved less than this is the same keyboard. */
+const SAME_KEYBOARD = 40;
+
 type Measurable = {
   measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => void;
 };
@@ -53,11 +56,37 @@ export function useKeyboardOverlap(
   ref: React.RefObject<Measurable | null>,
   /** Breathing room between the view's bottom edge and the keyboard. */
   gap = 6,
+  opts: {
+    /**
+     * `ref` is a stand-in that stays at the resting position — it is not the
+     * view the lift is applied to. Then its measurement *is* the resting
+     * position, and nothing is added back.
+     *
+     * For a caller whose lifted view changes size as it lifts (SummaryModal
+     * shrinks its panel): measured mid-animation, the real view is neither at
+     * rest nor at the target, adding the target lift back overshoots, and
+     * every layout pass of the animation re-measures — a panel hunting for a
+     * resting place it keeps moving. A stand-in that never moves measures the
+     * same once as it does a frame later.
+     */
+    resting?: boolean;
+  } = {},
 ): KeyboardOverlap {
+  const resting = !!opts.resting;
   const [lift, setLift] = useState(0);
   const liftRef = useRef(0);
   // Screen Y of the keyboard's top edge; null whenever it's down.
   const keyboardTop = useRef<number | null>(null);
+  /**
+   * In `resting` mode, the keyboard top the current lift was settled against,
+   * or null while the keyboard is down. Once settled, nothing re-measures
+   * until the keyboard goes or comes back at a materially different height
+   * (the emoji keyboard, a different input method). One lift per keyboard —
+   * not a re-measure on every layout pass, every repeated show event and
+   * every suggestion-strip flicker Android produces while it's up, each of
+   * which had the panel hunting for a resting place it had already found.
+   */
+  const settledTop = useRef<number | null>(null);
   const animated = useRef(new Animated.Value(0)).current;
 
   const apply = useCallback((next: number, duration: number) => {
@@ -72,23 +101,34 @@ export function useKeyboardOverlap(
     }).start();
   }, [animated]);
 
-  const remeasure = useCallback((duration = 0) => {
+  const remeasure = useCallback((duration = 0, force = false) => {
     const node = ref.current;
     const top = keyboardTop.current;
     if (!node) return;
     if (top == null) return apply(0, duration);
+    // Settled for this keyboard already — see settledTop.
+    if (resting && !force && settledTop.current != null) return;
 
     node.measureInWindow((_x, y, _w, h) => {
       if (!h) return; // not laid out yet — a later pass will catch it
       // Where this view would sit with no lift applied.
-      const restingBottom = y + h + liftRef.current;
+      const restingBottom = y + h + (resting ? 0 : liftRef.current);
       apply(Math.max(0, Math.round(restingBottom - top + gap)), duration);
     });
-  }, [ref, apply, gap]);
+  }, [ref, apply, gap, resting]);
 
   useEffect(() => {
     const onShow = (e: KeyboardEvent) => {
-      keyboardTop.current = e.endCoordinates.screenY;
+      const top = e.endCoordinates.screenY;
+      if (resting) {
+        // The same keyboard reporting itself again: nothing to do.
+        if (settledTop.current != null && Math.abs(settledTop.current - top) < SAME_KEYBOARD) return;
+        keyboardTop.current = top;
+        settledTop.current = top;
+        remeasure(e.duration, true);
+        return;
+      }
+      keyboardTop.current = top;
       remeasure(e.duration);
       // Later passes, because a stale measurement is the difference between
       // clearing the keyboard and not. On Android the layout and the event
@@ -103,6 +143,7 @@ export function useKeyboardOverlap(
     };
     const onHide = (e: KeyboardEvent) => {
       keyboardTop.current = null;
+      settledTop.current = null;
       apply(0, e?.duration ?? 0);
     };
 
@@ -111,7 +152,7 @@ export function useKeyboardOverlap(
     const show = Keyboard.addListener(showEvent, onShow);
     const hide = Keyboard.addListener(hideEvent, onHide);
     return () => { show.remove(); hide.remove(); };
-  }, [remeasure, apply]);
+  }, [remeasure, apply, resting]);
 
   /**
    * Call from the composer's `onLayout`.

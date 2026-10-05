@@ -23,11 +23,25 @@ const FILENAME = 'nav-state.json';
  * always land on Your Feed. Walks every nested navigator, since the home
  * screen sits a few levels down.
  */
+/**
+ * Screens that are a thing being done, not a place: a form opened to make
+ * something. Reopening the app onto a half-filled create form — with the
+ * camera it was told to raise still in its params — is never where anyone
+ * meant to be, so these are dropped from what's kept, along with anything
+ * stacked over them.
+ */
+const TRANSIENT_ROUTES = new Set(['Create', 'ListingCreate', 'DiecastCreate', 'CreateStory', 'StoryDetails']);
+
 function withoutTabRequests(state: any): any {
   if (!state || !Array.isArray(state.routes)) return state;
+  const firstTransient = state.routes.findIndex((r: any) => TRANSIENT_ROUTES.has(r.name));
+  const kept = firstTransient === -1 ? state.routes : state.routes.slice(0, firstTransient);
+  if (kept.length === 0) return undefined;
+  const index = typeof state.index === 'number' ? Math.min(state.index, kept.length - 1) : undefined;
   return {
     ...state,
-    routes: state.routes.map((route: any) => {
+    ...(index != null ? { index } : {}),
+    routes: kept.map((route: any) => {
       let next = route;
       if (route.name === 'Feed' && route.params && ('tab' in route.params || 'at' in route.params)) {
         const { tab: _tab, at: _at, spotId: _spotId, ...rest } = route.params;
@@ -49,7 +63,8 @@ export function readNavState(): NavigationState | undefined {
     // Marked stale so the navigator that receives it checks it against its
     // own screens instead of trusting it — if the session expired, that's the
     // sign-in stack, and routes it doesn't have are dropped, not rendered.
-    return { ...withoutTabRequests(JSON.parse(file.textSync())), stale: true };
+    const kept = withoutTabRequests(JSON.parse(file.textSync()));
+    return kept ? { ...kept, stale: true } : undefined;
   } catch {
     return undefined;
   }
@@ -58,9 +73,11 @@ export function readNavState(): NavigationState | undefined {
 export function writeNavState(state: NavigationState | undefined) {
   if (!state) return;
   try {
+    const kept = withoutTabRequests(state);
+    if (!kept) return;
     const file = navFile();
     if (!file.exists) file.create({ intermediates: true, overwrite: true });
-    file.write(JSON.stringify(withoutTabRequests(state)));
+    file.write(JSON.stringify(kept));
   } catch {
     // Next change tries again.
   }

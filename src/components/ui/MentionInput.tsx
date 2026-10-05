@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, forwardRef } from 'react';
+import React, { useState, useRef, useCallback, forwardRef, useEffect } from 'react';
 import {
   View, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -33,6 +33,12 @@ interface MentionInputProps {
    */
   disableSuggestions?: boolean;
   maxLength?: number;
+  /**
+   * Fired as the suggestions open and close. The dropdown draws above the
+   * field, inside whatever the field is in — a host whose scroller would clip
+   * it there (a summary panel with a short thread) uses this to make room.
+   */
+  onSuggestionsOpenChange?: (open: boolean) => void;
 }
 
 /** How many of each kind the dropdown shows before it stops. */
@@ -52,6 +58,7 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   onBlur,
   disableSuggestions = false,
   maxLength,
+  onSuggestionsOpenChange,
 }, ref) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -109,9 +116,14 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
     onChangeText(replaced, Array.from(mentionedIds.current));
   }, [value, onChangeText]);
 
+  const open = mentionQuery !== null && hasResults;
+  useEffect(() => { onSuggestionsOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Down with the field, so a host that made room takes it back.
+  useEffect(() => () => { onSuggestionsOpenChange?.(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
-      {mentionQuery !== null && hasResults && (
+      {open && (
         <View style={[
           styles.dropdown,
           // Above the field: a composer sits on the keyboard, so below it

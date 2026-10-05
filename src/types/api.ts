@@ -445,6 +445,34 @@ export interface CarSpotSummary {
   zoom: number;
 }
 
+/**
+ * One member's play of one day's puzzle, as the Car Spotter endpoints return
+ * it (horacio's playPublic). Only the fields the feed compares on.
+ */
+export interface CarSpotPlay {
+  internal_id: string;
+  play_date: string;
+  puzzle_number: number;
+  status: 'playing' | 'won' | 'lost';
+  attempts: number;
+  max_attempts: number;
+  late: boolean;
+}
+
+/** GET api/carspot/today — today's puzzle and my play of it, if any. */
+export interface CarSpotToday {
+  play: CarSpotPlay | null;
+}
+
+/** GET api/carspot/days/:date — one puzzle day, my play of it, and which day is today. */
+export interface CarSpotDay {
+  play_date: string;
+  puzzle_number: number;
+  play: CarSpotPlay | null;
+  /** 'YYYY-MM-DD' in the game's timezone — the only clock the game runs on. */
+  today: string;
+}
+
 // ── Polls ────────────────────────────────────────────────────────────────────
 
 /**
@@ -1373,51 +1401,98 @@ export interface RouteListParams {
 }
 
 // Paginated response envelope
+/** A Shopify CDN image. Append `?width=<n>` to have Shopify resize it. */
+export interface ShopImage {
+  url: string;
+  alt: string;
+  width?: number;
+  height?: number;
+}
+
 /** One buyable option of a product — a size, a colourway. */
 export interface ShopVariant {
-  internal_id?: string;
+  /** Shopify gid, `gid://shopify/ProductVariant/…`. */
+  id: string;
+  internal_id: string;
+  numeric_id: string;
+  /** "S", "Black / XL". */
   label: string;
-  /** Overrides the product's price when set. Whole currency units, not cents. */
-  price?: number;
-  quantity?: number;
-  sku?: string;
-  available?: boolean;
-  /** Server-derived, from `available` and the stock count. */
-  inStock?: boolean;
+  sku?: string | null;
+  /** Whole currency units, not cents. */
+  price: number | null;
+  compare_at_price?: number | null;
+  currency?: string | null;
+  available: boolean;
+  inStock: boolean;
+  options: { name: string; value: string }[];
+  image?: ShopImage | null;
+  /** Shopify checkout with this variant already in the cart. */
+  checkout_url: string;
 }
 
 /**
- * A product in the merch shop.
- *
- * Prices are whole currency units — that's how horacio stores them, to match
- * what the Venmo and PayPal links take in a URL.
+ * A product in the merch shop, as horacio flattens it from Shopify
+ * (horacio/services/shopify.js). Products are managed in the Shopify admin;
+ * the app only reads them and sends buyers to `url` / `checkout_url`.
  */
 export interface ShopProduct {
-  _id?: string;
+  /** Shopify gid, `gid://shopify/Product/…`. */
+  id: string;
+  /** The handle again — what lists key on. */
   internal_id: string;
-  /** The URL segment; the web shop is reached at /shop/<handle>. */
+  /** Shopify's URL segment; the product page is `url`. */
   handle: string;
   title: string;
-  subtitle?: string;
-  /** HTML from the web editor — strip before rendering. */
+  /** Shopify's product type, when set. */
+  subtitle?: string | null;
+  vendor?: string | null;
+  tags?: string[];
+  /** Plain text. */
+  description?: string;
+  /** HTML, as written in the Shopify admin — strip before rendering. */
   body?: string;
-  price: number;
+  /** Lowest variant price; `price_max` is the highest. Whole currency units. */
+  price: number | null;
+  price_max?: number | null;
+  compare_at_price?: number | null;
   currency?: string;
-  quantity?: number;
-  /** Off for made-to-order items; the count is then ignored. */
-  track_quantity?: boolean;
-  /** Server-derived across variants and quantity tracking. */
-  inStock?: boolean;
+  inStock: boolean;
+  options?: { name: string; values: string[] }[];
+  /** Empty for a product with no options — then `checkout_url` is set. */
   variants?: ShopVariant[];
-  gallery?: GalleryItem[];
-  category?: string;
-  shipping_note?: string;
-  /** A draft is admin-only; the public listing returns published ones. */
-  status?: 'draft' | 'published';
-  featured?: boolean;
-  position?: number;
-  user_id?: string;
+  checkout_url?: string | null;
+  gallery?: ShopImage[];
+  /** The product page on the Shopify store. */
+  url: string;
+  status?: 'published';
   created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * One row of the concierge page — a service the society offers, as the
+ * admin wrote it up: what it is, the kinds of work it covers, the platform
+ * it's for (an auction house, the marketplace), a link, and photos.
+ */
+export type ConciergeService = 'detailing' | 'mechanical' | 'photography' | 'auction';
+export type ConciergePlatform = 'bat' | 'marketplace' | 'cab';
+export interface ConciergeRow {
+  internal_id: string;
+  title: string;
+  description?: string;
+  services: ConciergeService[];
+  platform?: ConciergePlatform | null;
+  url?: string | null;
+  gallery?: GalleryItem[];
+  sort_order?: number;
+  created_at?: string;
+}
+
+export interface ShopProductList {
+  entries: ShopProduct[];
+  total: number;
+  collection?: { handle: string; title: string } | null;
+  page?: { hasNextPage: boolean; endCursor: string | null };
 }
 
 export interface PaginatedResponse<T> {

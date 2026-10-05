@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
 import { Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -50,6 +50,8 @@ interface LikeButtonProps {
    * action rail over a post's photo (PostActionRail).
    */
   vertical?: boolean;
+  /** Onto the touchable itself — an outline, a fill — for a heart drawn as a button. */
+  style?: StyleProp<ViewStyle>;
 }
 
 export default function LikeButton({
@@ -63,6 +65,7 @@ export default function LikeButton({
   onToggle,
   ownerId,
   vertical = false,
+  style,
 }: LikeButtonProps) {
   const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
@@ -112,7 +115,7 @@ export default function LikeButton({
       <TouchableOpacity
         ref={btnRef}
         onPress={handlePress}
-        style={vertical ? styles.vertical : styles.container}
+        style={[vertical ? styles.vertical : styles.container, style]}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={

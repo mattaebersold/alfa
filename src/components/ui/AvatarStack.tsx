@@ -27,18 +27,21 @@ export default function AvatarStack({
   total,
   /** A ring in the surface colour behind the stack, so each overlap reads. */
   ringColor,
+  /** How much of each face the next one covers, as a share of its size. */
+  overlap: overlapRatio = 0.22,
 }: {
   users: (AvatarUser | undefined)[];
   max?: number;
   size?: number;
   total?: number;
   ringColor?: string;
+  overlap?: number;
 }) {
   const colors = useColors();
   const shown = users.slice(0, max);
   const rest = (total ?? users.length) - shown.length;
   const ring = ringColor ? { borderWidth: 2, borderColor: ringColor, borderRadius: PILL_RADIUS } : null;
-  const overlap = { marginRight: -Math.round(size * 0.22) };
+  const overlap = { marginRight: -Math.round(size * overlapRatio) };
 
   return (
     <View style={styles.row}>

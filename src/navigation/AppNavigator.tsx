@@ -88,10 +88,11 @@ import ListingCreateScreen from '../screens/marketplace/ListingCreateScreen';
 import MarketplaceMessagesScreen from '../screens/marketplace/MarketplaceMessagesScreen';
 import MarketplaceThreadScreen from '../screens/marketplace/MarketplaceThreadScreen';
 import ShopScreen from '../screens/shop/ShopScreen';
+import ProductDetailScreen from '../screens/shop/ProductDetailScreen';
 import PhotoSpotCreateScreen from '../screens/photography/PhotoSpotCreateScreen';
-import ProductCreateScreen from '../screens/shop/ProductCreateScreen';
 import AboutScreen from '../screens/marketing/AboutScreen';
 import SupportScreen from '../screens/support/SupportScreen';
+import ConciergeScreen from '../screens/marketing/ConciergeScreen';
 import SocietyEventDetailScreen from '../screens/society/SocietyEventDetailScreen';
 import SocietyEventCreateScreen from '../screens/society/SocietyEventCreateScreen';
 import GroupResourcesScreen from '../screens/groups/GroupResourcesScreen';
@@ -299,6 +300,11 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="Concierge"
+        component={ConciergeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="SocietyEventDetail"
         component={SocietyEventDetailScreen}
         options={{ headerShown: false }}
@@ -314,14 +320,14 @@ export default function AppNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="ProductDetail"
+        component={ProductDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="PhotoSpotCreate"
         component={PhotoSpotCreateScreen}
         options={({ navigation }) => ({ headerShown: true, title: 'Pin a Spot', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
-      />
-      <Stack.Screen
-        name="ProductCreate"
-        component={ProductCreateScreen}
-        options={({ navigation, route }) => ({ headerShown: true, title: (route.params as any)?.productId ? 'Edit Product' : 'New Product', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
       />
       <Stack.Screen
         name="CarTasks"

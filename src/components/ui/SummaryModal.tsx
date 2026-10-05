@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing, Platform, useWindowDimensions, type StyleProp, type ViewStyle,
+  View, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing, Platform,
+  useWindowDimensions, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +45,18 @@ export interface SummaryPanelHandle {
    * at all.
    */
   closeThen: (run?: () => void) => void;
+  /**
+   * Scroll the panel's body so this view is in sight.
+   *
+   * For a field that opens partway down the content — a reply under a
+   * comment. When the keyboard comes up the panel shrinks to fit above it
+   * (see "The keyboard" at the lift below), and a field that was in view can
+   * end up under the fold. Measured in window coordinates, the same ones the
+   * panel is sized in, so it is right whatever the panel has done.
+   */
+  scrollIntoView: (node: { measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => void } | null) => void;
+  /** Scroll the panel's body to its foot — for a composer that lives there. */
+  scrollToEnd: (animated?: boolean) => void;
 }
 
 const SummaryPanelContext = createContext<SummaryPanelHandle | null>(null);
@@ -108,6 +121,12 @@ const PANEL_RADIUS = 32;
 const PANEL_BORDER = 1;
 /** Height to assume before the content has been measured. */
 const UNMEASURED_RATIO = 0.55;
+/**
+ * The least a panel shrinks to for the keyboard. Below this it rises instead:
+ * better a panel partly under the status bar than one too short to show the
+ * field being typed into and anything of what it's answering.
+ */
+const MIN_KEYBOARD_H = 220;
 /** How long the box takes to grow — and so how long the contents wait. */
 const OPEN_MS = 420;
 /**
@@ -199,7 +218,9 @@ export default function SummaryModal({
   onAction,
   actionIcon: ActionIcon,
   actionPill = false,
+  actionColor,
   stacked,
+  header,
   children,
 }: {
   visible: boolean;
@@ -222,11 +243,19 @@ export default function SummaryModal({
    * ("Message @matt about this") rather than a word.
    */
   actionPill?: boolean;
+  /** The bottom button's fill, instead of the brand colour — gold for a purchase. */
+  actionColor?: string;
   /**
    * A second summary to present over this one — see "Stacking" above. Render
    * it here rather than next to this panel, or it won't appear on iOS.
    */
   stacked?: React.ReactNode;
+  /**
+   * Pinned above the scroller — a heading that should stay put while the
+   * content under it scrolls, and stay in sight when the keyboard shrinks the
+   * panel and the scroller goes to the field.
+   */
+  header?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const parentPanel = useSummaryPanel();
@@ -273,8 +302,16 @@ export default function SummaryModal({
    * other summary this stays at zero. Applied to a wrapper rather than to the
    * panel itself, so the layers inside it can each keep their own driver.
    */
-  const panelRef = useRef<View>(null);
-  const { animated: keyboardLift, onLayout: onPanelLayout } = useKeyboardOverlap(panelRef, 16);
+  // Measured off an invisible stand-in at the panel's resting rect rather
+  // than off the panel: the panel shrinks and rises for the keyboard, and
+  // measuring a view mid-move is what had it bouncing on Android. See the
+  // hook's `resting`.
+  const restRef = useRef<View>(null);
+  const { lift, animated: keyboardLift, onLayout: onRestLayout } = useKeyboardOverlap(restRef, 16, { resting: true });
+  const keyboardUp = lift > 0;
+  /** The body's scroller, and where it is — for scrollIntoView. */
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffset = useRef(0);
 
   const panelW = screenW * WIDTH_RATIO;
   const panelX = (screenW - panelW) / 2;
@@ -306,11 +343,57 @@ export default function SummaryModal({
    */
   const [scrollH, setScrollH] = useState<number | null>(null);
   const [footerH, setFooterH] = useState(0);
-  const measured = scrollH == null ? null : scrollH + footerH + PANEL_BORDER * 2;
-  const settledH = Math.min(measured ?? maxH * UNMEASURED_RATIO, maxH);
+  const [headerH, setHeaderH] = useState(0);
+  const measured = scrollH == null ? null : scrollH + headerH + footerH + PANEL_BORDER * 2;
+  const liveH = Math.min(measured ?? maxH * UNMEASURED_RATIO, maxH);
+  /**
+   * Held still while the keyboard is up.
+   *
+   * The lift was computed against this height and this screen. Anything that
+   * moves either while the keyboard is up — Android resizing the window
+   * under the keyboard, a content measurement arriving late, a field growing
+   * a line — would move the resting rect, and the lift with it: the panel
+   * visibly hunting. So the panel keeps the size it had when the keyboard
+   * came up, and takes any change once the keyboard has gone.
+   */
+  const held = useRef(liveH);
+  if (!keyboardUp) held.current = liveH;
+  const settledH = keyboardUp ? held.current : liveH;
   // Centred while it fits; past that, pinned under the close button and
   // growing down toward the foot.
   const panelY = Math.max(closeClearance, (screenH - settledH) / 2);
+
+  /**
+   * The keyboard: the panel rises only as far as the close button's room
+   * allows, and gives up height for the rest.
+   *
+   * It used to rise by the whole overlap. A short panel (the invite) has room
+   * above it and that was fine; a tall one (the comments) had none, and the
+   * whole thing went up under the status bar, its top third off the screen.
+   * Now the overlap is split, rise first: `moveUp` is what fits in the room
+   * above, and `shrink` is the remainder, taken off the panel's height so its
+   * foot lands on the keyboard with its head under the close button. A
+   * centred panel rises and shrinks together; one already pinned at the top
+   * only shrinks. The scroller inside is the part that gives, which is what
+   * it's for. A floor keeps the field and some of the thread in view; past it
+   * the panel rises after all.
+   *
+   * Both are derived from the hook's one animated value, so they ease on the
+   * keyboard's own timing. The hook's self-correction holds: it recovers the
+   * resting position by adding the lift it applied back onto where the panel's
+   * foot is, and the foot has moved by exactly moveUp + shrink.
+   */
+  const room = Math.max(0, panelY - closeClearance);
+  const maxShrink = Math.max(0, settledH - MIN_KEYBOARD_H);
+  const clampTo = (v: Animated.Animated, cap: number) =>
+    cap > 0
+      ? (v as Animated.Value).interpolate({ inputRange: [0, cap], outputRange: [0, cap], extrapolate: 'clamp' })
+      : (v as Animated.Value).interpolate({ inputRange: [0, 1], outputRange: [0, 0] });
+  const moveUp = clampTo(keyboardLift, room);
+  const shrink = clampTo(Animated.subtract(keyboardLift, moveUp), maxShrink);
+  // Whatever neither could take: the panel rises regardless, as it used to.
+  const overflow = Animated.subtract(Animated.subtract(keyboardLift, moveUp), shrink);
+  const rise = Animated.add(moveUp, overflow);
 
   // Held for the life of the animation: `origin` belongs to a row that may well
   // unmount while the panel is open, and the panel still has to shrink back to
@@ -425,7 +508,30 @@ export default function SummaryModal({
     pendingAction.current = run ? (parent ? () => parent.closeThen(run) : run) : null;
     onCloseRef.current();
   }, []);
-  const panelHandle = useMemo<SummaryPanelHandle>(() => ({ closeThen }), [closeThen]);
+  const scrollIntoView = useCallback<SummaryPanelHandle['scrollIntoView']>((node) => {
+    const scroller = scrollRef.current;
+    if (!node || !scroller) return;
+    // The scroller's host view is what has a window position.
+    const host = scroller.getNativeScrollRef?.() as unknown as { measureInWindow?: typeof node.measureInWindow } | null;
+    if (!host?.measureInWindow) return;
+    host.measureInWindow((_sx: number, sy: number, _sw: number, sh: number) => {
+      node.measureInWindow((_nx, ny, _nw, nh) => {
+        if (!sh || !nh) return;
+        const below = ny + nh - (sy + sh);
+        const above = sy - ny;
+        if (below > 0) scroller.scrollTo({ y: scrollOffset.current + below + 8, animated: true });
+        else if (above > 0) scroller.scrollTo({ y: Math.max(0, scrollOffset.current - above - 8), animated: true });
+      });
+    });
+  }, []);
+  const scrollToEnd = useCallback((animated = true) => { scrollRef.current?.scrollToEnd({ animated }); }, []);
+
+  const panelHandle = useMemo<SummaryPanelHandle>(
+    () => ({ closeThen, scrollIntoView, scrollToEnd }),
+    [closeThen, scrollIntoView, scrollToEnd],
+  );
+
+
 
   const runAction = useCallback(() => closeThen(onAction), [closeThen, onAction]);
 
@@ -474,8 +580,15 @@ export default function SummaryModal({
         accessibilityLabel="Close"
       />
 
+      <View
+        ref={restRef}
+        onLayout={onRestLayout}
+        pointerEvents="none"
+        style={{ position: 'absolute', left: panelX, top: panelY, width: panelW, height: settledH }}
+      />
+
       <Animated.View
-        style={[StyleSheet.absoluteFill, { transform: [{ translateY: Animated.multiply(keyboardLift, -1) }] }]}
+        style={[StyleSheet.absoluteFill, { transform: [{ translateY: Animated.multiply(rise, -1) }] }]}
         pointerEvents="box-none"
       >
       {/* The close's fade and settle, on its own view: the box inside runs a
@@ -500,7 +613,7 @@ export default function SummaryModal({
             left: track(from.x, panelX),
             top: track(from.y, panelY),
             width: track(from.w, panelW),
-            height: track(from.h, settledH),
+            height: Animated.subtract(track(from.h, settledH), shrink),
             borderRadius: track(Math.min(PANEL_RADIUS, from.h / 2), PANEL_RADIUS),
           },
         ]}
@@ -509,19 +622,23 @@ export default function SummaryModal({
       {/* The content, at the panel's final size throughout. The positioned
           view is plain, so a late measurement moving it touches no animated
           props; the fade is on the view inside, whose style never changes. */}
-      <View
-        ref={panelRef}
-        onLayout={onPanelLayout}
-        style={[styles.panel, { left: panelX, top: panelY, width: panelW, height: settledH }]}
+      <Animated.View
+        style={[styles.panel, { left: panelX, top: panelY, width: panelW, height: Animated.subtract(settledH, shrink) }]}
         pointerEvents={expanded ? 'auto' : 'none'}
       >
         <Animated.View style={fadeStyles.content}>
+          {header ? (
+            <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>{header}</View>
+          ) : null}
           {/* The scroller belongs to the panel rather than to each summary: it's
               the only thing that knows how tall the content wants to be, and
               every summary needs the same "grow to fit, then scroll". */}
           <ScrollView
+            ref={scrollRef}
             style={styles.body}
             showsVerticalScrollIndicator={false}
+            onScroll={(e) => { scrollOffset.current = e.nativeEvent.contentOffset.y; }}
+            scrollEventThrottle={32}
             // A button under an open keyboard should take the first tap, not
             // spend it on dismissing the keyboard.
             keyboardShouldPersistTaps="handled"
@@ -536,7 +653,7 @@ export default function SummaryModal({
               onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
             >
               <TouchableOpacity
-                style={[styles.actionBtn, actionPill && styles.actionPill, { backgroundColor: brand }]}
+                style={[styles.actionBtn, actionPill && styles.actionPill, { backgroundColor: actionColor ?? brand }]}
                 onPress={runAction}
                 activeOpacity={0.85}
                 accessibilityRole="button"
@@ -556,7 +673,7 @@ export default function SummaryModal({
             </View>
           )}
         </Animated.View>
-      </View>
+      </Animated.View>
 
       {/* Outside the panel, above its top-right corner — over the content it
           sat on the photo every summary opens with, and on a pale one it had
@@ -599,12 +716,13 @@ export default function SummaryModal({
 const styles = StyleSheet.create({
   // Lighter than it would be on its own — the blur underneath is doing most of
   // the separating.
-  // A light grey over a stronger blur — the screen behind reads as frosted
-  // grey rather than darkened, so the panel stands forward of it.
-  scrim: { backgroundColor: 'rgba(120,120,120,0.28)' },
+  // A dark grey over the blur — the screen behind reads as dimmed and
+  // frosted, so the panel stands forward of it rather than sitting on a
+  // screen that is still nearly as bright as it is.
+  scrim: { backgroundColor: 'rgba(30,30,30,0.55)' },
   // Android, with no blur under it: doing the whole job on its own, as a
-  // lighter, heavier grey. GrowPanel's `summary` backdrop matches it.
-  scrimOpaque: { backgroundColor: 'rgba(40,40,40,0.9)' },
+  // heavier grey. GrowPanel's `summary` backdrop matches it.
+  scrimOpaque: { backgroundColor: 'rgba(20,20,20,0.92)' },
 
   /**
    * Stacking, bottom to top: scrim, backdrop press, the box, the content, the

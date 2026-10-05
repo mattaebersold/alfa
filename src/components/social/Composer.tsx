@@ -70,6 +70,11 @@ export interface ComposerProps {
   leading?: React.ReactNode;
   /** Draw the bar's send button as an icon rather than the label. */
   sendIcon?: boolean;
+  /**
+   * Draw the attach button as a button in the field's own clothes — a round
+   * outline filled like the field — rather than a bare icon beside it.
+   */
+  attachField?: boolean;
   /** Padding, border and such for the bar's wrapper. */
   barStyle?: StyleProp<ViewStyle>;
   /**
@@ -79,6 +84,8 @@ export interface ComposerProps {
   bottomInset?: number;
   /** Fired as the field gains and loses focus. */
   onOpenChange?: (open: boolean) => void;
+  /** Fired as the mention suggestions open and close — see MentionInput. */
+  onSuggestionsOpenChange?: (open: boolean) => void;
 }
 
 export interface ComposerHandle {
@@ -224,8 +231,8 @@ const FIELD_MAX_H = 120;
  */
 const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
   value, onChangeText, placeholder, photos, onSend, sending, mentions = false,
-  sendLabel = 'Send', maxLength, banner, tone, leading, sendIcon = false, barStyle, bottomInset = 0,
-  onOpenChange,
+  sendLabel = 'Send', maxLength, banner, tone, leading, sendIcon = false, attachField = false,
+  barStyle, bottomInset = 0, onOpenChange, onSuggestionsOpenChange,
 }, ref) {
   const t = useTone(tone);
   const inputRef = useRef<TextInput>(null);
@@ -265,6 +272,7 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
             {...fieldProps}
             containerStyle={styles.fieldWrap}
             onChangeText={onChangeText}
+            onSuggestionsOpenChange={onSuggestionsOpenChange}
           />
         ) : (
           <View style={styles.fieldWrap}>
@@ -281,7 +289,13 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
           </View>
         )}
         {photos ? (
-          <AttachButton photos={photos} tint={t.grey} onPress={() => setPickerOpen(true)} size={21} />
+          <AttachButton
+            photos={photos}
+            tint={t.grey}
+            onPress={() => setPickerOpen(true)}
+            size={attachField ? 19 : 21}
+            style={attachField && [styles.attachField, { backgroundColor: t.field, borderColor: t.border }]}
+          />
         ) : null}
         <TouchableOpacity
           onPress={() => { if (canSend) void onSend(); }}
@@ -334,6 +348,8 @@ const styles = StyleSheet.create({
   sendOff:  { opacity: 0.4 },
   iconBtn:  { width: 36, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   iconBtnOff: { opacity: 0.35 },
+  // The field's radius and rule (ss.chatInput), at the field's one-line height.
+  attachField: { width: 40, height: 40, borderRadius: 20, borderWidth: 1 },
 
   // ── The strip ────────────────────────────────────────────────────────────
   strip:    { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },

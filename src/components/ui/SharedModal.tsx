@@ -6,7 +6,7 @@ import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
-import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost } from '@ors/kit';
+import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost, KeyboardHandledAbove } from '@ors/kit';
 import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -173,7 +173,12 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             styles.sheet,
             surface != null && { backgroundColor: surface },
             heightRatio
-              ? [styles.sheetRatio, { height: Math.round(heightRatio * windowHeight) }]
+              // A flex basis that can shrink, not a fixed height: the stack
+              // pads itself by the keyboard, and a fixed height ignored that
+              // — `maxHeight: '100%'` resolves against the stack's full
+              // height, padding included — so the sheet kept its size and
+              // was pushed up out of the screen instead of giving up room.
+              ? [styles.sheetRatio, { flexBasis: Math.round(heightRatio * windowHeight) }]
               : fullHeight ? styles.sheetFull : styles.sheetSized,
             { transform: [{ translateY: slideY }] },
           ]}
@@ -197,7 +202,9 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               </View>
             </View>
           </View>
-          {children}
+          {/* The sheet has already shrunk for the keyboard: a FormScrollView
+              inside adds no keyboard space of its own. */}
+          <KeyboardHandledAbove>{children}</KeyboardHandledAbove>
           {/* The home indicator's clearance, only while the keyboard is down —
               with it up, the keyboard covers that strip. A spacer that
               collapses as the keyboard rises, not a padding switched on its
@@ -220,9 +227,11 @@ const styles = StyleSheet.create({
     // Never taller than the room left above the keyboard.
     maxHeight: '100%',
   },
-  // Grows with its content from half of that room.
+  // Grows with its content from half of that room, and gives it back to the
+  // keyboard — `flexShrink`, since the percentage cap doesn't see the padding.
   sheetSized: {
     minHeight: '50%',
+    flexShrink: 1,
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,
   },
@@ -234,9 +243,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,
   },
-  // Fixed fraction of the screen: keeps the sized sheet's rounded cap, drops
-  // its minimum; the sheet's maxHeight still shrinks it for the keyboard.
+  // A fraction of the screen to start from: keeps the sized sheet's rounded
+  // cap, drops its minimum, and shrinks for the keyboard — see the basis above.
   sheetRatio: {
+    flexShrink: 1, flexGrow: 0,
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,
   },

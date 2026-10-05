@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -8,11 +8,6 @@ import OilSheen, { useSheenTone } from './OilSheen';
 import { GUTTER, COLOR_BLACK } from '../../constants/config';
 import Avatar from './Avatar';
 import { useAppSelector } from '../../store/store';
-import ActionSheet from './ActionSheet';
-import { ProUpsellModal } from '../pro/ProUpsell';
-import { useIsPro } from '../../hooks/useBrandColor';
-import { useGetUsageQuery } from '../../api/apiService';
-import { LISTING_LIMIT_UPSELL } from '../../constants/config';
 
 /**
  * 42 — down from 50, and 62 before that. In their tray the two circles read
@@ -72,25 +67,7 @@ export default function CreateFab() {
   const insets = useSafeAreaInsets();
   const tint = useBrandColor();
   const sheenTone = useSheenTone();
-  const { userInfo, isLoggedIn } = useAppSelector((s) => s.auth);
-
-  /**
-   * What to make. A listing checks the member's monthly allowance first, as
-   * the marketplace's + did: at the limit it's the Pro upsell, rather than a
-   * form the server would refuse once it's filled in.
-   */
-  const [choosing, setChoosing] = useState(false);
-  const [upsell, setUpsell] = useState(false);
-  const isPro = useIsPro();
-  const { data: usage } = useGetUsageQuery(undefined, { skip: isPro || !isLoggedIn });
-  const listingsFull = !isPro && !!usage?.listings?.reached;
-  const createOptions = [
-    { label: 'Post', onPress: () => navigation.navigate('Create') },
-    {
-      label: 'Marketplace listing',
-      onPress: () => (listingsFull ? setUpsell(true) : navigation.navigate('ListingCreate', { kind: 'sale' })),
-    },
-  ];
+  const { userInfo } = useAppSelector((s) => s.auth);
 
   return (
     <>
@@ -106,9 +83,10 @@ export default function CreateFab() {
     </TouchableOpacity>
     <TouchableOpacity
       style={[styles.fab, { backgroundColor: tint }]}
-      // A choice first: a post, or a listing for the marketplace — the
-      // marketplace's own + went, and this is where listing starts now.
-      onPress={() => setChoosing(true)}
+      // Straight to the camera: the post starts with the picture, and the
+      // form — post, poll or marketplace listing — comes after it. See
+      // CreateScreen's capture-first opening.
+      onPress={() => navigation.navigate('Create', { capture: true })}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel="New post"
@@ -125,18 +103,6 @@ export default function CreateFab() {
       <Plus size={23} color={COLOR_BLACK} strokeWidth={3.3} />
     </TouchableOpacity>
     </View>
-    <ActionSheet
-      visible={choosing}
-      onClose={() => setChoosing(false)}
-      title="Create"
-      options={createOptions}
-    />
-    <ProUpsellModal
-      visible={upsell}
-      onClose={() => setUpsell(false)}
-      title={LISTING_LIMIT_UPSELL.title}
-      message={LISTING_LIMIT_UPSELL.message}
-    />
     </>
   );
 }

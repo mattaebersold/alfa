@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity, ScrollView,
-} from 'react-native';
+  View, StyleSheet, FlatList, TouchableOpacity, ScrollView, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {Search, MapPin} from 'lucide-react-native';
@@ -38,19 +37,42 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 const LIMIT = 20;
 
 export default function MembersScreen() {
-  // The header's back button lands here at the top — see useScrollTopOnBack.
-  const scrollRef = useRef<FlatList<any>>(null);
-  useScrollTopOnBack(scrollRef);
-  const navigation = useNavigation<NavProp>();
   const colors = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
   const route = useRoute<RouteProp<{ Members: { region?: string } }, 'Members'>>();
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <AppHeader />
+      <MembersView headerPad={headerPad} onScroll={onScroll} region={route?.params?.region} />
+    </SafeAreaView>
+  );
+}
+
+/**
+ * Everything on the Members screen below the header, for any screen that
+ * brings its own — the home screen's Members tab: `headerPad` is the space
+ * its header takes, `onScroll` its header's hide-on-scroll handler.
+ */
+export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }: {
+  headerPad: number;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** For a host that needs to move the scroll itself — the home screen's jump to the top. */
+  scrollRef?: React.RefObject<FlatList<any> | null>;
+  /** Start filtered to this region — a region tile on a member's profile. */
+  region?: string;
+}) {
+  // The header's back button lands here at the top — see useScrollTopOnBack.
+  const ownRef = useRef<FlatList<any>>(null);
+  const scrollRef = givenRef ?? ownRef;
+  useScrollTopOnBack(scrollRef);
+  const navigation = useNavigation<NavProp>();
+  const colors = useColors();
   const onAccent = contrastText(colors.primaryAlt);
   const [query, setQuery] = useState('');
   // Near me by default — measured from the zip on your profile. A region tile
   // on a member's profile opens this preset to that region instead.
-  const location = useLocationFilter(route?.params?.region ?? 'near');
+  const location = useLocationFilter(region ?? 'near');
   const [page, setPage] = useState(0);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [summary, setSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
@@ -165,8 +187,7 @@ export default function MembersScreen() {
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
-      <AppHeader />
+    <>
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
         ref={scrollRef}
@@ -208,7 +229,7 @@ export default function MembersScreen() {
         origin={summary?.origin}
         onClose={() => setSummary(null)}
       />
-    </SafeAreaView>
+    </>
   );
 }
 

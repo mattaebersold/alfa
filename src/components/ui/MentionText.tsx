@@ -20,6 +20,12 @@ interface MentionTextProps {
    * anything off, and the line count is the only honest answer to that.
    */
   onTextLayout?: (e: any) => void;
+  /**
+   * Rendered inside the same text run, after the words — an inline "more"
+   * at the end of a clamped preview, which has to share the last line rather
+   * than take one of its own.
+   */
+  trailing?: React.ReactNode;
 }
 
 function UserSegment({ username, textStyle }: { username: string; textStyle?: any }) {
@@ -63,13 +69,14 @@ function CarSegment({ label, carId, textStyle }: { label: string; carId: string;
   );
 }
 
-export default function MentionText({ text, style, numberOfLines, onTextLayout }: MentionTextProps) {
+export default function MentionText({ text, style, numberOfLines, onTextLayout, trailing }: MentionTextProps) {
   const segments = parseMentions(text);
 
   if (segments.length <= 1 && segments[0]?.kind !== 'car' && segments[0]?.kind !== 'user') {
     return (
       <Text style={style} numberOfLines={numberOfLines} onTextLayout={onTextLayout}>
         {text}
+        {trailing}
       </Text>
     );
   }
@@ -85,6 +92,7 @@ export default function MentionText({ text, style, numberOfLines, onTextLayout }
         }
         return <Text key={i}>{seg.text}</Text>;
       })}
+      {trailing}
     </Text>
   );
 }

@@ -63,12 +63,14 @@ const LISTING_ENTRY_TYPE = 'listing';
  * and it's the panel's primary button. The contact flow itself belongs to the
  * messaging work — see useStartListingThread.
  */
-export default function ListingSummaryModal({ listingId, origin, onClose }: {
+export default function ListingSummaryModal({ listingId, origin, onClose, omitGroupId }: {
   /** The listing to summarise. `null` closes the panel. */
   listingId: string | null;
   /** The card that was tapped — the panel grows out of it. */
   origin?: SummaryOrigin | null;
   onClose: () => void;
+  /** The group whose page opened this, so its tile isn't shown — see PostContextRow. */
+  omitGroupId?: string;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -164,10 +166,10 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
    * person who posted it is the buyer, and "Message seller" there would name
    * the wrong side of the deal. Your own listing has nobody to write to.
    */
-  // Who's on the other end, by name — "Message @matt about this".
+  // Who's on the other end, by name — "Ask @matt about this".
   const contactLabel = seller?.username
-    ? `Message @${seller.username} about this`
-    : listing?.kind === 'want' ? 'Message buyer' : 'Message seller';
+    ? `Ask @${seller.username} about this`
+    : listing?.kind === 'want' ? 'Ask the buyer' : 'Ask the seller';
 
   return (
     <SummaryModal
@@ -329,9 +331,10 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
                 same tiles a post in the home feed carries (PostContextRow):
                 one at half width, two sharing the row, three or more a
                 carousel. Each opens its own summary over this one. */}
-            {(car || groups.length > 0) ? (
+            {(car || groups.some((g) => g.internal_id !== omitGroupId)) ? (
               <View style={styles.context}>
                 <PostContextRow
+                  omitGroupId={omitGroupId}
                   post={{
                     internal_id: listing.internal_id,
                     group_ids: groups.map((g) => g.internal_id),
@@ -351,9 +354,12 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
                 initialCount={data?.like_count ?? listing.like_count ?? 0}
                 initialLiked={data?.has_liked ?? listing.has_liked ?? false}
               />
-              <Text style={[styles.commentCount, { color: colors.grey }]}>
-                {comments.length} comment{comments.length === 1 ? '' : 's'}
-              </Text>
+              {/* The bubble and a number, white, the way the heart beside it
+                  reads — not a sentence. */}
+              <View style={styles.commentCount}>
+                <MessageCircle size={18} color={COLOR_WHITE} />
+                <Text style={styles.commentCountText}>{comments.length}</Text>
+              </View>
             </View>
 
             {/* A bounded scroller inside the panel's own: unbounded, a busy
@@ -512,7 +518,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     marginTop: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  commentCount: { fontSize: 12, fontFamily: FONT_INTER.semibold },
+  commentCount: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  commentCountText: { fontSize: 13, fontFamily: FONT_INTER.medium, color: COLOR_WHITE },
 
   // A ceiling, like the panel's: a short thread gets a short list.
   commentList: { maxHeight: 260, marginTop: 4 },

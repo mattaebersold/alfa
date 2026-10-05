@@ -43,7 +43,7 @@ export type FeedStackParamList = {
    * the tab already showing still takes you back to its top.
    */
   Feed: {
-    tab?: 'feed' | 'events' | 'market' | 'groups' | 'photography';
+    tab?: 'feed' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
     at?: number;
     /** With `tab: 'photography'`: a spot to open on the map. */
     spotId?: string;
@@ -205,6 +205,8 @@ export type AppStackParamList = {
     | { threadId: string; listingId?: string; listingTitle?: string; initialBody?: string }
     | { listingId: string; threadId?: undefined; listingTitle?: string; initialBody?: string };
   Shop: undefined;
+  /** One shop product; `handle` is Shopify's. Buying happens in Shopify's sheet over this screen. */
+  ProductDetail: { handle: string };
   /**
    * Pinning a spot. The map itself is the home screen's Photography tab, but creating is
    * a modal over it, the way every other create flow in the app works.
@@ -224,10 +226,10 @@ export type AppStackParamList = {
       }
     | { spotId: string; lat?: undefined; lng?: undefined; name?: undefined; address?: undefined; pickFor?: undefined }
     | undefined;
-  /** Admin-only. With an id it edits that product, without it creates one. */
-  ProductCreate: { productId?: string } | undefined;
   About: undefined;
   Support: undefined;
+  /** Concierge services — the rows the admin manages, and a way to ask about them. */
+  Concierge: undefined;
   SocietyEventDetail: { eventId: string; occurrenceDate?: string };
   SocietyEventCreate: { eventId?: string } | undefined;
   Search: undefined;
@@ -236,7 +238,9 @@ export type AppStackParamList = {
    * own card knows what the post is about.
    */
   /** `spotId`/`spotTitle`: a pin made from the tag picker's "Create a new pin", handed back once saved. */
-  Create: { carId?: string; carTitle?: string; spotId?: string; spotTitle?: string } | undefined;
+  /** `groupId`: opened from inside a group — that group starts as the only one ticked. */
+  /** `capture`: open the camera first, and start the form with what it took — the tab bar's +. */
+  Create: { carId?: string; carTitle?: string; spotId?: string; spotTitle?: string; groupId?: string; capture?: boolean } | undefined;
   DiecastCreate: undefined;
   // Routes — recording is a full-screen flow, so it lives outside the tabs.
   /**

@@ -359,7 +359,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
               {/* Full width: prose reads better with the screen's own margins
                   than inset inside a card that has no background to show for
                   itself now that everything shares one surface. */}
-              {spotResult ? <SpotResultBody carspot={spotResult} inset={16} /> : null}
+              {spotResult ? <SpotResultBody carspot={spotResult} author={{ user_id: post.user_id, username: displayName }} inset={16} /> : null}
 
               {!spotResult && post.body && (
                 // Without a picture the words are the whole post, so they get
@@ -428,7 +428,7 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
 
               {/* Made in a sibling app — under the author, the same place the
                   feed card puts it, and a way back into that app. */}
-              {post.source_app ? (
+              {post.source_app && !spotResult ? (
                 <SourceAppChip app={post.source_app} sourceId={post.source_id} style={styles.sourceChip} />
               ) : null}
 

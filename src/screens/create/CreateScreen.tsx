@@ -8,6 +8,7 @@ import { FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -26,6 +27,7 @@ import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } f
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
 import PostToSelector from '../../components/social/PostToSelector';
 import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '../../components/social/PollEditor';
+import { ListingCreateSheet } from '../marketplace/ListingCreateScreen';
 import { colors } from '../../constants/colors';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -102,6 +104,30 @@ const nextMediaKey = () => `m${++_mediaSeq}_${Date.now()}`;
 const MAX_MEDIA = 10;
 
 /**
+ * Whether there is a camera to open at all.
+ *
+ * The Simulator has none, and expo-image-picker doesn't answer that with a
+ * rejected promise — it raises a native exception ("Source type 1 not
+ * available") and the app is gone. Nothing in the installed modules says
+ * "simulator" outright (expo-constants dropped `isDevice`; expo-device isn't
+ * linked), so this reads the one tell that's left: since iOS 16 a real device
+ * reports its name as the bare model — "iPhone", "iPad" — unless the app
+ * holds an entitlement this one doesn't, while the Simulator reports the
+ * device it's pretending to be ("iPhone 16 Pro"). Wrong only on a device too
+ * old for that rule, where the cost is the library picker instead of the
+ * camera — never a crash. Android emulators have a camera, so no check there.
+ */
+const HAS_CAMERA = Platform.OS !== 'ios' || /^(iPhone|iPad|iPod touch)$/.test(Constants.deviceName ?? '');
+
+/** The tabs under the header — what the thing being made is. */
+type CreateKind = 'post' | 'poll' | 'listing';
+const CREATE_KINDS: { key: CreateKind; label: string }[] = [
+  { key: 'post',    label: 'Post' },
+  { key: 'poll',    label: 'Poll' },
+  { key: 'listing', label: 'Marketplace listing' },
+];
+
+/**
  * One added item, with the handle to remove it.
  *
  * A video shows a still rather than a live player. A row of four autoplaying
@@ -147,6 +173,14 @@ export default function CreateScreen() {
     ? [{ id: route.params.carId, label: route.params.carTitle || 'Car', kind: 'car' }]
     : [];
 
+  /**
+   * What's being made: a post, a poll, or a marketplace listing — the tabs
+   * under the header. One form for the first two (a poll is a post with a
+   * question on it); the listing has a form of its own, which opens over this
+   * one with the photos carried across.
+   */
+  const [kind, setKind] = useState<CreateKind>('post');
+
   // Core
   const [postType, setPostType]   = useState<PostType>('general');
   // The first of the type's categories, chosen up front — see handleTypeChange.
@@ -174,8 +208,11 @@ export default function CreateScreen() {
   const [optional, setOptional] = useState<OptionalFieldValues>(EMPTY_OPTIONAL_FIELDS);
   const { year, make, model, trim, price, mileage, condition, vin, partNumber } = optional;
 
-  // Groups
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  // Groups. Opened from a group's own page, that group starts ticked — and
+  // only that one; the rest are the author's to add.
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(
+    route.params?.groupId ? [route.params.groupId] : [],
+  );
   const [isPublic, setIsPublic]                 = useState(true);
 
   // Poll — off until the author switches it on; the editor owns the shape.
@@ -301,6 +338,10 @@ export default function CreateScreen() {
   }, [mediaRoom, appendMedia, toDraft]);
 
   const addFromCamera = useCallback(async () => {
+    if (!HAS_CAMERA) {
+      Alert.alert('No camera', 'This device has no camera. Choose from the library instead.');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Camera access needed', 'Please allow camera access in Settings to take photos.');
@@ -315,6 +356,10 @@ export default function CreateScreen() {
   }, [appendMedia, toDraft]);
 
   const addVideoFromCamera = useCallback(async () => {
+    if (!HAS_CAMERA) {
+      Alert.alert('No camera', 'This device has no camera. Choose from the library instead.');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Camera access needed', 'Please allow camera access in Settings to record video.');
@@ -346,6 +391,52 @@ export default function CreateScreen() {
     setMedia((prev) => prev.filter((m) => m.key !== key));
   }, []);
 
+  /**
+   * Opened from the tab bar's +: the camera comes up before the form does,
+   * for a photo or a video, and the form starts with what it took. Backing
+   * out of the camera offers the library instead — the system camera has no
+   * way into the roll of its own — and backing out of that leaves an empty
+   * form, with the media field first thing on it.
+   */
+  const captured = useRef(false);
+  useEffect(() => {
+    if (!route.params?.capture || captured.current) return;
+    captured.current = true;
+    const run = async () => {
+      try {
+        const { status } = HAS_CAMERA
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : { status: 'denied' as const };
+        if (status === 'granted') {
+          const shot = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images', 'videos'],
+            quality: 0.85,
+            videoMaxDuration: 120,
+            videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
+          });
+          if (!shot.canceled && shot.assets.length) {
+            appendMedia(await toDraft(shot.assets));
+            return;
+          }
+        }
+        await addFromLibrary();
+      } catch (e) {
+        // The picker failing to present is not worth the form: it's still
+        // here, with the media field first on it.
+        console.warn('[Create] capture failed:', e);
+      }
+    };
+    // Not until this screen has finished arriving. The camera is a native
+    // modal, and iOS refuses — or worse — to present one over a screen that
+    // is itself still being presented. `transitionEnd` is that moment; the
+    // timer is for a host that never fires it (a screen already settled).
+    let fired = false;
+    const go = () => { if (!fired) { fired = true; void run(); } };
+    const unsub = appNav.addListener('transitionEnd' as any, go);
+    const timer = setTimeout(go, 600);
+    return () => { unsub(); clearTimeout(timer); };
+  }, [route.params?.capture, appendMedia, toDraft, addFromLibrary, appNav]);
+
   // ── Tag helpers ─────────────────────────────────────────────────────────────
 
   const toggleTag = useCallback((tag: TagItem) => {
@@ -373,14 +464,16 @@ export default function CreateScreen() {
 
   const handleSubmit = useCallback(async () => {
     Keyboard.dismiss();
-    // A poll is content too — a question with its choices is a whole post.
-    if (!title.trim() && !body.trim() && media.length === 0 && !poll.enabled) {
-      Alert.alert('Content required', 'Please add a title, body, photo, video, or poll.');
+    // The poll goes only from the Poll tab; a draft left on it while posting
+    // from the Post tab stays here.
+    const draft: PollDraft = { ...poll, enabled: kind === 'poll' };
+    if (kind === 'post' && !title.trim() && !body.trim() && media.length === 0) {
+      Alert.alert('Content required', 'Please add a title, body, photo or video.');
       return;
     }
     // Checked before anything uploads: a video takes a while to reach Mux, and
     // learning the poll was one option short *after* that is the wrong order.
-    const pollInput = pollDraftToInput(poll);
+    const pollInput = pollDraftToInput(draft);
     if (pollInput.error) {
       Alert.alert('Check the poll', pollInput.error);
       return;
@@ -531,7 +624,7 @@ export default function CreateScreen() {
       Alert.alert('Post failed', detail);
     }
   }, [
-    postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
+    kind, postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
     taggedUsers, taggedCars, taggedEvents, media,
     createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav, taggedSpots,
   ]);
@@ -550,7 +643,7 @@ export default function CreateScreen() {
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.card }]} edges={[]}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: colors.card }}>
         <View style={styles.headerBar}>
-          <Text style={[styles.headerTitle, { color: colors.fg }]}>Create a post</Text>
+          <Text style={[styles.headerTitle, { color: colors.fg }]}>Create</Text>
           <TouchableOpacity
             style={styles.headerClose}
             onPress={() => appNav.goBack()}
@@ -560,6 +653,25 @@ export default function CreateScreen() {
           >
             <X size={22} color={colors.fg} />
           </TouchableOpacity>
+        </View>
+        {/* What this becomes. The listing tab opens the marketplace's own
+            form over this one, with the photos; closing it lands back here. */}
+        <View style={styles.kindRow} accessibilityRole="tablist">
+          {CREATE_KINDS.map(({ key, label }) => {
+            const on = kind === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.kindTab, on && { backgroundColor: brand }]}
+                onPress={() => setKind(key)}
+                activeOpacity={0.8}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.kindLabel, { color: on ? COLOR_BLACK : colors.muted }]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </SafeAreaView>
 
@@ -574,6 +686,31 @@ export default function CreateScreen() {
         // Clear of the home indicator / navigation bar once scrolled to the end.
         contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
       >
+        {/* Photos / video */}
+        <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <PhotoPickerField
+            onPress={pickImage}
+            title={media.length ? 'Add More Media' : 'Add Photos or Video'}
+            hint=""
+            muted
+            compact={media.length > 0}
+            style={styles.photoField}
+          />
+          {media.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.thumbRow}
+              keyboardShouldPersistTaps="handled"
+            >
+              {media.map((item) => (
+                <MediaThumb key={item.key} item={item} onRemove={() => removeMedia(item.key)} />
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
+        {kind === 'post' && (<>
         {/* Type selector */}
         <View style={[styles.typeRow, { backgroundColor: colors.card }]}>
           {CREATABLE_POST_TYPES.map(({ type, label, color }) => {
@@ -624,6 +761,15 @@ export default function CreateScreen() {
             returnKeyType="next"
           />
         </View>
+        </>)}
+
+        {/* ── The poll, on its tab: the question and its choices, and no
+            switch — here the poll is the post. ── */}
+        {kind === 'poll' && (
+          <View style={styles.pollBlock}>
+            <PollEditor draft={poll} onChange={setPoll} fixed />
+          </View>
+        )}
 
         {/* Body */}
         <View style={[styles.inputBlock, { backgroundColor: colors.card, paddingBottom: 12 }]}>
@@ -631,42 +777,20 @@ export default function CreateScreen() {
             style={[styles.bodyInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={body}
             onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
-            placeholder="What's on your mind?"
+            placeholder={kind === 'poll' ? 'Say something about it (optional)' : "What's on your mind?"}
             placeholderTextColor={colors.grey}
             multiline
           />
         </View>
 
-        {/* Photos / video */}
-        <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <PhotoPickerField
-            onPress={pickImage}
-            title={media.length ? 'Add More Media' : 'Add Photos or Video'}
-            hint=""
-            muted
-            compact={media.length > 0}
-            style={styles.photoField}
+        {/* ── Optional fields — a post's; a poll has none. ── */}
+        {kind === 'post' && (
+          <PostOptionalFields
+            values={optional}
+            onChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
+            showPrice={showPrice}
           />
-          {media.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.thumbRow}
-              keyboardShouldPersistTaps="handled"
-            >
-              {media.map((item) => (
-                <MediaThumb key={item.key} item={item} onRemove={() => removeMedia(item.key)} />
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* ── Optional fields ── */}
-        <PostOptionalFields
-          values={optional}
-          onChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
-          showPrice={showPrice}
-        />
+        )}
 
         {/* ── Tag people, cars & events — always visible (no accordion). No
             label over it: the picker's own search says what it's for. ── */}
@@ -681,9 +805,6 @@ export default function CreateScreen() {
             onCreateSpot={(name) => appNav.navigate('PhotoSpotCreate', { name: name || undefined, pickFor: { screen: 'Create' } })}
           />
         </View>
-
-        {/* ── Poll — optional, folded until switched on ── */}
-        <PollEditor draft={poll} onChange={setPoll} />
 
         {/* ── Post to ── */}
         {/* Framed and headed like the tag cards and Optional Details above it. */}
@@ -718,7 +839,7 @@ export default function CreateScreen() {
           onPress={handleSubmit}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel="Create post"
+          accessibilityLabel={kind === 'poll' ? 'Create poll' : 'Create post'}
         >
           {busy ? (
             <>
@@ -734,10 +855,23 @@ export default function CreateScreen() {
               ) : null}
             </>
           ) : (
-            <Text style={styles.submitText}>Post</Text>
+            <Text style={styles.submitText}>{kind === 'poll' ? 'Create poll' : 'Post'}</Text>
           )}
         </TouchableOpacity>
       </FormScrollView>
+
+      {/* The marketplace's own form, over this one, with the photos taken so
+          far. It has its steps, its allowance check and its own Post; closing
+          it comes back to the Post tab. */}
+      {kind === 'listing' && (
+        <ListingCreateSheet
+          initialKind="sale"
+          initialGroupId={route.params?.groupId}
+          initialImages={media.filter((m): m is Extract<DraftMedia, { kind: 'image' }> => m.kind === 'image')
+            .map((m) => ({ uri: m.uri, name: m.name, type: m.type }))}
+          onDismissed={() => setKind('post')}
+        />
+      )}
 
       {/* The body field is multiline, so its return key inserts a newline and
           can't double as a dismiss. Without this the only way out of the
@@ -792,6 +926,11 @@ const styles = StyleSheet.create({
   },
   headerClose: { position: 'absolute', right: 20, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontFamily: FONT_INTER.extrabold },
+  // Under the header: three pills in a row, the lit one in the brand colour.
+  kindRow:   { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
+  kindTab:   { paddingHorizontal: 14, paddingVertical: 8, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(255,255,255,0.06)' },
+  kindLabel: { fontSize: 13, fontFamily: FONT_INTER.bold },
+  pollBlock: { paddingTop: 4 },
   // Tight to the header above — the header's own padding is the gap.
   typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 12 },
   typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS },

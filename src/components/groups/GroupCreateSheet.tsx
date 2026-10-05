@@ -15,6 +15,7 @@ import {
   useCreateGroupResourceMutation,
   useUpdateGroupDiscussionPostMutation,
   useUpdateGroupResourceMutation,
+  useCreateGroupDiscussionPostFormMutation, useCreateGroupNewsPostFormMutation, useCreateGroupResourceFormMutation,
 } from '../../api/apiService';
 import SharedModal from '../ui/SharedModal';
 import ActionSheet from '../ui/ActionSheet';
@@ -40,13 +41,13 @@ export type CreateKind = 'posts' | 'discussion' | 'news' | 'resources';
 
 const KIND_TITLE: Record<CreateKind, string> = {
   posts:     'New Post',
-  discussion:     'New Discussion Post',
+  discussion:     'New Discussion',
   news:      'New News Item',
   resources: 'New Resource',
 };
 
 const EDIT_TITLE: Partial<Record<CreateKind, string>> = {
-  discussion: 'Edit Discussion Post',
+  discussion: 'Edit Discussion',
   resources:  'Edit Resource',
 };
 
@@ -113,6 +114,9 @@ export default function GroupCreateSheet({
   const [createDiscussion, { isLoading: postingDiscussion }] = useCreateGroupDiscussionPostMutation();
   const [createNews, { isLoading: postingNews }] = useCreateGroupNewsPostMutation();
   const [createResource, { isLoading: postingResource }] = useCreateGroupResourceMutation();
+  const [createDiscussionForm] = useCreateGroupDiscussionPostFormMutation();
+  const [createNewsForm] = useCreateGroupNewsPostFormMutation();
+  const [createResourceForm] = useCreateGroupResourceFormMutation();
   const [updateDiscussion, { isLoading: updatingDiscussion }] = useUpdateGroupDiscussionPostMutation();
   const [updateResource, { isLoading: updatingResource }] = useUpdateGroupResourceMutation();
   const saving = postingPost || postingDiscussion || postingNews || postingResource
@@ -133,6 +137,11 @@ export default function GroupCreateSheet({
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showCategory = kind === 'posts' || kind === 'discussion' || kind === 'resources';
+  // A news item carries one picture (the server's uploadSingle); the rest a
+  // gallery. Not offered on an edit: the server reads an edit's gallery as
+  // "keep these, add those", and this form doesn't yet list what's kept.
+  const maxImages = kind === 'news' ? 1 : 8;
+  const showPhotos = !editing;
   // A post's categories follow its type; a discussion thread's or a resource's come
   // from the group's own list.
   const categoryOptions = kind === 'posts' ? POST_CATEGORIES[postType] : categories;
@@ -146,19 +155,19 @@ export default function GroupCreateSheet({
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 });
     if (!result.canceled && result.assets[0]) {
       const picked = await normalizePickedAssets(result.assets);
-      setImages((prev) => [...prev, ...picked].slice(0, 8));
+      setImages((prev) => [...prev, ...picked].slice(0, maxImages));
     }
-  }, []);
+  }, [maxImages]);
 
   const addFromLibrary = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.85,
+      mediaTypes: ['images'], allowsMultipleSelection: maxImages > 1, selectionLimit: maxImages, quality: 0.85,
     });
     if (!result.canceled) {
       const picked = await normalizePickedAssets(result.assets);
-      setImages((prev) => [...prev, ...picked].slice(0, 8));
+      setImages((prev) => [...prev, ...picked].slice(0, maxImages));
     }
-  }, []);
+  }, [maxImages]);
   const showUrl = kind === 'news' || kind === 'resources';
   const bodyRequired = kind !== 'posts'; // a photo-less post can still be a caption
 
@@ -212,6 +221,24 @@ export default function GroupCreateSheet({
           }
           setImageProgress(null);
         }
+      } else if (images.length > 0) {
+        // With photos it's multipart: the same fields, on a form, and the
+        // files under the name each route reads.
+        const fd = new FormData();
+        Object.entries(home).forEach(([k, v]) => { if (v != null && v !== '') fd.append(k, String(v)); });
+        fd.append('title', title.trim());
+        fd.append('body', body.trim());
+        if (kind !== 'news' && category) fd.append('category', category);
+        if (kind !== 'discussion' && url.trim()) fd.append('url', url.trim());
+        if (kind === 'news') {
+          fd.append('group_id', groupId);
+          fd.append('file', uploadFile(images[0].uri));
+          await createNewsForm({ group_id: groupId, form: fd }).unwrap();
+        } else {
+          images.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
+          if (kind === 'discussion') await createDiscussionForm({ ...home, form: fd }).unwrap();
+          else await createResourceForm({ ...home, form: fd }).unwrap();
+        }
       } else if (kind === 'discussion') {
         await createDiscussion({ ...home, title: title.trim(), body: body.trim(), category }).unwrap();
       } else if (kind === 'news') {
@@ -233,15 +260,17 @@ export default function GroupCreateSheet({
       visible={visible}
       onClose={onClose}
       title={(editing && EDIT_TITLE[kind]) || KIND_TITLE[kind]}
+      // Where it's going, up in the heading's corner rather than as the first
+      // thing in the form — it's context, not a field.
+      headerRight={groupTitle ? (
+        <View style={[styles.groupChip, { backgroundColor: c.secondary, borderColor: c.borderDark }]}>
+          <Text style={[styles.groupChipLabel, { color: c.grey }]}>Group:</Text>
+          <Text style={[styles.groupChipName, { color: c.fg }]} numberOfLines={1}>{groupTitle}</Text>
+        </View>
+      ) : undefined}
       heightRatio={0.85}
     >
       <FormScrollView contentContainerStyle={styles.body}>
-        {groupTitle ? (
-          <View style={[styles.groupChip, { backgroundColor: c.secondary, borderColor: c.borderDark }]}>
-            <Text style={[styles.groupChipLabel, { color: c.grey }]}>Posting to</Text>
-            <Text style={[styles.groupChipName, { color: c.fg }]} numberOfLines={1}>{groupTitle}</Text>
-          </View>
-        ) : null}
 
         {kind === 'posts' && (
           <>
@@ -313,7 +342,17 @@ export default function GroupCreateSheet({
         {showCategory && categoryOptions.length > 0 && (
           <>
             <Text style={[styles.label, { color: c.grey }]}>Category</Text>
-            <View style={styles.chips}>
+            {/* One row that scrolls, rather than wrapping: a group's categories
+                run to a dozen, and wrapped they were a block the title had to
+                be found under. Bled to the sheet's edges so the row runs off
+                them, with the body's inset carried as content padding. */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipScroller}
+              contentContainerStyle={styles.chipRow}
+              keyboardShouldPersistTaps="handled"
+            >
               {categoryOptions.map((cat) => {
                 const active = category === cat.key;
                 const tint = categoryColor(cat.key);
@@ -333,16 +372,18 @@ export default function GroupCreateSheet({
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </>
         )}
 
-        {kind === 'posts' && (
+        {showPhotos && (
           <>
-            <Text style={[styles.label, { color: c.grey }]}>Photos</Text>
+            <Text style={[styles.label, { color: c.grey }]}>{maxImages === 1 ? 'Photo' : 'Photos'}</Text>
             <PhotoPickerField
               onPress={() => { Keyboard.dismiss(); setMediaSheet(true); }}
-              title={images.length ? 'Add More Photos' : 'Add Photos'}
+              title={images.length
+                ? (maxImages === 1 ? 'Change Photo' : 'Add More Photos')
+                : (maxImages === 1 ? 'Add a Photo (optional)' : 'Add Photos (optional)')}
               compact={images.length > 0}
             />
             {images.length > 0 && (
@@ -423,18 +464,22 @@ export default function GroupCreateSheet({
 }
 
 const styles = StyleSheet.create({
-  body:        { padding: 16, paddingBottom: 40 },
-  groupChip:   {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999,
-    paddingHorizontal: 12, paddingVertical: 6, marginBottom: 4,
+  // Close under the heading: the header carries its own foot padding.
+  body:        { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
+  groupChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    maxWidth: 190,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth,
   },
-  groupChipLabel: { fontSize: 11, fontFamily: FONT_INTER.bold },
-  groupChipName:  { fontSize: 13, fontFamily: FONT_INTER.bold },
-  label:       { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 6 },
+  groupChipLabel: { fontSize: 12, fontFamily: FONT_INTER.semibold },
+  groupChipName: { fontSize: 12, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  label:       { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 6 },
   input:       { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
-  inputMulti:  { height: 120, paddingTop: 12, textAlignVertical: 'top' },
+  inputMulti:  { height: 96, paddingTop: 12, textAlignVertical: 'top' },
   chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipScroller:{ marginHorizontal: -16 },
+  chipRow:     { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
   chip:        { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   chipText:    { fontSize: 12, fontFamily: FONT_INTER.bold },
   publicRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 22 },

@@ -9,6 +9,7 @@ import { Provider } from 'react-redux';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { ShopifyCheckoutSheetProvider, ColorScheme } from '@shopify/checkout-sheet-kit';
 import { StatusBar } from 'expo-status-bar';
 import { PortalHost, enableKitFonts } from '@ors/kit';
 import { FONT_FILES } from './src/constants/fonts';
@@ -47,6 +48,9 @@ export default function App() {
             translucent as far as the keyboard is concerned. */}
         <KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
         <Provider store={store}>
+        {/* Shopify's native checkout sheet, for the shop. The URL to present
+            comes from horacio per product; see screens/shop/ProductDetailScreen. */}
+        <ShopifyCheckoutSheetProvider configuration={{ colorScheme: ColorScheme.automatic, preloading: true, title: 'Checkout' }}>
           <StatusBar style="light" />
           {/* Floating lists (autocompletes) draw here, over the screens; each
               Modal has a host of its own. */}
@@ -57,6 +61,7 @@ export default function App() {
               by it — an outage has to be answerable from whatever screen the
               app happens to be on. */}
           <OfflineOverlay />
+        </ShopifyCheckoutSheetProvider>
         </Provider>
         </KeyboardProvider>
       </SafeAreaProvider>

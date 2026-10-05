@@ -7,8 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { Car as CarIcon, Wrench, Settings, Users, Plus, PenSquare, Trash2, MessageSquarePlus, Images, ArrowRightLeft, Check } from 'lucide-react-native';
 import {
-  useGetUserByIdQuery, useGetCarFollowerCountQuery,
-} from '../../api/apiService';
+  useGetUserByIdQuery, useGetCarFollowerCountQuery, useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -177,6 +176,27 @@ export default function CarPosterCard({
 
   const needOwner = attribution || showOwner;
   const { data: owner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id || !needOwner });
+  /**
+   * Following, for the feed's card: the same follow the car's summary and
+   * page offer, here where the car goes by. Not asked for outside the feed,
+   * and not for your own car — there's nothing to follow.
+   */
+  const { data: followStatus } = useGetCarFollowStatusQuery(car.internal_id, {
+    skip: !attribution || !car.internal_id || userInfo?.user_id === car.user_id || userInfo?.user_id === (car as any).coowner_id,
+  });
+  const [followCar, { isLoading: followingNow }] = useFollowCarMutation();
+  const [unfollowCar, { isLoading: unfollowingNow }] = useUnfollowCarMutation();
+  const isFollowing = followStatus?.following ?? false;
+  const followBusy = followingNow || unfollowingNow;
+  const toggleFollow = async () => {
+    if (followBusy) return;
+    try {
+      if (isFollowing) await unfollowCar({ car_id: car.internal_id }).unwrap();
+      else await followCar({ car_id: car.internal_id }).unwrap();
+    } catch {
+      Alert.alert(isFollowing ? "Couldn't unfollow" : "Couldn't follow", 'Please try again.');
+    }
+  };
 
   // Follower count — prefer a value already on the payload, else fetch a lightweight count.
   const inlineFollowerCount = (car as any).followersCount as number | undefined;
@@ -594,6 +614,31 @@ export default function CarPosterCard({
               color={COLOR_WHITE}
             />
           </View>
+          {/* Follow, at the right — your own car has nothing to follow. */}
+          {!isOwner && (
+            <TouchableOpacity
+              style={[
+                styles.followBtn,
+                isFollowing
+                  ? { backgroundColor: colors.segment, borderColor: colors.border }
+                  : { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+                followBusy && styles.followBtnBusy,
+              ]}
+              onPress={toggleFollow}
+              disabled={followBusy}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isFollowing, busy: followBusy }}
+              accessibilityLabel={isFollowing ? 'Following this car' : 'Follow this car'}
+            >
+              {isFollowing
+                ? <Check size={13} color={colors.fg} strokeWidth={3} />
+                : <Plus size={13} color={COLOR_BLACK} strokeWidth={3} />}
+              <Text style={[styles.followText, { color: isFollowing ? colors.fg : COLOR_BLACK }]}>
+                {isFollowing ? 'Following' : 'Follow'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -681,7 +726,14 @@ const styles = StyleSheet.create({
   imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   frameInFeed: { marginHorizontal: GUTTER, marginVertical: 0 },
 
-  footer: { paddingHorizontal: 12, paddingTop: 8 },
+  footer: { paddingHorizontal: 12, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // The summary's follow button, at the card's scale.
+  followBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, height: 32, borderRadius: PILL_RADIUS, borderWidth: 1,
+  },
+  followBtnBusy: { opacity: 0.6 },
+  followText: { fontSize: 12.5, fontFamily: FONT_INTER.bold },
   actionsPill: {
     alignSelf: 'flex-start',
     flexDirection: 'row', alignItems: 'center', gap: 2,

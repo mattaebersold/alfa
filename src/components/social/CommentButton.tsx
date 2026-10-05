@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { MessageCircle, MessageSquareMore } from 'lucide-react-native';
+import { MessageCircle, MessageCircleMore } from 'lucide-react-native';
 import { apiService, useGetCommentCountQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { formatActionCount } from '../../utils/text';
@@ -19,7 +19,7 @@ interface CommentButtonProps {
   onPress?: () => void;
   /** Ink for the icon and count. Defaults to the muted grey. */
   color?: string;
-  /** Stacked and bigger, a speech bubble with dots — the action rail's (PostActionRail). */
+  /** Stacked and bigger, a round speech bubble with dots — the action rail's (PostActionRail). */
   vertical?: boolean;
 }
 
@@ -62,7 +62,7 @@ export default function CommentButton({ count = 0, documentId, onPress, color, v
       accessibilityLabel="Comments"
     >
       {vertical
-        ? <MessageSquareMore size={21} color={ink} strokeWidth={1.8} />
+        ? <MessageCircleMore size={21} color={ink} strokeWidth={1.8} />
         : <MessageCircle size={18} color={ink} />}
       {shown > 0 && (
         vertical ? (

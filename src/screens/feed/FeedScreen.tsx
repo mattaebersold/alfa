@@ -17,6 +17,9 @@ import { useHeaderScroll, showHeader } from '../../hooks/useHeaderScroll';
 import { EventsView } from '../../components/society/EventsView';
 import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { GroupsView } from '../groups/GroupsScreen';
+import { CarsView } from '../cars/CarsScreen';
+import { MembersView } from '../society/MembersScreen';
+import { Home, Calendar, ShoppingBag, Users, Camera, Car, User } from 'lucide-react-native';
 import { PhotographyScreen as KitPhotographyScreen } from '@ors/kit/src/photography';
 import { useGetPhotoSpotQuery } from '@ors/kit';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -33,15 +36,15 @@ import { GUTTER } from '../../constants/config';
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const FEED_TABS: HeaderTab[] = [
-  { key: 'feed', label: 'Feed' },
-  { key: 'events', label: 'Events' },
-  { key: 'market', label: 'Marketplace' },
-  { key: 'groups', label: 'Groups' },
-  { key: 'photography', label: 'Photography' },
-  { key: 'cars', label: 'Cars' },
-  { key: 'members', label: 'Members' },
+  { key: 'feed',        label: 'Feed',        Icon: Home },
+  { key: 'events',      label: 'Events',      Icon: Calendar },
+  { key: 'market',      label: 'Marketplace', Icon: ShoppingBag },
+  { key: 'groups',      label: 'Groups',      Icon: Users },
+  { key: 'photography', label: 'Photography', Icon: Camera },
+  { key: 'cars',        label: 'Cars',        Icon: Car },
+  { key: 'members',     label: 'Members',     Icon: User },
 ];
-type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography';
+type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
 /** How far below its place an arriving tab's content starts, in points. */
 const TAB_ENTER_RISE = 60;
 
@@ -85,6 +88,8 @@ export default function FeedScreen() {
   const onEventsScroll = useHeaderScroll(headerPad);
   const onMarketScroll = useHeaderScroll(headerPad);
   const onGroupsScroll = useHeaderScroll(headerPad);
+  const onCarsScroll = useHeaderScroll(headerPad);
+  const onMembersScroll = useHeaderScroll(headerPad);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
 
@@ -115,6 +120,8 @@ export default function FeedScreen() {
     market: new Animated.Value(1),
     groups: new Animated.Value(1),
     photography: new Animated.Value(1),
+    cars: new Animated.Value(1),
+    members: new Animated.Value(1),
   }).current;
   const paneStyle = (pane: FeedTab) => [
     styles.content,
@@ -142,6 +149,8 @@ export default function FeedScreen() {
     if (pane === 'events') eventsScrollRef.current?.scrollTo({ y: 0, animated: false });
     else if (pane === 'market') marketScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
     else if (pane === 'groups') groupsScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
+    else if (pane === 'cars') carsScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
+    else if (pane === 'members') membersScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
     // The photography map doesn't scroll — nothing to reset.
     else if (pane === 'photography') return;
     else scrollRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -154,15 +163,6 @@ export default function FeedScreen() {
    * tap-to-top.
    */
   const selectTab = (key: string) => {
-    // Cars and Members aren't panes here — they're links to their own pages.
-    if (key === 'cars') {
-      (navigation as any).navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } });
-      return;
-    }
-    if (key === 'members') {
-      (navigation as any).navigate('Members');
-      return;
-    }
     const next = key as FeedTab;
     // Slid back, not snapped — it's coming from wherever the last tab left it.
     showHeader();
@@ -199,6 +199,8 @@ export default function FeedScreen() {
   const eventsScrollRef = useRef<ScrollView>(null);
   const marketScrollRef = useRef<FlatList<Listing>>(null);
   const groupsScrollRef = useRef<FlatList<any>>(null);
+  const carsScrollRef = useRef<FlatList<any>>(null);
+  const membersScrollRef = useRef<FlatList<any>>(null);
   useEffect(() => {
     const asked = route.params?.tab;
     if (!asked) return;
@@ -261,6 +263,16 @@ export default function FeedScreen() {
       {mounted.has('groups') && (
         <Animated.View style={paneStyle('groups')}>
           <GroupsView headerPad={headerPad} onScroll={tab === 'groups' ? onGroupsScroll : undefined} scrollRef={groupsScrollRef} />
+        </Animated.View>
+      )}
+      {mounted.has('cars') && (
+        <Animated.View style={paneStyle('cars')}>
+          <CarsView headerPad={headerPad} onScroll={tab === 'cars' ? onCarsScroll : undefined} scrollRef={carsScrollRef} />
+        </Animated.View>
+      )}
+      {mounted.has('members') && (
+        <Animated.View style={paneStyle('members')}>
+          <MembersView headerPad={headerPad} onScroll={tab === 'members' ? onMembersScroll : undefined} scrollRef={membersScrollRef} />
         </Animated.View>
       )}
       {mounted.has('photography') && (

@@ -66,7 +66,7 @@ const PRICE_MODES: { key: ListingPriceMode; label: string }[] = [
   { key: 'trade',  label: 'Trade' },
 ];
 
-interface PickedImage { uri: string; name: string; type: string }
+export interface PickedImage { uri: string; name: string; type: string }
 
 interface ListingForm {
   kind: ListingKind;
@@ -148,7 +148,7 @@ export default function ListingCreateScreen({ navigation, route }: AppScreenProp
  * The alternative is one form showing every field to everyone, which is the
  * form this replaces.
  */
-export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onDismissed }: {
+export function ListingCreateSheet({ listingId, initialKind, initialGroupId, initialImages, onDismissed }: {
   /** Edit this listing; omitted to create one. */
   listingId?: string;
   /** Which side of the marketplace the create button was on. */
@@ -159,6 +159,8 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
    * edit ignores it: the listing's own groups are what the form loads.
    */
   initialGroupId?: string;
+  /** Photos already taken — the create screen's, when it opens this from its listing tab. */
+  initialImages?: PickedImage[];
   onDismissed: () => void;
 }) {
   const colors = useColors();
@@ -171,9 +173,10 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, onD
   /** Runs once the sheet is gone and the screen has popped. */
   const afterDismiss = useRef<(() => void) | null>(null);
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<ListingForm>(
-    () => emptyForm(initialKind ?? 'sale', listingId ? undefined : initialGroupId),
-  );
+  const [form, setForm] = useState<ListingForm>(() => ({
+    ...emptyForm(initialKind ?? 'sale', listingId ? undefined : initialGroupId),
+    images: (listingId ? [] : initialImages ?? []).slice(0, 10),
+  }));
 
   const { data: meta } = useGetListingMetaQuery();
   const { data: existing } = useGetListingQuery(listingId ?? '', { skip: !listingId });

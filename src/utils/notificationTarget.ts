@@ -101,6 +101,20 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
     return { name: 'Alerts', params: undefined };
   }
 
+  /**
+   * A liked comment. No screen opens a comment on its own; what opens is the
+   * thing it was written on, which the server attaches as
+   * `document_entry_type` / `document_id` (with that thing's own parent ids
+   * merged in — see horacio/helpers/contentRef). So route as if the
+   * notification were about the parent.
+   */
+  if (kind === 'comment') {
+    const parentType = meta.document_entry_type as string | undefined;
+    const parentId = meta.document_id as string | undefined;
+    if (!parentType || !parentId) return null;
+    return notificationTarget({ ...n, content_type: parentType, content_id: parentId });
+  }
+
   if (n.type === 'follow' && kind !== 'garagecar') {
     const uid = n.senderUserId ?? id;
     return uid ? { name: 'UserDetail', params: { userId: uid } } : null;

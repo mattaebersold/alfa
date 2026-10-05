@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from '../ui/Avatar';
@@ -25,7 +25,7 @@ import { postMediaList, type PostMedia } from '../../utils/postMedia';
 import { LinearGradient } from 'expo-linear-gradient';
 import PostMediaCarousel, { PageDots } from '../media/PostMediaCarousel';
 import SourceAppChip from '../social/SourceAppChip';
-import SpotResultBody from '../feed/SpotResultBody';
+import SpotResultBody, { SpotResultAction } from '../feed/SpotResultBody';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
@@ -35,14 +35,33 @@ import { DIECAST_BLUE } from '../../constants/diecast';
  *
  * The feed is a column of these against the page's #0A0A0A, and at card grey
  * they ran together as one continuous slab. Staying under it gives each card an
- * edge without needing a rule to draw one. Darker than it was (#202020): that
- * sat a shade above `card`, which made the posts the brightest things on the
- * page, and the photos in them should be.
+ * edge without needing a rule to draw one. Lifted a shade from #161616, which
+ * was close enough to the page to lose its edge on a dim screen; still under
+ * #202020, which sat above `card` and made the posts the brightest things on
+ * the page, when the photos in them should be.
  */
-const FEED_CARD_BG = COLOR_GRAY_22;
+const FEED_CARD_BG = COLOR_GRAY_26;
 
 /** Lines of description a card shows before it offers "more". */
 const BODY_LINES = 2;
+
+/**
+ * The visible lines, with their tail cut back to make room for "… more".
+ *
+ * The measuring twin reports the text of each line it laid out, so the
+ * preview can be rebuilt from exactly the words the clamp would have shown,
+ * minus the last few — about the width of the link in bold — cut back to a
+ * word boundary so it never ends mid-word. Shorter than the line it replaces,
+ * so it can't wrap; the link then rides the end of the second line instead of
+ * sitting alone on a third.
+ */
+const MORE_ROOM = 10;
+function clipForMore(lines: string[]): string {
+  const shown = lines.join('').replace(/\s+$/, '');
+  const cut = shown.slice(0, Math.max(0, shown.length - MORE_ROOM));
+  const atWord = cut.replace(/\S*$/, '').replace(/\s+$/, '');
+  return atWord || cut;
+}
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
@@ -56,7 +75,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_FOREST,
-  COLOR_GRAY_22,
+  COLOR_GRAY_26,
   COLOR_WHITE,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
@@ -88,9 +107,11 @@ interface FeedItemCardProps {
    * it" — surfaces without a list leave playback alone.
    */
   visible?: boolean;
+  /** The group whose page this card is on, so its tile isn't shown — see PostContextRow. */
+  omitGroupId?: string;
 }
 
-export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible }: FeedItemCardProps) {
+export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible, omitGroupId }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -147,7 +168,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   const entryType = post.entry_type ?? post.type ?? 'post';  // for LikeButton API calls
   const badgeType = post.type ?? post.entry_type ?? 'post';  // what the user actually chose
   const timeAgo = post.created_at
-    ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
+    ? formatDistanceToNowStrict(new Date(post.created_at), { addSuffix: true })
     : '';
   const mediaCount = media.length;
 
@@ -169,7 +190,12 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
   const [bodyExpanded, setBodyExpanded] = useState(false);
   const [bodyLines, setBodyLines] = useState<number | null>(null);
+  /** The first BODY_LINES lines as laid out — what the clamped preview shows. */
+  const [bodyClip, setBodyClip] = useState<string | null>(null);
   const bodyTruncated = !bodyExpanded && bodyLines !== null && bodyLines > BODY_LINES;
+  // Only when there's something to cut and the clip is known; otherwise the
+  // native clamp does what it always did.
+  const inlineMore = bodyTruncated && bodyClip !== null;
 
   /**
    * Tapping the words.
@@ -215,6 +241,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       likers={likers}
       onOpenLikers={(origin) => setLikersOrigin(origin)}
       vertical={vertical}
+      // A game result isn't something to come back to.
+      bookmark={!spotResult}
     />
   );
 
@@ -223,7 +251,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   const cardBg = isDiecast ? DIECAST_BLUE : FEED_CARD_BG;
   const fgColor = isDiecast ? COLOR_WHITE : colors.fg;
   const mutedColor = isDiecast ? 'rgba(255,255,255,0.7)' : colors.muted;
-  const timeColor = isDiecast ? 'rgba(255,255,255,0.6)' : colors.grey;
+  // The time and the menu take the description's ink: the row's furniture
+  // reads at one level, under the name.
+  const timeColor = mutedColor;
   const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
   const categoryBadge = post.category
     ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
@@ -267,9 +297,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         </TouchableOpacity>
         <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
         {userInfo?.user_id === post.user_id ? (
-          <PostOwnerMenu postId={post.internal_id} color={isDiecast ? COLOR_WHITE : colors.grey} />
+          <PostOwnerMenu postId={post.internal_id} color={mutedColor} />
         ) : (
-          <PostOptionsButton postId={post.internal_id} author={user} size={18} />
+          <PostOptionsButton postId={post.internal_id} author={user} size={18} color={mutedColor} />
         )}
       </View>
 
@@ -283,11 +313,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* Where the post was made, when it wasn't made here. Under the author,
           because it's about the post's origin the way the author is, and
           above the post itself so it doesn't read as part of what was said. */}
-      {post.source_app ? (
+      {/* Not on a spot result: the result body says where it's from, and
+          offers its own way into the app. */}
+      {post.source_app && !spotResult ? (
         <SourceAppChip app={post.source_app} sourceId={post.source_id} style={styles.sourceChip} />
       ) : null}
 
-      {spotResult ? <SpotResultBody carspot={spotResult} /> : null}
+      {spotResult ? <SpotResultBody carspot={spotResult} author={user} action={false} /> : null}
 
       {!spotResult && (post.title || bodyText) && (
         <TouchableOpacity
@@ -314,9 +346,20 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           disabled={!handleBodyPress}
         >
           <MentionText
-            text={bodyText}
+            text={inlineMore ? `${clipForMore([bodyClip!])}… ` : bodyText}
             style={[styles.bodyPreview, { color: mutedColor }]}
             numberOfLines={bodyExpanded ? undefined : BODY_LINES}
+            // Only when the clamp is hiding something. A "more" that opens
+            // nothing is worse than no affordance at all.
+            trailing={inlineMore ? (
+              <Text
+                style={[styles.moreLink, { color: mutedColor }]}
+                onPress={() => setBodyExpanded(true)}
+                accessibilityRole="button"
+              >
+                more
+              </Text>
+            ) : null}
           />
 
           {/**
@@ -340,20 +383,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
               <MentionText
                 text={bodyText}
                 style={[styles.bodyPreview, { color: mutedColor }]}
-                onTextLayout={(e) => setBodyLines(e.nativeEvent?.lines?.length ?? 0)}
+                onTextLayout={(e) => {
+                  const lines: { text: string }[] = e.nativeEvent?.lines ?? [];
+                  setBodyLines(lines.length);
+                  setBodyClip(lines.slice(0, BODY_LINES).map((l) => l.text).join(''));
+                }}
               />
             </View>
-          )}
-          {/* Only when the clamp is hiding something. A "more" that opens
-              nothing is worse than no affordance at all. */}
-          {bodyTruncated && (
-            <Text
-              style={[styles.moreLink, { color: mutedColor }]}
-              onPress={() => setBodyExpanded(true)}
-              accessibilityRole="button"
-            >
-              more
-            </Text>
           )}
         </TouchableOpacity>
       ) : null}
@@ -468,11 +504,22 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           what you came to read, and this lands where "and where was this?"
           actually occurs to you. Above the likes, which belong with the
           actions they came from. */}
-      <PostContextRow post={post} />
+      <PostContextRow post={post} omitGroupId={omitGroupId} />
 
       {/* No photo to carry the actions: they end the card in a row of their
           own instead, right-aligned. */}
-      {!hasMedia && <View style={styles.footerRow}>{rail(false)}</View>}
+      {!hasMedia && (
+        <View style={styles.footerRow}>
+          {/* A spot result's way into the game leads the row; the icons keep
+              the right. */}
+          {spotResult ? (
+            <View style={styles.footerLeft}>
+              <SpotResultAction carspot={spotResult} author={user} />
+            </View>
+          ) : null}
+          {rail(false)}
+        </View>
+      )}
 
       <UserSummaryModal
         userId={summaryUserId}
@@ -511,8 +558,9 @@ const styles = StyleSheet.create({
   title:          { fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 20 },
   titleAloneWrap: { paddingHorizontal: 8, paddingTop: 2, paddingBottom: 12 },
   titleAlone:     { fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24 },
-  bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -4 },
-  bodyPreview:    { fontSize: 13, lineHeight: 18 },
+  bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -6 },
+  // Stepped back a touch from `muted`, so the title leads it more clearly.
+  bodyPreview:    { fontSize: 13, lineHeight: 18, opacity: 0.85 },
   /**
    * Same width as the real one, invisible, out of flow.
    *
@@ -527,11 +575,8 @@ const styles = StyleSheet.create({
   },
   // Underlined and on its own line: inline it would have to sit inside the
   // clamped Text, where it'd be the first thing the clamp cut off.
-  moreLink: {
-    fontSize: 13, lineHeight: 18, fontFamily: FONT_INTER.bold,
-    textDecorationLine: 'underline',
-    alignSelf: 'flex-start', marginTop: 1,
-  },
+  // Inline at the end of the preview's last line, in the preview's own size.
+  moreLink: { fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
 
   image:       { width: '100%' },
   // Rounded all round, the card's radius — a tile set into the card between

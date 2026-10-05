@@ -14,7 +14,7 @@ import type { PostLike } from '../../hooks/usePostLike';
 import type { Post } from '../../types/api';
 
 /**
- * A post's actions as a column of icons over its photo — comment, bookmark
+ * A post's actions as a column of icons over its photo — bookmark, comment
  * and, at the foot, like — each with its count underneath, in a faint dark
  * pill — except the like's, which reads leftward from the heart: the count,
  * the faces of the last three people to like it, then "+x" for the rest. The
@@ -30,7 +30,7 @@ import type { Post } from '../../types/api';
  *  - bookmark: saves it to the header's Bookmarks (PostBookmarkButton).
  */
 export default function PostActionRail({
-  post, entryType, like, likers, onOpenLikers, vertical = true,
+  post, entryType, like, likers, onOpenLikers, vertical = true, bookmark = true,
 }: {
   post: Post;
   entryType: string;
@@ -41,6 +41,8 @@ export default function PostActionRail({
   /** Open the likers panel from this rect — the faces, or your own post's heart. */
   onOpenLikers: (origin: SummaryOrigin | null) => void;
   vertical?: boolean;
+  /** Off for a post that isn't worth keeping — a shared game result. */
+  bookmark?: boolean;
 }) {
   const commentRef = useRef<View>(null);
   const heartRef = useRef<View>(null);
@@ -50,6 +52,14 @@ export default function PostActionRail({
   return (
     <>
       <View style={vertical ? styles.column : styles.row} pointerEvents="box-none">
+        {bookmark && (
+          <PostBookmarkButton
+            postId={post.internal_id}
+            count={post.bookmark_count ?? 0}
+            size={vertical ? RAIL_ICON : 20}
+            vertical={vertical}
+          />
+        )}
         <View ref={commentRef} collapsable={false}>
           <CommentButton
             count={post.comment_count ?? post.commentCount ?? 0}
@@ -59,12 +69,6 @@ export default function PostActionRail({
             vertical={vertical}
           />
         </View>
-        <PostBookmarkButton
-          postId={post.internal_id}
-          count={post.bookmark_count ?? 0}
-          size={vertical ? RAIL_ICON : 20}
-          vertical={vertical}
-        />
         {/* Like, last — with the faces of who liked it just to its left:
             hanging off the column on the photo, in line in the footer row. */}
         <View style={styles.likeWrap}>
@@ -116,7 +120,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 4,
     shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
   },
-  row:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  row:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
   itemV:  { alignItems: 'center', gap: 3, padding: 4 },
   likeWrap: { flexDirection: 'row', alignItems: 'center' },
   // The count, then the faces — together to the heart's left.

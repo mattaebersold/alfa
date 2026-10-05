@@ -49,7 +49,7 @@ const BACKDROP = Platform.OS === 'ios' ? 'rgba(64,64,64,0.55)' : 'rgba(64,64,64,
  */
 // Android has no blur to separate the panel from the screen behind, so a
 // lighter, heavier grey does it instead — against black the dark panels sank.
-const SUMMARY_BACKDROP = Platform.OS === 'ios' ? 'rgba(120,120,120,0.28)' : 'rgba(40,40,40,0.9)';
+const SUMMARY_BACKDROP = Platform.OS === 'ios' ? 'rgba(30,30,30,0.55)' : 'rgba(20,20,20,0.92)';
 const SUMMARY_BLUR = 40;
 
 /**

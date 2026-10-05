@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator,
-} from 'react-native';
+  View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
+import { useNavigation } from '@react-navigation/native';
 import { Search, Car, ChevronRight, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -30,15 +30,37 @@ import { COMMON_RADIUS, COLOR_BLACK, GUTTER, CAR_LIMIT_BASIC, PILL_RADIUS } from
 import { FONT_INTER } from '../../constants/fonts'
 
 
-export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
+export default function CarsScreen(_: CarsScreenProps<'Cars'>) {
+  const colors = useColors();
+  const headerPad = useHeaderPad();
+  const onScroll = useHeaderScroll(headerPad);
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <AppHeader />
+      <CarsView headerPad={headerPad} onScroll={onScroll} />
+    </SafeAreaView>
+  );
+}
+
+/**
+ * Everything on the Cars screen below the header, for any screen that brings
+ * its own — the home screen's Cars tab: `headerPad` is the space its header
+ * takes, `onScroll` its header's hide-on-scroll handler.
+ */
+export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
+  headerPad: number;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** For a host that needs to move the scroll itself — the home screen's jump to the top. */
+  scrollRef?: React.RefObject<FlatList<any> | null>;
+}) {
   // The header's back button lands here at the top — see useScrollTopOnBack.
-  const scrollRef = useRef<FlatList<any>>(null);
+  const ownRef = useRef<FlatList<any>>(null);
+  const scrollRef = givenRef ?? ownRef;
   useScrollTopOnBack(scrollRef);
+  const navigation = useNavigation<any>();
   const brand = useBrandColor();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
-  const headerPad = useHeaderPad();
-  const onScroll = useHeaderScroll(headerPad);
   const [page, setPage] = useState(0);
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -109,8 +131,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
     : allCars;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
-      <AppHeader />
+    <>
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
       <FlatList
         ref={scrollRef}
@@ -257,7 +278,7 @@ export default function CarsScreen({ navigation }: CarsScreenProps<'Cars'>) {
         title="Unlimited garage with Pro"
         message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
       />
-    </SafeAreaView>
+    </>
   );
 }
 

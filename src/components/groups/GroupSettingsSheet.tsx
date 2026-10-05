@@ -9,7 +9,7 @@ import type { GroupCar } from '../../types/api';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { UserMinus, ShieldCheck, ShieldOff, Camera, X } from 'lucide-react-native';
+import { UserMinus, ShieldCheck, ShieldOff, Camera, X, MessageCircle, LogOut, ChevronRight } from 'lucide-react-native';
 import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
@@ -25,6 +25,7 @@ import SharedModal from '../ui/SharedModal';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import { JoinRequestsList } from './JoinRequests';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
+import type { SummaryOrigin } from '../ui/SummaryModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
@@ -109,12 +110,7 @@ function ImageSlot({
   );
 }
 
-export default function GroupSettingsSheet({
-  groupId,
-  visible,
-  onClose,
-  onDeleted,
-}: {
+export interface GroupSettingsProps {
   groupId: string;
   visible: boolean;
   onClose: () => void;
@@ -123,6 +119,54 @@ export default function GroupSettingsSheet({
    * this sheet is a view of something that no longer exists.
    */
   onDeleted?: () => void;
+}
+
+export default function GroupSettingsSheet({ groupId, visible, onClose, onDeleted }: GroupSettingsProps) {
+  const { openUser, stacked: stackedUser } = useStackedUserSummary(visible);
+  return (
+    <SharedModal visible={visible} onClose={onClose} title="Group Settings" heightRatio={0.9}>
+      <FormScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <GroupSettingsBody
+          groupId={groupId}
+          visible={visible}
+          onClose={onClose}
+          onDeleted={onDeleted}
+          onOpenUser={openUser}
+        />
+      </FormScrollView>
+      {/* Inside the sheet's own Modal, so the profile presents over it — a
+          sibling would be asked of the root controller, which is busy showing
+          this sheet. */}
+      {stackedUser}
+    </SharedModal>
+  );
+}
+
+/**
+ * The settings themselves, with no scroller or modal of their own.
+ *
+ * Split from the sheet so the group home can show the same thing in a summary
+ * panel, which brings its own scroller — a second one inside it would leave
+ * the panel unable to measure how tall it wants to be.
+ */
+export function GroupSettingsBody({
+  groupId,
+  visible,
+  onClose,
+  onDeleted,
+  onOpenUser,
+  onMessageAdmin,
+  onLeave,
+}: GroupSettingsProps & {
+  /** Opens a member's profile — a join request's, mostly. The host stacks it. */
+  onOpenUser: (userId: string, origin: SummaryOrigin | null) => void;
+  /**
+   * The two things a member does about their own membership. Optional, for a
+   * host with nowhere else to put them — the group home's ⋮ menu used to
+   * carry both, and the cog that replaced it opens this instead.
+   */
+  onMessageAdmin?: () => void;
+  onLeave?: () => void;
 }) {
   const c = useColors();
 
@@ -155,7 +199,6 @@ export default function GroupSettingsSheet({
   }, [visible, group]);
 
   const pending = members.filter((m) => m.status === 'pending');
-  const { openUser, stacked: stackedUser } = useStackedUserSummary(visible);
   const active  = members.filter((m) => m.status === 'active');
   const isAdmin = active.some(
     (m) => m.user_id === userInfo?.user_id && m.member_type === 'admin',
@@ -345,13 +388,10 @@ export default function GroupSettingsSheet({
     }
   };
 
+  if (isLoading) return <Spinner />;
+
   return (
-    <SharedModal visible={visible} onClose={onClose} title="Group Settings" heightRatio={0.9}>
-      {isLoading ? <Spinner /> : (
-        <FormScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
+    <>
           {/* ── Group info ─────────────────────────────────────────── */}
           <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
             <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Group Info</Text>
@@ -461,7 +501,7 @@ export default function GroupSettingsSheet({
                   at and an answer to give. This was a list of names with
                   neither — somewhere you could see that people were waiting
                   and do nothing about it. */}
-              <JoinRequestsList groupId={groupId} pending={pending} onOpenUser={openUser} />
+              <JoinRequestsList groupId={groupId} pending={pending} onOpenUser={onOpenUser} />
             </View>
           )}
 
@@ -526,9 +566,41 @@ export default function GroupSettingsSheet({
             </View>
           )}
 
+          {/* ── Membership — what you do about your own place in the group.
+              Only when the host supplies them; the section screen's sheet
+              leaves them to its own chrome. ─────────────────────────── */}
+          {(onMessageAdmin || onLeave) && (
+            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+              <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Membership</Text>
+              {onMessageAdmin && (
+                <TouchableOpacity
+                  style={[styles.actionRow, { borderTopColor: c.borderDark }]}
+                  onPress={onMessageAdmin}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
+                  <MessageCircle size={17} color={c.fg} />
+                  <Text style={[styles.actionText, { color: c.fg }]}>Message admin</Text>
+                  <ChevronRight size={16} color={c.grey} />
+                </TouchableOpacity>
+              )}
+              {onLeave && (
+                <TouchableOpacity
+                  style={[styles.actionRow, { borderTopColor: c.borderDark }]}
+                  onPress={onLeave}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                >
+                  <LogOut size={17} color={colors.red} />
+                  <Text style={[styles.actionText, { color: colors.red }]}>Leave group</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {/* ── Danger zone ─────────────────────────────────────────
-              Leaving isn't here: it's a normal thing a member does, it lives
-              in the group's ⋮ menu, and putting it beside a permanent delete
+              Leaving is above, in its own section, not here: it's a normal
+              thing a member does, and putting it beside a permanent delete
               invites the wrong tap. This section is for the one action that
               can't be taken back. */}
           {isAdmin && (
@@ -571,13 +643,7 @@ export default function GroupSettingsSheet({
               </View>
             </View>
           )}
-        </FormScrollView>
-      )}
-      {/* Inside the sheet's own Modal, so the profile presents over it — a
-          sibling would be asked of the root controller, which is busy showing
-          this sheet. */}
-      {stackedUser}
-    </SharedModal>
+    </>
   );
 }
 
@@ -614,6 +680,9 @@ const styles = StyleSheet.create({
   saveBtn:     { paddingVertical: 12, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.45 },
   saveText:    { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+
+  actionRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: StyleSheet.hairlineWidth },
+  actionText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   memberInfo:  { flex: 1 },

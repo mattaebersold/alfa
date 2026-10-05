@@ -316,7 +316,15 @@ export default function MarketplaceBrowse({
             {/* Your own side of the market, above the browse: what you're
                 selling, what sold, and anyone waiting on an answer — the
                 unread bubble is the reason it sits this high. */}
-            <ManageListingsEntry variant="card" />
+            <ManageListingsEntry
+              variant="card"
+              // The + inside the card, after the counts. The allowance check
+              // is the same one the group's + runs — at the limit it's the
+              // pitch, not a form the server would refuse.
+              onNew={() => (listingAllowance?.reached
+                ? setUpsell(true)
+                : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) }))}
+            />
 
             {/* For sale or wanted — two halves of the same market rather than
                 two screens, so the filters above apply to whichever you're
