@@ -77,6 +77,16 @@ interface DecisionCopy {
 /** How many notifications show at first, and how many each "more" adds. */
 const NOTIFICATIONS_PAGE = 5;
 
+/**
+ * A row that is still asking something — a join request, an invitation, a
+ * car transfer — with no answer recorded yet. Seeing one of these isn't
+ * dealing with it, so it is never marked read by being looked at; answering
+ * it is what archives it.
+ */
+const awaitingDecision = (n: Notification): boolean =>
+  (n.type === 'group_join_request' || n.type === 'group_invitation' || n.type === 'car_transfer')
+  && !n.metadata?.resolution;
+
 const JOIN_REQUEST: DecisionCopy = {
   yes: 'Approve', no: 'Deny',
   yesResolution: 'approved', noResolution: 'denied',
@@ -327,15 +337,28 @@ export function DeleteAllButton({
    * white so it sits quietly beside the close button.
    */
   color = colors.red,
-}: { color?: string } = {}) {
+  onDone,
+}: { color?: string; onDone?: () => void } = {}) {
   const [deleteRead] = useDeleteReadNotificationsMutation();
 
   // Only what's been read goes — and it goes from the database, not into a
-  // soft-deleted pile. Unread stays whatever tab this is pressed from.
+  // soft-deleted pile. Unread stays whatever tab this is pressed from. Done,
+  // the surface closes: an emptied tab isn't somewhere to stay.
   const confirm = () => {
     Alert.alert('Delete all archived notifications?', "They're removed for good. Unread ones stay.", [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete All', style: 'destructive', onPress: () => deleteRead() },
+      {
+        text: 'Delete All',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteRead().unwrap();
+            onDone?.();
+          } catch (err: any) {
+            Alert.alert("Couldn't delete", err?.data?.message ?? err?.data?.error ?? 'Please try again.');
+          }
+        },
+      },
     ]);
   };
 
@@ -457,7 +480,7 @@ export default function NotificationsList({
   // screen while a modal is still on its way out, so the panel version waits
   // for its own animation before navigating.
   const handlePress = useCallback((n: Notification) => {
-    if (!n.read_status) markRead(n.internal_id);
+    if (!n.read_status && !awaitingDecision(n)) { markRead(n.internal_id); seen.current.delete(n.internal_id); }
     const target = targetForNotification(n);
     onDismiss(target ? () => navigation.navigate(target.name as any, target.params) : undefined);
   }, [markRead, navigation, onDismiss]);
@@ -538,6 +561,18 @@ export default function NotificationsList({
    */
   const [tab, setTab] = useState<'unread' | 'archived'>('unread');
   const openedUnread = useRef<Set<string>>(new Set());
+  /**
+   * Seeing is reading. The unread rows that were actually on the Unread tab
+   * are marked read when the list goes away — closing the panel, or leaving
+   * the screen — so next time they're in Archived. Only what was shown: rows
+   * still behind "Show more" were never seen.
+   */
+  const seen = useRef<Set<string>>(new Set());
+  const markReadRef = useRef(markRead);
+  markReadRef.current = markRead;
+  useEffect(() => () => {
+    seen.current.forEach((id) => { markReadRef.current(id); });
+  }, []);
   all.forEach((n) => { if (!n.read_status) openedUnread.current.add(n.internal_id); });
   const unread = all.filter((n) => openedUnread.current.has(n.internal_id));
   const archived = all.filter((n) => !openedUnread.current.has(n.internal_id));
@@ -550,6 +585,9 @@ export default function NotificationsList({
   const [shown, setShown] = useState(NOTIFICATIONS_PAGE);
   const notifications = onTab.slice(0, shown);
   const remaining = onTab.length - notifications.length;
+  if (tab === 'unread') {
+    notifications.forEach((n) => { if (!n.read_status && !awaitingDecision(n)) seen.current.add(n.internal_id); });
+  }
 
   if (isLoading) return <Spinner fullScreen />;
 
@@ -570,7 +608,7 @@ export default function NotificationsList({
       </View>
       {tab === 'archived' && archived.length > 0 && (
         <View style={styles.deleteAllRow}>
-          <DeleteAllButton />
+          <DeleteAllButton onDone={() => onDismiss()} />
         </View>
       )}
 
