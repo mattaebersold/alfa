@@ -83,10 +83,8 @@ export default function CreateFab() {
     </TouchableOpacity>
     <TouchableOpacity
       style={[styles.fab, { backgroundColor: tint }]}
-      // Straight to the camera: the post starts with the picture, and the
-      // form — post, poll or marketplace listing — comes after it. See
-      // CreateScreen's capture-first opening.
-      onPress={() => navigation.navigate('Create', { capture: true })}
+      // The form; its Add Media is where the camera is.
+      onPress={() => navigation.navigate('Create')}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel="New post"

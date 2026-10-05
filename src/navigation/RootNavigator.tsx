@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { restoreSession, logout } from '../store/authSlice';
-import { apiService, useGetLoggedInUserQuery, useRegisterDeviceTokenMutation } from '../api/apiService';
+import { apiService, useGetLoggedInUserQuery, useRegisterDeviceTokenMutation, useGetUnreadNotificationCountQuery } from '../api/apiService';
 import { setCredentials } from '../store/authSlice';
 import { registerForPushNotifications } from '../utils/pushNotifications';
 import AuthNavigator from './AuthNavigator';
@@ -105,6 +105,26 @@ function AuthGate() {
     skip: !isLoggedIn,
     pollingInterval: 900_000,
   });
+
+  /**
+   * The icon badge follows the unread count.
+   *
+   * A push sets the badge to whatever number it carries, and nothing ever
+   * set it back — so once one arrived the dot stayed on the icon for good.
+   * The count is kept in step here: read in the app, it's refetched by the
+   * read mutations' tag and the badge drops with it; coming back to the app
+   * refetches it too, for notices read elsewhere; signed out, it's cleared.
+   */
+  const { data: unread, refetch: refetchUnread } = useGetUnreadNotificationCountQuery(undefined, { skip: !isLoggedIn });
+  useEffect(() => {
+    const count = isLoggedIn ? unread?.count ?? 0 : 0;
+    Notifications.setBadgeCountAsync(count).catch(() => {});
+  }, [isLoggedIn, unread?.count]);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') void refetchUnread(); });
+    return () => sub.remove();
+  }, [isLoggedIn, refetchUnread]);
 
   useEffect(() => {
     if (!user) return;

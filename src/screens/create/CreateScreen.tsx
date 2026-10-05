@@ -8,12 +8,11 @@ import { FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Camera, Images, Video, Send, MessageSquare, BarChart3, Tag, Plus } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus } from 'lucide-react-native';
 import {
   useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
   useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
@@ -22,6 +21,7 @@ import { useAppSelector, useAppDispatch } from '../../store/store';
 import ActionSheet from '../../components/ui/ActionSheet';
 import MentionInput from '../../components/ui/MentionInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
+import CameraSheet, { type CameraCapture } from '../../components/media/CameraSheet';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
 import Segmented from '../../components/ui/Segmented';
@@ -108,22 +108,6 @@ const nextMediaKey = () => `m${++_mediaSeq}_${Date.now()}`;
 
 /** How much media one post can carry. */
 const MAX_MEDIA = 10;
-
-/**
- * Whether there is a camera to open at all.
- *
- * The Simulator has none, and expo-image-picker doesn't answer that with a
- * rejected promise — it raises a native exception ("Source type 1 not
- * available") and the app is gone. Nothing in the installed modules says
- * "simulator" outright (expo-constants dropped `isDevice`; expo-device isn't
- * linked), so this reads the one tell that's left: since iOS 16 a real device
- * reports its name as the bare model — "iPhone", "iPad" — unless the app
- * holds an entitlement this one doesn't, while the Simulator reports the
- * device it's pretending to be ("iPhone 16 Pro"). Wrong only on a device too
- * old for that rule, where the cost is the library picker instead of the
- * camera — never a crash. Android emulators have a camera, so no check there.
- */
-const HAS_CAMERA = Platform.OS !== 'ios' || /^(iPhone|iPad|iPod touch)$/.test(Constants.deviceName ?? '');
 
 /** The tabs under the header — what the thing being made is. */
 type CreateKind = 'post' | 'poll' | 'listing';
@@ -371,106 +355,37 @@ export default function CreateScreen() {
     appendMedia(await toDraft(result.assets));
   }, [mediaRoom, appendMedia, toDraft]);
 
-  const addFromCamera = useCallback(async () => {
-    if (!HAS_CAMERA) {
-      Alert.alert('No camera', 'This device has no camera. Choose from the library instead.');
-      return;
-    }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Camera access needed', 'Please allow camera access in Settings to take photos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    appendMedia(await toDraft(result.assets));
-  }, [appendMedia, toDraft]);
-
-  const addVideoFromCamera = useCallback(async () => {
-    if (!HAS_CAMERA) {
-      Alert.alert('No camera', 'This device has no camera. Choose from the library instead.');
-      return;
-    }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Camera access needed', 'Please allow camera access in Settings to record video.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['videos'],
-      videoMaxDuration: 120,
-    });
-    if (result.canceled || !result.assets[0]) return;
-    appendMedia(await toDraft(result.assets));
-  }, [appendMedia, toDraft]);
-
-  // A sheet rather than Alert.alert: Android's platform dialog takes three
-  // buttons and drops the rest, so the extra options and the Cancel never made
-  // it to the screen — and what was left couldn't be dismissed by tapping
-  // outside or by the back button.
-  const [mediaSheet, setMediaSheet] = useState(false);
+  /**
+   * Add Media opens the app's own camera (CameraSheet): take a photo, record
+   * a clip, or step out to the library from there. Always the camera — the
+   * old "is there a camera" guess read a real iPhone as the Simulator and sent
+   * it to the library; with the app's own camera there's nothing to crash,
+   * and the Simulator's black preview still has the library button on it.
+   */
+  const [cameraOpen, setCameraOpen] = useState(false);
   const pickImage = useCallback(() => {
     Keyboard.dismiss();
     if (media.length >= MAX_MEDIA) {
       Alert.alert('Media limit reached', `A post can carry up to ${MAX_MEDIA} photos and videos.`);
       return;
     }
-    setMediaSheet(true);
+    setCameraOpen(true);
   }, [media.length]);
+
+  /** A shot from the sheet, as a draft — the same path a picked file takes. */
+  const onCaptured = useCallback(async (c: CameraCapture) => {
+    const asset = (c.kind === 'image'
+      ? { uri: c.uri, width: c.width ?? 0, height: c.height ?? 0, type: 'image', fileName: `photo_${Date.now()}.jpg` }
+      : { uri: c.uri, width: 0, height: 0, type: 'video', fileName: `video_${Date.now()}.mp4` }) as ImagePicker.ImagePickerAsset;
+    appendMedia(await toDraft([asset]));
+    if (mediaRef.current.length + 1 >= MAX_MEDIA) setCameraOpen(false);
+  }, [appendMedia, toDraft]);
 
   const removeMedia = useCallback((key: string) => {
     shrinking.current.delete(key);
     setMedia((prev) => prev.filter((m) => m.key !== key));
   }, []);
 
-  /**
-   * Opened from the tab bar's +: the camera comes up before the form does,
-   * for a photo or a video, and the form starts with what it took. Backing
-   * out of the camera offers the library instead — the system camera has no
-   * way into the roll of its own — and backing out of that leaves an empty
-   * form, with the media field first thing on it.
-   */
-  const captured = useRef(false);
-  useEffect(() => {
-    if (!route.params?.capture || captured.current) return;
-    captured.current = true;
-    const run = async () => {
-      try {
-        const { status } = HAS_CAMERA
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : { status: 'denied' as const };
-        if (status === 'granted') {
-          const shot = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images', 'videos'],
-            quality: 0.85,
-            videoMaxDuration: 120,
-            videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
-          });
-          if (!shot.canceled && shot.assets.length) {
-            appendMedia(await toDraft(shot.assets));
-            return;
-          }
-        }
-        await addFromLibrary();
-      } catch (e) {
-        // The picker failing to present is not worth the form: it's still
-        // here, with the media field first on it.
-        console.warn('[Create] capture failed:', e);
-      }
-    };
-    // Not until this screen has finished arriving. The camera is a native
-    // modal, and iOS refuses — or worse — to present one over a screen that
-    // is itself still being presented. `transitionEnd` is that moment; the
-    // timer is for a host that never fires it (a screen already settled).
-    let fired = false;
-    const go = () => { if (!fired) { fired = true; void run(); } };
-    const unsub = appNav.addListener('transitionEnd' as any, go);
-    const timer = setTimeout(go, 600);
-    return () => { unsub(); clearTimeout(timer); };
-  }, [route.params?.capture, appendMedia, toDraft, addFromLibrary, appNav]);
 
   // ── Tag helpers ─────────────────────────────────────────────────────────────
 
@@ -969,16 +884,13 @@ export default function CreateScreen() {
         </KeyboardStickyView>
       )}
 
-      <ActionSheet
-        visible={mediaSheet}
-        onClose={() => setMediaSheet(false)}
-        title="Add media"
-        message="Photos and videos can be mixed, in any order."
-        options={[
-          { label: 'Choose from Library', Icon: Images, onPress: addFromLibrary },
-          { label: 'Take Photo',          Icon: Camera, onPress: addFromCamera },
-          { label: 'Record Video',        Icon: Video,  onPress: addVideoFromCamera },
-        ]}
+      <CameraSheet
+        visible={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={onCaptured}
+        // The sheet goes first, then the library over the form — one modal
+        // over another is what iOS refuses.
+        onPickLibrary={() => { setCameraOpen(false); setTimeout(() => { void addFromLibrary(); }, 400); }}
       />
     </SafeAreaView>
   );
