@@ -77,6 +77,7 @@ import {
   COLOR_GRAY_31,
   COLOR_RED,
   COLOR_WHITE,
+  COLOR_PRO,
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
@@ -498,8 +499,8 @@ export default function GroupDetailScreen() {
       >
         {TABS.map(({ key, label, Icon }) => {
           const on = key === tab;
-          // The header's own idle white, stepped back, so the lit one leads.
-          const color = on ? brand : HEADER_TAB_IDLE;
+          // The header's colours: gold lit, its idle white stepped back.
+          const color = on ? COLOR_PRO : HEADER_TAB_IDLE;
           return (
             <TouchableOpacity
               key={key}
@@ -515,7 +516,7 @@ export default function GroupDetailScreen() {
                 <Text style={[styles.tabLabel, { color }, !on && styles.tabLabelIdle]}>{label}</Text>
               </View>
               {/* Under the lit tab only, in its colour — as the header's. */}
-              <View style={[styles.tabUnderline, { backgroundColor: on ? brand : 'transparent' }]} />
+              <View style={[styles.tabUnderline, { backgroundColor: on ? COLOR_PRO : 'transparent' }]} />
             </TouchableOpacity>
           );
         })}

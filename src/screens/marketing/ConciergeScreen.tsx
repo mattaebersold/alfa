@@ -1,13 +1,13 @@
 import React, { useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Linking, useWindowDimensions } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowUpRight, MessageCircle } from 'lucide-react-native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import Spinner from '../../components/ui/Spinner';
+import { ProductGallery } from '../../components/shop/ProductSummaryModal';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { useGetConciergeRowsQuery, useGetPublicUserQuery } from '../../api/apiService';
@@ -17,7 +17,7 @@ import { imageUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
 import type { ConciergeRow, ConciergeService, ConciergePlatform } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_22, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -44,71 +44,55 @@ export const PLATFORM_LABELS: Record<ConciergePlatform, string> = {
   cab: 'Cars & Bids',
 };
 
-/** The page's own photos, before any row's — the ones the website opens with. */
-const INTRO_IMAGES = [
-  require('../../../assets/concierge/1.jpg'),
-  require('../../../assets/concierge/2.jpg'),
-  require('../../../assets/concierge/3.jpg'),
-  require('../../../assets/concierge/4.jpg'),
-  require('../../../assets/concierge/5.jpg'),
-];
-
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 function RowCard({ row, width }: { row: ConciergeRow; width: number }) {
   const colors = useColors();
   const brand = useBrandColor();
-  const photos = (row.gallery ?? []).map((g) => imageUrl(g.filename)).filter((u): u is string => !!u);
-  // Each photo most of the card, so the next one peeks.
-  const photoW = Math.round((width - 28) * (photos.length > 1 ? 0.82 : 1));
+  const photos = (row.gallery ?? [])
+    .map((g) => imageUrl(g.filename))
+    .filter((u): u is string => !!u)
+    .map((url) => ({ url, alt: row.title }));
   return (
-    <View style={[styles.card, { backgroundColor: COLOR_GRAY_22, borderColor: colors.borderDark }]}>
-      <View style={styles.cardHead}>
-        <Text style={[styles.cardTitle, { color: colors.fg }]}>{row.title}</Text>
-        {row.platform ? (
-          <View style={[styles.platform, { borderColor: brand }]}>
-            <Text style={[styles.platformText, { color: brand }]}>{PLATFORM_LABELS[row.platform]}</Text>
+    <View style={[styles.row, { borderTopColor: colors.borderDark }]}>
+      {/* The photos first, edge to edge, one at a time — the same carousel
+          the shop pages through, with its dots. */}
+      {photos.length > 0 && (
+        <ProductGallery images={photos} width={width} aspectRatio={3 / 2} />
+      )}
+      <View style={styles.rowBody}>
+        <View style={styles.cardHead}>
+          <Text style={[styles.cardTitle, { color: colors.fg }]}>{row.title}</Text>
+          {row.platform ? (
+            <View style={[styles.platform, { borderColor: brand }]}>
+              <Text style={[styles.platformText, { color: brand }]}>{PLATFORM_LABELS[row.platform]}</Text>
+            </View>
+          ) : null}
+        </View>
+        {row.services.length > 0 && (
+          <View style={styles.bubbles}>
+            {row.services.map((s) => (
+              <View key={s} style={[styles.bubble, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.bubbleText, { color: colors.fg }]}>{SERVICE_LABELS[s] ?? s}</Text>
+              </View>
+            ))}
           </View>
+        )}
+        {row.description ? (
+          <Text style={[styles.cardBody, { color: colors.muted }]}>{row.description}</Text>
+        ) : null}
+        {row.url ? (
+          <TouchableOpacity
+            style={[styles.linkBtn, { backgroundColor: brand }]}
+            onPress={() => Linking.openURL(row.url!).catch(() => {})}
+            activeOpacity={0.85}
+            accessibilityRole="link"
+          >
+            <Text style={[styles.linkText, { color: contrastText(brand) }]}>Learn more</Text>
+            <ArrowUpRight size={16} color={contrastText(brand)} strokeWidth={2.5} />
+          </TouchableOpacity>
         ) : null}
       </View>
-      {row.services.length > 0 && (
-        <View style={styles.bubbles}>
-          {row.services.map((s) => (
-            <View key={s} style={[styles.bubble, { backgroundColor: colors.segment }]}>
-              <Text style={[styles.bubbleText, { color: colors.fg }]}>{SERVICE_LABELS[s] ?? s}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      {row.description ? (
-        <Text style={[styles.cardBody, { color: colors.muted }]}>{row.description}</Text>
-      ) : null}
-      {photos.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={photoW + 8}
-          snapToAlignment="start"
-          decelerationRate="fast"
-          style={styles.photoStrip}
-          contentContainerStyle={styles.photoRow}
-        >
-          {photos.map((uri, i) => (
-            <Image key={`${uri}_${i}`} source={{ uri }} style={[styles.photo, { width: photoW }]} contentFit="cover" transition={150} />
-          ))}
-        </ScrollView>
-      )}
-      {row.url ? (
-        <TouchableOpacity
-          style={[styles.linkBtn, { backgroundColor: brand }]}
-          onPress={() => Linking.openURL(row.url!).catch(() => {})}
-          activeOpacity={0.85}
-          accessibilityRole="link"
-        >
-          <Text style={[styles.linkText, { color: contrastText(brand) }]}>Learn more</Text>
-          <ArrowUpRight size={16} color={contrastText(brand)} strokeWidth={2.5} />
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -135,8 +119,6 @@ export default function ConciergeScreen() {
     subject: CONCIERGE_SUBJECT,
   });
 
-  const introW = Math.round(width * 0.8);
-
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader />
@@ -149,26 +131,9 @@ export default function ConciergeScreen() {
       >
         <View style={styles.intro}>
           <Text style={[styles.title, { color: colors.fg }]}>Concierge & Auction Services</Text>
-          <Text style={[styles.lede, { color: colors.muted }]}>
-            We'll help clean, prepare, detail, photograph and document cars for sale — and run the sale.
-          </Text>
         </View>
 
-        {/* The page's photos, edge to edge, the next one peeking. */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={introW + 10}
-          snapToAlignment="start"
-          decelerationRate="fast"
-          contentContainerStyle={styles.introStrip}
-        >
-          {INTRO_IMAGES.map((src, i) => (
-            <Image key={i} source={src} style={[styles.introPhoto, { width: introW }]} contentFit="cover" />
-          ))}
-        </ScrollView>
-
-        {/* Ask — above the rows and again below them, since the rows can run long. */}
+        {/* Ask — above the rows. */}
         <TouchableOpacity
           style={[styles.contactBtn, { backgroundColor: brand }]}
           onPress={contact}
@@ -186,18 +151,6 @@ export default function ConciergeScreen() {
           rows.map((row) => <RowCard key={row.internal_id} row={row} width={width} />)
         )}
 
-        {rows.length > 0 && (
-          <TouchableOpacity
-            style={[styles.contactBtn, { backgroundColor: brand }]}
-            onPress={contact}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Contact me about auction services"
-          >
-            <MessageCircle size={18} color={contrastText(brand)} strokeWidth={2.4} />
-            <Text style={[styles.contactText, { color: contrastText(brand) }]}>Contact me</Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -206,9 +159,6 @@ export default function ConciergeScreen() {
 const styles = StyleSheet.create({
   intro:      { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 6 },
   title:      { fontSize: 24, fontFamily: FONT_INTER.bold, lineHeight: 30 },
-  lede:       { fontSize: 14, lineHeight: 20 },
-  introStrip: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER + 4, paddingBottom: 14 },
-  introPhoto: { aspectRatio: 3 / 2, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_BLACK },
 
   contactBtn: {
     marginHorizontal: 16, marginVertical: 8, height: 48, borderRadius: COMMON_RADIUS,
@@ -216,10 +166,10 @@ const styles = StyleSheet.create({
   },
   contactText: { fontSize: 15, fontFamily: FONT_INTER.bold },
 
-  card: {
-    marginHorizontal: 12, marginTop: 12, padding: 14, gap: 10,
-    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-  },
+  // Edge to edge, one under the other, a rule between: the photos run the
+  // width of the screen and the words sit on the page's own inset.
+  row:        { marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 0 },
+  rowBody:    { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 10 },
   cardHead:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   cardTitle:  { flex: 1, minWidth: 0, fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24 },
   platform:   { borderWidth: 1, borderRadius: PILL_RADIUS, paddingHorizontal: 9, paddingVertical: 3, flexShrink: 0, marginTop: 2 },
@@ -228,9 +178,6 @@ const styles = StyleSheet.create({
   bubble:     { borderRadius: PILL_RADIUS, paddingHorizontal: 10, paddingVertical: 5 },
   bubbleText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   cardBody:   { fontSize: 14, lineHeight: 20 },
-  photoStrip: { marginHorizontal: -14 },
-  photoRow:   { flexDirection: 'row', gap: 8, paddingHorizontal: 14 },
-  photo:      { aspectRatio: 3 / 2, borderRadius: 10, backgroundColor: COLOR_BLACK },
   linkBtn:    {
     alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 14, height: 38, borderRadius: PILL_RADIUS,

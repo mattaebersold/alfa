@@ -23,7 +23,7 @@ import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
+import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_PRO } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -162,7 +162,9 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
   onTabPress?: (key: string) => void;
   top: number;
 }) {
-  const brand = useBrandColor();
+  // Gold for the lit tab whoever's looking — the row's own accent, not the
+  // account's; on a basic account the brand blue made it a different control.
+  const brand = COLOR_PRO;
 
   /**
    * The lit tab, brought toward the front of the row — scrolled so it starts
