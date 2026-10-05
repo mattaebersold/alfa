@@ -8,14 +8,18 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
       "ios": {
         "simulator": false
       },
@@ -25,7 +29,9 @@
     },
     "production": {
       "distribution": "store",
-      "env": { "EAS_SKIP_AUTO_FINGERPRINT": "1" },
+      "env": {
+        "EAS_SKIP_AUTO_FINGERPRINT": "1"
+      },
       "ios": {
         "autoIncrement": true
       },
@@ -44,6 +50,13 @@
       "android": {
         "serviceAccountKeyPath": "./open-road-society-194d5ef4d908.json",
         "track": "production"
+      }
+    },
+    "closed-test": {
+      "android": {
+        "serviceAccountKeyPath": "./open-road-society-194d5ef4d908.json",
+        "track": "alpha",
+        "releaseStatus": "draft"
       }
     }
   }

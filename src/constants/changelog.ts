@@ -25,6 +25,67 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.62': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Home feed',
+        items: [
+          'A new look for tagged groups, cars and events on feed cards.',
+          'Swapped the comment and bookmark icons on feed cards.',
+          'A follow button on the car cards in the feed.',
+          'Better styling for shared Car Spotter results.',
+          'Better styling for poll results on posts with a poll.',
+        ],
+      },
+      {
+        title: 'Posting',
+        items: [
+          'Creating a post starts with the camera, then you choose what it becomes: a post, a poll, or a marketplace listing.',
+          'A cleaner marketplace listing form.',
+          'Improvements to tagging people, cars and events, with pictures in the suggestions.',
+          'Photos and videos are prepared on your phone as you pick them — faster previews and faster posting.',
+        ],
+      },
+      {
+        title: 'Comments',
+        items: [
+          'A cleaner comments panel.',
+          'Like individual comments.',
+          'Photo galleries in comments are now a carousel.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'Reorganized and improved the group pages.',
+          'ORS Rallys can be associated with groups.',
+          'Fixed the post-to-group form not being visible.',
+          'Fixed the group post form sliding out of view when the keyboard opened.',
+        ],
+      },
+      {
+        title: 'Shop & Concierge',
+        items: [
+          'Products open in the app, with checkout built in.',
+          'Concierge services in the menu, with a page of what we offer.',
+        ],
+      },
+      {
+        title: 'Notifications',
+        items: [
+          'A faster notifications panel.',
+          'Unread notifications on their own tab, with the ones you have read under Archived.',
+        ],
+      },
+      {
+        title: 'General',
+        items: [
+          'Small UI fixes and updates throughout.',
+        ],
+      },
+    ],
+  },
   '1.61': {
     date: 'September 2026',
     groups: [
