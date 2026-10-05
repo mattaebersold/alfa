@@ -129,11 +129,6 @@ const UNMEASURED_RATIO = 0.55;
 const MIN_KEYBOARD_H = 220;
 /** How long the box takes to grow — and so how long the contents wait. */
 const OPEN_MS = 420;
-/**
- * How far past its mark the box goes before settling — a nudge, not a
- * wobble. The same figure as GrowPanel's, which this now opens like.
- */
-const OPEN_OVERSHOOT = 0.9;
 /** How long the contents take to come up once the box has landed. */
 const CONTENT_MS = 260;
 /**
@@ -146,6 +141,8 @@ const CLOSE_MS = 180;
 const CONTENT_DELAY_MS = 300;
 /** The close settles to this scale as it fades. */
 const EXIT_SCALE = 0.94;
+/** Where the panel starts from on the way in: a touch under full size. */
+const OPEN_SCALE_FROM = 0.96;
 
 /**
  * A summary of one thing, in a panel that grows out of whatever you tapped.
@@ -395,26 +392,24 @@ export default function SummaryModal({
   const overflow = Animated.subtract(Animated.subtract(keyboardLift, moveUp), shrink);
   const rise = Animated.add(moveUp, overflow);
 
-  // Held for the life of the animation: `origin` belongs to a row that may well
-  // unmount while the panel is open, and the panel still has to shrink back to
-  // where it came from.
-  const fallback: SummaryOrigin = { x: screenW / 2, y: screenH / 2, w: 0, h: 0 };
-  const originRef = useRef<SummaryOrigin>(origin ?? fallback);
-  if (visible && origin) originRef.current = origin;
-  const from = (visible ? origin : originRef.current) ?? fallback;
+  // `origin` is still taken — every caller hands its row's rectangle over —
+  // but the panel no longer grows out of it; see `grow`.
+  void origin;
 
   const grow = useCallback(() => {
     // Two frames of head start, so the content's first layout pass — and the
     // re-render its measurement causes — land before the box moves.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       Animated.parallel([
+        // The box fades in and eases up from a touch under full size, on the
+        // native driver. It used to morph from the tapped row's rectangle —
+        // left, top, width and height tweened on the JS thread, which is the
+        // one thread a busy screen can't keep smooth, so the open stuttered.
         Animated.timing(box, {
           toValue: 1,
-          // An ease-out with a small back: fast off the row, slowing into
-          // place, a touch past it, settled — all inside OPEN_MS.
           duration: OPEN_MS,
-          easing: Easing.out(Easing.back(OPEN_OVERSHOOT)),
-          useNativeDriver: false,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
         }),
         Animated.timing(reveal, {
           toValue: 1,
@@ -537,9 +532,6 @@ export default function SummaryModal({
 
   if (!rendered) return null;
 
-  const track = (a: number, b: number) =>
-    box.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
-
   return (
     <Modal
       visible
@@ -597,27 +589,26 @@ export default function SummaryModal({
         style={[StyleSheet.absoluteFill, { opacity: exit, transform: [{ scale: exit.interpolate({ inputRange: [0, 1], outputRange: [EXIT_SCALE, 1] }) }] }]}
         pointerEvents="box-none"
       >
-      {/* The growing box: the surface, and nothing to re-measure. See-through
-          at the row's size — opaque there, it's a black slab on the row at the
-          start of every open and the end of every close — and solid by the
-          time it's visibly a panel. */}
+      {/* The box: the surface, laid out where it will stay. Two layers so the
+          drivers don't meet on one view: the outer fades and settles on the
+          native driver; the inner carries the keyboard's shrink, which is
+          layout and so JS-driven. */}
       <Animated.View
         pointerEvents="none"
-        style={[
-          styles.box,
-          { borderColor: colors.border },
-          {
-            opacity: box.interpolate({
-              inputRange: [0, 0.12, 1], outputRange: [0, 1, 1], extrapolate: 'clamp',
-            }),
-            left: track(from.x, panelX),
-            top: track(from.y, panelY),
-            width: track(from.w, panelW),
-            height: Animated.subtract(track(from.h, settledH), shrink),
-            borderRadius: track(Math.min(PANEL_RADIUS, from.h / 2), PANEL_RADIUS),
-          },
-        ]}
-      />
+        style={{
+          position: 'absolute', left: panelX, top: panelY, width: panelW, height: settledH,
+          opacity: box,
+          transform: [{ scale: box.interpolate({ inputRange: [0, 1], outputRange: [OPEN_SCALE_FROM, 1] }) }],
+        }}
+      >
+        <Animated.View
+          style={[
+            styles.box,
+            { borderColor: colors.border },
+            { left: 0, top: 0, width: panelW, height: Animated.subtract(settledH, shrink), borderRadius: PANEL_RADIUS },
+          ]}
+        />
+      </Animated.View>
 
       {/* The content, at the panel's final size throughout. The positioned
           view is plain, so a late measurement moving it touches no animated
@@ -765,7 +756,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
 
-  footer:    { padding: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  // No rule over the button: the panel's one ground runs to its foot.
+  footer:    { padding: 14 },
   actionBtn: {
     borderRadius: COMMON_RADIUS, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

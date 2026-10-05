@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity,
-} from 'react-native';
+  View, StyleSheet, FlatList, TouchableOpacity, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
@@ -19,6 +18,24 @@ import { FONT_INTER } from '../../constants/fonts';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
   const colors = useColors();
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <BrandsView onPickBrand={(brand) => navigation.navigate('BrandDetail', { brand })} />
+    </SafeAreaView>
+  );
+}
+
+/**
+ * The brands, as a filterable grid — for the Brands screen, and for the
+ * home screen's Cars tab, which shows it in place with a way back.
+ */
+export function BrandsView({ onPickBrand, headerPad = 0, onScroll }: {
+  onPickBrand: (brand: string) => void;
+  /** Room at the top for a host whose header floats over the content. */
+  headerPad?: number;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+}) {
+  const colors = useColors();
   const [query, setQuery] = useState('');
   const { data: brands = [], isLoading, refetch } = useGetCarBrandSummariesQuery();
   const refreshControl = useRefreshControl(refetch);
@@ -35,10 +52,10 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
     [brands, query, ownsMake]
   );
 
-  if (isLoading) return <Spinner fullScreen />;
+  if (isLoading) return <View style={{ paddingTop: headerPad }}><Spinner fullScreen /></View>;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <View style={[ss.fill, { paddingTop: headerPad }]}>
       {/* Filter by make */}
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Search size={16} color={colors.grey} />
@@ -80,11 +97,13 @@ export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) 
             countLabel={b.model_count ? `${b.model_count} ${b.model_count === 1 ? 'model' : 'models'}` : undefined}
             style={styles.tile}
             badgeLeft={owned(b) ? <GarageMatchBadge /> : undefined}
-            onPress={() => navigation.navigate('BrandDetail', { brand: b.make })}
+            onPress={() => onPickBrand(b.make)}
           />
         )}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

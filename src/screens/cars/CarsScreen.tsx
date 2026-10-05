@@ -1,12 +1,24 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+  View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, ScrollView, BackHandler, Animated } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
-import { Search, Car, ChevronRight, Plus } from 'lucide-react-native';
+import { BrandsView } from './BrandsScreen';
+import { BrandDetailView, type ModelPageParams } from './BrandDetailScreen';
+import { ModelDetailView, modelShortTitle } from './ModelDetailScreen';
+
+/** The breadcrumb row's height: its pills (32) and its padding (4 + 6). */
+const CRUMBS_H = 42;
+
+/** One step of the Cars tab's trail — see CarsView. */
+type Crumb =
+  | { kind: 'brands' }
+  | { kind: 'brand'; brand: string }
+  | { kind: 'model'; params: ModelPageParams };
+import { Search, Car, ChevronRight, Plus, ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad, TABS_STUCK_RISE } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
@@ -14,7 +26,7 @@ import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useLocationFilter } from '../../hooks/useLocationFilter';
-import { useHeaderScroll } from '../../hooks/useHeaderScroll';
+import { useHeaderScroll, headerOffset } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery, useGetCarBrandsQuery, useGetUserGarageQuery } from '../../api/apiService';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
@@ -58,6 +70,22 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const scrollRef = givenRef ?? ownRef;
   useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<any>();
+  /**
+   * Browsing happens here, in place of the cars — the brands, a make, a
+   * model — under a breadcrumb trail, rather than as pushed screens: from
+   * inside a tab a push would leave the tab bar behind, and the home stack
+   * has none of those screens anyway. The trail is the stack; each crumb
+   * before the last takes you back to it.
+   */
+  const [trail, setTrail] = useState<Crumb[]>([]);
+  const here = trail[trail.length - 1];
+  const popTo = (depth: number) => setTrail((t) => t.slice(0, depth));
+  // Android's back steps up the trail before it leaves the tab.
+  useEffect(() => {
+    if (trail.length === 0) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { popTo(trail.length - 1); return true; });
+    return () => sub.remove();
+  }, [trail.length]);
   const brand = useBrandColor();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
@@ -130,6 +158,91 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
       )
     : allCars;
 
+  if (here) {
+    const crumbs: string[] = ['Cars', 'Brands', ...trail.slice(1).map((c) => (c.kind === 'brand' ? c.brand : c.kind === 'model' ? modelShortTitle(c.params) : ''))];
+    // Cars › Brands › Porsche › 911 — every crumb but the last is a way back.
+    // On the grids it floats under the header; on a model it's laid over the
+    // banner and scrolls away with it.
+    const crumbRow = (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.crumbsScroller, here.kind !== 'model' && { position: 'absolute', top: headerPad }]}
+          // A little further down on a model, where the row sits on the
+          // banner photo rather than tight under the header.
+          contentContainerStyle={[styles.crumbs, here.kind === 'model' && styles.crumbsOnBanner]}
+        >
+          {crumbs.map((label, i) => {
+            const last = i === crumbs.length - 1;
+            return (
+              <React.Fragment key={`${i}-${label}`}>
+                {i > 0 && <Text style={[styles.crumbSlash, { color: colors.grey }]}>/</Text>}
+                {/* Each a small outlined pill — the ones behind are buttons
+                    back up the trail; the last is filled, and where you are. */}
+                <TouchableOpacity
+                  onPress={() => popTo(i)}
+                  disabled={last}
+                  activeOpacity={0.75}
+                  style={[
+                    styles.crumbBtn,
+                    // A dark ground: the row floats over photos as often as not.
+                    { borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(0,0,0,0.5)' },
+                    last && { backgroundColor: brand, borderColor: brand },
+                  ]}
+                  accessibilityRole={last ? 'header' : 'button'}
+                  accessibilityLabel={last ? label : `Back to ${label}`}
+                >
+                  <Text style={[styles.crumb, { color: last ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              </React.Fragment>
+            );
+          })}
+        </ScrollView>
+    );
+    return (
+      // Padded for the full header, and lifted as the header collapses — by
+      // the same distance its tab row rises — so the trail and the filter stay
+      // tucked under the small header rather than hanging below where the
+      // buttons were. The box runs that much past the foot to cover the lift.
+      <Animated.View
+        style={[
+          styles.content,
+          { backgroundColor: colors.cream, paddingTop: headerPad, marginBottom: -TABS_STUCK_RISE },
+          { transform: [{ translateY: headerOffset.interpolate({ inputRange: [-TABS_STUCK_RISE, 0], outputRange: [-TABS_STUCK_RISE, 0], extrapolate: 'clamp' }) }] },
+        ]}
+      >
+        {here.kind !== 'model' && crumbRow}
+        {here.kind === 'brands' && (
+          <BrandsView
+            headerPad={CRUMBS_H}
+            onScroll={onScroll}
+            onPickBrand={(b) => setTrail((t) => [...t, { kind: 'brand', brand: b }])}
+          />
+        )}
+        {here.kind === 'brand' && (
+          <BrandDetailView
+            key={here.brand}
+            headerPad={CRUMBS_H}
+            brand={here.brand}
+            onScroll={onScroll}
+            onOpenModel={(p) => setTrail((t) => [...t, { kind: 'model', params: p }])}
+          />
+        )}
+        {here.kind === 'model' && (
+          <ModelDetailView
+            key={`${here.params.modelHandle}-${here.params.generationHandle ?? ''}`}
+            params={here.params}
+            onOpenBrand={() => popTo(2)}
+            onScroll={onScroll}
+            bannerOverlay={crumbRow}
+          />
+        )}
+      </Animated.View>
+    );
+  }
+
   return (
     <>
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
@@ -171,7 +284,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
                   strip: the car, the words, how many makes there are to browse. */}
               <TouchableOpacity
                 style={[styles.brandsBtn, { backgroundColor: brand }]}
-                onPress={() => navigation.navigate('Brands')}
+                onPress={() => setTrail([{ kind: 'brands' }])}
                 activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityLabel={brandCount ? `Browse by brand, ${brandCount} brands` : 'Browse by brand'}
@@ -283,6 +396,15 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
 }
 
 const styles = StyleSheet.create({
+  // The trail over whatever's open: where you are, and the way back up it.
+  // Over the page, under the header; the row's own height is CRUMBS_H.
+  crumbsScroller: { left: 0, right: 0, zIndex: 5, flexGrow: 0, flexShrink: 0 },
+  // On the app's gutter, tight to the header above.
+  crumbs:    { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 6 },
+  crumbsOnBanner: { paddingTop: 9, paddingLeft: GUTTER + 6 },
+  crumbSlash: { fontSize: 14, fontFamily: FONT_INTER.semibold, paddingHorizontal: 2 },
+  crumbBtn:  { height: 32, paddingHorizontal: 12, borderRadius: PILL_RADIUS, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  crumb:     { fontSize: 13, fontFamily: FONT_INTER.bold, maxWidth: 160 },
   content: { flex: 1 },
   heading: { paddingHorizontal: GUTTER },
   // Outlined, beside the title — the Videos screen's "View channel" pill.

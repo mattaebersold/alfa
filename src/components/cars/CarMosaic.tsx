@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import CarGridItem from './CarGridItem';
 import CarSummaryModal from './CarSummaryModal';
 import EmptyState from '../ui/EmptyState';
@@ -23,7 +23,7 @@ const PAGE_SIZE = 12;
  *
  * A tap opens the car's summary over the page, as on the Cars screen.
  */
-export default function CarMosaic({ make, model, generation, header, emptyTitle }: {
+export default function CarMosaic({ make, model, generation, header, emptyTitle, onScroll }: {
   /** A make's display value or handle — the listing matches either. */
   make: string;
   /** One model's handle, to narrow to it. */
@@ -33,6 +33,8 @@ export default function CarMosaic({ make, model, generation, header, emptyTitle 
   /** Scrolls with the grid, above it. */
   header?: React.ReactNode;
   emptyTitle: string;
+  /** A host's own scroll handler — the header's hide-on-scroll, where the grid is a page's body. */
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const colors = useColors();
   const [page, setPage] = useState(0);
@@ -79,10 +81,14 @@ export default function CarMosaic({ make, model, generation, header, emptyTitle 
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.primaryAlt} />}
-        onScroll={({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+        onScroll={(e) => {
+          const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
           if (layoutMeasurement.height + contentOffset.y >= contentSize.height - LOAD_MORE_PX) loadMore();
+          onScroll?.(e);
         }}
-        scrollEventThrottle={200}
+        // Every frame while a host is listening — the header's slide needs
+        // it — otherwise the coarse tick that load-more is happy with.
+        scrollEventThrottle={onScroll ? 16 : 200}
       >
         {header}
         {cars.length === 0 ? (

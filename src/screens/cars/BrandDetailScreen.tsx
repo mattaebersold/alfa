@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { Car, Search, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import CarGroupsRow from '../../components/cars/CarGroupsRow';
 import { useGetCarsQuery, useGetCarModelsQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
+import { modelShortTitle } from './ModelDetailScreen';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts'
 import { COLOR_BLACK } from '../../constants/config';
@@ -38,8 +39,33 @@ type Filter = { key: string; label: string; qty: number; model: string; generati
  * not also as "3 Series", which would only be all of them again. The same
  * set, as pills, narrows the grid below without leaving the page.
  */
+/** What opens a model page — a model, or one of its generations. */
+export type ModelPageParams = {
+  brand: string; model: string; modelHandle: string;
+  generation?: string; generationHandle?: string; standalone?: boolean;
+};
+
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
-  const { brand } = route.params;
+  const colors = useColors();
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <BrandDetailView brand={route.params.brand} onOpenModel={(p) => navigation.navigate('ModelDetail', p)} />
+    </SafeAreaView>
+  );
+}
+
+/**
+ * A make's page, for any host — the Brands stack, or the home screen's Cars
+ * tab, which shows it in place under a breadcrumb trail. Opening a model is
+ * the host's: a push, or one more step on the trail.
+ */
+export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }: {
+  brand: string;
+  onOpenModel: (params: ModelPageParams) => void;
+  /** Room at the top for a host whose header floats over the content. */
+  headerPad?: number;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+}) {
   const colors = useColors();
   const [filter, setFilter] = useState<Filter | null>(null);
   const [query, setQuery] = useState('');
@@ -135,7 +161,7 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
               countLabel={`${m.qty} ${m.qty === 1 ? 'car' : 'cars'}`}
               style={styles.modelTile}
               badgeLeft={ownsModel(brand, m.model_handle) ? <GarageMatchBadge /> : undefined}
-              onPress={() => navigation.navigate('ModelDetail', {
+              onPress={() => onOpenModel({
                 brand,
                 model: m.model,
                 modelHandle: m.model_handle,
@@ -146,13 +172,14 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
             ...(m.generations ?? []).filter((g) => matches(query, `${g.generation} ${m.model}`)).map((g) => (
               <MakeTile
                 key={`${m.model_handle}-${g.generation_handle}`}
-                name={g.generation}
+                // "Atlas 1st Gen", not "1st Gen" — see modelShortTitle.
+                name={modelShortTitle({ model: m.model, generation: g.generation, standalone: g.standalone })}
                 photos={g.sample_photos}
                 count={g.qty}
                 countLabel={`${g.qty} ${g.qty === 1 ? 'car' : 'cars'}`}
                 style={styles.modelTile}
                 badgeLeft={ownsGen(m, g) ? <GarageMatchBadge /> : undefined}
-                onPress={() => navigation.navigate('ModelDetail', {
+                onPress={() => onOpenModel({
                   brand,
                   model: m.model,
                   modelHandle: m.model_handle,
@@ -205,15 +232,16 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <View style={[ss.fill, { paddingTop: headerPad }]}>
       <CarMosaic
         make={brand}
         model={filter?.model}
         generation={filter?.generation}
         header={header}
         emptyTitle={filter ? `No ${brand} ${filter.label}s yet` : `No ${brand}s yet`}
+        onScroll={onScroll}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

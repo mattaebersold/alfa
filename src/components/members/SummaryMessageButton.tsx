@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { Mail } from 'lucide-react-native';
@@ -19,10 +19,13 @@ export default function SummaryMessageButton({
   userId,
   username,
   label = 'Message',
+  style,
 }: {
   userId: string;
   username?: string;
   label?: string;
+  /** Onto the button — a host matching it to a neighbour's height. */
+  style?: StyleProp<ViewStyle>;
 }) {
   const nav = useNavigation<any>();
   const panel = useSummaryPanel();
@@ -31,7 +34,7 @@ export default function SummaryMessageButton({
 
   return (
     <TouchableOpacity
-      style={styles.btn}
+      style={[styles.btn, style]}
       onPress={() => (panel ? panel.closeThen(compose) : compose())}
       activeOpacity={0.85}
       accessibilityRole="button"

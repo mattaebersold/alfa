@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
   // Inline: the host's inset, and the nav row's clearance above it.
   inlineWrap: { paddingTop: 4 },
   // The Back / Next / Post row, in from the screen's edge.
-  inlineNav:  { paddingHorizontal: 12, paddingBottom: 14 },
+  inlineNav:  { paddingHorizontal: 12, paddingTop: 18, paddingBottom: 14 },
   // Between the arrows: no margins of its own, the row's gap instead.
   inlineTrack: { flex: 1, marginHorizontal: 14, marginTop: 0, marginBottom: 0 },
   inlineBody: { paddingHorizontal: 12, paddingBottom: 8 },

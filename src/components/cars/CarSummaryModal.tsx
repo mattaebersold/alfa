@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Plus, Users } from 'lucide-react-native';
+import { Check, Plus, Users, Car as CarIcon } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
 import Spinner from '../ui/Spinner';
@@ -22,7 +22,7 @@ import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -196,6 +196,8 @@ export default function CarSummaryModal({
                 title before, which is a shape nothing else in the app uses for
                 a car. */}
             <View style={styles.heroText}>
+              {/* The car's mark over its name, as the car cards wear it. */}
+              <CarIcon size={22} color={COLOR_WHITE} strokeWidth={1.8} />
               <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
               {subtitle ? (
                 <Text style={styles.heroSub} numberOfLines={1}>{subtitle}</Text>
@@ -241,9 +243,12 @@ export default function CarSummaryModal({
               <TouchableOpacity
                 style={[
                   styles.followBtn,
+                  // Outlined in the brand colour to follow; the "Following"
+                  // state sits on a dark segment with the foreground colour,
+                  // so the two read as off and on rather than as two buttons.
                   isFollowing
                     ? { backgroundColor: colors.segment, borderColor: colors.border }
-                    : { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+                    : { backgroundColor: 'transparent', borderColor: colors.primaryAlt },
                   busy && styles.followBtnBusy,
                 ]}
                 onPress={toggleFollow}
@@ -252,12 +257,10 @@ export default function CarSummaryModal({
                 accessibilityRole="button"
                 accessibilityState={{ selected: isFollowing, busy }}
               >
-                {/* Black on the brand fill; the "Following" state sits on a
-                    dark segment instead and keeps the foreground colour. */}
                 {isFollowing
                   ? <Check size={14} color={colors.fg} strokeWidth={3} />
-                  : <Plus size={14} color={COLOR_BLACK} strokeWidth={3} />}
-                <Text style={[styles.followText, { color: isFollowing ? colors.fg : COLOR_BLACK }]}>
+                  : <Plus size={14} color={colors.primaryAlt} strokeWidth={3} />}
+                <Text style={[styles.followText, { color: isFollowing ? colors.fg : colors.primaryAlt }]}>
                   {isFollowing ? 'Following' : 'Follow'}
                 </Text>
               </TouchableOpacity>
@@ -302,11 +305,14 @@ const styles = StyleSheet.create({
   scroll:  { paddingBottom: 16 },
   loading: { height: 260, alignItems: 'center', justifyContent: 'center' },
 
-  heroWrap: { position: 'relative' },
+  // Rounded at the foot too, so the photo sits in the panel rather than
+  // capping it; the overlay (name, chips) clips with it.
+  heroWrap: { position: 'relative', borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   // The ratio comes from the photo — see usePosterRatio. A fixed 16:9 cropped
   // a portrait shot down to a letterbox, which on a car is usually the car.
   hero:     { width: '100%', backgroundColor: COLOR_GRAY_22 },
-  heroText: { position: 'absolute', left: 16, right: 16, bottom: 12, alignItems: 'flex-start', gap: 4 },
+  // A little further in from the left than the panel's inset.
+  heroText: { position: 'absolute', left: 12, right: 16, bottom: 12, alignItems: 'flex-start', gap: 4 },
   heroTitle: {
     fontSize: 21, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, letterSpacing: -0.3,
     textShadowColor: 'rgba(0,0,0,0.8)',

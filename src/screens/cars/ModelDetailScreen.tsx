@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,6 +7,7 @@ import { Car, ChevronRight, Pencil, Check, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
 import ModelBookmarkButton from '../../components/cars/ModelBookmarkButton';
+import type { ModelPageParams } from './BrandDetailScreen';
 import ModelPostsSection from '../../components/cars/ModelPostsSection';
 import CarGroupsRow from '../../components/cars/CarGroupsRow';
 import ModelDescriptionEditor from '../../components/cars/ModelDescriptionEditor';
@@ -39,8 +40,18 @@ const TAB_IDLE = 'rgba(255,255,255,0.6)';
  * 993" when that reads on its own and "Volkswagen Jetta Mk2" when it doesn't.
  */
 export function modelPageTitle(p: { brand: string; model: string; generation?: string; standalone?: boolean }) {
-  if (!p.generation) return `${p.brand} ${p.model}`;
-  return p.standalone ? `${p.brand} ${p.generation}` : `${p.brand} ${p.model} ${p.generation}`;
+  return `${p.brand} ${modelShortTitle(p)}`;
+}
+
+/**
+ * The same, without the make — for a tile or a crumb already under the make.
+ * A generation that reads on its own ("993") is just itself; one that doesn't
+ * ("1st Gen") carries its model ("Atlas 1st Gen"), or it's a tile saying
+ * "1st Gen" of nothing in particular.
+ */
+export function modelShortTitle(p: { model: string; generation?: string; standalone?: boolean }) {
+  if (!p.generation) return p.model;
+  return p.standalone ? p.generation : `${p.model} ${p.generation}`;
 }
 
 /**
@@ -56,8 +67,36 @@ export function modelPageTitle(p: { brand: string; model: string; generation?: s
  * scrolls away with whichever section is showing.
  */
 export default function ModelDetailScreen({ route, navigation }: CarsScreenProps<'ModelDetail'>) {
-  const { brand, model, modelHandle, generationHandle } = route.params;
-  const title = modelPageTitle(route.params);
+  const colors = useColors();
+  return (
+    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <ModelDetailView
+        params={route.params}
+        navigation={navigation}
+        onOpenBrand={(brand) => navigation.navigate('BrandDetail', { brand })}
+      />
+    </SafeAreaView>
+  );
+}
+
+/**
+ * A model's page, for any host. With a `navigation` it's a pushed screen,
+ * and the bookmark rides the stack's transparent header; without one — the
+ * home screen's Cars tab, in place under a breadcrumb trail — the bookmark
+ * sits on the banner itself, and going back to the make is the host's.
+ */
+export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0, bannerOverlay, onScroll }: {
+  params: ModelPageParams;
+  navigation?: CarsScreenProps<'ModelDetail'>['navigation'];
+  onOpenBrand: (brand: string) => void;
+  /** Room at the top for a host whose header floats over the content. */
+  headerPad?: number;
+  /** Laid over the banner's top — the Cars tab's breadcrumb trail, which scrolls away with the photo. */
+  bannerOverlay?: React.ReactNode;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+}) {
+  const { brand, model, modelHandle, generationHandle } = params;
+  const title = modelPageTitle(params);
   const colors = useColors();
   const brandColor = useBrandColor();
   const [tab, setTab] = useState<Tab>('cars');
@@ -94,6 +133,7 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
   ];
 
   useLayoutEffect(() => {
+    if (!navigation) return;
     navigation.setOptions({
       // See-through, over the banner: just the back button and the bookmark.
       // The name is on the page, under the photo.
@@ -106,18 +146,18 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
           make={brand}
           model={model}
           modelHandle={modelHandle}
-          generation={route.params.generation}
+          generation={params.generation}
           generationHandle={generationHandle}
-          standalone={route.params.standalone}
+          standalone={params.standalone}
         />
       ),
     });
-  }, [navigation, brand, model, modelHandle, generationHandle, route.params.generation, route.params.standalone]);
+  }, [navigation, brand, model, modelHandle, generationHandle, params.generation, params.standalone]);
 
   // Straight back to the make — a model split into generations has no page of
   // its own (BMW › E36, never BMW › 3 Series › E36).
   const crumbs: { label: string; onPress: () => void }[] = [
-    { label: brand, onPress: () => navigation.navigate('BrandDetail', { brand }) },
+    { label: brand, onPress: () => onOpenBrand(brand) },
   ];
 
   const header = (
@@ -143,6 +183,7 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
           style={styles.bannerFoot}
           pointerEvents="none"
         />
+        {bannerOverlay ? <View style={styles.bannerOverlay}>{bannerOverlay}</View> : null}
       </View>
 
       <View style={styles.intro}>
@@ -166,6 +207,19 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
 
         {/* ── The name, and how many ── */}
         <View style={styles.titleRow}>
+          {/* In place, with no header to carry it: the bookmark leads the name. */}
+          {!navigation && (
+            <View style={styles.titleBookmark}>
+              <ModelBookmarkButton
+                make={brand}
+                model={model}
+                modelHandle={modelHandle}
+                generation={params.generation}
+                generationHandle={generationHandle}
+                standalone={params.standalone}
+              />
+            </View>
+          )}
           <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{title}</Text>
           {total != null && (
             <View style={styles.count} accessibilityLabel={`${total} ${total === 1 ? 'car' : 'cars'}`}>
@@ -263,24 +317,24 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <View style={[ss.fill, { paddingTop: headerPad }]}>
       <ModelDescriptionEditor
         visible={editing}
         onClose={() => setEditing(false)}
-        page={{ title, make: brand, model, generation: route.params.generation, standalone: route.params.standalone }}
+        page={{ title, make: brand, model, generation: params.generation, standalone: params.standalone }}
         current={profile?.description}
       />
       {tab === 'cars' ? (
-        <CarMosaic make={brand} model={modelHandle} generation={generationHandle} header={header} emptyTitle={`No ${title}s yet`} />
+        <CarMosaic make={brand} model={modelHandle} generation={generationHandle} header={header} emptyTitle={`No ${title}s yet`} onScroll={onScroll} />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
           {header}
           {tab === 'groups'
             ? <CarGroupsRow make={brand} model={model} layout="list" />
             : <ModelPostsSection kind={tab === 'discussion' ? 'discussion' : 'resource'} make={brand} model={model} />}
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -341,8 +395,10 @@ function ProposalReview({ proposal }: { proposal: ModelProposal }) {
 }
 
 const styles = StyleSheet.create({
+  titleBookmark: { marginRight: 2 },
   banner: { width: '100%', height: BANNER_H, backgroundColor: COLOR_GRAY_26 },
   bannerBlank: { alignItems: 'center', justifyContent: 'center' },
+  bannerOverlay: { position: 'absolute', left: 0, right: 0, top: 0 },
   bannerTop: { position: 'absolute', left: 0, right: 0, top: 0, height: 130 },
   // A point past the foot, so no hairline of photo shows under it.
   bannerFoot: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '45%' },

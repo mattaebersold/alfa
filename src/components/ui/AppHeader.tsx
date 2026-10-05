@@ -635,7 +635,12 @@ const TABS_BLUR = 60;
  */
 const TABS_STUCK_TRIM = 6;
 /** How far the tab row (and the ground behind it) travels up before it sticks. */
-const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM;
+/**
+ * How far the tab row rises when the header collapses — exported so a screen
+ * that pins something under the header can rise with it, rather than leave a
+ * gap where the buttons were.
+ */
+export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM;
 
 /** The tabs' size once stuck, against 1 at rest. */
 const TABS_STUCK_SCALE = 0.72;

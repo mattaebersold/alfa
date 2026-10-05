@@ -58,6 +58,7 @@ export default function GroupSummaryModal({
 
   // The member list folds open in place; each open starts folded.
   const [membersExpanded, setMembersExpanded] = useState(false);
+  const [bannerRatio, setBannerRatio] = useState(16 / 9);
   useEffect(() => { if (groupId) setMembersExpanded(false); }, [groupId]);
 
   // A member's summary opens over this one rather than replacing it, so you
@@ -111,44 +112,31 @@ export default function GroupSummaryModal({
         <View>
           {/* The banner leads, because a group's picture is most of what tells
               you what kind of group it is. */}
-          {banner ? (
-            <Image source={{ uri: banner }} style={styles.banner} contentFit="cover" />
-          ) : (
-            <View style={[styles.banner, styles.blank, { backgroundColor: colors.segment }]}>
-              <Users size={26} color={colors.grey} />
-            </View>
-          )}
+          {/* At the picture's own shape (measured as it loads; wide until
+              then), capped at square so a tall one can't take the panel.
+              Rounded at the foot, so it sits in the panel rather than
+              capping it. */}
+          <View style={styles.bannerWrap}>
+            {banner ? (
+              <Image
+                source={{ uri: banner }}
+                style={[styles.banner, { aspectRatio: bannerRatio }]}
+                contentFit="cover"
+                onLoad={(e) => {
+                  const { width, height } = e.source;
+                  if (width && height) setBannerRatio(Math.max(1, width / height));
+                }}
+              />
+            ) : (
+              <View style={[styles.banner, styles.blank, { aspectRatio: 16 / 9, backgroundColor: colors.segment }]}>
+                <Users size={26} color={colors.grey} />
+              </View>
+            )}
+          </View>
 
           <View style={styles.body}>
             <View style={styles.titleRow}>
               <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{group.title}</Text>
-              {rosterKnown && !isMember && (
-                isPending ? (
-                  <View style={[styles.joinBtn, { backgroundColor: colors.segment }]}>
-                    <Text style={[styles.joinText, { color: colors.grey }]}>Requested</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.joinBtn, { backgroundColor: brand }]}
-                    onPress={requestToJoin}
-                    disabled={joining}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    // An invitation's join is an acceptance — say so to a
-                    // screen reader, where there's no invite context on screen.
-                    accessibilityLabel={isInvited ? 'Accept invitation and join' : 'Request to join'}
-                  >
-                    {joining ? (
-                      <ActivityIndicator size="small" color={COLOR_BLACK} />
-                    ) : (
-                      <>
-                        <Plus size={14} color={COLOR_BLACK} strokeWidth={2.8} />
-                        <Text style={[styles.joinText, styles.onBrand]}>Join</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )
-              )}
             </View>
             {group.subtitle ? (
               <Text style={[styles.subtitle, { color: colors.muted }]} numberOfLines={2}>
@@ -177,22 +165,52 @@ export default function GroupSummaryModal({
               <Text style={[styles.about, { color: colors.muted }]} numberOfLines={6}>{body}</Text>
             ) : null}
 
-            {/* Someone to ask — most of all before you're in, when the group's
-                page is closed to you. Not offered to the admin it would write
-                to, which would be a thread with yourself. */}
-            {groupAdmin && groupAdmin.user_id !== myId ? (
-              <View style={styles.messageRow}>
+            {/* The ways in and the way to ask, on one row: Join (or
+                Requested) first, then someone to write to — most of all
+                before you're in, when the group's page is closed to you.
+                Not offered to the admin it would write to. */}
+            <View style={styles.actionsRow}>
+              {rosterKnown && !isMember && (
+                isPending ? (
+                  <View style={[styles.joinBtn, { backgroundColor: colors.segment }]}>
+                    <Text style={[styles.joinText, { color: colors.grey }]}>Requested</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.joinBtn, { backgroundColor: brand }]}
+                    onPress={requestToJoin}
+                    disabled={joining}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    // An invitation's join is an acceptance — say so to a
+                    // screen reader, where there's no invite context on screen.
+                    accessibilityLabel={isInvited ? 'Accept invitation and join' : 'Request to join'}
+                  >
+                    {joining ? (
+                      <ActivityIndicator size="small" color={COLOR_BLACK} />
+                    ) : (
+                      <>
+                        <Plus size={14} color={COLOR_BLACK} strokeWidth={2.8} />
+                        <Text style={[styles.joinText, styles.onBrand]}>Join</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )
+              )}
+              {groupAdmin && groupAdmin.user_id !== myId ? (
                 <SummaryMessageButton
                   userId={groupAdmin.user_id}
                   username={groupAdmin.user?.username}
                   label="Message admin"
+                  // The same height as Join beside it.
+                  style={styles.messageBtn}
                 />
-              </View>
-            ) : null}
+              ) : null}
+            </View>
 
             {/* Who's in it — the faces first, and the names when you ask. */}
             {roster.length > 0 && (
-              <View style={[styles.membersBlock, { borderTopColor: colors.borderDark }]}>
+              <View style={styles.membersBlock}>
                 <TouchableOpacity
                   style={styles.membersToggle}
                   onPress={() => setMembersExpanded((v) => !v)}
@@ -254,14 +272,15 @@ export default function GroupSummaryModal({
 
 const styles = StyleSheet.create({
   loading: { height: 200, alignItems: 'center', justifyContent: 'center' },
-  banner:  { width: '100%', height: 130 },
+  bannerWrap: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
+  banner:  { width: '100%' },
   blank:   { alignItems: 'center', justifyContent: 'center' },
-  body:    { padding: 18, paddingBottom: 22, gap: 8 },
+  body:    { padding: 14, paddingBottom: 16, gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   title:    { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
   joinBtn:  {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-    minWidth: 76, paddingHorizontal: 12, paddingVertical: 7, marginTop: 1,
+    minWidth: 76, paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: COMMON_RADIUS,
   },
   joinText: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
@@ -274,12 +293,14 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 11, fontFamily: FONT_INTER.bold },
   about:     { fontSize: 13.5, lineHeight: 19, marginTop: 4 },
-  messageRow: { flexDirection: 'row', marginTop: 6 },
+  actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  messageBtn: { paddingVertical: 8 },
 
-  membersBlock:  { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  // Straight under the actions: no rule, no extra room.
+  membersBlock:  { marginTop: 0 },
   membersToggle: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 12, paddingBottom: 4, minHeight: 46,
+    paddingTop: 2, paddingBottom: 4, minHeight: 40,
   },
   membersLabel:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   // A ceiling, like the panel's: a short roster gets a short list.

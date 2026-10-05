@@ -15,6 +15,9 @@ import SearchScreen from '../screens/search/SearchScreen';
 import DashboardScreen from '../screens/profile/DashboardScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import CarDetailScreen from '../screens/cars/CarDetailScreen';
+import BrandsScreen from '../screens/cars/BrandsScreen';
+import BrandDetailScreen from '../screens/cars/BrandDetailScreen';
+import ModelDetailScreen, { modelPageTitle } from '../screens/cars/ModelDetailScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import { colors } from '../constants/colors';
 import { FONT_INTER } from '../constants/fonts'
@@ -52,6 +55,10 @@ export default function FeedStackNavigator() {
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="UserDetail" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CarDetail" component={CarDetailScreen} options={{ headerShown: false }} />
+      {/* Reached from the home screen's Cars tab — the Cars stack's pages, registered here too. */}
+      <Stack.Screen name="Brands" component={BrandsScreen} options={{ title: 'Browse Brands' }} />
+      <Stack.Screen name="BrandDetail" component={BrandDetailScreen} options={({ route }) => ({ title: route.params.brand })} />
+      <Stack.Screen name="ModelDetail" component={ModelDetailScreen} options={({ route }) => ({ title: modelPageTitle(route.params) })} />
       <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );

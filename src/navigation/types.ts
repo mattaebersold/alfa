@@ -37,6 +37,11 @@ export type CarDetailAction = 'gallery';
 
 // ── Feed Stack ──────────────────────────────────────────────────────────────
 export type FeedStackParamList = {
+  // Browsing by brand from the home screen's Cars tab lands on these — the
+  // same pages the Cars stack has.
+  Brands: undefined;
+  BrandDetail: { brand: string };
+  ModelDetail: { brand: string; model: string; modelHandle: string; generation?: string; generationHandle?: string; standalone?: boolean };
   /**
    * `tab` opens the home screen on that header tab, scrolled to the top.
    * `at` is when it was asked for — a fresh value each time, so asking for

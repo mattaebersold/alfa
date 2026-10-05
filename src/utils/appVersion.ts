@@ -12,4 +12,11 @@ import Constants from 'expo-constants';
  * Empty when the config isn't readable, which callers render as nothing rather
  * than as a wrong number.
  */
-export const APP_VERSION: string = Constants.expoConfig?.version ?? '';
+// app.json itself first, straight from the bundle: the manifest the dev
+// client reads at launch keeps the version it started with, so a bump made
+// while the app was up left "What's new" keyed to the old number until a full
+// relaunch. The bundle follows app.json on reload; in a store build the two
+// agree anyway.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const bundled: string | undefined = (require('../../app.json') as { expo?: { version?: string } })?.expo?.version;
+export const APP_VERSION: string = bundled ?? Constants.expoConfig?.version ?? '';
