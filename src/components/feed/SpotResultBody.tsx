@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight } from 'lucide-react-native';
@@ -25,6 +25,16 @@ import { FONT_INTER } from '../../constants/fonts'
 const HIT = COLOR_SPOTTER_GREEN;
 const MISS = COLOR_RED;
 const MAX_ATTEMPTS = 5;
+
+/**
+ * How soft the preview is — enough that the car can't be read off it.
+ *
+ * Android blurs the bitmap before the view's scale is applied, and the
+ * preview is scaled up several times to zoom on the focus point — so the
+ * blur comes out magnified by the zoom, and a radius that's gentle on iOS is
+ * a wash there. The smallest radius that still blurs is enough.
+ */
+const PREVIEW_BLUR = Platform.OS === 'android' ? .7 :.7;
 
 /** The puzzle photo's side: a thumbnail set into the card, not a banner across it. */
 const PHOTO = 100;
@@ -81,6 +91,10 @@ function ZoomedPuzzleImage({ carspot }: { carspot: CarSpotSummary }) {
         contentFit="cover"
         contentPosition={origin}
         transition={150}
+        // Softened: the card says a game was played, not what the car was —
+        // the crop already hides most of it, and the blur takes the rest, so
+        // a feed full of results spoils nothing for anyone yet to play.
+        blurRadius={PREVIEW_BLUR}
         accessibilityIgnoresInvertColors
       />
     </View>
@@ -210,17 +224,18 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
           <Text style={[styles.result, { color: carspot.won ? HIT : colors.muted }]}>
             {result}
           </Text>
+        </View>
 
-          {/* One row per guess, make then model — the order the game asks in. */}
-          <View style={styles.grid} accessibilityLabel={`${result}. Guesses: ${grid.map(([mk, md], i) =>
-            `${i + 1}: make ${mk ? 'right' : 'wrong'}, model ${md ? 'right' : 'wrong'}`).join('; ')}`}>
-            {grid.map(([make, model], i) => (
-              <View key={i} style={styles.gridRow}>
-                <View style={[styles.cell, { backgroundColor: make ? HIT : MISS }]} />
-                <View style={[styles.cell, { backgroundColor: model ? HIT : MISS }]} />
-              </View>
-            ))}
-          </View>
+        {/* One row per guess, make then model — the order the game asks in.
+            At the right, small: a mark of how it went, not a second picture. */}
+        <View style={styles.grid} accessibilityLabel={`${result}. Guesses: ${grid.map(([mk, md], i) =>
+          `${i + 1}: make ${mk ? 'right' : 'wrong'}, model ${md ? 'right' : 'wrong'}`).join('; ')}`}>
+          {grid.map(([make, model], i) => (
+            <View key={i} style={styles.gridRow}>
+              <View style={[styles.cell, { backgroundColor: make ? HIT : MISS }]} />
+              <View style={[styles.cell, { backgroundColor: model ? HIT : MISS }]} />
+            </View>
+          ))}
         </View>
       </View>
 
@@ -233,7 +248,7 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
   );
 }
 
-const CELL = 18;
+const CELL = 11;
 
 const styles = StyleSheet.create({
   wrap: { paddingBottom: 4 },
@@ -248,8 +263,8 @@ const styles = StyleSheet.create({
   textCol: { flex: 1, minWidth: 0 },
   title:   { fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
   result:  { fontSize: 13, fontFamily: FONT_INTER.semibold, marginTop: 2 },
-  grid:    { gap: 4, alignItems: 'flex-start', marginTop: 10 },
-  gridRow: { flexDirection: 'row', gap: 4 },
+  grid:    { gap: 3, alignItems: 'flex-end', flexShrink: 0, paddingTop: 2 },
+  gridRow: { flexDirection: 'row', gap: 3 },
   cell: { width: CELL, height: CELL, borderRadius: COMMON_RADIUS / 2 },
 
   // ── Under it ─────────────────────────────────────────────────────────────

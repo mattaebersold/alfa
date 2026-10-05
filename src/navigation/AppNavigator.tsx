@@ -135,7 +135,9 @@ export default function AppNavigator() {
         // CreateScreen). Turned off here, where the header is decided, rather
         // than from inside the screen — a setOptions from the screen lost to
         // these options after a cold start, and the form showed both.
-        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        // Swipe down to close, like a sheet — the screen draws a grabber for
+        // it. iOS's modal carries the gesture; Android reads the drag itself.
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical' }}
       />
       {/* Recording takes the whole screen — a live map with no chrome competing
           with it — and the save step follows as a normal modal. */}

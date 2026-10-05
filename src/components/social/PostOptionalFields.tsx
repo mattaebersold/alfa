@@ -4,8 +4,7 @@ import { Text, TextInput } from '@ors/kit';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_GRAY_46 } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_14 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** Every optional field a post can carry. */
@@ -34,9 +33,9 @@ export const EMPTY_OPTIONAL_FIELDS: OptionalFieldValues = {
  * VIN came back from an edit with neither. One component, one set of fields,
  * no way for the two forms to disagree about what a post has.
  *
- * It announces itself rather than hiding as another grey header: a titled card
- * with a rule in the brand colour, and a count of what's filled in so you can
- * tell there's something inside without opening it.
+ * A titled block a step darker than the form, with a count of what's filled
+ * in while it's closed, so you can tell there's something inside without
+ * opening it.
  */
 export default function PostOptionalFields({
   values,
@@ -51,7 +50,6 @@ export default function PostOptionalFields({
   defaultOpen?: boolean;
 }) {
   const colors = useColors();
-  const brand = useBrandColor();
   const [open, setOpen] = useState(defaultOpen);
 
   const filled = Object.values(values).filter((v) => v.trim().length > 0).length;
@@ -60,28 +58,30 @@ export default function PostOptionalFields({
     { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg },
   ];
 
+  // No placeholders: the label over each says what it is, and an example
+  // under it read as a value already there.
   const field = (
     label: string,
     key: keyof OptionalFieldValues,
-    placeholder: string,
     extra: object = {},
+    /** Half the row, beside another — the pairs under make and model. */
+    half = false,
   ) => (
-    <View style={styles.field}>
-      <Text style={[styles.label, { color: colors.grey }]}>{label}</Text>
+    <View style={[styles.field, half && styles.fieldHalf]}>
+      <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
       <TextInput
         style={inputStyle}
         value={values[key]}
         onChangeText={(v) => onChange({ [key]: v } as Partial<OptionalFieldValues>)}
-        placeholder={placeholder}
-        placeholderTextColor={colors.grey}
         {...extra}
       />
     </View>
   );
 
   return (
-    // The form's own grey, marked off by a border a step lighter.
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+    // A step darker than the form, and no edge of its own: the drop in tone
+    // is what marks it off.
+    <View style={[styles.card, { backgroundColor: COLOR_GRAY_14 }]}>
       <TouchableOpacity
         style={styles.header}
         onPress={() => setOpen((v) => !v)}
@@ -91,18 +91,20 @@ export default function PostOptionalFields({
       >
         <View style={styles.headerText}>
           <Text style={[styles.headerTitle, { color: colors.fg }]}>Optional Details</Text>
-          <Text style={[styles.headerHint, { color: colors.grey }]}>
-            {filled > 0
-              ? `${filled} filled in — year, make, price and more`
-              : 'Year, make, model, price, mileage, VIN…'}
-          </Text>
         </View>
+        {/* How many are filled, as a small count beside the chevron — the
+            one thing worth saying while it's closed. */}
+        {filled > 0 && !open && (
+          <View style={[styles.countPill, { backgroundColor: colors.segment }]}>
+            <Text style={[styles.countText, { color: colors.fg }]}>{filled}</Text>
+          </View>
+        )}
         {open ? <ChevronUp size={18} color={colors.grey} /> : <ChevronDown size={18} color={colors.grey} />}
       </TouchableOpacity>
 
       {open && (
-        <View style={[styles.body, { borderTopColor: brand }]}>
-          {field('Year', 'year', 'e.g. 2003', { keyboardType: 'numeric' })}
+        <View style={styles.body}>
+          {field('Year', 'year', { keyboardType: 'numeric' })}
 
           {/* Make first, then its models — see MakeModelFields. */}
           <MakeModelFields
@@ -114,12 +116,18 @@ export default function PostOptionalFields({
             inputStyle={inputStyle}
           />
 
-          {field('Trim', 'trim', 'e.g. Carrera S')}
-          {showPrice && field('Price ($)', 'price', '0', { keyboardType: 'numeric' })}
-          {field('Mileage', 'mileage', '0', { keyboardType: 'numeric' })}
-          {field('Condition', 'condition', 'e.g. Excellent')}
-          {field('VIN', 'vin', 'Vehicle ID', { autoCapitalize: 'characters' })}
-          {field('Part #', 'partNumber', 'Part number')}
+          {field('Trim', 'trim')}
+          {showPrice && field('Price ($)', 'price', { keyboardType: 'numeric' })}
+          {/* Two to a row, like make and model above them: short answers
+              that don't need the width. */}
+          <View style={styles.columns}>
+            {field('Mileage', 'mileage', { keyboardType: 'numeric' }, true)}
+            {field('Condition', 'condition', {}, true)}
+          </View>
+          <View style={styles.columns}>
+            {field('VIN', 'vin', { autoCapitalize: 'characters' }, true)}
+            {field('Part #', 'partNumber', {}, true)}
+          </View>
         </View>
       )}
     </View>
@@ -129,7 +137,7 @@ export default function PostOptionalFields({
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 12, marginTop: 12,
-    borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, overflow: 'hidden',
   },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -137,12 +145,17 @@ const styles = StyleSheet.create({
   },
   headerText:  { flex: 1, minWidth: 0 },
   headerTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
-  headerHint:  { fontSize: 11.5, marginTop: 2 },
+  countPill:   { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
+  countText:   { fontSize: 11, fontFamily: FONT_INTER.extrabold },
 
-  // The brand-coloured rule is what separates the open block from the header
-  // above it — a plain hairline read as one more divider in a stack of them.
-  body:  { borderTopWidth: 2, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16 },
-  field: { marginBottom: 14 },
-  label: { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  // No rule under the header: the fields simply start, on the same ground.
+  body:  { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 16 },
+  field:     { marginBottom: 14 },
+  fieldHalf: { flex: 1, minWidth: 0 },
+  // Side by side, the kit's MakeModelFields' row.
+  columns:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  // The make and model labels' type (the kit's AutocompleteField): bold,
+  // sentence case, in the foreground.
+  label:     { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   input: { height: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
@@ -37,8 +37,7 @@ export function StepFormNav({
   submitAccessibilityLabel,
   canSubmit = true,
   submitting = false,
-  leading,
-}: {
+  leading, style, center }: {
   /** The form's name, on the pane's midline. */
   title: string;
   /** 1-based. */
@@ -61,6 +60,10 @@ export function StepFormNav({
    * which only exists where there is no back to go to.
    */
   leading?: React.ReactNode;
+  /** Onto the row — side padding when it sits in a page rather than a sheet's title bar. */
+  style?: StyleProp<ViewStyle>;
+  /** In the title's place between the arrows — the progress bar, when the form has no heading. */
+  center?: React.ReactNode;
 }) {
   const brand = useBrandColor();
 
@@ -69,7 +72,10 @@ export function StepFormNav({
        is no step before the first or after the last, and a dimmed control
        implies one exists and is merely unavailable. A spacer holds the gap so
        the name stays on the pane's midline either way. */
-    <View style={styles.navRow}>
+    <View style={[styles.navRow, style]}>
+      {/* Back is always drawn, faded on the first step where there's nothing
+          behind it: a row whose left end comes and goes made the bar jump. A
+          `leading` still takes its place when a form has one. */}
       {step > 1 ? (
         <TouchableOpacity
           style={[styles.navBtn, { backgroundColor: brand }]}
@@ -79,9 +85,18 @@ export function StepFormNav({
         >
           <ChevronLeft size={20} color={COLOR_BLACK} strokeWidth={2.6} />
         </TouchableOpacity>
-      ) : leading ?? <View style={styles.navBtn} />}
+      ) : leading ?? (
+        <View
+          style={[styles.navBtn, styles.navBtnOff, { backgroundColor: brand }]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          accessibilityLabel="Previous step"
+        >
+          <ChevronLeft size={20} color={COLOR_BLACK} strokeWidth={2.6} />
+        </View>
+      )}
 
-      <Text style={styles.navTitle} numberOfLines={1}>{title}</Text>
+      {center ?? <Text style={styles.navTitle} numberOfLines={1}>{title}</Text>}
 
       {step < totalSteps ? (
         <TouchableOpacity
@@ -113,17 +128,19 @@ export function StepFormNav({
 }
 
 // ── The bar and the step's name ──────────────────────────────────────────────
-export function StepFormProgress({ step, total, caption }: {
+export function StepFormProgress({ step, total, caption, style }: {
   step: number;
   total: number;
   /** What you're filling in — the header above already carries the form's name. */
   caption?: string;
+  /** Onto the track — to drop its margins when it sits between the arrows. */
+  style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
   return (
     <>
-      <View style={styles.track}>
+      <View style={[styles.track, style]}>
         {/* One bar that fills, not five tiles with gaps between them — the gaps
             read as five separate things rather than one journey. */}
         <View style={[styles.fill, { width: `${(step / total) * 100}%`, backgroundColor: brand }]} />

@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Modal, Animated, Easing, useWindowDimensions, Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
-import NotificationsList, { DeleteAllButton } from '../notifications/NotificationsList';
+import NotificationsList from '../notifications/NotificationsList';
 import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_RED, COLOR_WHITE } from '../../constants/config';
@@ -19,6 +20,11 @@ const BTN = 42;
 const BTN_RADIUS = 14;
 /** The most of the screen the opened panel takes; it scrolls past this. */
 const PANEL_RATIO = 0.9;
+/** Shorter than it is wide: the top edge stays well clear of the phone's own UI. */
+const PANEL_H_RATIO = 0.72;
+/** The close button above the panel's corner, and the gap it keeps around it. */
+const CLOSE_SIZE = 36;
+const CLOSE_GAP = 8;
 /** The panel's height before the list has measured — a spinner's worth. */
 const PANEL_LOADING_H = 220;
 const PANEL_RADIUS = 20;
@@ -64,6 +70,7 @@ const BADGE_MAX = 10;
 export default function NotificationsBell() {
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const { data } = useGetUnreadNotificationCountQuery(undefined, {
     skip: !isLoggedIn,
@@ -115,12 +122,13 @@ export default function NotificationsBell() {
   const ghost = useRef(new Animated.Value(1)).current;
 
   const panelW = screenW * PANEL_RATIO;
-  const maxPanelH = screenH * PANEL_RATIO;
+  const maxPanelH = screenH * PANEL_H_RATIO;
   const panelX = (screenW - panelW) / 2;
   // Anchored where the full-height panel's top edge would be, so a short panel
   // hangs from the top of the screen and grows or shrinks at its bottom edge
   // only, rather than re-centring every time a notification comes or goes.
-  const panelY = (screenH - maxPanelH) / 2;
+  // Never under the status bar: at the old height the top edge met the clock.
+  const panelY = Math.max(insets.top + CLOSE_GAP + CLOSE_SIZE + CLOSE_GAP, (screenH - maxPanelH) / 2);
 
   /**
    * As tall as what's in it, up to `maxPanelH`.
@@ -415,20 +423,9 @@ export default function NotificationsBell() {
           >
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
               {/* No heading and no bell — you just tapped the bell, so the panel
-                  doesn't need to say what it is. Delete-all on the left, close
-                  on the right: both act on the panel rather than on a
-                  notification, and apart they can't be hit one for the other. */}
-              <View style={styles.panelHeader}>
-                <DeleteAllButton color={COLOR_WHITE} />
-                <TouchableOpacity
-                  onPress={() => closePanel()}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close notifications"
-                >
-                  <X size={30} color={COLOR_WHITE} strokeWidth={2.4} />
-                </TouchableOpacity>
-              </View>
+                  doesn't need to say what it is. The close sits outside, above
+                  the corner (below); clearing out lives on the Archived tab. */}
+              <View style={styles.panelTop} />
 
               {/* Messages first, and only when there are unread ones. A standing
                   "Messages" row on a panel about what's new would be navigation
@@ -461,10 +458,29 @@ export default function NotificationsBell() {
             <NotificationsList
               onDismiss={closePanel}
               revealStagger
-              showDeleteAll={false}
               onContentHeight={setListH}
             />
           </Animated.View>
+        </Animated.View>
+
+        {/* Outside the panel, above its top-right corner, on the dimmed
+            backdrop — as every summary panel's close is. Fades with the rest. */}
+        <Animated.View
+          style={[
+            styles.closeOut,
+            { left: panelX + panelW - CLOSE_SIZE, top: panelY - CLOSE_SIZE - CLOSE_GAP, opacity: reveal },
+          ]}
+          pointerEvents={expanded ? 'box-none' : 'none'}
+        >
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={() => closePanel()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close notifications"
+          >
+            <X size={22} color={COLOR_WHITE} strokeWidth={2.2} />
+          </TouchableOpacity>
         </Animated.View>
       </Modal>
     </>
@@ -579,8 +595,13 @@ const styles = StyleSheet.create({
     zIndex: 20, elevation: 22,
   },
   contentFade: { flex: 1 },
-  panelHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14,
+  // The panel's head, now nothing is in it: a little room before the first row.
+  panelTop: { height: 10 },
+  closeOut: { position: 'absolute', width: CLOSE_SIZE, height: CLOSE_SIZE, zIndex: 30, elevation: 24 },
+  closeBtn: {
+    width: CLOSE_SIZE, height: CLOSE_SIZE, borderRadius: CLOSE_SIZE / 2,
+    alignItems: 'center', justifyContent: 'center',
+    // A faint disc: the backdrop is a blurred screen as often as not.
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
 });

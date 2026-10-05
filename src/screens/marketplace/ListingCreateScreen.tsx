@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, Alert, Platform, Switch,
-} from 'react-native';
+  View, StyleSheet, TouchableOpacity, Alert, Platform, Switch, ScrollView } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Check, Tag, X } from 'lucide-react-native';
+import { Check, Tag, X, Plus } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
+import Segmented from '../../components/ui/Segmented';
 import PostToSelector from '../../components/social/PostToSelector';
 import MakeModelFields from '../../components/cars/MakeModelFields';
+import GarageCarStrip from '../../components/social/GarageCarStrip';
 import {
   useCreateListingMutation, useUpdateListingMutation,
   useGetListingQuery, useGetListingMetaQuery,
@@ -47,11 +48,9 @@ import { FONT_INTER } from '../../constants/fonts'
  * is ui/StepFormHeader, shared with both.
  */
 const STEP_TITLES = [
-  'For sale or wanted',
   'What it is',
   'Details',
-  'Car & location',
-  'Where to post',
+  'Car, location & who sees it',
 ];
 
 const SHIPPING_CHOICES: { key: ListingShipping; label: string }[] = [
@@ -109,7 +108,8 @@ interface ListingForm {
 
 const emptyForm = (kind: ListingKind, groupId?: string): ListingForm => ({
   kind,
-  title: '', category: '', body: '', images: [],
+  // Parts are most of what's listed, so a new listing starts there.
+  title: '', category: 'part', body: '', images: [],
   condition: null, price_mode: 'amount', price: '', obo: false,
   willing_to_pay: '', shipping: 'pickup',
   car_id: '', make: '', model: '', year: '', trim: '', color: '', vin: '',
@@ -148,7 +148,7 @@ export default function ListingCreateScreen({ navigation, route }: AppScreenProp
  * The alternative is one form showing every field to everyone, which is the
  * form this replaces.
  */
-export function ListingCreateSheet({ listingId, initialKind, initialGroupId, initialImages, onDismissed }: {
+export function ListingCreateSheet({ listingId, initialKind, initialGroupId, initialImages, onDismissed, inline = false, onNav }: {
   /** Edit this listing; omitted to create one. */
   listingId?: string;
   /** Which side of the marketplace the create button was on. */
@@ -162,6 +162,19 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   /** Photos already taken — the create screen's, when it opens this from its listing tab. */
   initialImages?: PickedImage[];
   onDismissed: () => void;
+  /**
+   * Inside another form rather than a sheet of its own — the create pane's
+   * Listing tab. No sheet, no scroller: the host scrolls, and the steps,
+   * their progress and their Back / Next / Post sit in its flow. Closing
+   * is the host's: `onDismissed` fires at once instead of after a slide.
+   */
+  inline?: boolean;
+  /**
+   * Inline, hand the Back / progress / Next row to the host to pin above
+   * its scroller rather than drawing it in the flow. Called whenever the
+   * row's state changes; the host renders what it's given.
+   */
+  onNav?: (nav: React.ReactNode) => void;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -172,6 +185,14 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   const [visible, setVisible] = useState(true);
   /** Runs once the sheet is gone and the screen has popped. */
   const afterDismiss = useRef<(() => void) | null>(null);
+  /** Done here: the sheet slides out and reports, or inline the host is told now. */
+  const close = () => {
+    if (!inline) { setVisible(false); return; }
+    const done = afterDismiss.current;
+    afterDismiss.current = null;
+    onDismissed();
+    done?.();
+  };
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<ListingForm>(() => ({
     ...emptyForm(initialKind ?? 'sale', listingId ? undefined : initialGroupId),
@@ -220,7 +241,26 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
     [rawGroups],
   );
   const conditions = meta?.conditions ?? LISTING_CONDITIONS;
-  const categories = meta?.categories ?? [];
+  // Parts first: the one most listings are, and the one a new form starts on.
+  const rawCategories = meta?.categories ?? [];
+  const categories = rawCategories.includes('part')
+    ? ['part', ...rawCategories.filter((c) => c !== 'part')]
+    : rawCategories;
+  // A new form starts on Part — and stays on it if the list arrives after the
+  // form did, or the form was opened before the default was set.
+  useEffect(() => {
+    if (!isEdit && !form.category && categories.includes('part')) set('category')('part');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, form.category, categories.join(',')]);
+  // And on New: the top of the scale, where most of what's listed sits. Set
+  // once the scale is known, since its index is the value.
+  useEffect(() => {
+    if (!isEdit && form.condition == null && conditions.length > 0) {
+      const top = conditions.findIndex((c) => c.toLowerCase() === 'new');
+      set('condition')(top >= 0 ? top : conditions.length - 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, form.condition, conditions.join(',')]);
 
   const set = <K extends keyof ListingForm>(key: K) => (value: ListingForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -338,8 +378,8 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
 
   /** What each step won't let you past without. */
   const canAdvance = (): boolean => {
-    if (step === 2) return !!form.title.trim() && !!form.category;
-    if (step === 3) {
+    if (step === 1) return !!form.title.trim() && !!form.category;
+    if (step === 2) {
       // A number is the whole point of a priced sale; free and trade have none,
       // and a want ad's budget is genuinely optional.
       if (form.kind === 'sale' && form.price_mode === 'amount') return !!form.price.trim();
@@ -351,7 +391,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   const handleSubmit = async () => {
     if (!form.title.trim() || !form.category) {
       Alert.alert('Almost there', 'A title and a category are needed before this can be posted.');
-      setStep(2);
+      setStep(1);
       return;
     }
 
@@ -433,7 +473,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
             ? "Your want ad is up. You'll hear from anyone who has one."
             : "It's up. You'll hear from anyone interested.",
       );
-      setVisible(false);
+      close();
     } catch (err: any) {
       /**
        * The refusals worth their own words. The checks above normally catch
@@ -465,76 +505,85 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
     }
   };
 
+  // The steps' container: the sheet's own scroller, or, inline, a plain view
+  // in the host's. A variable element rather than a wrapper component, so
+  // the fields inside keep their identity (and focus) across renders.
+  const Body: React.ElementType = inline ? View : FormScrollView;
+  const bodyProps = inline
+    ? { style: styles.inlineBody }
+    : {
+        contentContainerStyle: [styles.scroll, { paddingBottom: 24 + (Platform.OS === 'android' ? 40 : 20) }],
+        showsVerticalScrollIndicator: false,
+      };
+
   const existingPhotos = (existing?.entry.gallery ?? [])
     .map((g) => imageUrl(g.filename))
     .filter((u): u is string => !!u);
 
-  return (
-    <SharedModal
-      visible={visible}
-      onClose={() => setVisible(false)}
-      onDismissed={() => {
-        const done = afterDismiss.current;
-        afterDismiss.current = null;
-        onDismissed();
-        done?.();
-      }}
-      titleContent={(
-        <StepFormNav
-          title={isEdit ? 'Edit Listing' : form.kind === 'want' ? 'New Want Ad' : 'New Listing'}
-          step={step}
-          totalSteps={STEP_TITLES.length}
-          onBack={() => setStep((s) => s - 1)}
-          onNext={() => setStep((s) => s + 1)}
-          canAdvance={canAdvance()}
-          onSubmit={handleSubmit}
-          submitLabel={isEdit ? 'Save' : 'Post'}
-          submitAccessibilityLabel={isEdit ? 'Save changes' : 'Post listing'}
-          submitting={busy}
-        />
-      )}
-      fullHeight
-    >
-      <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
+  // The submit handler, by ref: a pinned nav built when the step changed
+  // must still post the form as it is now, not as it was then.
+  const submitRef = useRef(handleSubmit);
+  submitRef.current = handleSubmit;
+  const advance = canAdvance();
+  const nav = (
+    <StepFormNav
+      // Inline there's no heading: the progress bar sits between the arrows,
+      // level with them, and says where you are on its own.
+      center={inline ? <StepFormProgress step={step} total={STEP_TITLES.length} style={styles.inlineTrack} /> : undefined}
+      title={isEdit ? 'Edit Listing' : form.kind === 'want' ? 'New Want Ad' : 'New Listing'}
+      step={step}
+      totalSteps={STEP_TITLES.length}
+      onBack={() => setStep((s) => s - 1)}
+      onNext={() => setStep((s) => s + 1)}
+      canAdvance={advance}
+      onSubmit={() => submitRef.current()}
+      submitLabel={isEdit ? 'Save' : 'Post'}
+      submitAccessibilityLabel={isEdit ? 'Save changes' : 'Post listing'}
+      submitting={busy}
+    />
+  );
+  // Handed up when what it shows changes — not every render, which would
+  // have the host re-rendering this, which hands it up again.
+  const pinned = !!(inline && onNav);
+  useEffect(() => {
+    if (pinned) onNav!(<View style={styles.inlineNav}>{nav}</View>);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinned, step, advance, busy, isEdit, form.kind]);
+  useEffect(() => () => { if (pinned) onNav!(null); }, [pinned]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      <FormScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: 24 + (Platform.OS === 'android' ? 40 : 20) },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
+  const frame = (
+    <>
+      {!inline && <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />}
+
+      <Body {...bodyProps}>
         {/* ── STEP 1: which side of the market ───────────────────────────── */}
+        {/* ── STEP 1: which side of the market, and what it is ───────────── */}
         {step === 1 && (
-          <View style={styles.kindGrid}>
-            {([
-              {
-                key: 'sale' as const,
-                title: 'For sale',
-                hint: 'You have something and want it gone — a car, a part, a box of trim clips.',
-              },
-              {
-                key: 'want' as const,
-                title: 'Want ad',
-                hint: "You're looking for something. Say what, and what you'd pay for it.",
-              },
-            ]).map((opt) => {
-              const on = form.kind === opt.key;
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[
-                    styles.kindTile,
-                    { backgroundColor: colors.inputBg, borderColor: colors.inputBorder },
-                    on && { borderColor: brand, backgroundColor: brand + '1F' },
-                  ]}
-                  onPress={() => set('kind')(opt.key)}
-                  activeOpacity={0.85}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                >
-                  <View style={styles.kindTileTop}>
-                    <Tag size={18} color={on ? brand : colors.grey} />
+          <View>
+            {/* For sale or wanted: two tiles, half the row each. */}
+            <View style={styles.kindGrid}>
+              {([
+                { key: 'sale' as const, title: 'For sale' },
+                { key: 'want' as const, title: 'Want ad' },
+              ]).map((opt) => {
+                const on = form.kind === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[
+                      styles.kindTile,
+                      { backgroundColor: colors.inputBg, borderColor: colors.inputBorder },
+                      on && { borderColor: brand, backgroundColor: brand + '1F' },
+                    ]}
+                    onPress={() => set('kind')(opt.key)}
+                    activeOpacity={0.85}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Tag size={16} color={on ? brand : colors.grey} />
+                    <Text style={[styles.kindTitle, { color: on ? colors.fg : colors.muted }]} numberOfLines={1}>
+                      {opt.title}
+                    </Text>
                     <View style={[
                       styles.check,
                       { borderColor: on ? brand : colors.inputBorder },
@@ -542,78 +591,51 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                     ]}>
                       {on && <Check size={11} color={COLOR_BLACK} strokeWidth={3.5} />}
                     </View>
-                  </View>
-                  <Text style={[styles.kindTitle, { color: on ? colors.fg : colors.muted }]}>
-                    {opt.title}
-                  </Text>
-                  <Text style={[styles.kindHint, { color: colors.grey }]}>{opt.hint}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {/* ── STEP 2: what it is ─────────────────────────────────────────── */}
-        {step === 2 && (
-          <View>
-            <Label colors={colors} first>Title</Label>
-            <TextInput
-              style={[ss.input, inputStyle(colors)]}
-              value={form.title}
-              onChangeText={set('title')}
-              placeholder={form.kind === 'want' ? 'e.g. 911 SC front bumper' : 'e.g. 1987 Porsche 911 Carrera'}
-              placeholderTextColor={colors.grey}
-              maxLength={120}
-            />
-
-            <Label colors={colors}>Category</Label>
-            <View style={styles.chips}>
-              {categories.map((c) => {
-                const on = form.category === c;
-                /**
-                 * Diecast is Pro, and it's shown rather than hidden: a member
-                 * who can't see the category doesn't know the app does it, and
-                 * one who picks it should be told why now — not at the end of
-                 * five steps by a server refusal.
-                 */
-                const proOnly = isDiecastCategory(c) && !isPro;
-                return (
-                  <TouchableOpacity
-                    key={c}
-                    style={[
-                      styles.chip,
-                      { borderColor: colors.border, backgroundColor: colors.card },
-                      on && { backgroundColor: brand, borderColor: brand },
-                      proOnly && { borderColor: colors.pro },
-                    ]}
-                    onPress={() => (proOnly ? setUpsell(DIECAST_UPSELL) : set('category')(c))}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={proOnly ? `${categoryLabel(c)}, a Pro category` : undefined}
-                  >
-                    <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]}>
-                      {categoryLabel(c)}
-                    </Text>
-                    {proOnly && (
-                      <Text style={[styles.chipPro, { color: colors.pro }]}>PRO</Text>
-                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
 
+            {/* The post form's type track: one of these, the thumb sliding
+                to it. Diecast is Pro, and it's shown rather than hidden: a
+                member who can't see the category doesn't know the app does
+                it, and one who picks it is told why now — not at the end
+                by a server refusal. */}
+            <Label colors={colors}>Category</Label>
+            <View style={styles.categoryTrack}>
+              <Segmented
+                options={categories.map((c) => ({
+                  key: c,
+                  label: isDiecastCategory(c) && !isPro ? `${categoryLabel(c)} · Pro` : categoryLabel(c),
+                }))}
+                value={form.category}
+                onChange={(c) => (isDiecastCategory(c) && !isPro ? setUpsell(DIECAST_UPSELL) : set('category')(c))}
+                fit="scroll"
+              />
+            </View>
+
+            {/* Photos, as the post form has them: the well, then a row of
+                thumbnails that scrolls. The photos already on the listing
+                lead it — removing one of those is done from the listing. */}
             <Label colors={colors}>Photos</Label>
-            {/* The photos already on the listing. New ones are added after
-                them — removing one is done from the listing itself. */}
-            {existingPhotos.length > 0 && (
-              <View style={styles.thumbs}>
+            {existingPhotos.length === 0 && form.images.length === 0 ? (
+              <PhotoPickerField
+                onPress={pickImages}
+                title="Add Media"
+                hint=""
+                muted
+                style={styles.photoField}
+              />
+            ) : (
+              /* The previews, then an add tile the same size at the end —
+                 the post form's row. The photos already on the listing lead
+                 it; removing one of those is done from the listing. */
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow} keyboardShouldPersistTaps="handled">
                 {existingPhotos.map((uri) => (
-                  <Image key={uri} source={{ uri }} style={styles.thumb} contentFit="cover" />
+                  <View key={uri} style={styles.thumbWrap}>
+                    <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+                  </View>
                 ))}
-              </View>
-            )}
-            {form.images.length > 0 && (
-              <View style={styles.thumbs}>
                 {form.images.map((img) => (
                   <View key={img.uri} style={styles.thumbWrap}>
                     <Image source={{ uri: img.uri }} style={styles.thumb} contentFit="cover" />
@@ -624,16 +646,29 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                       accessibilityRole="button"
                       accessibilityLabel="Remove photo"
                     >
-                      <X size={12} color={COLOR_WHITE} strokeWidth={3} />
+                      <X size={11} color={COLOR_WHITE} strokeWidth={3} />
                     </TouchableOpacity>
                   </View>
                 ))}
-              </View>
+                <TouchableOpacity
+                  style={[styles.thumb, styles.addTile, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+                  onPress={pickImages}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add media"
+                >
+                  <Plus size={20} color={colors.grey} strokeWidth={2.4} />
+                  <Text style={[styles.addTileText, { color: colors.grey }]}>Add Media</Text>
+                </TouchableOpacity>
+              </ScrollView>
             )}
-            <PhotoPickerField
-              onPress={pickImages}
-              compact={form.images.length > 0 || existingPhotos.length > 0}
-              title={form.images.length > 0 || existingPhotos.length > 0 ? 'Add more photos' : 'Add Photos'}
+
+            <Label colors={colors}>Title</Label>
+            <TextInput
+              style={[ss.input, inputStyle(colors)]}
+              value={form.title}
+              onChangeText={set('title')}
+              maxLength={120}
             />
 
             <Label colors={colors}>Description</Label>
@@ -641,77 +676,56 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
               style={[ss.input, ss.inputMulti, inputStyle(colors)]}
               value={form.body}
               onChangeText={set('body')}
-              placeholder={form.kind === 'want'
-                ? 'What exactly are you after? Fitment, condition, colour…'
-                : 'History, condition, what it fits, why you’re selling…'}
-              placeholderTextColor={colors.grey}
               multiline
               numberOfLines={5}
             />
           </View>
         )}
 
-        {/* ── STEP 3: what it costs, and what it is ──────────────────────── */}
-        {step === 3 && (
+        {/* ── STEP 2: what it costs, and what it is ──────────────────────── */}
+        {step === 2 && (
           <View>
-            {/* Sale only — a want ad has no condition, it has a wish. */}
+            {/* Sale only — a want ad has no condition, it has a wish. The
+                server's scale, as the category's track: best first, since
+                that's where most things listed sit. The value stays the
+                scale's index. */}
             {form.kind === 'sale' && (
               <>
                 <Label colors={colors} first>Condition</Label>
-                <ConditionSlider
-                  value={form.condition}
-                  labels={conditions}
-                  onChange={set('condition')}
-                />
+                <View style={styles.categoryTrack}>
+                  <Segmented
+                    options={conditions.map((label, i) => ({ key: String(i), label })).reverse()}
+                    value={form.condition == null ? '' : String(form.condition)}
+                    onChange={(k) => set('condition')(Number(k))}
+                    fit="scroll"
+                  />
+                </View>
               </>
             )}
 
             {form.kind === 'sale' ? (
               <>
                 <Label colors={colors} first={form.kind !== 'sale'}>Price</Label>
-                <View style={styles.chips}>
-                  {PRICE_MODES.map((m) => {
-                    const on = form.price_mode === m.key;
-                    return (
-                      <TouchableOpacity
-                        key={m.key}
-                        style={[
-                          styles.chip,
-                          { borderColor: colors.border, backgroundColor: colors.card },
-                          on && { backgroundColor: brand, borderColor: brand },
-                        ]}
-                        onPress={() => set('price_mode')(m.key)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: on }}
-                      >
-                        <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]}>
-                          {m.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                <View style={styles.categoryTrack}>
+                  <Segmented
+                    options={PRICE_MODES.map((m) => ({ key: m.key, label: m.label }))}
+                    value={form.price_mode}
+                    onChange={set('price_mode')}
+                  />
                 </View>
 
                 {/* Free and trade have no number attached — the server drops
-                    one left in the form, so the form stops asking for it. */}
+                    one left in the form, so the form only asks for it when a
+                    price is the choice. */}
                 {form.price_mode === 'amount' && (
-                  <>
-                    <TextInput
-                      style={[ss.input, inputStyle(colors), styles.spaced]}
-                      value={form.price}
-                      onChangeText={set('price')}
-                      placeholder="$"
-                      placeholderTextColor={colors.grey}
-                      keyboardType="numeric"
-                    />
-                    <ToggleRow
-                      colors={colors}
-                      brand={brand}
-                      label="Open to offers (OBO)"
-                      value={form.obo}
-                      onChange={set('obo')}
-                    />
-                  </>
+                  <TextInput
+                    style={[ss.input, inputStyle(colors), styles.spaced]}
+                    value={form.price}
+                    onChangeText={set('price')}
+                    placeholder="$"
+                    placeholderTextColor={colors.grey}
+                    keyboardType="numeric"
+                  />
                 )}
               </>
             ) : (
@@ -732,37 +746,25 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
             )}
 
             <Label colors={colors}>Shipping</Label>
-            <View style={styles.chips}>
-              {SHIPPING_CHOICES.map((s) => {
-                const on = form.shipping === s.key;
-                return (
-                  <TouchableOpacity
-                    key={s.key}
-                    style={[
-                      styles.chip,
-                      { borderColor: colors.border, backgroundColor: colors.card },
-                      on && { backgroundColor: brand, borderColor: brand },
-                    ]}
-                    onPress={() => set('shipping')(s.key)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                  >
-                    <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]}>{s.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.categoryTrack}>
+              <Segmented
+                options={SHIPPING_CHOICES.map((c) => ({ key: c.key, label: c.label }))}
+                value={form.shipping}
+                onChange={set('shipping')}
+              />
             </View>
 
             {/* Only the categories that are — or come off — a car. */}
             {isVehicleCategory(form.category) && (
               <>
-                <Label colors={colors}>The car</Label>
-                <MakeModelFields
-                  make={form.make}
-                  model={form.model}
-                  onMakeChange={set('make')}
-                  onModelChange={set('model')}
-                />
+                <View style={styles.makeModel}>
+                  <MakeModelFields
+                    make={form.make}
+                    model={form.model}
+                    onMakeChange={set('make')}
+                    onModelChange={set('model')}
+                  />
+                </View>
                 <View style={styles.pairRow}>
                   <SmallField colors={colors} label="Year" value={form.year} onChange={set('year')} numeric />
                   <SmallField colors={colors} label="Trim" value={form.trim} onChange={set('trim')} />
@@ -798,71 +800,41 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
           </View>
         )}
 
-        {/* ── STEP 4: which car, and where it is ─────────────────────────── */}
-        {step === 4 && (
+        {/* ── STEP 3: which car, where it is, and who sees it ────────────── */}
+        {step === 3 && (
           <View>
-            <Label colors={colors} first>Link a car from your garage</Label>
-            <Text style={[styles.hint, { color: colors.grey }]}>
-              Optional. Picking one fills in the make and model, and the listing
-              links back to the car so a buyer can see what it came off.
-            </Text>
-            {(garage?.entries?.length ?? 0) === 0 ? (
-              <Text style={[styles.hint, { color: colors.grey }]}>Nothing in your garage yet.</Text>
-            ) : (
-              <View style={styles.chips}>
-                {garage!.entries.map((car) => {
-                  const on = form.car_id === car.internal_id;
-                  return (
-                    <TouchableOpacity
-                      key={car.internal_id}
-                      style={[
-                        styles.chip,
-                        { borderColor: colors.border, backgroundColor: colors.card },
-                        on && { backgroundColor: brand, borderColor: brand },
-                      ]}
-                      onPress={() => chooseCar(car.internal_id)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: on }}
-                    >
-                      <Text style={[styles.chipText, { color: on ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>
-                        {car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            {/* The garage as the post form's tag strip: the cars by their
+                photos, one pickable. Picking fills the make and model, and
+                the listing links back to the car. */}
+            {(garage?.entries?.length ?? 0) > 0 && (
+              <>
+                <Label colors={colors} first>Link a car from your garage</Label>
+                <GarageCarStrip
+                  selectedIds={form.car_id ? [form.car_id] : []}
+                  onToggle={(tag) => chooseCar(tag.id)}
+                  bleed={inline ? 12 : 16}
+                />
+              </>
             )}
 
-            <Label colors={colors}>Where it is</Label>
             {/* Defaulted from your profile, so nobody retypes their zip for
                 every part they list — which is how a marketplace ends up
                 unable to answer "near me". */}
-            <Text style={[styles.hint, { color: colors.grey }]}>
-              {me?.cityState
-                ? `Left blank, this listing sits where you are — ${me.cityState}.`
-                : 'Left blank, this listing sits wherever your profile says you are.'}
-            </Text>
             <TextInput
-              style={[ss.input, inputStyle(colors)]}
+              style={[ss.input, inputStyle(colors), styles.spaced]}
               value={form.zip}
               onChangeText={set('zip')}
-              placeholder="Zip code (only if it's somewhere else)"
+              placeholder="Zip code"
               placeholderTextColor={colors.grey}
               keyboardType="number-pad"
               maxLength={10}
             />
-          </View>
-        )}
 
-        {/* ── STEP 5: who sees it ────────────────────────────────────────── */}
-        {step === 5 && (
-          <View>
-            <Label colors={colors} first>Post to</Label>
-            <Text style={[styles.hint, { color: colors.grey }]}>
-              A listing in a group is for sale to that group. Pick both and it's
-              in the public marketplace as well.
-            </Text>
+            <View style={styles.spacedMore} />
+            {/* Two across, all in view: the choice ends the form, so there's
+                no line below for a scrolling row to save room for. */}
             <PostToSelector
+              layout="grid"
               isPublic={form.isPublic}
               onTogglePublic={() => set('isPublic')(!form.isPublic)}
               groups={myGroups}
@@ -876,7 +848,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
             )}
           </View>
         )}
-      </FormScrollView>
+      </Body>
 
       {/*
         The pitch, over the form. Someone who's out of listings for the month
@@ -889,79 +861,39 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
         visible={!!upsell}
         onClose={() => {
           setUpsell(null);
-          if (overListingLimit) setVisible(false);
+          if (overListingLimit) close();
         }}
         title={upsell?.title ?? ''}
         message={upsell?.message ?? ''}
       />
+    </>
+  );
+
+  if (inline) {
+    return (
+      <View style={styles.inlineWrap}>
+        {!pinned && <View style={styles.inlineNav}>{nav}</View>}
+        {frame}
+      </View>
+    );
+  }
+  return (
+    <SharedModal
+      visible={visible}
+      onClose={() => setVisible(false)}
+      onDismissed={() => {
+        const done = afterDismiss.current;
+        afterDismiss.current = null;
+        onDismissed();
+        done?.();
+      }}
+      titleContent={nav}
+      fullHeight
+    >
+      {frame}
     </SharedModal>
   );
 }
-
-// ── Condition ────────────────────────────────────────────────────────────────
-/**
- * The 0-5 scale, as six stops on one track.
- *
- * A slider rather than six chips because condition is a scale and reads as one:
- * the stop you pick means "this good", and the ones either side mean more or
- * less of the same thing. Free text was what this replaced — "mint-ish", "good
- * for its age" — none of which a filter can do anything with.
- *
- * Not answering is a valid answer: a seller who doesn't know shouldn't be made
- * to guess, so the track starts unset and the label says so.
- */
-function ConditionSlider({ value, labels, onChange }: {
-  value: number | null;
-  labels: string[];
-  onChange: (next: number | null) => void;
-}) {
-  const colors = useColors();
-  const brand = useBrandColor();
-
-  return (
-    <View style={cond.wrap}>
-      <View style={cond.track}>
-        {labels.map((label, i) => {
-          const on = value !== null && i <= value;
-          const exact = value === i;
-          return (
-            <TouchableOpacity
-              key={label}
-              style={cond.stopTap}
-              // Tapping the stop you're on clears it — back to "not stated".
-              onPress={() => onChange(exact ? null : i)}
-              accessibilityRole="adjustable"
-              accessibilityLabel={label}
-              accessibilityState={{ selected: exact }}
-            >
-              {/* The bar behind the stops, drawn in segments so the filled part
-                  stops where the choice does. */}
-              <View style={[cond.bar, { backgroundColor: on ? brand : colors.segment }]} />
-              <View style={[
-                cond.stop,
-                { backgroundColor: on ? brand : colors.segment, borderColor: exact ? colors.fg : 'transparent' },
-                exact && cond.stopExact,
-              ]} />
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <Text style={[cond.label, { color: value === null ? colors.grey : colors.fg }]}>
-        {value === null ? 'Not stated' : labels[value]}
-      </Text>
-    </View>
-  );
-}
-
-const cond = StyleSheet.create({
-  wrap:  { marginTop: 4, marginBottom: 4 },
-  track: { flexDirection: 'row', alignItems: 'center', height: 34 },
-  stopTap: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 34 },
-  bar:   { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
-  stop:  { width: 14, height: 14, borderRadius: PILL_RADIUS, borderWidth: 2 },
-  stopExact: { width: 20, height: 20 },
-  label: { fontSize: 13, fontFamily: FONT_INTER.bold, marginTop: 6 },
-});
 
 // ── Small pieces the steps share ─────────────────────────────────────────────
 function Label({ children, colors, first }: {
@@ -976,10 +908,11 @@ function Label({ children, colors, first }: {
   );
 }
 
+// The post form's fields: the input ground, not the card's.
 const inputStyle = (colors: ReturnType<typeof useColors>) => ({
   borderColor: colors.inputBorder,
   color: colors.fg,
-  backgroundColor: colors.card,
+  backgroundColor: colors.inputBg,
 });
 
 function SmallField({ colors, label, value, onChange, numeric }: {
@@ -1026,20 +959,32 @@ function ToggleRow({ colors, brand, label, value, onChange }: {
 
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  // Inline: the host's inset, and the nav row's clearance above it.
+  inlineWrap: { paddingTop: 4 },
+  // The Back / Next / Post row, in from the screen's edge.
+  inlineNav:  { paddingHorizontal: 12, paddingBottom: 14 },
+  // Between the arrows: no margins of its own, the row's gap instead.
+  inlineTrack: { flex: 1, marginHorizontal: 14, marginTop: 0, marginBottom: 0 },
+  inlineBody: { paddingHorizontal: 12, paddingBottom: 8 },
 
-  label: {
-    fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase',
-    letterSpacing: 0.6, marginTop: 20, marginBottom: 8,
-  },
+  // The post form's field captions: sentence case, a size up from the old
+  // uppercase tag, in the muted ink.
+  label: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: 14, marginBottom: 6 },
   labelFirst: { marginTop: 0 },
   hint: { fontSize: 12.5, lineHeight: 18, marginBottom: 10, marginTop: -2 },
   spaced: { marginTop: 10 },
+  spacedMore: { height: 14 },
 
-  kindGrid: { gap: 12 },
-  kindTile: { borderRadius: 12, borderWidth: 1.5, padding: 14, gap: 8 },
-  kindTileTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  kindTitle: { fontSize: 16, fontFamily: FONT_INTER.bold },
-  kindHint:  { fontSize: 12.5, lineHeight: 18 },
+  // Two across, half each: the icon, the word, the check.
+  kindGrid:  { flexDirection: 'row', gap: 10, marginTop: 4 },
+  kindTile:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 12, height: 50 },
+  kindTitle: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
+  categoryTrack: { marginHorizontal: -12 },
+  // Room under the make/model pair before the year and trim.
+  makeModel:     { marginBottom: 12 },
+  // The post form's photo well and thumbnail row.
+  photoField: { alignSelf: 'stretch', maxWidth: '100%', marginBottom: 6 },
+  thumbRow:   { marginBottom: 4 },
   check: {
     width: 20, height: 20, borderRadius: 6, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
@@ -1054,13 +999,14 @@ const styles = StyleSheet.create({
   /** The gold tag on a category a basic membership can't pick. */
   chipPro: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8 },
 
-  thumbs:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 },
-  thumbWrap: { position: 'relative' },
-  thumb:     { width: 74, height: 74, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
+  thumbWrap: { marginRight: 8, position: 'relative' },
+  addTile:     { borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  addTileText: { fontSize: 10, fontFamily: FONT_INTER.bold, textAlign: 'center' },
+  thumb:     { width: 72, height: 72, borderRadius: 8, backgroundColor: COLOR_GRAY_22 },
   thumbX: {
-    position: 'absolute', top: -5, right: -5,
+    position: 'absolute', top: 4, right: 4,
     width: 20, height: 20, borderRadius: PILL_RADIUS,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center', justifyContent: 'center',
   },
 

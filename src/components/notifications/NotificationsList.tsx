@@ -11,7 +11,7 @@ import { Trash2, Check, X } from 'lucide-react-native';
 import {
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
-  useDeleteAllNotificationsMutation,
+  useDeleteReadNotificationsMutation,
   useDeleteNotificationMutation,
   useApproveGroupMemberMutation,
   useRejectGroupMemberMutation,
@@ -25,6 +25,7 @@ import Spinner from '../ui/Spinner';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import Segmented from '../ui/Segmented';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { notificationTarget } from '../../utils/notificationTarget';
 import type { Notification } from '../../types/api';
@@ -39,8 +40,7 @@ import {
   COLOR_GRAY_236,
   COLOR_GRAY_42,
   COLOR_SUCCESS,
-  COLOR_WHITE,
-} from '../../constants/config';
+  COLOR_WHITE, COLOR_RED } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -73,6 +73,9 @@ interface DecisionCopy {
   noResolution: Resolution;
   settled: Record<string, string>;
 }
+
+/** How many notifications show at first, and how many each "more" adds. */
+const NOTIFICATIONS_PAGE = 5;
 
 const JOIN_REQUEST: DecisionCopy = {
   yes: 'Approve', no: 'Deny',
@@ -186,25 +189,41 @@ function NotificationRow({
   const senderName = username
     ? `@${username}`
     : [notification.sender?.firstName, notification.sender?.lastName].filter(Boolean).join(' ') || null;
+  // The server's line starts with the sender's name ("bucky737 liked your
+  // post"); the row leads with @name already, so the second copy comes off.
+  const message = username && notification.message?.toLowerCase().startsWith(username.toLowerCase())
+    ? notification.message.slice(username.length).replace(/^[\s:,–—-]+/, '')
+    : notification.message;
+  // "liked your post: Caught a Ferrari" — the action, and the thing it was
+  // done to, which the server joins with a colon. Drawn as two kinds of text
+  // rather than one run, so who / what / which can be told apart at a glance.
+  const colon = message ? message.indexOf(': ') : -1;
+  const action = colon > 0 ? message.slice(0, colon) : message;
+  const subject = colon > 0 ? message.slice(colon + 2) : null;
 
   return (
     <TouchableOpacity
-      style={[styles.card, isUnread ? styles.cardUnread : styles.cardRead]}
+      style={[styles.card, styles.cardRead]}
       onPress={onRead}
       activeOpacity={0.8}
     >
+      {/* Unread: a red dot by the avatar — a mark on the card, not a
+          different card. */}
+      {isUnread && <View style={styles.unreadDot} />}
       <Avatar
         user={notification.sender}
         size={38}
       />
       <View style={styles.rowContent}>
-        <Text
-          style={[styles.message, isUnread ? styles.messageUnread : styles.messageRead]}
-          numberOfLines={3}
-        >
-          {senderName ? <Text style={styles.senderName}>{senderName} </Text> : null}
-          {notification.message}
+        <Text style={[styles.message, isUnread ? styles.messageUnread : styles.messageRead]} numberOfLines={2}>
+          {senderName ? <Text style={[styles.senderName, { color: colors.fg }]}>{senderName} </Text> : null}
+          <Text style={styles.action}>{action}</Text>
         </Text>
+        {subject ? (
+          <Text style={[styles.subject, { color: isUnread ? colors.fg : 'rgba(255,255,255,0.78)' }]} numberOfLines={2}>
+            {subject}
+          </Text>
+        ) : null}
         <Text style={styles.time}>{timeAgo}</Text>
         {decision && (resolution ? (
           // Settled: the row says what happened instead of offering the choice
@@ -309,12 +328,14 @@ export function DeleteAllButton({
    */
   color = colors.red,
 }: { color?: string } = {}) {
-  const [deleteAll] = useDeleteAllNotificationsMutation();
+  const [deleteRead] = useDeleteReadNotificationsMutation();
 
+  // Only what's been read goes — and it goes from the database, not into a
+  // soft-deleted pile. Unread stays whatever tab this is pressed from.
   const confirm = () => {
-    Alert.alert('Delete all notifications?', "This can't be undone.", [
+    Alert.alert('Delete all archived notifications?', "They're removed for good. Unread ones stay.", [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete All', style: 'destructive', onPress: () => deleteAll() },
+      { text: 'Delete All', style: 'destructive', onPress: () => deleteRead() },
     ]);
   };
 
@@ -326,7 +347,7 @@ export function DeleteAllButton({
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       activeOpacity={0.75}
       accessibilityRole="button"
-      accessibilityLabel="Delete all notifications"
+      accessibilityLabel="Delete all archived notifications"
     >
       <Trash2 size={12} color={color} strokeWidth={2.4} />
       <Text style={[styles.deleteAllText, { color }]}>Delete all</Text>
@@ -414,11 +435,6 @@ export default function NotificationsList({
   /** Stagger the rows in on mount — see RowReveal. */
   revealStagger = false,
   /**
-   * Render "Delete all" above the list. Off where the host already has a
-   * header to put it in — the panel does.
-   */
-  showDeleteAll = true,
-  /**
    * The rows' natural height, for a host that sizes itself to the list rather
    * than giving it a fixed frame — the panel does. Passing it also stops the
    * rows stretching to fill the frame, which would otherwise feed the frame's
@@ -428,7 +444,6 @@ export default function NotificationsList({
 }: {
   onDismiss: DismissHandler;
   revealStagger?: boolean;
-  showDeleteAll?: boolean;
   onContentHeight?: (height: number) => void;
 }) {
   const colors = useColors();
@@ -512,16 +527,48 @@ export default function NotificationsList({
     }));
   }, [markRead, navigation, onDismiss]);
 
-  const notifications = data?.notifications ?? [];
+  const all = data?.notifications ?? [];
+  /**
+   * Two tabs: what you haven't seen, and what you have.
+   *
+   * "Unread" is decided when the list opens: whatever was unread then stays
+   * on the tab while it's open, even once tapped and read — a row shouldn't
+   * vanish under the finger that read it. Next time the list opens it's in
+   * Archived. Anything new that arrives while it's open joins Unread.
+   */
+  const [tab, setTab] = useState<'unread' | 'archived'>('unread');
+  const openedUnread = useRef<Set<string>>(new Set());
+  all.forEach((n) => { if (!n.read_status) openedUnread.current.add(n.internal_id); });
+  const unread = all.filter((n) => openedUnread.current.has(n.internal_id));
+  const archived = all.filter((n) => !openedUnread.current.has(n.internal_id));
+  const onTab = tab === 'unread' ? unread : archived;
+  /**
+   * The newest few, then more on request. Fifty rows with their stagger and
+   * their avatars made the panel stutter as it opened; five is what fits in
+   * view, and a button under them is the rest. Back to five on a tab change.
+   */
+  const [shown, setShown] = useState(NOTIFICATIONS_PAGE);
+  const notifications = onTab.slice(0, shown);
+  const remaining = onTab.length - notifications.length;
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
     <View style={ss.fill}>
-      {/* Reading a notification is what marks it read; a button that silently
-          cleared every highlight at once only ever cost you the list of what
-          you hadn't seen. Clearing them out wholesale is still here. */}
-      {showDeleteAll && notifications.length > 0 && (
+      {/* Unread or Archived — the post form's track, two across. Reading a
+          notification is what archives it; clearing the archive is the one
+          bulk action, and it lives on that tab. */}
+      <View style={styles.tabs}>
+        <Segmented
+          options={[
+            { key: 'unread', label: unread.length ? `Unread (${unread.length})` : 'Unread' },
+            { key: 'archived', label: archived.length ? `Archived (${archived.length})` : 'Archived' },
+          ]}
+          value={tab}
+          onChange={(t) => { setTab(t); setShown(NOTIFICATIONS_PAGE); }}
+        />
+      </View>
+      {tab === 'archived' && archived.length > 0 && (
         <View style={styles.deleteAllRow}>
           <DeleteAllButton />
         </View>
@@ -546,8 +593,22 @@ export default function NotificationsList({
           );
         }}
         ListEmptyComponent={
-          <EmptyState title="No notifications" message="You're all caught up." />
+          tab === 'unread'
+            ? <EmptyState title="Nothing unread" message="You're all caught up." />
+            : <EmptyState title="Nothing archived" message="Notifications you've read will be kept here." />
         }
+        ListFooterComponent={remaining > 0 ? (
+          <TouchableOpacity
+            style={[styles.moreBtn, { borderColor: colors.borderDark }]}
+            onPress={() => setShown((n) => n + NOTIFICATIONS_PAGE)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.moreText, { color: colors.fg }]}>
+              Show {Math.min(remaining, NOTIFICATIONS_PAGE)} more{remaining > NOTIFICATIONS_PAGE ? ` of ${remaining}` : ''}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={onContentHeight ? styles.listFit : styles.list}
         onContentSizeChange={onContentHeight ? (_w, h) => onContentHeight(h) : undefined}
@@ -586,21 +647,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardRead:   { backgroundColor: COLOR_GRAY_20, borderColor: 'rgba(255,255,255,0.07)' },
-  // Unread is the brand's own colour laid over black rather than a step up the
-  // greyscale. A card you haven't seen should be a different kind of card, not
-  // a slightly paler one — at #1c1c1c against #000 the difference was
-  // invisible on anything but a good screen at full brightness.
-  cardUnread: {
-    backgroundColor: 'rgba(234, 215, 183, 0.22)',
+  // Unread is marked, not recoloured: a red dot in the card's corner by the
+  // avatar. The words stay heavier too (messageUnread).
+  unreadDot: {
+    position: 'absolute', top: 10, left: 8,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: COLOR_RED,
   },
+  tabs:    { paddingTop: 4, paddingBottom: 6 },
+  moreBtn: {
+    marginHorizontal: 12, marginTop: 6, height: 40,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  moreText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   rowContent:  { flex: 1 },
   message:     { fontSize: 13, lineHeight: 18 },
-  messageUnread: { color: COLOR_WHITE, fontWeight: '600' },
-  // Read rows step back rather than sit at full white — with the unread ones
-  // now carrying colour, this is what makes the list scannable.
-  messageRead:   { color: 'rgba(255,255,255,0.68)' },
-  senderName:  { fontWeight: '800' },
+  // The action's ink: a step back from the name either way, further on read rows.
+  messageUnread: { color: 'rgba(255,255,255,0.82)' },
+  messageRead:   { color: 'rgba(255,255,255,0.6)' },
+  senderName:  { fontFamily: FONT_INTER.extrabold },
+  action:      { fontFamily: FONT_INTER.medium },
+  // What it was done to, on its own line: the title is what you scan for.
+  subject:     { fontSize: 13, lineHeight: 18, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   time:        { fontSize: 11, marginTop: 3, color: COLOR_GRAY_136 },
   rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   joinReqActions: { flexDirection: 'row', gap: 8, marginTop: 10 },

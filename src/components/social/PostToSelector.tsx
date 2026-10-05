@@ -5,7 +5,7 @@ import { Check, Globe, Users } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_10 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 export interface PostToGroup { internal_id: string; title?: string }
@@ -19,11 +19,13 @@ const CARD_GAP = 8;
  * different paddings, and a fixed fraction of the screen inside the narrowest
  * of them left the third card with nothing to peek with.
  */
-const CARD_FRACTION = 0.42;
+const CARD_FRACTION = 0.27;
 /** Before the first layout has reported a width. */
 const FALLBACK_WIDTH = Math.round(Dimensions.get('window').width * CARD_FRACTION);
 /** One height for every card, so a long group name doesn't make its card taller. */
 const CARD_HEIGHT = 96;
+/** The scrolling row's: shorter, since it's one line of a longer form. */
+const ROW_CARD_HEIGHT = 84;
 
 /**
  * Where a post goes: the public feed, a group, or both.
@@ -45,6 +47,7 @@ export default function PostToSelector({
   selectedGroupIds,
   onToggleGroup,
   bleed = 0,
+  layout = 'row',
 }: {
   isPublic: boolean;
   onTogglePublic: () => void;
@@ -57,11 +60,19 @@ export default function PostToSelector({
    * still starts on the padding line — like the garage strip.
    */
   bleed?: number;
+  /**
+   * `row` scrolls sideways, one line however many groups (the post form).
+   * `grid` lays the cards two across and wraps, every one in view at once —
+   * the listing flow's last step, where the choice ends the form.
+   */
+  layout?: 'row' | 'grid';
 }) {
   const colors = useColors();
   const brand = useBrandColor();
   const [rowWidth, setRowWidth] = useState(0);
-  const cardWidth = rowWidth > 0 ? Math.round(rowWidth * CARD_FRACTION) : FALLBACK_WIDTH;
+  const cardWidth = layout === 'grid'
+    ? (rowWidth > 0 ? Math.floor((rowWidth - CARD_GAP) / 2) : FALLBACK_WIDTH)
+    : (rowWidth > 0 ? Math.round(rowWidth * CARD_FRACTION) : FALLBACK_WIDTH);
   // Sized against the space inside the padding, as before the row bled out.
   const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width - bleed * 2);
 
@@ -76,9 +87,10 @@ export default function PostToSelector({
       key={key}
       style={[
         styles.card,
-        { width: cardWidth, backgroundColor: colors.inputBg },
-        // No border either way: chosen is the brand tint and the filled check.
-        active && { backgroundColor: brand + '1F' },
+        // Darker than the block they sit in, with a hairline edge; chosen,
+        // the edge and the tint both take the brand colour.
+        { width: cardWidth, height: layout === 'row' ? ROW_CARD_HEIGHT : CARD_HEIGHT, backgroundColor: COLOR_GRAY_10, borderColor: colors.borderDark },
+        active && { backgroundColor: brand + '1F', borderColor: brand },
       ]}
       onPress={onPress}
       activeOpacity={0.8}
@@ -97,13 +109,35 @@ export default function PostToSelector({
         </View>
       </View>
       <Text
-        style={[styles.cardLabel, { color: active ? colors.fg : colors.muted }]}
+        style={[styles.cardLabel, layout === 'row' && styles.cardLabelRow, { color: active ? colors.fg : colors.muted }]}
         numberOfLines={2}
       >
         {label}
       </Text>
     </TouchableOpacity>
   );
+
+  const cards = (
+    <>
+      {card('__public', 'Post publicly', Globe, isPublic, onTogglePublic)}
+      {groups.map((g) =>
+        card(
+          g.internal_id,
+          g.title ?? 'Group',
+          Users,
+          selectedGroupIds.includes(g.internal_id),
+          () => onToggleGroup(g.internal_id),
+        ))}
+    </>
+  );
+
+  if (layout === 'grid') {
+    return (
+      <View style={styles.grid} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
+        {cards}
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -118,25 +152,19 @@ export default function PostToSelector({
       keyboardShouldPersistTaps="handled"
       onLayout={onLayout}
     >
-      {card('__public', 'Post publicly', Globe, isPublic, onTogglePublic)}
-      {groups.map((g) =>
-        card(
-          g.internal_id,
-          g.title ?? 'Group',
-          Users,
-          selectedGroupIds.includes(g.internal_id),
-          () => onToggleGroup(g.internal_id),
-        ))}
+      {cards}
       <RowEndSpacer width={CARD_GAP} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { gap: CARD_GAP },
+  row:  { gap: CARD_GAP },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_GAP },
   card: {
     height: CARD_HEIGHT,
     borderRadius: COMMON_RADIUS,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12, paddingVertical: 12,
     justifyContent: 'space-between',
   },
@@ -146,4 +174,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   cardLabel: { fontSize: 13.5, fontFamily: FONT_INTER.bold, lineHeight: 18 },
+  cardLabelRow: { fontSize: 11, lineHeight: 14 },
 });

@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Linking, useWindowDimensions } from 'react-native';
 import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowUpRight, MessageCircle } from 'lucide-react-native';
+import { ArrowUpRight, MessageCircle, Images } from 'lucide-react-native';
+import { PageDots } from '../../components/media/PostMediaCarousel';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import Spinner from '../../components/ui/Spinner';
 import { ProductGallery } from '../../components/shop/ProductSummaryModal';
@@ -17,7 +18,7 @@ import { imageUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
 import type { ConciergeRow, ConciergeService, ConciergePlatform } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_22, COLOR_WHITE, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -46,19 +47,35 @@ export const PLATFORM_LABELS: Record<ConciergePlatform, string> = {
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
+/** The cards' side margin — the app's gutter, as the feed's cards sit on. */
+const CARD_MARGIN = GUTTER;
+
 function RowCard({ row, width }: { row: ConciergeRow; width: number }) {
   const colors = useColors();
   const brand = useBrandColor();
+  const [page, setPage] = useState(0);
   const photos = (row.gallery ?? [])
     .map((g) => imageUrl(g.filename))
     .filter((u): u is string => !!u)
     .map((url) => ({ url, alt: row.title }));
+  // The card is the screen less its side margins; the photos fill it.
+  const cardW = width - CARD_MARGIN * 2;
   return (
-    <View style={[styles.row, { borderTopColor: colors.borderDark }]}>
-      {/* The photos first, edge to edge, one at a time — the same carousel
-          the shop pages through, with its dots. */}
+    <View style={[styles.card, { borderColor: colors.borderDark }]}>
+      {/* The photos first, the card's width, one at a time — the shop's
+          carousel, with the feed card's page pill at its foot instead of
+          the carousel's own dots. Rounded at the foot too, so the picture
+          sits in the card rather than capping it. */}
       {photos.length > 0 && (
-        <ProductGallery images={photos} width={width} aspectRatio={3 / 2} />
+        <View style={styles.galleryWrap}>
+          <ProductGallery images={photos} width={cardW} aspectRatio={3 / 2} index={page} onIndexChange={setPage} dots={false} />
+          {photos.length > 1 && (
+            <View style={styles.galleryPill} pointerEvents="none">
+              <Images size={16} color={COLOR_WHITE} strokeWidth={2} />
+              <PageDots count={photos.length} active={page} />
+            </View>
+          )}
+        </View>
       )}
       <View style={styles.rowBody}>
         <View style={styles.cardHead}>
@@ -131,6 +148,7 @@ export default function ConciergeScreen() {
       >
         <View style={styles.intro}>
           <Text style={[styles.title, { color: colors.fg }]}>Concierge & Auction Services</Text>
+          <Text style={[styles.lede, { color: colors.muted }]}>Auction preparation and other services in the Northwest</Text>
         </View>
 
         {/* Ask — above the rows. */}
@@ -139,10 +157,10 @@ export default function ConciergeScreen() {
           onPress={contact}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Contact me about auction services"
+          accessibilityLabel="Contact us about auction services"
         >
           <MessageCircle size={18} color={contrastText(brand)} strokeWidth={2.4} />
-          <Text style={[styles.contactText, { color: contrastText(brand) }]}>Contact me</Text>
+          <Text style={[styles.contactText, { color: contrastText(brand) }]}>Contact us</Text>
         </TouchableOpacity>
 
         {isLoading ? (
@@ -157,19 +175,30 @@ export default function ConciergeScreen() {
 }
 
 const styles = StyleSheet.create({
-  intro:      { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, gap: 6 },
+  intro:      { paddingHorizontal: GUTTER + 8, paddingTop: 14, paddingBottom: 12, gap: 6 },
   title:      { fontSize: 24, fontFamily: FONT_INTER.bold, lineHeight: 30 },
+  lede:       { fontSize: 13, lineHeight: 18 },
 
   contactBtn: {
-    marginHorizontal: 16, marginVertical: 8, height: 48, borderRadius: COMMON_RADIUS,
+    marginHorizontal: GUTTER, marginVertical: 8, height: 48, borderRadius: COMMON_RADIUS,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   contactText: { fontSize: 15, fontFamily: FONT_INTER.bold },
 
-  // Edge to edge, one under the other, a rule between: the photos run the
-  // width of the screen and the words sit on the page's own inset.
-  row:        { marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 0 },
-  rowBody:    { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 10 },
+  // A card each: rounded, contained, the photos filling its top.
+  card: {
+    marginHorizontal: CARD_MARGIN, marginTop: 12,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
+    backgroundColor: COLOR_GRAY_22,
+  },
+  galleryWrap: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
+  // The feed card's gallery pill: bottom left, the count's icon and the page dots.
+  galleryPill: {
+    position: 'absolute', left: 10, bottom: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 13, paddingVertical: 9, borderRadius: PILL_RADIUS,
+  },
+  rowBody:    { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 14, gap: 10 },
   cardHead:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   cardTitle:  { flex: 1, minWidth: 0, fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24 },
   platform:   { borderWidth: 1, borderRadius: PILL_RADIUS, paddingHorizontal: 9, paddingVertical: 3, flexShrink: 0, marginTop: 2 },

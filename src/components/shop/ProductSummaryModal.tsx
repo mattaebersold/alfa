@@ -54,7 +54,7 @@ export function priceRange(p: ShopProduct): string {
  * Taps go to whoever is around it: the card, which opens the panel, or the
  * panel's zoom. A paging list only claims a touch that moves.
  */
-export function ProductGallery({ images, width, aspectRatio = 1, onPressImage, index, onIndexChange }: {
+export function ProductGallery({ images, width, aspectRatio = 1, onPressImage, index, onIndexChange, dots = true }: {
   images: ShopImage[];
   width: number;
   aspectRatio?: number;
@@ -62,6 +62,8 @@ export function ProductGallery({ images, width, aspectRatio = 1, onPressImage, i
   /** The page shown, when the host keeps it (the panel's zoom opens on it). */
   index?: number;
   onIndexChange?: (index: number) => void;
+  /** Off for a host drawing its own page marker (the concierge rows' feed-style pill). */
+  dots?: boolean;
 }) {
   const colors = useColors();
   const [own, setOwn] = useState(0);
@@ -101,7 +103,7 @@ export function ProductGallery({ images, width, aspectRatio = 1, onPressImage, i
           )}
         />
       )}
-      {images.length > 1 && (
+      {dots && images.length > 1 && (
         <View style={styles.dots} pointerEvents="none">
           {images.map((g, i) => (
             <View

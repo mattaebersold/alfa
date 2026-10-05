@@ -1577,6 +1577,12 @@ export const apiService = createApi({
       invalidatesTags: ['Notifications'],
     }),
 
+    /** The Archived tab's clear: every read notification, removed from the database. */
+    deleteReadNotifications: builder.mutation<void, void>({
+      query: () => ({ url: 'api/notifications/delete-read', method: 'DELETE' }),
+      invalidatesTags: ['Notifications'],
+    }),
+
     // ── Messages ─────────────────────────────────────────────────────────────
 
     getMessages: builder.query<PaginatedResponse<Message>, { page?: number; limit?: number }>({
@@ -2790,6 +2796,7 @@ export const {
   useArchiveAllNotificationsMutation,
   useDeleteNotificationMutation,
   useDeleteAllNotificationsMutation,
+  useDeleteReadNotificationsMutation,
   useGetMessagesQuery,
   useGetMessageThreadQuery,
   useGetUnreadMessageCountQuery,

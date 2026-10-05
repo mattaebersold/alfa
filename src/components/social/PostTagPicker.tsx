@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
+import { Image } from 'expo-image';
+import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon, MapPin } from 'lucide-react-native';
 import { SpotPicker } from '@ors/kit/src/photography';
-import { colors as palette } from '../../constants/colors';
 import { useSearchQuery, useGetPreviouslyTaggedPhotoSpotsQuery } from '../../api/apiService';
 import GarageCarStrip from './GarageCarStrip';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
-import { contrastText } from '../../hooks/useBrandColor';
-import { PILL_RADIUS, COLOR_WHITE, COMMON_RADIUS, COLOR_GRAY_46 } from '../../constants/config';
+import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
+import { PILL_RADIUS, COLOR_WHITE, COMMON_RADIUS, COLOR_GRAY_14 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 export type TagKind = 'user' | 'car' | 'event' | 'group' | 'spot';
@@ -22,6 +23,8 @@ export interface TagItem {
    * for a car. Optional: a tag is still a tag without a picture.
    */
   image?: string | null;
+  /** The member themself, for the Avatar in a suggestion — initials and colour when there's no photo. */
+  avatarUser?: AvatarUser;
 }
 
 // Small debounce so each row's search only fires when typing settles.
@@ -72,7 +75,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
     // A card per kind rather than three bands divided by hairlines: tagging a
     // person and tagging a car are separate jobs, and stacked rules made them
     // read as one long form you scroll through by accident.
-    <View style={[styles.row, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+    <View style={[styles.row, { backgroundColor: COLOR_GRAY_14 }]}>
       <View style={styles.rowHeader}>
         <Icon size={15} color={COLOR_WHITE} />
         <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
@@ -88,6 +91,12 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
         <View style={styles.chips}>
           {selected.map((t) => (
             <TouchableOpacity key={t.id} style={[styles.chip, { backgroundColor: accent }]} onPress={() => onToggle(t)} activeOpacity={0.8}>
+              {/* The picture from the suggestion, carried onto the chip. */}
+              {t.kind === 'user' ? (
+                <Avatar user={t.avatarUser ?? { username: t.label.replace(/^@/, '') }} size={22} />
+              ) : t.image ? (
+                <Image source={{ uri: t.image }} style={styles.chipThumb} contentFit="cover" />
+              ) : null}
               <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
               <X size={12} color={onAccent} />
             </TouchableOpacity>
@@ -115,6 +124,19 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
                     onPress={() => { onToggle(s); onQuery(''); }}
                     activeOpacity={0.7}
                   >
+                    {/* A picture of the thing, so two "911"s or two Matts
+                        can be told apart before one's tagged. A member's is
+                        their avatar; a car's or an event's the first photo,
+                        or the kind's glyph when it has none. */}
+                    {s.kind === 'user' ? (
+                      <Avatar user={s.avatarUser ?? { username: s.label.replace(/^@/, '') }} size={30} />
+                    ) : s.image ? (
+                      <Image source={{ uri: s.image }} style={[styles.suggestThumb, { backgroundColor: colors.segment }]} contentFit="cover" transition={100} />
+                    ) : (
+                      <View style={[styles.suggestThumb, styles.suggestThumbEmpty, { backgroundColor: colors.segment }]}>
+                        <Icon size={14} color={colors.grey} />
+                      </View>
+                    )}
                     <Text style={[styles.suggestText, { color: colors.fg }]} numberOfLines={1}>{s.label}</Text>
                     <Plus size={16} color={accent} />
                   </TouchableOpacity>
@@ -125,7 +147,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
             )}
           </View>
         )}
-        <View style={[styles.inputBox, { backgroundColor: colors.inputBg }]}>
+        <View style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
           <Search size={15} color={colors.grey} />
           <TextInput
             style={[styles.input, { color: colors.fg }]}
@@ -185,13 +207,13 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
   onCreate?: (name: string) => void;
 }) {
   const colors = useColors();
-  const accent = palette.badgeSpot;
+  const accent = useBrandColor();
   const onAccent = contrastText(accent);
   const { data: previous } = useGetPreviouslyTaggedPhotoSpotsQuery();
   const recentIds = (previous?.spots ?? []).map((s) => s.internal_id);
 
   return (
-    <View style={[styles.row, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+    <View style={[styles.row, { backgroundColor: COLOR_GRAY_14 }]}>
       <View style={styles.rowHeader}>
         <MapPin size={15} color={COLOR_WHITE} />
         <Text style={[styles.rowTitle, { color: colors.fg }]}>Tag Photo Spots</Text>
@@ -206,6 +228,12 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
         <View style={styles.chips}>
           {selected.map((t) => (
             <TouchableOpacity key={t.id} style={[styles.chip, { backgroundColor: accent }]} onPress={() => onToggle(t)} activeOpacity={0.8}>
+              {/* The picture from the suggestion, carried onto the chip. */}
+              {t.kind === 'user' ? (
+                <Avatar user={t.avatarUser ?? { username: t.label.replace(/^@/, '') }} size={22} />
+              ) : t.image ? (
+                <Image source={{ uri: t.image }} style={styles.chipThumb} contentFit="cover" />
+              ) : null}
               <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
               <X size={12} color={onAccent} />
             </TouchableOpacity>
@@ -225,7 +253,7 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
         }}
         onCreateNew={(name) => onCreate?.(name)}
         // The same box and search glyph as the other tag searches.
-        boxStyle={[styles.inputBox, { backgroundColor: colors.inputBg }]}
+        boxStyle={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
         leading={<Search size={15} color={colors.grey} />}
         inputStyle={[styles.input, { color: colors.fg }]}
       />
@@ -235,6 +263,9 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
 
 export default function PostTagPicker({ users, cars, events, groups, spots, onCreateSpot, showGarage = true, onToggle }: Props) {
   const colors = useColors();
+  // One colour for every kind of tag: the chips name the kind by their
+  // picture and their row, not by a colour each.
+  const brand = useBrandColor();
 
   const [userQ, setUserQ]   = useState('');
   const [carQ, setCarQ]     = useState('');
@@ -255,6 +286,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
     label: u.username ? `@${u.username}` : ([u.firstName, u.lastName].filter(Boolean).join(' ') || 'User'),
     kind: 'user',
     image: u.gallery?.[0]?.filename ?? u.profilePicture ?? null,
+    avatarUser: u,
   });
   const toCar   = (c: any): TagItem => ({
     id: c.internal_id,
@@ -262,13 +294,18 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
     kind: 'car',
     image: firstGalleryUrl(c.gallery) ?? (c.profile_image ? imageUrl(c.profile_image) : null),
   });
-  const toEvent = (e: any): TagItem => ({ id: e.internal_id, label: e.title || 'Event', kind: 'event' });
+  const toEvent = (e: any): TagItem => ({
+    id: e.internal_id,
+    label: e.title || 'Event',
+    kind: 'event',
+    image: firstGalleryUrl(e.gallery) ?? (e.hero_image ? imageUrl(e.hero_image) : null),
+  });
   const toGroup = (g: any): TagItem => ({ id: g.internal_id, label: g.title || 'Group', kind: 'group' });
 
   return (
     <View>
       <TagRow
-        title="Tag People" placeholder="Search members…" Icon={UserIcon} accent={colors.primaryAlt}
+        title="Tag People" placeholder="Search members…" Icon={UserIcon} accent={brand}
         query={userQ} onQuery={setUserQ} selected={users}
         suggestions={(userSearch?.users ?? []).map(toUser)}
         onToggle={onToggle}
@@ -277,7 +314,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
         title="Tag Cars"
         // The field is for cars that aren't yours; yours are the row above it.
         placeholder={showGarage ? 'Search other cars…' : 'Search cars…'}
-        Icon={CarIcon} accent={colors.teal}
+        Icon={CarIcon} accent={brand}
         query={carQ} onQuery={setCarQ} selected={cars}
         suggestions={(carSearch?.cars ?? []).map(toCar)}
         onToggle={onToggle}
@@ -286,14 +323,14 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
           : undefined}
       />
       <TagRow
-        title="Tag Events" placeholder="Search events…" Icon={Flag} accent={colors.tangerine}
+        title="Tag Events" placeholder="Search events…" Icon={Flag} accent={brand}
         query={eventQ} onQuery={setEventQ} selected={events}
         suggestions={(eventSearch?.events ?? []).map(toEvent)}
         onToggle={onToggle}
       />
       {groups && (
         <TagRow
-          title="Tag Groups" placeholder="Search groups…" Icon={UsersIcon} accent={colors.gold}
+          title="Tag Groups" placeholder="Search groups…" Icon={UsersIcon} accent={brand}
           query={groupQ} onQuery={setGroupQ} selected={groups}
           suggestions={(groupSearch?.groups ?? []).map(toGroup)}
             onToggle={onToggle}
@@ -311,8 +348,9 @@ const styles = StyleSheet.create({
   row: {
     marginHorizontal: 12, marginTop: 12,
     paddingHorizontal: ROW_PAD, paddingTop: 12, paddingBottom: 12,
-    // Optional Details' frame: the app's radius, a border a step lighter.
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
+    // Optional Details' block: the app's radius on a ground a step darker
+    // than the form, and no edge of its own.
+    borderRadius: COMMON_RADIUS,
   },
   // Just the title, in white — the accent colour lives on the chips and count
   // now, where it marks what's been tagged rather than decorating the card.
@@ -326,11 +364,15 @@ const styles = StyleSheet.create({
   countText:    { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold },
 
   chips:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  chip:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: PILL_RADIUS },
+  // A picture at the left end, the name, the X: padded less on the picture's
+  // side, so it sits near the chip's round end.
+  chip:         { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 4, paddingRight: 10, height: 30, borderRadius: PILL_RADIUS },
+  chipThumb:    { width: 22, height: 22, borderRadius: 11 },
   chipText:     { color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.bold, maxWidth: 150 },
 
   // No border: the field is its darker fill against the card.
-  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 0, borderRadius: 10 },
+  // Outlined like the form's other fields, now the card around it has no edge.
+  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: 10 },
   input:        { flex: 1, fontSize: 14, padding: 0 },
 
   // Raised for good, not only while the list shows — a zIndex that changes
@@ -344,8 +386,11 @@ const styles = StyleSheet.create({
   },
   suggestScroll:{ maxHeight: 220 },
   suggestHeader:{ fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
-  suggestRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
-  suggestText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold, marginRight: 10 },
+  suggestRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  suggestText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
+  // Rounded square for a car or an event; the member's avatar is a circle.
+  suggestThumb: { width: 34, height: 34, borderRadius: 8 },
+  suggestThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
 
   hint:         { fontSize: 13, paddingVertical: 10, paddingHorizontal: 12 },
 });

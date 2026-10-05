@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
+  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform, PanResponder, Animated,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { useKeyboardState } from 'react-native-keyboard-controller';
@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Camera, Images, Video, Send } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Camera, Images, Video, Send, MessageSquare, BarChart3, Tag, Plus } from 'lucide-react-native';
 import {
   useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
   useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
@@ -24,19 +24,20 @@ import MentionInput from '../../components/ui/MentionInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
+import Segmented from '../../components/ui/Segmented';
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
 import PostToSelector from '../../components/social/PostToSelector';
 import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '../../components/social/PollEditor';
 import { ListingCreateSheet } from '../marketplace/ListingCreateScreen';
 import { colors } from '../../constants/colors';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
-import { uploadFile, normalizePickedAssets } from '../../utils/upload';
+import { uploadFile, toUploadableJpeg } from '../../utils/upload';
 import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
 import { useColors } from '../../hooks/useColors';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_GRAY_46 } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_PRO, COLOR_GRAY_14 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -94,7 +95,12 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
  * can sit in the middle of the photos instead of only in front of them.
  */
 type DraftMedia =
-  | { key: string; kind: 'image'; uri: string; name: string; type: string }
+  /**
+   * `uri` is the picked file, shown at once; `uploadUri` is the shrunk JPEG
+   * made from it in the background, and what goes up. Until it exists the
+   * tile marks itself `pending`, and posting waits for it.
+   */
+  | { key: string; kind: 'image'; uri: string; uploadUri?: string; pending?: boolean; name: string; type: string }
   | { key: string; kind: 'video'; uri: string; poster: string | null };
 
 let _mediaSeq = 0;
@@ -121,11 +127,13 @@ const HAS_CAMERA = Platform.OS !== 'ios' || /^(iPhone|iPad|iPod touch)$/.test(Co
 
 /** The tabs under the header — what the thing being made is. */
 type CreateKind = 'post' | 'poll' | 'listing';
-const CREATE_KINDS: { key: CreateKind; label: string }[] = [
-  { key: 'post',    label: 'Post' },
-  { key: 'poll',    label: 'Poll' },
-  { key: 'listing', label: 'Marketplace listing' },
+const CREATE_KINDS: { key: CreateKind; label: string; Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[] = [
+  { key: 'post',    label: 'Post',    Icon: MessageSquare },
+  { key: 'poll',    label: 'Poll',    Icon: BarChart3 },
+  { key: 'listing', label: 'Listing', Icon: Tag },
 ];
+/** The header tabs' unlit white — see AppHeader's TAB_IDLE. */
+const TAB_IDLE = 'rgba(255,255,255,0.6)';
 
 /**
  * One added item, with the handle to remove it.
@@ -145,6 +153,9 @@ function MediaThumb({ item, onRemove }: { item: DraftMedia; onRemove: () => void
       )}
       {item.kind === 'video' && (
         <View style={styles.videoPlayBadge}><Play size={14} color={COLOR_WHITE} fill={COLOR_WHITE} /></View>
+      )}
+      {item.kind === 'image' && item.pending && (
+        <View style={styles.thumbBusy}><ActivityIndicator size="small" color={COLOR_WHITE} /></View>
       )}
       <TouchableOpacity style={styles.thumbRemove} onPress={onRemove} hitSlop={6}>
         <X size={11} color={COLOR_WHITE} />
@@ -180,6 +191,8 @@ export default function CreateScreen() {
    * one with the photos carried across.
    */
   const [kind, setKind] = useState<CreateKind>('post');
+  /** The listing flow's Back / progress / Next row, pinned under the tabs. */
+  const [listingNav, setListingNav] = useState<React.ReactNode>(null);
 
   // Core
   const [postType, setPostType]   = useState<PostType>('general');
@@ -286,34 +299,55 @@ export default function CreateScreen() {
     }
   }, []);
 
+  /**
+   * Work that's still running on picked media: each photo's shrink to an
+   * uploadable JPEG, each video's compression. Started the moment something
+   * is picked, so by the time Post is tapped it's usually done; Post waits on
+   * whatever isn't. Keyed by the draft, so a tile that's removed is simply
+   * never read.
+   */
+  const shrinking = useRef(new Map<string, Promise<void>>());
+  const compressing = useRef(new Map<string, Promise<string>>());
+  const mediaRef = useRef<DraftMedia[]>([]);
+  mediaRef.current = media;
+
+  const patchMedia = useCallback((key: string, patch: Partial<DraftMedia>) => {
+    setMedia((prev) => prev.map((m) => (m.key === key ? { ...m, ...patch } as DraftMedia : m)));
+  }, []);
+
+  /**
+   * Picked media as drafts — at once, from the picked files, so the tiles
+   * appear as the picker closes. The slow parts follow in the background:
+   * each photo is shrunk to the upload size and swapped in as `uploadUri`,
+   * each video gets its poster frame and starts compressing for Mux.
+   */
   const toDraft = useCallback(async (
     assets: ImagePicker.ImagePickerAsset[],
   ): Promise<DraftMedia[]> => {
-    const videos = assets.filter((a) => a.type === 'video');
-    const photos = assets.filter((a) => a.type !== 'video');
+    const drafts: DraftMedia[] = assets.map((a) => {
+      const key = nextMediaKey();
+      if (a.type === 'video') return { key, kind: 'video', uri: a.uri, poster: null };
+      const name = (a.fileName ?? `photo_${Date.now()}.jpg`).replace(/\.(heic|heif|png)$/i, '.jpg');
+      return { key, kind: 'image', uri: a.uri, pending: true, name, type: 'image/jpeg' };
+    });
 
-    // Photos are transcoded to uploadable JPEGs in one pass; videos only need a
-    // poster frame, since the file itself goes to Mux untouched.
-    const normalized = photos.length > 0 ? await normalizePickedAssets(photos) : [];
-    const photoDrafts: DraftMedia[] = normalized.map((n) => ({
-      key: nextMediaKey(), kind: 'image', ...n,
-    }));
-    const videoDrafts: DraftMedia[] = await Promise.all(
-      videos.map(async (v) => ({
-        key: nextMediaKey(),
-        kind: 'video' as const,
-        uri: v.uri,
-        poster: await posterFor(v.uri),
-      })),
-    );
-
-    // Back into the order they were picked in, rather than photos-then-videos:
-    // that order is the order they'll appear in on the post.
-    const byUri = new Map<string, DraftMedia>();
-    normalized.forEach((n, i) => byUri.set(photos[i].uri, photoDrafts[i]));
-    videos.forEach((v, i) => byUri.set(v.uri, videoDrafts[i]));
-    return assets.map((a) => byUri.get(a.uri)).filter((d): d is DraftMedia => !!d);
-  }, [posterFor]);
+    assets.forEach((a, i) => {
+      const d = drafts[i];
+      if (d.kind === 'image') {
+        const job = toUploadableJpeg(a.uri, { width: a.width, height: a.height })
+          .then((uploadUri) => { patchMedia(d.key, { uploadUri, pending: false }); })
+          .catch(() => { patchMedia(d.key, { uploadUri: a.uri, pending: false }); })
+          .finally(() => { shrinking.current.delete(d.key); });
+        shrinking.current.set(d.key, job);
+      } else {
+        void posterFor(a.uri).then((poster) => { if (poster) patchMedia(d.key, { poster }); });
+        // Compression is the long part of posting a video; begun now, it's
+        // done by the time Post is tapped more often than not.
+        compressing.current.set(d.uri, compressVideo(a.uri, () => {}).catch(() => a.uri));
+      }
+    });
+    return drafts;
+  }, [posterFor, patchMedia]);
 
   const addFromLibrary = useCallback(async () => {
     const room = mediaRoom();
@@ -388,6 +422,7 @@ export default function CreateScreen() {
   }, [media.length]);
 
   const removeMedia = useCallback((key: string) => {
+    shrinking.current.delete(key);
     setMedia((prev) => prev.filter((m) => m.key !== key));
   }, []);
 
@@ -479,6 +514,15 @@ export default function CreateScreen() {
       return;
     }
 
+    // Photos still shrinking finish first — a second or two at most, and the
+    // alternative is uploading the original. Then the drafts as they stand.
+    if (shrinking.current.size > 0) {
+      setImageProgress({ current: 0, total: shrinking.current.size });
+      await Promise.all([...shrinking.current.values()]);
+      setImageProgress(null);
+    }
+    const current = mediaRef.current;
+
     const fd = new FormData();
     fd.append('type', postType);
     fd.append('entry_type', postType);
@@ -508,7 +552,7 @@ export default function CreateScreen() {
     // the position it occupies in the post's media, because Mux takes minutes to
     // encode and the server has to hold the slot in the meantime — without the
     // index a video would land wherever it happened to finish.
-    const videoItems = media
+    const videoItems = current
       .map((m, index) => ({ m, index }))
       .filter((x): x is { m: Extract<DraftMedia, { kind: 'video' }>; index: number } =>
         x.m.kind === 'video');
@@ -522,10 +566,11 @@ export default function CreateScreen() {
           if (!id) {
             const at = { current: n + 1, total: videoItems.length };
             setVideoProgress({ ...at, step: 'compressing', fraction: 0 });
-            const file = await compressVideo(
+            // Begun when it was picked (see toDraft); usually done by now.
+            const file = await (compressing.current.get(m.uri) ?? compressVideo(
               m.uri,
               (fraction) => setVideoProgress({ ...at, step: 'compressing', fraction }),
-            );
+            ));
             setVideoProgress({ ...at, step: 'uploading', fraction: 0 });
             id = await uploadVideoToMux(
               file,
@@ -565,7 +610,7 @@ export default function CreateScreen() {
       // Upload photos sequentially, then refresh the feed so they appear. Each
       // carries its position in the media list — the server can't infer it,
       // since a video may already be holding a slot among these photos.
-      const photoItems = media
+      const photoItems = current
         .map((m, index) => ({ m, index }))
         .filter((x): x is { m: Extract<DraftMedia, { kind: 'image' }>; index: number } =>
           x.m.kind === 'image');
@@ -577,7 +622,7 @@ export default function CreateScreen() {
           const ifd = new FormData();
           ifd.append('internal_id', postId);
           ifd.append('index', String(index));
-          ifd.append('gallery', uploadFile(m.uri));
+          ifd.append('gallery', uploadFile(m.uploadUri ?? m.uri));
           try { await addPostImage(ifd).unwrap(); } catch { /* keep going; partial upload */ }
           done += 1;
           setImageProgress({ current: done, total: photoItems.length });
@@ -629,6 +674,18 @@ export default function CreateScreen() {
     createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav, taggedSpots,
   ]);
 
+  /**
+   * Drag down from the top to close. Claims the touch only once it's clearly
+   * a downward pull, so a tap on the grabber (which also closes) and the
+   * tabs under it keep theirs; lets go with a flick or past a hand's width.
+   */
+  const dismissPan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_e, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+    onPanResponderRelease: (_e, g) => {
+      if (g.dy > 80 || g.vy > 0.6) appNav.goBack();
+    },
+  })).current;
+
   const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }];
 
   // The Done footer is only there while the keyboard is — see below.
@@ -642,37 +699,50 @@ export default function CreateScreen() {
     // indicator, and its own end padding (below) is what clears it.
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.card }]} edges={[]}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: colors.card }}>
-        <View style={styles.headerBar}>
-          <Text style={[styles.headerTitle, { color: colors.fg }]}>Create</Text>
+        {/* A sheet's grabber in place of the X: tap it or drag it down to
+            close, as every other sheet in the app closes. The drag is read
+            here for Android; iOS's modal has the gesture natively. */}
+        <View {...dismissPan.panHandlers}>
           <TouchableOpacity
-            style={styles.headerClose}
             onPress={() => appNav.goBack()}
-            hitSlop={10}
+            style={styles.grabberHit}
+            hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <X size={22} color={colors.fg} />
+            <View style={styles.grabber} />
           </TouchableOpacity>
         </View>
-        {/* What this becomes. The listing tab opens the marketplace's own
-            form over this one, with the photos; closing it lands back here. */}
+        {/* What this becomes, as three equal tabs across the top. The listing
+            tab opens the marketplace's own form over this one, with the
+            photos; closing it lands back here. */}
         <View style={styles.kindRow} accessibilityRole="tablist">
-          {CREATE_KINDS.map(({ key, label }) => {
+          {CREATE_KINDS.map(({ key, label, Icon }) => {
             const on = kind === key;
+            // The header tabs' look: gold lit, dimmed white idle, an icon
+            // before the word, a rule under the lit one only.
+            const color = on ? COLOR_PRO : TAB_IDLE;
             return (
               <TouchableOpacity
                 key={key}
-                style={[styles.kindTab, on && { backgroundColor: brand }]}
+                style={styles.kindTab}
                 onPress={() => setKind(key)}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8 }}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.kindLabel, { color: on ? COLOR_BLACK : colors.muted }]}>{label}</Text>
+                <View style={styles.kindInner}>
+                  <Icon size={16} color={color} strokeWidth={on ? 2.4 : 2} />
+                  <Text style={[styles.kindLabel, { color }, !on && styles.kindLabelIdle]}>{label}</Text>
+                </View>
+                <View style={[styles.kindUnderline, { backgroundColor: on ? COLOR_PRO : 'transparent' }]} />
               </TouchableOpacity>
             );
           })}
         </View>
+        {/* The listing's step row stays put while its steps scroll. */}
+        {kind === 'listing' && listingNav ? <View style={styles.pinnedNav}>{listingNav}</View> : null}
       </SafeAreaView>
 
       <FormScrollView
@@ -686,69 +756,83 @@ export default function CreateScreen() {
         // Clear of the home indicator / navigation bar once scrolled to the end.
         contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
       >
+        {kind === 'listing' ? (
+          /* The marketplace's own flow, in the pane under its tab, with the
+             photos taken so far. It keeps its steps, its allowance check and
+             its own Post; done, this pane closes. */
+          <ListingCreateSheet
+            inline
+            initialKind="sale"
+            initialGroupId={route.params?.groupId}
+            initialImages={media.filter((m): m is Extract<DraftMedia, { kind: 'image' }> => m.kind === 'image')
+              .map((m) => ({ uri: m.uploadUri ?? m.uri, name: m.name, type: m.type }))}
+            onDismissed={() => appNav.goBack()}
+            onNav={setListingNav}
+          />
+        ) : (<>
         {/* Photos / video */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <PhotoPickerField
-            onPress={pickImage}
-            title={media.length ? 'Add More Media' : 'Add Photos or Video'}
-            hint=""
-            muted
-            compact={media.length > 0}
-            style={styles.photoField}
-          />
-          {media.length > 0 && (
+          {media.length === 0 ? (
+            <PhotoPickerField
+              onPress={pickImage}
+              title="Add Media"
+              hint=""
+              muted
+              style={styles.photoField}
+            />
+          ) : (
+            /* With something picked, the well gives way to the row: the
+               previews, then an "add" tile the same size and shape at its
+               end, so adding more is one more thing in the same line. */
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.thumbRow}
+              contentContainerStyle={styles.thumbRowInner}
               keyboardShouldPersistTaps="handled"
             >
               {media.map((item) => (
                 <MediaThumb key={item.key} item={item} onRemove={() => removeMedia(item.key)} />
               ))}
+              <TouchableOpacity
+                style={[styles.thumb, styles.addTile, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+                onPress={pickImage}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Add media"
+              >
+                <Plus size={20} color={colors.grey} strokeWidth={2.4} />
+                <Text style={[styles.addTileText, { color: colors.grey }]}>Add Media</Text>
+              </TouchableOpacity>
             </ScrollView>
           )}
         </View>
 
         {kind === 'post' && (<>
-        {/* Type selector */}
-        <View style={[styles.typeRow, { backgroundColor: colors.card }]}>
-          {CREATABLE_POST_TYPES.map(({ type, label, color }) => {
-            const active = postType === type;
-            const fill = active ? color : colors.inputBg;
-            return (
-              <TouchableOpacity
-                key={type}
-                style={[styles.typeBtn, { backgroundColor: fill }]}
-                onPress={() => handleTypeChange(type)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.typeLabel, { color: contrastText(fill) }]}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Type and category, each one of a few in a track — the same
+            control, so the two read as two steps of one choice. */}
+        <View style={styles.fieldHead}>
+          <Text style={[styles.fieldCaption, { color: colors.grey }]}>Type</Text>
         </View>
+        <Segmented
+          options={CREATABLE_POST_TYPES.map(({ type, label }) => ({ key: type, label }))}
+          value={postType}
+          onChange={handleTypeChange}
+        />
 
-        {/* Category chips — straight under the types, no rule between */}
         {currentCategories.length > 0 && (
-          <View style={[styles.catRow, { backgroundColor: colors.card }]}>
-            {currentCategories.map(({ key, label }) => {
-              const active = category === key;
-              const fill = active ? colors.primaryAlt : colors.inputBg;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.catChip, { backgroundColor: fill }]}
-                  onPress={() => setCategory(active ? '' : key)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.catLabel, { color: contrastText(fill) }]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <>
+            <View style={styles.fieldHead}>
+              <Text style={[styles.fieldCaption, { color: colors.grey }]}>Category</Text>
+            </View>
+            <Segmented
+              options={currentCategories.map(({ key, label }) => ({ key, label }))}
+              value={category}
+              onChange={setCategory}
+              fit="scroll"
+            />
+          </>
         )}
-
 
         {/* Title */}
         <View style={[styles.inputBlock, { backgroundColor: colors.card }]}>
@@ -756,7 +840,7 @@ export default function CreateScreen() {
             style={[styles.titleInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={title}
             onChangeText={setTitle}
-            placeholder="Title..."
+            placeholder="Title"
             placeholderTextColor={colors.grey}
             returnKeyType="next"
           />
@@ -777,7 +861,7 @@ export default function CreateScreen() {
             style={[styles.bodyInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={body}
             onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
-            placeholder={kind === 'poll' ? 'Say something about it (optional)' : "What's on your mind?"}
+            placeholder="Description"
             placeholderTextColor={colors.grey}
             multiline
           />
@@ -808,7 +892,7 @@ export default function CreateScreen() {
 
         {/* ── Post to ── */}
         {/* Framed and headed like the tag cards and Optional Details above it. */}
-        <View style={[styles.postToCard, { backgroundColor: colors.card, borderColor: COLOR_GRAY_46 }]}>
+        <View style={[styles.postToCard, { backgroundColor: COLOR_GRAY_14 }]}>
           <View style={styles.postToHead}>
             <Send size={15} color={COLOR_WHITE} />
             <Text style={[styles.postToTitle, { color: colors.fg }]}>Post To</Text>
@@ -858,20 +942,10 @@ export default function CreateScreen() {
             <Text style={styles.submitText}>{kind === 'poll' ? 'Create poll' : 'Post'}</Text>
           )}
         </TouchableOpacity>
+        </>)}
       </FormScrollView>
 
-      {/* The marketplace's own form, over this one, with the photos taken so
-          far. It has its steps, its allowance check and its own Post; closing
-          it comes back to the Post tab. */}
-      {kind === 'listing' && (
-        <ListingCreateSheet
-          initialKind="sale"
-          initialGroupId={route.params?.groupId}
-          initialImages={media.filter((m): m is Extract<DraftMedia, { kind: 'image' }> => m.kind === 'image')
-            .map((m) => ({ uri: m.uri, name: m.name, type: m.type }))}
-          onDismissed={() => setKind('post')}
-        />
-      )}
+
 
       {/* The body field is multiline, so its return key inserts a newline and
           can't double as a dismiss. Without this the only way out of the
@@ -919,27 +993,25 @@ const POST_TO_PAD = 14;
 const styles = StyleSheet.create({
   scroll:       { flex: 1 },
 
-  // Lower than the stack's header: the title and the close, and no more.
-  headerBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    minHeight: 44, paddingHorizontal: 12, paddingVertical: 20,
-  },
-  headerClose: { position: 'absolute', right: 20, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: FONT_INTER.extrabold },
-  // Under the header: three pills in a row, the lit one in the brand colour.
-  kindRow:   { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 12 },
-  kindTab:   { paddingHorizontal: 14, paddingVertical: 8, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(255,255,255,0.06)' },
-  kindLabel: { fontSize: 13, fontFamily: FONT_INTER.bold },
+  // The sheet's grabber (SharedModal's measures), then the title under it.
+  // The grabber alone leads the sheet; the tabs under it say what this is.
+  grabberHit:  { alignItems: 'center', paddingTop: 8, paddingBottom: 12 },
+  grabber:     { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
+  // Under the header: the app header's tab row, three across, each taking
+  // a third — its type, its gold, its underline.
+  kindRow:       { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10 },
+  kindTab:       { flex: 1, alignItems: 'center' },
+  kindInner:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
+  kindLabel:     { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  kindLabelIdle: { fontFamily: FONT_INTER.medium },
+  kindUnderline: { height: 3, borderRadius: 999, marginTop: 1, alignSelf: 'stretch' },
   pollBlock: { paddingTop: 4 },
+  // Under the tabs, on the header's ground, with a rule to the scroller.
+  pinnedNav: { paddingBottom: 10 },
   // Tight to the header above — the header's own padding is the gap.
-  typeRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 12 },
-  typeBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: COMMON_RADIUS },
-  typeLabel:    { fontSize: 12, fontFamily: FONT_INTER.bold },
-
-  catRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
-  // A step down from the type pills above: these refine the type.
-  catChip:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS },
-  catLabel:     { fontSize: 11, fontFamily: FONT_INTER.semibold },
+  // Small captions over the type and category, the group form's.
+  fieldHead:    { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
+  fieldCaption: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
   titleInput:   { paddingHorizontal: 14, paddingVertical: 12, ...INPUT_TEXT, borderRadius: 10 },
@@ -950,9 +1022,15 @@ const styles = StyleSheet.create({
   // is a narrower box centred on the page.
   photoField:   { alignSelf: 'stretch', maxWidth: '100%', marginHorizontal: 14, marginTop: 12, marginBottom: 4 },
   thumbRow:     { paddingHorizontal: 14 },
+  thumbRowInner:{ paddingVertical: 12 },
+  // The add tile: the preview's size and shape, outlined, the word under a plus.
+  addTile:      { borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  addTileText:  { fontSize: 10, fontFamily: FONT_INTER.bold, textAlign: 'center' },
   thumbWrap:    { marginRight: 8, position: 'relative' },
   thumb:        { width: 72, height: 72, borderRadius: 8 },
   thumbPlaceholder: { backgroundColor: COLOR_GRAY_42 },
+  // Over a photo still being shrunk for upload.
+  thumbBusy: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 8 },
   videoPlayBadge: {
     position: 'absolute', top: '50%', left: '50%', marginTop: -16, marginLeft: -16,
     width: 32, height: 32, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(0,0,0,0.5)',
@@ -973,9 +1051,10 @@ const styles = StyleSheet.create({
   fieldValue:    { flex: 1 },
   input:         { flex: 1, fontSize: 14, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 8 },
 
+  // Optional Details' block: a ground a step darker than the form, no edge.
   postToCard: {
     marginHorizontal: 12, marginTop: 12,
-    padding: POST_TO_PAD, borderRadius: COMMON_RADIUS, borderWidth: 1,
+    padding: POST_TO_PAD, borderRadius: COMMON_RADIUS,
   },
   // The tag cards' head: a white icon and a title.
   postToHead:  { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
