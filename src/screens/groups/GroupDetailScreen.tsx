@@ -47,7 +47,7 @@ import RouteTrace from '../../components/routes/RouteTrace';
 import ListingCard from '../../components/marketplace/ListingCard';
 import ListingSummaryModal from '../../components/marketplace/ListingSummaryModal';
 import GroupItemDetailModal from '../../components/groups/GroupItemDetailModal';
-import GroupVoteButtons from '../../components/groups/GroupVoteButtons';
+import GroupItemActions from '../../components/groups/GroupItemActions';
 import GroupCreateSheet, { type CreateKind } from '../../components/groups/GroupCreateSheet';
 import ActionSheet from '../../components/ui/ActionSheet';
 import { withAlpha } from '../../constants/colors';
@@ -550,9 +550,9 @@ export default function GroupDetailScreen() {
   }
 
   // Discussion, news and resources share one card: the heading with the
-  // author's face beside it, two lines of body, then the thumbs bottom-left
-  // and when it was posted bottom-right. The thumbs are their own touchables
-  // inside the card's, so a vote doesn't also open the item.
+  // author's face beside it, two lines of body, then when it was posted
+  // bottom-left and the like and comment bottom-right. Those are their own
+  // touchables inside the card's, so a like doesn't also open the item.
   const itemCard = (d: any, kind: DetailKind) => (
     <TouchableOpacity
       key={d.internal_id}
@@ -568,15 +568,8 @@ export default function GroupDetailScreen() {
       </View>
       {d.body ? <Text style={[styles.rowBody, styles.cardBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text> : null}
       <View style={styles.cardFoot}>
-        <GroupVoteButtons
-          kind={kind}
-          internal_id={d.internal_id}
-          group_id={groupId}
-          upvotes={d.upvotes}
-          downvotes={d.downvotes}
-          votes={d.votes}
-        />
         <Text style={[styles.authorWhen, { color: c.grey }]} numberOfLines={1}>{timeAgo(d.created_at)}</Text>
+        <GroupItemActions kind={kind} item={d} />
       </View>
     </TouchableOpacity>
   );

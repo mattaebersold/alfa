@@ -900,6 +900,11 @@ export interface GroupActivityItem {
   gallery?: GalleryItem[];
   upvotes?: number;
   downvotes?: number;
+  /** Likes and comments, from horacio's enrichEntries — see GroupItemActions. */
+  like_count?: number;
+  comment_count?: number;
+  isLiked?: boolean;
+  likers?: string[];
   created_at?: string;
   user?: {
     user_id: string;

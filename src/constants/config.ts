@@ -200,6 +200,8 @@ export const COLOR_BADGE_LISTING = '#00FF3F';
 export const COLOR_BADGE_WANT    = '#F1184C';
 export const COLOR_BADGE_GARAGE  = '#FF479C';
 export const COLOR_BADGE_EVENT   = '#FFFB38';
+/** Group news — a muted amber; the event yellow was too loud for a notice. */
+export const COLOR_BADGE_NEWS    = '#E2B347';
 export const COLOR_BADGE_GROUP   = '#F89CFA';
 export const COLOR_BADGE_RECORD  = '#35B5FF';
 export const COLOR_BADGE_DEFAULT = '#F0D689';

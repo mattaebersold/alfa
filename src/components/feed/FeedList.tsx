@@ -11,7 +11,8 @@ import FeedItemCard from '../cards/FeedItemCard';
 import CarPosterCard from '../cards/CarPosterCard';
 import CarActivityCard from './CarActivityCard';
 import GroupActivityCard from './GroupActivityCard';
-import GroupItemDetailModal from '../groups/GroupItemDetailModal';
+import GroupActivitySummaryModal from '../groups/GroupActivitySummaryModal';
+import type { SummaryOrigin } from '../ui/SummaryModal';
 import RouteCard from '../cards/RouteCard';
 import CommentsSheet from '../social/CommentsSheet';
 import { useNavigation } from '@react-navigation/native';
@@ -106,7 +107,7 @@ export default function FeedList({
   const navigation = useNavigation<any>();
   const [commentPost, setCommentPost] = useState<Post | null>(null);
   /** Which group post is open in its summary, if any. */
-  const [groupItem, setGroupItem] = useState<GroupActivityItem | null>(null);
+  const [groupItem, setGroupItem] = useState<{ item: GroupActivityItem; origin: SummaryOrigin | null } | null>(null);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const refreshingRef = useRef(false);
   const [getBatchLikes] = useGetBatchLikesMutation();
@@ -299,7 +300,7 @@ export default function FeedList({
           ) : row.kind === 'carActivity' ? (
             <CarActivityCard item={row.item} />
           ) : row.kind === 'groupActivity' ? (
-            <GroupActivityCard item={row.item} onPress={() => setGroupItem(row.item)} />
+            <GroupActivityCard item={row.item} onPress={(origin) => setGroupItem({ item: row.item, origin })} />
           ) : row.kind === 'route' ? (
             <View style={styles.gutter}>
               <RouteCard route={row.route} />
@@ -351,17 +352,16 @@ export default function FeedList({
       {/* A group post opens as a summary, not a screen: it's a detour from the
           feed, and most of them are answered by reading the first paragraph.
           "View in group" is there for the ones that aren't. */}
-      <GroupItemDetailModal
-        item={groupItem}
-        kind={groupItem?.kind ?? null}
-        visible={!!groupItem}
+      <GroupActivitySummaryModal
+        item={groupItem?.item ?? null}
+        origin={groupItem?.origin}
         onClose={() => setGroupItem(null)}
-        onViewMore={groupItem ? () => {
-          const screen = GROUP_SECTION_SCREEN[groupItem.kind];
-          if (screen && groupItem.group_id) {
-            navigation.navigate(screen as never, { groupId: groupItem.group_id } as never);
+        onViewInGroup={(item) => {
+          const screen = GROUP_SECTION_SCREEN[item.kind];
+          if (screen && item.group_id) {
+            navigation.navigate(screen as never, { groupId: item.group_id } as never);
           }
-        } : undefined}
+        }}
       />
 
       {commentPost && (

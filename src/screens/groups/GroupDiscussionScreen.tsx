@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { useGetGroupDiscussionQuery } from '../../api/apiService';
 import Avatar from '../../components/ui/Avatar';
-import GroupVoteButtons from '../../components/groups/GroupVoteButtons';
+import GroupItemActions from '../../components/groups/GroupItemActions';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -34,17 +34,7 @@ function DiscussionRow({ post }: { post: GroupDiscussionPost }) {
         <Text style={[styles.rowBody, { color: colors.muted }]} numberOfLines={2}>{stripHtml(post.body ?? '')}</Text>
         <View style={styles.rowMeta}>
           <Text style={[styles.rowTime, { color: colors.grey }]}>{timeAgo}</Text>
-          {/* Real buttons. These used to be bare icons with no handler, inside
-              a row that also had none, so nothing on this card did anything. */}
-          <GroupVoteButtons
-            kind="discussion"
-            internal_id={post.internal_id}
-            group_id={post.group_id ?? ''}
-            upvotes={post.upvotes}
-            downvotes={post.downvotes}
-            votes={post.votes}
-            size={13}
-          />
+          <GroupItemActions kind="discussion" item={post} />
         </View>
       </View>
     </TouchableOpacity>

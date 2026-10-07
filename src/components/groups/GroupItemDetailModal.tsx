@@ -16,7 +16,7 @@ import {
   useDeleteGroupResourceMutation,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import GroupVoteButtons from './GroupVoteButtons';
+import GroupItemActions from './GroupItemActions';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
@@ -238,17 +238,7 @@ export default function GroupItemDetailModal({
               having read the thing, and the row is a link, not a control.
               All three kinds vote now; resources and news showed nothing at
               all before, though the endpoints existed. */}
-          <View style={styles.voteRow}>
-            <GroupVoteButtons
-              kind={kind}
-              internal_id={d.internal_id}
-              group_id={scopeKey}
-              upvotes={d.upvotes}
-              downvotes={d.downvotes}
-              votes={d.votes}
-              size={17}
-            />
-          </View>
+          <GroupItemActions kind={kind} item={d} style={styles.voteRow} />
 
           {/* Resource link */}
           {kind === 'resource' && d.url && !ytId ? (
