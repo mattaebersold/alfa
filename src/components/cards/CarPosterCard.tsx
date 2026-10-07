@@ -16,8 +16,9 @@ import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import ActionSheet from '../ui/ActionSheet';
 import CarDeleteOptionsModal from '../cars/CarDeleteOptionsModal';
 import Avatar from '../ui/Avatar';
-import UserSummaryModal from '../members/UserSummaryModal';
-import CarSummaryModal from '../cars/CarSummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { carPreview } from '../cars/CarSummaryModal';
+import { userPreview } from '../members/UserSummaryModal';
 import RegionBadge from '../ui/RegionBadge';
 import OilSheen from '../ui/OilSheen';
 import { regionForCityState } from '../../constants/regions';
@@ -25,7 +26,6 @@ import ReportButton from '../ui/ReportButton';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import CommentsSheet from '../social/CommentsSheet';
-import { type SummaryOrigin } from '../ui/SummaryModal';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
 import {
@@ -159,10 +159,8 @@ export default function CarPosterCard({
    * pushing their profile — see FeedItemCard for the reasoning; it's the same
    * question and the same answer wherever a byline appears.
    */
-  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
+  const { openCar, openUser } = useSummary();
   /** The car's own summary panel, and the card it grows from. */
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summaryOrigin, setSummaryOrigin] = useState<SummaryOrigin | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const cardRef = useRef<View>(null);
   // Feed cards take their shape from the photo. Everywhere else the card is
@@ -175,24 +173,29 @@ export default function CarPosterCard({
   const { ratio, onLoad } = usePosterRatio(undefined, CARD_SHAPES);
 
   const needOwner = attribution || showOwner;
-  const { data: owner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id || !needOwner });
+  // Lists now carry the owner; the lookup is only for a car that arrived without one.
+  const { data: fetchedOwner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id || !needOwner || !!car.user?.username });
+  const owner = car.user?.username ? car.user : fetchedOwner;
   /**
    * Following, for the feed's card: the same follow the car's summary and
    * page offer, here where the car goes by. Not asked for outside the feed,
    * and not for your own car — there's nothing to follow.
    */
   const { data: followStatus } = useGetCarFollowStatusQuery(car.internal_id, {
-    skip: !attribution || !car.internal_id || userInfo?.user_id === car.user_id || userInfo?.user_id === (car as any).coowner_id,
+    skip: !attribution || !car.internal_id || car.following !== undefined || userInfo?.user_id === car.user_id || userInfo?.user_id === (car as any).coowner_id,
   });
   const [followCar, { isLoading: followingNow }] = useFollowCarMutation();
   const [unfollowCar, { isLoading: unfollowingNow }] = useUnfollowCarMutation();
-  const isFollowing = followStatus?.following ?? false;
+  // What the payload said, until this card changes it; the list catches up on its next fetch.
+  const [localFollow, setLocalFollow] = useState<boolean | undefined>(undefined);
+  const isFollowing = localFollow ?? followStatus?.following ?? car.following ?? false;
   const followBusy = followingNow || unfollowingNow;
   const toggleFollow = async () => {
     if (followBusy) return;
     try {
       if (isFollowing) await unfollowCar({ car_id: car.internal_id }).unwrap();
       else await followCar({ car_id: car.internal_id }).unwrap();
+      setLocalFollow(!isFollowing);
     } catch {
       Alert.alert(isFollowing ? "Couldn't unfollow" : "Couldn't follow", 'Please try again.');
     }
@@ -242,7 +245,7 @@ export default function CarPosterCard({
   const ownerChip = showOwner && !attribution && owner ? (
     <TouchableOpacity
       style={styles.ownerChip}
-      onPress={() => setSummaryUserId(owner.user_id)}
+      onPress={() => openUser(owner.user_id, null, userPreview(owner))}
       activeOpacity={0.7}
     >
       <Avatar user={owner} size={20} />
@@ -268,10 +271,9 @@ export default function CarPosterCard({
    */
   const openSummary = () => {
     const node = cardRef.current;
-    if (!node) { setSummaryOrigin(null); setSummaryOpen(true); return; }
+    if (!node) { openCar(car.internal_id, null, carPreview(car, ratio)); return; }
     node.measureInWindow((x, y, w, h) => {
-      setSummaryOrigin({ x, y, w, h });
-      setSummaryOpen(true);
+      openCar(car.internal_id, { x, y, w, h }, carPreview(car, ratio));
     });
   };
 
@@ -297,7 +299,7 @@ export default function CarPosterCard({
         <View style={styles.byline}>
           <TouchableOpacity
             style={styles.bylineWho}
-            onPress={() => owner && setSummaryUserId(owner.user_id)}
+            onPress={() => owner && openUser(owner.user_id, null, userPreview(owner))}
             activeOpacity={0.7}
             disabled={!owner}
           >
@@ -360,7 +362,7 @@ export default function CarPosterCard({
             moved off the photo, so this would be darkening it for nothing. */}
         {(!attribution || featured || showControls) && (
           <LinearGradient
-            colors={['rgba(0,0,0,0.78)', 'rgba(0,0,0,0.25)', 'transparent']}
+            colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.17)', 'transparent']}
             locations={[0, 0.55, 1]}
             style={styles.scrimTop}
             pointerEvents="none"
@@ -371,7 +373,7 @@ export default function CarPosterCard({
           // name sits — fading out toward the top right: the post card's
           // corner shade, mirrored.
           <LinearGradient
-            colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0)']}
+            colors={['rgba(0,0,0,0.59)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0)']}
             locations={[0, 0.45, 1]}
             start={{ x: 0, y: 1 }}
             end={{ x: 0.8, y: 0.2 }}
@@ -380,7 +382,7 @@ export default function CarPosterCard({
           />
         ) : (
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
+            colors={['transparent', 'rgba(0,0,0,0.39)', 'rgba(0,0,0,0.62)']}
             locations={[0, 0.5, 1]}
             style={styles.scrimBottom}
             pointerEvents="none"
@@ -651,16 +653,6 @@ export default function CarPosterCard({
         />
       )}
 
-      <CarSummaryModal
-        carId={summaryOpen ? car.internal_id : null}
-        origin={summaryOrigin}
-        onClose={() => setSummaryOpen(false)}
-      />
-
-      <UserSummaryModal
-        userId={summaryUserId}
-        onClose={() => setSummaryUserId(null)}
-      />
     </View>
   );
 }

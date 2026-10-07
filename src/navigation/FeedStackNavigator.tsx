@@ -34,7 +34,9 @@ export default function FeedStackNavigator() {
         headerStyle: { backgroundColor: headerBg },
         headerTintColor: COLOR_WHITE,
         headerTitleStyle: { fontFamily: FONT_INTER.bold },
-        animation: 'none',
+        animation: 'fade',
+        animationDuration: 150,
+        freezeOnBlur: true,
       }}
     >
       <Stack.Screen name="Feed" component={FeedScreen} options={{ headerShown: false }} />

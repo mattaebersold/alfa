@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, TouchableOpacity, StyleSheet, Platform, type LayoutChangeEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight } from 'lucide-react-native';
@@ -13,6 +13,7 @@ import { imageUrl } from '../../utils/image';
 import { SOURCE_APPS, openSourceApp } from '../../constants/sourceApps';
 import {
   COMMON_RADIUS,
+  PILL_RADIUS,
   COLOR_GRAY_10,
   COLOR_GRAY_22,
   COLOR_RED,
@@ -36,8 +37,8 @@ const MAX_ATTEMPTS = 5;
  */
 const PREVIEW_BLUR = Platform.OS === 'android' ? .7 :.7;
 
-/** The puzzle photo's side: a thumbnail set into the card, not a banner across it. */
-const PHOTO = 100;
+/** The puzzle photo's side: a small thumbnail set into the card, not a banner across it. */
+const PHOTO = 50;
 
 const SPOT_ICON = require('../../../assets/apps/spot-icon.png');
 
@@ -65,40 +66,101 @@ interface SpotResultBodyProps {
  * The puzzle photo as players first saw it: a square window onto the photo,
  * zoomed in on the admin's chosen focus point.
  *
- * Same rule as murray's CarSpotZoomedImage, so web and app crop alike: the
- * photo is covered into the square with its content positioned at the focus —
- * which puts the focus point at exactly (focus_x, focus_y) of the square —
- * then scaled from that same point, so it stays put and everything zooms in
- * around it. Scaling about the focus rather than centring it also means the
- * window never slides off the photo's edge, whatever the focus.
+ * The same rule as the Car Spotter app's own ZoomedPuzzleImage, so the feed
+ * shows the crop the player was shown: the photo covers the window centred,
+ * and is scaled about the spot where the focus point lands in that centred
+ * cover. Scaling about a point inside the window, rather than centring the
+ * focus, means the window never slides off the photo's edge. Where the focus
+ * lands depends on the photo's shape, so it's worked out once the photo and
+ * the window have reported their sizes (and is exact before that whenever
+ * the photo is square).
+ *
+ * The origin goes in as [x, y, z] with two decimals, not as an "x% y%"
+ * string: RN parses the string form with a whole-numbers-only pattern, so a
+ * focus of 0.334 came apart into "4%" and the crop landed off the car — which
+ * is why a shared result could show an empty corner instead of the photo.
  */
 function ZoomedPuzzleImage({ carspot }: { carspot: CarSpotSummary }) {
+  const [photo, setPhoto] = useState<{ w: number; h: number } | null>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const fx = clamp01(carspot.focus_x);
   const fy = clamp01(carspot.focus_y);
-  const origin = { left: `${fx * 100}%`, top: `${fy * 100}%` } as const;
+  const focus = zoomOrigin(fx, fy, photo, box);
 
   return (
-    <View style={styles.imageWindow}>
-      <Image
-        source={{ uri: imageUrl(carspot.image) ?? undefined }}
+    <View
+      style={styles.imageWindow}
+      onLayout={(e: LayoutChangeEvent) => {
+        const { width, height } = e.nativeEvent.layout;
+        setBox((b) => (b && b.w === width && b.h === height ? b : { w: width, h: height }));
+      }}
+    >
+      <View
         style={[
           StyleSheet.absoluteFill,
           {
-            transformOrigin: `${fx * 100}% ${fy * 100}%`,
+            transformOrigin: [`${focus.x.toFixed(2)}%`, `${focus.y.toFixed(2)}%`, 0],
             transform: [{ scale: clampZoom(carspot.zoom) }],
           },
         ]}
-        contentFit="cover"
-        contentPosition={origin}
-        transition={150}
-        // Softened: the card says a game was played, not what the car was —
-        // the crop already hides most of it, and the blur takes the rest, so
-        // a feed full of results spoils nothing for anyone yet to play.
-        blurRadius={PREVIEW_BLUR}
-        accessibilityIgnoresInvertColors
-      />
+      >
+        <Image
+          source={{ uri: imageUrl(carspot.image) ?? undefined }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          contentPosition="center"
+          transition={150}
+          // Full resolution: expo-image otherwise shrinks the picture to the
+          // size of its view, and the zoom is a transform on top of that — it
+          // would be magnifying a thumbnail, not the photo.
+          allowDownscaling={false}
+          // Softened: the card says a game was played, not what the car was —
+          // the crop already hides most of it, and the blur takes the rest, so
+          // a feed full of results spoils nothing for anyone yet to play.
+          blurRadius={PREVIEW_BLUR}
+          onLoad={(e) => {
+            const { width, height } = e.source;
+            if (width > 0 && height > 0) {
+              setPhoto((p) => (p && p.w === width && p.h === height ? p : { w: width, h: height }));
+            }
+          }}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
     </View>
   );
+}
+
+/**
+ * Where the focus is, in percent of the window: the point where it lands once
+ * the photo covers the window centred. Kept inside the window — a focus in a
+ * part of the photo that's cropped off gets the nearest edge. Until the photo
+ * and window sizes are known, the focus's own share of the window.
+ */
+function zoomOrigin(
+  fx: number, fy: number,
+  photo: { w: number; h: number } | null, box: { w: number; h: number } | null,
+): { x: number; y: number } {
+  if (!photo || !box || !box.w || !box.h) return { x: fx * 100, y: fy * 100 };
+  const k = Math.max(box.w / photo.w, box.h / photo.h);
+  const w = photo.w * k;
+  const h = photo.h * k;
+  const x = clamp01(((box.w - w) / 2 + fx * w) / box.w);
+  const y = clamp01(((box.h - h) / 2 + fy * h) / box.h);
+  return { x: x * 100, y: y * 100 };
+}
+
+/**
+ * 'YYYY-MM-DD' as "Oct 6", with the year once it's not this year's. Built from
+ * the parts rather than parsed, so the game's date isn't shifted by the
+ * viewer's timezone.
+ */
+function playDateLabel(date: string | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? '');
+  if (!m) return date ?? '';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const thisYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(thisYear ? {} : { year: 'numeric' }) });
 }
 
 const finished = (p?: CarSpotPlay | null): p is CarSpotPlay => !!p && (p.status === 'won' || p.status === 'lost');
@@ -218,22 +280,28 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
         <ZoomedPuzzleImage carspot={carspot} />
 
         <View style={styles.textCol}>
-          <Text style={[styles.title, { color: colors.fg }]}>
-            Car Spotter #{carspot.puzzle_number}
-          </Text>
-          <Text style={[styles.result, { color: carspot.won ? HIT : colors.muted }]}>
-            {result}
-          </Text>
+          <Text style={[styles.title, { color: colors.fg }]}>Guess the car</Text>
+          {/* The day, as a badge. How it went is the table's to tell. */}
+          <View style={[styles.dateBadge, { backgroundColor: colors.fg }]}>
+            <Text style={[styles.date, { color: colors.bg }]}>{playDateLabel(carspot.play_date)}</Text>
+          </View>
         </View>
 
-        {/* One row per guess, make then model — the order the game asks in.
-            At the right, small: a mark of how it went, not a second picture. */}
-        <View style={styles.grid} accessibilityLabel={`${result}. Guesses: ${grid.map(([mk, md], i) =>
+        {/* The guesses as a small table: a row for the make and one for the
+            model, the guesses running across in the order they were made.
+            Small: a mark of how it went, not a second picture. */}
+        <View style={[styles.table, { borderColor: TABLE_RULE }]} accessibilityLabel={`${result}. Guesses: ${grid.map(([mk, md], i) =>
           `${i + 1}: make ${mk ? 'right' : 'wrong'}, model ${md ? 'right' : 'wrong'}`).join('; ')}`}>
-          {grid.map(([make, model], i) => (
-            <View key={i} style={styles.gridRow}>
-              <View style={[styles.cell, { backgroundColor: make ? HIT : MISS }]} />
-              <View style={[styles.cell, { backgroundColor: model ? HIT : MISS }]} />
+          {(['Make', 'Model'] as const).map((label, col) => (
+            <View key={label} style={[styles.tableRow, col > 0 && styles.ruledRow, { borderColor: TABLE_RULE }]}>
+              <View style={styles.rowLabel}>
+                <Text style={[styles.rowLabelText, { color: colors.muted }]}>{label}</Text>
+              </View>
+              {COLUMNS.map((i) => (
+                <View key={i} style={[styles.cellBox, { borderColor: TABLE_RULE }]}>
+                  {grid[i] ? <View style={[styles.cell, { backgroundColor: grid[i][col] ? HIT : MISS }]} /> : null}
+                </View>
+              ))}
             </View>
           ))}
         </View>
@@ -249,22 +317,34 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
 }
 
 const CELL = 11;
+/** The table's rules: lighter than the card's own borders, so they read as a grid rather than a box. */
+const TABLE_RULE = 'rgba(255,255,255,0.22)';
+/** Every guess the game allows, so the table is the same shape whatever the score. */
+const COLUMNS = Array.from({ length: MAX_ATTEMPTS }, (_, i) => i);
 
 const styles = StyleSheet.create({
   wrap: { paddingBottom: 4 },
   main: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 4 },
   imageWindow: {
     width: PHOTO, height: PHOTO,
-    borderRadius: 16,
+    borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: COLOR_GRAY_10,
     flexShrink: 0,
   },
   textCol: { flex: 1, minWidth: 0 },
-  title:   { fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
-  result:  { fontSize: 13, fontFamily: FONT_INTER.semibold, marginTop: 2 },
-  grid:    { gap: 3, alignItems: 'flex-end', flexShrink: 0, paddingTop: 2 },
-  gridRow: { flexDirection: 'row', gap: 3 },
+  title:   { fontSize: 13.5, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
+  dateBadge: { alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS, marginTop: 4 },
+  date:    { fontSize: 10.5, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  // Ruled like a table: a rounded outer border, then each row after the first
+  // draws its top rule and each cell its left one, so no line is drawn twice.
+  table:    { flexShrink: 0, marginLeft: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, overflow: 'hidden', alignSelf: 'flex-start' },
+  tableRow: { flexDirection: 'row', alignItems: 'stretch' },
+  ruledRow: { borderTopWidth: StyleSheet.hairlineWidth },
+  // The row's name, in a fixed column so the cells line up under their numbers.
+  rowLabel: { width: 44, paddingHorizontal: 7, paddingVertical: 6, justifyContent: 'center' },
+  rowLabelText: { fontSize: 9.5, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  cellBox:  { width: CELL + 14, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', borderLeftWidth: StyleSheet.hairlineWidth },
   cell: { width: CELL, height: CELL, borderRadius: COMMON_RADIUS / 2 },
 
   // ── Under it ─────────────────────────────────────────────────────────────

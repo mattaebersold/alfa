@@ -14,11 +14,17 @@ import { useReportContent } from '../ui/ReportButton';
  * the first thing offered is the author's profile, and reporting is the
  * second, red, as it is everywhere else. (Your own posts get PostOwnerMenu.)
  */
-export default function PostOptionsButton({ postId, author, size = 18, color }: {
+export default function PostOptionsButton({ postId, author, size = 18, color, reportable = true, label = 'Post options' }: {
   postId: string;
   author?: { user_id?: string; username?: string } | null;
   size?: number;
   color?: string;
+  /**
+   * Offer "Report". Off for content the server can't take a report on yet —
+   * a route — so the option isn't there to fail.
+   */
+  reportable?: boolean;
+  label?: string;
 }) {
   const navigation = useNavigation<any>();
   const [open, setOpen] = useState(false);
@@ -31,7 +37,7 @@ export default function PostOptionsButton({ postId, author, size = 18, color }: 
           onPress: () => navigation.navigate('UserDetail', { userId: author.user_id, username: author.username }),
         }]
       : []),
-    { label: 'Report as inappropriate', destructive: true, onPress: report },
+    ...(reportable ? [{ label: 'Report as inappropriate', destructive: true, onPress: report }] : []),
   ];
 
   return (
@@ -41,7 +47,7 @@ export default function PostOptionsButton({ postId, author, size = 18, color }: 
         hitSlop={8}
         style={styles.btn}
         accessibilityRole="button"
-        accessibilityLabel="Post options"
+        accessibilityLabel={label}
       >
         {/* Vertical, and dim, like the report button it replaces: a way to do
             something with the post, not part of reading it. */}

@@ -21,7 +21,9 @@ export default function SocietyStackNavigator() {
         animation: 'none',
       }}
     >
-      <Stack.Screen name="Rallys" component={RallysScreen} options={{ title: 'Rallys' }} />
+      {/* The screen draws the app's own floating header, like Routes does;
+          the native bar on its own left it looking like a sheet over the app. */}
+      <Stack.Screen name="Rallys" component={RallysScreen} options={{ title: 'Rallys', headerShown: false }} />
       <Stack.Screen name="RallyDetail" component={RallyDetailScreen} options={{ title: 'Rally' }} />
     </Stack.Navigator>
   );

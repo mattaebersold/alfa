@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,8 @@ import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
-import UserSummaryModal from '../members/UserSummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { userPreview } from '../members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -59,7 +60,7 @@ interface Props {
 export default function SuggestedMembersRow({ onRequestHide }: Props) {
   const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
-  const [summary, setSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
+  const { openUser } = useSummary();
   const myId = userInfo?.user_id ?? '';
 
   const { data: usersData } = useGetUsersQuery({ limit: POOL_SIZE });
@@ -112,17 +113,12 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
             member={member}
             // A suggestion is an invitation to decide about someone, which is
             // what the summary is for — the profile is one button inside it.
-            onPress={(origin) => setSummary({ userId: member.user_id, origin })}
+            onPress={(origin) => openUser(member.user_id, origin, userPreview(member))}
           />
         ))}
         <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
 
-      <UserSummaryModal
-        userId={summary?.userId ?? null}
-        origin={summary?.origin}
-        onClose={() => setSummary(null)}
-      />
     </SuggestionCard>
   );
 }

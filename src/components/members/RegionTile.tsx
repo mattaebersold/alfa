@@ -92,7 +92,7 @@ export default function RegionTile({
             second dimming on top of an already dark map, and the middle — the
             part actually worth looking at — took the worst of it. */}
         {/* <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.65)']}
+          colors={['transparent', 'rgba(0,0,0,0.45)']}
           style={styles.labelScrim}
           pointerEvents="none"
         /> */}

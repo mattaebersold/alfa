@@ -12,7 +12,7 @@ import EventMonthCalendar from '../../components/society/EventMonthCalendar';
 import RallyCarousel from '../../components/society/RallyCarousel';
 import { EventsMapTile, EventsMapSheet, mappableEvents } from '../../components/society/EventsMap';
 import { useGetUpcomingEventsQuery, useGetEventRegionsQuery } from '../../api/apiService';
-import { useLocationFilter } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
 import { NO_ZIP_NOTE } from '../../components/ui/LocationFilterRow';
 import EventFilters from '../../components/society/EventFilters';
 import EventSearchField from './EventSearchField';
@@ -29,6 +29,7 @@ import { FONT_INTER } from '../../constants/fonts'
 
 // Shared with the feed's row, so an event is one size in both places.
 const CARD_WIDTH = UPCOMING_CARD_WIDTH;
+import { SkeletonCard } from '../ui/Skeleton';
 /** How far ahead the Upcoming carousel looks. */
 const UPCOMING_DAYS = 30;
 /** Cards in the carousel, once filtered. */
@@ -89,6 +90,11 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
+  // Nothing coming up near you: everything, rather than an empty month.
+  useWidenWhenEmpty(location, {
+    settled: !!data && !isFetching && !data.near_unavailable,
+    empty: (data?.entries?.length ?? 0) === 0,
+  });
   const refreshControl = useRefreshControl(refetch, headerPad);
   const all = data?.entries ?? [];
   const upcoming = collapseMultiDay(
@@ -125,7 +131,10 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
         </View>
 
         {isLoading ? (
-          <Spinner />
+          <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: GUTTER }}>
+            <SkeletonCard ratio={1.5} style={{ width: 260, marginBottom: 0 }} />
+            <SkeletonCard ratio={1.5} style={{ width: 260, marginBottom: 0 }} />
+          </View>
         ) : upcoming.length === 0 ? (
           <EmptyState title={`Nothing in the next ${UPCOMING_DAYS} days`} />
         ) : (

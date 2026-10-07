@@ -21,11 +21,11 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader, { useHeaderPad, TABS_STUCK_RISE } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
-import CarSummaryModal from '../../components/cars/CarSummaryModal';
-import { type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { carPreview } from '../../components/cars/CarSummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
-import { useLocationFilter } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
 import { useHeaderScroll, headerOffset } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery, useGetCarBrandsQuery, useGetUserGarageQuery } from '../../api/apiService';
@@ -40,6 +40,7 @@ import { ss } from '../../styles/shared';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { COMMON_RADIUS, COLOR_BLACK, GUTTER, CAR_LIMIT_BASIC, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { SkeletonGrid } from '../../components/ui/Skeleton';
 
 
 export default function CarsScreen(_: CarsScreenProps<'Cars'>) {
@@ -93,7 +94,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const [allCars, setAllCars] = useState<GarageCar[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
+  const { openCar } = useSummary();
   // The same list the Brands screen shows — its length is the count on the button.
   const { data: brands } = useGetCarBrandsQuery();
   const brandCount = brands?.length ?? 0;
@@ -116,6 +117,11 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
+  // No cars near you: every car, rather than an empty grid.
+  useWidenWhenEmpty(location, {
+    settled: !!data && !isFetching && !data.near_unavailable,
+    empty: (data?.entries?.length ?? 0) === 0,
+  });
 
   /**
    * Any filter change starts the list again — but only a change. Apply with
@@ -352,7 +358,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
                     // A summary first, as the home feed's suggestions do: a
                     // grid of cars is a list of things to decide about, and
                     // the full page is one button inside the panel.
-                    onPress={(origin) => setSummary({ carId: item.internal_id, origin })}
+                    onPress={(origin) => openCar(item.internal_id, origin, carPreview(item))}
                   />
                 ))}
               </View>
@@ -361,7 +367,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
         )}
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
+            <SkeletonGrid count={6} ratio={0.8} style={{ paddingHorizontal: GUTTER, paddingTop: 8 }} />
           ) : (
             <EmptyState title="No cars yet" message="Be the first to add your ride." />
           )
@@ -379,11 +385,6 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
       />
       </View>
 
-      <CarSummaryModal
-        carId={summary?.carId ?? null}
-        origin={summary?.origin}
-        onClose={() => setSummary(null)}
-      />
 
       <ProUpsellModal
         visible={upsell}
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
   toolsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // A pill, the filter's height, taking the rest of the row.
   searchBar: {
-    flex: 1, minWidth: 0, height: 44,
+    flex: 1, minWidth: 0, height: 38,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14,
     borderRadius: 999, borderWidth: 1,

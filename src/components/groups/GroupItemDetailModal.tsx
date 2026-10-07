@@ -391,9 +391,9 @@ const styles = StyleSheet.create({
   commentsHeading: { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginTop: 24, marginBottom: 12 },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },
   replyBannerText: { color: COLOR_GRAY_141, fontSize: 13 },
-  replyCancel: { color: 'rgb(37, 162, 211)', fontSize: 13, fontFamily: FONT_INTER.bold },
+  replyCancel: { color: 'rgb(54, 178, 226)', fontSize: 13, fontFamily: FONT_INTER.bold },
   inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
-  postBtn: { backgroundColor: 'rgb(37, 162, 211)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
+  postBtn: { backgroundColor: 'rgb(54, 178, 226)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
   postBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 14 },
   empty:   { color: COLOR_GRAY_141, fontSize: 14, textAlign: 'center', paddingVertical: 20 },
 });

@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
+  View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { Search, X, Plus, Tag, Megaphone } from 'lucide-react-native';
@@ -9,7 +9,7 @@ import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
 import FilterSummaryRow, { FilterLabel, FilterChoiceRow, type FilterPill } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../ui/LocationFilterRow';
-import ListingCard, { LISTING_GRID_ROW } from './ListingCard';
+import ListingCard from './ListingCard';
 import ManageListingsEntry from './ManageListingsEntry';
 import ListingSummaryModal from './ListingSummaryModal';
 import { categoryLabel } from './listingFormat';
@@ -22,13 +22,16 @@ import {
   PILL_RADIUS,
   COLOR_BLACK, GUTTER,
 } from '../../constants/config';
-import { useLocationFilter } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { Listing, ListingKind, ListingShipping, ListingSort } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
+import { SkeletonGrid } from '../ui/Skeleton';
 
 const PAGE_SIZE = 12;
+/** The list's one item — see the mosaic in the FlatList below. */
+const MOSAIC = ['mosaic'];
 
 /**
  * Everything the panel asks — where, category, condition, shipping and price,
@@ -101,6 +104,7 @@ export default function MarketplaceBrowse({
   onScroll,
   contentContainerStyle,
   style,
+  stickyTop = 0,
 }: {
   /**
    * Narrow to one group's listings. The server reads it as "only things in
@@ -110,11 +114,18 @@ export default function MarketplaceBrowse({
   groupId?: string;
   /** Shown above the list, scrolling away with it. Omitted where the host titles itself. */
   heading?: string;
-  listRef?: React.Ref<FlatList<Listing>>;
+  /** Typed loosely: the list's one item is the mosaic, not a listing. */
+  listRef?: React.Ref<FlatList<any>>;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** The host's padding — a header to clear, a tab bar to sit above. */
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
+  /**
+   * How far down the list the switch and search pin once scrolled to — under
+   * a floating header, say, following it as it hides. The list's own top when
+   * omitted.
+   */
+  stickyTop?: number | Animated.Value | Animated.AnimatedInterpolation<number>;
 }) {
   const nav = useNavigation<any>();
   const colors = useColors();
@@ -133,6 +144,33 @@ export default function MarketplaceBrowse({
   const [upsell, setUpsell] = useState(false);
 
   const [kind, setKind] = useState<ListingKind>('sale');
+  // The switch's thumb: 0 on For sale, 1 on Want ads, sprung between like
+  // Segmented's. Slid by half the track's inner width, known once it's laid out.
+  const thumb = useRef(new Animated.Value(0)).current;
+  const [trackW, setTrackW] = useState(0);
+  useEffect(() => {
+    Animated.spring(thumb, { toValue: kind === 'want' ? 1 : 0, tension: 170, friction: 22, useNativeDriver: true }).start();
+  }, [kind, thumb]);
+  const half = Math.max(0, (trackW - KIND_TRACK_PAD * 2) / 2);
+
+  // The sticky bar: where it sits in the list (barY, in content), how tall it
+  // is, and the scroll — so it can ride with the list until it reaches
+  // stickyTop, then hold there. All on the native driver.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const barY = useRef(new Animated.Value(0)).current;
+  const [barH, setBarH] = useState(0);
+  const padTop = Number(StyleSheet.flatten(contentContainerStyle)?.paddingTop ?? 0) || 0;
+  const barTranslate = useMemo(() => {
+    const top = typeof stickyTop === 'number' ? new Animated.Value(stickyTop) : stickyTop;
+    // max(barY - scroll, top), as top + max(barY - scroll - top, 0).
+    const below = Animated.subtract(Animated.subtract(barY, scrollY), top)
+      .interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: 'clamp' });
+    return Animated.add(top, below);
+  }, [stickyTop, barY, scrollY]);
+  const handleScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true, listener: onScroll },
+  ), [scrollY, onScroll]);
   const [search, setSearch] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -179,6 +217,13 @@ export default function MarketplaceBrowse({
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
+
+  // Nothing near you on the first look: All, rather than an empty market.
+  useWidenWhenEmpty(location, {
+    settled: !!data && !isFetching && !data.near_unavailable,
+    empty: (data?.entries?.length ?? 0) === 0,
+    narrowed: !!activeSearch,
+  });
 
   useEffect(() => {
     if (!data?.entries) return;
@@ -294,17 +339,198 @@ export default function MarketplaceBrowse({
     location: location.choice,
   };
 
-  return (
+  // For sale or wanted, at the top of the list — it scrolls away with it.
+  const kindSwitch = (
     <>
-      <FlatList
+      {/* For sale or wanted — two halves of the same market rather than
+          two screens, so the filters above apply to whichever you're
+          looking at. */}
+      <View style={styles.kindRow}>
+        {/* A switch, the width of the row — the same two-sided pill as
+            the photography map's Map / List: a track, and the side
+            you're on filled in the brand colour. */}
+        <View style={[styles.kindSwitch, { backgroundColor: COLOR_BLACK }]} accessibilityRole="tablist">
+          <View
+            style={StyleSheet.absoluteFill}
+            onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
+            pointerEvents="none"
+          >
+            {half > 0 ? (
+              <Animated.View
+                style={[styles.kindThumb, {
+                  width: half, backgroundColor: brand,
+                  transform: [{ translateX: thumb.interpolate({ inputRange: [0, 1], outputRange: [0, half] }) }],
+                }]}
+              />
+            ) : null}
+          </View>
+          {([
+            { key: 'sale' as const, label: 'For sale', Icon: Tag },
+            { key: 'want' as const, label: 'Want ads', Icon: Megaphone },
+          ]).map(({ key, label, Icon }) => {
+            const on = kind === key;
+            const ink = on ? COLOR_BLACK : colors.fg;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.kindBtn, on && half === 0 && { backgroundColor: brand }]}
+                onPress={() => switchKind(key)}
+                activeOpacity={0.8}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+              >
+                <Icon size={16} color={ink} strokeWidth={2.4} />
+                <Text style={[styles.kindText, { color: ink }]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {/* Listing something, inside a group — the group comes with it
+            (see the create form's "Where to post" step). On the main
+            marketplace this lives on the app's + instead (CreateFab),
+            beside a new post. */}
+        {groupId ? (
+        <TouchableOpacity
+          style={[styles.newBtn, { backgroundColor: brand }]}
+          onPress={() => (listingAllowance?.reached
+            ? setUpsell(true)
+            : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) }))}
+          accessibilityRole="button"
+          accessibilityLabel={
+            // A basic member's allowance, read aloud on the button that
+            // spends it — the plus itself has no room for a count.
+            listingAllowance
+              ? `${kind === 'want' ? 'Post a want ad' : 'List something for sale'}, ${listingAllowance.used} of ${listingAllowance.limit} used this month`
+              : kind === 'want' ? 'Post a want ad' : 'List something for sale'
+          }
+        >
+          <Plus size={16} color={COLOR_BLACK} strokeWidth={2.8} />
+        </TouchableOpacity>
+        ) : null}
+      </View>
+    </>
+  );
+
+  // The search and filter, pinned once you scroll past them: drawn over the
+  // list at their place in it (barY, less the scroll), never above `stickyTop`.
+  const stickyBar = (
+    <Animated.View
+      style={[styles.stickyBar, { backgroundColor: colors.cream, transform: [{ translateY: barTranslate }] }]}
+      onLayout={(e) => setBarH(e.nativeEvent.layout.height)}
+    >
+      {/* Search on the left, the filter on the right — the pattern the
+          photography map and the Events tab share. */}
+      <View style={styles.toolsRow}>
+      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Search size={15} color={colors.grey} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.fg }]}
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={runSearch}
+          onBlur={runSearch}
+          returnKeyType="search"
+          placeholder={kind === 'want' ? 'Search want ads…' : 'Search listings…'}
+          placeholderTextColor={colors.grey}
+          autoCapitalize="none"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={clearSearch} hitSlop={8}>
+            <X size={15} color={colors.grey} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <FilterSummaryRow<MarketFilters>
+        value={filterValue}
+        onApply={applyFilters}
+        pills={pills}
+        compact
+      >
+        {(draft, setDraft) => (
+          <>
+            {/* Nearest-first means nothing once you've stopped
+                measuring from anywhere, so leaving near me drops it. */}
+            <LocationFilterRow
+              choice={draft.location}
+              onChoose={(choice) => setDraft((d) => ({
+                ...d,
+                location: choice,
+                sort: choice === 'near' || d.sort !== 'distance' ? d.sort : 'match',
+              }))}
+            />
+
+            <FilterChoiceRow
+              label="Category"
+              options={categoryOptions}
+              selected={draft.category}
+              onSelect={(category) => setDraft((d) => ({ ...d, category }))}
+            />
+
+            {/* Sale only — a want ad has no condition, it has a wish. */}
+            {kind === 'sale' && (meta?.conditions?.length ?? 0) > 0 && (
+              <FilterChoiceRow
+                label="Condition"
+                options={[
+                  { key: null as string | null, label: 'Any' },
+                  ...meta!.conditions.map((label, i) => ({
+                    key: String(i) as string | null,
+                    // A floor, not an exact match: picking "Good" wants
+                    // everything that good or better.
+                    label: i === meta!.conditions.length - 1 ? label : `${label}+`,
+                  })),
+                ]}
+                selected={draft.conditionMin === null ? null : String(draft.conditionMin)}
+                onSelect={(key) => setDraft((d) => ({
+                  ...d, conditionMin: key === null ? null : Number(key),
+                }))}
+              />
+            )}
+
+            <FilterChoiceRow
+              label="Shipping"
+              options={SHIPPING_OPTIONS}
+              selected={draft.shipping}
+              onSelect={(shipping) => setDraft((d) => ({ ...d, shipping }))}
+            />
+
+            {/* Typed into the draft as you go, so Apply takes it
+                without a Done first. Either end can be left empty. */}
+            <FilterLabel>Price</FilterLabel>
+            <PriceFilter
+              min={draft.minPrice}
+              max={draft.maxPrice}
+              onChange={(minPrice, maxPrice) => setDraft((d) => ({ ...d, minPrice, maxPrice }))}
+            />
+
+            {/* Ordering, not filtering. */}
+            <FilterChoiceRow
+              label="Sort"
+              options={SORT_OPTIONS
+                .filter((s) => !s.needsLocation || draft.location === 'near')
+                .map((s) => ({ key: s.key, label: s.label }))}
+              selected={draft.sort}
+              onSelect={(sort) => setDraft((d) => ({ ...d, sort }))}
+            />
+          </>
+        )}
+      </FilterSummaryRow>
+      </View>
+    </Animated.View>
+  );
+
+  return (
+    <View style={[styles.fill, style]}>
+      <Animated.FlatList
         ref={listRef}
-        style={style}
-        data={entries}
-        keyExtractor={(item) => item.internal_id}
-        // Two tiles across — see ListingCard. The header still spans the row.
-        numColumns={2}
-        columnWrapperStyle={LISTING_GRID_ROW}
-        onScroll={onScroll}
+        style={styles.fill}
+        // One item, the whole mosaic — the Cars page's grid: two columns,
+        // each card its photo's own shape, so rows would leave gaps beside
+        // the short ones. Alternating rather than balanced by height, since a
+        // card's shape is only known once its photo loads.
+        data={entries.length ? MOSAIC : []}
+        keyExtractor={(item) => item}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={contentContainerStyle}
@@ -326,174 +552,43 @@ export default function MarketplaceBrowse({
                 : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) }))}
             />
 
-            {/* For sale or wanted — two halves of the same market rather than
-                two screens, so the filters above apply to whichever you're
-                looking at. */}
-            <View style={styles.kindRow}>
-              {/* A switch, the width of the row — the same two-sided pill as
-                  the photography map's Map / List: a track, and the side
-                  you're on filled in the brand colour. */}
-              <View style={[styles.kindSwitch, { backgroundColor: colors.segment }]} accessibilityRole="tablist">
-                {([
-                  { key: 'sale' as const, label: 'For sale', Icon: Tag },
-                  { key: 'want' as const, label: 'Want ads', Icon: Megaphone },
-                ]).map(({ key, label, Icon }) => {
-                  const on = kind === key;
-                  const ink = on ? COLOR_BLACK : colors.grey;
-                  return (
-                    <TouchableOpacity
-                      key={key}
-                      style={[styles.kindBtn, on && { backgroundColor: brand }]}
-                      onPress={() => switchKind(key)}
-                      activeOpacity={0.8}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: on }}
-                    >
-                      <Icon size={16} color={ink} strokeWidth={2.4} />
-                      <Text style={[styles.kindText, { color: ink }]}>{label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {/* Listing something, inside a group — the group comes with it
-                  (see the create form's "Where to post" step). On the main
-                  marketplace this lives on the app's + instead (CreateFab),
-                  beside a new post. */}
-              {groupId ? (
-              <TouchableOpacity
-                style={[styles.newBtn, { backgroundColor: brand }]}
-                onPress={() => (listingAllowance?.reached
-                  ? setUpsell(true)
-                  : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) }))}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  // A basic member's allowance, read aloud on the button that
-                  // spends it — the plus itself has no room for a count.
-                  listingAllowance
-                    ? `${kind === 'want' ? 'Post a want ad' : 'List something for sale'}, ${listingAllowance.used} of ${listingAllowance.limit} used this month`
-                    : kind === 'want' ? 'Post a want ad' : 'List something for sale'
-                }
-              >
-                <Plus size={16} color={COLOR_BLACK} strokeWidth={2.8} />
-              </TouchableOpacity>
-              ) : null}
-            </View>
+            {kindSwitch}
 
-            {/* Search on the left, the filter on the right — the pattern the
-                photography map and the Events tab share. */}
-            <View style={styles.toolsRow}>
-            <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Search size={15} color={colors.grey} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.fg }]}
-                value={search}
-                onChangeText={setSearch}
-                onSubmitEditing={runSearch}
-                onBlur={runSearch}
-                returnKeyType="search"
-                placeholder={kind === 'want' ? 'Search want ads…' : 'Search listings…'}
-                placeholderTextColor={colors.grey}
-                autoCapitalize="none"
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={clearSearch} hitSlop={8}>
-                  <X size={15} color={colors.grey} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <FilterSummaryRow<MarketFilters>
-              value={filterValue}
-              onApply={applyFilters}
-              pills={pills}
-              compact
-            >
-              {(draft, setDraft) => (
-                <>
-                  {/* Nearest-first means nothing once you've stopped
-                      measuring from anywhere, so leaving near me drops it. */}
-                  <LocationFilterRow
-                    choice={draft.location}
-                    onChoose={(choice) => setDraft((d) => ({
-                      ...d,
-                      location: choice,
-                      sort: choice === 'near' || d.sort !== 'distance' ? d.sort : 'match',
-                    }))}
-                  />
-
-                  <FilterChoiceRow
-                    label="Category"
-                    options={categoryOptions}
-                    selected={draft.category}
-                    onSelect={(category) => setDraft((d) => ({ ...d, category }))}
-                  />
-
-                  {/* Sale only — a want ad has no condition, it has a wish. */}
-                  {kind === 'sale' && (meta?.conditions?.length ?? 0) > 0 && (
-                    <FilterChoiceRow
-                      label="Condition"
-                      options={[
-                        { key: null as string | null, label: 'Any' },
-                        ...meta!.conditions.map((label, i) => ({
-                          key: String(i) as string | null,
-                          // A floor, not an exact match: picking "Good" wants
-                          // everything that good or better.
-                          label: i === meta!.conditions.length - 1 ? label : `${label}+`,
-                        })),
-                      ]}
-                      selected={draft.conditionMin === null ? null : String(draft.conditionMin)}
-                      onSelect={(key) => setDraft((d) => ({
-                        ...d, conditionMin: key === null ? null : Number(key),
-                      }))}
-                    />
-                  )}
-
-                  <FilterChoiceRow
-                    label="Shipping"
-                    options={SHIPPING_OPTIONS}
-                    selected={draft.shipping}
-                    onSelect={(shipping) => setDraft((d) => ({ ...d, shipping }))}
-                  />
-
-                  {/* Typed into the draft as you go, so Apply takes it
-                      without a Done first. Either end can be left empty. */}
-                  <FilterLabel>Price</FilterLabel>
-                  <PriceFilter
-                    min={draft.minPrice}
-                    max={draft.maxPrice}
-                    onChange={(minPrice, maxPrice) => setDraft((d) => ({ ...d, minPrice, maxPrice }))}
-                  />
-
-                  {/* Ordering, not filtering. */}
-                  <FilterChoiceRow
-                    label="Sort"
-                    options={SORT_OPTIONS
-                      .filter((s) => !s.needsLocation || draft.location === 'near')
-                      .map((s) => ({ key: s.key, label: s.label }))}
-                    selected={draft.sort}
-                    onSelect={(sort) => setDraft((d) => ({ ...d, sort }))}
-                  />
-                </>
-              )}
-            </FilterSummaryRow>
-            </View>
+            {/* Where the search and filter sit until you scroll past them —
+                they're drawn over the list (stickyBar, below) so they can pin
+                under the header; this holds their place in the flow. */}
+            <View
+              style={{ height: barH }}
+              onLayout={(e) => barY.setValue(padTop + e.nativeEvent.layout.y)}
+            />
 
             {/* On the screen, not in the panel — it explains the list below. */}
             {location.fellBack && (
               <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
             )}
+
           </>
         }
-        renderItem={({ item }) => (
-          <ListingCard
-            listing={item}
-            conditions={meta?.conditions}
-            onPress={(origin) => setSummary({ id: item.internal_id, origin })}
-          />
+        renderItem={() => (
+          <View style={styles.mosaic}>
+            {[0, 1].map((col) => (
+              <View key={col} style={styles.column}>
+                {entries.filter((_, i) => i % 2 === col).map((item) => (
+                  <ListingCard
+                    key={item.internal_id}
+                    listing={item}
+                    natural
+                    conditions={meta?.conditions}
+                    onPress={(origin) => setSummary({ id: item.internal_id, origin })}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
         )}
         ListEmptyComponent={
           isLoading ? (
-            <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />
+            <SkeletonGrid count={6} ratio={16 / 9} style={{ paddingHorizontal: GUTTER, paddingTop: 8 }} />
           ) : (
             <EmptyState
               title={kind === 'want' ? 'No want ads' : 'Nothing for sale'}
@@ -519,6 +614,8 @@ export default function MarketplaceBrowse({
         onEndReachedThreshold={0.3}
       />
 
+      {stickyBar}
+
       <ListingSummaryModal
         listingId={summary?.id ?? null}
         origin={summary?.origin}
@@ -531,7 +628,7 @@ export default function MarketplaceBrowse({
         title={LISTING_LIMIT_UPSELL.title}
         message={LISTING_LIMIT_UPSELL.message}
       />
-    </>
+    </View>
   );
 }
 
@@ -575,12 +672,24 @@ function PriceFilter({ min, max, onChange }: {
   );
 }
 
+// The switch track's inset around its thumb.
+const KIND_TRACK_PAD = 4;
+
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  // Two columns of cards, each its photo's shape — the Cars page's mosaic.
+  mosaic: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER },
+  column: { flex: 1, gap: 10 },
+  // Over the list, at its top; moved into place by a translate.
+  // The top pad keeps the search off the header's edge once pinned.
+  stickyBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingTop: 6 },
   // Every row's edge inset is the app's GUTTER, so the browse lines up with
   // the header's tabs and the rest of the home screen.
-  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 10 },
+  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 4 },
   // The track; each side takes half of it.
-  kindSwitch: { flex: 1, flexDirection: 'row', padding: 4, borderRadius: PILL_RADIUS },
+  kindSwitch: { flex: 1, flexDirection: 'row', padding: KIND_TRACK_PAD, borderRadius: PILL_RADIUS },
+  // The brand-filled half, sliding under the labels.
+  kindThumb: { position: 'absolute', top: KIND_TRACK_PAD, bottom: KIND_TRACK_PAD, left: KIND_TRACK_PAD, borderRadius: PILL_RADIUS },
   kindBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingVertical: 10, borderRadius: PILL_RADIUS,
@@ -599,7 +708,7 @@ const styles = StyleSheet.create({
   },
   // A pill, the height of the filter beside it, taking the rest of the row.
   searchBar: {
-    flex: 1, height: 44,
+    flex: 1, height: 38,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14,
     borderRadius: PILL_RADIUS, borderWidth: 1,

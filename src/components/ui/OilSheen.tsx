@@ -121,9 +121,15 @@ export function useSheenTone(): SheenTone {
  * rotated PRO mark, and a shadowed parent can't clip without losing its shadow.
  * Render it first inside the button so the icon sits on top.
  */
-export default function OilSheen({ tone, radius, opacity }: {
+export default function OilSheen({ tone, radius, opacity, scale = 1 }: {
   tone: SheenTone;
   radius: number;
+  /**
+   * How much bigger than its parent the film is drawn, centred and cropped.
+   * On a small pill the whole spectrum is squeezed into a few points and
+   * reads as noise; scaled up, only a stretch of it shows, in broad bands.
+   */
+  scale?: number;
   /**
    * Strength of the whole film, over the default half. The pearl tone wants
    * more of itself showing — it has no coloured fill beneath it to tint.
@@ -135,24 +141,30 @@ export default function OilSheen({ tone, radius, opacity }: {
       style={[styles.sheen, { borderRadius: radius }, opacity != null && { opacity }]}
       pointerEvents="none"
     >
-      {SHEEN[tone].map((layer, i) => (
+      <View style={scale === 1 ? StyleSheet.absoluteFill : {
+        position: 'absolute',
+        top: `${-(scale - 1) * 50}%`, left: `${-(scale - 1) * 50}%`,
+        width: `${scale * 100}%`, height: `${scale * 100}%`,
+      }}>
+        {SHEEN[tone].map((layer, i) => (
+          <LinearGradient
+            key={i}
+            colors={layer.colors}
+            locations={layer.locations}
+            start={layer.start}
+            end={layer.end}
+            style={StyleSheet.absoluteFill}
+          />
+        ))}
+        {/* The wet highlight — a narrow streak of light across the film. */}
         <LinearGradient
-          key={i}
-          colors={layer.colors}
-          locations={layer.locations}
-          start={layer.start}
-          end={layer.end}
+          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0)']}
+          locations={[0.3, 0.42, 0.55]}
+          start={{ x: 0, y: 0.1 }}
+          end={{ x: 1, y: 0.7 }}
           style={StyleSheet.absoluteFill}
         />
-      ))}
-      {/* The wet highlight — a narrow streak of light across the film. */}
-      <LinearGradient
-        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0)']}
-        locations={[0.3, 0.42, 0.55]}
-        start={{ x: 0, y: 0.1 }}
-        end={{ x: 1, y: 0.7 }}
-        style={StyleSheet.absoluteFill}
-      />
+      </View>
     </View>
   );
 }

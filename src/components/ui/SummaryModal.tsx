@@ -1,11 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing, Platform,
+  View, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated, Easing,
   useWindowDimensions, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -128,9 +127,9 @@ const UNMEASURED_RATIO = 0.55;
  */
 const MIN_KEYBOARD_H = 220;
 /** How long the box takes to grow — and so how long the contents wait. */
-const OPEN_MS = 420;
+const OPEN_MS = 260;
 /** How long the contents take to come up once the box has landed. */
-const CONTENT_MS = 260;
+const CONTENT_MS = 180;
 /**
  * Slower than it arrives. Opening is a response to a tap and wants to feel
  * immediate; closing is the panel taking its leave, and at 190ms it read as
@@ -138,7 +137,7 @@ const CONTENT_MS = 260;
  */
 const CLOSE_MS = 180;
 /** When the contents start to fade in — and so, near enough, become scrollable. */
-const CONTENT_DELAY_MS = 300;
+const CONTENT_DELAY_MS = 40;
 /** The close settles to this scale as it fades. */
 const EXIT_SCALE = 0.94;
 /** Where the panel starts from on the way in: a touch under full size. */
@@ -290,7 +289,10 @@ export default function SummaryModal({
   const fadeStyles = useMemo(() => ({
     reveal: { opacity: reveal },
     content: { flex: 1, opacity: content },
-  }), [reveal, content]);
+    // The box's scale, built once for the same reason: rebuilt per render it
+    // was a new native node on every mid-grow commit, and there are several.
+    boxScale: box.interpolate({ inputRange: [0, 1], outputRange: [OPEN_SCALE_FROM, 1] }),
+  }), [reveal, content, box]);
 
   /**
    * How far the panel has to rise to clear the keyboard.
@@ -359,6 +361,24 @@ export default function SummaryModal({
   // Centred while it fits; past that, pinned under the close button and
   // growing down toward the foot.
   const panelY = Math.max(closeClearance, (screenH - settledH) / 2);
+  /**
+   * The box and the panel follow the height and the top through these, so a
+   * measurement that lands after the open — the fetch replacing the stand-ins,
+   * a photo settling its ratio — eases the panel to its new size rather than
+   * snapping it. Layout props, so JS-driven, but only for the moment of the
+   * change and never during the open itself.
+   */
+  const heightAnim = useRef(new Animated.Value(settledH)).current;
+  const topAnim = useRef(new Animated.Value(panelY)).current;
+  const sized = useRef(false);
+  useEffect(() => {
+    if (!rendered) { sized.current = false; heightAnim.setValue(settledH); topAnim.setValue(panelY); return; }
+    if (!sized.current) { sized.current = true; heightAnim.setValue(settledH); topAnim.setValue(panelY); return; }
+    Animated.parallel([
+      Animated.timing(heightAnim, { toValue: settledH, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      Animated.timing(topAnim, { toValue: panelY, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+    ]).start();
+  }, [settledH, panelY, rendered, heightAnim, topAnim]);
 
   /**
    * The keyboard: the panel rises only as far as the close button's room
@@ -397,9 +417,10 @@ export default function SummaryModal({
   void origin;
 
   const grow = useCallback(() => {
-    // Two frames of head start, so the content's first layout pass — and the
-    // re-render its measurement causes — land before the box moves.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    // One frame of head start, so the content's first layout pass lands
+    // before the box moves. (It was two, with the contents held a further
+    // 300ms: from tap to readable was most of a second.)
+    requestAnimationFrame(() => {
       Animated.parallel([
         // The box fades in and eases up from a touch under full size, on the
         // native driver. It used to morph from the tapped row's rectangle —
@@ -432,8 +453,8 @@ export default function SummaryModal({
       ]).start();
       // Scrollable as soon as the contents start to show, not once every fade
       // has finished — waiting that out made a panel feel stuck.
-      unlockTimer.current = setTimeout(() => setExpanded(true), CONTENT_DELAY_MS + 60);
-    }));
+      unlockTimer.current = setTimeout(() => setExpanded(true), CONTENT_DELAY_MS + 40);
+    });
   }, [box, reveal, content]);
 
   const onShow = useCallback(() => {
@@ -542,26 +563,12 @@ export default function SummaryModal({
       statusBarTranslucent
     >
       <SummaryPanelContext.Provider value={panelHandle}>
-      {/* Blur plus a tint, not a tint alone: the panel sits over a list of the
-          very things it is summarising, and the blur is what stops the row
-          behind it competing with it.
-
-          It never animates. A blur that fades re-composites everything behind
-          it every frame, which is the most expensive thing this component could
-          do. Android gets none — it is costlier there and the platform
-          imitation is poor, so it takes a heavier scrim instead.
-
-          To rule the blur out as a cost, delete these three lines; nothing else
-          depends on it. */}
-      {Platform.OS === 'ios' && (
-        <BlurView tint="dark" intensity={40} style={StyleSheet.absoluteFill} pointerEvents="none" />
-      )}
+      {/* A dark grey, translucent scrim that fades with the panel. There was
+          a blur under it once; a blur can't fade (it re-composites everything
+          behind it on every frame), so it either popped in ahead of the panel
+          or cost the whole open. */}
       <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          Platform.OS === 'ios' ? styles.scrim : styles.scrimOpaque,
-          fadeStyles.reveal,
-        ]}
+        style={[StyleSheet.absoluteFill, styles.scrimOpaque, fadeStyles.reveal]}
         pointerEvents="none"
       />
 
@@ -589,32 +596,34 @@ export default function SummaryModal({
         style={[StyleSheet.absoluteFill, { opacity: exit, transform: [{ scale: exit.interpolate({ inputRange: [0, 1], outputRange: [EXIT_SCALE, 1] }) }] }]}
         pointerEvents="box-none"
       >
-      {/* The box: the surface, laid out where it will stay. Two layers so the
-          drivers don't meet on one view: the outer fades and settles on the
-          native driver; the inner carries the keyboard's shrink, which is
-          layout and so JS-driven. */}
+      {/* The box: the surface, laid out where it will stay. Three layers so
+          the drivers never meet on one view — a view with any native-driven
+          prop hands all its animated props to native, and the next JS resize
+          of top or height then throws. The outer is placed and sized (JS: the
+          panel re-fits its content); the middle fades and settles (native);
+          the inner carries the keyboard's shrink (JS, layout). */}
       <Animated.View
         pointerEvents="none"
-        style={{
-          position: 'absolute', left: panelX, top: panelY, width: panelW, height: settledH,
-          opacity: box,
-          transform: [{ scale: box.interpolate({ inputRange: [0, 1], outputRange: [OPEN_SCALE_FROM, 1] }) }],
-        }}
+        style={{ position: 'absolute', left: panelX, top: topAnim, width: panelW, height: heightAnim }}
       >
         <Animated.View
-          style={[
-            styles.box,
-            { borderColor: colors.border },
-            { left: 0, top: 0, width: panelW, height: Animated.subtract(settledH, shrink), borderRadius: PANEL_RADIUS },
-          ]}
-        />
+          style={[StyleSheet.absoluteFill, { opacity: box, transform: [{ scale: fadeStyles.boxScale }] }]}
+        >
+          <Animated.View
+            style={[
+              styles.box,
+              { borderColor: colors.border },
+              { left: 0, top: 0, width: panelW, height: Animated.subtract(heightAnim, shrink), borderRadius: PANEL_RADIUS },
+            ]}
+          />
+        </Animated.View>
       </Animated.View>
 
       {/* The content, at the panel's final size throughout. The positioned
           view is plain, so a late measurement moving it touches no animated
           props; the fade is on the view inside, whose style never changes. */}
       <Animated.View
-        style={[styles.panel, { left: panelX, top: panelY, width: panelW, height: Animated.subtract(settledH, shrink) }]}
+        style={[styles.panel, { left: panelX, top: topAnim, width: panelW, height: Animated.subtract(heightAnim, shrink) }]}
         pointerEvents={expanded ? 'auto' : 'none'}
       >
         <Animated.View style={fadeStyles.content}>
@@ -710,10 +719,8 @@ const styles = StyleSheet.create({
   // A dark grey over the blur — the screen behind reads as dimmed and
   // frosted, so the panel stands forward of it rather than sitting on a
   // screen that is still nearly as bright as it is.
-  scrim: { backgroundColor: 'rgba(30,30,30,0.55)' },
-  // Android, with no blur under it: doing the whole job on its own, as a
-  // heavier grey. GrowPanel's `summary` backdrop matches it.
-  scrimOpaque: { backgroundColor: 'rgba(20,20,20,0.92)' },
+  // The dark grey, translucent scrim behind the panel; it fades with `reveal`.
+  scrimOpaque: { backgroundColor: 'rgba(20,20,20,0.85)' },
 
   /**
    * Stacking, bottom to top: scrim, backdrop press, the box, the content, the

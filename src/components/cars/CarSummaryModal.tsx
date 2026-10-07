@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState , useRef} from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Check, Plus, Users, Car as CarIcon } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
-import Spinner from '../ui/Spinner';
+import { Skeleton, SkeletonLine, FadeIn } from '../ui/Skeleton';
 import {
   useGetCarWithUserQuery,
   useGetUserByIdQuery,
@@ -17,6 +17,7 @@ import {
   useUnfollowCarMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
+import type { GarageCar } from '../../types/api';
 import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -68,36 +69,68 @@ function OwnerChip({ user, co, onOpen }: {
  * The panel itself, its animation and its "view more" button are SummaryModal's;
  * this only supplies what a car's summary is.
  */
+/**
+ * What a card already knows about a car, for the panel to open with while
+ * the rest is fetched. `ratio` is the photo's width over its height, when the
+ * card has measured it — the panel then opens at its final size.
+ */
+export type CarPreview = { title?: string; subtitle?: string; hero?: string | null; ratio?: number };
+
+/** A preview from any car-shaped record a list holds. */
+export const carPreview = (car: Partial<GarageCar> | null | undefined, ratio?: number): CarPreview | null => {
+  if (!car) return null;
+  const built = [car.year, car.make, car.model].filter(Boolean).join(' ');
+  return {
+    title: car.title || built || undefined,
+    subtitle: car.title ? [car.year, car.make, car.model, car.trim].filter(Boolean).join(' ') : car.trim,
+    hero: firstGalleryUrl(car.gallery as any) ?? (car.profile_image ? imageUrl(car.profile_image) : null),
+    ratio,
+  };
+};
+
 export default function CarSummaryModal({
   carId,
   origin,
+  preview,
   onClose,
 }: {
   /** The car to summarise. `null` closes the panel. */
   carId: string | null;
   /** The card or row that was tapped — the panel grows out of it. */
   origin?: SummaryOrigin | null;
+  /** What the tapped card already knew — shown until the fetch lands. */
+  preview?: CarPreview | null;
   onClose: () => void;
 }) {
   const colors = useColors();
   const nav = useNavigation<any>();
-  const { ratio: heroRatio, onLoad: onHeroLoad } = usePosterRatio();
+  const { ratio: heroRatio, onLoad: onHeroLoad } = usePosterRatio(preview?.ratio);
   const { userInfo } = useAppSelector((s) => s.auth);
 
-  const { data: car, isLoading } = useGetCarWithUserQuery(carId ?? '', { skip: !carId });
+  // The id goes null the moment the close begins, but the panel is still
+  // fading for 180ms: keep the last one so the content doesn't flip to a
+  // spinner on its way out.
+  const lastCarId = useRef<string | null>(null);
+  if (carId) lastCarId.current = carId;
+  const shownCarId = carId ?? lastCarId.current;
+  const { data: car, isLoading } = useGetCarWithUserQuery(shownCarId ?? '', { skip: !shownCarId });
   const isOwner = !!car && (userInfo?.user_id === car.user_id || userInfo?.user_id === car.coowner_id);
 
+  // The summary payload carries both of these now; the queries are the
+  // fallback for a server that hasn't sent them.
   const { data: followStatus } = useGetCarFollowStatusQuery(carId ?? '', {
-    skip: !carId || isOwner,
+    skip: !carId || isOwner || car?.following !== undefined,
   });
-  const { data: followerCount } = useGetCarFollowerCountQuery(carId ?? '', { skip: !carId });
+  const { data: fetchedFollowerCount } = useGetCarFollowerCountQuery(carId ?? '', { skip: !carId || car?.followersCount != null });
+  const followerCount = car?.followersCount ?? fetchedFollowerCount;
   // A car can be shared. The payload carries the owner, but only an id for the
   // second person, so they need their own lookup — cached, and skipped
   // entirely on the cars that have nobody.
   const { data: coowner } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
   const [followCar, { isLoading: following }] = useFollowCarMutation();
   const [unfollowCar, { isLoading: unfollowing }] = useUnfollowCarMutation();
-  const isFollowing = followStatus?.following ?? false;
+  const [localFollow, setLocalFollow] = useState<boolean | undefined>(undefined);
+  const isFollowing = localFollow ?? followStatus?.following ?? car?.following ?? false;
   const busy = following || unfollowing;
 
   /** Close first: iOS won't present a screen over a modal that's still going. */
@@ -112,6 +145,7 @@ export default function CarSummaryModal({
     try {
       if (isFollowing) await unfollowCar({ car_id: carId }).unwrap();
       else await followCar({ car_id: carId }).unwrap();
+      setLocalFollow(!isFollowing);
     } catch {
       Alert.alert(
         isFollowing ? "Couldn't unfollow" : "Couldn't follow",
@@ -167,19 +201,49 @@ export default function CarSummaryModal({
       onAction={carId ? () => nav.navigate('CarDetail', { carId }) : undefined}
     >
       {isLoading || !car ? (
-        // Reserved height rather than a bare spinner: the panel takes its size
-        // from its content, so an unsized loading state opens as a sliver and
-        // then has to grow into the real thing.
-        <View style={styles.loading}><Spinner /></View>
-      ) : (
+        // The card's own photo and name, with grey stand-ins where the rest
+        // will go — the panel opens showing the car, at the size it will be,
+        // and the fetch fills in underneath. It was a spinner in a 260pt box
+        // that then snapped to the real height.
         <View style={styles.scroll}>
+          <View style={styles.heroWrap}>
+            {preview?.hero ? (
+              <Image source={{ uri: preview.hero }} style={[styles.hero, { aspectRatio: heroRatio }]} contentFit="cover" contentPosition="center" transition={0} onLoad={onHeroLoad} />
+            ) : (
+              <Skeleton style={{ width: '100%', aspectRatio: heroRatio }} radius={0} />
+            )}
+            {preview?.hero ? (
+              <LinearGradient colors={['transparent', 'rgba(10,10,10,0.9)']} locations={[0.45, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+            ) : null}
+            <View style={styles.heroText}>
+              <CarIcon size={22} color={COLOR_WHITE} strokeWidth={1.8} />
+              {preview?.title ? <Text style={styles.heroTitle} numberOfLines={2}>{preview.title}</Text> : <SkeletonLine width="60%" height={22} style={{ marginTop: 4 }} />}
+              {preview?.subtitle ? <Text style={styles.heroSub} numberOfLines={1}>{preview.subtitle}</Text> : null}
+            </View>
+          </View>
+          <View style={styles.row}>
+            <View style={styles.owners}>
+              <Skeleton width={28} height={28} radius={14} />
+              <SkeletonLine width={90} height={12} />
+            </View>
+            <Skeleton width={96} height={34} radius={17} />
+          </View>
+          <View style={styles.placeholderLines}>
+            <SkeletonLine width="92%" />
+            <SkeletonLine width="78%" />
+            <SkeletonLine width="50%" />
+          </View>
+        </View>
+      ) : (
+        <FadeIn style={styles.scroll}>
           <View style={styles.heroWrap}>
             <Image
               source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
               style={[styles.hero, { aspectRatio: heroRatio }]}
               contentFit="cover"
               contentPosition="center"
-              transition={200}
+              // The preview already showed this photo: no second fade of it.
+              transition={hero && hero === preview?.hero ? 0 : 200}
               onLoad={onHeroLoad}
             />
             {/* The title sits on the photo, so the panel opens with the car
@@ -295,7 +359,7 @@ export default function CarSummaryModal({
               {description}
             </Text>
           ) : null}
-        </View>
+        </FadeIn>
       )}
     </SummaryModal>
   );
@@ -303,7 +367,7 @@ export default function CarSummaryModal({
 
 const styles = StyleSheet.create({
   scroll:  { paddingBottom: 16 },
-  loading: { height: 260, alignItems: 'center', justifyContent: 'center' },
+  placeholderLines: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18, gap: 10 },
 
   // Rounded at the foot too, so the photo sits in the panel rather than
   // capping it; the overlay (name, chips) clips with it.

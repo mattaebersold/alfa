@@ -238,23 +238,6 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
               <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
             </View>
           ) : null}
-        {/* What it is and how good, as coloured badges on the photo's
-            bottom right, across from the price — the category its own
-            steady colour, the condition red to green along its scale. */}
-          {(listing.category || condition) ? (
-            <View style={[styles.badges, styles.onPhotoRow]}>
-              {listing.category ? (
-                <View style={[styles.kindBadge, { backgroundColor: categoryColor(listing.category) }]}>
-                  <Text style={styles.kindBadgeText}>{categoryLabel(listing.category)}</Text>
-                </View>
-              ) : null}
-              {condition ? (
-                <View style={[styles.kindBadge, { backgroundColor: conditionColor(listing.condition, meta?.conditions) ?? colors.segment }]}>
-                  <Text style={styles.kindBadgeText}>{condition}</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
           {price ? (
             <View style={[styles.priceBubble, styles.onPhoto]}>
               <Text style={styles.priceBubbleText} numberOfLines={1}>{price}</Text>
@@ -275,6 +258,24 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
               {/* Yours: the way to change it, beside its title. */}
               {isMine ? <EditListingCog listingId={listing.internal_id} /> : null}
             </View>
+
+            {/* What it is and how good, as coloured badges under the title —
+                the category its own steady colour, the condition red to
+                green along its scale. Off the photo, which keeps the price. */}
+            {(listing.category || condition) ? (
+              <View style={styles.badges}>
+                {listing.category ? (
+                  <View style={[styles.kindBadge, { backgroundColor: categoryColor(listing.category) }]}>
+                    <Text style={styles.kindBadgeText}>{categoryLabel(listing.category)}</Text>
+                  </View>
+                ) : null}
+                {condition ? (
+                  <View style={[styles.kindBadge, { backgroundColor: conditionColor(listing.condition, meta?.conditions) ?? colors.segment }]}>
+                    <Text style={styles.kindBadgeText}>{condition}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
 
 
@@ -462,13 +463,13 @@ const styles = StyleSheet.create({
   // As on the cards, a size up.
   priceBubble: {
     left: 10, bottom: 10,
-    flexDirection: 'row', alignItems: 'baseline', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    flexDirection: 'row', alignItems: 'baseline', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
     backgroundColor: COLOR_GREEN,
   },
-  priceBubbleText: { color: COLOR_BLACK, fontSize: 18, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
+  priceBubbleText: { color: COLOR_BLACK, fontSize: 14, fontFamily: FONT_INTER.semibold, letterSpacing: 0.3 },
   priceBubbleWas: {
-    color: 'rgba(0,0,0,0.6)', fontSize: 12.5, fontFamily: FONT_INTER.semibold,
+    color: 'rgba(0,0,0,0.6)', fontSize: 11, fontFamily: FONT_INTER.semibold,
     textDecorationLine: 'line-through',
   },
   noPhoto:    { width: '100%', alignItems: 'center', justifyContent: 'center' },
@@ -483,19 +484,15 @@ const styles = StyleSheet.create({
   matchText: { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  title:    { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
+  title:    { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
   soldPill: { backgroundColor: COLOR_DANGER, paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS, marginTop: 2 },
   soldText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6 },
 
-  badges:    { flexDirection: 'row', gap: 6 },
-  // On the photo's bottom right, lifted off it like the price.
-  onPhotoRow: { position: 'absolute', right: 10, bottom: 10, maxWidth: '55%', justifyContent: 'flex-end' },
-  kindBadge: {
-    paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, flexShrink: 1,
-    boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
-  },
+  // Under the title, wrapping if a long condition needs the room.
+  badges:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  kindBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
   // Black on every fill — the palette is all mid-bright.
-  kindBadgeText: { color: '#000000', fontSize: 13, fontFamily: FONT_INTER.bold },
+  kindBadgeText: { color: '#000000', fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   sellerRow:  { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 2 },
   sellerName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },

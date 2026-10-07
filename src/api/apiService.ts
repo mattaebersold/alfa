@@ -14,7 +14,7 @@ import type {
   Listing, ListingMeta, ListingBrowseParams, ListingBrowseResponse,
   ListingDetailResponse, MyListingsResponse,
   MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
-  MarketplaceRoleFilter, MarketplaceUnreadCount,
+  MarketplaceRoleFilter, MarketplaceUnreadCount, Badges,
   Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration } from '../types/api';
 import { carScopeKey } from '../utils/carScope';
 
@@ -1547,6 +1547,16 @@ export const apiService = createApi({
       providesTags: ['Notifications'],
     }),
 
+    /**
+     * The bell, the inbox and the marketplace counts in one answer — the poll
+     * the chrome runs. It carries all three tags, so reading anything in any
+     * of them refreshes it the way the three single counts used to refresh.
+     */
+    getBadges: builder.query<Badges, void>({
+      query: () => 'api/notifications/badges',
+      providesTags: ['Notifications', 'Message', 'MarketplaceUnread'],
+    }),
+
     markNotificationRead: builder.mutation<void, string>({
       query: (id) => ({ url: `api/notifications/${id}/read`, method: 'PATCH' }),
       invalidatesTags: ['Notifications'],
@@ -2790,6 +2800,7 @@ export const {
   useGetArticleBlocksQuery,
   useGetNotificationsQuery,
   useGetUnreadNotificationCountQuery,
+  useGetBadgesQuery,
   useMarkNotificationReadMutation,
   useMarkAllNotificationsReadMutation,
   useArchiveNotificationMutation,

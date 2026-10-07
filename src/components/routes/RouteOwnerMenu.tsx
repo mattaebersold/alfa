@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Alert } from 'react-native';
-import { Ellipsis } from 'lucide-react-native';
+import { Ellipsis, EllipsisVertical } from 'lucide-react-native';
 import { useDeleteRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 
@@ -11,6 +11,8 @@ interface Props {
   onEdit: () => void;
   /** Called after a successful delete — to leave the screen showing the route. */
   onDeleted?: () => void;
+  /** Upright dots, as on a feed card's menu, rather than the detail screen's. */
+  vertical?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * again — it was a drive. The delete mutation invalidates every route list,
  * a group's Routes section included, so it's gone wherever you go back to.
  */
-export default function RouteOwnerMenu({ routeId, size = 20, color, onEdit, onDeleted }: Props) {
+export default function RouteOwnerMenu({ routeId, size = 20, color, onEdit, onDeleted, vertical = false }: Props) {
   const colors = useColors();
   const [deleteRoute] = useDeleteRouteMutation();
 
@@ -58,7 +60,9 @@ export default function RouteOwnerMenu({ routeId, size = 20, color, onEdit, onDe
       accessibilityRole="button"
       accessibilityLabel="Route options"
     >
-      <Ellipsis size={size} color={color ?? colors.grey} />
+      {vertical
+        ? <EllipsisVertical size={size} color={color ?? colors.grey} />
+        : <Ellipsis size={size} color={color ?? colors.grey} />}
     </TouchableOpacity>
   );
 }

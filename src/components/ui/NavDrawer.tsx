@@ -17,8 +17,9 @@ import { LogOut } from 'lucide-react-native';
 import Avatar from './Avatar';
 import GrowPanel, { type GrowOrigin } from './GrowPanel';
 import { useAppSelector, useAppDispatch } from '../../store/store';
-import { useGetUnreadNotificationCountQuery, useGetMyEventsCountQuery } from '../../api/apiService';
+import { useGetBadgesQuery, useGetMyEventsCountQuery } from '../../api/apiService';
 import { useMarketplaceUnread } from '../marketplace/MarketplaceUnreadBadge';
+import { useIsAppActive } from '../../hooks/useIsAppActive';
 import MyEventsSheet from '../society/MyEventsSheet';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
@@ -289,11 +290,13 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
   // The bell's own count, so the drawer and the header always agree.
-  const { data: notifData } = useGetUnreadNotificationCountQuery(undefined, {
+  // One poll for every badge the chrome draws (see getBadges), paused in the background.
+  const appActive = useIsAppActive();
+  const { data: badges } = useGetBadgesQuery(undefined, {
     skip: !isLoggedIn,
-    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
+    pollingInterval: appActive ? CONFIG.NOTIFICATION_POLL_INTERVAL : 0,
   });
-  const notifCount = notifData?.count ?? 0;
+  const notifCount = badges?.notifications ?? 0;
 
   /**
    * Marketplace messages waiting on you.

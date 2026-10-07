@@ -58,7 +58,7 @@ function MemberCard({ member, onPress }: { member: any; onPress: (origin: Summar
       {/* Near-black at the foot, fading to nothing well up the photo, so the
           name reads on any picture without a hard band across it. */}
       <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)']}
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.39)', 'rgba(0,0,0,0.63)']}
         locations={[0, 0.5, 1]}
         style={styles.scrim}
         pointerEvents="none"

@@ -17,7 +17,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { REGIONS } from '../../constants/regions';
-import { useLocationFilter } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useColors } from '../../hooks/useColors';
@@ -31,6 +31,7 @@ import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_GRAY_17, GUTTER } from '../../constants/config';
+import { SkeletonPeople } from '../../components/ui/Skeleton';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -86,6 +87,12 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
+  // Nobody near you: everyone, rather than an empty list. Not while searching.
+  useWidenWhenEmpty(location, {
+    settled: !!data && !isFetching && !data.near_unavailable,
+    empty: (data?.entries?.length ?? 0) === 0,
+    narrowed: !!query,
+  });
 
   /**
    * Any filter change starts the list again — page 2 of the old filter isn't
@@ -205,7 +212,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
           />
         )}
         ListEmptyComponent={
-          isLoading ? <Spinner fullScreen /> : (
+          isLoading ? <SkeletonPeople count={8} style={{ paddingHorizontal: GUTTER }} /> : (
             <EmptyState
               title={location.choice !== 'all'
                 ? `No members ${location.choice === 'near' ? `within ${location.radius} miles` : `in the ${REGIONS.find((r) => r.key === location.choice)?.label}`}`
@@ -248,7 +255,7 @@ const styles = StyleSheet.create({
   toolsRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, margin: GUTTER },
   // A pill, the filter's height, taking the rest of the row.
   searchBar:   {
-    flex: 1, minWidth: 0, height: 44,
+    flex: 1, minWidth: 0, height: 38,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 14,
     borderRadius: 999, borderWidth: 1,

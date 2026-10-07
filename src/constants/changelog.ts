@@ -25,6 +25,63 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.65': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Speed',
+        items: [
+          'Major speed improvements throughout the app: screens, panels and the menu all open faster.',
+          'Server performance improvements.',
+        ],
+      },
+      {
+        title: 'Marketplace',
+        items: [
+          'A dynamic grid layout for listings.',
+          'Shows all listings when there are none near you.',
+        ],
+      },
+      {
+        title: 'Routes',
+        items: [
+          'Add a photo to a route.',
+          'Improvements to the route card in the feed.',
+        ],
+      },
+      {
+        title: 'Car Spotter',
+        items: [
+          'Further improvements to the Car Spotter share card.',
+        ],
+      },
+      {
+        title: 'Photography',
+        items: [
+          'Fixed the zoom buttons on the photography map not responding.',
+        ],
+      },
+      {
+        title: 'Rallys',
+        items: [
+          'Fixed the UI on the ORS Rallys screen.',
+        ],
+      },
+      {
+        title: 'Articles',
+        items: [
+          'Visual updates and fixes to the Articles screen.',
+        ],
+      },
+      {
+        title: 'Notifications',
+        items: [
+          'Fixed notifications being cut off.',
+          'Fixed every unread notification being cleared when the panel opened. Now only the one you tap is marked read.',
+        ],
+      },
+    ],
+  },
   '1.64': {
     date: 'October 2026',
     groups: [

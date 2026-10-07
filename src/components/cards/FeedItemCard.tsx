@@ -15,7 +15,8 @@ import { usePostLike } from '../../hooks/usePostLike';
 import PostOptionsButton from '../social/PostOptionsButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
 import ImageLightbox from '../ui/ImageLightbox';
-import UserSummaryModal from '../members/UserSummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { userPreview } from '../members/UserSummaryModal';
 import { Images } from 'lucide-react-native';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
@@ -187,7 +188,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
    * collapsing under the finger that expanded it is the wrong surprise.
    */
   /** Whose summary panel is open, if any. */
-  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
+  const { openUser } = useSummary();
   const [bodyExpanded, setBodyExpanded] = useState(false);
   const [bodyLines, setBodyLines] = useState<number | null>(null);
   /** The first BODY_LINES lines as laid out — what the clamped preview shows. */
@@ -284,7 +285,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           // is a glance, and answering it with a whole screen cost you the
           // scroll position you were reading from. The panel carries its own
           // View Profile for when the glance isn't enough.
-          onPress={() => user?.user_id && setSummaryUserId(user.user_id)}
+          onPress={() => user?.user_id && openUser(user.user_id, null, userPreview(user))}
           activeOpacity={0.7}
         >
           {/* Squared to the app's corner rather than a circle — it sits in a
@@ -447,7 +448,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
                       nothing along the diagonal, so the rail's white icons
                       read over a bright photo. Under the controls. */}
                   <LinearGradient
-                    colors={['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0)']}
+                    colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)']}
                     locations={[0, 0.45, 1]}
                     start={{ x: 1, y: 1 }}
                     end={{ x: 0.2, y: 0.2 }}
@@ -521,10 +522,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         </View>
       )}
 
-      <UserSummaryModal
-        userId={summaryUserId}
-        onClose={() => setSummaryUserId(null)}
-      />
 
       <LikersSheet
         entryId={post.internal_id}

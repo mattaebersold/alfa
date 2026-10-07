@@ -7,7 +7,7 @@ import { Text } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList from '../notifications/NotificationsList';
-import { useGetUnreadNotificationCountQuery, useGetUnreadMessageCountQuery } from '../../api/apiService';
+import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_RED, COLOR_WHITE } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
@@ -27,7 +27,7 @@ const CLOSE_SIZE = 36;
 const CLOSE_GAP = 8;
 /** The panel's height before the list has measured — a spinner's worth. */
 const PANEL_LOADING_H = 220;
-const PANEL_RADIUS = 20;
+const PANEL_RADIUS = 32; // the menu's GROW_PANEL_RADIUS, so the two panels match
 /** Past this the badge stops counting and starts saying "lots". */
 const BADGE_MAX = 10;
 
@@ -72,7 +72,8 @@ export default function NotificationsBell() {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const { data } = useGetUnreadNotificationCountQuery(undefined, {
+  // One poll for every badge the chrome draws — see getBadges.
+  const { data: badges } = useGetBadgesQuery(undefined, {
     skip: !isLoggedIn,
     pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
   });
@@ -86,13 +87,8 @@ export default function NotificationsBell() {
    * both "something arrived for you", so they're both on the badge, and the
    * panel lists them together.
    */
-  const { data: messageData } = useGetUnreadMessageCountQuery(undefined, {
-    skip: !isLoggedIn,
-    pollingInterval: CONFIG.NOTIFICATION_POLL_INTERVAL,
-  });
-
-  const notificationCount = data?.count ?? 0;
-  const messageCount = messageData?.count ?? 0;
+  const notificationCount = badges?.notifications ?? 0;
+  const messageCount = badges?.messages ?? 0;
   const count = notificationCount + messageCount;
 
   // The same fill the rest of the header wears — gold on a Pro account, the

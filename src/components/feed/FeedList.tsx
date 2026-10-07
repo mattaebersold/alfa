@@ -20,6 +20,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import type { Post, GarageCar, DrivingRoute, CarActivityItem, GroupActivityItem } from '../../types/api';
+import { SkeletonList } from '../ui/Skeleton';
 
 interface FeedListProps {
   filter?: string;
@@ -270,9 +271,10 @@ export default function FeedList({
   }, [allPosts, garageCars, newRoutes, carActivity, groupActivity, includeGarageAdditions, hasMorePosts]);
 
   if (isLoading && page === 0) {
+    // The shape of the feed, in grey, until the first page lands.
     return (
-      <View style={styles.loadingCenter}>
-        <ActivityIndicator size="large" color={colors.primaryAlt} />
+      <View style={{ paddingTop, paddingHorizontal: GUTTER }}>
+        <SkeletonList count={3} ratio={1.25} />
       </View>
     );
   }
@@ -333,6 +335,10 @@ export default function FeedList({
             refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor={colors.primaryAlt}
+            colors={[colors.primaryAlt]}
+            // Below the floating header, which is near-opaque: at the scroll
+            // view's own top the spinner turned behind the header, unseen.
+            progressViewOffset={paddingTop}
           />
         }
         onEndReached={handleLoadMore}

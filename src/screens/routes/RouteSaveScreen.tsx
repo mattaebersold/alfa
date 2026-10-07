@@ -1,7 +1,13 @@
 import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Switch,
+  View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Switch, Keyboard,
 } from 'react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { ImagePlus, X } from 'lucide-react-native';
+import { uploadFile } from '../../utils/upload';
+import { routePhoto } from '../../utils/routePhoto';
+import { imageUrl } from '../../utils/image';
 import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -105,6 +111,28 @@ export default function RouteSaveScreen() {
 
   const draft = useMemo(() => (isEdit || isPlot ? null : readDraft()), [isEdit, isPlot]);
   const { data: existing, isLoading: loadingExisting } = useGetRouteQuery(editId ?? '', { skip: !isEdit });
+
+  /**
+   * One photo of the drive, shown behind the route's line on its card.
+   * `newPhoto` is one just picked; `keptPhoto` is the saved route's own, until
+   * it's removed or replaced. (A map the server drew for a route saved without
+   * a photo isn't one of these — see routePhoto.)
+   */
+  const [newPhoto, setNewPhoto] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const savedPhoto = isEdit && existing ? routePhoto(existing.entry) : null;
+  const keptPhoto = savedPhoto && !photoRemoved ? savedPhoto : null;
+  const shownPhoto = newPhoto ?? (keptPhoto ? imageUrl(keptPhoto.filename) : null);
+
+  const pickPhoto = async () => {
+    Keyboard.dismiss();
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+    if (!result.canceled && result.assets[0]) setNewPhoto(result.assets[0].uri);
+  };
+  const removePhoto = () => {
+    setNewPhoto(null);
+    setPhotoRemoved(true);
+  };
   const { data: existingTags } = useGetPostTagsQuery(editId ?? '', { skip: !isEdit });
 
   const [title, setTitle] = useState('');
@@ -396,6 +424,11 @@ export default function RouteSaveScreen() {
     // The first tagged car is "the car I drove", as on a new route.
     fd.append('car_id', taggedCars[0]?.id ?? '');
     appendGroups(fd);
+    // A new photo goes in; the saved one comes out if it was replaced or removed.
+    if (newPhoto) fd.append('gallery', uploadFile(newPhoto));
+    if (savedPhoto && (newPhoto || photoRemoved)) {
+      fd.append(`modifyImage:remove:${existing?.entry.gallery?.indexOf(savedPhoto) ?? 0}`, savedPhoto.filename ?? '');
+    }
 
     try {
       await updateRoute(fd).unwrap();
@@ -446,6 +479,8 @@ export default function RouteSaveScreen() {
     // association — while still being recorded as a tag like the others.
     if (taggedCars[0]) fd.append('car_id', taggedCars[0].id);
     appendGroups(fd);
+    // With a photo, the server skips drawing a map for the route's image.
+    if (newPhoto) fd.append('gallery', uploadFile(newPhoto));
 
     try {
       const created = await createRoute(fd).unwrap();
@@ -564,6 +599,39 @@ export default function RouteSaveScreen() {
               multiline
               textAlignVertical="top"
             />
+          </Field>
+
+          {/* One photo, behind the route's line on its card. */}
+          <Field label="Photo">
+            {shownPhoto ? (
+              <View style={styles.photoWrap}>
+                <TouchableOpacity onPress={pickPhoto} activeOpacity={0.85} accessibilityLabel="Change photo">
+                  <Image source={{ uri: shownPhoto }} style={styles.photo} contentFit="cover" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.photoRemove}
+                  onPress={removePhoto}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo"
+                >
+                  <X size={14} color="#FFFFFF" strokeWidth={2.6} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.photoAdd, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+                onPress={pickPhoto}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <ImagePlus size={18} color={colors.grey} />
+                <Text style={[styles.photoAddText, { color: colors.grey }]}>Add a photo</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[styles.helper, { color: colors.grey }]}>
+              Shown behind the route's line on its card.
+            </Text>
           </Field>
 
           {/* Where it began and ended. Prefilled from the track, editable —
@@ -733,6 +801,17 @@ function Stat({ label, value, colors }: { label: string; value: string; colors: 
 }
 
 const styles = StyleSheet.create({
+  photoWrap:    { alignSelf: 'flex-start' },
+  photo:        { width: 120, height: 120, borderRadius: COMMON_RADIUS / 2 },
+  photoRemove:  {
+    position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+  },
+  photoAdd:     {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 56, borderWidth: 1, borderStyle: 'dashed', borderRadius: COMMON_RADIUS / 2,
+  },
+  photoAddText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
   center:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
   emptyTitle: { fontSize: 18, fontFamily: FONT_INTER.bold },
   emptyBody:  { fontSize: 14, textAlign: 'center', marginTop: 8 },

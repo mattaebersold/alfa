@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, StyleSheet, Modal, Pressable, Animated, Easing, Dimensions, Platform,
+  View, StyleSheet, Modal, Pressable, Animated, Easing, Dimensions,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLOR_BLACK } from '../../constants/config';
 
@@ -14,12 +13,10 @@ export const GROW_PANEL_RATIO = 0.9;
 /** The shortest a panel sized to its content gets, so a near-empty one still reads as a panel. */
 const MIN_FIT_H = 220;
 export const GROW_PANEL_RADIUS = 32;
-/** The header buttons' corner radius, which the growing box starts from. */
-const BTN_RADIUS = 14;
 /** How long the box takes to grow — and so how long the contents wait. */
-const OPEN_MS = 420;
+const OPEN_MS = 260;
 /** When the contents start to fade in — and so, near enough, become touchable. */
-const CONTENT_DELAY_MS = 300;
+const CONTENT_DELAY_MS = 40;
 /** The close: a fade, and a slight settle to this scale. */
 const CLOSE_MS = 180;
 const EXIT_SCALE = 0.94;
@@ -30,8 +27,12 @@ const EXIT_SCALE = 0.94;
  * rather than stop dead. The bell's own copy uses the same figure.
  */
 const OPEN_OVERSHOOT = 0.9;
+/** Where the panel starts from on the way in, as a fraction of its size. */
+const OPEN_SCALE_FROM = 0.9;
+/** How far above its place the panel starts, coming straight down. */
+const OPEN_DROP = 28;
 /** How long the contents take to come up once the box has landed. */
-const CONTENT_MS = 520;
+const CONTENT_MS = 200;
 /** How far below their place the contents start, rising as they fade in. */
 const CONTENT_RISE = 10;
 /**
@@ -42,15 +43,17 @@ const CONTENT_RISE = 10;
  * separating, so the tint can stay light; Android has only the tint, which
  * is why it's a shade heavier than the bell's.
  */
-const BACKDROP = Platform.OS === 'ios' ? 'rgba(64,64,64,0.55)' : 'rgba(64,64,64,0.82)';
+// No blur any more: a blur can't fade (it is re-composited on every frame of
+// an opacity change), so it either popped in or cost the whole open. A dark
+// grey, translucent scrim fades in and out with the panel instead.
+const BACKDROP = 'rgba(40,40,40,0.82)';
 /**
  * SummaryModal's backdrop, for a panel that should read as one of those: a
  * lighter blur that stays put while a black tint fades over it (see there).
  */
 // Android has no blur to separate the panel from the screen behind, so a
 // lighter, heavier grey does it instead — against black the dark panels sank.
-const SUMMARY_BACKDROP = Platform.OS === 'ios' ? 'rgba(30,30,30,0.55)' : 'rgba(20,20,20,0.92)';
-const SUMMARY_BLUR = 40;
+const SUMMARY_BACKDROP = 'rgba(20,20,20,0.85)';
 
 /**
  * A panel that grows out of the button that opened it.
@@ -87,6 +90,7 @@ export default function GrowPanel({
   children,
   surface = COLOR_BLACK,
   backdrop = 'grey',
+  contentFade,
 }: {
   visible: boolean;
   /** The button's rect. Falls back to the header's right end when unmeasured. */
@@ -107,6 +111,12 @@ export default function GrowPanel({
   surface?: string;
   /** `summary` borrows SummaryModal's backdrop, so the two look alike side by side. */
   backdrop?: 'grey' | 'summary';
+  /**
+   * The contents' fade-in, for a panel that wants it noticed: when it starts
+   * and how long it takes, in ms. Defaults to a quick fade under the box's
+   * own growth (CONTENT_DELAY_MS, CONTENT_MS).
+   */
+  contentFade?: { delay?: number; duration?: number };
 }) {
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = Dimensions.get('window');
@@ -161,24 +171,24 @@ export default function GrowPanel({
     setExpanded(false);
     // Touchable as soon as the contents start to show, not once every fade has
     // finished — waiting that out made the menu feel stuck for half a second.
-    const unlock = setTimeout(() => setExpanded(true), CONTENT_DELAY_MS + 60);
-    // Two frames of head start, so the content mounts before the box moves.
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => {
+    const fadeDelay = contentFade?.delay ?? CONTENT_DELAY_MS;
+    const unlock = setTimeout(() => setExpanded(true), fadeDelay + 40);
+    // One frame of head start, so the content mounts before the box moves.
+    const raf = requestAnimationFrame(() => {
       Animated.parallel([
         Animated.timing(box, {
           toValue: 1,
           // An ease-out with a small back: fast off the button, slowing into
-          // place, a touch past it, then settled — all inside OPEN_MS, so the
-          // contents still arrive on a box that has stopped. This was a spring
-          // that overshot by a tenth and rocked back, and that much read as
-          // wobble on a box this big.
+          // place, a touch past it, then settled. On the native driver now:
+          // it used to tween the box's left/top/width/height on the JS thread,
+          // the one thread the menu's own mount was busy on, so it stuttered.
           duration: OPEN_MS,
           easing: Easing.out(Easing.back(OPEN_OVERSHOOT)),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(reveal, {
           toValue: 1,
-          duration: 570,
+          duration: OPEN_MS,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -186,15 +196,15 @@ export default function GrowPanel({
           toValue: 1,
           // A little before the box has quite settled — the last of its
           // travel is the small overshoot, and the contents can ride that.
-          delay: CONTENT_DELAY_MS,
+          delay: fadeDelay,
           // Unhurried, and a slight rise with the fade (see contentRise): the
           // contents settle onto the surface rather than switching on.
-          duration: CONTENT_MS,
+          duration: contentFade?.duration ?? CONTENT_MS,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();
-    }));
+    });
     return () => { cancelAnimationFrame(raf); clearTimeout(unlock); };
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -227,6 +237,18 @@ export default function GrowPanel({
 
   const grow = (a: number, b: number) => box.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
   /**
+   * The panel's travel: down from just above its place, growing as it comes.
+   * One axis only — moving on both at once from the button's corner read as
+   * the menu arriving at an angle. A translate and a scale, so the native
+   * driver runs it, rather than the rectangle itself being tweened.
+   */
+  const travel = {
+    transform: [
+      { translateY: grow(-OPEN_DROP, 0) },
+      { scale: grow(OPEN_SCALE_FROM, 1) },
+    ],
+  };
+  /**
    * The box is see-through at the button's size.
    *
    * It lands exactly on the button, and an opaque box there is a black
@@ -242,28 +264,11 @@ export default function GrowPanel({
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={() => closeThen()} statusBarTranslucent>
       <View style={styles.fill}>
-        {/* The screen behind, blurred and dimmed, fading with the panel.
-            Blurred on iOS only: Android has no real backdrop blur without
-            configuration the panel can't give it, and expo-blur's fallback
-            there is a flat tint — which the scrim already is. */}
-        {backdrop === 'summary' ? (
-          <>
-            {Platform.OS === 'ios' && (
-              <BlurView tint="dark" intensity={SUMMARY_BLUR} style={StyleSheet.absoluteFill} pointerEvents="none" />
-            )}
-            <Animated.View
-              style={[StyleSheet.absoluteFill, { backgroundColor: SUMMARY_BACKDROP, opacity: reveal }]}
-              pointerEvents="none"
-            />
-          </>
-        ) : (
-          <Animated.View style={[StyleSheet.absoluteFill, { opacity: reveal }]} pointerEvents="none">
-            {Platform.OS === 'ios' && (
-              <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
-            )}
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: BACKDROP }]} />
-          </Animated.View>
-        )}
+        {/* The screen behind, dimmed, fading in and out with the panel. */}
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { backgroundColor: backdrop === 'summary' ? SUMMARY_BACKDROP : BACKDROP, opacity: reveal }]}
+          pointerEvents="none"
+        />
         <Pressable style={StyleSheet.absoluteFill} onPress={() => closeThen()} accessibilityLabel="Close" />
 
         {/* The box and the content ride one wrapper, so the close fades and
@@ -273,19 +278,15 @@ export default function GrowPanel({
           style={[StyleSheet.absoluteFill, { opacity: exit, transform: [{ scale: exit.interpolate({ inputRange: [0, 1], outputRange: [EXIT_SCALE, 1] }) }] }]}
           pointerEvents="box-none"
         >
-        {/* The growing box: colour and shape only, nothing to re-measure. */}
+        {/* The box and the content travel together — see `travel`. */}
+        <Animated.View style={[StyleSheet.absoluteFill, travel]} pointerEvents="box-none">
+        {/* The box: colour and shape only, at its final size throughout. */}
         <Animated.View
           pointerEvents="none"
           style={[
             styles.morphBox,
             { backgroundColor: surface, opacity: boxOpacity },
-            {
-              left: grow(from.x, panelX),
-              top: grow(from.y, panelY),
-              width: grow(from.w, panelW),
-              height: grow(from.h, panelH),
-              borderRadius: grow(BTN_RADIUS, GROW_PANEL_RADIUS),
-            },
+            { left: panelX, top: panelY, width: panelW, height: panelH, borderRadius: GROW_PANEL_RADIUS },
           ]}
         />
 
@@ -299,6 +300,7 @@ export default function GrowPanel({
           <Animated.View style={[styles.fill, { opacity: content, transform: [{ translateY: contentRise }] }]}>
             {children({ closeThen, expanded, fitHeight })}
           </Animated.View>
+        </Animated.View>
         </Animated.View>
         </Animated.View>
       </View>

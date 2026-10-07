@@ -5,7 +5,7 @@ import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { restoreSession, logout } from '../store/authSlice';
-import { apiService, useGetLoggedInUserQuery, useRegisterDeviceTokenMutation, useGetUnreadNotificationCountQuery } from '../api/apiService';
+import { apiService, useGetLoggedInUserQuery, useRegisterDeviceTokenMutation, useGetBadgesQuery } from '../api/apiService';
 import { setCredentials } from '../store/authSlice';
 import { registerForPushNotifications } from '../utils/pushNotifications';
 import AuthNavigator from './AuthNavigator';
@@ -15,9 +15,11 @@ import SessionRecovery from '../components/auth/SessionRecovery';
 import ZipPrompt from '../components/auth/ZipPrompt';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
 import { GroupSummaryProvider } from '../providers/GroupSummaryProvider';
+import { SummaryProvider } from '../providers/SummaryProvider';
 import { SearchProvider } from '../providers/SearchProvider';
 import { navigationRef, navigateFromOutside } from './navigationRef';
 import { readNavState, writeNavState, clearNavState } from './navPersistence';
+import { startScreenViews, recordScreen } from '../utils/screenViews';
 import { notificationTarget } from '../utils/notificationTarget';
 
 // ── Deep linking config ───────────────────────────────────────────────────────
@@ -115,11 +117,11 @@ function AuthGate() {
    * read mutations' tag and the badge drops with it; coming back to the app
    * refetches it too, for notices read elsewhere; signed out, it's cleared.
    */
-  const { data: unread, refetch: refetchUnread } = useGetUnreadNotificationCountQuery(undefined, { skip: !isLoggedIn });
+  const { data: badges, refetch: refetchUnread } = useGetBadgesQuery(undefined, { skip: !isLoggedIn });
   useEffect(() => {
-    const count = isLoggedIn ? unread?.count ?? 0 : 0;
+    const count = isLoggedIn ? badges?.notifications ?? 0 : 0;
     Notifications.setBadgeCountAsync(count).catch(() => {});
-  }, [isLoggedIn, unread?.count]);
+  }, [isLoggedIn, badges?.notifications]);
   useEffect(() => {
     if (!isLoggedIn) return;
     const sub = AppState.addEventListener('change', (state) => { if (state === 'active') void refetchUnread(); });
@@ -283,19 +285,27 @@ export default function RootNavigator() {
       ref={navigationRef}
       linking={linking as any}
       initialState={initialNavState}
+      // Where the app opened, for the dashboard's Screens tab — see utils/screenViews.
+      onReady={() => {
+        startScreenViews();
+        recordScreen(navigationRef.getCurrentRoute()?.name);
+      }}
       // Only the signed-in app is worth returning to; the sign-in screens
       // aren't a place anyone wants to resume.
       onStateChange={(state) => {
         if (state?.routeNames?.includes('MainTabs')) writeNavState(state);
+        recordScreen(navigationRef.getCurrentRoute()?.name);
       }}
     >
       {/* Inside the container: the event sheet it hosts renders navigation-aware
           content, so it needs a navigation context of its own. */}
       <EventSheetProvider>
       <GroupSummaryProvider>
+      <SummaryProvider>
       <SearchProvider>
         <AuthGate />
       </SearchProvider>
+      </SummaryProvider>
       </GroupSummaryProvider>
       </EventSheetProvider>
     </NavigationContainer>

@@ -96,7 +96,7 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
             {/* Near-black at the foot, fading out most of the way up: the
                 words read on any photo, however bright. */}
             <LinearGradient
-              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.95)']}
+              colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.39)', 'rgba(0,0,0,0.66)']}
               locations={[0, 0.5, 1]}
               style={styles.overlayScrim}
               pointerEvents="none"

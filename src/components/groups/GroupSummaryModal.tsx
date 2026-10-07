@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState , useRef} from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -52,8 +52,14 @@ export default function GroupSummaryModal({
   const nav = useNavigation<any>();
   const myId = useAppSelector((st) => st.auth.userInfo?.user_id);
 
-  const { data: group, isLoading } = useGetGroupQuery(groupId ?? '', { skip: !groupId });
-  const { data: members } = useGetGroupMembersQuery(groupId ?? '', { skip: !groupId });
+  // The id goes null the moment the close begins, but the panel is still
+  // fading for 180ms: keep the last one so the content doesn't flip to a
+  // spinner on its way out.
+  const lastGroupId = useRef<string | null>(null);
+  if (groupId) lastGroupId.current = groupId;
+  const shownGroupId = groupId ?? lastGroupId.current;
+  const { data: group, isLoading } = useGetGroupQuery(shownGroupId ?? '', { skip: !shownGroupId });
+  const { data: members } = useGetGroupMembersQuery(shownGroupId ?? '', { skip: !shownGroupId });
   const [join, { isLoading: joining }] = useJoinGroupMutation();
 
   // The member list folds open in place; each open starts folded.

@@ -233,13 +233,9 @@ export default function AboutScreen() {
           <FounderBlock key={f.name} founder={f} flipped={i % 2 === 1} />
         ))}
 
-        <View style={styles.historyHead}>
-          <Text style={[styles.sectionTitle, { color: colors.fg }]}>Our history</Text>
-          <Text style={[styles.sectionSub, { color: colors.grey }]}>
-            Meets, drives, and the people who showed up — a look back at where the society came from.
-          </Text>
-        </View>
-
+        {/* The photos follow the founders directly — they say "history" on
+            their own, with a little room above them. */}
+        <View style={styles.historyGap} />
         <HistoryMosaic onOpen={setLightboxIndex} />
       </ScrollView>
 
@@ -279,9 +275,7 @@ const styles = StyleSheet.create({
   profileLink:     { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: -2 },
   profileLinkText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
 
-  historyHead: { paddingHorizontal: 16, paddingTop: 36, paddingBottom: 12, gap: 4 },
-  sectionTitle:{ fontSize: 24, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
-  sectionSub:  { fontSize: 13, lineHeight: 19 },
+  historyGap: { height: 28 },
 
   mosaic:    { flexDirection: 'row', gap: MOSAIC_GUTTER, paddingHorizontal: MOSAIC_GUTTER },
   mosaicCol: { width: MOSAIC_COL_WIDTH, gap: MOSAIC_GUTTER },

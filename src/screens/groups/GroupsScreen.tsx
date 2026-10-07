@@ -75,25 +75,25 @@ interface GroupFilterValue {
 }
 import { ss } from '../../styles/shared';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_PRO, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY, COLOR_GRAY_58,
+  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_PRO, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
+import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-/** Side margin on the My Groups container, matching the 12 gutter below it. */
-// The app's GUTTER — every section on this screen sits on it.
+/** The shelf's side inset — the app's GUTTER, as every section here sits on. */
 const MY_SECTION_MARGIN = GUTTER;
 const MY_CARD_GAP = 8;
 // 70% of the screen: one card to look at, and the edge of the next saying
 // the row goes on.
 const MY_CARD_WIDTH = Math.round(SCREEN_WIDTH * 0.7);
-/** The shelf's whole inner width — a lone group has nothing to share it with. */
-const MY_CARD_WIDTH_SOLO = SCREEN_WIDTH - MY_SECTION_MARGIN * 2 - 12 * 2;
+/** The row's whole width — a lone group has nothing to share it with. */
+const MY_CARD_WIDTH_SOLO = SCREEN_WIDTH - MY_SECTION_MARGIN * 2;
 
-/** Your groups' cards — lighter than the grid's `COLOR_GRAY_40`. */
-const MY_CARD_BG = COLOR_GRAY_58;
+/** Your groups' cards — the grid's own grey, now the shelf has no box of its own. */
+const MY_CARD_BG = COLOR_GRAY_40;
 
 const ADMIN_BADGE = { label: 'ADMIN', bg: COLOR_PRO, fg: COLOR_BLACK };
 const MEMBER_BADGE = { label: 'MEMBER', bg: COLOR_MEMBER_BLUE, fg: COLOR_WHITE };
@@ -346,7 +346,14 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
     (navigation as any).navigate('GroupDetail', { groupId });
   }, [navigation]);
 
-  if (userGroupsLoading || allGroupsLoading) return <Spinner fullScreen />;
+  if (userGroupsLoading || allGroupsLoading) {
+    return (
+      <View style={[styles.content, { backgroundColor: colors.cream, paddingTop: headerPad, paddingHorizontal: GUTTER }]}>
+        <SkeletonRow count={3} size={88} radius={COMMON_RADIUS} style={{ marginBottom: 20 }} />
+        <SkeletonGrid count={6} ratio={1.1} />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -388,10 +395,7 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 />
               </View>
               {userGroups.length > 0 && (
-                <View style={[
-                  styles.myGroupsSection,
-                  { backgroundColor: colors.card, borderColor: colors.borderDark },
-                ]}>
+                <View style={styles.myGroupsSection}>
                   {/* The count rides in the heading rather than under it —
                       "how many am I in" is the question the heading raises,
                       and answering it there costs no vertical space. */}
@@ -554,16 +558,12 @@ const styles = StyleSheet.create({
    * page gutter says it before anything is read: this shelf is a different
    * kind of thing from the browse grid beneath.
    */
-  myGroupsSection: {
-    marginHorizontal: MY_SECTION_MARGIN, marginBottom: 8,
-    paddingTop: 12, paddingBottom: 12,
-    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-    // Clips the shelf's scrolling cards to the rounded corners.
-    overflow: 'hidden',
-  },
+  // No box of its own: the heading and the row sit straight on the page,
+  // full-bleed so the cards scroll out to the screen's edge.
+  myGroupsSection: { paddingTop: 4, marginBottom: 16 },
   myGroupsHeadingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 12, marginBottom: 10,
+    paddingHorizontal: MY_SECTION_MARGIN, marginBottom: 10,
   },
   // Uppercase and small, like a section label rather than a page title — the
   // page title is "Groups", and two headings at the same weight competed.
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   myGroupsCountText: { fontSize: 11, fontFamily: FONT_INTER.extrabold },
-  myGroupsList: { paddingHorizontal: 12, gap: MY_CARD_GAP },
+  myGroupsList: { paddingHorizontal: MY_SECTION_MARGIN, gap: MY_CARD_GAP },
   // A grid card, at the shelf's width — `card` gives it the rest.
   myCard: { flex: 0 },
   // Wider, shallower picture when yours is the only one.
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   },
   // A pill, the filter's height, taking the rest of the row.
   searchBar: {
-    flex: 1, minWidth: 0, height: 44,
+    flex: 1, minWidth: 0, height: 38,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14,
     borderRadius: PILL_RADIUS, borderWidth: 1,

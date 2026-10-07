@@ -98,3 +98,27 @@ export function useHeaderScroll(hideDistance: number) {
     [hideDistance]
   );
 }
+
+/**
+ * Where the floating header's bottom edge is, live: `headerPad` while it's
+ * shown, sliding up as it hides. For something that pins under the header and
+ * follows it — the marketplace's sticky search bar.
+ *
+ * A header with tabs only travels `stickRise` before its tab row sticks under
+ * the status bar (AppHeader's TABS_STUCK_RISE); without tabs it goes all the
+ * way, and the edge stops at `floor` (the status bar's inset, say).
+ */
+export function headerBottom(headerPad: number, floor: number, stickRise?: number) {
+  if (stickRise != null) {
+    return headerOffset.interpolate({
+      inputRange: [-stickRise, 0],
+      outputRange: [headerPad - stickRise, headerPad],
+      extrapolate: 'clamp',
+    });
+  }
+  return headerOffset.interpolate({
+    inputRange: [-headerPad, 0],
+    outputRange: [Math.min(floor, headerPad), headerPad],
+    extrapolate: 'clamp',
+  });
+}

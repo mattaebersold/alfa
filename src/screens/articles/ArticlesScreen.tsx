@@ -1,21 +1,22 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowUpRight } from 'lucide-react-native';
-import { useGetArticlesQuery } from '../../api/apiService';
+import { useGetArticlesQuery, useGetUserByIdQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
+import ChipRow from '../../components/ui/ChipRow';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -25,23 +26,69 @@ import type { Article } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { useSummary } from '../../providers/SummaryProvider';
+import { userPreview } from '../../components/members/UserSummaryModal';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<FeedStackParamList>;
 
+/** "show" → "Show": the category as the feed's badges word theirs. */
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * How a category reads on a chip or a badge. The stored keys are whatever
+ * the editor typed — camelCase for the most part — so the ones we know get
+ * a proper name and the rest are split on their capitals.
+ */
+const CATEGORY_LABELS: Record<string, string> = {
+  siteUpdates: 'Site updates',
+  hotTake: 'Hot takes',
+  photography: 'Photography',
+  user: 'Members',
+  show: 'Shows',
+  other: 'Other',
+};
+const categoryLabel = (key: string) =>
+  CATEGORY_LABELS[key] ?? titleCase(key.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase());
+
 function ArticleCard({ article, onPress }: { article: Article; onPress: () => void }) {
   const colors = useColors();
+  const { openUser } = useSummary();
   const hero = firstGalleryUrl(article.gallery) ?? firstGalleryUrl(article.banners);
-  const displayName = article.user?.username ?? '';
+  // The list sends the author along; a server that doesn't yet is asked
+  // for them, once per author, so the byline is never missing.
+  const { data: fetchedAuthor } = useGetUserByIdQuery(article.user_id ?? '', { skip: !article.user_id || !!article.user?.username });
+  const author = article.user?.username ? article.user : fetchedAuthor;
+  const displayName = author?.username ?? '';
   // Shorthand date so it sits alongside the title without crowding it.
   const date = article.created_at
     ? format(new Date(article.created_at), 'M/d/yy')
     : '';
 
+  /**
+   * The author: avatar and handle in a dark pill, the car card's owner chip.
+   * Bottom left of the photo; in the body when the article has none.
+   */
+  const authorChip = author ? (
+    <TouchableOpacity
+      style={styles.authorChip}
+      onPress={() => author.user_id && openUser(author.user_id, null, userPreview(author))}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={displayName ? `Open ${displayName}'s profile` : 'Open author profile'}
+    >
+      <Avatar user={author} size={20} />
+      {displayName ? (
+        <Text style={styles.authorName} numberOfLines={1}>@{displayName}</Text>
+      ) : null}
+    </TouchableOpacity>
+  ) : null;
+
+  // The feed card's badge: a dark translucent pill over the photo.
   const categoryBadge = article.category ? (
     <View style={styles.categoryBadge}>
-      <Text style={styles.category}>{article.category.toUpperCase()}</Text>
+      <Text style={styles.category}>{categoryLabel(article.category)}</Text>
     </View>
   ) : null;
 
@@ -54,22 +101,18 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
       {hero ? (
         <View style={styles.heroWrap}>
           <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
-          {/* Scrim keeps the badge legible over light photography. */}
-          {categoryBadge && <View style={styles.heroScrim} pointerEvents="none" />}
+          {/* The car card's foot scrim: rising from the bottom-left corner, so
+              the author's chip sits on a little shade whatever the photo. */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.59)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0)']}
+            locations={[0, 0.45, 1]}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 0.8, y: 0.2 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           {categoryBadge && <View style={styles.heroBadges}>{categoryBadge}</View>}
-
-          {/* Explicit affordance for opening the article pane. The whole card is
-              tappable too — this just makes the action discoverable. */}
-          <TouchableOpacity
-            style={[styles.openBtn, styles.openBtnOnHero, { backgroundColor: colors.primaryAlt }]}
-            onPress={onPress}
-            activeOpacity={0.8}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Open article: ${article.title}`}
-          >
-            <ArrowUpRight size={18} color={COLOR_BLACK} />
-          </TouchableOpacity>
+          {authorChip && <View style={styles.heroAuthor}>{authorChip}</View>}
         </View>
       ) : null}
 
@@ -92,36 +135,8 @@ function ArticleCard({ article, onPress }: { article: Article; onPress: () => vo
           </Text>
         )}
 
-        <View style={styles.meta}>
-          {article.user && (
-            <Avatar
-              user={article.user}
-              size={24}
-            />
-          )}
-          {displayName ? (
-            <Text style={[styles.metaText, { color: colors.grey }]} numberOfLines={1}>
-              @{displayName}
-            </Text>
-          ) : null}
-
-          {/* No hero to overlay — keep the open button reachable inline. */}
-          {!hero && (
-            <>
-              <View style={ss.fill} />
-              <TouchableOpacity
-                style={[styles.openBtn, { backgroundColor: colors.primaryAlt }]}
-                onPress={onPress}
-                activeOpacity={0.8}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={`Open article: ${article.title}`}
-              >
-                <ArrowUpRight size={18} color={COLOR_BLACK} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+        {/* No photo to sit on — the author rides in the body instead. */}
+        {!hero && authorChip}
       </View>
     </TouchableOpacity>
   );
@@ -137,7 +152,26 @@ export default function ArticlesScreen() {
   const onScroll = useHeaderScroll(headerPad);
   const { data, isLoading, refetch } = useGetArticlesQuery({ limit: 20 });
   const refreshControl = useRefreshControl(refetch, headerPad);
-  const articles = data?.entries ?? [];
+  const all = data?.entries ?? [];
+
+  /**
+   * The filter under the heading: "All" and one chip per category the
+   * loaded articles actually carry, in order of how many there are. Built
+   * from the list rather than a fixed set, because the categories are
+   * whatever editors have typed. Filtered here rather than by the server:
+   * the screen holds the whole list, so there is nothing more to ask for.
+   */
+  const [category, setCategory] = useState<string>('all');
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    all.forEach((a) => { if (a.category) counts.set(a.category, (counts.get(a.category) ?? 0) + 1); });
+    return [...counts.entries()].sort((x, y) => y[1] - x[1]).map(([key]) => ({ key, label: categoryLabel(key) }));
+  }, [all]);
+  const options = useMemo(() => [{ key: 'all', label: 'All' }, ...categories], [categories]);
+  const articles = useMemo(
+    () => (category === 'all' ? all : all.filter((a) => a.category === category)),
+    [all, category],
+  );
 
   if (isLoading) return <Spinner fullScreen />;
 
@@ -150,15 +184,24 @@ export default function ArticlesScreen() {
         style={{ flex: 1, backgroundColor: colors.cream }}
         data={articles}
         keyExtractor={(a) => a.internal_id}
-        // Heading rides in the list so it scrolls away with the content.
-        ListHeaderComponent={<ScreenHeading title="Articles" />}
+        // Heading and filter ride in the list so they scroll away with the content.
+        ListHeaderComponent={
+          <View>
+            <ScreenHeading title="Articles" />
+            {categories.length > 1 && (
+              <View style={styles.filter}>
+                <ChipRow options={options} value={category} onChange={setCategory} />
+              </View>
+            )}
+          </View>
+        }
         renderItem={({ item }) => (
           <ArticleCard
             article={item}
             onPress={() => appNav.navigate('ArticleDetail', { articleId: item.internal_id })}
           />
         )}
-        ListEmptyComponent={<EmptyState title="No articles yet" />}
+        ListEmptyComponent={<EmptyState title={category === 'all' ? 'No articles yet' : `No ${categoryLabel(category).toLowerCase()} articles`} />}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -169,47 +212,43 @@ export default function ArticlesScreen() {
 }
 
 const styles = StyleSheet.create({
-  list:      { paddingBottom: 24, paddingTop: 8 },
+  // The app's gutter on the list itself: the heading and the cards line up on it.
+  list:      { paddingBottom: 24, paddingTop: 8, paddingHorizontal: GUTTER },
+  filter:    { paddingBottom: 8 },
   card:      {
     borderRadius: COMMON_RADIUS,
-    marginHorizontal: 12,
     marginVertical: 6,
     overflow: 'hidden',
     shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  heroWrap:  { position: 'relative' },
+  // Rounded at the foot too, so the photo sits in the card rather than capping it.
+  heroWrap:  { position: 'relative', borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   hero:      { width: '100%', aspectRatio: 16 / 9 },
-  heroScrim: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 72,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
   heroBadges: {
     position: 'absolute', top: 10, left: 10,
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
   },
 
-  cardBody:  { padding: 14, gap: 6 },
+  cardBody:  { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 10, gap: 4 },
+  // FeedItemCard's imgBadge, so an article's badge reads as the feed's do.
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.primaryAlt,
+    backgroundColor: 'rgba(0,0,0,0.55)', opacity: 0.8,
     borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3,
   },
-  category:  { fontSize: 11, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, letterSpacing: 0.8 },
+  category:  { fontSize: 10, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, letterSpacing: 0.3 },
 
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   title:     { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 24 },
   date:      { fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: 4 },
 
   excerpt:   { fontSize: 13, lineHeight: 19 },
-  meta:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  metaText:  { fontSize: 12, flexShrink: 1 },
-  openBtn: {
-    width: 36, height: 36, borderRadius: COMMON_RADIUS,
-    alignItems: 'center', justifyContent: 'center',
+  heroAuthor: { position: 'absolute', left: 10, bottom: 10, maxWidth: '70%' },
+  // CarPosterCard's ownerChip: a dark pill with the avatar set into its end.
+  authorChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingLeft: 3, paddingRight: 9, paddingVertical: 3, borderRadius: PILL_RADIUS,
   },
-  openBtnOnHero: {
-    position: 'absolute', right: 10, bottom: 10,
-    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3, shadowRadius: 5, elevation: 4,
-  },
+  authorName: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 });

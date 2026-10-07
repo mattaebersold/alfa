@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Search } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
@@ -68,12 +68,26 @@ export default function MainTabNavigator() {
     // once, rather than each screen mounting its own copy.
     <View style={styles.root}>
     <Tab.Navigator
+      // Every button in the bar is hidden, so it's an invisible strip across
+      // the bottom — and it mustn't take the taps meant for what's under it
+      // (the photography map's zoom buttons sit there). A `pointerEvents`
+      // style on the bar wasn't enough: the bar sets the prop itself, which
+      // wins. A wrapper that takes no touches can't be overruled by anything
+      // inside it. The bar still renders, so its height still reaches the
+      // screens that pad for it (useBottomTabBarHeight).
+      tabBar={(props) => (
+        <View pointerEvents="none" style={styles.tabBarShell}>
+          <BottomTabBar {...props} />
+        </View>
+      )}
       // Back retraces the tabs you actually visited. The default returns to the
       // first tab from anywhere, which made the header's back button (and
       // Android's) skip straight past the page you'd just come from.
       backBehavior="history"
       screenOptions={{
         headerShown: false,
+        // Tabs you're not on stop re-rendering until you return.
+        freezeOnBlur: true,
         tabBarStyle: immersive ? { display: 'none' } : {
           position: 'absolute',
           left: 0, right: 0, bottom: 0,
@@ -202,6 +216,8 @@ export default function MainTabNavigator() {
 }
 
 const styles = StyleSheet.create({
+  // Pinned to the bottom edge; the bar inside is absolutely positioned up from it.
+  tabBarShell: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   root: { flex: 1 },
 
   tabBarTint: { backgroundColor: 'rgba(0,0,0,0.6)' },

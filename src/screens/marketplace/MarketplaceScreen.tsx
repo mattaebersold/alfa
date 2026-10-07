@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import { useHeaderScroll } from '../../hooks/useHeaderScroll';
+import { useHeaderScroll, headerBottom } from '../../hooks/useHeaderScroll';
 import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
 import type { Listing } from '../../types/api';
@@ -28,6 +28,7 @@ export default function MarketplaceScreen() {
   // Clears the floating tab bar (matching MainTabNavigator's height) without
   // useBottomTabBarHeight, which throws if the screen renders outside the tabs.
   const tabBarHeight = 88 + insets.bottom;
+  const stickyTop = useMemo(() => headerBottom(headerPad, insets.top), [headerPad, insets.top]);
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
@@ -38,6 +39,8 @@ export default function MarketplaceScreen() {
           listRef={scrollRef}
           onScroll={onScroll}
           contentContainerStyle={{ paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }}
+          // The switch and search pin under the header, following it as it hides.
+          stickyTop={stickyTop}
         />
       </View>
     </SafeAreaView>

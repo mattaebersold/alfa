@@ -475,12 +475,13 @@ export default function NotificationsList({
   const refreshControl = useRefreshControl(refetch);
   const [markRead] = useMarkNotificationReadMutation();
 
-  // Tapping a notification: mark read, then hand the host both the "close" and
-  // where to go. The host decides when to run the second — iOS won't present a
-  // screen while a modal is still on its way out, so the panel version waits
-  // for its own animation before navigating.
+  // Tapping a notification is what reads it: it's marked read — which is
+  // what moves it to Archived and takes one off the badge — and the host is
+  // handed both the "close" and where to go. The host decides when to run the
+  // second: iOS won't present a screen while a modal is still on its way out,
+  // so the panel version waits for its own animation before navigating.
   const handlePress = useCallback((n: Notification) => {
-    if (!n.read_status && !awaitingDecision(n)) { markRead(n.internal_id); seen.current.delete(n.internal_id); }
+    if (!n.read_status && !awaitingDecision(n)) { markRead(n.internal_id); openedUnread.current.delete(n.internal_id); }
     const target = targetForNotification(n);
     onDismiss(target ? () => navigation.navigate(target.name as any, target.params) : undefined);
   }, [markRead, navigation, onDismiss]);
@@ -552,27 +553,24 @@ export default function NotificationsList({
 
   const all = data?.notifications ?? [];
   /**
-   * Two tabs: what you haven't seen, and what you have.
+   * Two tabs: what you haven't tapped, and what you have.
    *
    * "Unread" is decided when the list opens: whatever was unread then stays
-   * on the tab while it's open, even once tapped and read — a row shouldn't
-   * vanish under the finger that read it. Next time the list opens it's in
+   * on the tab while it's open — a request settled in place shouldn't vanish
+   * under the finger that settled it. A tapped row is the exception: that is
+   * the one act that reads a notification, and it closes the list anyway.
+   * Next time the list opens a read row is in
    * Archived. Anything new that arrives while it's open joins Unread.
    */
   const [tab, setTab] = useState<'unread' | 'archived'>('unread');
-  const openedUnread = useRef<Set<string>>(new Set());
   /**
-   * Seeing is reading. The unread rows that were actually on the Unread tab
-   * are marked read when the list goes away — closing the panel, or leaving
-   * the screen — so next time they're in Archived. Only what was shown: rows
-   * still behind "Show more" were never seen.
+   * Seeing is not reading. Opening the panel and closing it again leaves
+   * every unread notification unread; only a tap on one reads it (see
+   * handlePress), and that one alone moves to Archived. Rows unread when the
+   * list opened stay on the Unread tab until tapped, so a request settled in
+   * place doesn't jump tabs under your finger.
    */
-  const seen = useRef<Set<string>>(new Set());
-  const markReadRef = useRef(markRead);
-  markReadRef.current = markRead;
-  useEffect(() => () => {
-    seen.current.forEach((id) => { markReadRef.current(id); });
-  }, []);
+  const openedUnread = useRef<Set<string>>(new Set());
   all.forEach((n) => { if (!n.read_status) openedUnread.current.add(n.internal_id); });
   const unread = all.filter((n) => openedUnread.current.has(n.internal_id));
   const archived = all.filter((n) => !openedUnread.current.has(n.internal_id));
@@ -583,16 +581,22 @@ export default function NotificationsList({
    * view, and a button under them is the rest. Back to five on a tab change.
    */
   const [shown, setShown] = useState(NOTIFICATIONS_PAGE);
+  /** The two heights the host adds up: what's above the rows, and the rows. */
+  const aboveH = useRef(0);
+  const rowsH = useRef<number | null>(null);
+  const report = () => {
+    if (onContentHeight && rowsH.current != null) onContentHeight(aboveH.current + rowsH.current);
+  };
   const notifications = onTab.slice(0, shown);
   const remaining = onTab.length - notifications.length;
-  if (tab === 'unread') {
-    notifications.forEach((n) => { if (!n.read_status && !awaitingDecision(n)) seen.current.add(n.internal_id); });
-  }
-
   if (isLoading) return <Spinner fullScreen />;
 
   return (
     <View style={ss.fill}>
+      {/* Everything above the rows is measured with them — the host sizes its
+          panel to what's reported, and a panel sized to the rows alone came
+          up a tab bar short, with the last row cut off at its foot. */}
+      <View onLayout={(e) => { aboveH.current = e.nativeEvent.layout.height; report(); }}>
       {/* Unread or Archived — the post form's track, two across. Reading a
           notification is what archives it; clearing the archive is the one
           bulk action, and it lives on that tab. */}
@@ -611,6 +615,7 @@ export default function NotificationsList({
           <DeleteAllButton onDone={() => onDismiss()} />
         </View>
       )}
+      </View>
 
       <FlatList
         data={notifications}
@@ -649,7 +654,7 @@ export default function NotificationsList({
         ) : null}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={onContentHeight ? styles.listFit : styles.list}
-        onContentSizeChange={onContentHeight ? (_w, h) => onContentHeight(h) : undefined}
+        onContentSizeChange={onContentHeight ? (_w, h) => { rowsH.current = h; report(); } : undefined}
         refreshControl={refreshControl}
       />
     </View>
@@ -711,7 +716,7 @@ const styles = StyleSheet.create({
   time:        { fontSize: 11, marginTop: 3, color: COLOR_GRAY_136 },
   rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   joinReqActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  approveBtn:  { backgroundColor: 'rgb(37, 162, 211)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
+  approveBtn:  { backgroundColor: 'rgb(54, 178, 226)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
   approveText: { color: COLOR_BLACK, fontSize: 13, fontFamily: FONT_INTER.extrabold },
   denyBtn:     { backgroundColor: COLOR_GRAY_42, borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
   denyText:    { color: COLOR_GRAY_236, fontSize: 13, fontFamily: FONT_INTER.bold },

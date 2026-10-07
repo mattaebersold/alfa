@@ -9,10 +9,11 @@ import { format } from 'date-fns';
 import { useGetRallysQuery } from '../../api/apiService';
 import RallyDetailSheet from '../../components/society/RallyDetailSheet';
 import EventImage from '../../components/society/EventImage';
-import EventPills from '../../components/society/EventPills';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
+import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
+import ScreenHeading from '../../components/ui/ScreenHeading';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -52,11 +53,10 @@ function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => vo
 
   return (
     <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
-      <View style={{ aspectRatio: ratio }}>
+      <View style={[styles.cardImage, { aspectRatio: ratio }]}>
         <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={onAspectRatio} />
       </View>
       <View style={styles.cardBody}>
-        <EventPills />
         <Text style={styles.date}>{date}</Text>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
         {rally.location && <Text style={[styles.location, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>}
@@ -91,6 +91,7 @@ function PastRallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }
 
 export default function RallysScreen() {
   const colors = useColors();
+  const headerPad = useHeaderPad();
   const [page, setPage] = useState(0);
   const [upcoming, setUpcoming] = useState<Rally[]>([]);
   const [selectedRallyId, setSelectedRallyId] = useState<string | null>(null);
@@ -137,10 +138,15 @@ export default function RallysScreen() {
     if (!isFetching && data && upcoming.length < data.total) setPage((p) => p + 1);
   }, [isFetching, data, upcoming.length]);
 
-  if (isLoading) return <Spinner fullScreen />;
-
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      {/* The app header floats over the content, so the heading below starts
+          clear of it via useHeaderPad() — the same arrangement as Routes. */}
+      <AppHeader />
+      <View style={[styles.header, { paddingTop: headerPad }]}>
+        <ScreenHeading title="Rallys" inline />
+      </View>
+      {isLoading ? <Spinner fullScreen /> : (
       <FlatList
         data={sortedUpcoming}
         keyExtractor={(item) => item.internal_id}
@@ -183,15 +189,17 @@ export default function RallysScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
       />
+      )}
       <RallyDetailSheet rallyId={selectedRallyId} onClose={() => setSelectedRallyId(null)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  header:       { paddingHorizontal: 12, paddingBottom: 2 },
   list:         { paddingBottom: 24 },
   sectionHeading: {
-    fontSize: 13, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.6,
+    fontSize: 17, fontFamily: FONT_INTER.bold,
     paddingHorizontal: 12, paddingTop: 18, paddingBottom: 2,
   },
 
@@ -201,8 +209,10 @@ const styles = StyleSheet.create({
     shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardPlaceholder: { backgroundColor: colors.primaryAlt },
+  // Rounded at the foot too, so the photo sits in the card rather than capping it.
+  cardImage:    { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   cardBody:     { padding: 12 },
-  date:         { fontSize: 12, fontFamily: FONT_INTER.bold, color: colors.primaryAlt, marginTop: 8, marginBottom: 4 },
+  date:         { fontSize: 12, fontFamily: FONT_INTER.bold, color: colors.primaryAlt, marginBottom: 4 },
   title:        { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 22 },
   location:     { fontSize: 13, marginTop: 4 },
   slots:        { fontSize: 12, color: colors.primaryAlt, fontFamily: FONT_INTER.bold, marginTop: 6 },
@@ -210,8 +220,8 @@ const styles = StyleSheet.create({
   pastSection:  { marginTop: 6 },
   pastScroll:   { paddingHorizontal: 12, paddingTop: 10, gap: 10 },
   pastCard:     { width: PAST_CARD_WIDTH, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
-  pastImage:    { width: '100%', aspectRatio: 16 / 9 },
+  pastImage:    { width: '100%', aspectRatio: 16 / 9, borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS },
   pastBody:     { padding: 10 },
-  pastDate:     { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  pastDate:     { fontSize: 11, fontFamily: FONT_INTER.bold },
   pastTitle:    { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 17, marginTop: 3 },
 });

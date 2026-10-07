@@ -1,24 +1,31 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
+import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
-import { Lock, Mountain, PenLine, Route as RouteIcon } from 'lucide-react-native';
+import { Lock, PenLine, Route as RouteIcon } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
-import UserSummaryModal from '../members/UserSummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { userPreview } from '../members/UserSummaryModal';
 import RouteTrace from '../routes/RouteTrace';
-import VoteButton from '../routes/VoteButton';
-import LikeButton from '../social/LikeButton';
-import CommentButton from '../social/CommentButton';
-import CommentsSheet from '../social/CommentsSheet';
-import { useGetUserByIdQuery } from '../../api/apiService';
+import PostActionRail from '../social/PostActionRail';
+import PostOptionsButton from '../social/PostOptionsButton';
+import RouteOwnerMenu from '../routes/RouteOwnerMenu';
+import { useAppSelector } from '../../store/store';
+import LikersSheet from '../social/LikersSheet';
+import { type SummaryOrigin } from '../ui/SummaryModal';
+import { usePostLike } from '../../hooks/usePostLike';
+import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
+import { useCreateRoute } from '../../hooks/useCreateRoute';
 import {
-  formatDistance, formatDuration, formatElevation, curvinessLabel,
+  formatDistance, formatDuration,
 } from '../../utils/routeGeometry';
-import { isPlottedRoute, type DrivingRoute } from '../../types/api';
-import { PILL_RADIUS } from '../../constants/config';
+import { isPlottedRoute, type DrivingRoute, type Post } from '../../types/api';
+import { routePhotoUrl } from '../../utils/routePhoto';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -49,9 +56,32 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
   const navigation = useNavigation<any>();
 
   const { data: user } = useGetUserByIdQuery(route.user_id, { skip: !route.user_id });
-  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
+  const isMine = !!myId && myId === route.user_id;
+  // The pitch for Pro, where making a route needs it. See useCreateRoute.
+  const { upsell } = useCreateRoute();
+  const { openUser } = useSummary();
   const stats = route.stats;
+  // The driver's own photo, if they added one, goes behind the line.
+  const photo = routePhotoUrl(route);
+
+  // Likes, the way a post's work — the same heart, faces and count — under
+  // the `route` type. The route list doesn't send who liked it, so the faces
+  // are asked for, but only once there's someone to show.
+  const [likeTouched, setLikeTouched] = useState(false);
+  const { data: likeData } = useGetLikeUsersQuery(route.internal_id, {
+    skip: !route.internal_id || (!(route.like_count ?? 0) && !likeTouched),
+  });
+  const like = usePostLike({
+    postId: route.internal_id,
+    entryType: 'route',
+    ownerId: route.user_id,
+    initialLiked: route.has_liked ?? false,
+    initialCount: likeData?.total ?? route.like_count ?? 0,
+    onToggle: () => setLikeTouched(true),
+  });
+  /** Non-null while the likers panel is open — and the rect it grows from. */
+  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
   const timeAgo = route.created_at
     ? formatDistanceToNow(new Date(route.created_at), { addSuffix: true })
@@ -86,7 +116,7 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
             person doesn't also open the route. */}
         <TouchableOpacity
           style={styles.headerWho}
-          onPress={() => user?.user_id && setSummaryUserId(user.user_id)}
+          onPress={() => user?.user_id && openUser(user.user_id, null, userPreview(user))}
           disabled={!user?.user_id}
           activeOpacity={0.7}
         >
@@ -96,10 +126,6 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
         />
         <View style={styles.headerText}>
           <Text style={[styles.author, { color: colors.fg }]}>@{user?.username ?? 'Unknown'}</Text>
-          <View style={styles.kicker}>
-            <RouteIcon size={11} color={brand} />
-            <Text style={[styles.kickerText, { color: brand }]}>drove a route</Text>
-          </View>
         </View>
         </TouchableOpacity>
         {/* Takes the byline's right-hand slot in place of the timestamp: in
@@ -113,12 +139,40 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
         ) : (
           <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text>
         )}
+        {/* The dots, as on a post: Edit and Delete on your own drive, the
+            driver's profile on anyone else's. */}
+        {isMine ? (
+          <RouteOwnerMenu
+            routeId={route.internal_id}
+            size={18}
+            color={colors.muted}
+            vertical
+            onEdit={() => navigation.navigate('RouteSave', { routeId: route.internal_id })}
+          />
+        ) : (
+          <PostOptionsButton
+            postId={route.internal_id}
+            author={user}
+            size={18}
+            color={colors.muted}
+            reportable={false}
+            label="Route options"
+          />
+        )}
       </View>
 
       <View style={styles.traceRow}>
         {/* The trace on its own darker ground, so the line reads as a picture
             of a route rather than as marks floating on the card. */}
         <View style={[styles.traceWell, compact && styles.traceWellCompact]}>
+          {/* The driver's photo behind the line, under a dark layer so the
+              line still reads over whatever the picture is. */}
+          {photo ? (
+            <>
+              <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+              <View style={[StyleSheet.absoluteFill, styles.traceScrim]} />
+            </>
+          ) : null}
           <RouteTrace
             polyline={route.polyline}
             speeds={route.speed_profile}
@@ -128,6 +182,11 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
         </View>
 
         <View style={styles.info}>
+          {/* What this is, over what it's called. */}
+          <View style={styles.kicker}>
+            <RouteIcon size={11} color={brand} />
+            <Text style={[styles.kickerText, { color: brand }]}>drove a route</Text>
+          </View>
           <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>
             {route.title || 'Untitled route'}
           </Text>
@@ -145,51 +204,39 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
               {isPlottedRoute(route)
                 ? <Metric value="Plotted" colors={colors} Icon={PenLine} />
                 : <Metric value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />}
-              {stats.elevation_gain > 0 && (
-                <Metric value={formatElevation(stats.elevation_gain)} colors={colors} Icon={Mountain} />
-              )}
-            </View>
-          )}
-
-          {stats && (
-            <View style={[styles.technical, { borderColor: colors.border }]}>
-              <Text style={[styles.technicalText, { color: colors.fg }]}>
-                {curvinessLabel(stats.curviness)}
-              </Text>
-              <Text style={[styles.technicalIndex, { color: colors.grey }]}>{stats.curviness}/100</Text>
             </View>
           )}
         </View>
       </View>
 
+      {/* Comment and like, right-aligned in a row of their own — the same
+          footer as a post with no photo (the guess-the-car card). No votes:
+          a like says the same thing with one control instead of two. */}
       {!compact && (
-        <View style={[styles.actions, { borderTopColor: colors.border }]}>
-          <VoteButton routeId={route.internal_id} score={route.vote_count ?? 0} userVote={route.user_vote ?? null} />
-          {/* Likes and comments under the `route` type — the list endpoint sends
-              the counts and whether you liked it, so nothing here fetches. */}
-          <LikeButton
-            documentId={route.internal_id}
+        <View style={styles.actions}>
+          <PostActionRail
+            // The rail reads a post's id and comment count; a route has both.
+            post={{ internal_id: route.internal_id, comment_count: route.comment_count ?? 0 } as Post}
             entryType="route"
-            ownerId={route.user_id}
-            initialLiked={route.has_liked ?? false}
-            initialCount={route.like_count ?? 0}
+            like={like}
+            likers={likeData?.users ?? []}
+            onOpenLikers={(origin) => setLikersOrigin(origin)}
+            vertical={false}
+            bookmark={false}
           />
-          <CommentButton count={route.comment_count ?? 0} onPress={() => setCommentsOpen(true)} />
         </View>
       )}
     </TouchableOpacity>
 
-      <CommentsSheet
-        postId={route.internal_id}
-        entryType="route"
-        visible={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
+      {upsell}
+
+      <LikersSheet
+        entryId={route.internal_id}
+        visible={likersOrigin !== undefined}
+        origin={likersOrigin}
+        onClose={() => setLikersOrigin(undefined)}
       />
 
-      <UserSummaryModal
-        userId={summaryUserId}
-        onClose={() => setSummaryUserId(null)}
-      />
     </>
   );
 }
@@ -204,13 +251,15 @@ function Metric({ value, colors, Icon }: { value: string; colors: any; Icon?: an
 }
 
 const styles = StyleSheet.create({
-  card: { marginVertical: 6, paddingBottom: 4 },
+  // Rounded like the feed's post cards, and clipped so the action bar's rule
+  // stops at the corners.
+  card: { marginVertical: 6, paddingBottom: 4, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
 
   header:     { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 8, gap: 10 },
   headerWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerText: { flex: 1 },
   author:     { fontSize: 14, fontFamily: FONT_INTER.bold },
-  kicker:     { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
+  kicker:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
   kickerText: { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
   time:       { fontSize: 11, fontStyle: 'italic' },
   reachPill: {
@@ -223,7 +272,7 @@ const styles = StyleSheet.create({
   traceRow: { flexDirection: 'row', paddingHorizontal: 12, gap: 12, alignItems: 'center' },
   // Darker than the card it sits on, and rounded, so the trace is contained.
   traceWell: {
-    width: 132, height: 132,
+    width: 112, height: 112,
     borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
@@ -232,7 +281,9 @@ const styles = StyleSheet.create({
   // Small enough that the words beside it still get a readable column on a
   // shelf card, which is narrower than the feed.
   traceWellCompact: { width: 96, height: 96, borderRadius: 10 },
-  trace:        { width: 124, height: 124 },
+  // Between the photo and the line.
+  traceScrim: { backgroundColor: 'rgba(0,0,0,0.5)' },
+  trace:        { width: 104, height: 104 },
   traceCompact: { width: 90, height: 90 },
   info:     { flex: 1, gap: 5 },
 
@@ -243,18 +294,10 @@ const styles = StyleSheet.create({
   metric:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metricValue: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
-  technical:      {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    alignSelf: 'flex-start', marginTop: 4,
-    borderWidth: 1, borderRadius: 100,
-    paddingHorizontal: 10, paddingVertical: 4,
-  },
-  technicalText:  { fontSize: 12, fontFamily: FONT_INTER.bold },
-  technicalIndex: { fontSize: 11 },
-
+  // The create button on the left, like and comment on the right — the post
+  // cards' footer row, no rule above.
   actions: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 12, paddingVertical: 8,
-    marginTop: 10, borderTopWidth: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+    paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4,
   },
 });

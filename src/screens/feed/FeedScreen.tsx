@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { View, StyleSheet, Animated, Easing, type FlatList, type ScrollView } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { View, StyleSheet, Animated, Easing, InteractionManager, type FlatList, type ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,10 +10,10 @@ import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
 // import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
 import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
 import { useFeedPreferences, type SuggestionRow } from '../../hooks/useFeedPreferences';
-import AppHeader, { useHeaderPad, type HeaderTab } from '../../components/ui/AppHeader';
+import AppHeader, { useHeaderPad, TABS_STUCK_RISE, type HeaderTab } from '../../components/ui/AppHeader';
 import { FAB_BOTTOM, FAB_RIGHT } from '../../components/ui/CreateFab';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import { useHeaderScroll, showHeader } from '../../hooks/useHeaderScroll';
+import { useHeaderScroll, showHeader, headerBottom } from '../../hooks/useHeaderScroll';
 import { EventsView } from '../../components/society/EventsView';
 import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { GroupsView } from '../groups/GroupsScreen';
@@ -32,6 +32,7 @@ import { useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList, FeedStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { GUTTER } from '../../constants/config';
+import { recordFeedTab } from '../../utils/screenViews';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -46,10 +47,25 @@ const FEED_TABS: HeaderTab[] = [
 ];
 type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
 /** How far below its place an arriving tab's content starts, in points. */
-const TAB_ENTER_RISE = 60;
+const TAB_ENTER_RISE = 16;
 
 /** Taken off the header's clearance on the Feed tab, to tuck its first item up under the tabs. */
 const FEED_TOP_TRIM = 8;
+
+/**
+ * The panes, memoised: a tab switch re-renders this screen, and without
+ * this it re-rendered every mounted pane with it — seven lists, a map —
+ * for a change that only concerns which one is showing. Their props are
+ * kept stable below for the same reason.
+ */
+const MemoFeedList = React.memo(FeedList);
+const MemoEventsView = React.memo(EventsView);
+const MemoMarketplaceBrowse = React.memo(MarketplaceBrowse);
+const MemoGroupsView = React.memo(GroupsView);
+const MemoCarsView = React.memo(CarsView);
+const MemoMembersView = React.memo(MembersView);
+const MemoPhotography = React.memo(KitPhotographyScreen);
+const FEED_EXCLUDE_TYPES = ['story'];
 
 function FeedHeader() {
   const colors = useColors();
@@ -123,15 +139,29 @@ export default function FeedScreen() {
     cars: new Animated.Value(1),
     members: new Animated.Value(1),
   }).current;
-  const paneStyle = (pane: FeedTab) => [
-    styles.content,
-    { backgroundColor: colors.cream },
-    {
-      opacity: enter[pane],
-      transform: [{ translateY: enter[pane].interpolate({ inputRange: [0, 1], outputRange: [TAB_ENTER_RISE, 0] }) }],
-    },
-    tab !== pane && styles.hidden,
-  ];
+  /**
+   * Each pane's entry animation, built once. A hidden pane is kept in the
+   * native tree at opacity 0 — not `display: 'none'`, which on iOS tears
+   * down every native view in the pane (every cell, every image, the whole
+   * map) and rebuilds them all on the next tap. That rebuild was the two
+   * seconds between a tap on a tab and anything changing.
+   */
+  const paneAnim = useRef(
+    (Object.keys(enter) as FeedTab[]).reduce((acc, pane) => {
+      acc[pane] = {
+        opacity: enter[pane],
+        transform: [{ translateY: enter[pane].interpolate({ inputRange: [0, 1], outputRange: [TAB_ENTER_RISE, 0] }) }],
+      };
+      return acc;
+    }, {} as Record<FeedTab, { opacity: Animated.Value; transform: { translateY: Animated.AnimatedInterpolation<number> }[] }>),
+  ).current;
+  const paneBg = useMemo(() => ({ backgroundColor: colors.cream }), [colors.cream]);
+  /** The showing pane's wrapper, and a hidden one's. */
+  const paneShown = useMemo(() => [styles.pane, paneBg], [paneBg]);
+  const paneHidden = useMemo(() => [styles.pane, paneBg, styles.hidden], [paneBg]);
+  /** Which tab is showing, readable from a handler without re-creating it. */
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const switched = useRef(false);
   useEffect(() => {
     if (!switched.current) return;
@@ -139,11 +169,29 @@ export default function FeedScreen() {
     scrollToTop(tab);
     Animated.timing(enter[tab], {
       toValue: 1,
-      duration: 520,
+      duration: 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [tab, enter]);
+  /**
+   * The panes a tap is likeliest to ask for, mounted while nothing else is
+   * going on. A pane's first visit used to mount the whole thing on the tap
+   * — the marketplace, the groups list — and the fade couldn't start until
+   * that was done, so the first tap on each tab was the slow one.
+   */
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const task = InteractionManager.runAfterInteractions(() => {
+      timer = setTimeout(() => {
+        setMounted((m) => {
+          if (m.has('events') && m.has('market') && m.has('groups')) return m;
+          return new Set([...m, 'events', 'market', 'groups']);
+        });
+      }, 1500);
+    });
+    return () => { task.cancel(); if (timer) clearTimeout(timer); };
+  }, []);
   /** A pane back to its first item. One that's never been opened has no list yet — it'll start there anyway. */
   const scrollToTop = (pane: FeedTab) => {
     if (pane === 'events') eventsScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -175,6 +223,7 @@ export default function FeedScreen() {
     switched.current = true;
     if (!mounted.has(next)) setMounted((m) => new Set(m).add(next));
     setTab(next);
+    recordFeedTab(next);
   };
 
   /**
@@ -196,6 +245,30 @@ export default function FeedScreen() {
     [focusSpot, focusSpotId],
   );
   const tabBarHeight = useBottomTabBarHeight();
+  /**
+   * Only the showing pane moves the header: a list still coasting when you
+   * switch away keeps sending scrolls, and they'd hide the header again just
+   * after the tap brought it back. Gated inside a stable handler rather than
+   * by swapping the prop, so a switch doesn't re-render every list.
+   */
+  type ScrollHandler = (e: any) => void;
+  const gated = useMemo(() => {
+    const gate = (pane: FeedTab, fn: ScrollHandler): ScrollHandler => (e) => { if (tabRef.current === pane) fn(e); };
+    return {
+      feed: gate('feed', onScroll), events: gate('events', onEventsScroll), market: gate('market', onMarketScroll),
+      groups: gate('groups', onGroupsScroll), cars: gate('cars', onCarsScroll), members: gate('members', onMembersScroll),
+    };
+  }, [onScroll, onEventsScroll, onMarketScroll, onGroupsScroll, onCarsScroll, onMembersScroll]);
+  const marketContentStyle = useMemo(() => ({ paddingTop: headerPad, paddingBottom: 88 + insets.bottom + 32 }), [headerPad, insets.bottom]);
+  // The market's switch and search pin under the header, following it as it hides.
+  // The tab row stays when the header hides, so the bar stops under it.
+  const marketStickyTop = useMemo(() => headerBottom(headerPad, insets.top, TABS_STUCK_RISE), [headerPad, insets.top]);
+  const photoHeader = useMemo(() => <View style={{ height: headerPad }} />, [headerPad]);
+  const photoZoom = useMemo(() => ({ bottom: insets.bottom + FAB_BOTTOM, left: FAB_RIGHT }), [insets.bottom]);
+  const onDropPin = useCallback((point: { lat: number; lng: number; name?: string; address?: string }) => (navigation as any).navigate('PhotoSpotCreate', {
+    lat: point.lat, lng: point.lng, name: point.name, address: point.address,
+  }), [navigation]);
+  const onEditSpot = useCallback((spotId: string) => (navigation as any).navigate('PhotoSpotCreate', { spotId }), [navigation]);
   const eventsScrollRef = useRef<ScrollView>(null);
   const marketScrollRef = useRef<FlatList<Listing>>(null);
   const groupsScrollRef = useRef<FlatList<any>>(null);
@@ -226,63 +299,75 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
       <AppHeader tabs={FEED_TABS} activeTab={tab} onTabPress={selectTab} />
-      <Animated.View style={paneStyle('feed')}>
+      <View style={ss.fill}>
+      <View style={tab === 'feed' ? paneShown : paneHidden} pointerEvents={tab === 'feed' ? 'auto' : 'none'}>
+      <Animated.View style={[ss.fill, paneAnim.feed]}>
         {/* No `onPostPress`: a tap on a card opens its own text in place rather
             than pushing the post's own screen. The card carries everything
             that screen showed — the full body, the comment thread behind the
             comment button, a summary panel for whoever liked it — so the push
             only ever arrived at the same content one level deeper. */}
-        <FeedList
+        <MemoFeedList
           listRef={scrollRef}
-          excludeTypes={['story']}
+          excludeTypes={FEED_EXCLUDE_TYPES}
           includeGarageAdditions
           ListHeaderComponent={FeedHeader}
           paddingTop={headerPad - FEED_TOP_TRIM}
-          // Only the showing pane moves the header: a list still coasting when
-          // you switch away keeps sending scrolls, and they'd hide the header
-          // again just after the tap brought it back.
-          onScroll={tab === 'feed' ? onScroll : undefined}
+          onScroll={gated.feed}
         />
       </Animated.View>
+      </View>
       {mounted.has('events') && (
-        <Animated.View style={paneStyle('events')}>
-          <EventsView headerPad={headerPad} onScroll={tab === 'events' ? onEventsScroll : undefined} scrollRef={eventsScrollRef} />
+        <View style={tab === 'events' ? paneShown : paneHidden} pointerEvents={tab === 'events' ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.events]}>
+          <MemoEventsView headerPad={headerPad} onScroll={gated.events} scrollRef={eventsScrollRef} />
         </Animated.View>
+        </View>
       )}
       {mounted.has('market') && (
-        <Animated.View style={paneStyle('market')}>
+        <View style={tab === 'market' ? paneShown : paneHidden} pointerEvents={tab === 'market' ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.market]}>
           {/* The same browse the group Market sections use. The bottom pad
               clears the floating tab bar, as the Marketplace screen's did. */}
-          <MarketplaceBrowse
+          <MemoMarketplaceBrowse
             listRef={marketScrollRef}
-            onScroll={tab === 'market' ? onMarketScroll : undefined}
-            contentContainerStyle={{ paddingTop: headerPad, paddingBottom: 88 + insets.bottom + 32 }}
+            onScroll={gated.market}
+            contentContainerStyle={marketContentStyle}
+            stickyTop={marketStickyTop}
           />
         </Animated.View>
+        </View>
       )}
       {mounted.has('groups') && (
-        <Animated.View style={paneStyle('groups')}>
-          <GroupsView headerPad={headerPad} onScroll={tab === 'groups' ? onGroupsScroll : undefined} scrollRef={groupsScrollRef} />
+        <View style={tab === 'groups' ? paneShown : paneHidden} pointerEvents={tab === 'groups' ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.groups]}>
+          <MemoGroupsView headerPad={headerPad} onScroll={gated.groups} scrollRef={groupsScrollRef} />
         </Animated.View>
+        </View>
       )}
       {mounted.has('cars') && (
-        <Animated.View style={paneStyle('cars')}>
-          <CarsView headerPad={headerPad} onScroll={tab === 'cars' ? onCarsScroll : undefined} scrollRef={carsScrollRef} />
+        <View style={tab === 'cars' ? paneShown : paneHidden} pointerEvents={tab === 'cars' ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.cars]}>
+          <MemoCarsView headerPad={headerPad} onScroll={gated.cars} scrollRef={carsScrollRef} />
         </Animated.View>
+        </View>
       )}
       {mounted.has('members') && (
-        <Animated.View style={paneStyle('members')}>
-          <MembersView headerPad={headerPad} onScroll={tab === 'members' ? onMembersScroll : undefined} scrollRef={membersScrollRef} />
+        <View style={tab === 'members' ? paneShown : paneHidden} pointerEvents={tab === 'members' ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.members]}>
+          <MemoMembersView headerPad={headerPad} onScroll={gated.members} scrollRef={membersScrollRef} />
         </Animated.View>
+        </View>
       )}
       {mounted.has('photography') && (
-        <Animated.View style={paneStyle('photography')}>
+        <View style={tab === 'photography' ? paneShown : paneHidden} pointerEvents={tab === 'photography' ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.photography]}>
           {/* @ors/kit's map, shared with the photo app (see its README). The
               header floats over the top, so the kit's `header` slot is just
               the space it takes. A map doesn't scroll, so the header stays
               put here rather than hiding. */}
-          <KitPhotographyScreen
-            header={<View style={{ height: headerPad }} />}
+          <MemoPhotography
+            header={photoHeader}
             safeTop={false}
             // The header's tab already says "Photography" — a line on what
             // the map is for, instead of the heading repeating it.
@@ -292,21 +377,23 @@ export default function FeedScreen() {
             // Down at the bottom, mirroring the corner buttons on the right —
             // the tab bar is an invisible strip, so the space above it is
             // just map.
-            zoomPosition={{ bottom: insets.bottom + FAB_BOTTOM, left: FAB_RIGHT }}
+            zoomPosition={photoZoom}
             focus={photoFocus}
-            onDropPin={(point) => (navigation as any).navigate('PhotoSpotCreate', {
-              lat: point.lat, lng: point.lng, name: point.name, address: point.address,
-            })}
-            onEditSpot={(spotId) => (navigation as any).navigate('PhotoSpotCreate', { spotId })}
+            onDropPin={onDropPin}
+            onEditSpot={onEditSpot}
           />
         </Animated.View>
+        </View>
       )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { flex: 1 },
-  // A pane whose tab isn't showing: still mounted, so it keeps its place.
-  hidden: { display: 'none' },
+  // Every pane fills the space under the header; the showing one is on top.
+  pane: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  // A pane whose tab isn't showing: still in the native tree, so a return to
+  // it is a prop change rather than a rebuild. See paneAnim.
+  hidden: { opacity: 0 },
 });

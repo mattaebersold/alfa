@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { useGetMarketplaceUnreadCountQuery } from '../../api/apiService';
+import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { CONFIG, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
@@ -29,10 +29,12 @@ export function useMarketplaceUnread() {
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
   const appActive = useIsAppActive();
 
-  const { data } = useGetMarketplaceUnreadCountQuery(undefined, {
+  // The same poll the bell runs; the marketplace's slice of it.
+  const { data: badges } = useGetBadgesQuery(undefined, {
     skip: !isLoggedIn,
     pollingInterval: appActive ? CONFIG.NOTIFICATION_POLL_INTERVAL : 0,
   });
+  const data = badges?.marketplace;
 
   const byListing = data?.by_listing ?? [];
 
@@ -43,7 +45,7 @@ export function useMarketplaceUnread() {
     byListing,
     /** Unread about one listing — what a row in "manage your listings" shows. */
     countForListing: (listingId: string) =>
-      byListing.find((l) => l.listing_id === listingId)?.count ?? 0,
+      byListing.find((l: { listing_id: string; count: number }) => l.listing_id === listingId)?.count ?? 0,
   };
 }
 

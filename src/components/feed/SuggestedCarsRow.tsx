@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
@@ -15,7 +15,8 @@ import RowEndSpacer from '../ui/RowEndSpacer';
 import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
 import type { GarageCar } from '../../types/api';
-import CarSummaryModal from '../cars/CarSummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { carPreview } from '../cars/CarSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_GRAY_17 } from '../../constants/config';
@@ -75,7 +76,7 @@ interface Props {
 export default function SuggestedCarsRow({ onRequestHide }: Props) {
   const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
-  const [summary, setSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
+  const { openCar } = useSummary();
   const myId = userInfo?.user_id ?? '';
 
   const { data: myGarage } = useGetUserGarageQuery();
@@ -186,17 +187,12 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
             car={car}
             // A suggestion is an invitation to decide about a car, which is
             // what the summary is for — the full page is one button inside it.
-            onPress={(origin) => setSummary({ carId: car.internal_id, origin })}
+            onPress={(origin) => openCar(car.internal_id, origin, carPreview(car))}
           />
         ))}
         <RowEndSpacer width={ROW_PAD} />
       </ScrollView>
 
-      <CarSummaryModal
-        carId={summary?.carId ?? null}
-        origin={summary?.origin}
-        onClose={() => setSummary(null)}
-      />
     </SuggestionCard>
   );
 }

@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
-import { MapPin, Check } from 'lucide-react-native';
+import { Check, Truck } from 'lucide-react-native';
+import SolidMapPin from '../ui/SolidMapPin';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_DANGER, COLOR_GRAY_22, COLOR_WHITE, GUTTER, COLOR_PRO, COLOR_GREEN, COLOR_GRAY_40,
+  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_DANGER, COLOR_GRAY_22, COLOR_WHITE, GUTTER, COLOR_PRO, COLOR_GRAY_40,
 } from '../../constants/config';
 import OilSheen from '../ui/OilSheen';
 import {
   conditionLabel, distanceLabel, matchLabel,
-  previousPriceLabel, priceLabel,
+  previousPriceLabel, priceLabel, shippingLabel,
 } from './listingFormat';
 import type { Listing } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
@@ -33,20 +34,30 @@ import { FONT_INTER } from '../../constants/fonts';
  * without saying why reads as a list in a random order — so a card that was
  * lifted says what lifted it.
  */
-export default function ListingCard({ listing, onPress, conditions }: {
+export default function ListingCard({ listing, onPress, conditions, natural }: {
   listing: Listing;
   /** The rect the summary panel grows out of — see SummaryTouchable. */
   onPress: (origin: SummaryOrigin | null) => void;
   /** Condition labels from /meta, when the screen has them. */
   conditions?: string[];
+  /**
+   * The photo at its own shape, for a column of cards (the marketplace's
+   * mosaic) rather than a row of them. Off, it's cropped to 16:9 so a grid's
+   * rows line up.
+   */
+  natural?: boolean;
 }) {
   const colors = useColors();
+  // Width over height, once the photo has said; a landscape guess until then.
+  const [ratio, setRatio] = useState(NATURAL_GUESS);
 
   const hero = firstGalleryUrl(listing.gallery);
   const price = priceLabel(listing);
   const wasPrice = previousPriceLabel(listing);
   const condition = conditionLabel(listing.condition, conditions);
   const distance = distanceLabel(listing.distance_miles);
+  // "Ships" or "Ships or pickup" — either way it can come to you.
+  const ships = listing.shipping === 'ship' || listing.shipping === 'both';
   // Just the car it fits — the checkmark already says "matches your garage".
   // (The summary panel keeps the full sentence; see matchLabel.)
   const match = matchLabel(listing)
@@ -57,17 +68,21 @@ export default function ListingCard({ listing, onPress, conditions }: {
     <SummaryTouchable
       // One ground for the whole card — the words' panel colour, so it shows
       // the same around the picture's rounded corners as under it.
-      style={[styles.card, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
+      style={[styles.card, natural && styles.cardNatural, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.85}
-      accessibilityLabel={[listing.title, price, condition, distance].filter(Boolean).join(', ')}
+      accessibilityLabel={[listing.title, price, condition, distance, ships ? shippingLabel(listing.shipping) : null].filter(Boolean).join(', ')}
     >
-      <View style={styles.thumbWrap}>
+      <View style={[styles.thumbWrap, natural && { aspectRatio: ratio }]}>
         <Image
           source={hero ? { uri: hero } : require('../../../assets/car-placeholder.jpg')}
           style={styles.thumb}
           contentFit="cover"
           transition={150}
+          onLoad={natural ? (e) => {
+            const { width, height } = e.source;
+            if (width > 0 && height > 0) setRatio(clampRatio(width / height));
+          } : undefined}
         />
         {/* A car of yours it fits, on the photo's top left — the first thing
             to catch the eye. */}
@@ -75,7 +90,7 @@ export default function ListingCard({ listing, onPress, conditions }: {
           // Gold with the oil-slick film, whatever the account — a match is
           // the marketplace's highlight, not the member's brand colour.
           <View style={[styles.matchPill, styles.matchOnPhoto, { backgroundColor: COLOR_PRO }]}>
-            <OilSheen tone="warm" radius={PILL_RADIUS} />
+            <OilSheen tone="warm" radius={PILL_RADIUS} scale={2.5} />
             <Check size={10} color={COLOR_BLACK} strokeWidth={3} />
             <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
           </View>
@@ -113,15 +128,29 @@ export default function ListingCard({ listing, onPress, conditions }: {
             // Plain, not a badge: no ground or padding, so the pin sits on
             // the same left edge as the title above it.
             <View style={[styles.tagIcon, styles.distance]}>
-              <MapPin size={10} color={colors.grey} />
+              <SolidMapPin size={11} color={colors.grey} />
               <Text style={[styles.tagText, { color: colors.grey }]}>{distance}</Text>
             </View>
           ) : null}
+          {/* Willing to ship: just the truck, after the distance — the
+              distance says where it is, this says it needn't matter. */}
+          {ships ? <Truck size={12} color={colors.grey} strokeWidth={2.2} /> : null}
         </View>
       </View>
     </SummaryTouchable>
   );
 }
+
+// COLOR_GREEN (#85C27D) with more saturation, for the price on the photo.
+const PRICE_GREEN = '#76CD6A';
+
+/** A natural-shape card's photo before it loads: landscape, the usual case. */
+const NATURAL_GUESS = 4 / 3;
+/**
+ * Natural, within reason: a panorama or a tall screenshot would make a sliver
+ * or a tower of one card, so the shape is held between 9:16-ish and 2:1.
+ */
+const clampRatio = (r: number) => Math.min(2, Math.max(0.6, r));
 
 /**
  * The grid the card is made for: two across, one gap.
@@ -142,10 +171,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: CARD_RADIUS, borderWidth: 1,
     overflow: 'hidden',
-  },
+  },  // In a column: sized by its photo, not stretched to fill the column.
+  cardNatural: { flex: 0 },
+
   // Rounded at the foot too, where it meets the words — the card's radius, so
   // the photo reads as a tile set into the card.
-  thumbWrap: { width: '100%', aspectRatio: 1, borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden' },
+  thumbWrap: { width: '100%', aspectRatio: 16 / 9, borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden' },
   thumb:     { width: '100%', height: '100%', backgroundColor: COLOR_GRAY_22 },
   soldScrim: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -156,10 +187,10 @@ const styles = StyleSheet.create({
   soldText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6 },
 
   // A step lighter than the card, so the words read as their own panel under the photo.
-  info: { flexGrow: 1, minWidth: 0, gap: 4, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
+  info: { flexGrow: 1, minWidth: 0, gap: 1, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
   // On the photo, top left, lifted off it like the price.
   matchOnPhoto: {
-    position: 'absolute', left: 6, top: 6, maxWidth: '88%',
+    position: 'absolute', left: 4, top: 4, maxWidth: '90%',
     boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
   },
   // Clipped, so the sheen stays inside the pill's round ends.
@@ -170,29 +201,30 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   // Black on the gold, as every other filled pill in the app.
-  matchText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, flexShrink: 1 },
+  matchText: { fontSize: 9, fontFamily: FONT_INTER.semibold, color: COLOR_BLACK, flexShrink: 1 },
 
   // One line, always — every tile the same height beside its neighbour.
-  title: { fontSize: 13.5, fontFamily: FONT_INTER.bold, lineHeight: 18 },
+  title: { fontSize: 11.5, fontFamily: FONT_INTER.bold, lineHeight: 16 },
 
   // On the photo, bottom left.
   priceBadge: {
-    position: 'absolute', left: 6, bottom: 6, maxWidth: '88%',
+    position: 'absolute', left: 4, bottom: 4, maxWidth: '90%',
     flexDirection: 'row', alignItems: 'baseline', gap: 5,
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: PILL_RADIUS,
-    // The app's lighter green, with black on it, as the brand-filled pills are.
-    backgroundColor: COLOR_GREEN,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: PILL_RADIUS,
+    // The app's lighter green, pushed a little more saturated so it holds
+    // up over a photo; black on it, as the brand-filled pills are.
+    backgroundColor: PRICE_GREEN,
     // Lifted off the photo, so it reads over a bright one.
     boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
   },
-  priceBadgeText: { color: COLOR_BLACK, fontSize: 13, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
+  priceBadgeText: { color: COLOR_BLACK, fontSize: 10, fontFamily: FONT_INTER.semibold, letterSpacing: 0.3 },
   priceBadgeWas: {
-    color: 'rgba(0,0,0,0.6)', fontSize: 10.5, fontFamily: FONT_INTER.semibold,
+    color: 'rgba(0,0,0,0.6)', fontSize: 8.5, fontFamily: FONT_INTER.semibold,
     textDecorationLine: 'line-through',
   },
 
-  meta:    { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
+  meta:    { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   tagIcon: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   distance: { paddingHorizontal: 0, paddingVertical: 0 },
-  tagText: { fontSize: 10.5, fontFamily: FONT_INTER.bold },
+  tagText: { fontSize: 10.5, fontFamily: FONT_INTER.medium },
 });

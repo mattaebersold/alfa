@@ -50,7 +50,8 @@ export const CURVINESS_PRESETS: Record<string, { min?: number }> = {
 
 const SORTS: { key: RouteSort; label: string }[] = [
   { key: 'recent', label: 'Newest' },
-  { key: 'votes', label: 'Top voted' },
+  // Ranked by likes now that the cards carry a heart rather than votes.
+  { key: 'likes', label: 'Most liked' },
   { key: 'curviness', label: 'Most technical' },
   { key: 'distance', label: 'Longest' },
 ];

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Navigation } from 'lucide-react-native';
+import SolidMapPin from './SolidMapPin';
 import { FILTER_HIT_SLOP } from './FilterSummaryRow';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -72,7 +72,8 @@ export default function LocationFilterRow({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              {opt.key === 'near' && <Navigation size={14} color={active ? COLOR_BLACK : colors.fg} />}
+              {/* Solid, not outlined — near me's pin, as on the applied pill. */}
+              {opt.key === 'near' && <SolidMapPin size={16} color={active ? COLOR_BLACK : colors.fg} />}
               <Text style={[styles.chipText, { color: active ? COLOR_BLACK : colors.fg }]}>
                 {opt.label}
               </Text>
@@ -106,7 +107,7 @@ export function locationPill(
   return {
     key: 'location',
     label,
-    icon: choice === 'near' ? <Navigation size={11} color={COLOR_BLACK} /> : undefined,
+    icon: choice === 'near' ? <SolidMapPin size={15} color={COLOR_BLACK} /> : undefined,
   };
 }
 

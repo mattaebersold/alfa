@@ -12,7 +12,8 @@ import { CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { stripHtml } from '../../utils/text';
 import Avatar from '../ui/Avatar';
 import ReportButton from '../ui/ReportButton';
-import UserSummaryModal from '../members/UserSummaryModal';
+import { useSummary } from '../../providers/SummaryProvider';
+import { userPreview } from '../members/UserSummaryModal';
 import CarItemSummaryModal from '../cars/CarItemSummaryModal';
 import type { SummaryOrigin } from '../ui/SummaryModal';
 import { useAppSelector } from '../../store/store';
@@ -63,7 +64,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
   const nav = useNavigation();
   const { userInfo } = useAppSelector((st) => st.auth);
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [summaryUserId, setSummaryUserId] = useState<string | null>(null);
+  const { openUser } = useSummary();
   /** The mod/gallery panel: whether it's open, and the rect it grows from. */
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailOrigin, setDetailOrigin] = useState<SummaryOrigin | null>(null);
@@ -130,7 +131,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
   const isOwner = userInfo?.user_id === car.user_id;
 
   const openCar = () => (nav as any).navigate('CarDetail', { carId: car.internal_id });
-  const openOwner = () => owner && setSummaryUserId(owner.user_id);
+  const openOwner = () => owner && openUser(owner.user_id, null, userPreview(owner));
 
   const carChip = (
     <TouchableOpacity
@@ -217,7 +218,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
                 that the attribution has moved off the photo, so a second scrim
                 up there would be darkening the picture for nothing. */}
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.95)']}
+              colors={['transparent', 'rgba(0,0,0,0.39)', 'rgba(0,0,0,0.66)']}
               locations={[0, 0.55, 1]}
               style={styles.scrim}
               pointerEvents="none"
@@ -300,10 +301,6 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
         onClose={() => setDetailOpen(false)}
       />
 
-      <UserSummaryModal
-        userId={summaryUserId}
-        onClose={() => setSummaryUserId(null)}
-      />
 
       <CommentsSheet
         postId={item.internal_id}

@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   // Raised whatever state it's in — see the note above.
   wrap:   { zIndex: 20, elevation: 20 },
   field: {
-    height: 44, flexDirection: 'row', alignItems: 'center', gap: 8,
+    height: 38, flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, borderRadius: PILL_RADIUS, borderWidth: 1,
   },
   input:  { flex: 1, fontSize: 14, padding: 0 },

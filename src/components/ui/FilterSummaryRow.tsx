@@ -99,6 +99,8 @@ export default function FilterSummaryRow<T>({
           activeOpacity={0.8}
           accessibilityLabel={accessibilityLabel ?? `${label}: ${pills.map((p) => p.label).join(', ')}`}
         >
+          {/* The leading pill's icon — near me's pin — before the words. */}
+          {pills[0]?.icon}
           <Text style={styles.compactText} numberOfLines={1}>
             {pills.map((p) => p.label).join(' · ') || label}
           </Text>
@@ -219,11 +221,12 @@ const styles = StyleSheet.create({
   // Sized to its words, capped so a long choice can't squeeze the search
   // beside it down to nothing. A pill, like the search.
   compact: {
-    height: 44, maxWidth: 190, paddingHorizontal: 16,
+    height: 38, maxWidth: 190, paddingHorizontal: 16,
+    flexDirection: 'row', gap: 5,
     alignItems: 'center', justifyContent: 'center',
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  compactText: { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
+  compactText: { flexShrink: 1, fontSize: 14, fontFamily: FONT_INTER.semibold, color: COLOR_BLACK },
   // Takes the rest of the row and gives way first — the chips truncate before
   // the label does.
   selected: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 6, overflow: 'hidden' },

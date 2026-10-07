@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -11,7 +11,7 @@ import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
 import RegionBadge from '../ui/RegionBadge';
 import { regionForCityState } from '../../constants/regions';
-import Spinner from '../ui/Spinner';
+import { Skeleton, SkeletonLine, FadeIn } from '../ui/Skeleton';
 import FollowButton from '../social/FollowButton';
 import {
   useGetPublicUserByIdQuery,
@@ -21,6 +21,7 @@ import {
   useGetCarsQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
+import type { User } from '../../types/api';
 import { useColors } from '../../hooks/useColors';
 import { stripHtml } from '../../utils/text';
 import { imageUrl } from '../../utils/image';
@@ -60,36 +61,54 @@ function Stat({ Icon, value, label, colors }: {
   );
 }
 
+/** What a card already knows about a member, for the panel to open with. */
+export type UserPreview = Pick<User, 'user_id' | 'username' | 'gallery' | 'profilePicture' | 'avatarColor' | 'accountType' | 'cityState'>;
+
+export const userPreview = (user: Partial<User> | null | undefined): UserPreview | null =>
+  user && user.user_id ? {
+    user_id: user.user_id, username: user.username, gallery: user.gallery, profilePicture: user.profilePicture,
+    avatarColor: user.avatarColor, accountType: user.accountType, cityState: user.cityState,
+  } as UserPreview : null;
+
 export default function UserSummaryModal({
   userId,
   origin,
+  preview,
   onClose,
 }: {
   /** The member to summarise. `null` closes the panel. */
   userId: string | null;
   /** The row that was tapped — the panel grows out of it. */
   origin?: SummaryOrigin | null;
+  /** What the tapped card already knew — shown until the fetch lands. */
+  preview?: UserPreview | null;
   onClose: () => void;
 }) {
   const colors = useColors();
   const nav = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
 
-  const { data: user, isLoading } = useGetPublicUserByIdQuery(userId ?? '', { skip: !userId });
+  // The id goes null the moment the close begins, but the panel is still
+  // fading for 180ms: keep the last one so the content doesn't flip to a
+  // spinner on its way out.
+  const lastUserId = useRef<string | null>(null);
+  if (userId) lastUserId.current = userId;
+  const shownUserId = userId ?? lastUserId.current;
+  const { data: user, isLoading } = useGetPublicUserByIdQuery(shownUserId ?? '', { skip: !shownUserId });
   // Limit 1: only the totals are shown, and the lists themselves belong to the
   // profile page.
-  const { data: followers } = useGetUserFollowersQuery({ userId: userId ?? '', limit: 1 }, { skip: !userId });
-  const { data: following } = useGetUserFollowingQuery({ userId: userId ?? '', limit: 1 }, { skip: !userId });
+  const { data: followers } = useGetUserFollowersQuery({ userId: shownUserId ?? '', limit: 1 }, { skip: !shownUserId });
+  const { data: following } = useGetUserFollowingQuery({ userId: shownUserId ?? '', limit: 1 }, { skip: !shownUserId });
   /**
    * How much this person has made. `limit: 1` on both — only the totals are
    * shown, and asking for a page of rows to count them would be a page of rows
    * thrown away.
    */
-  const { data: postsData } = useGetPostsQuery({ user_id: userId ?? '', limit: 1 }, { skip: !userId });
+  const { data: postsData } = useGetPostsQuery({ user_id: shownUserId ?? '', limit: 1 }, { skip: !shownUserId });
   // A handful of the cars themselves, not just how many: "what do they drive"
   // is the question a summary gets asked most — by an admin weighing a join
   // request above all — and a count doesn't answer it.
-  const { data: carsData }  = useGetCarsQuery({ user_id: userId ?? '', limit: GARAGE_PREVIEW }, { skip: !userId });
+  const { data: carsData }  = useGetCarsQuery({ user_id: shownUserId ?? '', limit: GARAGE_PREVIEW }, { skip: !shownUserId });
   const garage = carsData?.entries ?? [];
 
   const isMe = !!user && user.user_id === userInfo?.user_id;
@@ -105,11 +124,30 @@ export default function UserSummaryModal({
       onAction={userId ? () => nav.navigate('UserDetail', { userId, username: user?.username }) : undefined}
     >
       {isLoading || !user ? (
-        // Reserved height rather than a bare spinner: the panel takes its size
-        // from its content, so an unsized loading state opens as a sliver.
-        <View style={styles.loading}><Spinner /></View>
-      ) : (
+        // Their avatar and handle from the card that was tapped, with grey
+        // stand-ins for the counts and the garage underneath.
         <View>
+          <View style={styles.body}>
+            <View style={styles.head}>
+              {preview ? <Avatar user={preview as any} size={72} /> : <Skeleton width={72} height={72} radius={36} />}
+              <View style={styles.headText}>
+                {preview?.username
+                  ? <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>@{preview.username}</Text>
+                  : <SkeletonLine width="55%" height={18} />}
+                <SkeletonLine width="40%" height={12} style={{ marginTop: 8 }} />
+              </View>
+            </View>
+            <View style={styles.placeholderStats}>
+              <Skeleton width={64} height={40} radius={12} />
+              <Skeleton width={64} height={40} radius={12} />
+              <Skeleton width={64} height={40} radius={12} />
+            </View>
+            <SkeletonLine width="90%" style={{ marginTop: 14 }} />
+            <SkeletonLine width="65%" style={{ marginTop: 10 }} />
+          </View>
+        </View>
+      ) : (
+        <FadeIn>
           {/* Their banner, where they have one — it's the thing they chose to
               represent themselves with, and the panel opened with an avatar on
               a flat grey instead. */}
@@ -195,7 +233,7 @@ export default function UserSummaryModal({
             </View>
           )}
           </View>
-        </View>
+        </FadeIn>
       )}
     </SummaryModal>
   );
@@ -206,7 +244,7 @@ const GARAGE_PREVIEW = 6;
 
 const styles = StyleSheet.create({
   garage:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
-  loading: { height: 200, alignItems: 'center', justifyContent: 'center' },
+  placeholderStats: { flexDirection: 'row', gap: 12, marginTop: 16 },
   // 3:1 — wide enough to read as a banner, short enough that it doesn't push
   // the name and the buttons off a short phone.
   bannerWrap: { width: '100%', aspectRatio: 3 / 1 },

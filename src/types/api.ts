@@ -270,6 +270,10 @@ export interface GarageCar {
   transfer_requested_at?: string;
   // populated
   user?: User;
+  /** Sent on lists and the summary: how many follow this car. */
+  followersCount?: number;
+  /** Sent on lists and the summary when signed in: whether *you* follow it. */
+  following?: boolean;
   coowner?: User;
   /**
    * Engagement on the car itself, batched by the endpoints that list cars.
@@ -1377,7 +1381,7 @@ export interface RouteVoteResult {
   user_vote: RouteVote;
 }
 
-export type RouteSort = 'recent' | 'votes' | 'distance' | 'curviness' | 'duration';
+export type RouteSort = 'recent' | 'votes' | 'likes' | 'distance' | 'curviness' | 'duration';
 
 /** Query params accepted by GET /api/routes.
  *  `min_distance`/`max_distance` are in KILOMETRES — the API multiplies by 1000
@@ -1715,6 +1719,17 @@ export interface MarketplaceThreadPage {
  * `by_listing` is what lets a seller's own listing say "3 people are asking
  * about this one" without a request per row.
  */
+/**
+ * Every unread count the app's chrome shows, from one poll:
+ * `GET /api/notifications/badges`. Replaces three polls that each asked the
+ * server the same kind of question every thirty seconds.
+ */
+export interface Badges {
+  notifications: number;
+  messages: number;
+  marketplace: MarketplaceUnreadCount;
+}
+
 export interface MarketplaceUnreadCount {
   count: number;
   threads: number;

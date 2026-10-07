@@ -115,7 +115,7 @@ type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherM
 
 // The app's true accent blue (useColors() remaps primaryAlt→gold for pro/admin,
 // so reference the raw token for a consistently-blue Follow button).
-const ACCENT_BLUE = 'rgb(37, 162, 211)';
+const ACCENT_BLUE = 'rgb(54, 178, 226)';
 
 // Near-black surfaces for the shared bottom-sheet / pane modal.
 const SHEET_BG = COLOR_GRAY_22;

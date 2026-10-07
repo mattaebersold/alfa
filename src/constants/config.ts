@@ -49,10 +49,10 @@ export const imageUrl = (filename: string | null | undefined): string | null => 
  * The app's standard horizontal gap between items.
  *
  * Wider on Android, where the screen's edge sits closer to the content —
- * no rounded corners to inset it the way an iPhone's do — and 4 read as
- * cramped against the side.
+ * no rounded corners to inset it the way an iPhone's do — and the iOS
+ * figure read as cramped against the side.
  */
-export const GUTTER = Platform.OS === 'android' ? 12 : 4;
+export const GUTTER = Platform.OS === 'android' ? 14 : 6;
 
 /**
  * The app's corner radius.
@@ -102,7 +102,7 @@ export const INPUT_TEXT = { fontSize: INPUT_FONT_SIZE, fontFamily: INPUT_FONT_FA
 /* Core — the app's own colours; reach for these first. */
 export const COLOR_WHITE      = '#FFFFFF';
 export const COLOR_BLACK      = '#000000';
-export const COLOR_PRIMARY    = '#25A2D3'; // the accent blue
+export const COLOR_PRIMARY    = '#36B2E2'; // the accent blue
 export const COLOR_SECONDARY  = '#DDD8D6'; // the light-mode secondary surface
 export const COLOR_CREAM      = '#F5EFED'; // the light-mode page background
 export const COLOR_LOGO_CREAM = '#F7F1D9'; // the wordmark in the nav drawer
@@ -351,6 +351,11 @@ export const LISTING_LIMIT_BASIC = 5;
 export const LISTING_LIMIT_UPSELL = {
   title: 'Monthly listings used up',
   message: `A basic membership posts ${LISTING_LIMIT_BASIC} marketplace listings a month, and you've used all of them. Your allowance comes back on the 1st — or go Pro for unlimited listings.`,
+};
+
+export const ROUTE_UPSELL = {
+  title: 'Routes are a Pro feature',
+  message: "Record a drive as you go, or plot one you've already done, and share it with members and your groups. Go Pro to make routes of your own — browsing and driving everyone else's stays open to all.",
 };
 
 export const DIECAST_UPSELL = {

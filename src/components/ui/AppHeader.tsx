@@ -23,7 +23,7 @@ import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_PRO } from '../../constants/config';
+import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -162,9 +162,9 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
   onTabPress?: (key: string) => void;
   top: number;
 }) {
-  // Gold for the lit tab whoever's looking — the row's own accent, not the
-  // account's; on a basic account the brand blue made it a different control.
-  const brand = COLOR_PRO;
+  // The account's colour for the lit tab — gold for Pro, blue otherwise — so
+  // it matches the switches and filter pills beneath it.
+  const brand = useBrandColor();
 
   /**
    * The lit tab, brought toward the front of the row — scrolled so it starts
@@ -396,15 +396,19 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHe
   // there.
   // Width can't run on the native driver, and neither can anything sharing
   // this value with it.
-  const backProgress = useRef(new Animated.Value(0)).current;
+  // Starts where it belongs. It used to start collapsed and run a 700ms,
+  // JS-driven width animation on every screen arrival — the same moment the
+  // screen was doing its first render, so both stuttered and the page read
+  // as still arriving. It only moves now when a screen's history changes
+  // under it, which is rare.
+  const backProgress = useRef(new Animated.Value(canGoBack ? 1 : 0)).current;
+  const firstBack = useRef(true);
   useEffect(() => {
+    if (firstBack.current) { firstBack.current = false; return; }
     Animated.timing(backProgress, {
       toValue: canGoBack ? 1 : 0,
-      duration: canGoBack ? 700 : 340,
-      // In: ease-out-back — it runs past its spot, shoving the logo a little
-      // further than it needs to, then rubber-bands back. Out: a plain ease,
-      // since overshooting below zero would ask for a negative width.
-      easing: canGoBack ? Easing.out(Easing.back(2.2)) : Easing.out(Easing.cubic),
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
   }, [canGoBack, backProgress]);
@@ -675,7 +679,7 @@ const styles = StyleSheet.create({
   // multiple of it spread the tabs there a thumb's width apart.
   tabsItems: {
     flexDirection: 'row', alignItems: 'center',
-    gap: Platform.OS === 'android' ? GUTTER : GUTTER * 4,
+    gap: Platform.OS === 'android' ? GUTTER : 16,
     transformOrigin: 'left center',
   },
   // Full width, edge to edge — the row scrolls under both sides of the screen.
@@ -711,7 +715,7 @@ const styles = StyleSheet.create({
   // Always there, transparent when unlit, so every label sits at the same
   // height whichever tab is active.
   // A touch thicker than a hairline so its round ends show.
-  tabUnderline: { height: 3, borderRadius: 999, marginTop: 1, overflow: 'hidden' },
+  tabUnderline: { height: 2, borderRadius: 999, marginTop: 3, overflow: 'hidden' },
 
   // Behind the bar, and starting at the physical top of the screen rather than
   // below the safe-area inset — the status bar is translucent, so the content

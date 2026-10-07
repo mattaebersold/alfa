@@ -4,7 +4,6 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { X } from 'lucide-react-native';
 import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost, KeyboardHandledAbove } from '@ors/kit';
 import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
@@ -153,10 +152,9 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           layer of its own for lists that float over the sheet (autocompletes). */}
       <PortalHost>
       <View style={styles.fill}>
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]} pointerEvents="none">
-          <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
-        </Animated.View>
+        {/* A dark grey, translucent scrim that fades with the sheet. No blur:
+            a blur can't fade and either popped in or cost the whole open. */}
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,20,20,0.7)', opacity: overlayOpacity }]} pointerEvents="none" />
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         {/* The sheet rides on the keyboard: this fills the screen below the
             status bar and shrinks by the keyboard's height (kit's

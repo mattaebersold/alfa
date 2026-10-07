@@ -114,7 +114,10 @@ export default function AppNavigator() {
 
   return (
     // animation: 'none' = screens just appear, no slide. Modals override this with their own animation.
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'none', headerBackTitle: '' }}>
+    // freezeOnBlur: a screen under another stops re-rendering on every store
+    // update until it's back on top. Without it every pushed screen, its
+    // header and its drawer kept rendering behind the one you were looking at.
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 150, headerBackTitle: '', freezeOnBlur: true }}>
       <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ title: 'Home' }} />
 
       {/* ── Action overlays: slide up from bottom ──────────────────────────── */}

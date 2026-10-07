@@ -8,7 +8,7 @@ import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 // The app's accent blue (kept literal so it never picks up the pro/gold remap).
-export const SHARED_BLUE = 'rgb(37, 162, 211)';
+export const SHARED_BLUE = 'rgb(54, 178, 226)';
 
 type LucideIcon = React.ComponentType<{ size?: number; color?: string }>;
 

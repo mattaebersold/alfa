@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
   tabsOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 15, elevation: 15 },
   // The header's measures: its gap (wider on iOS, where GUTTER is narrow),
   // its start pad, its vertical padding.
-  tabRow:       { flexDirection: 'row', alignItems: 'center', gap: Platform.OS === 'android' ? GUTTER : GUTTER * 4, paddingHorizontal: 12, paddingVertical: 10 },
+  tabRow:       { flexDirection: 'row', alignItems: 'center', gap: Platform.OS === 'android' ? GUTTER : 16, paddingHorizontal: 12, paddingVertical: 10 },
   tabInner:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabLabel:     { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // The unlit tabs a weight lighter, so the lit one leads.

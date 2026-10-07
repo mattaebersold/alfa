@@ -24,7 +24,7 @@ const FAB_GAP = 6;
  * into it. Android's corners are square or barely rounded, and its GUTTER is
  * wider to begin with, so there it sits just past the gutter instead.
  */
-export const FAB_RIGHT = Platform.OS === 'android' ? GUTTER + 8 : GUTTER * 4;
+export const FAB_RIGHT = Platform.OS === 'android' ? GUTTER + 8 : 16;
 /** Around the two circles, inside their container. */
 const FAB_TRAY_PAD = 8;
 /**
