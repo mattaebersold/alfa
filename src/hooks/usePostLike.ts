@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useLikeEntryMutation, useUnlikeEntryMutation } from '../api/apiService';
 import { useAppSelector } from '../store/store';
@@ -34,8 +34,12 @@ export function usePostLike({ postId, entryType, ownerId, initialLiked, initialC
   const [likeEntry] = useLikeEntryMutation();
   const [unlikeEntry] = useUnlikeEntryMutation();
 
+  /** When the heart was last tapped — see `like`. */
+  const lastToggle = useRef(0);
+
   const toggle = async () => {
     if (mine) return;
+    lastToggle.current = Date.now();
     const was = liked;
     setLiked(!was);
     setCount((c) => Math.max(0, c + (was ? -1 : 1)));
@@ -51,7 +55,22 @@ export function usePostLike({ postId, entryType, ownerId, initialLiked, initialC
     }
   };
 
-  return { liked, count, mine, toggle };
+  /**
+   * Like, never unlike — the double tap on a card. Liking something twice
+   * shouldn't take it back.
+   *
+   * Ignored just after the heart itself was tapped: a quick double tap *on*
+   * the heart is two toggles (like, unlike) and a card double tap all at once,
+   * and the heart is what the finger meant. Returns whether it liked, so the
+   * card knows to show the burst.
+   */
+  const like = () => {
+    if (mine || liked || Date.now() - lastToggle.current < 600) return false;
+    toggle();
+    return true;
+  };
+
+  return { liked, count, mine, toggle, like };
 }
 
 export type PostLike = ReturnType<typeof usePostLike>;

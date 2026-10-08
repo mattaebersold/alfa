@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ImagePlus, X } from 'lucide-react-native';
 import { uploadFile } from '../../utils/upload';
-import { routePhoto } from '../../utils/routePhoto';
+import { routeOwnerPhoto } from '../../utils/routePhoto';
 import { imageUrl } from '../../utils/image';
 import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RouteMap from '../../components/routes/RouteMap';
 import PostTagPicker, { type TagItem } from '../../components/social/PostTagPicker';
 import PostToSelector from '../../components/social/PostToSelector';
+import { ConditionPicker } from '../../components/routes/ConditionChips';
 import Spinner from '../../components/ui/Spinner';
 import { DateField } from '../../components/ui/DateTimeField';
 import { readDraft, clearDraft } from '../../hooks/useRouteRecorder';
@@ -37,7 +38,7 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
   formatDistance, formatDuration, formatSpeed, compactSamples, decodePolyline, curvinessLabel,
 } from '../../utils/routeGeometry';
-import { isPlottedRoute } from '../../types/api';
+import { isPlottedRoute, type RouteCondition } from '../../types/api';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
@@ -120,7 +121,7 @@ export default function RouteSaveScreen() {
    */
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
   const [photoRemoved, setPhotoRemoved] = useState(false);
-  const savedPhoto = isEdit && existing ? routePhoto(existing.entry) : null;
+  const savedPhoto = isEdit && existing ? routeOwnerPhoto(existing.entry) : null;
   const keptPhoto = savedPhoto && !photoRemoved ? savedPhoto : null;
   const shownPhoto = newPhoto ?? (keptPhoto ? imageUrl(keptPhoto.filename) : null);
 
@@ -138,6 +139,7 @@ export default function RouteSaveScreen() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [technical, setTechnical] = useState<number | null>(null);
+  const [conditions, setConditions] = useState<RouteCondition[]>([]);
   const [startPlace, setStartPlace] = useState('');
   const [endPlace, setEndPlace] = useState('');
   /** "YYYY-MM-DD", plotted routes only. Empty means unsaid. */
@@ -190,6 +192,7 @@ export default function RouteSaveScreen() {
     setTitle(e.title ?? '');
     setBody(e.body ?? '');
     setTechnical(e.technical_rating ?? null);
+    setConditions(e.conditions ?? []);
     setStartPlace(e.start_place ?? '');
     setEndPlace(e.end_place ?? '');
     setDrivenOn(e.driven_on ? String(e.driven_on).slice(0, 10) : '');
@@ -419,6 +422,7 @@ export default function RouteSaveScreen() {
     fd.append('start_place', startPlace.trim());
     fd.append('end_place', endPlace.trim());
     fd.append('technical_rating', technical ? String(technical) : '');
+    fd.append('conditions', JSON.stringify(conditions));
     fd.append('private', isPrivate ? 'true' : 'false');
     if (plotted) fd.append('driven_on', drivenOn);
     // The first tagged car is "the car I drove", as on a new route.
@@ -474,6 +478,7 @@ export default function RouteSaveScreen() {
     if (endPlace.trim()) fd.append('end_place', endPlace.trim());
     if (draft?.pitStops?.length) fd.append('pit_stops', JSON.stringify(draft.pitStops));
     if (technical) fd.append('technical_rating', String(technical));
+    if (conditions.length) fd.append('conditions', JSON.stringify(conditions));
     if (isPrivate) fd.append('private', 'true');
     // The first tagged car doubles as "the car I drove" — the route's own
     // association — while still being recorded as a tag like the others.
@@ -698,6 +703,12 @@ export default function RouteSaveScreen() {
                 ? 'Your rating sits alongside a curviness score we calculate from the road.'
                 : 'Your rating sits alongside a curviness score we calculate from the GPS track.'}
             </Text>
+          </Field>
+
+          {/* What it was like out there — any number of these. They're the
+              creator's own drive's conditions too, in the route's Drivers. */}
+          <Field label="Conditions">
+            <ConditionPicker value={conditions} onChange={setConditions} />
           </Field>
 
           {/* The same picker a post uses. On a route the people are who drove

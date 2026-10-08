@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
 import { GUTTER } from '../../constants/config';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -42,6 +42,11 @@ interface FeedListProps {
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** The underlying FlatList, for a screen that needs to scroll it (e.g. back-to-top). */
   listRef?: React.Ref<FlatList<any>>;
+  /**
+   * Bumped to refresh the list as a pull would — the header logo, tapped on
+   * the feed that's already showing. Starts at 0, which does nothing.
+   */
+  refreshSignal?: number;
 }
 
 const PAGE_SIZE = 12;
@@ -97,6 +102,7 @@ export default function FeedList({
   paddingTop = 0,
   onScroll,
   listRef,
+  refreshSignal = 0,
 }: FeedListProps) {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
@@ -210,6 +216,31 @@ export default function FeedList({
     }
     // Otherwise, setting page=0 triggers a new query; the useEffect clears refreshing
   }, [page, refetch]);
+
+  /**
+   * A refresh asked for by the logo rather than by a pull. iOS only draws the
+   * RefreshControl's spinner when the list has been pulled down to show it,
+   * so a refresh started from elsewhere ran with nothing on screen to say so.
+   * This is that spinner, drawn by hand under the header — and held for a
+   * beat, so a quick answer doesn't make it a flicker.
+   */
+  const [signalLoading, setSignalLoading] = useState(false);
+  const signalStartedAt = useRef(0);
+
+  useEffect(() => {
+    if (!refreshSignal) return;
+    signalStartedAt.current = Date.now();
+    // Android draws its own spinner for a refresh however it started.
+    if (Platform.OS === 'ios') setSignalLoading(true);
+    handleRefresh();
+  }, [refreshSignal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!signalLoading || refreshing) return;
+    const wait = Math.max(0, SIGNAL_MIN_MS - (Date.now() - signalStartedAt.current));
+    const t = setTimeout(() => setSignalLoading(false), wait);
+    return () => clearTimeout(t);
+  }, [signalLoading, refreshing]);
 
   const handleLoadMore = useCallback(() => {
     if (!isFetching && data && allPosts.length < data.total) {
@@ -349,6 +380,11 @@ export default function FeedList({
         scrollEventThrottle={16}
         contentContainerStyle={[styles.list, { paddingTop, paddingBottom: tabBarHeight }]}
       />
+      {signalLoading ? (
+        <View style={[styles.signalLoader, { top: paddingTop + 8 }]} pointerEvents="none">
+          <ActivityIndicator size="small" color={colors.primaryAlt} />
+        </View>
+      ) : null}
       {/* A group post opens as a summary, not a screen: it's a detour from the
           feed, and most of them are answered by reading the first paragraph.
           "View in group" is there for the ones that aren't. */}
@@ -376,9 +412,13 @@ export default function FeedList({
   );
 }
 
+/** The least time the logo's refresh spinner shows for. */
+const SIGNAL_MIN_MS = 700;
+
 const styles = StyleSheet.create({
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   list:          { paddingTop: 0, paddingBottom: 8, flexGrow: 1 },
   footer:        { padding: 20, alignItems: 'center' },
+  signalLoader:  { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   gutter:        { paddingHorizontal: GUTTER },
 });

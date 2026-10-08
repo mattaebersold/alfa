@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { View, TouchableOpacity, StyleSheet, Platform, type LayoutChangeEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Plus, Minus } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
@@ -18,6 +20,7 @@ import {
   COLOR_GRAY_22,
   COLOR_RED,
   COLOR_SPOTTER_GREEN,
+  COLOR_SHEEN_GOLD,
 } from '../../constants/config';
 import type { CarSpotSummary, CarSpotPlay } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
@@ -38,7 +41,7 @@ const MAX_ATTEMPTS = 5;
 const PREVIEW_BLUR = Platform.OS === 'android' ? .7 :.7;
 
 /** The puzzle photo's side: a small thumbnail set into the card, not a banner across it. */
-const PHOTO = 50;
+const PHOTO = 60;
 
 const SPOT_ICON = require('../../../assets/apps/spot-icon.png');
 
@@ -150,23 +153,28 @@ function zoomOrigin(
   return { x: x * 100, y: y * 100 };
 }
 
-/**
- * 'YYYY-MM-DD' as "Oct 6", with the year once it's not this year's. Built from
- * the parts rather than parsed, so the game's date isn't shifted by the
- * viewer's timezone.
- */
-function playDateLabel(date: string | undefined): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? '');
-  if (!m) return date ?? '';
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const thisYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(thisYear ? {} : { year: 'numeric' }) });
-}
-
 const finished = (p?: CarSpotPlay | null): p is CarSpotPlay => !!p && (p.status === 'won' || p.status === 'lost');
 
 /** "3/5", or "✗" for a game that ran out — the number alone would read as a score. */
 const scoreOf = (won: boolean, attempts: number) => (won ? `${attempts}/${MAX_ATTEMPTS}` : '✗');
+
+interface Game { won: boolean; attempts: number; time_ms?: number | null }
+
+/**
+ * Who took the day: a win over a loss, then fewer guesses, then — the same
+ * number of guesses — the quicker game. Null when nothing separates them:
+ * both stumped, or the same score with no time to settle it (a result shared
+ * before games were timed, or a late game, which isn't).
+ */
+function winnerOf(me: Game, them: Game): 'me' | 'them' | null {
+  if (me.won !== them.won) return me.won ? 'me' : 'them';
+  if (!me.won) return null;
+  if (me.attempts !== them.attempts) return me.attempts < them.attempts ? 'me' : 'them';
+  const a = me.time_ms ?? null;
+  const b = them.time_ms ?? null;
+  if (a == null || b == null || a === b) return null;
+  return a < b ? 'me' : 'them';
+}
 
 /**
  * Where the viewer stands against this result, from what their own account
@@ -219,16 +227,43 @@ export function SpotResultAction({ carspot, author }: Pick<SpotResultBodyProps, 
   if (standing.kind === 'compare') {
     const mine = standing.mine;
     const iWon = mine.status === 'won';
+    const winner = winnerOf(
+      { won: iWon, attempts: mine.attempts, time_ms: mine.time_ms },
+      { won: carspot.won, attempts: carspot.attempts, time_ms: carspot.time_ms },
+    );
+    // Capped, so a long name doesn't stretch the pill.
+    const theirName = author?.username
+      ? (author.username.length > 10 ? `${author.username.slice(0, 10)}…` : author.username)
+      : 'Them';
+    // Each side a column — crown, face and score, then whose it is — so the
+    // two read as a head-to-head rather than a row of numbers.
+    const side = (user: AvatarUser | undefined, won: boolean, attempts: number, grid: [boolean, boolean][] | undefined, label: string, crowned: boolean) => (
+      <View style={styles.side}>
+        <View style={styles.sideRow}>
+          {/* The crown sits on the face itself, not over the pair. */}
+          <View style={styles.face}>
+            <Avatar user={user} size={22} />
+            {/* Tipped onto the face's top-left corner, at eleven o'clock. */}
+            {crowned ? (
+              <View style={styles.crown} pointerEvents="none">
+                <SimpleCrown size={14} color={COLOR_SHEEN_GOLD} />
+              </View>
+            ) : null}
+          </View>
+          <GuessDots won={won} attempts={attempts} grid={grid} />
+        </View>
+        <Text style={[styles.sideLabel, { color: colors.muted }]} numberOfLines={1}>{label}</Text>
+      </View>
+    );
     return (
       <View
-        style={[styles.appBtn, styles.compare, { backgroundColor: COLOR_GRAY_22, borderColor: colors.borderDark }]}
-        accessibilityLabel={`You ${scoreOf(iWon, mine.attempts)}, ${author?.username ? `@${author.username}` : 'they'} ${scoreOf(carspot.won, carspot.attempts)}`}
+        style={[styles.appBtn, styles.compare, { backgroundColor: COLOR_GRAY_10, borderColor: colors.borderDark }]}
+        accessibilityLabel={`You ${scoreOf(iWon, mine.attempts)}, ${theirName} ${scoreOf(carspot.won, carspot.attempts)}${
+          winner === 'me' ? '. You won' : winner === 'them' ? `. ${theirName} won` : ''}`}
       >
-        <Avatar user={me ?? undefined} size={22} />
-        <Text style={[styles.score, { color: iWon ? HIT : colors.muted }]}>{scoreOf(iWon, mine.attempts)}</Text>
+        {side(me ?? undefined, iWon, mine.attempts, mine.guesses?.map((g) => [!!g.make_correct, !!g.model_correct] as [boolean, boolean]), 'You', winner === 'me')}
         <View style={[styles.divider, { backgroundColor: colors.borderDark }]} />
-        <Avatar user={author ?? undefined} size={22} />
-        <Text style={[styles.score, { color: carspot.won ? HIT : colors.muted }]}>{scoreOf(carspot.won, carspot.attempts)}</Text>
+        {side(author ?? undefined, carspot.won, carspot.attempts, Array.isArray(carspot.grid) ? carspot.grid : undefined, theirName, winner === 'them')}
       </View>
     );
   }
@@ -249,6 +284,118 @@ export function SpotResultAction({ carspot, author }: Pick<SpotResultBodyProps, 
       </Text>
       <ChevronRight size={15} color={colors.muted} strokeWidth={2.5} />
     </TouchableOpacity>
+  );
+}
+
+/** A plain three-point crown, one solid shape — reads at a dozen pixels where a detailed one doesn't. */
+function SimpleCrown({ size, color }: { size: number; color: string }) {
+  return (
+    <Svg width={size} height={size * 0.8} viewBox="0 0 20 16">
+      <Path d="M1 3 L6 8 L10 1 L14 8 L19 3 L17 15 H3 Z" fill={color} />
+    </Svg>
+  );
+}
+
+/**
+ * A game as the card's table in miniature: a row of dots for the make and
+ * one for the model, a column per guess, green where it was right — in
+ * place of "3/5". Without the guesses themselves (an old share), each miss
+ * is red on both rows and a win's last guess green.
+ */
+function GuessDots({ won, attempts, grid }: { won: boolean; attempts: number; grid?: [boolean, boolean][] }) {
+  const n = Math.max(1, Math.min(grid?.length || attempts || MAX_ATTEMPTS, MAX_ATTEMPTS));
+  const cols = Array.from({ length: n }, (_, i): [boolean, boolean] =>
+    grid?.[i] ?? (won && i === n - 1 ? [true, true] : [false, false]));
+  return (
+    <View style={styles.dots}>
+      {[0, 1].map((row) => (
+        <View key={row} style={styles.dotRow}>
+          {cols.map((c, i) => (
+            <View key={i} style={[styles.dot, { backgroundColor: c[row] ? HIT : MISS }]} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * The feed's spot result folds down to its header row — "@name played Guess
+ * the car" — and this opens it. A feed with a few friends playing daily was
+ * mostly game grids; folded, each is one line, and the grid is a tap away.
+ */
+/** The game's day as a small badge — the folded card's header shows it beside the chevron. */
+export function SpotDateBadge({ carspot }: { carspot: CarSpotSummary }) {
+  const colors = useColors();
+  if (!carspot.play_date) return null;
+  return (
+    <View style={[styles.headerDateBadge, { backgroundColor: colors.fg }]}>
+      <Text style={[styles.date, { color: colors.bg }]}>{shortDateLabel(carspot.play_date)}</Text>
+    </View>
+  );
+}
+
+/** "2026-10-08" → "10/8", read from the parts so the viewer's timezone can't shift the day. */
+function shortDateLabel(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return m ? `${Number(m[2])}/${Number(m[3])}` : date;
+}
+
+export function SpotExpandButton({ open, onToggle, color }: {
+  open: boolean;
+  onToggle: () => void;
+  color: string;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onToggle}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={open ? 'Hide the game' : 'Show the game'}
+      accessibilityState={{ expanded: open }}
+      style={styles.expandBtn}
+    >
+      {open
+        ? <Minus size={13} color={color} strokeWidth={3.2} />
+        : <Plus size={13} color={color} strokeWidth={3.2} />}
+    </TouchableOpacity>
+  );
+}
+
+const SPOT_OPEN_MS = 260;
+
+/**
+ * The opened part of a game result, sliding open and shut under the header.
+ *
+ * The content is measured where it lies unclipped, and the wrapper's height
+ * runs between none and that — so it opens to exactly its own size, and
+ * keeps up if something in it (a photo arriving) changes that size later.
+ * Kept mounted until it has finished closing, so it slides shut rather than
+ * vanishing.
+ */
+export function SpotCollapse({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const [height, setHeight] = useState(0);
+  const progress = useSharedValue(open ? 1 : 0);
+
+  useEffect(() => {
+    if (open) setMounted(true);
+    progress.value = withTiming(
+      open ? 1 : 0,
+      { duration: SPOT_OPEN_MS, easing: Easing.out(Easing.cubic) },
+      (done) => { if (done && !open) runOnJS(setMounted)(false); },
+    );
+  }, [open]);
+
+  const style = useAnimatedStyle(() => ({ height: progress.value * height, opacity: progress.value }));
+
+  if (!mounted) return null;
+  return (
+    <Animated.View style={[styles.collapse, style]}>
+      <View style={styles.collapseInner} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
+        {children}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -279,17 +426,9 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
       <View style={[styles.main, { paddingHorizontal: inset }]}>
         <ZoomedPuzzleImage carspot={carspot} />
 
-        <View style={styles.textCol}>
-          <Text style={[styles.title, { color: colors.fg }]}>Guess the car</Text>
-          {/* The day, as a badge. How it went is the table's to tell. */}
-          <View style={[styles.dateBadge, { backgroundColor: colors.fg }]}>
-            <Text style={[styles.date, { color: colors.bg }]}>{playDateLabel(carspot.play_date)}</Text>
-          </View>
-        </View>
-
         {/* The guesses as a small table: a row for the make and one for the
-            model, the guesses running across in the order they were made.
-            Small: a mark of how it went, not a second picture. */}
+            model, the guesses running across in the order they were made,
+            spread over the width beside the picture. */}
         <View style={[styles.table, { borderColor: TABLE_RULE }]} accessibilityLabel={`${result}. Guesses: ${grid.map(([mk, md], i) =>
           `${i + 1}: make ${mk ? 'right' : 'wrong'}, model ${md ? 'right' : 'wrong'}`).join('; ')}`}>
           {(['Make', 'Model'] as const).map((label, col) => (
@@ -316,7 +455,6 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
   );
 }
 
-const CELL = 11;
 /** The table's rules: lighter than the card's own borders, so they read as a grid rather than a box. */
 const TABLE_RULE = 'rgba(255,255,255,0.22)';
 /** Every guess the game allows, so the table is the same shape whatever the score. */
@@ -332,20 +470,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLOR_GRAY_10,
     flexShrink: 0,
   },
-  textCol: { flex: 1, minWidth: 0 },
-  title:   { fontSize: 13.5, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
-  dateBadge: { alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS, marginTop: 4 },
+  headerDateBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
   date:    { fontSize: 10.5, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // Ruled like a table: a rounded outer border, then each row after the first
   // draws its top rule and each cell its left one, so no line is drawn twice.
-  table:    { flexShrink: 0, marginLeft: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, overflow: 'hidden', alignSelf: 'flex-start' },
-  tableRow: { flexDirection: 'row', alignItems: 'stretch' },
+  table:    { flex: 1, minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, overflow: 'hidden', alignSelf: 'stretch' },
+  // The two rows share the picture's height between them.
+  tableRow: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
   ruledRow: { borderTopWidth: StyleSheet.hairlineWidth },
   // The row's name, in a fixed column so the cells line up under their numbers.
   rowLabel: { width: 44, paddingHorizontal: 7, paddingVertical: 6, justifyContent: 'center' },
   rowLabelText: { fontSize: 9.5, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
-  cellBox:  { width: CELL + 14, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', borderLeftWidth: StyleSheet.hairlineWidth },
-  cell: { width: CELL, height: CELL, borderRadius: COMMON_RADIUS / 2 },
+  cellBox:  { flex: 1, padding: 5, alignItems: 'stretch', borderLeftWidth: StyleSheet.hairlineWidth },
+  // Fills its cell, inset enough that the table's rules frame it.
+  cell: { flex: 1, borderRadius: 4 },
+
+  expandBtn:  { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  collapse:      { overflow: 'hidden' },
+  collapseInner: { position: 'absolute', top: 0, left: 0, right: 0 },
 
   // ── Under it ─────────────────────────────────────────────────────────────
   actionInline: { paddingTop: 10, alignItems: 'flex-start' },
@@ -362,7 +504,17 @@ const styles = StyleSheet.create({
 
   // The two games as one pill, the same shape as the button it stands in
   // for: face, score, a rule, face, score.
-  compare: { gap: 6, paddingRight: 12 },
-  score:   { fontSize: 13, fontFamily: FONT_INTER.extrabold, marginRight: 4 },
-  divider: { width: StyleSheet.hairlineWidth, height: 16, marginHorizontal: 2 },
+  // No vertical padding of its own — the sides carry it — so the rule
+  // between them runs the pill's full height.
+  compare: { gap: 10, paddingLeft: 10, paddingRight: 12, paddingVertical: 0, borderRadius: 16, alignItems: 'stretch' },
+  side:    { alignItems: 'flex-start', justifyContent: 'center', maxWidth: 120, paddingTop: 2, paddingBottom: 6 },
+  crown:   { position: 'absolute', top: -5, left: -4, transform: [{ rotate: '-30deg' }] },
+  sideRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  face:    { marginTop: 8 },
+  sideLabel: { fontSize: 9, fontFamily: FONT_INTER.semibold, marginTop: 2 },
+  // Two rows a hair's gap apart, together the avatar's height.
+  dots:    { height: 22, justifyContent: 'center', gap: 3 },
+  dotRow:  { flexDirection: 'row', gap: 3 },
+  dot:     { width: 8, height: 8, borderRadius: 2 },
+  divider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
 });

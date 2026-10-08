@@ -179,10 +179,13 @@ export default function ProductSummaryModal({ handle, origin, onClose }: {
   const inStock = selected ? selected.inStock : product?.inStock !== false;
   const buyUrl = selected?.checkout_url ?? product?.checkout_url ?? null;
 
-  // One real variant: nothing to pick, so it's picked.
+  // The first one that's in stock starts picked, so Buy now is there from
+  // the start; the chips change it. Nothing in stock, nothing picked.
   useEffect(() => {
-    if (variants.length === 1 && variants[0].inStock) setVariantId(variants[0].id);
-  }, [variants]);
+    if (variantId && variants.some((v) => v.id === variantId)) return;
+    const first = variants.find((v) => v.inStock);
+    if (first) setVariantId(first.id);
+  }, [variants, variantId]);
 
   // Warm the sheet as soon as there's something to buy.
   useEffect(() => {

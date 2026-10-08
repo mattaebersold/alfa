@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -14,7 +14,6 @@ import PostActionRail from '../social/PostActionRail';
 import { usePostLike } from '../../hooks/usePostLike';
 import PostOptionsButton from '../social/PostOptionsButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
-import ImageLightbox from '../ui/ImageLightbox';
 import { useSummary } from '../../providers/SummaryProvider';
 import { userPreview } from '../members/UserSummaryModal';
 import { Images } from 'lucide-react-native';
@@ -22,11 +21,12 @@ import MessageAboutListingButton from '../social/MessageAboutListingButton';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { imageUrl } from '../../utils/image';
-import { postMediaList, type PostMedia } from '../../utils/postMedia';
+import { postMediaList } from '../../utils/postMedia';
 import { LinearGradient } from 'expo-linear-gradient';
 import PostMediaCarousel, { PageDots } from '../media/PostMediaCarousel';
 import SourceAppChip from '../social/SourceAppChip';
-import SpotResultBody, { SpotResultAction } from '../feed/SpotResultBody';
+import LikeBurst from '../social/LikeBurst';
+import SpotResultBody, { SpotResultAction, SpotExpandButton, SpotDateBadge, SpotCollapse } from '../feed/SpotResultBody';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
@@ -121,6 +121,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   // Non-null while the likers panel is open — it doubles as the rect the panel
   // grows out of.
   const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
+  /** A spot result starts folded to its header row — see SpotExpandButton. */
+  const [spotOpen, setSpotOpen] = useState(false);
 
   // Photos and videos are one ordered list — see utils/postMedia. This also
   // folds in posts whose video predates typed gallery entries, so the card
@@ -173,12 +175,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
     : '';
   const mediaCount = media.length;
 
-  // Tap still opens the post — that's what a card in a feed is for. A pinch on
-  // the photo opens the full-screen viewer instead, which is the gesture people
-  // already reach for when they want a closer look, and it doesn't compete with
-  // either the tap or the sideways swipe through the gallery.
-  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
-
   /**
    * The description, clamped until asked otherwise.
    *
@@ -206,14 +202,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
    * rather than one small underlined word.
    */
   const handleBodyPress = onPress ?? (bodyTruncated ? () => setBodyExpanded(true) : undefined);
-  // The zoom viewer shows photos; a video has its own player and nothing to
-  // pinch into.
-  const galleryUrls = media
-    .filter((m): m is Extract<PostMedia, { kind: 'image' }> => m.kind === 'image')
-    .map((m) => m.url);
-  const zoomGesture = Gesture.Pinch().onStart(() => {
-    runOnJS(setZoomIndex)(0);
-  });
 
   /**
    * Like, comment, share, bookmark — a column over the photo, or a row in the
@@ -233,6 +221,27 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
     // the faces in the likes row catch up with what you just did.
     onToggle: () => setLikeTouched(true),
   });
+
+  /**
+   * Double-tap anywhere on the card to like it — the heart blooms where you
+   * are rather than only in the rail's corner. Only ever likes: a second
+   * double tap on something you've liked does nothing, the way it does
+   * everywhere else people do this. Nothing on your own post.
+   *
+   * On top of the card's own taps, not instead of them: the words, the
+   * author and the buttons keep their single tap with no wait for a possible
+   * second one. A photo has no single tap of its own in the feed, so there
+   * the double tap is all there is.
+   */
+  const [burst, setBurst] = useState(0);
+  const doubleTap = useMemo(() => {
+    const onDoubleTap = () => { if (like.like()) setBurst((n) => n + 1); };
+    // A short leash on movement, so the start of a scroll or a swipe through
+    // the photos is never counted as one of the taps.
+    return Gesture.Tap().numberOfTaps(2).maxDelay(260).maxDistance(12).onEnd((_e, ok) => {
+      if (ok) runOnJS(onDoubleTap)();
+    });
+  }, [like]);
 
   const rail = (vertical: boolean) => (
     <PostActionRail
@@ -255,6 +264,20 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   // The time and the menu take the description's ink: the row's furniture
   // reads at one level, under the name.
   const timeColor = mutedColor;
+
+  // When it was posted, and the ⋯ menu — the header's right end, or, on a
+  // game result, the top of its opened part.
+  const postMenu = userInfo?.user_id === post.user_id ? (
+    <PostOwnerMenu postId={post.internal_id} color={mutedColor} />
+  ) : (
+    <PostOptionsButton postId={post.internal_id} author={user} size={18} color={mutedColor} />
+  );
+  const postMeta = (
+    <>
+      <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
+      {postMenu}
+    </>
+  );
   const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
   const categoryBadge = post.category
     ? (CATEGORY_BADGE_COLORS[post.category] ?? CATEGORY_BADGE_COLORS.default)
@@ -274,6 +297,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
      * are only ever tapped — the words, and the single-image hero — leaving the
      * gallery's own gesture uncontested.
      */
+    <GestureDetector gesture={doubleTap}>
     <View style={[styles.card, { backgroundColor: cardBg }]}>
       {/* Header — avatar/name tap navigates to profile */}
       <View style={styles.header}>
@@ -293,16 +317,39 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
               read as a different kind of object. */}
           <Avatar user={user} size={36} />
           <View style={styles.headerText}>
-            <Text style={[styles.author, { color: fgColor }]}>@{displayName}</Text>
+            <Text style={[styles.author, { color: fgColor }]} numberOfLines={spotResult ? 1 : undefined}>
+              @{displayName}
+              {/* A game result says what it is in the header, so folded
+                  down to this one row it still reads as something. */}
+              {spotResult ? <Text style={[styles.played, { color: mutedColor }]}> played Guess the car</Text> : null}
+            </Text>
           </View>
         </TouchableOpacity>
-        <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
-        {userInfo?.user_id === post.user_id ? (
-          <PostOwnerMenu postId={post.internal_id} color={mutedColor} />
-        ) : (
-          <PostOptionsButton postId={post.internal_id} author={user} size={18} color={mutedColor} />
-        )}
+        {spotResult ? (
+          <>
+            <SpotDateBadge carspot={spotResult} />
+            <SpotExpandButton open={spotOpen} onToggle={() => setSpotOpen((o) => !o)} color={mutedColor} />
+          </>
+        ) : postMeta}
       </View>
+
+      {/* A game result's folded row is just who and when it was played; the
+          menu comes with the rest of it, beside the like. */}
+      {spotResult ? (
+        <SpotCollapse open={spotOpen}>
+          <SpotResultBody carspot={spotResult} author={user} action={false} />
+          <PostContextRow post={post} omitGroupId={omitGroupId} />
+          <View style={styles.footerRow}>
+            {/* A spot result's way into the game leads the row; the icons keep
+                the right. */}
+            <View style={styles.footerLeft}>
+              <SpotResultAction carspot={spotResult} author={user} />
+            </View>
+            {rail(false)}
+            {postMenu}
+          </View>
+        </SpotCollapse>
+      ) : null}
 
       {/* The title, or the body standing in for it when there isn't one.
           Without a picture the words are the whole card, and at the size that
@@ -320,7 +367,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         <SourceAppChip app={post.source_app} sourceId={post.source_id} style={styles.sourceChip} />
       ) : null}
 
-      {spotResult ? <SpotResultBody carspot={spotResult} author={user} action={false} /> : null}
 
       {!spotResult && (post.title || bodyText) && (
         <TouchableOpacity
@@ -403,7 +449,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* The post's media — photos and videos in one strip, drawn at one
           shape so swiping doesn't resize the card. */}
       {hasMedia && (
-        <GestureDetector gesture={zoomGesture}>
           <View style={styles.mediaFrame}>
             <PostMediaCarousel
               media={media}
@@ -416,7 +461,11 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
               // With no destination to go to, a tap on a photo opens the photo
               // — the same viewer the gallery badge opens. A video's first tap
               // is still its own: it starts playback.
-              onPressItem={onPress ?? (() => setZoomIndex(0))}
+              // A host with somewhere to go keeps the tap. Otherwise a photo has
+              // no tap at all: a closer look is a pinch (below), and a double
+              // tap is a like.
+              onPressItem={onPress}
+              pinchZoom
               // Dots drawn here, beside the gallery count, not at the foot's centre.
               showPageIndicator={false}
               overlay={({ active }) =>
@@ -456,24 +505,19 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
                     pointerEvents="none"
                   />
                   {/* Bottom left: the gallery count, and the page dots
-                      straight after it. */}
+                      straight after it. A label now, not a button — the
+                      photos are swiped through and pinched into right here. */}
                   {mediaCount > 1 && (
-                    <View style={styles.galleryRow} pointerEvents="box-none">
-                      {/* The count opens the viewer — a badge that states a
-                          number you can act on should be the thing you act on. */}
-                      <TouchableOpacity
+                    <View style={styles.galleryRow} pointerEvents="none">
+                      <View
                         style={styles.multiImgBadge}
-                        onPress={() => setZoomIndex(0)}
-                        activeOpacity={0.85}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel={`View all ${mediaCount} photos`}
+                        accessibilityLabel={`${mediaCount} photos`}
                       >
                         <Images size={16} color={COLOR_WHITE} strokeWidth={2} />
                         {/* The dots, in the pill — one per photo, so they're
                             the count too, and say which one you're on. */}
                         <PageDots count={mediaCount} active={active} />
-                      </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                   {/* The actions, down the right of the photo. */}
@@ -482,15 +526,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
               }
             />
           </View>
-        </GestureDetector>
       )}
-
-      <ImageLightbox
-        images={galleryUrls}
-        initialIndex={zoomIndex ?? 0}
-        visible={zoomIndex !== null}
-        onClose={() => setZoomIndex(null)}
-      />
 
       {/* Message the seller about a marketplace listing */}
       {isListing && user?.user_id && userInfo?.user_id !== post.user_id && (
@@ -505,19 +541,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           what you came to read, and this lands where "and where was this?"
           actually occurs to you. Above the likes, which belong with the
           actions they came from. */}
-      <PostContextRow post={post} omitGroupId={omitGroupId} />
+      {/* A spot result's sits in its opening part, above. */}
+      {spotResult ? null : <PostContextRow post={post} omitGroupId={omitGroupId} />}
 
       {/* No photo to carry the actions: they end the card in a row of their
           own instead, right-aligned. */}
-      {!hasMedia && (
+      {!hasMedia && !spotResult && (
         <View style={styles.footerRow}>
-          {/* A spot result's way into the game leads the row; the icons keep
-              the right. */}
-          {spotResult ? (
-            <View style={styles.footerLeft}>
-              <SpotResultAction carspot={spotResult} author={user} />
-            </View>
-          ) : null}
           {rail(false)}
         </View>
       )}
@@ -530,7 +560,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         onClose={() => setLikersOrigin(undefined)}
       />
 
+      <LikeBurst trigger={burst} />
     </View>
+    </GestureDetector>
   );
 }
 
@@ -549,6 +581,7 @@ const styles = StyleSheet.create({
   headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerText:  { flex: 1, minWidth: 0 },
   author:      { fontSize: 14, fontFamily: FONT_INTER.bold },
+  played:      { fontFamily: FONT_INTER.medium },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
   titleWrap:      { paddingHorizontal: 8, paddingBottom: 10 },

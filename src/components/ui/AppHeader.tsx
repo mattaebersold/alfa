@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
@@ -341,9 +342,14 @@ interface AppHeaderProps {
   /** The tab that's lit — the one whose content is showing. */
   activeTab?: string;
   onTabPress?: (key: string) => void;
+  /**
+   * What the logo does on a screen that's already where it leads — the home
+   * feed refreshing itself. Left out, the logo goes to the home feed.
+   */
+  onLogoPress?: () => void;
 }
 
-export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHeaderProps = {}) {
+export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoPress }: AppHeaderProps = {}) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAppSelector((s) => s.auth);
@@ -525,7 +531,13 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress }: AppHe
           // keeps the square button it has always had.
           wide={isPro}
           sheen={sheenTone}
-          onPress={() => go('FeedTab', { screen: 'Feed', params: { tab: 'feed', at: Date.now() } })}
+          onPress={() => {
+            // A tap you can feel — no permissions or native setup behind it,
+            // and a no-op on a device without a haptic engine.
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            if (onLogoPress) onLogoPress();
+            else go('FeedTab', { screen: 'Feed', params: { tab: 'feed', at: Date.now() } });
+          }}
         >
           <Image
             source={require('../../../assets/logo.png')}

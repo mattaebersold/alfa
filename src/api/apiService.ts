@@ -8,7 +8,7 @@ import type {
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
   FeedPreferences, HomeBanner, CarActivityItem, PollSummary,
-  DeclinedInvite, ReportableType, ShopProduct, ShopProductList, NotificationType, NotificationSettings,
+  DeclinedInvite, ReportableType, ShopProduct, ShopProductList, ShopCollection, NotificationType, NotificationSettings,
   PlacePrediction, PlaceDetail, GroupActivityItem,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
   Listing, ListingMeta, ListingBrowseParams, ListingBrowseResponse,
@@ -984,7 +984,7 @@ export const apiService = createApi({
     // ── Driving routes ──────────────────────────────────────────────────────
     // Reads are open to everyone; creating is pro-only and enforced by the API.
 
-    getRoutes: builder.query<{ entries: DrivingRoute[]; total: number }, RouteListParams | void>({
+    getRoutes: builder.query<{ entries: DrivingRoute[]; total: number; near_unavailable?: boolean }, RouteListParams | void>({
       query: (params) => ({ url: 'api/routes', params: (params ?? {}) as Record<string, any> }),
       providesTags: ['Route'],
     }),
@@ -1046,6 +1046,34 @@ export const apiService = createApi({
     downvoteRoute: builder.mutation<RouteVoteResult, string>({
       query: (internal_id) => ({ url: 'api/routes/downvote', method: 'POST', body: { internal_id } }),
       invalidatesTags: (result, error, id) => [{ type: 'Route', id }, 'Route'],
+    }),
+
+    // "I drove this" — add yourself to a route's drivers (or change your
+    // time, day and conditions), and take yourself off again. Each answers
+    // with the route as the detail reads it.
+    addRouteDriver: builder.mutation<{ entry: DrivingRoute }, {
+      internal_id: string; duration_ms?: number | null; driven_on?: string | null; conditions?: string[];
+    }>({
+      query: (body) => ({ url: 'api/routes/drivers', method: 'POST', body }),
+      invalidatesTags: (result, error, arg) => [{ type: 'Route', id: arg.internal_id }],
+    }),
+
+    removeRouteDriver: builder.mutation<{ entry: DrivingRoute }, string>({
+      query: (internal_id) => ({ url: 'api/routes/drivers/remove', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, id) => [{ type: 'Route', id }],
+    }),
+
+    // Photos along the way, from the owner or anyone else, optionally at a
+    // pit stop (`pit_stop_id` in the form). The list is invalidated too: the
+    // first photo on a route without one becomes its card's picture.
+    addRoutePhotos: builder.mutation<{ entry: DrivingRoute }, { internal_id: string; body: FormData }>({
+      query: ({ body }) => ({ url: 'api/routes/photos', method: 'POST', body }),
+      invalidatesTags: (result, error, arg) => [{ type: 'Route', id: arg.internal_id }, 'Route'],
+    }),
+
+    removeRoutePhoto: builder.mutation<{ entry: DrivingRoute }, { internal_id: string; filename: string }>({
+      query: (body) => ({ url: 'api/routes/photos/remove', method: 'POST', body }),
+      invalidatesTags: (result, error, arg) => [{ type: 'Route', id: arg.internal_id }, 'Route'],
     }),
 
     getEvents: builder.query<PaginatedResponse<Event>, { page?: number; limit?: number; group_id?: string }>({
@@ -1338,6 +1366,13 @@ export const apiService = createApi({
         url: 'api/shop/products',
         params: { limit, ...(collection ? { collection } : {}) },
       }),
+      providesTags: ['Product'],
+    }),
+
+    /** The store's collections — its categories, set up in the Shopify admin. */
+    getShopCollections: builder.query<ShopCollection[], void>({
+      query: () => 'api/shop/collections',
+      transformResponse: (r: { entries: ShopCollection[] }) => r.entries ?? [],
       providesTags: ['Product'],
     }),
 
@@ -2817,6 +2852,7 @@ export const {
   useDeleteMessageThreadMutation,
   useSearchMessageUsersQuery,
   useGetProductsQuery,
+  useGetShopCollectionsQuery,
   useGetProductQuery,
   useGetRallysQuery,
   useGetRallyQuery,
@@ -2909,6 +2945,10 @@ export const {
   useDeleteRouteMutation,
   useUpvoteRouteMutation,
   useDownvoteRouteMutation,
+  useAddRouteDriverMutation,
+  useRemoveRouteDriverMutation,
+  useAddRoutePhotosMutation,
+  useRemoveRoutePhotoMutation,
   useGetListingsQuery,
   useGetListingMetaQuery,
   useGetListingQuery,

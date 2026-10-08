@@ -447,6 +447,8 @@ export interface CarSpotSummary {
   focus_y: number;
   /** How far in the puzzle starts, 1.5–8. */
   zoom: number;
+  /** How long the game took, in ms. Missing on results shared before it was sent. */
+  time_ms?: number | null;
 }
 
 /**
@@ -461,6 +463,10 @@ export interface CarSpotPlay {
   attempts: number;
   max_attempts: number;
   late: boolean;
+  /** How long the game took, in ms — null for a late game or one from before it was timed. */
+  time_ms?: number | null;
+  /** Each guess, and which half of it was right. */
+  guesses?: { make_correct: boolean; model_correct: boolean }[];
 }
 
 /** GET api/carspot/today — today's puzzle and my play of it, if any. */
@@ -1261,12 +1267,47 @@ export interface NearbyPlace {
 
 /** Somewhere worth stopping, dropped while recording. */
 export interface RoutePitStop {
+  /** Stable handle — what a photo's `pit_stop_id` points at. */
+  id?: string;
   lat: number;
   lng: number;
   t?: number;
   label?: string;
   note?: string;
   place_id?: string;
+}
+
+/** What the drive was like — see constants/routeConditions. */
+export type RouteCondition =
+  | 'day' | 'night' | 'dusk' | 'sunny' | 'overcast' | 'rainy'
+  | 'foggy' | 'snowy' | 'icy' | 'wet' | 'windy' | 'traffic';
+
+/**
+ * Someone who drove a route: the creator (always first) or anyone who's said
+ * "I drove this" since. Everything but who is optional.
+ */
+export interface RouteDriver {
+  user_id: string;
+  duration_ms?: number | null;
+  driven_on?: string | null;
+  conditions?: RouteCondition[];
+  added_at?: string;
+  is_creator?: boolean;
+  /** The quickest logged time, when more than one driver gave one. */
+  is_fastest?: boolean;
+  user?: User | null;
+}
+
+/**
+ * A photo in a route's gallery. The owner's own (from the save form) carry no
+ * `user_id`; one anyone else added carries theirs, and `user` on the detail.
+ */
+export interface RouteGalleryItem extends GalleryItem {
+  user_id?: string;
+  user?: User | null;
+  /** The pit stop it was taken at, if any — a `RoutePitStop.id`. */
+  pit_stop_id?: string;
+  added_at?: string;
 }
 
 /** One leg of a route's directions: a road, how far along it, how you joined. */
@@ -1284,7 +1325,7 @@ export interface DrivingRoute {
   entry_type?: 'route';
   title?: string;
   body?: string;
-  gallery?: GalleryItem[];
+  gallery?: RouteGalleryItem[];
   private?: boolean;
 
   /**
@@ -1320,6 +1361,10 @@ export interface DrivingRoute {
   start_place?: string;
   end_place?: string;
   car_id?: string;
+  /** The creator's conditions on the drive. */
+  conditions?: RouteCondition[];
+  /** Everyone who drove it, the creator first. Detail responses only. */
+  drivers?: RouteDriver[];
 
   /**
    * Groups the route was shared into, the way a post carries them. With groups
@@ -1337,6 +1382,10 @@ export interface DrivingRoute {
   user_vote?: RouteVote;
   like_count?: number;
   has_liked?: boolean;
+  /** Same as has_liked — the name the like rail reads elsewhere. */
+  isLiked?: boolean;
+  /** The newest likers' ids, up to twelve — the faces beside the heart. */
+  likers?: string[];
   comment_count?: number;
 
   created_at?: string;
@@ -1373,6 +1422,7 @@ export interface DrivingRouteDetail {
   has_voted: boolean;
   like_count?: number;
   has_liked?: boolean;
+  likers?: string[];
   comment_count?: number;
 }
 
@@ -1407,6 +1457,12 @@ export interface RouteListParams {
   min_curviness?: number;
   max_curviness?: number;
   min_technical?: number;
+  /** Matched against the title and both ends' place names. */
+  q?: string;
+  /** The shared Location filter — see useLocationFilter. */
+  near?: 'me';
+  radius?: number;
+  region?: string;
 }
 
 // Paginated response envelope
@@ -1495,6 +1551,12 @@ export interface ConciergeRow {
   gallery?: GalleryItem[];
   sort_order?: number;
   created_at?: string;
+}
+
+/** A Shopify collection — one of the shop's categories. */
+export interface ShopCollection {
+  handle: string;
+  title: string;
 }
 
 export interface ShopProductList {

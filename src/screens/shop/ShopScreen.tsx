@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, StyleSheet, FlatList, RefreshControl, TouchableOpacity,
 } from 'react-native';
@@ -13,7 +13,8 @@ import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
-import { useGetProductsQuery } from '../../api/apiService';
+import { useGetProductsQuery, useGetShopCollectionsQuery } from '../../api/apiService';
+import ChipRow from '../../components/ui/ChipRow';
 import { ss } from '../../styles/shared';
 import type { ShopProduct } from '../../types/api';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_PRO } from '../../constants/config';
@@ -30,8 +31,10 @@ import { FONT_INTER } from '../../constants/fonts'
  * destination.
  */
 
-function ProductCard({ product, onPress, onBuy }: {
+function ProductCard({ product, onPress, onBuy, compact }: {
   product: ShopProduct;
+  /** Half width, two to a row: a square photo, the price under the name, no blurb. */
+  compact?: boolean;
   onPress: (origin: SummaryOrigin | null) => void;
   /** Buy from the card. Null when there's a choice to make first — then the button opens the panel. */
   onBuy: ((origin: SummaryOrigin | null) => void);
@@ -45,7 +48,7 @@ function ProductCard({ product, onPress, onBuy }: {
   return (
     // Hands its rect to the panel it opens, so the panel grows out of the card.
     <SummaryTouchable
-      style={[styles.card, { backgroundColor: colors.card }]}
+      style={[styles.card, compact && styles.cardCompact, { backgroundColor: colors.card }]}
       onPress={onPress}
       activeOpacity={0.88}
       accessibilityLabel={`${product.title}, ${priceRange(product)}`}
@@ -53,18 +56,20 @@ function ProductCard({ product, onPress, onBuy }: {
       {/* Rounded at the foot too, so the picture sits in the card rather
           than capping it. */}
       <View style={styles.cardImgWrap} onLayout={(e) => setCardW(e.nativeEvent.layout.width)}>
-        <ProductGallery images={product.gallery ?? []} width={cardW} aspectRatio={4 / 3} />
+        {/* No dots: the card takes the touch, so its photos can't be swiped here. */}
+        <ProductGallery images={product.gallery ?? []} width={cardW} aspectRatio={compact ? 1 : 4 / 3} dots={false} />
+      </View>
+      {/* The price on the photo's top-left corner, where a glance down the
+          grid finds it; sold out takes the other corner. */}
+      <View style={styles.priceOnPhoto} pointerEvents="none">
+        <PricePill label={priceRange(product)} size="sm" />
       </View>
       {soldOut && (
         <View style={styles.badge}><Text style={styles.badgeText}>Sold out</Text></View>
       )}
-      <View style={styles.cardBody}>
-        {/* The name, with the price as a pill at its right. */}
-        <View style={styles.cardTitleRow}>
-          <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{product.title}</Text>
-          <PricePill label={priceRange(product)} size="sm" />
-        </View>
-        {blurb ? (
+      <View style={[styles.cardBody, compact && styles.cardBodyCompact]}>
+        <Text style={[styles.cardTitle, compact && styles.cardTitleCompact, { color: colors.fg }]} numberOfLines={2}>{product.title}</Text>
+        {blurb && !compact ? (
           <Text style={[styles.cardBlurb, { color: colors.muted }]} numberOfLines={2}>{blurb}</Text>
         ) : null}
         {/* Straight to checkout when there's nothing to choose; otherwise the
@@ -73,7 +78,7 @@ function ProductCard({ product, onPress, onBuy }: {
           // Gold, full width: the one thing to do with a product, and the
           // colour the app spends on paying for things.
           <SummaryTouchable
-            style={styles.buyBtn}
+            style={[styles.buyBtn, compact && styles.buyBtnCompact]}
             onPress={onBuy}
             activeOpacity={0.85}
             accessibilityLabel={`Buy ${product.title}`}
@@ -92,10 +97,29 @@ export default function ShopScreen() {
   useScrollTopOnBack(scrollRef);
   const colors = useColors();
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetProductsQuery();
-  const products = data?.entries ?? [];
+  /**
+   * The filter under the heading: "All", then the store's collections as
+   * set up in the Shopify admin. A collection is asked of Shopify rather than
+   * filtered here — it keeps the order the admin gave it.
+   */
+  const [collection, setCollection] = useState('all');
+  const { data: collections, refetch: refetchCollections } = useGetShopCollectionsQuery();
+  const options = useMemo(
+    () => [{ key: 'all', label: 'All' }, ...(collections ?? []).map((c) => ({ key: c.handle, label: c.title }))],
+    [collections],
+  );
 
-  const onRefresh = useCallback(() => { refetch(); }, [refetch]);
+  const { data, currentData, isLoading, isFetching, isError, refetch } = useGetProductsQuery(
+    collection === 'all' ? undefined : { collection },
+  );
+  // This filter's own answer, not the last one's: switching shows the
+  // spinner rather than the previous collection's products under a new chip.
+  const products = currentData?.entries ?? [];
+  const switching = !currentData && isFetching;
+  // Two across once there's more than one; a lone product keeps the full width.
+  const columns = products.length > 1 ? 2 : 1;
+
+  const onRefresh = useCallback(() => { refetch(); refetchCollections(); }, [refetch, refetchCollections]);
 
   /** The product open in the panel, and the card it grew out of. */
   const [open, setOpen] = useState<{ handle: string; origin: SummaryOrigin | null } | null>(null);
@@ -106,7 +130,7 @@ export default function ShopScreen() {
     else setOpen({ handle: p.handle, origin });
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
         <AppHeader spacer />
@@ -121,31 +145,46 @@ export default function ShopScreen() {
       <View style={[styles.content, { backgroundColor: colors.cream }]}>
         <FlatList
           ref={scrollRef}
+          // numColumns can't change on a mounted list; a new key remounts it.
+          key={`cols-${columns}`}
+          numColumns={columns}
+          columnWrapperStyle={columns > 1 ? styles.gridRow : undefined}
           data={products}
           keyExtractor={(p) => p.handle}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isFetching && !isLoading} onRefresh={onRefresh} tintColor={colors.primaryAlt} />}
+          refreshControl={<RefreshControl refreshing={isFetching && !switching && !isLoading} onRefresh={onRefresh} tintColor={colors.primaryAlt} />}
           ListHeaderComponent={
-            <View style={styles.intro}>
-              <Text style={[styles.introTitle, { color: colors.fg }]}>Shop</Text>
+            <View>
+              <View style={styles.intro}>
+                <Text style={[styles.introTitle, { color: colors.fg }]}>Shop</Text>
+              </View>
+              {options.length > 1 && (
+                // The chips run to the screen edges; the list pads 12.
+                <View style={styles.filter}>
+                  <ChipRow options={options} value={collection} onChange={setCollection} />
+                </View>
+              )}
             </View>
           }
           renderItem={({ item }) => (
             <ProductCard
+              compact={columns > 1}
               product={item}
               onPress={(origin) => setOpen({ handle: item.handle, origin })}
               onBuy={(origin) => buyFromCard(item, origin)}
             />
           )}
-          ListEmptyComponent={
+          ListEmptyComponent={switching ? (
+            <View style={styles.emptyWrap}><Spinner /></View>
+          ) : (
             <View style={styles.emptyWrap}>
               <EmptyState
                 title={isError ? "Couldn't load the shop" : 'No products available'}
                 message={isError ? 'Check your connection and pull to refresh.' : undefined}
               />
             </View>
-          }
+          )}
         />
       </View>
 
@@ -168,26 +207,33 @@ const styles = StyleSheet.create({
   },
   introTitle:{ fontSize: 22, fontFamily: FONT_INTER.bold },
   card:      {
-    // One product per row: at full width the photo is the pitch, so the grid's
-    // two-up crop was costing the merch more than the density was worth.
+    // Full width when it's the only one; two to a row otherwise (cardCompact).
     width: '100%', marginBottom: 12,
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   badge:     {
-    position: 'absolute', top: 8, left: 8,
+    position: 'absolute', top: 8, right: 8,
     backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,
   },
   badgeText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.bold },
+  // Capped so an odd one out on the last row stays a half, not a whole.
+  cardCompact: { width: undefined, flex: 1, maxWidth: '48.5%' },
+  gridRow:   { gap: 10 },
+  filter:    { marginHorizontal: -12, paddingBottom: 10 },
   cardBody:  { padding: 14, gap: 8 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  cardTitle: { flex: 1, minWidth: 0, fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 22 },
+  // Fills the card, so the buy buttons line up along a row.
+  cardBodyCompact: { flex: 1, padding: 10, gap: 6 },
+  priceOnPhoto: { position: 'absolute', top: 8, left: 8 },
+  cardTitleCompact: { fontSize: 14, lineHeight: 18 },
+  cardTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 22 },
   cardBlurb: { fontSize: 13, lineHeight: 18 },
   cardImgWrap: { borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   buyBtn:    {
     marginTop: 4, height: 44, borderRadius: COMMON_RADIUS,
     backgroundColor: COLOR_PRO, alignItems: 'center', justifyContent: 'center',
   },
+  buyBtnCompact: { height: 38, marginTop: 'auto' },
   buyText:   { color: COLOR_BLACK, fontSize: 15, fontFamily: FONT_INTER.bold },
   emptyWrap: { paddingTop: 40 },
 });

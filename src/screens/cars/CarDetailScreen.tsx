@@ -389,33 +389,53 @@ function FilterChip({ label, active, onPress, accent }: { label: string; active:
 
 // ── Mod card ─────────────────────────────────────────────────────────────────
 
-function ModCard({ mod, colors, onOptions, onComments }: {
+function ModCard({ mod, colors, onOptions, onComments, onPhoto }: {
   mod: Mod;
   colors: ReturnType<typeof useColors>;
   onOptions?: () => void;
   /** Opens the thread. Hoisted to the screen so one sheet serves the list. */
   onComments?: () => void;
+  /** Opens the mod's photos in the car's lightbox, at the one tapped. */
+  onPhoto?: (index: number) => void;
 }) {
-  const thumb = mod.gallery?.[0] ? imageUrl(mod.gallery[0].filename) : null;
+  const photos = (mod.gallery ?? []).filter((g) => g.filename && g.type !== 'video');
+  const when = mod.created_at ? formatDistanceToNow(new Date(mod.created_at), { addSuffix: true }) : '';
   return (
     <View style={[modStyles.card, { backgroundColor: colors.card }]}>
-      {thumb && (
-        <Image source={{ uri: thumb }} style={modStyles.thumb} contentFit="cover" />
-      )}
+      {/* One photo fills the top of the card; several sit in a strip, so a
+          mod with a dozen install shots doesn't run a screen tall. */}
+      {photos.length === 1 ? (
+        <Pressable onPress={() => onPhoto?.(0)} accessibilityRole="imagebutton" accessibilityLabel="View photo">
+          <Image source={{ uri: imageUrl(photos[0].filename)! }} style={modStyles.thumb} contentFit="cover" />
+        </Pressable>
+      ) : photos.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={modStyles.strip}
+        >
+          {photos.map((g, i) => (
+            <Pressable
+              key={g.internal_id ?? g.filename}
+              onPress={() => onPhoto?.(i)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`View photo ${i + 1} of ${photos.length}`}
+            >
+              <Image source={{ uri: imageUrl(g.filename)! }} style={modStyles.stripThumb} contentFit="cover" />
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
       <View style={modStyles.body}>
         <View style={modStyles.titleRow}>
           <Text style={[modStyles.title, { color: colors.fg }]} numberOfLines={2}>{mod.title ?? 'Untitled'}</Text>
-          {mod.type && (
-            <View style={[modStyles.typeBadge, { backgroundColor: colors.segment }]}>
-              <Text style={[modStyles.typeText, { color: colors.grey }]}>{mod.type}</Text>
-            </View>
-          )}
           {onOptions && (
             <TouchableOpacity onPress={onOptions} hitSlop={8} style={modStyles.optionsBtn}>
               <MoreHorizontal size={18} color={colors.grey} />
             </TouchableOpacity>
           )}
         </View>
+        {when ? <Text style={[modStyles.when, { color: colors.grey }]}>{when}</Text> : null}
         {mod.body ? (
           <Text style={[modStyles.desc, { color: colors.muted }]} numberOfLines={3}>{stripHtml(mod.body)}</Text>
         ) : null}
@@ -445,17 +465,56 @@ function ModCard({ mod, colors, onOptions, onComments }: {
   );
 }
 
+/**
+ * A car's mods, grouped by what part of the car they're on.
+ *
+ * Mods are filed under a type (MOD_TYPES — engine, suspension…); `category`
+ * is on the model but nothing sets it, so it's only a fallback. Groups go in
+ * alphabetical order with General and Other — the catch-alls — last, and the
+ * newest mod first within each.
+ */
+const CATCH_ALL_MOD_GROUPS = ['general', 'other'];
+
+function groupMods(mods: Mod[]): { key: string; label: string; mods: Mod[] }[] {
+  const byKey = new Map<string, Mod[]>();
+  for (const mod of mods) {
+    const key = (mod.type || mod.category || 'other').toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(mod);
+  }
+  const labelFor = (key: string) =>
+    MOD_TYPES.find((t) => t.key === key)?.label ?? key.charAt(0).toUpperCase() + key.slice(1);
+  const time = (m: Mod) => (m.created_at ? new Date(m.created_at).getTime() : 0);
+  const rank = (key: string) => CATCH_ALL_MOD_GROUPS.indexOf(key);
+  return Array.from(byKey, ([key, list]) => ({
+    key,
+    label: labelFor(key),
+    mods: [...list].sort((a, b) => time(b) - time(a)),
+  })).sort((a, b) => {
+    const ra = rank(a.key), rb = rank(b.key);
+    if (ra !== rb) return ra === -1 ? -1 : rb === -1 ? 1 : ra - rb;
+    return a.label.localeCompare(b.label);
+  });
+}
+
 const modStyles = StyleSheet.create({
   card:      { marginHorizontal: 12, marginBottom: 8, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   actions:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: -6 },
   thumb:     { width: '100%', height: 180 },
+  strip:     { gap: 6, paddingHorizontal: 12, paddingTop: 12 },
+  stripThumb:{ width: 120, height: 90, borderRadius: COMMON_RADIUS },
   body:      { padding: 12 },
-  titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' },
+  titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title:     { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold, lineHeight: 20 },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, flexShrink: 0 },
   typeText:  { fontSize: 11, fontFamily: FONT_INTER.bold },
   optionsBtn:{ padding: 2, marginLeft: 2 },
+  when:      { fontSize: 11, fontStyle: 'italic', marginTop: 2 },
   desc:      { fontSize: 13, lineHeight: 18, marginTop: 6 },
+  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 14, marginBottom: 8 },
+  groupLabel:{ fontSize: 14, fontFamily: FONT_INTER.bold },
+  groupCount:{ paddingHorizontal: 7, paddingVertical: 1, borderRadius: PILL_RADIUS },
+  groupCountText: { fontSize: 11, fontFamily: FONT_INTER.bold },
 });
 
 // ── Animated bottom sheet ────────────────────────────────────────────────────
@@ -1176,13 +1235,33 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       }
       case 'mods':
         if (mods.length === 0) return <EmptyState title="No mods yet" />;
-        return mods.map((mod) => (
-          <ModCard
-            key={mod.internal_id}
-            mod={mod}
-            colors={colors}
-            onComments={() => setSubComments({ id: mod.internal_id, type: 'mod' })}
-          />
+        return groupMods(mods).map((group) => (
+          <View key={group.key}>
+            <View style={modStyles.groupHead}>
+              <Text style={[modStyles.groupLabel, { color: colors.fg }]}>{group.label}</Text>
+              <View style={[modStyles.groupCount, { backgroundColor: colors.segment }]}>
+                <Text style={[modStyles.groupCountText, { color: colors.grey }]}>{group.mods.length}</Text>
+              </View>
+            </View>
+            {group.mods.map((mod) => (
+              <ModCard
+                key={mod.internal_id}
+                mod={mod}
+                colors={colors}
+                onComments={() => setSubComments({ id: mod.internal_id, type: 'mod' })}
+                // The car's own lightbox, given the mod's photos as an album
+                // of its own — opened once the pane has closed, as an
+                // album's is.
+                onPhoto={(index) => openAlbum({
+                  internal_id: mod.internal_id,
+                  car_id: mod.car_id,
+                  title: mod.title,
+                  gallery: (mod.gallery ?? []).filter((g) => g.filename && g.type !== 'video'),
+                  isMod: true,
+                } as CarGalleryAlbum & { isMod: true }, index)}
+              />
+            ))}
+          </View>
         ));
       case 'galleries':
         if (paneAlbums.length === 0) return <EmptyState title="No galleries yet" />;
@@ -1990,7 +2069,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           initialIndex={viewer.index}
           title={viewer.album.title}
           onClose={() => setViewer(null)}
-          onManage={isOwnerOrCoOwner ? () => handleAlbumOptions(viewer.album) : undefined}
+          // A mod's photos open here too; the album menu isn't theirs.
+          onManage={isOwnerOrCoOwner && !(viewer.album as { isMod?: boolean }).isMod ? () => handleAlbumOptions(viewer.album) : undefined}
         />
       )}
 

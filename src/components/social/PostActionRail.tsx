@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Heart } from 'lucide-react-native';
 import CommentButton from './CommentButton';
 import PostBookmarkButton from './PostBookmarkButton';
 import PostCommentsModal from './PostCommentsModal';
 import LikerFaces from './LikerFaces';
+import AnimatedHeart from './AnimatedHeart';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import { COLOR_WHITE, COLOR_LIKE } from '../../constants/config';
 import { formatActionCount } from '../../utils/text';
@@ -89,7 +89,8 @@ export default function PostActionRail({
             accessibilityRole="button"
             accessibilityLabel={like.mine ? 'See who liked this' : like.liked ? 'Unlike' : 'Like'}
           >
-            <Heart
+            <AnimatedHeart
+              liked={like.liked}
               size={iconSize}
               color={like.liked ? COLOR_LIKE : COLOR_WHITE}
               fill={like.liked ? COLOR_LIKE : 'transparent'}

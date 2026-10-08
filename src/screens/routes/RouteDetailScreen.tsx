@@ -1,21 +1,25 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated,
+  View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated, PanResponder, Platform,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
-import { Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2, PenLine } from 'lucide-react-native';
+import {
+  Navigation, CornerUpLeft, CornerUpRight, ArrowUp, Maximize2, PenLine,
+  Ruler, Timer, Gauge, Zap, CalendarDays,
+} from 'lucide-react-native';
 import RouteMap from '../../components/routes/RouteMap';
 import RouteMapFullScreen from '../../components/routes/RouteMapFullScreen';
-import VoteButton from '../../components/routes/VoteButton';
+import RouteActions from '../../components/routes/RouteActions';
+import RouteDrivers from '../../components/routes/RouteDrivers';
+import RoutePhotoStrip from '../../components/routes/RoutePhotoStrip';
+import { ConditionTags } from '../../components/routes/ConditionChips';
 import RouteOwnerMenu from '../../components/routes/RouteOwnerMenu';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import LikeButton from '../../components/social/LikeButton';
-import CommentButton from '../../components/social/CommentButton';
-import CommentsSheet from '../../components/social/CommentsSheet';
+import Avatar from '../../components/ui/Avatar';
 import PostTagBadges from '../../components/social/PostTagBadges';
 import GroupAttribution from '../../components/groups/GroupAttribution';
 import { useGetRouteQuery } from '../../api/apiService';
@@ -23,25 +27,30 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
-  decodePolyline, formatDistance, formatDuration, formatSpeed, curvinessLabel,
+  decodePolyline, formatDistance, formatDuration, formatSpeed,
 } from '../../utils/routeGeometry';
 import { openInMaps } from '../../utils/routeDirections';
 import { format } from 'date-fns';
 import type { RoutesStackParamList } from '../../navigation/types';
-import { isPlottedRoute, type RoutePitStop } from '../../types/api';
+import { isPlottedRoute, type RoutePitStop, type RouteGalleryItem } from '../../types/api';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useRoutePhotos } from '../../hooks/useAddRoutePhotos';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type DetailRoute = RouteProp<RoutesStackParamList, 'RouteDetail'>;
 
 /**
  * A single route: its shape on a map, the numbers behind it, who drove it and
- * in what, and what people made of it — the vote, likes and comments.
+ * in what, the photos people took along it, and what people made of it —
+ * likes and comments.
  */
 export default function RouteDetailScreen() {
-  const { params } = useRoute<DetailRoute>();
+  const { params, name: screenName } = useRoute<DetailRoute>();
+  // Opened over the app as a sheet (not pushed in the Routes tab): no header,
+  // a grabber over the map instead — see AppNavigator's RouteDetailModal.
+  const asSheet = (screenName as string) === 'RouteDetailModal';
   // Reached from the Routes tab and as a modal from anywhere else, so the
   // navigator isn't one known stack; RouteSave lives on the app stack above both.
   const navigation = useNavigation<any>();
@@ -60,7 +69,9 @@ export default function RouteDetailScreen() {
   // Above the loading guard: a hook after an early return runs on some renders
   // and not others, which is the one thing hooks can't survive.
   const [fullMap, setFullMap] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  // Before the guards too. Until the route arrives it has nothing to add to,
+  // and canAdd is false for an empty owner — nothing renders from it anyway.
+  const photos = useRoutePhotos(data?.entry ?? NO_ROUTE);
   /**
    * The expand control fades out as the body climbs over the map, and stops
    * taking touches once it's gone. A boolean rather than a scroll offset, so
@@ -69,6 +80,17 @@ export default function RouteDetailScreen() {
    */
   const [mapCovered, setMapCovered] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  /**
+   * Drag the grabber down to close. iOS's modal carries the gesture itself;
+   * this is it for Android. Claims the touch only once it's clearly a
+   * downward pull, so a tap (which also closes) keeps its own.
+   */
+  const dismissPan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_e, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+    onPanResponderRelease: (_e, g) => {
+      if (g.dy > 80 || g.vy > 0.6) navigation.goBack();
+    },
+  })).current;
 
   if (isLoading) return <Spinner />;
   // Deleted, private, or never there — the API answers all three with a 404,
@@ -88,6 +110,39 @@ export default function RouteDetailScreen() {
   const groupIds = entry.group_ids ?? [];
 
   const hasMap = path.length >= 2;
+
+  /**
+   * Photos people uploaded — not the map the server drew for a route saved
+   * without one (no internal_id; see routePhoto). Those taken at a pit stop
+   * show with the stop; the rest are the drive's.
+   */
+  const uploads = (entry.gallery ?? []).filter((g) => !!g.internal_id && !!g.filename && g.type !== 'video');
+  const stopIds = new Set((entry.pit_stops ?? []).map((st) => st.id).filter(Boolean));
+  const drivePhotos = uploads.filter((g) => !g.pit_stop_id || !stopIds.has(g.pit_stop_id));
+  const stopPhotos = (id?: string) => (id ? uploads.filter((g) => g.pit_stop_id === id) : []);
+
+  /**
+   * The drive's photos as a gallery per person, so whose are whose is never
+   * a guess: the creator's first, then everyone else's by who added most
+   * recently. Photos from before uploads were attributed are the creator's.
+   */
+  const byUploader = new Map<string, RouteGalleryItem[]>();
+  drivePhotos.forEach((g) => {
+    const uid = g.user_id || entry.user_id;
+    byUploader.set(uid, [...(byUploader.get(uid) ?? []), g]);
+  });
+  const latest = (list: RouteGalleryItem[]) =>
+    Math.max(0, ...list.map((g) => (g.added_at ? new Date(g.added_at).getTime() : 0)));
+  const photoGroups = [...byUploader.entries()]
+    .map(([uid, list]) => ({
+      uid,
+      list,
+      who: uid === entry.user_id ? (user ?? list[0]?.user) : (list.find((g) => g.user)?.user ?? null),
+    }))
+    .sort((a, b) => (a.uid === entry.user_id ? -1 : b.uid === entry.user_id ? 1 : latest(b.list) - latest(a.list)));
+  // Where the add tile goes: the end of your own gallery, or a gallery of
+  // its own when you haven't added any yet.
+  const mineHasGroup = !!myId && byUploader.has(myId);
 
   return (
     /**
@@ -159,6 +214,19 @@ export default function RouteDetailScreen() {
       ]}>
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.fg }]}>{entry.title || 'Untitled route'}</Text>
+          {/* The heart, faces and comment every card has — no votes: a like
+              says the same thing with one control instead of two. Up beside
+              the name, where a glance at the route lands. */}
+          <RouteActions
+            route={{
+              internal_id: entry.internal_id,
+              user_id: entry.user_id,
+              like_count: data.like_count ?? entry.like_count,
+              has_liked: data.has_liked ?? entry.has_liked,
+              comment_count: data.comment_count ?? entry.comment_count,
+              likers: data.likers ?? entry.likers,
+            }}
+          />
           {/* Only the creator gets Edit and Delete; the server checks again. */}
           {isOwner && (
             <RouteOwnerMenu
@@ -176,8 +244,9 @@ export default function RouteDetailScreen() {
           </Text>
         )}
 
-        {/* Who recorded it, who drove it, the car it was driven in and the
-            events it was part of — the post badges, relabelled for a drive.
+        {/* Who recorded it and the car it was driven in, side by side with a
+            mark each rather than headings; then anyone else tagged as driving
+            it, and the events it was part of — the post badges, for a drive.
             The route's own car_id is folded in for routes saved before cars
             were tagged. Pulled out to the screen edge, since the badges bring
             their own inset. */}
@@ -186,36 +255,8 @@ export default function RouteDetailScreen() {
             postId={entry.internal_id}
             creatorId={user?.user_id ?? entry.user_id}
             extraCarIds={entry.car_id ? [entry.car_id] : undefined}
-            labels={{ creator: 'Created By', users: 'Driven By', cars: 'Driven In', events: 'Events' }}
-          />
-        </View>
-
-        <View style={styles.actionRow}>
-        {/* Up, score, down — cast the way a group discussion vote is. */}
-        <VoteButton
-          routeId={entry.internal_id}
-          score={data.vote_count ?? entry.vote_count ?? 0}
-          userVote={data.user_vote ?? null}
-          large
-        />
-
-        {/* Likes and comments ride the generic collections under the `route`
-            type, which is what lets the server find the route's owner and tell
-            them. */}
-        <View style={[styles.socialPill, { borderColor: colors.border }]}>
-          <LikeButton
-            documentId={entry.internal_id}
-            entryType="route"
-            ownerId={entry.user_id}
-            initialLiked={data.has_liked ?? false}
-            initialCount={data.like_count ?? 0}
-            color={colors.fg}
-            size={19}
-          />
-          <CommentButton
-            count={data.comment_count ?? 0}
-            onPress={() => setCommentsOpen(true)}
-            color={colors.fg}
+            labels={{ users: 'Driven By', events: 'Events' }}
+            pairCreatorWithCars
           />
         </View>
 
@@ -231,38 +272,27 @@ export default function RouteDetailScreen() {
             <Text style={[styles.followLabel, { color: onBrand }]}>Drive this route</Text>
           </TouchableOpacity>
         )}
-        </View>
 
         {/* A plotted route's grid has no timed cells — there was nothing to
             time. In their place it says what it is, and when, if the member
             said. The numbers a route is sorted on stay honest that way. */}
-        {stats && (isPlottedRoute(entry) ? (
-          <View style={[styles.statsGrid, { borderColor: colors.border }]}>
-            <GridStat label="Distance" value={formatDistance(stats.distance_meters)} colors={colors} />
-            <GridStat
-              label="Technical"
-              value={`${curvinessLabel(stats.curviness)} (${stats.curviness})`}
-              colors={colors}
-            />
-            <GridStat
-              label="Driven"
-              value={entry.driven_on ? format(new Date(entry.driven_on), 'MMM d, yyyy') : 'Plotted'}
-              colors={colors}
-            />
-          </View>
-        ) : (
-          <View style={[styles.statsGrid, { borderColor: colors.border }]}>
-            <GridStat label="Distance" value={formatDistance(stats.distance_meters)} colors={colors} />
-            <GridStat label="Moving time" value={formatDuration(stats.moving_ms || stats.duration_ms)} colors={colors} />
-            <GridStat label="Avg speed" value={formatSpeed(stats.avg_speed)} colors={colors} />
-            <GridStat label="Top speed" value={formatSpeed(stats.max_speed)} colors={colors} />
-            <GridStat
-              label="Technical"
-              value={`${curvinessLabel(stats.curviness)} (${stats.curviness})`}
-              colors={colors}
-            />
-          </View>
-        ))}
+        {stats && (
+          <StatTable
+            colors={colors}
+            cells={isPlottedRoute(entry) ? [
+              { Icon: Ruler, label: 'Distance', value: formatDistance(stats.distance_meters) },
+              {
+                Icon: CalendarDays, label: 'Driven',
+                value: entry.driven_on ? format(new Date(entry.driven_on), 'MMM d, yyyy') : 'Plotted',
+              },
+            ] : [
+              { Icon: Ruler, label: 'Distance', value: formatDistance(stats.distance_meters) },
+              { Icon: Timer, label: 'Moving time', value: formatDuration(stats.moving_ms || stats.duration_ms) },
+              { Icon: Gauge, label: 'Avg speed', value: formatSpeed(stats.avg_speed) },
+              { Icon: Zap, label: 'Top speed', value: formatSpeed(stats.max_speed) },
+            ]}
+          />
+        )}
 
         {isPlottedRoute(entry) && (
           <View style={styles.plottedNote}>
@@ -283,9 +313,55 @@ export default function RouteDetailScreen() {
           </Text>
         ) : null}
 
+        <ConditionTags conditions={entry.conditions} />
+
         {entry.body ? (
           <Text style={[styles.description, { color: colors.fg }]}>{entry.body}</Text>
         ) : null}
+
+        {/* Everyone's photos of the drive. Anyone who can see the route can
+            add theirs, as on a photography spot. */}
+        {(drivePhotos.length > 0 || photos.canAdd) && (
+          <View style={styles.directions}>
+            <Text style={[styles.sectionTitle, { color: colors.fg }]}>Photos</Text>
+            {photoGroups.map(({ uid, list, who }) => {
+              const mine = uid === myId;
+              return (
+                <View key={uid} style={styles.photoGroup}>
+                  <View style={styles.photoGroupHead}>
+                    <Avatar user={who as any} size={22} />
+                    <Text style={[styles.photoGroupName, { color: colors.fg }]} numberOfLines={1}>
+                      {mine ? 'Your photos' : who?.username ? `@${who.username}` : 'A driver'}
+                    </Text>
+                    <Text style={[styles.photoGroupCount, { color: colors.grey }]}>{list.length}</Text>
+                  </View>
+                  <RoutePhotoStrip
+                    photos={list}
+                    canAdd={mine && photos.canAdd}
+                    adding={photos.adding === 'route'}
+                    onAdd={() => photos.add()}
+                    canRemove={photos.canRemove}
+                    onRemove={photos.remove}
+                    showUploader={false}
+                  />
+                </View>
+              );
+            })}
+            {photos.canAdd && !mineHasGroup && (
+              <View style={styles.photoGroup}>
+                <RoutePhotoStrip
+                  photos={[]}
+                  canAdd
+                  adding={photos.adding === 'route'}
+                  onAdd={() => photos.add()}
+                  canRemove={photos.canRemove}
+                  onRemove={photos.remove}
+                  addLabel="Add your photos"
+                />
+              </View>
+            )}
+          </View>
+        )}
 
         <Itinerary
           startPlace={entry.start_place}
@@ -293,6 +369,27 @@ export default function RouteDetailScreen() {
           stops={entry.pit_stops}
           colors={colors}
           brand={brand}
+          renderStopPhotos={(stop) => (
+            <RoutePhotoStrip
+              photos={stopPhotos(stop.id)}
+              size={72}
+              // Only stops with an id can carry photos — every stop has one
+              // once the server has read the route.
+              canAdd={photos.canAdd && !!stop.id}
+              adding={!!stop.id && photos.adding === stop.id}
+              onAdd={() => photos.add(stop.id)}
+              canRemove={photos.canRemove}
+              onRemove={photos.remove}
+              addLabel="Add"
+            />
+          )}
+        />
+
+        <RouteDrivers
+          routeId={entry.internal_id}
+          drivers={entry.drivers ?? []}
+          myId={myId}
+          canJoin={photos.canAdd}
         />
 
         {/* The roads this drive followed. Resolved once when the route was
@@ -335,17 +432,25 @@ export default function RouteDetailScreen() {
       </View>
       </Animated.ScrollView>
 
-      {/* Outside the scroll view, so the sheet isn't clipped by the body panel.
-          The count on the button is the server's, so it's refreshed on close. */}
-      <CommentsSheet
-        postId={entry.internal_id}
-        entryType="route"
-        visible={commentsOpen}
-        onClose={() => {
-          setCommentsOpen(false);
-          refetch();
-        }}
-      />
+      {/* A sheet's grabber in place of a header and its X: tap it or drag it
+          down to close, as every other sheet in the app closes. Over the map,
+          which runs to the top edge now there's no bar above it. */}
+      {asSheet && (
+        <View
+          style={[styles.grabberWrap, { top: Platform.OS === 'android' ? insets.top : 0 }]}
+          {...dismissPan.panHandlers}
+        >
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.grabberHit}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <View style={styles.grabber} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Above the scroll view so it stays tappable over the map, and faded out
           by the time the body has climbed over the thing it expands. */}
@@ -378,12 +483,16 @@ export default function RouteDetailScreen() {
   );
 }
 
+/** Stands in for the route before it's loaded — see the photos hook above. */
+const NO_ROUTE = { internal_id: '', user_id: '', gallery: [] as RouteGalleryItem[] };
+
 interface ItineraryRow {
   key: string;
   label: string;
   place: string;
   note?: string;
   kind: 'start' | 'stop' | 'end';
+  stop?: RoutePitStop;
 }
 
 /**
@@ -397,12 +506,14 @@ interface ItineraryRow {
  *
  * Distinct from "The route" below it, which is the roads. This is the stops.
  */
-function Itinerary({ startPlace, endPlace, stops, colors, brand }: {
+function Itinerary({ startPlace, endPlace, stops, colors, brand, renderStopPhotos }: {
   startPlace?: string;
   endPlace?: string;
   stops?: RoutePitStop[];
   colors: any;
   brand: string;
+  /** A stop's photos, under its name and note. */
+  renderStopPhotos?: (stop: RoutePitStop) => React.ReactNode;
 }) {
   const rows: ItineraryRow[] = [];
 
@@ -424,6 +535,7 @@ function Itinerary({ startPlace, endPlace, stops, colors, brand }: {
       place: stop.label?.trim() || 'Pit stop',
       note: stop.note?.trim() || undefined,
       kind: 'stop',
+      stop,
     });
   });
 
@@ -460,6 +572,9 @@ function Itinerary({ startPlace, endPlace, stops, colors, brand }: {
               {row.note ? (
                 <Text style={[styles.itinNote, { color: colors.grey }]}>{row.note}</Text>
               ) : null}
+              {row.stop && renderStopPhotos ? (
+                <View style={styles.itinPhotos}>{renderStopPhotos(row.stop)}</View>
+              ) : null}
             </View>
           </View>
         ))}
@@ -481,11 +596,33 @@ function TurnIcon({ turn, color }: { turn?: string | null; color: string }) {
     : <CornerUpRight size={17} color={color} />;
 }
 
-function GridStat({ label, value, colors }: { label: string; value: string; colors: any }) {
+type StatCell = { Icon: typeof Ruler; label: string; value: string };
+
+/**
+ * The numbers as a table: two to a row, ruled between, each a mark and its
+ * value — the mark says which number it is, so no grey caption under each.
+ * The label rides along for screen readers.
+ */
+function StatTable({ cells, colors }: { cells: StatCell[]; colors: any }) {
+  const rows: StatCell[][] = [];
+  for (let i = 0; i < cells.length; i += 2) rows.push(cells.slice(i, i + 2));
   return (
-    <View style={styles.gridStat}>
-      <Text style={[styles.gridValue, { color: colors.fg }]}>{value}</Text>
-      <Text style={[styles.gridLabel, { color: colors.grey }]}>{label}</Text>
+    <View style={[styles.statTable, { borderColor: colors.border }]}>
+      {rows.map((row, r) => (
+        <View key={r} style={[styles.statRow, r > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border }]}>
+          {row.map(({ Icon, label, value }, c) => (
+            <View
+              key={label}
+              style={[styles.statCell, c > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderColor: colors.border }]}
+              accessible
+              accessibilityLabel={`${label}: ${value}`}
+            >
+              <Icon size={16} color={colors.grey} />
+              <Text style={[styles.statValue, { color: colors.fg }]} numberOfLines={1}>{value}</Text>
+            </View>
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
@@ -510,6 +647,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   expandHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  // SharedModal's grabber, darkened behind so it reads over any map.
+  grabberWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  grabberHit:  { paddingTop: 8, paddingBottom: 12, paddingHorizontal: 24 },
+  grabber:     {
+    width: 38, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.85)',
+    shadowColor: COLOR_BLACK, shadowOpacity: 0.5, shadowRadius: 3, shadowOffset: { width: 0, height: 0 }, elevation: 2,
+  },
   body:    { padding: 16, gap: 12 },
   // Laps up over the bottom of the spacer, so the map behind shows through the
   // rounded corners rather than meeting them flush.
@@ -521,7 +665,7 @@ const styles = StyleSheet.create({
     paddingTop: 16 + BODY_OVERLAP / 2,
   },
 
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title: { flex: 1, fontSize: 22, fontFamily: FONT_INTER.bold, letterSpacing: -0.4 },
   place: { fontSize: 14 },
 
@@ -529,26 +673,16 @@ const styles = StyleSheet.create({
   // full-width card; this cancels both so they line up with the body's gutter.
   tags: { marginHorizontal: -12, marginTop: -16 },
 
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  // Heart and comment in one outline the height of the vote pill beside it, so
-  // the row reads as a set of controls rather than two icons floating loose.
-  socialPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    height: 42, paddingHorizontal: 10, borderRadius: COMMON_RADIUS, borderWidth: 1.5,
-  },
   followBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingHorizontal: 16, height: 42, borderRadius: COMMON_RADIUS,
+    paddingHorizontal: 16, height: 46, borderRadius: COMMON_RADIUS, alignSelf: 'stretch',
   },
   followLabel: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 
-  statsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    borderWidth: 1, borderRadius: 12, padding: 4, marginTop: 4,
-  },
-  gridStat:  { width: '33.33%', paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' },
-  gridValue: { fontSize: 16, fontFamily: FONT_INTER.bold },
-  gridLabel: { fontSize: 11, marginTop: 2 },
+  statTable: { borderWidth: 1, borderRadius: 12, overflow: 'hidden', marginTop: 4 },
+  statRow:   { flexDirection: 'row' },
+  statCell:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 12 },
+  statValue: { flexShrink: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
 
   meta:        { fontSize: 13 },
   plottedNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 16, paddingTop: 10 },
@@ -558,6 +692,10 @@ const styles = StyleSheet.create({
   // has its gutter, so that's cancelled here.
   groupBanners: { marginHorizontal: -8, marginTop: -12 },
   sectionTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, marginBottom: 6 },
+  photoGroup:      { marginBottom: 14 },
+  photoGroupHead:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  photoGroupName:  { flexShrink: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
+  photoGroupCount: { fontSize: 12, fontFamily: FONT_INTER.medium },
   step:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   stepRoad:     { fontSize: 14, lineHeight: 19 },
   stepDistance: { fontSize: 12, marginTop: 1 },
@@ -575,4 +713,5 @@ const styles = StyleSheet.create({
   itinLabel: { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   itinPlace: { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 2 },
   itinNote:  { fontSize: 13, lineHeight: 18, marginTop: 2 },
+  itinPhotos: { marginTop: 8 },
 });

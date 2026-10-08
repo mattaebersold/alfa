@@ -7,6 +7,7 @@ import { Image } from 'expo-image';
 import { NavigationContext } from '@react-navigation/native';
 import Svg, { Polygon } from 'react-native-svg';
 import VideoLightbox from '../ui/VideoLightbox';
+import PinchZoom from './PinchZoom';
 import { clampMediaRatio, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config';
@@ -45,6 +46,7 @@ export default function PostMediaCarousel({
   visible,
   ratio: fixedRatio,
   videoOpensItem = false,
+  pinchZoom = false,
 }: {
   media: PostMedia[];
   /**
@@ -86,6 +88,8 @@ export default function PostMediaCarousel({
    * badge still say there's a video; the post is where you watch it.
    */
   videoOpensItem?: boolean;
+  /** Photos grow under a pinch and settle back on release — see PinchZoom. */
+  pinchZoom?: boolean;
 }) {
   const [width, setWidth] = useState(0);
   const [measuredRatio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
@@ -151,13 +155,15 @@ export default function PostMediaCarousel({
           activeOpacity={onPressItem ? 0.95 : 1}
           disabled={!onPressItem}
         >
-          <Image
-            source={{ uri: item.url }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            transition={200}
-            onLoad={index === 0 ? (e) => lockRatio(e.source.width, e.source.height) : undefined}
-          />
+          <PinchZoom style={StyleSheet.absoluteFill} enabled={pinchZoom}>
+            <Image
+              source={{ uri: item.url }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              transition={200}
+              onLoad={index === 0 ? (e) => lockRatio(e.source.width, e.source.height) : undefined}
+            />
+          </PinchZoom>
         </TouchableOpacity>
       );
     }
@@ -206,7 +212,7 @@ export default function PostMediaCarousel({
         </View>
       </Pressable>
     );
-  }, [width, onPressItem, lockRatio, videoOpensItem]);
+  }, [width, onPressItem, lockRatio, videoOpensItem, pinchZoom]);
 
   const keyExtractor = useCallback((item: PostMedia) => item.key, []);
   const getItemLayout = useCallback(

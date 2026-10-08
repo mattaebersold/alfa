@@ -48,7 +48,7 @@ export const CURVINESS_PRESETS: Record<string, { min?: number }> = {
   extreme:   { min: 70 },
 };
 
-const SORTS: { key: RouteSort; label: string }[] = [
+export const SORTS: { key: RouteSort; label: string }[] = [
   { key: 'recent', label: 'Newest' },
   // Ranked by likes now that the cards carry a heart rather than votes.
   { key: 'likes', label: 'Most liked' },

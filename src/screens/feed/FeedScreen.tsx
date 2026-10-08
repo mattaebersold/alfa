@@ -22,6 +22,7 @@ import { MembersView } from '../society/MembersScreen';
 import { Home, Calendar, ShoppingBag, Users, Camera, Car, User } from 'lucide-react-native';
 import { PhotographyScreen as KitPhotographyScreen } from '@ors/kit/src/photography';
 import { useGetPhotoSpotQuery } from '@ors/kit';
+import SpotActions from '../../components/photography/SpotActions';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { Listing } from '../../types/api';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
@@ -119,6 +120,8 @@ export default function FeedScreen() {
    * the top — but a tap on a tab takes it back to its top (see selectTab).
    */
   const [tab, setTab] = useState<FeedTab>('feed');
+  /** Bumped by the logo on the feed tab — FeedList refreshes on each change. */
+  const [feedRefresh, setFeedRefresh] = useState(0);
   const [mounted, setMounted] = useState<ReadonlySet<FeedTab>>(() => new Set<FeedTab>(['feed']));
   /**
    * The pane arriving on a switch starts invisible and TAB_ENTER_RISE points
@@ -268,6 +271,7 @@ export default function FeedScreen() {
   const onDropPin = useCallback((point: { lat: number; lng: number; name?: string; address?: string }) => (navigation as any).navigate('PhotoSpotCreate', {
     lat: point.lat, lng: point.lng, name: point.name, address: point.address,
   }), [navigation]);
+  const renderSpotActions = useCallback((spotId: string) => <SpotActions spotId={spotId} />, []);
   const onEditSpot = useCallback((spotId: string) => (navigation as any).navigate('PhotoSpotCreate', { spotId }), [navigation]);
   const eventsScrollRef = useRef<ScrollView>(null);
   const marketScrollRef = useRef<FlatList<Listing>>(null);
@@ -298,7 +302,15 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
-      <AppHeader tabs={FEED_TABS} activeTab={tab} onTabPress={selectTab} />
+      <AppHeader
+        tabs={FEED_TABS}
+        activeTab={tab}
+        onTabPress={selectTab}
+        // Already home: the logo has nowhere to go, so it does what a pull
+        // does — back to the top, header showing, and a fresh page with the
+        // spinner turning. On another tab it brings you back to the feed.
+        onLogoPress={tab === 'feed' ? () => { selectTab('feed'); setFeedRefresh((n) => n + 1); } : undefined}
+      />
       <View style={ss.fill}>
       <View style={tab === 'feed' ? paneShown : paneHidden} pointerEvents={tab === 'feed' ? 'auto' : 'none'}>
       <Animated.View style={[ss.fill, paneAnim.feed]}>
@@ -314,6 +326,7 @@ export default function FeedScreen() {
           ListHeaderComponent={FeedHeader}
           paddingTop={headerPad - FEED_TOP_TRIM}
           onScroll={gated.feed}
+          refreshSignal={feedRefresh}
         />
       </Animated.View>
       </View>
@@ -381,6 +394,8 @@ export default function FeedScreen() {
             focus={photoFocus}
             onDropPin={onDropPin}
             onEditSpot={onEditSpot}
+            // A like and the comments, under the spot's photos.
+            renderSpotContext={renderSpotActions}
           />
         </Animated.View>
         </View>

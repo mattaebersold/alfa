@@ -162,7 +162,9 @@ export default function AppNavigator() {
       <Stack.Screen
         name="RouteDetailModal"
         component={RouteDetailScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Route', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        // No header: the map runs to the top and the screen draws a grabber
+        // over it — tap or drag down to close, like a sheet.
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical' }}
       />
       <Stack.Screen
         name="RouteSave"

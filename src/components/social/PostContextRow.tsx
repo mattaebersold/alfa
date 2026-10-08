@@ -22,6 +22,7 @@ import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import type { Post } from '../../types/api';
 import { PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_11 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import SpotActions from '../photography/SpotActions';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 /** The card's own horizontal inset — tiles line up with everything else on it. */
@@ -368,6 +369,7 @@ export default function PostContextRow({ post, omitGroupId }: {
       <PhotoSpotSummaryModal
         spotId={open?.kind === 'spot' ? open.id : null}
         onClose={close}
+        renderContext={(spotId) => <SpotActions spotId={spotId} />}
       />
     </>
   );

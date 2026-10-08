@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { Heart } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLikeEntryMutation, useUnlikeEntryMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -9,6 +8,7 @@ import { useColors } from '../../hooks/useColors';
 import { formatActionCount } from '../../utils/text';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import LikersSheet from './LikersSheet';
+import AnimatedHeart from './AnimatedHeart';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_LIKE } from '../../constants/config';
 
@@ -123,7 +123,8 @@ export default function LikeButton({
           : liked ? 'Unlike' : 'Like'
         }
       >
-        <Heart
+        <AnimatedHeart
+          liked={liked}
           size={size}
           color={liked ? COLOR_LIKE : resting}
           fill={liked ? COLOR_LIKE : 'transparent'}

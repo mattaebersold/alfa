@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Calendar, MapPin } from 'lucide-react-native';
+import { Calendar, MapPin, User as UserIcon, Car as CarIcon } from 'lucide-react-native';
 import {
   useGetPostTagsQuery, useGetUserByIdQuery, useGetCarQuery, useGetEventQuery,
 } from '../../api/apiService';
@@ -60,7 +60,8 @@ function TagSection({ label, stacked, children }: {
 
 type Go = (fn: (nav: Nav) => void) => void;
 
-function CarTagRow({ id, go, stacked }: { id: string; go: Go; stacked?: boolean }) {
+/** `marked` leads the badge with a car mark — the car's half of a route's who-and-what row. */
+function CarTagRow({ id, go, stacked, marked }: { id: string; go: Go; stacked?: boolean; marked?: boolean }) {
   const colors = useColors();
   const { data: car } = useGetCarQuery(id, { skip: !id });
   if (!car) return null;
@@ -72,6 +73,7 @@ function CarTagRow({ id, go, stacked }: { id: string; go: Go; stacked?: boolean 
       onPress={() => go((n) => n.navigate('CarDetail', { carId: car.internal_id }))}
       activeOpacity={0.75}
     >
+      {marked ? <CarIcon size={15} color={colors.grey} /> : null}
       {img
         ? <Image source={{ uri: img }} style={styles.badgeThumb} contentFit="cover" />
         : <View style={[styles.badgeThumb, { backgroundColor: colors.segment }]} />}
@@ -80,7 +82,8 @@ function CarTagRow({ id, go, stacked }: { id: string; go: Go; stacked?: boolean 
   );
 }
 
-function UserTagRow({ id, go, stacked }: { id: string; go: Go; stacked?: boolean }) {
+/** `marked` leads the badge with a person mark — the creator's half of a route's who-and-what row. */
+function UserTagRow({ id, go, stacked, marked }: { id: string; go: Go; stacked?: boolean; marked?: boolean }) {
   const colors = useColors();
   const { data: user } = useGetUserByIdQuery(id, { skip: !id });
   if (!user) return null;
@@ -90,6 +93,7 @@ function UserTagRow({ id, go, stacked }: { id: string; go: Go; stacked?: boolean
       onPress={() => go((n) => n.navigate('UserDetail', { userId: user.user_id, username: user.username }))}
       activeOpacity={0.75}
     >
+      {marked ? <UserIcon size={15} color={colors.grey} /> : null}
       <Avatar user={user} size={28} />
       <Text style={[styles.badgeName, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
     </TouchableOpacity>
@@ -182,10 +186,16 @@ interface PostTagBadgesProps {
    * Merged with the tagged cars, so one car is never listed twice.
    */
   extraCarIds?: string[];
+  /**
+   * The creator and the car(s) as one unlabelled row, half each — each badge
+   * led by a mark (a person, a car) — instead of a "Created
+   * By" section and a cars section with headings. A route's detail uses it.
+   */
+  pairCreatorWithCars?: boolean;
 }
 
 export default function PostTagBadges({
-  postId, onNavigate, labels, creatorId, extraCarIds,
+  postId, onNavigate, labels, creatorId, extraCarIds, pairCreatorWithCars,
 }: PostTagBadgesProps) {
   const nav = useNavigation<Nav>();
   const go = (fn: (n: Nav) => void) => (onNavigate ? onNavigate(fn) : fn(nav));
@@ -211,6 +221,52 @@ export default function PostTagBadges({
   const eventsLabel = labels?.events ?? 'Tagged Events';
 
   if (!creatorId && cars.length + users.length + events.length === 0) return null;
+
+  // Tagged-event detail modal
+  const eventSheet = (
+    <BottomSheet
+      visible={!!selectedEvent}
+      onClose={() => setSelectedEvent(null)}
+      title={selectedEvent?.title || 'Event'}
+    >
+      {selectedEvent && (
+        <EventModalContent
+          event={selectedEvent}
+          onViewFull={() => {
+            const eventId = selectedEvent.internal_id;
+            setSelectedEvent(null);
+            go((n) => n.navigate('EventDetailModal', { eventId }));
+          }}
+        />
+      )}
+    </BottomSheet>
+  );
+
+  if (pairCreatorWithCars && creatorId) {
+    return (
+      <>
+        <View style={styles.columns}>
+          <View style={[styles.column, styles.stack]}>
+            <UserTagRow id={creatorId} go={go} stacked marked />
+          </View>
+          <View style={[styles.column, styles.stack]}>
+            {cars.map((id, i) => <CarTagRow key={`c-${id}-${i}`} id={id} go={go} stacked marked />)}
+          </View>
+        </View>
+        {users.length > 0 && (
+          <TagSection label={usersLabel}>
+            {users.map((id, i) => <UserTagRow key={`u-${id}-${i}`} id={id} go={go} />)}
+          </TagSection>
+        )}
+        {events.length > 0 && (
+          <TagSection label={eventsLabel}>
+            {events.map((id, i) => <EventTagRow key={`e-${id}-${i}`} id={id} onOpen={setSelectedEvent} />)}
+          </TagSection>
+        )}
+        {eventSheet}
+      </>
+    );
+  }
 
   return (
     <>
@@ -252,23 +308,7 @@ export default function PostTagBadges({
         </TagSection>
       )}
 
-      {/* Tagged-event detail modal */}
-      <BottomSheet
-        visible={!!selectedEvent}
-        onClose={() => setSelectedEvent(null)}
-        title={selectedEvent?.title || 'Event'}
-      >
-        {selectedEvent && (
-          <EventModalContent
-            event={selectedEvent}
-            onViewFull={() => {
-              const eventId = selectedEvent.internal_id;
-              setSelectedEvent(null);
-              go((n) => n.navigate('EventDetailModal', { eventId }));
-            }}
-          />
-        )}
-      </BottomSheet>
+      {eventSheet}
     </>
   );
 }
