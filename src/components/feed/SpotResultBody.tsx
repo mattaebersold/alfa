@@ -4,7 +4,7 @@ import { View, TouchableOpacity, StyleSheet, Platform, type LayoutChangeEvent } 
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { ChevronRight, Plus, Minus } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { G, Path } from 'react-native-svg';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
@@ -22,7 +22,7 @@ import {
   COLOR_SPOTTER_GREEN,
   COLOR_SHEEN_GOLD,
 } from '../../constants/config';
-import type { CarSpotSummary, CarSpotPlay } from '../../types/api';
+import type { CarSpotSummary, CarSpotPlay, CarSpotSharedResult, CarSpotDifficulty } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** The game's own right/wrong colours, so the grid reads the same as in Car Spotter. */
@@ -48,6 +48,65 @@ const SPOT_ICON = require('../../../assets/apps/spot-icon.png');
 /** The server clamps zoom to 1.5–8; clamped again here so a bad row can't blow the image up. */
 const clampZoom = (z: number) => Math.min(8, Math.max(1.5, Number(z) || 3.5));
 const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(Number(n)) ? Number(n) : 0.5));
+
+const DIFFICULTY_ORDER: CarSpotDifficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTY_LABEL: Record<CarSpotDifficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+/** How many chilies each is — the Car Spotter app's own marks. */
+const DIFFICULTY_HEAT: Record<CarSpotDifficulty, number> = { easy: 1, medium: 2, hard: 3 };
+const DIFFICULTY_COLOR: Record<CarSpotDifficulty, string> = {
+  easy: COLOR_SPOTTER_GREEN, medium: COLOR_SHEEN_GOLD, hard: COLOR_RED,
+};
+
+/**
+ * A post's games, easy to hard: its `results`, or — a post shared before
+ * there were difficulties — the one game its flat fields describe, medium.
+ */
+export function spotResultsOf(carspot: CarSpotSummary): CarSpotSharedResult[] {
+  const list = carspot.results?.length ? carspot.results : [{
+    difficulty: carspot.difficulty ?? 'medium',
+    attempts: carspot.attempts,
+    won: carspot.won,
+    time_ms: carspot.time_ms ?? null,
+    grid: Array.isArray(carspot.grid) ? carspot.grid : [],
+    image: carspot.image,
+    focus_x: carspot.focus_x,
+    focus_y: carspot.focus_y,
+    zoom: carspot.zoom,
+  }];
+  return [...list].sort((a, b) => DIFFICULTY_ORDER.indexOf(a.difficulty) - DIFFICULTY_ORDER.indexOf(b.difficulty));
+}
+
+/** One outlined chili on a 24-unit grid — the same drawing as the Car Spotter app's. */
+const PEPPER = [
+  'M4 9.5c0 6 5 11 17 11.5c-5-3-7.5-7-9-12',
+  'M4 9.5c1.5-2.5 5-3.2 8-1',
+  'M8 7.4c-.3-2.2.5-3.9 2.6-4.9',
+];
+
+function Peppers({ count, size, color }: { count: number; size: number; color: string }) {
+  const width = 24 + (count - 1) * 19;
+  return (
+    <Svg width={(size * width) / 24} height={size} viewBox={`0 0 ${width} 24`} fill="none">
+      {Array.from({ length: count }, (_, i) => (
+        <G key={i} transform={`translate(${i * 19} 0)`} stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          {PEPPER.map((d) => <Path key={d} d={d} />)}
+        </G>
+      ))}
+    </Svg>
+  );
+}
+
+/** Which of the day's three cars a game was: its chilies and its name. */
+export function SpotDifficultyBadge({ difficulty }: { difficulty: CarSpotDifficulty }) {
+  const colors = useColors();
+  const color = DIFFICULTY_COLOR[difficulty];
+  return (
+    <View style={[styles.difficultyBadge, { borderColor: `${color}66` }]} accessibilityLabel={`${DIFFICULTY_LABEL[difficulty]} difficulty`}>
+      <Peppers count={DIFFICULTY_HEAT[difficulty]} size={11} color={color} />
+      <Text style={[styles.difficultyText, { color: colors.fg }]}>{DIFFICULTY_LABEL[difficulty]}</Text>
+    </View>
+  );
+}
 
 interface SpotResultBodyProps {
   carspot: CarSpotSummary;
@@ -83,7 +142,9 @@ interface SpotResultBodyProps {
  * focus of 0.334 came apart into "4%" and the crop landed off the car — which
  * is why a shared result could show an empty corner instead of the photo.
  */
-function ZoomedPuzzleImage({ carspot }: { carspot: CarSpotSummary }) {
+type PuzzleCrop = Pick<CarSpotSharedResult, 'image' | 'focus_x' | 'focus_y' | 'zoom'>;
+
+function ZoomedPuzzleImage({ carspot }: { carspot: PuzzleCrop }) {
   const [photo, setPhoto] = useState<{ w: number; h: number } | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const fx = clamp01(carspot.focus_x);
@@ -187,18 +248,21 @@ function winnerOf(me: Game, them: Game): 'me' | 'them' | null {
  * about — there's no puzzle left to send them to — and for the author, since
  * it's their own result.
  */
-function useSpotStanding(carspot: CarSpotSummary, author?: SpotResultBodyProps['author']) {
+function useSpotStanding(
+  carspot: CarSpotSummary, difficulty: CarSpotDifficulty, author?: SpotResultBodyProps['author'],
+) {
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
   const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !myId });
   // Missing means an account from before the field, which is an ORS-only one.
   const hasSpot = !!me?.accounts?.includes('spot');
   const date = carspot.play_date;
 
-  const { data: day } = useGetCarSpotDayQuery(date, { skip: !hasSpot || !date });
+  // The viewer's game of the same day in the same difficulty — those are what compare.
+  const { data: day } = useGetCarSpotDayQuery({ date, difficulty }, { skip: !hasSpot || !date });
   const isToday = !!day && day.today === date;
   // Only needed when the post is about an earlier day — otherwise the day's
   // answer already says whether today has been played.
-  const { data: today } = useGetCarSpotTodayQuery(undefined, { skip: !hasSpot || !day || isToday });
+  const { data: today } = useGetCarSpotTodayQuery(difficulty, { skip: !hasSpot || !day || isToday });
 
   const isMine = !!myId && !!author?.user_id && author.user_id === myId;
   if (isMine) return null;
@@ -217,11 +281,15 @@ function useSpotStanding(carspot: CarSpotSummary, author?: SpotResultBodyProps['
  * of those. Exported so a host can put it where its own actions are — the
  * feed card sets it in its footer row, beside the like and comment.
  */
-export function SpotResultAction({ carspot, author }: Pick<SpotResultBodyProps, 'carspot' | 'author'>) {
+export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBodyProps, 'carspot' | 'author'> & {
+  /** Which of the post's games to answer — its only one when left out. */
+  result?: CarSpotSharedResult;
+}) {
   const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
   const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !myId });
-  const standing = useSpotStanding(carspot, author);
+  const game = result ?? spotResultsOf(carspot)[0];
+  const standing = useSpotStanding(carspot, game.difficulty, author);
   if (!standing) return null;
 
   if (standing.kind === 'compare') {
@@ -229,7 +297,7 @@ export function SpotResultAction({ carspot, author }: Pick<SpotResultBodyProps, 
     const iWon = mine.status === 'won';
     const winner = winnerOf(
       { won: iWon, attempts: mine.attempts, time_ms: mine.time_ms },
-      { won: carspot.won, attempts: carspot.attempts, time_ms: carspot.time_ms },
+      { won: game.won, attempts: game.attempts, time_ms: game.time_ms },
     );
     // Capped, so a long name doesn't stretch the pill.
     const theirName = author?.username
@@ -258,12 +326,12 @@ export function SpotResultAction({ carspot, author }: Pick<SpotResultBodyProps, 
     return (
       <View
         style={[styles.appBtn, styles.compare, { backgroundColor: COLOR_GRAY_10, borderColor: colors.borderDark }]}
-        accessibilityLabel={`You ${scoreOf(iWon, mine.attempts)}, ${theirName} ${scoreOf(carspot.won, carspot.attempts)}${
+        accessibilityLabel={`${DIFFICULTY_LABEL[game.difficulty]}: you ${scoreOf(iWon, mine.attempts)}, ${theirName} ${scoreOf(game.won, game.attempts)}${
           winner === 'me' ? '. You won' : winner === 'them' ? `. ${theirName} won` : ''}`}
       >
         {side(me ?? undefined, iWon, mine.attempts, mine.guesses?.map((g) => [!!g.make_correct, !!g.model_correct] as [boolean, boolean]), 'You', winner === 'me')}
         <View style={[styles.divider, { backgroundColor: colors.borderDark }]} />
-        {side(author ?? undefined, carspot.won, carspot.attempts, Array.isArray(carspot.grid) ? carspot.grid : undefined, theirName, winner === 'them')}
+        {side(author ?? undefined, game.won, game.attempts, Array.isArray(game.grid) ? game.grid : undefined, theirName, winner === 'them')}
       </View>
     );
   }
@@ -413,48 +481,100 @@ export function SpotCollapse({ open, children }: { open: boolean; children: Reac
  * author, likes, comments and menus stay the host's, the same as for any
  * other post.
  */
-export default function SpotResultBody({ carspot, author, inset = 8, action = true }: SpotResultBodyProps) {
+/** One game: the photo as a square on the left, the guesses as a small table beside it. */
+function SpotGame({ result, inset }: { result: CarSpotSharedResult; inset: number }) {
   const colors = useColors();
-  const grid = Array.isArray(carspot.grid) ? carspot.grid : [];
-  const attempts = carspot.attempts || grid.length;
-  const result = carspot.won
+  const grid = Array.isArray(result.grid) ? result.grid : [];
+  const attempts = result.attempts || grid.length;
+  const summary = result.won
     ? `Got it in ${attempts}/${MAX_ATTEMPTS}`
     : `Stumped — ${attempts}/${MAX_ATTEMPTS}`;
 
   return (
-    <View style={styles.wrap}>
-      <View style={[styles.main, { paddingHorizontal: inset }]}>
-        <ZoomedPuzzleImage carspot={carspot} />
+    <View style={[styles.main, { paddingHorizontal: inset }]}>
+      <ZoomedPuzzleImage carspot={result} />
 
-        {/* The guesses as a small table: a row for the make and one for the
-            model, the guesses running across in the order they were made,
-            spread over the width beside the picture. */}
-        <View style={[styles.table, { borderColor: TABLE_RULE }]} accessibilityLabel={`${result}. Guesses: ${grid.map(([mk, md], i) =>
-          `${i + 1}: make ${mk ? 'right' : 'wrong'}, model ${md ? 'right' : 'wrong'}`).join('; ')}`}>
-          {(['Make', 'Model'] as const).map((label, col) => (
-            <View key={label} style={[styles.tableRow, col > 0 && styles.ruledRow, { borderColor: TABLE_RULE }]}>
-              <View style={styles.rowLabel}>
-                <Text style={[styles.rowLabelText, { color: colors.muted }]}>{label}</Text>
-              </View>
-              {COLUMNS.map((i) => (
-                <View key={i} style={[styles.cellBox, { borderColor: TABLE_RULE }]}>
-                  {grid[i] ? <View style={[styles.cell, { backgroundColor: grid[i][col] ? HIT : MISS }]} /> : null}
-                </View>
-              ))}
+      {/* The guesses as a small table: a row for the make and one for the
+          model, the guesses running across in the order they were made,
+          spread over the width beside the picture. */}
+      <View style={[styles.table, { borderColor: TABLE_RULE }]} accessibilityLabel={`${summary}. Guesses: ${grid.map(([mk, md], i) =>
+        `${i + 1}: make ${mk ? 'right' : 'wrong'}, model ${md ? 'right' : 'wrong'}`).join('; ')}`}>
+        {(['Make', 'Model'] as const).map((label, col) => (
+          <View key={label} style={[styles.tableRow, col > 0 && styles.ruledRow, { borderColor: TABLE_RULE }]}>
+            <View style={styles.rowLabel}>
+              <Text style={[styles.rowLabelText, { color: colors.muted }]}>{label}</Text>
             </View>
-          ))}
-        </View>
+            {COLUMNS.map((i) => (
+              <View key={i} style={[styles.cellBox, { borderColor: TABLE_RULE }]}>
+                {grid[i] ? <View style={[styles.cell, { backgroundColor: grid[i][col] ? HIT : MISS }]} /> : null}
+              </View>
+            ))}
+          </View>
+        ))}
       </View>
-
-      {action ? (
-        <View style={[styles.actionInline, { paddingHorizontal: inset }]}>
-          <SpotResultAction carspot={carspot} author={author} />
-        </View>
-      ) : null}
     </View>
   );
 }
 
+/**
+ * A shared Car Spotter day, drawn instead of a post's text and photos.
+ *
+ * The post's `body` is the emoji version of the same thing (🟩🟥 rows) for
+ * surfaces that can only show text; here we have the structured `carspot`
+ * summary, so the grid is drawn properly and the emoji are left out. The
+ * answer is never on the post — a result is shareable the day it's played
+ * without spoiling it for anyone who hasn't.
+ *
+ * One game per difficulty the member shared that day, easy to hard, each
+ * with its badge. A single game is drawn as it always was, with the badge
+ * over it; two or three each get a sub-card of their own, and each its own
+ * comparison against the viewer's game of that difficulty — the feed card's
+ * footer only has room for one. Only the middle of the card: author, likes,
+ * comments and menus stay the host's, the same as for any other post.
+ */
+export default function SpotResultBody({ carspot, author, inset = 8, action = true }: SpotResultBodyProps) {
+  const colors = useColors();
+  const results = spotResultsOf(carspot);
+
+  if (results.length === 1) {
+    const [result] = results;
+    return (
+      <View style={styles.wrap}>
+        <View style={[styles.badgeRow, { paddingHorizontal: inset }]}>
+          <SpotDifficultyBadge difficulty={result.difficulty} />
+        </View>
+        <SpotGame result={result} inset={inset} />
+        {action ? (
+          <View style={[styles.actionInline, { paddingHorizontal: inset }]}>
+            <SpotResultAction carspot={carspot} author={author} result={result} />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.wrap, styles.subCards, { paddingHorizontal: inset }]}>
+      {results.map((result) => (
+        <View key={result.difficulty} style={[styles.subCard, { borderColor: colors.borderDark }]}>
+          <View style={[styles.badgeRow, { paddingHorizontal: SUB_INSET }]}>
+            <SpotDifficultyBadge difficulty={result.difficulty} />
+          </View>
+          <SpotGame result={result} inset={SUB_INSET} />
+          <View style={[styles.actionInline, { paddingHorizontal: SUB_INSET }]}>
+            <SpotResultAction carspot={carspot} author={author} result={result} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Whether a post carries more than one game — its comparisons then go in its sub-cards, not the footer. */
+export const spotHasSeveral = (carspot: CarSpotSummary) => spotResultsOf(carspot).length > 1;
+
+/** A sub-card's own padding. */
+const SUB_INSET = 10;
 /** The table's rules: lighter than the card's own borders, so they read as a grid rather than a box. */
 const TABLE_RULE = 'rgba(255,255,255,0.22)';
 /** Every guess the game allows, so the table is the same shape whatever the score. */
@@ -462,6 +582,18 @@ const COLUMNS = Array.from({ length: MAX_ATTEMPTS }, (_, i) => i);
 
 const styles = StyleSheet.create({
   wrap: { paddingBottom: 4 },
+  badgeRow: { flexDirection: 'row', paddingTop: 4, paddingBottom: 2 },
+  difficultyBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
+  },
+  difficultyText: { fontSize: 10.5, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  // The day's games stacked, each in a card of its own inside the post's.
+  subCards: { gap: 8, paddingTop: 4 },
+  subCard: {
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: COMMON_RADIUS,
+    backgroundColor: COLOR_GRAY_10, paddingTop: 4, paddingBottom: 10,
+  },
   main: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 4 },
   imageWindow: {
     width: PHOTO, height: PHOTO,

@@ -26,7 +26,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import PostMediaCarousel, { PageDots } from '../media/PostMediaCarousel';
 import SourceAppChip from '../social/SourceAppChip';
 import LikeBurst from '../social/LikeBurst';
-import SpotResultBody, { SpotResultAction, SpotExpandButton, SpotDateBadge, SpotCollapse } from '../feed/SpotResultBody';
+import SpotResultBody, {
+  SpotResultAction, SpotExpandButton, SpotDateBadge, SpotCollapse, spotHasSeveral,
+} from '../feed/SpotResultBody';
 
 import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { DIECAST_BLUE } from '../../constants/diecast';
@@ -135,6 +137,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
    * result without one falls back to an ordinary text post.
    */
   const spotResult = post.type === 'spot_result' && post.carspot ? post.carspot : null;
+  // Two or three of the day's games: each answers for itself in its own
+  // sub-card, and the footer keeps just the icons.
+  const spotSeveral = !!spotResult && spotHasSeveral(spotResult);
   const media = spotResult ? [] : postMediaList(post);
   const hasMedia = media.length > 0;
   const bodyText = !spotResult && post.body ? stripHtml(post.body).trim() : '';
@@ -337,13 +342,13 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           menu comes with the rest of it, beside the like. */}
       {spotResult ? (
         <SpotCollapse open={spotOpen}>
-          <SpotResultBody carspot={spotResult} author={user} action={false} />
+          <SpotResultBody carspot={spotResult} author={user} action={spotSeveral} />
           <PostContextRow post={post} omitGroupId={omitGroupId} />
           <View style={styles.footerRow}>
             {/* A spot result's way into the game leads the row; the icons keep
                 the right. */}
             <View style={styles.footerLeft}>
-              <SpotResultAction carspot={spotResult} author={user} />
+              {spotSeveral ? null : <SpotResultAction carspot={spotResult} author={user} />}
             </View>
             {rail(false)}
             {postMenu}

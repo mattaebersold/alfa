@@ -3,7 +3,7 @@ import { baseQuery } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  CarSpotToday, CarSpotDay, ConciergeRow,
+  CarSpotToday, CarSpotDay, CarSpotDifficulty, ConciergeRow,
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
@@ -333,11 +333,13 @@ export const apiService = createApi({
     // they've played today, and how they did on the day the post is about.
     // Both are protected routes any member may call; a member who hasn't
     // joined Car Spotter simply has no plays (see User.accounts).
-    getCarSpotToday: builder.query<CarSpotToday, void>({
-      query: () => 'api/carspot/today',
+    // One difficulty at a time: a post's easy game is compared with the
+    // viewer's easy game, its hard with their hard.
+    getCarSpotToday: builder.query<CarSpotToday, CarSpotDifficulty>({
+      query: (difficulty) => ({ url: 'api/carspot/today', params: { difficulty } }),
     }),
-    getCarSpotDay: builder.query<CarSpotDay, string>({
-      query: (date) => `api/carspot/days/${encodeURIComponent(date)}`,
+    getCarSpotDay: builder.query<CarSpotDay, { date: string; difficulty: CarSpotDifficulty }>({
+      query: ({ date, difficulty }) => ({ url: `api/carspot/days/${encodeURIComponent(date)}`, params: { difficulty } }),
     }),
 
     // ── Concierge ───────────────────────────────────────────────────────────

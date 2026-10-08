@@ -426,8 +426,27 @@ export interface Post {
   carspot?: CarSpotSummary | null;
 }
 
+/** Car Spotter's three daily cars — each its own game. Missing means medium (before there were three). */
+export type CarSpotDifficulty = 'easy' | 'medium' | 'hard';
+
+/** One game on a shared day post — one per difficulty the member shared. */
+export interface CarSpotSharedResult {
+  difficulty: CarSpotDifficulty;
+  play_id?: string | null;
+  attempts: number;
+  won: boolean;
+  time_ms?: number | null;
+  grid: [boolean, boolean][];
+  image: string;
+  focus_x: number;
+  focus_y: number;
+  zoom: number;
+}
+
 /**
- * A finished Car Spotter game, as it rides on a shared post.
+ * A member's Car Spotter day, as it rides on a shared post: one post per day,
+ * with every difficulty they shared in `results`. The flat fields are the
+ * first game shared — all a post from before difficulties has.
  *
  * Deliberately no make/model: a result can be posted the day it's played, and
  * the feed must not spoil the puzzle for anyone who hasn't.
@@ -436,6 +455,9 @@ export interface CarSpotSummary {
   puzzle_number: number;
   /** 'YYYY-MM-DD' in the game's own timezone. */
   play_date: string;
+  difficulty?: CarSpotDifficulty;
+  /** Every game of the day shared, easy to hard. Missing on posts from before difficulties. */
+  results?: CarSpotSharedResult[];
   attempts: number;
   won: boolean;
   /** One entry per guess: [make right, model right]. */
