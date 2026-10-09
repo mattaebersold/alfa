@@ -436,6 +436,8 @@ export interface CarSpotSharedResult {
   attempts: number;
   won: boolean;
   time_ms?: number | null;
+  /** They revealed the puzzle's hint — shown on the card, and it loses a tie. */
+  hint_used?: boolean;
   grid: [boolean, boolean][];
   image: string;
   focus_x: number;
@@ -471,6 +473,7 @@ export interface CarSpotSummary {
   zoom: number;
   /** How long the game took, in ms. Missing on results shared before it was sent. */
   time_ms?: number | null;
+  hint_used?: boolean;
 }
 
 /**
@@ -487,6 +490,8 @@ export interface CarSpotPlay {
   late: boolean;
   /** How long the game took, in ms — null for a late game or one from before it was timed. */
   time_ms?: number | null;
+  /** Whether they revealed the hint. */
+  hint_used?: boolean;
   /** Each guess, and which half of it was right. */
   guesses?: { make_correct: boolean; model_correct: boolean }[];
 }

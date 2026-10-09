@@ -3,7 +3,7 @@ import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming
 import { View, TouchableOpacity, StyleSheet, Platform, type LayoutChangeEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
-import { ChevronRight, Plus, Minus } from 'lucide-react-native';
+import { ChevronRight, Plus, Minus, Lightbulb } from 'lucide-react-native';
 import Svg, { G, Path } from 'react-native-svg';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
@@ -67,6 +67,7 @@ export function spotResultsOf(carspot: CarSpotSummary): CarSpotSharedResult[] {
     attempts: carspot.attempts,
     won: carspot.won,
     time_ms: carspot.time_ms ?? null,
+    hint_used: !!carspot.hint_used,
     grid: Array.isArray(carspot.grid) ? carspot.grid : [],
     image: carspot.image,
     focus_x: carspot.focus_x,
@@ -93,6 +94,17 @@ function Peppers({ count, size, color }: { count: number; size: number; color: s
         </G>
       ))}
     </Svg>
+  );
+}
+
+/** "Used a hint" — beside the difficulty, for a game that revealed it. */
+export function SpotHintBadge() {
+  const colors = useColors();
+  return (
+    <View style={[styles.difficultyBadge, { borderColor: `${COLOR_SHEEN_GOLD}66` }]} accessibilityLabel="Used the hint">
+      <Lightbulb size={11} color={COLOR_SHEEN_GOLD} strokeWidth={2.4} />
+      <Text style={[styles.difficultyText, { color: colors.fg }]}>Hint</Text>
+    </View>
   );
 }
 
@@ -219,11 +231,11 @@ const finished = (p?: CarSpotPlay | null): p is CarSpotPlay => !!p && (p.status 
 /** "3/5", or "✗" for a game that ran out — the number alone would read as a score. */
 const scoreOf = (won: boolean, attempts: number) => (won ? `${attempts}/${MAX_ATTEMPTS}` : '✗');
 
-interface Game { won: boolean; attempts: number; time_ms?: number | null }
+interface Game { won: boolean; attempts: number; time_ms?: number | null; hint_used?: boolean }
 
 /**
  * Who took the day: a win over a loss, then fewer guesses, then — the same
- * number of guesses — the quicker game. Null when nothing separates them:
+ * number of guesses — the one who didn't need the hint, then the quicker game. Null when nothing separates them:
  * both stumped, or the same score with no time to settle it (a result shared
  * before games were timed, or a late game, which isn't).
  */
@@ -231,6 +243,7 @@ function winnerOf(me: Game, them: Game): 'me' | 'them' | null {
   if (me.won !== them.won) return me.won ? 'me' : 'them';
   if (!me.won) return null;
   if (me.attempts !== them.attempts) return me.attempts < them.attempts ? 'me' : 'them';
+  if (!!me.hint_used !== !!them.hint_used) return me.hint_used ? 'them' : 'me';
   const a = me.time_ms ?? null;
   const b = them.time_ms ?? null;
   if (a == null || b == null || a === b) return null;
@@ -296,8 +309,8 @@ export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBod
     const mine = standing.mine;
     const iWon = mine.status === 'won';
     const winner = winnerOf(
-      { won: iWon, attempts: mine.attempts, time_ms: mine.time_ms },
-      { won: game.won, attempts: game.attempts, time_ms: game.time_ms },
+      { won: iWon, attempts: mine.attempts, time_ms: mine.time_ms, hint_used: mine.hint_used },
+      { won: game.won, attempts: game.attempts, time_ms: game.time_ms, hint_used: game.hint_used },
     );
     // Capped, so a long name doesn't stretch the pill.
     const theirName = author?.username
@@ -329,9 +342,9 @@ export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBod
         accessibilityLabel={`${DIFFICULTY_LABEL[game.difficulty]}: you ${scoreOf(iWon, mine.attempts)}, ${theirName} ${scoreOf(game.won, game.attempts)}${
           winner === 'me' ? '. You won' : winner === 'them' ? `. ${theirName} won` : ''}`}
       >
-        {side(me ?? undefined, iWon, mine.attempts, mine.guesses?.map((g) => [!!g.make_correct, !!g.model_correct] as [boolean, boolean]), 'You', winner === 'me')}
+        {side(me ?? undefined, iWon, mine.attempts, mine.guesses?.map((g) => [!!g.make_correct, !!g.model_correct] as [boolean, boolean]), mine.hint_used ? 'You · hint' : 'You', winner === 'me')}
         <View style={[styles.divider, { backgroundColor: colors.borderDark }]} />
-        {side(author ?? undefined, game.won, game.attempts, Array.isArray(game.grid) ? game.grid : undefined, theirName, winner === 'them')}
+        {side(author ?? undefined, game.won, game.attempts, Array.isArray(game.grid) ? game.grid : undefined, game.hint_used ? `${theirName} · hint` : theirName, winner === 'them')}
       </View>
     );
   }
@@ -542,6 +555,7 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
       <View style={styles.wrap}>
         <View style={[styles.badgeRow, { paddingHorizontal: inset }]}>
           <SpotDifficultyBadge difficulty={result.difficulty} />
+            {result.hint_used ? <SpotHintBadge /> : null}
         </View>
         <SpotGame result={result} inset={inset} />
         {action ? (
@@ -559,6 +573,7 @@ export default function SpotResultBody({ carspot, author, inset = 8, action = tr
         <View key={result.difficulty} style={[styles.subCard, { borderColor: colors.borderDark }]}>
           <View style={[styles.badgeRow, { paddingHorizontal: SUB_INSET }]}>
             <SpotDifficultyBadge difficulty={result.difficulty} />
+            {result.hint_used ? <SpotHintBadge /> : null}
           </View>
           <SpotGame result={result} inset={SUB_INSET} />
           <View style={[styles.actionInline, { paddingHorizontal: SUB_INSET }]}>
@@ -582,7 +597,7 @@ const COLUMNS = Array.from({ length: MAX_ATTEMPTS }, (_, i) => i);
 
 const styles = StyleSheet.create({
   wrap: { paddingBottom: 4 },
-  badgeRow: { flexDirection: 'row', paddingTop: 4, paddingBottom: 2 },
+  badgeRow: { flexDirection: 'row', gap: 6, paddingTop: 4, paddingBottom: 2 },
   difficultyBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
