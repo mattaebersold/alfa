@@ -38,10 +38,19 @@ const RETURN_MS = 220;
  * `children` are rendered twice while zooming — keep them a picture, not
  * something with state of its own.
  */
-export default function PinchZoom({ children, style, enabled = true }: {
+export default function PinchZoom({ children, style, enabled = true, simultaneousWith, onActiveChange }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   enabled?: boolean;
+  /**
+   * The swipeable list this photo sits in, if any — a gesture-handler list's
+   * ref. Without it the pinch and the list's native scroll don't know about
+   * each other, and the pinch, sitting on every photo, holds the touch: a
+   * one-finger swipe never reaches the list and the gallery won't page.
+   */
+  simultaneousWith?: React.RefObject<any>;
+  /** True while a pinch is held, so the list can hold still under it. */
+  onActiveChange?: (active: boolean) => void;
 }) {
   const host = usePortalHost();
   const frame = useRef<View>(null);
@@ -61,6 +70,7 @@ export default function PinchZoom({ children, style, enabled = true }: {
 
   const begin = useCallback(() => {
     zooming.current = true;
+    onActiveChange?.(true);
     const target = frame.current;
     if (!target || !host?.layer.current) return;
     const layer = host.layer.current;
@@ -71,7 +81,9 @@ export default function PinchZoom({ children, style, enabled = true }: {
         setRect({ x: x - lx, y: y - ly, w, h });
       });
     });
-  }, [host]);
+  }, [host, onActiveChange]);
+
+  const release = useCallback(() => onActiveChange?.(false), [onActiveChange]);
 
   const end = useCallback(() => {
     zooming.current = false;
@@ -102,6 +114,9 @@ export default function PinchZoom({ children, style, enabled = true }: {
     .onFinalize(() => {
       if (!active.value) return;
       active.value = false;
+      // Hand the list back now rather than once the photo has settled — the
+      // settle is only looks, and a swipe straight after shouldn't wait on it.
+      runOnJS(release)();
       const timing = { duration: RETURN_MS, easing: Easing.out(Easing.cubic) };
       tx.value = withTiming(0, timing);
       ty.value = withTiming(0, timing);
@@ -109,6 +124,8 @@ export default function PinchZoom({ children, style, enabled = true }: {
         if (done) runOnJS(end)();
       });
     });
+
+  if (simultaneousWith) pinch.simultaneousWithExternalGesture(simultaneousWith);
 
   const zoomStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }],

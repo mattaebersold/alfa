@@ -1,9 +1,12 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, FlatList, Pressable, Animated, Easing, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
+  View, TouchableOpacity, StyleSheet, Pressable, Animated, Easing, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
+// Gesture-handler's list, not RN's: the photos' pinch has to be told about the
+// list's scroll (see PinchZoom), and only this one can be named to it.
+import { FlatList } from 'react-native-gesture-handler';
 import { NavigationContext } from '@react-navigation/native';
 import Svg, { Polygon } from 'react-native-svg';
 import VideoLightbox from '../ui/VideoLightbox';
@@ -98,6 +101,9 @@ export default function PostMediaCarousel({
   /** The video open in the full-screen viewer. Null when it's closed. */
   const [watchingId, setWatchingId] = useState<string | null>(null);
   const ratioLocked = useRef(false);
+  const listRef = useRef<FlatList<PostMedia>>(null);
+  /** A photo is being pinched — the strip holds still so it doesn't page. */
+  const [pinching, setPinching] = useState(false);
 
   /**
    * The strip's shape, decided once by whichever item leads it.
@@ -155,7 +161,12 @@ export default function PostMediaCarousel({
           activeOpacity={onPressItem ? 0.95 : 1}
           disabled={!onPressItem}
         >
-          <PinchZoom style={StyleSheet.absoluteFill} enabled={pinchZoom}>
+          <PinchZoom
+            style={StyleSheet.absoluteFill}
+            enabled={pinchZoom}
+            simultaneousWith={media.length > 1 ? listRef : undefined}
+            onActiveChange={setPinching}
+          >
             <Image
               source={{ uri: item.url }}
               style={StyleSheet.absoluteFill}
@@ -212,7 +223,7 @@ export default function PostMediaCarousel({
         </View>
       </Pressable>
     );
-  }, [width, onPressItem, lockRatio, videoOpensItem, pinchZoom]);
+  }, [width, onPressItem, lockRatio, videoOpensItem, pinchZoom, media.length]);
 
   const keyExtractor = useCallback((item: PostMedia) => item.key, []);
   const getItemLayout = useCallback(
@@ -233,11 +244,13 @@ export default function PostMediaCarousel({
           <View style={StyleSheet.absoluteFill}>{renderItem({ item: media[0], index: 0 })}</View>
         ) : (
           <FlatList
+            ref={listRef}
             data={media}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             horizontal
             pagingEnabled
+            scrollEnabled={!pinching}
             showsHorizontalScrollIndicator={false}
             style={StyleSheet.absoluteFill}
             getItemLayout={getItemLayout}

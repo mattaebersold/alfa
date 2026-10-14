@@ -141,7 +141,7 @@ function ThreadRow({
           {lastIsMine ? `You: ${thread.last_message_preview}` : thread.last_message_preview}
         </Text>
         {unread && (
-          <View style={[styles.unreadPill, { backgroundColor: colors.red }]}>
+          <View style={[styles.unreadPill, { backgroundColor: colors.countBadge }]}>
             <Text style={styles.unreadPillText}>{thread.unread_count}</Text>
           </View>
         )}

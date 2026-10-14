@@ -1,9 +1,10 @@
-import { COLOR_BADGE_DEFAULT, COLOR_BADGE_GARAGE, COLOR_BADGE_LISTING, COLOR_BADGE_RECORD, COLOR_BADGE_SPOT, COLOR_BLACK } from './config';
+import { COLOR_BADGE_DEFAULT, COLOR_BADGE_GARAGE, COLOR_BADGE_LISTING, COLOR_BADGE_RECORD, COLOR_BADGE_SPOT, COLOR_BADGE_UPDATE, COLOR_BLACK } from './config';
 export const CAR_TYPES = [
   { key: 'daily',        label: 'Daily Driver' },
   { key: 'weekend',      label: 'Weekend Warrior' },
   { key: 'project',      label: 'Project Car' },
   { key: 'garage-queen', label: 'Garage Queen' },
+  { key: 'overland',     label: 'Off-Road / Overland' },
   { key: 'part-out',     label: 'Part Out' },
   { key: 'other',        label: 'Other' },
 ];
@@ -36,6 +37,13 @@ export const CAR_CATEGORIES: Record<string, { key: string; label: string }[]> = 
     { key: 'historical',     label: 'Historical' },
     { key: 'other',          label: 'Other' },
   ],
+  overland: [
+    { key: 'overlander',     label: 'Overlander' },
+    { key: 'trailRig',       label: 'Trail Rig' },
+    { key: 'rockCrawler',    label: 'Rock Crawler' },
+    { key: 'desertRunner',   label: 'Desert Runner' },
+    { key: 'other',          label: 'Other' },
+  ],
   'part-out': [],
   other: [],
 };
@@ -66,6 +74,7 @@ export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'weekend':      { bg: COLOR_BADGE_RECORD, text: COLOR_BLACK },
   'project':      { bg: COLOR_BADGE_SPOT, text: COLOR_BLACK },
   'garage-queen': { bg: COLOR_BADGE_GARAGE, text: COLOR_BLACK },
+  'overland':     { bg: COLOR_BADGE_UPDATE, text: COLOR_BLACK },
   'part-out':     { bg: COLOR_BADGE_LISTING, text: COLOR_BLACK },
   'other':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
 };

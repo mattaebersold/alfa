@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
   // bubble — a circle for one digit, stretching to a pill for more.
   unreadPill:   {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
-    backgroundColor: colors.red,
+    backgroundColor: colors.countBadge,
     alignItems: 'center', justifyContent: 'center',
   },
   // On a tile, pinned in the corner — far enough in that it sits on the tile

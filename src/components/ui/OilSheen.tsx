@@ -21,9 +21,17 @@ import {
   COLOR_SHEEN_SKY,
   COLOR_SHEEN_VIOLET,
   COLOR_SHEEN_YELLOW,
+  COLOR_SOFT_GOLD,
 } from '../../constants/config';
 
 export type SheenTone = 'cool' | 'warm' | 'pearl';
+
+/**
+ * What the warm film sits on: the old Pro gold, not the Pro red. The film was
+ * tuned against gold, so the sheened Pro surfaces keep the gold while plain
+ * Pro fills take the red.
+ */
+export const WARM_SHEEN_FILL = COLOR_SOFT_GOLD;
 
 type SheenLayer = {
   colors: [string, string, ...string[]];

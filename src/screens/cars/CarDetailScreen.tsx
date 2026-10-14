@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2 } from 'lucide-react-native';
+import { X, Camera, Images, Ellipsis, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, CheckSquare, Users, Warehouse, Car, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2 } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -26,7 +26,7 @@ import {
   useRemoveCarGalleryImagesMutation, useUpdateCarGalleryMetaMutation,
   useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
   useGetCarFollowersQuery, useGetCarGroupsQuery, useGetCarsQuery,
-  useGetRoutesQuery,
+  useGetRoutesQuery, useUpdateCarMutation,
   apiService,
   useGetCommentCountQuery,
 } from '../../api/apiService';
@@ -55,6 +55,7 @@ import AskForPhotosButton from '../../components/cars/AskForPhotosButton';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import RoutesPane from '../../components/routes/RoutesPane';
 import BottomSheet from '../../components/ui/SharedModal';
+import SummaryModal from '../../components/ui/SummaryModal';
 import ActionSheet from '../../components/ui/ActionSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -65,7 +66,7 @@ import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { stripHtml } from '../../utils/text';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useBrandTextColor, useIsPro } from '../../hooks/useBrandColor';
+import { useBrandColor, useBrandTextColor, useIsPro } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES } from '../../constants/carTypes';
 import type { AppStackParamList, CarDetailAction } from '../../navigation/types';
 import type { CarGalleryAlbum, GalleryItem, Mod, Post, Group } from '../../types/api';
@@ -79,6 +80,7 @@ import {
   PILL_RADIUS,
   COLOR_BADGE_DEFAULT,
   COLOR_BADGE_GARAGE,
+  COLOR_BADGE_UPDATE,
   COLOR_BADGE_LISTING,
   COLOR_BADGE_RECORD,
   COLOR_BADGE_SPOT,
@@ -130,6 +132,7 @@ const CAR_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'weekend':      { bg: COLOR_BADGE_RECORD, text: COLOR_BLACK },
   'project':      { bg: COLOR_BADGE_SPOT, text: COLOR_BLACK },
   'garage-queen': { bg: COLOR_BADGE_GARAGE, text: COLOR_BLACK },
+  'overland':     { bg: COLOR_BADGE_UPDATE, text: COLOR_BLACK },
   'part-out':     { bg: COLOR_BADGE_LISTING, text: COLOR_BLACK },
   'other':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
 };
@@ -254,7 +257,27 @@ function AlbumCard({ album, onPress, onManage }: { album: CarGalleryAlbum; onPre
 
 // ── Gallery strip ────────────────────────────────────────────────────────────
 
-function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onOpenAlbum }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void; onOpenAlbum: (album: CarGalleryAlbum) => void }) {
+/**
+ * The owner's shortcut for swapping the car's main photo, sat in the hero's
+ * bottom-right corner. Translucent so it doesn't fight the photograph.
+ */
+function ChangeHeroButton({ onPress, busy }: { onPress: () => void; busy?: boolean }) {
+  return (
+    <TouchableOpacity
+      style={styles.changeHeroButton}
+      onPress={onPress}
+      disabled={busy}
+      activeOpacity={0.8}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Change main photo"
+    >
+      {busy ? <ActivityIndicator size="small" color={COLOR_WHITE} /> : <Camera size={18} color={COLOR_WHITE} />}
+    </TouchableOpacity>
+  );
+}
+
+function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onOpenAlbum, onChangeHero, heroBusy }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void; onOpenAlbum: (album: CarGalleryAlbum) => void; onChangeHero?: () => void; heroBusy?: boolean }) {
   const [lightbox, setLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
   /**
    * The lone hero's true ratio, once the image reports it.
@@ -304,6 +327,7 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
               if (w && h) setHeroRatio(w / h);
             }}
           />
+          {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
         </TouchableOpacity>
         {onAddGallery && (
           <TouchableOpacity style={styles.addGalleryOverlay} onPress={onAddGallery} activeOpacity={0.8}>
@@ -334,9 +358,13 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
             onPress={() => effectiveHero && setLightbox({ images: [{ filename: effectiveHero }], index: 0 })}
           >
             <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
           </TouchableOpacity>
         ) : (
-          <Image source={require('../../../assets/car-placeholder.jpg')} style={[styles.heroSlide, { width: HERO_WIDTH }]} contentFit="cover" />
+          <View style={styles.heroSlide}>
+            <Image source={require('../../../assets/car-placeholder.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
+            {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
+          </View>
         )}
         {albumCols.map((pair, colIdx) => (
           <View key={colIdx} style={styles.albumCol}>
@@ -546,6 +574,10 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [descExpanded, setDescExpanded] = useState(false);
   const [descLines, setDescLines] = useState<number | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
+  /** The section last opened — see shownPane. */
+  const lastPaneRef = useRef<CarPane>(null);
+  /** The fill for the panes' "New" buttons. */
+  const brand = useBrandColor();
   const [commentsOpen, setCommentsOpen] = useState(false);
   /** A mod or an album whose thread is open, and which document it is. */
   const [subComments, setSubComments] = useState<{ id: string; type: string } | null>(null);
@@ -778,6 +810,42 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [menuSheet, setMenuSheet] = useState(false);
   const handleMenuPress = useCallback(() => setMenuSheet(true), []);
 
+  // ── Main photo swap (owner / co-owner) ──
+  const [updateCar, { isLoading: heroUploading }] = useUpdateCarMutation();
+  const uploadHero = async (assets: ImagePicker.ImagePickerAsset[]) => {
+    const [picked] = await normalizePickedAssets(assets.slice(0, 1));
+    if (!picked) return;
+    const fd = new FormData();
+    fd.append('internal_id', carId);
+    fd.append('profile_image', uploadFile(picked.uri));
+    try {
+      await updateCar(fd).unwrap();
+    } catch {
+      Alert.alert('Upload failed', "Couldn't update the main photo. Please try again.");
+    }
+  };
+  const pickHeroImage = () => {
+    Alert.alert('Change Main Photo', undefined, [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
+          const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+          if (!result.canceled) await uploadHero(result.assets);
+        },
+      },
+      {
+        text: 'Choose from Library',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+          if (!result.canceled) await uploadHero(result.assets);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const pickGalleryImage = () => {
     Alert.alert('Add Photo', 'How would you like to add a photo?', [
       {
@@ -901,7 +969,23 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const pendingGroupRef = useRef<string | null>(null);
   const { openGroup } = useGroupSummary();
 
+  /**
+   * Something to do once the pane has finished closing — a navigation that
+   * presents a modal of its own, which iOS won't do over the summary panel
+   * while it's still on its way out.
+   */
+  const afterPaneRef = useRef<(() => void) | null>(null);
+  const closePaneThen = (run: () => void) => {
+    afterPaneRef.current = run;
+    setPane(null);
+  };
+
   const handlePaneDismissed = () => {
+    if (afterPaneRef.current) {
+      const run = afterPaneRef.current;
+      afterPaneRef.current = null;
+      run();
+    }
     if (pendingViewerRef.current) {
       setViewer(pendingViewerRef.current);
       pendingViewerRef.current = null;
@@ -933,15 +1017,13 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
   const openRecord = (postId: string) => {
     restorePaneRef.current = pane;
-    setPane(null);
-    appNav.navigate('PostDetailModal', { postId });
+    closePaneThen(() => appNav.navigate('PostDetailModal', { postId }));
   };
 
   /** A route detail, leaving the same breadcrumb a record does. */
   const openRoute = (routeId: string) => {
     restorePaneRef.current = pane;
-    setPane(null);
-    appNav.navigate('RouteDetailModal', { routeId });
+    closePaneThen(() => appNav.navigate('RouteDetailModal', { routeId }));
   };
 
   const [deletePost] = useDeletePostMutation();
@@ -1146,19 +1228,40 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     }))
     .filter((t) => t.count > 0);
 
+  // The section last opened — held while the panel fades out, so it closes
+  // on its contents rather than collapsing to nothing first.
+  if (pane) lastPaneRef.current = pane;
+  const shownPane = pane ?? lastPaneRef.current;
+
   const paneTitle =
-    pane === 'otherModel'
+    shownPane === 'otherModel'
       ? `Other ${[car.make, car.model].filter(Boolean).join(' ')}`
-      : pane === 'otherMake'
+      : shownPane === 'otherMake'
       ? `Other ${car.make} cars`
-      : pane === 'tagged'
+      : shownPane === 'tagged'
       ? 'Tagged in Posts'
-      : pane === 'routes'
+      : shownPane === 'routes'
       ? 'Routes'
-      : CAR_TILES.find((t) => t.key === pane)?.label ?? '';
+      : CAR_TILES.find((t) => t.key === shownPane)?.label ?? '';
+
+  // The last row ends at the panel's edge, so it has nothing to divide.
+  const rowBorder = (i: number, n: number) => (i === n - 1 ? 'transparent' : SHEET_BORDER);
+
+  /**
+   * Each section of your own car that you can add to, and how: the same
+   * three things the header's + offers, from inside the list they land in.
+   * Run once the panel has closed — the create screen and the gallery sheet
+   * are modals of their own. A record or a mod brings you back to the list.
+   */
+  const paneNew: Partial<Record<Exclude<CarPane, null>, { label: string; run: () => void }>> = isOwnerOrCoOwner ? {
+    posts: { label: 'New record', run: () => { restorePaneRef.current = 'posts'; closePaneThen(() => appNav.navigate('Create', { carId, carTitle: carDisplayName })); } },
+    mods: { label: 'New mod', run: () => { restorePaneRef.current = 'mods'; closePaneThen(() => appNav.navigate('ModCreate', { carId, carTitle: carDisplayName })); } },
+    galleries: { label: 'New gallery', run: () => closePaneThen(() => presentAfterDismiss(() => setActiveSheet('gallery'), true)) },
+  } : {};
+  const shownNew = shownPane ? paneNew[shownPane] : undefined;
 
   const renderPane = () => {
-    switch (pane) {
+    switch (shownPane) {
       case 'tagged':
         return (
           <TaggedPostsPane
@@ -1208,7 +1311,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             {filtersEl}
             {visiblePosts.length === 0
               ? <EmptyState title="No records match those filters" />
-              : visiblePosts.map((item) => {
+              : visiblePosts.map((item, i) => {
                   // The lead photo or a video's poster — see postThumb. These
                   // rows are thumbnails, so a video plays once the record opens.
                   const thumb = postThumb(item);
@@ -1225,7 +1328,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                       onPress={() => openRecord(item.internal_id)}
                       onMenuPress={isOwnerOrCoOwner ? () => openRecordMenu(item) : undefined}
                       fg={SHEET_FG}
-                      border={SHEET_BORDER}
+                      border={rowBorder(i, visiblePosts.length)}
                       placeholder={SHEET_PLACEHOLDER}
                     />
                   );
@@ -1265,12 +1368,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         ));
       case 'galleries':
         if (paneAlbums.length === 0) return <EmptyState title="No galleries yet" />;
-        return paneAlbums.map((album) => {
+        return paneAlbums.map((album, i) => {
           const thumb = album.gallery?.[0] ? imageUrl(album.gallery[0].filename) : null;
           return (
             <TouchableOpacity
               key={album.internal_id}
-              style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
+              style={[ss.listRow, { borderBottomColor: rowBorder(i, paneAlbums.length) }]}
               onPress={() => openAlbum(album)}
               activeOpacity={0.7}
             >
@@ -1311,11 +1414,11 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         });
       case 'followers':
         if (carFollowers.length === 0) return <EmptyState title="No followers yet" />;
-        return carFollowers.map((u) => (
+        return carFollowers.map((u, i) => (
           <TouchableOpacity
             key={u.user_id}
-            style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
-            onPress={() => { setPane(null); (localNav as any).navigate('UserDetail', { userId: u.user_id, username: u.username }); }}
+            style={[ss.listRow, { borderBottomColor: rowBorder(i, carFollowers.length) }]}
+            onPress={() => closePaneThen(() => (localNav as any).navigate('UserDetail', { userId: u.user_id, username: u.username }))}
             activeOpacity={0.7}
           >
             <Avatar user={u} size={40} />
@@ -1334,12 +1437,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         ));
       case 'groups':
         if (carGroups.length === 0) return <EmptyState title="Not in any group" />;
-        return carGroups.map((g: Group) => {
+        return carGroups.map((g: Group, i) => {
           const banner = firstGalleryUrl(g.banners) ?? firstGalleryUrl(g.gallery);
           return (
             <TouchableOpacity
               key={g.internal_id}
-              style={[ss.listRow, { borderBottomColor: SHEET_BORDER }]}
+              style={[ss.listRow, { borderBottomColor: rowBorder(i, carGroups.length) }]}
               // Members to the page, everyone else to the summary — once the pane
               // has gone, since iOS won't present one modal over another that's
               // still dismissing.
@@ -1443,6 +1546,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             onAddGallery={isOwnerOrCoOwner ? () => setActiveSheet('gallery') : undefined}
             onManageAlbum={isOwnerOrCoOwner ? handleAlbumOptions : undefined}
             onOpenAlbum={openAlbum}
+            onChangeHero={isOwnerOrCoOwner ? pickHeroImage : undefined}
+            heroBusy={heroUploading}
           />
         </View>
 
@@ -2027,22 +2132,45 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       </BottomSheet>
 
       {/* ── Section pane ── */}
-      {/* Fixed height: these panes range from two rows to fifty, and a sheet
-          that resizes itself per section is disorienting to move between. */}
-      <BottomSheet visible={pane !== null} onClose={() => setPane(null)} onDismissed={handlePaneDismissed} title={paneTitle} heightRatio={0.92}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          {renderPane()}
-        </ScrollView>
-        {/* Inside the pane's own Modal, so editing layers over the list rather
-            than forcing it closed the way the detail screen has to. */}
-        {editingPost && (
+      {/* A summary panel rather than a slide-up sheet, like every other list
+          that opens from a tap. It sizes to the section — up to most of the
+          screen, then scrolls — and keeps the title pinned above. */}
+      <SummaryModal
+        visible={pane !== null}
+        onClose={() => setPane(null)}
+        onClosed={handlePaneDismissed}
+        minHeightRatio={0.45}
+        header={
+          <View style={styles.paneHead}>
+            <Text style={[styles.paneTitle, { color: SHEET_FG }]} numberOfLines={1}>{paneTitle}</Text>
+            {shownNew ? (
+              <TouchableOpacity
+                style={[styles.paneNewBtn, { backgroundColor: brand }]}
+                onPress={shownNew.run}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={shownNew.label}
+              >
+                <Plus size={14} color={COLOR_BLACK} strokeWidth={3} />
+                <Text style={styles.paneNewText}>{shownNew.label}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        }
+        // Stacked inside the panel's own Modal, so editing layers over the list
+        // rather than forcing it closed the way the detail screen has to.
+        stacked={editingPost ? (
           <PostEditSheet
             post={editingPost}
             visible={!!editingPost}
             onClose={() => setEditingPost(null)}
           />
-        )}
-      </BottomSheet>
+        ) : null}
+      >
+        <View style={{ paddingBottom: 24 }}>
+          {renderPane()}
+        </View>
+      </SummaryModal>
 
       {/* ── Comments ── */}
       <CommentsSheet
@@ -2145,6 +2273,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(0,0,0,0.55)',
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: COMMON_RADIUS,
+  },
+  changeHeroButton: {
+    position: 'absolute', right: 10, bottom: 10,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   addGalleryOverlayText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontFamily: FONT_INTER.bold },
   albumCol:       { gap: 10 },
@@ -2344,6 +2478,10 @@ const styles = StyleSheet.create({
   // Takes the middle, so the chevron stays pinned right whatever the label.
   carTileText:     { flex: 1, minWidth: 0, gap: 1 },
   carTileLabel:    { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: 0.1 },
+  paneHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10 },
+  paneTitle: { flex: 1, fontSize: 18, fontFamily: FONT_INTER.extrabold },
+  paneNewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS },
+  paneNewText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   carTileCount:    { fontSize: 12.5, fontFamily: FONT_INTER.semibold },
   carTileGo: {
     width: 32, height: 32, borderRadius: 16,

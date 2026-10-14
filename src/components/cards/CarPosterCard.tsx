@@ -20,7 +20,7 @@ import { useSummary } from '../../providers/SummaryProvider';
 import { carPreview } from '../cars/CarSummaryModal';
 import { userPreview } from '../members/UserSummaryModal';
 import RegionBadge from '../ui/RegionBadge';
-import OilSheen from '../ui/OilSheen';
+import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import { regionForCityState } from '../../constants/regions';
 import ReportButton from '../ui/ReportButton';
 import LikeButton from '../social/LikeButton';
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
 
   featuredBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: colors.pro,
+    backgroundColor: WARM_SHEEN_FILL,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
     // Keeps the sheen inside the pill's round ends.
     overflow: 'hidden',

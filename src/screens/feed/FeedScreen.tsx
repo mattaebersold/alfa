@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
+import SpotTodayRow from '../../components/feed/SpotTodayRow';
 import StoriesRow from '../../components/stories/StoriesRow';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
@@ -66,7 +67,9 @@ const MemoGroupsView = React.memo(GroupsView);
 const MemoCarsView = React.memo(CarsView);
 const MemoMembersView = React.memo(MembersView);
 const MemoPhotography = React.memo(KitPhotographyScreen);
-const FEED_EXCLUDE_TYPES = ['story'];
+// Car Spotter results live in the "Played Today" row at the top now (see
+// SpotTodayRow), today's only — not as cards down the feed.
+const FEED_EXCLUDE_TYPES = ['story', 'spot_result'];
 
 function FeedHeader() {
   const colors = useColors();
@@ -78,6 +81,7 @@ function FeedHeader() {
 
   return (
     <View>
+      <SpotTodayRow />
       {/* {isPro && <StoriesRow />} */}
       {/* Feature banner parked for now — <HomeFeatureBanner /> */}
       {!isRowHidden('members') && <SuggestedMembersRow onRequestHide={() => setHiding('members')} />}

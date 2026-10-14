@@ -19,16 +19,21 @@ import {
   COLOR_GRAY_10,
   COLOR_GRAY_22,
   COLOR_RED,
+  COLOR_GREEN,
+  COLOR_PRO,
   COLOR_SPOTTER_GREEN,
   COLOR_SHEEN_GOLD,
 } from '../../constants/config';
 import type { CarSpotSummary, CarSpotPlay, CarSpotSharedResult, CarSpotDifficulty } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 
-/** The game's own right/wrong colours, so the grid reads the same as in Car Spotter. */
-const HIT = COLOR_SPOTTER_GREEN;
-const MISS = COLOR_RED;
-const MAX_ATTEMPTS = 5;
+/**
+ * Right and wrong, in the app's own colours rather than Car Spotter's: the
+ * muted green, so a row of wins doesn't shout, and the Pro red.
+ */
+export const HIT = COLOR_GREEN;
+export const MISS = COLOR_PRO;
+export const MAX_ATTEMPTS = 5;
 
 /**
  * How soft the preview is — enough that the car can't be read off it.
@@ -239,7 +244,7 @@ interface Game { won: boolean; attempts: number; time_ms?: number | null; hint_u
  * both stumped, or the same score with no time to settle it (a result shared
  * before games were timed, or a late game, which isn't).
  */
-function winnerOf(me: Game, them: Game): 'me' | 'them' | null {
+export function winnerOf(me: Game, them: Game): 'me' | 'them' | null {
   if (me.won !== them.won) return me.won ? 'me' : 'them';
   if (!me.won) return null;
   if (me.attempts !== them.attempts) return me.attempts < them.attempts ? 'me' : 'them';
@@ -369,7 +374,7 @@ export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBod
 }
 
 /** A plain three-point crown, one solid shape — reads at a dozen pixels where a detailed one doesn't. */
-function SimpleCrown({ size, color }: { size: number; color: string }) {
+export function SimpleCrown({ size, color }: { size: number; color: string }) {
   return (
     <Svg width={size} height={size * 0.8} viewBox="0 0 20 16">
       <Path d="M1 3 L6 8 L10 1 L14 8 L19 3 L17 15 H3 Z" fill={color} />
@@ -383,7 +388,7 @@ function SimpleCrown({ size, color }: { size: number; color: string }) {
  * place of "3/5". Without the guesses themselves (an old share), each miss
  * is red on both rows and a win's last guess green.
  */
-function GuessDots({ won, attempts, grid }: { won: boolean; attempts: number; grid?: [boolean, boolean][] }) {
+export function GuessDots({ won, attempts, grid }: { won: boolean; attempts: number; grid?: [boolean, boolean][] }) {
   const n = Math.max(1, Math.min(grid?.length || attempts || MAX_ATTEMPTS, MAX_ATTEMPTS));
   const cols = Array.from({ length: n }, (_, i): [boolean, boolean] =>
     grid?.[i] ?? (won && i === n - 1 ? [true, true] : [false, false]));

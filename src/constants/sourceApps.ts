@@ -87,6 +87,14 @@ export function sourceAppFallback(app: SourceApp): string {
  * rejects on both platforms when nothing handles the link, which is the only
  * answer we actually need.
  */
+/**
+ * One of Car Spotter's three games, today's — `orsspot://play/trivia`. The
+ * store page instead when the app isn't on the phone, like openSourceApp.
+ */
+export function openSpotGame(game: 'car' | 'trivia' | 'auction'): Promise<void> {
+  return openSourceApp({ ...SOURCE_APPS.spot, deepLink: () => `orsspot://play/${game}` });
+}
+
 export async function openSourceApp(app: SourceApp, sourceId?: string | null): Promise<void> {
   try {
     await Linking.openURL(app.deepLink(sourceId));

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
@@ -6,7 +6,7 @@ import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { X } from 'lucide-react-native';
+import { X, AlertCircle } from 'lucide-react-native';
 import {
   useCreatePostMutation,
   useAddPostImageMutation,
@@ -16,6 +16,7 @@ import {
   useUpdateGroupDiscussionPostMutation,
   useUpdateGroupResourceMutation,
   useCreateGroupDiscussionPostFormMutation, useCreateGroupNewsPostFormMutation, useCreateGroupResourceFormMutation,
+  useGetGroupQuery, useGetUserGroupsQuery,
 } from '../../api/apiService';
 import SharedModal from '../ui/SharedModal';
 import ActionSheet from '../ui/ActionSheet';
@@ -25,7 +26,13 @@ import { contrastText } from '../../hooks/useBrandColor';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { describeApiError } from '../../utils/apiError';
+import { groupCarsOf, groupCarLabel } from '../../utils/groupCars';
+import { handleize } from '../../utils/handleize';
+import { carScopeKey } from '../../utils/carScope';
+import { useAppSelector } from '../../store/store';
+import type { CrossModel } from '../../types/api';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_DANGER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -59,6 +66,9 @@ export interface EditableGroupItem {
   url?: string;
   category?: string;
 }
+
+/** How long a save runs before the form says it's still going. */
+const SLOW_AFTER_MS = 8000;
 
 interface Props {
   kind: CreateKind;
@@ -114,13 +124,87 @@ export default function GroupCreateSheet({
   const [createDiscussion, { isLoading: postingDiscussion }] = useCreateGroupDiscussionPostMutation();
   const [createNews, { isLoading: postingNews }] = useCreateGroupNewsPostMutation();
   const [createResource, { isLoading: postingResource }] = useCreateGroupResourceMutation();
-  const [createDiscussionForm] = useCreateGroupDiscussionPostFormMutation();
-  const [createNewsForm] = useCreateGroupNewsPostFormMutation();
-  const [createResourceForm] = useCreateGroupResourceFormMutation();
+  const [createDiscussionForm, { isLoading: postingDiscussionForm }] = useCreateGroupDiscussionPostFormMutation();
+  const [createNewsForm, { isLoading: postingNewsForm }] = useCreateGroupNewsPostFormMutation();
+  const [createResourceForm, { isLoading: postingResourceForm }] = useCreateGroupResourceFormMutation();
   const [updateDiscussion, { isLoading: updatingDiscussion }] = useUpdateGroupDiscussionPostMutation();
   const [updateResource, { isLoading: updatingResource }] = useUpdateGroupResourceMutation();
+  // Every way this form can be sending — the multipart creates included. They
+  // used to be left out, so a discussion or resource with photos showed no
+  // spinner and stayed tappable for the whole upload.
   const saving = postingPost || postingDiscussion || postingNews || postingResource
+    || postingDiscussionForm || postingNewsForm || postingResourceForm
     || updatingDiscussion || updatingResource;
+  /**
+   * Set for the whole of `submit`, not just while a request is in flight —
+   * between the create and the first photo, say, nothing is loading but the
+   * form still isn't done.
+   */
+  const [submitting, setSubmitting] = useState(false);
+  const busy = saving || submitting || imageProgress !== null;
+  /** Why the last try failed, shown over the button — and kept until you edit or retry. */
+  const [error, setError] = useState<string | null>(null);
+  /** A save still going after a while: say so, rather than leave a spinner to explain itself. */
+  const [slow, setSlow] = useState(false);
+  const slowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (slowTimer.current) clearTimeout(slowTimer.current); }, []);
+
+  /**
+   * Somewhere else this could also go, asked for as it's posted — a new
+   * discussion or resource only. One item either way, listed in both places,
+   * with one thread and one set of votes.
+   *
+   *  - In a group: the model pages of the cars the group is about. A make-wide
+   *    group car ("Porsche") has no page of its own, so only ones with a model.
+   *  - On a model's page: the groups you're an active member of that are about
+   *    this model — or about its whole make.
+   */
+  const crossable = !editing && (kind === 'discussion' || kind === 'resources');
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
+  const { data: homeGroup } = useGetGroupQuery(groupId, { skip: !visible || !crossable || !!scope });
+  const { data: myGroups } = useGetUserGroupsQuery(myId ?? '', { skip: !visible || !crossable || !scope || !myId });
+  const crossOptions = useMemo<{ key: string; label: string; hint: string; model?: CrossModel; groupId?: string }[]>(() => {
+    if (!crossable) return [];
+    if (!scope) {
+      const seen = new Set<string>();
+      return groupCarsOf(homeGroup).flatMap((car) => {
+        if (!car.model) return [];
+        const key = `m:${carScopeKey(car.make, car.model)}`;
+        if (seen.has(key)) return [];
+        seen.add(key);
+        return [{
+          key,
+          label: `The ${groupCarLabel(car)} page`,
+          hint: 'Public — anyone can see it there.',
+          model: { make: car.make, model: car.model },
+        }];
+      });
+    }
+    const make = handleize(scope.make);
+    const model = handleize(scope.model);
+    return (myGroups ?? [])
+      .filter((g) => (g.membership?.status ?? 'active') === 'active')
+      .filter((g) => groupCarsOf(g).some((car) =>
+        handleize(car.make) === make && (!car.model || handleize(car.model) === model)))
+      .map((g) => ({
+        key: `g:${g.internal_id}`,
+        label: g.title ?? 'Group',
+        hint: 'Its members will see it there too.',
+        groupId: g.internal_id,
+      }));
+  }, [crossable, scope, homeGroup, myGroups]);
+  /** Ticked cross-posts, by option key. Off by default — it's the deliberate extra step. */
+  const [crossPicked, setCrossPicked] = useState<Set<string>>(() => new Set());
+  const toggleCross = (key: string) => setCrossPicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const picked = crossOptions.filter((o) => crossPicked.has(o.key));
+  const cross = {
+    also_models: picked.flatMap((o) => (o.model ? [o.model] : [])),
+    also_groups: picked.flatMap((o) => (o.groupId ? [o.groupId] : [])),
+  };
 
   // Reset on open, not on close — clearing while it animates out is visible.
   useEffect(() => {
@@ -133,6 +217,9 @@ export default function GroupCreateSheet({
       setImages([]);
       setImageProgress(null);
       setAlsoPublic(false);
+      setError(null);
+      setSlow(false);
+      setCrossPicked(new Set());
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -171,16 +258,24 @@ export default function GroupCreateSheet({
   const showUrl = kind === 'news' || kind === 'resources';
   const bodyRequired = kind !== 'posts'; // a photo-less post can still be a caption
 
-  const submit = async () => {
-    if (!title.trim()) {
-      Alert.alert('Title required', 'Give this a title first.');
-      return;
-    }
-    if (bodyRequired && !body.trim()) {
-      Alert.alert('Body required', 'Add some detail before posting.');
-      return;
-    }
+  /**
+   * What's still missing, in words — shown under the disabled button, so it
+   * says why it can't be pressed rather than only looking faded.
+   */
+  const missing = !title.trim()
+    ? 'Add a title to post.'
+    : bodyRequired && !body.trim()
+      ? 'Add some details to post.'
+      : null;
 
+  const submit = async () => {
+    if (missing || busy) return;
+
+    setError(null);
+    setSubmitting(true);
+    setSlow(false);
+    if (slowTimer.current) clearTimeout(slowTimer.current);
+    slowTimer.current = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
     try {
       if (editing && kind === 'discussion') {
         await updateDiscussion({
@@ -236,29 +331,47 @@ export default function GroupCreateSheet({
           await createNewsForm({ group_id: groupId, form: fd }).unwrap();
         } else {
           images.forEach((img) => fd.append('gallery', uploadFile(img.uri)));
-          if (kind === 'discussion') await createDiscussionForm({ ...home, form: fd }).unwrap();
-          else await createResourceForm({ ...home, form: fd }).unwrap();
+          if (cross.also_models.length) fd.append('also_models', JSON.stringify(cross.also_models));
+          if (cross.also_groups.length) fd.append('also_groups', JSON.stringify(cross.also_groups));
+          if (kind === 'discussion') await createDiscussionForm({ ...home, ...cross, form: fd }).unwrap();
+          else await createResourceForm({ ...home, ...cross, form: fd }).unwrap();
         }
       } else if (kind === 'discussion') {
-        await createDiscussion({ ...home, title: title.trim(), body: body.trim(), category }).unwrap();
+        await createDiscussion({ ...home, ...cross, title: title.trim(), body: body.trim(), category }).unwrap();
       } else if (kind === 'news') {
         await createNews({ group_id: groupId, title: title.trim(), body: body.trim(), url: url.trim() || undefined }).unwrap();
       } else {
-        await createResource({ ...home, title: title.trim(), body: body.trim(), url: url.trim() || undefined, category }).unwrap();
+        await createResource({ ...home, ...cross, title: title.trim(), body: body.trim(), url: url.trim() || undefined, category }).unwrap();
       }
       onClose();
-    } catch {
+    } catch (err) {
       setImageProgress(null);
       // Stay open with everything typed still there — a network blip shouldn't
-      // cost you the whole form.
-      Alert.alert('Could not save', 'Please try again.');
+      // cost you the whole form — and say what actually went wrong.
+      setError(describeApiError(err));
+    } finally {
+      setSubmitting(false);
+      setSlow(false);
+      if (slowTimer.current) clearTimeout(slowTimer.current);
     }
   };
+
+  /** The button's words while it works: what it's doing, not just that it is. */
+  const busyLabel = imageProgress
+    ? `Uploading ${imageProgress.current} of ${imageProgress.total}…`
+    : images.length > 0 && kind !== 'posts'
+      ? `Uploading ${images.length === 1 ? 'photo' : `${images.length} photos`}…`
+      : editing ? 'Saving…' : 'Posting…';
+
+  // Any edit clears the last failure: it no longer describes this form.
+  useEffect(() => { setError(null); }, [title, body, url, category, images.length]);
 
   return (
     <SharedModal
       visible={visible}
-      onClose={onClose}
+      // Not while it's sending: closed mid-upload, the save carries on unseen
+      // and you'd never learn whether it landed.
+      onClose={busy ? () => {} : onClose}
       title={(editing && EDIT_TITLE[kind]) || KIND_TITLE[kind]}
       // Where it's going, up in the heading's corner rather than as the first
       // thing in the form — it's context, not a field.
@@ -306,6 +419,7 @@ export default function GroupCreateSheet({
           style={[styles.input, { borderColor: c.borderDark, color: c.fg, backgroundColor: c.card }]}
           value={title}
           onChangeText={setTitle}
+          editable={!busy}
           placeholder="Title"
           placeholderTextColor={c.grey}
           autoFocus
@@ -318,6 +432,7 @@ export default function GroupCreateSheet({
           style={[styles.input, styles.inputMulti, { borderColor: c.borderDark, color: c.fg, backgroundColor: c.card }]}
           value={body}
           onChangeText={setBody}
+          editable={!busy}
           placeholder={kind === 'posts' ? "What's on your mind…" : 'Add some detail…'}
           placeholderTextColor={c.grey}
           multiline
@@ -330,6 +445,7 @@ export default function GroupCreateSheet({
               style={[styles.input, { borderColor: c.borderDark, color: c.fg, backgroundColor: c.card }]}
               value={url}
               onChangeText={setUrl}
+              editable={!busy}
               placeholder="https://…"
               placeholderTextColor={c.grey}
               autoCapitalize="none"
@@ -360,6 +476,7 @@ export default function GroupCreateSheet({
                   <TouchableOpacity
                     key={cat.key}
                     onPress={() => setCategory(cat.key)}
+                    disabled={busy}
                     style={[
                       styles.chip,
                       { borderColor: c.borderDark, backgroundColor: c.secondary },
@@ -380,7 +497,7 @@ export default function GroupCreateSheet({
           <>
             <Text style={[styles.label, { color: c.grey }]}>{maxImages === 1 ? 'Photo' : 'Photos'}</Text>
             <PhotoPickerField
-              onPress={() => { Keyboard.dismiss(); setMediaSheet(true); }}
+              onPress={() => { if (busy) return; Keyboard.dismiss(); setMediaSheet(true); }}
               title={images.length
                 ? (maxImages === 1 ? 'Change Photo' : 'Add More Photos')
                 : (maxImages === 1 ? 'Add a Photo (optional)' : 'Add Photos (optional)')}
@@ -394,6 +511,7 @@ export default function GroupCreateSheet({
                     <TouchableOpacity
                       style={styles.thumbRemove}
                       onPress={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
+                      disabled={busy}
                       accessibilityRole="button"
                       accessibilityLabel="Remove photo"
                     >
@@ -430,24 +548,88 @@ export default function GroupCreateSheet({
           </TouchableOpacity>
         )}
 
+        {/* The same checkbox as "Also post publicly", one per place it could
+            also go — see crossOptions. Nothing shows when there's nowhere. */}
+        {crossOptions.length > 0 && (
+          <>
+            <Text style={[styles.label, styles.crossHeading, { color: c.grey }]}>Also post to</Text>
+            {crossOptions.map((o, i) => {
+              const on = crossPicked.has(o.key);
+              return (
+                <TouchableOpacity
+                  key={o.key}
+                  style={[styles.publicRow, i === 0 ? styles.crossFirst : styles.crossNext]}
+                  onPress={() => toggleCross(o.key)}
+                  disabled={busy}
+                  activeOpacity={0.75}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on, disabled: busy }}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    { borderColor: c.borderDark },
+                    on && { backgroundColor: c.primaryAlt, borderColor: c.primaryAlt },
+                  ]}>
+                    {on && <Text style={[styles.checkMark, { color: contrastText(c.primaryAlt) }]}>✓</Text>}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.publicLabel, { color: c.fg }]} numberOfLines={1}>{o.label}</Text>
+                    <Text style={[styles.publicHint, { color: c.grey }]}>{o.hint}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+
+        {/* The last failure, in place of an alert: it stays while you decide
+            what to do, and the button under it is the retry. */}
+        {error && !busy ? (
+          <View style={[styles.errorBox, { borderColor: COLOR_DANGER }]} accessibilityRole="alert">
+            <AlertCircle size={16} color={COLOR_DANGER} />
+            <Text style={[styles.errorText, { color: c.fg }]}>{error}</Text>
+          </View>
+        ) : null}
+
+        {/* Three looks: ready (full colour), not ready (greyed, with why
+            beneath), and working (full colour, spinner and what it's doing,
+            not pressable). Working isn't faded — fading read as "broken". */}
         <TouchableOpacity
-          style={[styles.submit, { backgroundColor: c.pro }, (saving || !title.trim()) && styles.submitOff]}
+          style={[
+            styles.submit,
+            missing
+              ? { backgroundColor: c.secondary, borderColor: c.borderDark, borderWidth: 1 }
+              : { backgroundColor: c.pro },
+          ]}
           onPress={submit}
-          disabled={saving || imageProgress !== null || !title.trim()}
+          disabled={busy || !!missing}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: busy || !!missing, busy }}
         >
-          {saving || imageProgress
+          {busy
             ? (
               <View style={styles.submitBusy}>
                 <ActivityIndicator color={COLOR_BLACK} />
-                {imageProgress && (
-                  <Text style={styles.submitText}>
-                    Uploading {imageProgress.current} of {imageProgress.total}…
-                  </Text>
-                )}
+                <Text style={styles.submitText}>{busyLabel}</Text>
               </View>
             )
-            : <Text style={styles.submitText}>{editing ? 'Save' : 'Post'}</Text>}
+            : (
+              <Text style={[styles.submitText, missing && { color: c.grey }]}>
+                {error ? 'Try again' : editing ? 'Save' : 'Post'}
+              </Text>
+            )}
         </TouchableOpacity>
+
+        {missing && !busy ? (
+          <Text style={[styles.hint, { color: c.grey }]}>{missing}</Text>
+        ) : busy && slow ? (
+          <Text style={[styles.hint, { color: c.grey }]}>
+            {images.length > 0
+              ? 'Still uploading — photos can take a minute on a slow connection. Keep this open.'
+              : 'Still working — hang on a moment.'}
+          </Text>
+        ) : null}
       </FormScrollView>
 
       <ActionSheet
@@ -487,6 +669,9 @@ const styles = StyleSheet.create({
   checkMark:   { fontSize: 13, fontFamily: FONT_INTER.black },
   publicLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold },
   publicHint:  { fontSize: 12, marginTop: 2 },
+  crossHeading:{ marginTop: 22 },
+  crossFirst:  { marginTop: 4 },
+  crossNext:   { marginTop: 14 },
   thumbRow:    { marginTop: 10 },
   thumbWrap:   { marginRight: 8, position: 'relative' },
   thumb:       { width: 72, height: 72, borderRadius: 8 },
@@ -497,6 +682,12 @@ const styles = StyleSheet.create({
   },
   submitBusy:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   submit:      { height: 50, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center', marginTop: 26 },
-  submitOff:   { opacity: 0.4 },
+  hint:        { fontSize: 12.5, lineHeight: 17, textAlign: 'center', marginTop: 10 },
+  errorBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    marginTop: 22, padding: 12, borderRadius: 10, borderWidth: 1,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+  },
+  errorText:   { flex: 1, fontSize: 13.5, lineHeight: 19, fontFamily: FONT_INTER.medium },
   submitText:  { fontSize: 16, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
 });

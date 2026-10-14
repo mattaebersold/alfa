@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 },
   bubble: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: colors.red,
+    backgroundColor: colors.countBadge,
     alignItems: 'center', justifyContent: 'center',
   },
   bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },

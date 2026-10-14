@@ -11,7 +11,7 @@ import {
   COLOR_HUE_SEAFOAM,
   COLOR_HUE_STEEL,
   COLOR_PRIMARY,
-  COLOR_PRO,
+  COLOR_SOFT_GOLD,
   COLOR_TANGERINE,
   COLOR_WHITE,
 } from '../constants/config';
@@ -28,7 +28,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   restoration:   COLOR_TANGERINE,
   maintenance:   COLOR_GREEN,
   detailing:     COLOR_HUE_ORCHID,
-  show:          COLOR_PRO,
+  show:          COLOR_SOFT_GOLD,
   meets:         COLOR_HUE_SEAFOAM,
   announcements: COLOR_HUE_RASPBERRY,
   general:       COLOR_HUE_STEEL,

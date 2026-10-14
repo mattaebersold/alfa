@@ -3,7 +3,7 @@
  * so an event reads the same on both platforms.
  */
 import { calendarDate } from '../utils/calendarDate';
-import { COLOR_BADGE_RECORD, COLOR_EVENT_CARS_AND_COFFEE, COLOR_EVENT_MISC, COLOR_EVENT_MOTORSPORTS, COLOR_EVENT_SHOW, COLOR_EVENT_TECH_SESSION, COLOR_PRO } from './config';
+import { COLOR_BADGE_RECORD, COLOR_EVENT_CARS_AND_COFFEE, COLOR_EVENT_MISC, COLOR_EVENT_MOTORSPORTS, COLOR_EVENT_SHOW, COLOR_EVENT_TECH_SESSION, COLOR_SOFT_GOLD } from './config';
 
 // One hex per category, used by the card's category pill and the calendar dots
 // so a colour means the same thing in both places. Kept deliberately distinct and
@@ -23,7 +23,7 @@ export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] =
  * outside the category palette so it never reads as another category.
  * Mirrored in murray's helpers/eventHelpers.js — change both together.
  */
-export const ORS_EVENT_COLOR = COLOR_PRO;
+export const ORS_EVENT_COLOR = COLOR_SOFT_GOLD;
 
 /**
  * Bounds on an event card's photo, which otherwise takes the photo's own shape.

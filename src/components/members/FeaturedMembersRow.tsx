@@ -6,7 +6,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Car, Check } from 'lucide-react-native';
-import OilSheen from '../ui/OilSheen';
+import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import SteeringWheel from '../ui/SteeringWheel';
 import { shuffle } from '../../utils/array';
 import { useGetSiteSettingsQuery, useGetCarsQuery } from '../../api/apiService';
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 8, left: 8,
     flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
-    backgroundColor: COLOR_PRO, overflow: 'hidden',
+    backgroundColor: WARM_SHEEN_FILL, overflow: 'hidden',
   },
   featuredBadgeText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   proWheelBadge: {

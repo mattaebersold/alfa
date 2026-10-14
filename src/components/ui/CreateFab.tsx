@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Plus } from 'lucide-react-native';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import OilSheen, { useSheenTone } from './OilSheen';
+import OilSheen, { useSheenTone, WARM_SHEEN_FILL } from './OilSheen';
 import { GUTTER, COLOR_BLACK } from '../../constants/config';
 import Avatar from './Avatar';
 import { useAppSelector } from '../../store/store';
@@ -82,7 +82,7 @@ export default function CreateFab() {
       <Avatar user={userInfo} size={FAB_SIZE} radius={FAB_SIZE / 2} />
     </TouchableOpacity>
     <TouchableOpacity
-      style={[styles.fab, { backgroundColor: tint }]}
+      style={[styles.fab, { backgroundColor: sheenTone === 'warm' ? WARM_SHEEN_FILL : tint }]}
       // The form; its Add Media is where the camera is.
       onPress={() => navigation.navigate('Create')}
       activeOpacity={0.85}

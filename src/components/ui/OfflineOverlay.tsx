@@ -138,8 +138,8 @@ const styles = StyleSheet.create({
   iconRing: {
     width: 62, height: 62, borderRadius: 31,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(205,169,111,0.14)',
-    borderWidth: 1, borderColor: 'rgba(205,169,111,0.35)',
+    backgroundColor: 'rgba(228,99,99,0.14)',
+    borderWidth: 1, borderColor: 'rgba(228,99,99,0.35)',
     marginBottom: 18,
   },
   title: { fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 8 },

@@ -107,13 +107,20 @@ export const COLOR_SECONDARY  = '#DDD8D6'; // the light-mode secondary surface
 export const COLOR_CREAM      = '#F5EFED'; // the light-mode page background
 export const COLOR_LOGO_CREAM = '#F7F1D9'; // the wordmark in the nav drawer
 export const COLOR_CYAN       = '#08DEE3'; // the primary button's fill
-export const COLOR_PRO        = '#CDA96F'; // Pro gold
-export const COLOR_PRO_DARK   = '#C4A05C';
+export const COLOR_PRO        = '#E46363'; // Pro red (was the Pro gold, #CDA96F)
+export const COLOR_PRO_DARK   = '#CE4F4F';
+// The old Pro gold, kept for what borrowed it without meaning Pro — the
+// condition scale's middle step, the "show" category, ORS-sponsored events —
+// and the fill under the warm oil-sheen film (WARM_SHEEN_FILL in OilSheen).
+export const COLOR_SOFT_GOLD  = '#CDA96F';
 export const COLOR_GOLD       = '#C1911B';
 export const COLOR_ON_GOLD    = '#14110B'; // text sitting on a gold fill
 export const COLOR_TANGERINE  = '#FA7921';
 export const COLOR_GREEN      = '#85C27D';
 export const COLOR_RED        = '#EC4632';
+// Every count bubble and unread dot — the bell, the drawer, messages — for every
+// account, Pro or not. The Pro red, so "waiting on you" matches the brand.
+export const COLOR_COUNT_BADGE = COLOR_PRO;
 export const COLOR_GUARDS_RED = '#D00000';
 export const COLOR_TEAL       = '#01777A';
 export const COLOR_SLATE      = '#2F3A4C'; // a surface, not a text colour

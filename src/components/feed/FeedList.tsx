@@ -4,6 +4,7 @@ import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-n
 import { GUTTER } from '../../constants/config';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
+  apiService,
   useGetPostsQuery, useGetBatchLikesMutation, useGetFollowingGarageQuery,
   useGetRoutesQuery, useGetFollowedCarActivityQuery, useGetGroupActivityQuery,
 } from '../../api/apiService';
@@ -19,7 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useAppSelector } from '../../store/store';
+import { useAppDispatch, useAppSelector } from '../../store/store';
 import type { Post, GarageCar, DrivingRoute, CarActivityItem, GroupActivityItem } from '../../types/api';
 import { SkeletonList } from '../ui/Skeleton';
 
@@ -117,6 +118,7 @@ export default function FeedList({
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const refreshingRef = useRef(false);
   const [getBatchLikes] = useGetBatchLikesMutation();
+  const dispatch = useAppDispatch();
 
   const activeFilter = filter ?? (contentFilterEnabled ? 'safe' : undefined);
 
@@ -208,6 +210,9 @@ export default function FeedList({
     refreshingRef.current = true;
     setRefreshing(true);
     setPage(0);
+    // The home feed's header rows ride the same pull — the "played today"
+    // row most of all, which changes all day.
+    if (includeGarageAdditions) dispatch(apiService.util.invalidateTags(['SpotFeed']));
     // If page is already 0, RTK Query won't re-fetch automatically — force it
     if (page === 0) {
       await refetch();
@@ -215,7 +220,7 @@ export default function FeedList({
       setRefreshing(false);
     }
     // Otherwise, setting page=0 triggers a new query; the useEffect clears refreshing
-  }, [page, refetch]);
+  }, [page, refetch, includeGarageAdditions, dispatch]);
 
   /**
    * A refresh asked for by the logo rather than by a pull. iOS only draws the

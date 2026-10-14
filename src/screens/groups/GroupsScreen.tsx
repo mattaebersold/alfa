@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
-import OilSheen from '../../components/ui/OilSheen';
+import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Users, MapPin, Ban } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -75,7 +75,7 @@ interface GroupFilterValue {
 }
 import { ss } from '../../styles/shared';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_PRO, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
+  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -95,7 +95,7 @@ const MY_CARD_WIDTH_SOLO = SCREEN_WIDTH - MY_SECTION_MARGIN * 2;
 /** Your groups' cards — the grid's own grey, now the shelf has no box of its own. */
 const MY_CARD_BG = COLOR_GRAY_40;
 
-const ADMIN_BADGE = { label: 'ADMIN', bg: COLOR_PRO, fg: COLOR_BLACK };
+const ADMIN_BADGE = { label: 'ADMIN', bg: WARM_SHEEN_FILL, fg: COLOR_BLACK };
 const MEMBER_BADGE = { label: 'MEMBER', bg: COLOR_MEMBER_BLUE, fg: COLOR_WHITE };
 
 /**

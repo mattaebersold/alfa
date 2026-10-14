@@ -1,9 +1,9 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { baseQuery } from './baseQuery';
+import { baseQuery, UPLOAD_TIMEOUT_MS } from './baseQuery';
 import type {
-  User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article,
+  User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article, CrossPosts,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  CarSpotToday, CarSpotDay, CarSpotDifficulty, ConciergeRow,
+  CarSpotToday, CarSpotDay, CarSpotDifficulty, SpotFeedToday, ConciergeRow,
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
@@ -17,6 +17,19 @@ import type {
   MarketplaceRoleFilter, MarketplaceUnreadCount, Badges,
   Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration } from '../types/api';
 import { carScopeKey } from '../utils/carScope';
+
+/**
+ * Every list a new discussion or resource lands in: its home, and each place it
+ * was cross-posted to.
+ */
+const crossPostTags = <T extends 'GroupDiscussion' | 'GroupResources'>(
+  type: T,
+  { group_id, make, model, also_models, also_groups }: { group_id?: string; make?: string; model?: string } & CrossPosts,
+) => [
+  { type, id: group_id ?? carScopeKey(make, model) },
+  ...(also_models ?? []).map((m) => ({ type, id: carScopeKey(m.make, m.model) })),
+  ...(also_groups ?? []).map((id) => ({ type, id })),
+];
 
 /** A generation of a model that cars on the site belong to — for the brand page's tiles. */
 export interface ModelGenerationCount {
@@ -92,6 +105,8 @@ export const apiService = createApi({
     'GroupResources', 'Following', 'Rally', 'Marketplace', 'Stories', 'Podcasts', 'List',
     'Block', 'FlaggedContent', 'Route', 'SiteSettings', 'DeclinedInvites', 'Product',
     'ArchivedCars',
+    /** The home feed's "played today" row — refreshed with the feed. */
+    'SpotFeed',
     /**
      * Custom alerts. Its own tag, and also invalidated onto 'User' by every
      * write — the dashboard's usage panel reads the alert count off
@@ -340,6 +355,14 @@ export const apiService = createApi({
     }),
     getCarSpotDay: builder.query<CarSpotDay, { date: string; difficulty: CarSpotDifficulty }>({
       query: ({ date, difficulty }) => ({ url: `api/carspot/days/${encodeURIComponent(date)}`, params: { difficulty } }),
+    }),
+    /**
+     * The home feed's "played today" row: who you follow on ORS has played
+     * today's car, trivia and auction, how they did, and how you did.
+     */
+    getSpotFeedToday: builder.query<SpotFeedToday, void>({
+      query: () => 'api/carspot/feed/today',
+      providesTags: ['SpotFeed'],
     }),
 
     // ── Concierge ───────────────────────────────────────────────────────────
@@ -1414,9 +1437,9 @@ export const apiService = createApi({
     }),
 
     /** In a group (`group_id`) or on a car model (`make` + `model`) — one or the other. */
-    createGroupDiscussionPost: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; category?: string }>({
+    createGroupDiscussionPost: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; category?: string } & CrossPosts>({
       query: (body) => ({ url: 'api/groupdiscussion/create', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupDiscussion', id: group_id ?? carScopeKey(make, model) }],
+      invalidatesTags: (result, error, arg) => crossPostTags('GroupDiscussion', arg),
     }),
 
     /**
@@ -1424,21 +1447,25 @@ export const apiService = createApi({
      * the fields off the form and the files under `gallery`; the ids ride
      * alongside only so the right list is invalidated.
      */
-    createGroupDiscussionPostForm: builder.mutation<void, { group_id?: string; make?: string; model?: string; form: FormData }>({
-      query: ({ form }) => ({ url: 'api/groupdiscussion/create', method: 'POST', body: form }),
-      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupDiscussion', id: group_id ?? carScopeKey(make, model) }],
+    createGroupDiscussionPostForm: builder.mutation<void, { group_id?: string; make?: string; model?: string; form: FormData } & CrossPosts>({
+      query: ({ form }) => ({ url: 'api/groupdiscussion/create', method: 'POST', body: form, timeout: UPLOAD_TIMEOUT_MS }),
+      invalidatesTags: (result, error, arg) => crossPostTags('GroupDiscussion', arg),
     }),
 
     // Author or group admin, enforced server-side. `group_id` is only for
     // invalidation; the gallery is left alone because no `existing_gallery` is sent.
     updateGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string; title: string; body: string; category?: string }>({
       query: ({ group_id, ...body }) => ({ url: 'api/groupdiscussion/update', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+      // Every list of them, not just its home's: a cross-posted one is in
+      // others too (see crossPostTags), and an edit is rare enough to refetch for.
+      invalidatesTags: ['GroupDiscussion'],
     }),
 
     deleteGroupDiscussionPost: builder.mutation<void, { internal_id: string; group_id: string }>({
       query: ({ internal_id }) => ({ url: 'api/groupdiscussion/delete', method: 'POST', body: { internal_id } }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupDiscussion', id: group_id }],
+      // Every list of them, not just its home's: a cross-posted one is in
+      // others too (see crossPostTags), and an edit is rare enough to refetch for.
+      invalidatesTags: ['GroupDiscussion'],
     }),
 
     // Both endpoints toggle: voting the same way twice clears your vote, and
@@ -1497,7 +1524,7 @@ export const apiService = createApi({
     }),
     /** Multipart, with the item's one picture under `file` — see groupNews' uploadSingle. */
     createGroupNewsPostForm: builder.mutation<void, { group_id: string; form: FormData }>({
-      query: ({ form }) => ({ url: 'api/groupnews/create', method: 'POST', body: form }),
+      query: ({ form }) => ({ url: 'api/groupnews/create', method: 'POST', body: form, timeout: UPLOAD_TIMEOUT_MS }),
       invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupNews', id: group_id }],
     }),
 
@@ -1521,14 +1548,14 @@ export const apiService = createApi({
     }),
 
     /** In a group (`group_id`) or on a car model (`make` + `model`) — one or the other. */
-    createGroupResource: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; url?: string; category?: string }>({
+    createGroupResource: builder.mutation<void, { group_id?: string; make?: string; model?: string; title: string; body: string; url?: string; category?: string } & CrossPosts>({
       query: (body) => ({ url: 'api/groupresource/create', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupResources', id: group_id ?? carScopeKey(make, model) }],
+      invalidatesTags: (result, error, arg) => crossPostTags('GroupResources', arg),
     }),
     /** Multipart, with photos under `gallery` — as the discussion's. */
-    createGroupResourceForm: builder.mutation<void, { group_id?: string; make?: string; model?: string; form: FormData }>({
-      query: ({ form }) => ({ url: 'api/groupresource/create', method: 'POST', body: form }),
-      invalidatesTags: (result, error, { group_id, make, model }) => [{ type: 'GroupResources', id: group_id ?? carScopeKey(make, model) }],
+    createGroupResourceForm: builder.mutation<void, { group_id?: string; make?: string; model?: string; form: FormData } & CrossPosts>({
+      query: ({ form }) => ({ url: 'api/groupresource/create', method: 'POST', body: form, timeout: UPLOAD_TIMEOUT_MS }),
+      invalidatesTags: (result, error, arg) => crossPostTags('GroupResources', arg),
     }),
 
     /**
@@ -1543,12 +1570,16 @@ export const apiService = createApi({
     // Same rules as the discussion pair. An empty `url` clears the link.
     updateGroupResource: builder.mutation<void, { internal_id: string; group_id: string; title: string; body: string; url?: string; category?: string }>({
       query: ({ group_id, ...body }) => ({ url: 'api/groupresource/update', method: 'POST', body }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
+      // Every list of them, not just its home's: a cross-posted one is in
+      // others too (see crossPostTags), and an edit is rare enough to refetch for.
+      invalidatesTags: ['GroupResources'],
     }),
 
     deleteGroupResource: builder.mutation<void, { internal_id: string; group_id: string }>({
       query: ({ internal_id }) => ({ url: 'api/groupresource/delete', method: 'POST', body: { internal_id } }),
-      invalidatesTags: (result, error, { group_id }) => [{ type: 'GroupResources', id: group_id }],
+      // Every list of them, not just its home's: a cross-posted one is in
+      // others too (see crossPostTags), and an edit is rare enough to refetch for.
+      invalidatesTags: ['GroupResources'],
     }),
 
     // ── Articles ─────────────────────────────────────────────────────────────
@@ -2729,6 +2760,7 @@ export const {
   useGetLikeUsersQuery,
   useGetCarSpotTodayQuery,
   useGetCarSpotDayQuery,
+  useGetSpotFeedTodayQuery,
   useGetConciergeRowsQuery,
   useGetCommentsQuery,
   useGetCommentRepliesQuery,

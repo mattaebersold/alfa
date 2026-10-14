@@ -127,7 +127,7 @@ function ConversationRow({
       </View>
       {hasUnread && (
         <View
-          style={[styles.unreadBadge, { backgroundColor: colors.red }]}
+          style={[styles.unreadBadge, { backgroundColor: colors.countBadge }]}
           accessibilityLabel={`${unreadCount} unread`}
         >
           <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>

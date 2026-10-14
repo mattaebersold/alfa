@@ -8,9 +8,9 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_DANGER, COLOR_GRAY_22, COLOR_WHITE, GUTTER, COLOR_PRO, COLOR_GRAY_40,
+  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_DANGER, COLOR_GRAY_22, COLOR_WHITE, GUTTER, COLOR_GRAY_40,
 } from '../../constants/config';
-import OilSheen from '../ui/OilSheen';
+import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import {
   conditionLabel, distanceLabel, matchLabel,
   previousPriceLabel, priceLabel, shippingLabel,
@@ -89,7 +89,7 @@ export default function ListingCard({ listing, onPress, conditions, natural }: {
         {match ? (
           // Gold with the oil-slick film, whatever the account — a match is
           // the marketplace's highlight, not the member's brand colour.
-          <View style={[styles.matchPill, styles.matchOnPhoto, { backgroundColor: COLOR_PRO }]}>
+          <View style={[styles.matchPill, styles.matchOnPhoto, { backgroundColor: WARM_SHEEN_FILL }]}>
             <OilSheen tone="warm" radius={PILL_RADIUS} scale={2.5} />
             <Check size={10} color={COLOR_BLACK} strokeWidth={3} />
             <Text style={styles.matchText} numberOfLines={1}>{match}</Text>

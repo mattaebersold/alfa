@@ -9,7 +9,7 @@ import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList from '../notifications/NotificationsList';
 import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_RED, COLOR_WHITE } from '../../constants/config';
+import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE } from '../../constants/config';
 import { useNavigation } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
@@ -219,8 +219,12 @@ export default function NotificationsBell() {
    * present a screen over a modal that is still dismissing, so the navigation
    * has to be the last thing that happens, not the first.
    *
-   * Closing is a spring too, but a fully-damped one: an overshoot on the way
-   * out would have the panel bounce off the header before vanishing.
+   * Closing is a fixed-length ease rather than a spring. It used to be an
+   * overdamped spring (stiffness 53, damping 14.6), which looked done in about
+   * half a second but crept the last few pixels for well over a second more —
+   * and the modal, which swallows every touch, stays up until the animation
+   * reports finished. That tail was the lag: the screen looked free and wasn't.
+   * A timing curve ends when it says it does, and still can't overshoot.
    */
   const closePanel = useCallback((navigateAfter?: () => void) => {
     setExpanded(false);
@@ -228,19 +232,18 @@ export default function NotificationsBell() {
     // full size, so anything else here would pop at the hand-off.
     badgeScale.setValue(1);
     Animated.parallel([
-      Animated.spring(box, {
+      Animated.timing(box, {
         toValue: 0,
-        stiffness: 53,
-        damping: 14.6,
-        mass: 0.85,
+        duration: 320,
+        easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
       }),
       // Quicker than the box: the content is pinned at full size, so it has to
       // be gone before the box shrinks out from under it.
       Animated.timing(reveal, {
         toValue: 0,
-        duration: 270,
-        easing: Easing.in(Easing.cubic),
+        duration: 200,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       // Straight back in, so the bell and count are over the fill for the whole
@@ -526,7 +529,7 @@ const styles = StyleSheet.create({
     minWidth: 19, height: 19, borderRadius: PILL_RADIUS,
     paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLOR_RED,
+    backgroundColor: COLOR_COUNT_BADGE,
     zIndex: 10, elevation: 12,
   },
   badgeText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },

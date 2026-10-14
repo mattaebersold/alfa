@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
-import OilSheen from '../ui/OilSheen';
+import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import PostContextRow from '../social/PostContextRow';
 import { useNavigation } from '@react-navigation/native';
 import { MapPin, Truck, Settings, MessageCircle, Check } from 'lucide-react-native';
@@ -33,7 +33,6 @@ import {
   COLOR_DANGER,
   COLOR_GRAY_22,
   COLOR_WHITE,
-  COLOR_PRO,
   COLOR_GREEN,
 } from '../../constants/config';
 import {
@@ -232,7 +231,7 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
               with the oil-slick film, and the price bottom left — bigger
               here than on a card. */}
           {match ? (
-            <View style={[styles.matchPill, styles.onPhoto, styles.matchOnPhoto, { backgroundColor: COLOR_PRO }]}>
+            <View style={[styles.matchPill, styles.onPhoto, styles.matchOnPhoto, { backgroundColor: WARM_SHEEN_FILL }]}>
               <OilSheen tone="warm" radius={999} />
               <Check size={11} color={COLOR_BLACK} strokeWidth={3} />
               <Text style={styles.matchText} numberOfLines={1}>{match}</Text>

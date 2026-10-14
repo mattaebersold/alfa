@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     minWidth: 19, height: 19, borderRadius: PILL_RADIUS,
     paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.red,
+    backgroundColor: colors.countBadge,
   },
   // Over the corner of whatever it marks. zIndex and elevation both, because
   // the two platforms decide stacking differently — see NotificationsBell.

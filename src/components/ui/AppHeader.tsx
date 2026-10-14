@@ -22,7 +22,7 @@ import { useGetUserGarageQuery, useGetLoggedInUserQuery } from '../../api/apiSer
 import SummaryModal, { type SummaryOrigin } from './SummaryModal';
 import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
-import OilSheen, { useSheenTone, type SheenTone } from './OilSheen';
+import OilSheen, { useSheenTone, WARM_SHEEN_FILL, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
 import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
@@ -217,7 +217,7 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
   }, []);
   const lift = headerOffset.interpolate({
     inputRange: [-TABS_STUCK_RISE, 0],
-    outputRange: [-TABS_STUCK_RISE, 0],
+    outputRange: [-(TABS_STUCK_RISE - TABS_STUCK_TIGHTEN), 0],
     extrapolate: 'clamp',
   });
 
@@ -250,8 +250,10 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
             >
-              <View style={styles.tabInner}>
-                {t.Icon ? <t.Icon size={16} color={on ? brand : TAB_IDLE} strokeWidth={on ? 2.4 : 2} /> : null}
+              {/* A pill per tab, outlined and lettered: the lit one in the account's
+                  colour, the rest in grey. */}
+              <View style={[styles.tabInner, { borderColor: on ? brand : COLOR_BORDER }]}>
+                {t.Icon ? <t.Icon size={15} color={on ? brand : TAB_IDLE} strokeWidth={on ? 2.4 : 2} /> : null}
                 <Text
                   style={[
                     styles.tabLabel,
@@ -263,8 +265,6 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
                   {t.label}
                 </Text>
               </View>
-              {/* Under the lit tab only, in its colour, the width of its word. */}
-              <View style={[styles.tabUnderline, { backgroundColor: on ? brand : 'transparent' }]} />
             </TouchableOpacity>
           );
         })}
@@ -316,7 +316,7 @@ function FloatingButton({
         round && styles.btnRound,
         bare ? styles.btnBare
           : outlined ? styles.btnOutlined
-          : { backgroundColor: tint },
+          : { backgroundColor: sheen === 'warm' ? WARM_SHEEN_FILL : tint },
       ]}
     >
       {sheen && !bare && !outlined && <OilSheen tone={sheen} radius={BTN_RADIUS} />}
@@ -656,7 +656,14 @@ const TABS_STUCK_TRIM = 6;
  * that pins something under the header can rise with it, rather than leave a
  * gap where the buttons were.
  */
-export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM;
+/**
+ * How much further the header's ground rises than the tabs do, once stuck.
+ * Scaled down, the pills leave most of their row empty below them; the ground
+ * and anything pinned under it close that up, while the tabs stop where they
+ * are under the status bar.
+ */
+const TABS_STUCK_TIGHTEN = 12;
+export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM + TABS_STUCK_TIGHTEN;
 
 /** The tabs' size once stuck, against 1 at rest. */
 const TABS_STUCK_SCALE = 0.72;
@@ -671,11 +678,11 @@ const TABS_STUCK_INDENT = 12;
  */
 const TABS_ACTIVE_LEFT = 50;
 
-/** Room before the first tab — a touch more than the GUTTER, so the row doesn't start hard on the edge. */
-const TABS_START_PAD = 12;
+/** Room before the first tab: the global gutter, so it lines up with the header's buttons and the page under it. */
+const TABS_START_PAD = GUTTER;
 
-/** An unlit tab — white, stepped back so the lit one leads. */
-const TAB_IDLE = 'rgba(255,255,255,0.6)';
+/** An unlit tab's label and icon — full white; the grey outline and lighter weight keep the lit one leading. */
+const TAB_IDLE = COLOR_WHITE;
 
 const styles = StyleSheet.create({
   // Over the scrim and level with the buttons, so it covers the content
@@ -691,7 +698,7 @@ const styles = StyleSheet.create({
   // multiple of it spread the tabs there a thumb's width apart.
   tabsItems: {
     flexDirection: 'row', alignItems: 'center',
-    gap: Platform.OS === 'android' ? GUTTER : 16,
+    gap: 8,
     transformOrigin: 'left center',
   },
   // Full width, edge to edge — the row scrolls under both sides of the screen.
@@ -713,21 +720,24 @@ const styles = StyleSheet.create({
     // fully into view, plus clear space so it doesn't end hard against the
     // screen edge when scrolled all the way along.
     paddingRight: GUTTER + TABS_STUCK_INDENT + TABS_END_SPACE,
-    paddingVertical: 10,
-    minHeight: HEADER_TABS_HEIGHT,
+    // Less above than below: the pills sit up near the buttons they belong
+    // to, and the room under them parts the row from the page.
+    paddingTop: 0,
+    paddingBottom: 10,
   },
   // Semibold at rest.
-  tabInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tabLabel: { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  tabInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    height: 34, paddingHorizontal: 14, borderRadius: 999,
+    // The header buttons' outline: the same width, and unlit, the same colour.
+    borderWidth: 1,
+  },
+  tabLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // Stuck, and scaled down: a step heavier, so it reads as the same weight.
   tabLabelStuck: { fontFamily: FONT_INTER.bold },
   // The unlit tabs a weight lighter, at rest and stuck, so the lit one leads.
   tabLabelIdle: { fontFamily: FONT_INTER.medium },
   tabLabelIdleStuck: { fontFamily: FONT_INTER.semibold },
-  // Always there, transparent when unlit, so every label sits at the same
-  // height whichever tab is active.
-  // A touch thicker than a hairline so its round ends show.
-  tabUnderline: { height: 2, borderRadius: 999, marginTop: 3, overflow: 'hidden' },
 
   // Behind the bar, and starting at the physical top of the screen rather than
   // below the safe-area inset — the status bar is translucent, so the content

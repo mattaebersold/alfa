@@ -40,7 +40,7 @@ import {
   COLOR_GRAY_236,
   COLOR_GRAY_42,
   COLOR_SUCCESS,
-  COLOR_WHITE, COLOR_RED } from '../../constants/config';
+  COLOR_WHITE, COLOR_COUNT_BADGE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -453,7 +453,9 @@ function RowReveal({
  * modal route, and the panel the header's bell expands into. Both need the same
  * list; only what "close this" means differs, which is `onDismiss`.
  */
-export default function NotificationsList({
+export default React.memo(NotificationsList);
+
+function NotificationsList({
   onDismiss,
   /** Stagger the rows in on mount — see RowReveal. */
   revealStagger = false,
@@ -694,7 +696,7 @@ const styles = StyleSheet.create({
   // avatar. The words stay heavier too (messageUnread).
   unreadDot: {
     position: 'absolute', top: 10, left: 8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: COLOR_RED,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: COLOR_COUNT_BADGE,
   },
   tabs:    { paddingTop: 4, paddingBottom: 6 },
   moreBtn: {

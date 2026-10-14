@@ -1,6 +1,6 @@
 import type { Listing } from '../../types/api';
 import {
-  COLOR_RED, COLOR_TANGERINE, COLOR_PRO, COLOR_GREEN,
+  COLOR_RED, COLOR_TANGERINE, COLOR_SOFT_GOLD, COLOR_GREEN,
   COLOR_HUE_CORNFLOWER, COLOR_HUE_SEAFOAM, COLOR_HUE_ORCHID, COLOR_HUE_CLAY,
   COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
 } from '../../constants/config';
@@ -73,7 +73,7 @@ export const categoryColor = (key?: string | null): string => {
  * A condition's badge colour, along its scale: red at the worst, through
  * amber and gold, to green at the best — so "how good" reads before the word.
  */
-const CONDITION_SCALE = [COLOR_RED, COLOR_TANGERINE, COLOR_PRO, COLOR_GREEN];
+const CONDITION_SCALE = [COLOR_RED, COLOR_TANGERINE, COLOR_SOFT_GOLD, COLOR_GREEN];
 export const conditionColor = (
   condition?: number | null,
   conditions: string[] = LISTING_CONDITIONS,

@@ -217,6 +217,8 @@ export default function SummaryModal({
   actionColor,
   stacked,
   header,
+  onClosed,
+  minHeightRatio = 0,
   children,
 }: {
   visible: boolean;
@@ -252,6 +254,19 @@ export default function SummaryModal({
    * panel and the scroller goes to the field.
    */
   header?: React.ReactNode;
+  /**
+   * Once the panel has finished closing, however it was closed — for a caller
+   * that has to present something of its own afterwards (iOS won't present
+   * over a Modal that is still on its way out).
+   */
+  onClosed?: () => void;
+  /**
+   * A floor for the panel, as a share of the most it can be. For a caller whose
+   * content can be one row or fifty: the panel opens at a guess and fits to
+   * the content once measured, and a floor keeps a short section from
+   * collapsing far out of that guess.
+   */
+  minHeightRatio?: number;
   children: React.ReactNode;
 }) {
   const parentPanel = useSummaryPanel();
@@ -344,7 +359,11 @@ export default function SummaryModal({
   const [footerH, setFooterH] = useState(0);
   const [headerH, setHeaderH] = useState(0);
   const measured = scrollH == null ? null : scrollH + headerH + footerH + PANEL_BORDER * 2;
-  const liveH = Math.min(measured ?? maxH * UNMEASURED_RATIO, maxH);
+  const minH = maxH * minHeightRatio;
+  // With a floor, the guess is the floor: the panel opens there and only grows
+  // once the content turns out to need more — never shrinks back from a guess.
+  const guessH = minH > 0 ? minH : maxH * UNMEASURED_RATIO;
+  const liveH = Math.min(Math.max(measured ?? guessH, minH), maxH);
   /**
    * Held still while the keyboard is up.
    *
@@ -503,6 +522,7 @@ export default function SummaryModal({
       if (!finished) return;
       presented.current = false;
       setRendered(false);
+      onClosedRef.current?.();
       const go = pendingAction.current;
       pendingAction.current = null;
       if (go) requestAnimationFrame(go);
@@ -514,6 +534,8 @@ export default function SummaryModal({
   // may since have been replaced.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
   const parentRef = useRef(parentPanel);
   parentRef.current = parentPanel;
 

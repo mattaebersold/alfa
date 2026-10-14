@@ -75,8 +75,9 @@ import {
   COLOR_GRAY_20,
   COLOR_GRAY_22,
   COLOR_GRAY_31,
-  COLOR_RED,
+  COLOR_COUNT_BADGE,
   COLOR_WHITE,
+  COLOR_BORDER,
   COLOR_PRO,
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
@@ -120,7 +121,7 @@ const TAB_ACTIVE_LEFT = 44;
 type TabKey = 'discussion' | 'posts' | 'news' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
 
 /** The header tabs' unlit white — see AppHeader's TAB_IDLE. */
-const HEADER_TAB_IDLE = 'rgba(255,255,255,0.6)';
+const HEADER_TAB_IDLE = COLOR_WHITE;
 
 const TABS: {
   key: TabKey;
@@ -487,8 +488,8 @@ export default function GroupDetailScreen() {
   );
 
   // ── Tab bar ─────────────────────────────────────────────────────────────
-  // The app header's tab row, in the page: labels with an underline under the
-  // lit one, in the brand colour. Icons kept, one colour for all of them.
+  // The app header's tab row, in the page: outlined pills, the lit one in the
+  // Pro red, the rest white on the header buttons' grey edge.
   const renderTabBar = (ref: React.RefObject<ScrollView | null>) => (
     <View style={[styles.tabBar, { backgroundColor: c.cream }]}>
       <ScrollView
@@ -499,7 +500,6 @@ export default function GroupDetailScreen() {
       >
         {TABS.map(({ key, label, Icon }) => {
           const on = key === tab;
-          // The header's colours: gold lit, its idle white stepped back.
           const color = on ? COLOR_PRO : HEADER_TAB_IDLE;
           return (
             <TouchableOpacity
@@ -511,12 +511,10 @@ export default function GroupDetailScreen() {
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
             >
-              <View style={styles.tabInner}>
-                <Icon size={16} color={color} strokeWidth={on ? 2.4 : 2} />
+              <View style={[styles.tabInner, { borderColor: on ? COLOR_PRO : COLOR_BORDER }]}>
+                <Icon size={15} color={color} strokeWidth={on ? 2.4 : 2} />
                 <Text style={[styles.tabLabel, { color }, !on && styles.tabLabelIdle]}>{label}</Text>
               </View>
-              {/* Under the lit tab only, in its colour — as the header's. */}
-              <View style={[styles.tabUnderline, { backgroundColor: on ? COLOR_PRO : 'transparent' }]} />
             </TouchableOpacity>
           );
         })}
@@ -1138,7 +1136,7 @@ const styles = StyleSheet.create({
   // on you".
   requestsCount: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_RED,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_COUNT_BADGE,
   },
   requestsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   requestsText:   { flex: 1, fontSize: 14, fontFamily: FONT_INTER.bold },
@@ -1181,17 +1179,13 @@ const styles = StyleSheet.create({
   // Between the page and the app header (zIndex 20), so the header's
   // buttons stay on top of it.
   tabsOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 15, elevation: 15 },
-  // The header's measures: its gap (wider on iOS, where GUTTER is narrow),
-  // its start pad, its vertical padding.
-  tabRow:       { flexDirection: 'row', alignItems: 'center', gap: Platform.OS === 'android' ? GUTTER : 16, paddingHorizontal: 12, paddingVertical: 10 },
-  tabInner:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tabLabel:     { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
+  // The header's measures: its pill gap, the gutter at the start.
+  tabRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingVertical: 10 },
+  // The header's pill: 1pt edge, as its buttons'.
+  tabInner:     { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
+  tabLabel:     { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // The unlit tabs a weight lighter, so the lit one leads.
   tabLabelIdle: { fontFamily: FONT_INTER.medium },
-  // Always there, transparent when unlit, so every label sits at the same
-  // height whichever tab is active. A touch thicker than a hairline so its
-  // round ends show.
-  tabUnderline: { height: 3, borderRadius: 999, marginTop: 1, overflow: 'hidden' },
 
   loader:       { marginVertical: 40 },
   rowTitle:     { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 3 },

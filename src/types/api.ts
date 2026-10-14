@@ -510,6 +510,46 @@ export interface CarSpotDay {
   today: string;
 }
 
+/** The three games of a Car Spotter day, as the ORS feed's "played today" row names them. */
+export type SpotGameKind = 'car' | 'trivia' | 'auction';
+
+/** A finished car game, spoiler-free: how it went, not what the car was. */
+export interface SpotDayCar {
+  difficulty: CarSpotDifficulty;
+  won: boolean;
+  attempts: number;
+  hint_used: boolean;
+  time_ms: number | null;
+  /** One entry per guess: [make right, model right]. */
+  grid: [boolean, boolean][];
+}
+
+/** A day's trivia answer — right or wrong, never which answer. */
+export interface SpotDayTrivia { correct: boolean; time_ms: number | null }
+
+/**
+ * A day's auction guess — its 0–100 score and how far off it was, in percent
+ * (positive is over). Never the guess itself, which with the percentage
+ * would give the price away.
+ */
+export interface SpotDayAuction { score: number; off_pct: number | null; bullseye: boolean }
+
+/** One member's Car Spotter day: each game null when it wasn't played. */
+export interface SpotDayGames {
+  car: SpotDayCar | null;
+  trivia: SpotDayTrivia | null;
+  auction: SpotDayAuction | null;
+}
+
+/** GET api/carspot/feed/today — today's games from the members you follow on ORS, and yours. */
+export interface SpotFeedToday {
+  /** 'YYYY-MM-DD' in the game's timezone. */
+  date: string;
+  /** Followed members who've finished at least one game today, the latest first. */
+  players: (SpotDayGames & { user: User; played_at: string | null })[];
+  me: SpotDayGames;
+}
+
 // ── Polls ────────────────────────────────────────────────────────────────────
 
 /**
@@ -1063,6 +1103,23 @@ export interface Rally {
   user?: User;
 }
 
+/**
+ * A car model's page that a group discussion or resource also shows on. Still
+ * one item — one thread, one set of votes — listed in more than one place.
+ */
+export interface CrossModel {
+  make: string;
+  model: string;
+  make_handle?: string;
+  model_handle?: string;
+}
+
+/** Where a new discussion or resource also goes, asked for when it's posted. */
+export interface CrossPosts {
+  also_models?: CrossModel[];
+  also_groups?: string[];
+}
+
 export interface GroupDiscussionPost {
   _id?: string;
   internal_id: string;
@@ -1074,6 +1131,10 @@ export interface GroupDiscussionPost {
   group_id?: string | null;
   make?: string | null;
   model?: string | null;
+  /** Model pages a group post was cross-posted to — see CrossPosts. */
+  also_models?: CrossModel[];
+  /** Groups a model-page post was cross-posted to. */
+  also_groups?: string[];
   title?: string;
   body?: string;
   gallery?: GalleryItem[];
@@ -1129,6 +1190,10 @@ export interface GroupResource {
   group_id?: string | null;
   make?: string | null;
   model?: string | null;
+  /** Model pages a group post was cross-posted to — see CrossPosts. */
+  also_models?: CrossModel[];
+  /** Groups a model-page post was cross-posted to. */
+  also_groups?: string[];
   title?: string;
   body?: string;
   gallery?: GalleryItem[];
