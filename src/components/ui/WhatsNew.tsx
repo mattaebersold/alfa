@@ -5,7 +5,7 @@ import { Sparkles, ChevronRight } from 'lucide-react-native';
 import SharedModal from './SharedModal';
 import OilSheen from './OilSheen';
 import { APP_VERSION } from '../../utils/appVersion';
-import { changelogFor, changelogBefore, EARLIEST_SHOWN, type ChangelogEntry } from '../../constants/changelog';
+import { latestChangelog, changelogBefore, EARLIEST_SHOWN, type ChangelogEntry } from '../../constants/changelog';
 import {
   COMMON_RADIUS,
   PILL_RADIUS,
@@ -38,10 +38,10 @@ const DIVIDER_STRONG = COLOR_GRAY_60;
 /**
  * "What's new in 1.42", at the foot of the menu, and the panel it opens.
  *
- * Renders nothing at all when the running version has no notes written up (see
- * src/constants/changelog.ts) — an empty panel promising news is worse than no
- * button, and a button showing the *previous* version's list is worse than
- * both.
+ * Always there. When the running version has no notes written up yet (see
+ * src/constants/changelog.ts), it offers the latest version that does, under
+ * that version's own number — so it never promises news it doesn't have, and
+ * never goes missing between a bump and its notes.
  *
  * The button owns its own modal so the drawer only has to place it. It used
  * to carry an unread dot, tracked per version in the keychain; that came out —
@@ -49,9 +49,10 @@ const DIVIDER_STRONG = COLOR_GRAY_60;
  * dot that everybody sees once and then has to dismiss was a chore, not a cue.
  */
 export default function WhatsNewButton() {
-  const entry = changelogFor(APP_VERSION);
+  const latest = latestChangelog(APP_VERSION);
   const [open, setOpen] = useState(false);
-  if (!entry) return null;
+  if (!latest) return null;
+  const { version, entry } = latest;
 
   return (
     <>
@@ -60,7 +61,7 @@ export default function WhatsNewButton() {
         onPress={() => setOpen(true)}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel={`What's new in version ${APP_VERSION}`}
+        accessibilityLabel={`What's new in version ${version}`}
       >
         {/* The same film as the logo and the add button, in its pale tone and
             at a little more strength — there's no brand fill under this one to
@@ -69,7 +70,7 @@ export default function WhatsNewButton() {
         <Sparkles size={17} color={BTN_FG} strokeWidth={2.2} />
         <View style={styles.btnText}>
           <Text style={styles.btnLabel} numberOfLines={1}>
-            What's new in {APP_VERSION}
+            What's new in {version}
           </Text>
         </View>
         <ChevronRight size={16} color={BTN_FG_MID} strokeWidth={2.5} />
@@ -78,6 +79,7 @@ export default function WhatsNewButton() {
       <WhatsNewSheet
         visible={open}
         onClose={() => setOpen(false)}
+        version={version}
         entry={entry}
       />
     </>
@@ -129,12 +131,14 @@ function VersionNotes({ entry }: { entry: ChangelogEntry }) {
  * a screen-tall panel with a hand's worth of empty black under them, and
  * SharedModal caps a long one at 90% and lets the list scroll.
  */
-function WhatsNewSheet({ visible, onClose, entry }: {
+function WhatsNewSheet({ visible, onClose, version, entry }: {
   visible: boolean;
   onClose: () => void;
+  /** The version these notes are for — the running one, or the latest written up before it. */
+  version: string;
   entry: ChangelogEntry;
 }) {
-  const earlier = changelogBefore(APP_VERSION);
+  const earlier = changelogBefore(version);
   return (
     <SharedModal
       visible={visible}
@@ -151,7 +155,7 @@ function WhatsNewSheet({ visible, onClose, entry }: {
       >
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle} numberOfLines={1}>What's new</Text>
-          <VersionPill version={APP_VERSION} />
+          <VersionPill version={version} />
         </View>
         <Text style={styles.date}>{entry.date}</Text>
         <VersionNotes entry={entry} />

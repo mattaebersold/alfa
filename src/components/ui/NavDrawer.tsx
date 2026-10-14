@@ -630,10 +630,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
 
               <View style={styles.footer}>
                 {/* Leads the small print, above the version pill it's about.
-                    Renders nothing when this version has no notes written up —
-                    see src/constants/changelog.ts — so the footer goes back to
-                    what it was rather than offering an empty panel. Its own
-                    modal and its own unread dot live inside it. */}
+                    Always shown: with no notes yet for this version it offers
+                    the latest that has some — see WhatsNew. Its own modal
+                    lives inside it. */}
                 <WhatsNewButton />
 
                 {/* Support and Invite, as plain links under the release notes:

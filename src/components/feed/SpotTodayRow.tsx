@@ -98,8 +98,8 @@ export default function SpotTodayRow() {
 
   return (
     <View style={styles.wrap}>
-      {/* The game's name on the left, and the day it's for on the right — a
-          badge, since these cards are today's only and gone at midnight. */}
+      {/* The game's name, with the day it's for in a badge beside it — these
+          cards are today's only and gone at midnight. */}
       <View style={styles.sectionHead}>
         <Text style={[styles.sectionTitle, { color: colors.fg }]} numberOfLines={1}>ORS Guessing Game</Text>
         <View style={[styles.dateBadge, { borderColor: colors.border }]}>
@@ -133,7 +133,7 @@ export default function SpotTodayRow() {
 const styles = StyleSheet.create({
   wrap: { paddingTop: 6, paddingBottom: 14 },
   sectionHead: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: GUTTER, paddingBottom: 10,
   },
   sectionTitle: { flexShrink: 1, fontSize: 16, fontFamily: FONT_INTER.bold },

@@ -25,6 +25,45 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.68': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Guessing Game',
+        items: [
+          'Every difficulty level of the guessing game now goes on a single share card.',
+          'A new carousel at the top of the home feed shows game results, replacing the result cards in the feed.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'New offroad and overlanding car categories.',
+          'A cleaned-up make and model list.',
+          'Rows on a car\'s page now open in a pop-up panel instead of sliding up from the bottom.',
+          'On your own car, those panels have a button to add something new: a record, a mod or a gallery.',
+          'On your own car\'s page, an easy button to update its main photo.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'Working on a fix for group resources that wouldn\'t save, and clearer saving, loading and error states in the resource and discussion forms.',
+          'Posting a resource or discussion in a group can now also post it to the make and model page for that group.',
+          'Posting a resource or discussion on a model page can now also post it to a group you\'re in that\'s about that model.',
+        ],
+      },
+      {
+        title: 'Look and feel',
+        items: [
+          'An updated Pro theme colour.',
+          'Restyled tabs in the header and on group pages.',
+          'Smoother, faster pop-up panels.',
+          'Fixed swiping through photo galleries.',
+        ],
+      },
+    ],
+  },
   '1.65': {
     date: 'October 2026',
     groups: [
@@ -644,6 +683,21 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
 /** The notes for a version, or null when that version has none written up. */
 export function changelogFor(version: string): ChangelogEntry | null {
   return CHANGELOG[version] ?? null;
+}
+
+/**
+ * The newest notes there are for `version`: its own, or — when it has none
+ * written up yet, or the version can't be read — the latest version before it
+ * that does. So the "What's new" button always has something to open.
+ */
+export function latestChangelog(version: string): { version: string; entry: ChangelogEntry } | null {
+  if (version && CHANGELOG[version]) return { version, entry: CHANGELOG[version] };
+  const ceiling = version ? ordinal(version) : Infinity;
+  const newest = Object.keys(CHANGELOG)
+    .filter((v) => ordinal(v) <= ceiling)
+    .sort((a, b) => ordinal(b) - ordinal(a))[0]
+    ?? Object.keys(CHANGELOG).sort((a, b) => ordinal(b) - ordinal(a))[0];
+  return newest ? { version: newest, entry: CHANGELOG[newest] } : null;
 }
 
 /**
