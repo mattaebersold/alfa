@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useLayoutEffect, useState, useRef, useEffect } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
   View, StyleSheet, ActivityIndicator, Alert, Keyboard, Platform,
@@ -35,6 +35,13 @@ interface InlineCommentsProps {
    * yours apart from — both go.
    */
   variant?: 'inline' | 'panel';
+  /**
+   * In a panel, the composer pinned to the panel's foot (SummaryPanelHandle's
+   * setFooter) rather than after the thread — for a panel with something above
+   * the thread, where the composer would otherwise sit wherever the thread
+   * happened to end.
+   */
+  pinComposer?: boolean;
 }
 
 /** Long enough for the keyboard, and the panel's move for it, to be done. */
@@ -185,7 +192,7 @@ function ReplyComposer({ documentId, entryType, replyTo, username, tone, onDone,
  * same-direction VirtualizedList inside one breaks scrolling and warns.
  */
 export default function InlineComments({
-  documentId, entryType, title = 'Comments', backgroundColor, variant = 'inline',
+  documentId, entryType, title = 'Comments', backgroundColor, variant = 'inline', pinComposer = false,
 }: InlineCommentsProps) {
   const c = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -239,6 +246,36 @@ export default function InlineComments({
       return false;
     }
   };
+
+  const composerEl = (
+    <Composer
+      value={commentText}
+      onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
+      placeholder="Write a comment..."
+      photos={photos}
+      onSend={handleSubmit}
+      sending={submitting}
+      mentions
+      sendLabel="Post"
+      tone={tone}
+      barStyle={styles.composer}
+      attachField
+      // Boxed at a fixed size: in a row whose other child grows, the avatar
+      // was picking up the leftover width and drawing as a wide rectangle
+      // instead of a circle.
+      leading={variant === 'inline' ? (
+        <View style={styles.avatarBox}>
+          <Avatar user={userInfo} size={30} />
+        </View>
+      ) : undefined}
+    />
+  );
+  /** Pinned to the panel's foot instead of after the thread — see `pinComposer`. */
+  const pinned = pinComposer && !!panel;
+  useLayoutEffect(() => {
+    if (pinned) panel!.setFooter(<View style={[styles.pinnedComposer, { backgroundColor: bg }]}>{composerEl}</View>);
+  });
+  useLayoutEffect(() => () => { if (pinned) panel!.setFooter(null); }, [pinned, panel]);
 
   return (
     <View style={[variant === 'inline' && styles.framed, { backgroundColor: bg, borderTopColor: c.borderDark }]}>
@@ -295,27 +332,7 @@ export default function InlineComments({
         })
       )}
 
-      <Composer
-        value={commentText}
-        onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
-        placeholder="Write a comment..."
-        photos={photos}
-        onSend={handleSubmit}
-        sending={submitting}
-        mentions
-        sendLabel="Post"
-        tone={tone}
-        barStyle={styles.composer}
-        attachField
-        // Boxed at a fixed size: in a row whose other child grows, the avatar
-        // was picking up the leftover width and drawing as a wide rectangle
-        // instead of a circle.
-        leading={variant === 'inline' ? (
-          <View style={styles.avatarBox}>
-            <Avatar user={userInfo} size={30} />
-          </View>
-        ) : undefined}
-      />
+      {pinned ? null : composerEl}
 
       <UserSummaryModal
         userId={userSummary?.userId ?? null}
@@ -344,6 +361,7 @@ const styles = StyleSheet.create({
   empty:      { fontSize: 13, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
 
   composer:  { paddingBottom: 6 },
+  pinnedComposer: { paddingTop: 8 },
   // Android draws the panel's foot tighter under the bar than iOS does —
   // the Post button sat nearly on the edge — so it gets more room there.
   panelComposer: { paddingBottom: Platform.OS === 'android' ? 16 : 6 },

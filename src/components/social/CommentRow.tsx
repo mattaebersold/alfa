@@ -133,34 +133,25 @@ export default function CommentRow({
   const { data: likeInfo } = useGetLikeInfoQuery(commentId, { skip: !commentId || !!comment.removed });
   if (hiddenIds.includes(commentId)) return null;
 
-  const confirmDelete = () => {
-    Alert.alert(
-      'Delete comment?',
-      'This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteComment({
-                id: commentId,
-                documentId: comment.document_id,
-                documentType: comment.document_entry_type,
-              }).unwrap();
-              onDeleted?.();
-            } catch {
-              // Nothing closes on a failure — the comment is still there, and
-              // shutting the sheet would be the one thing that makes it look
-              // like it worked.
-              Alert.alert("Couldn't delete", 'Please try again.');
-            }
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+  /**
+   * Deletes straight away. The ⋮ and then "Delete Comment" are already two
+   * deliberate taps, and a third — an "are you sure?" — only asked the same
+   * question again.
+   */
+  const deleteNow = async () => {
+    try {
+      await deleteComment({
+        id: commentId,
+        documentId: comment.document_id,
+        documentType: comment.document_entry_type,
+      }).unwrap();
+      onDeleted?.();
+    } catch {
+      // Nothing closes on a failure — the comment is still there, and
+      // shutting the sheet would be the one thing that makes it look like it
+      // worked.
+      Alert.alert("Couldn't delete", 'Please try again.');
+    }
   };
 
   const displayName = user?.username || '…';
@@ -283,7 +274,7 @@ export default function CommentRow({
                 onClose={() => setMenuOpen(false)}
                 title="Your comment"
                 options={[
-                  { label: 'Delete Comment', Icon: Trash2, destructive: true, onPress: confirmDelete },
+                  { label: 'Delete Comment', Icon: Trash2, destructive: true, onPress: deleteNow },
                 ]}
               />
             </>

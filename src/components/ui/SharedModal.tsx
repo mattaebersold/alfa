@@ -70,6 +70,13 @@ interface SharedModalProps {
    * behind its content, like What's new.
    */
   surface?: string;
+  /** No title row — the grabber alone, for a sheet whose content heads itself. */
+  hideHeader?: boolean;
+  /**
+   * The content runs to the device's bottom edge, with no home-indicator
+   * spacer under it — the content pads its own foot for the device's UI.
+   */
+  edgeToEdge?: boolean;
   children: React.ReactNode;
 }
 
@@ -79,7 +86,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, hideHeader = false, edgeToEdge = false, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -188,6 +195,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             <Pressable onPress={onClose} style={[styles.grabberHit, surface != null && { backgroundColor: surface }]} hitSlop={6}>
               <View style={styles.grabber} />
             </Pressable>
+            {hideHeader ? null : (
             <View style={[styles.header, surface != null && { backgroundColor: surface }]}>
               {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
               <View style={styles.headerRight}>
@@ -199,6 +207,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
                 )}
               </View>
             </View>
+            )}
           </View>
           {/* The sheet has already shrunk for the keyboard: a FormScrollView
               inside adds no keyboard space of its own. */}
@@ -207,7 +216,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               with it up, the keyboard covers that strip. A spacer that
               collapses as the keyboard rises, not a padding switched on its
               events: that switch made the sheet's foot hop on Android. */}
-          <HomeIndicatorSpacer height={Math.max(insets.bottom, 12)} />
+          {edgeToEdge ? null : <HomeIndicatorSpacer height={Math.max(insets.bottom, 12)} />}
         </Animated.View>
         </KeyboardAvoidingView>
       </View>

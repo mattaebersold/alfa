@@ -4,11 +4,11 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor } from '../../hooks/useBrandColor';
 import { imageUrl } from '../../utils/image';
 import {
   COMMON_RADIUS,
   COLOR_GRAY_17,
+  COLOR_GRAY_38,
   COLOR_GRAY_208,
   COLOR_GRAY_26,
   COLOR_GRAY_46,
@@ -57,7 +57,6 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
   fitName?: boolean;
 }) {
   const colors = useColors();
-  const brand = useBrandColor();
   const shots = (photos ?? []).slice(0, 3).map((f) => imageUrl(f)).filter((u): u is string => !!u);
   // The slices are laid out in points, so they wait for the panel's width.
   const [width, setWidth] = useState(0);
@@ -111,9 +110,11 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
             photos that were never meant to sit side by side. */}
         {shots.length === 1 || (shots.length > 1 && width > 0) ? (
           <>
-            {/* Monotone: the brand color's hue laid over the photo, or every
-                slice — each keeping its own light and dark, so they read as a set. */}
-            <View style={[styles.sliceMono, { backgroundColor: brand }]} pointerEvents="none" />
+            {/* Monotone: a dark grey laid over the photo, or every slice —
+                draining some of each one's colour while keeping its own light
+                and dark, so they read as a set. Grey rather than the brand
+                colour: since Pro went red, a brand tint read as a red wash. */}
+            <View style={[styles.sliceMono, { backgroundColor: TILE_TINT }]} pointerEvents="none" />
             <View style={styles.sliceTint} pointerEvents="none" />
           </>
         ) : null}
@@ -145,6 +146,9 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
   );
 }
 
+/** The tiles' tint — see the monotone layer. */
+const TILE_TINT = COLOR_GRAY_38;
+
 const styles = StyleSheet.create({
   card: {
     // No border; a step lighter than the page instead — the upcoming event
@@ -172,7 +176,7 @@ const styles = StyleSheet.create({
   // `color` blend: hue and saturation from the layer, brightness from the
   // photos. At part strength, so a little of each photo's own color survives.
   sliceMono: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, mixBlendMode: 'color', opacity: 0.35, zIndex: 20 },
-  sliceTint: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.05)', zIndex: 21 },
+  sliceTint: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.12)', zIndex: 21 },
   sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_17 },
   blank: { alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 8, right: 8, zIndex: 10 },

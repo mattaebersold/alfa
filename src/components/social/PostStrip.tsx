@@ -3,16 +3,21 @@ import {
   View, ScrollView, TouchableOpacity, StyleSheet, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
+import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
-import { ChevronRight, MessageSquare } from 'lucide-react-native';
+import { MessageSquare, Plus } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { postMediaList } from '../../utils/postMedia';
 import PostMediaCarousel from '../media/PostMediaCarousel';
 import { stripHtml } from '../../utils/text';
 import type { Post } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/config';
+import { CATEGORY_LABELS } from '../ui/Badge';
+import { categoryColor, pillTextColor } from '../../utils/categoryColor';
+import { POST_TYPES } from '../../constants/postTypes';
+import { COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer. */
@@ -48,6 +53,16 @@ export default function PostStrip({
   largeCaption = false,
   onPostPress,
   onViewAll,
+  alwaysViewAll = false,
+  onAdd,
+  addLabel,
+  ruled = false,
+  ruleGap,
+  cardWidth = CARD_WIDTH,
+  captionLines = 2,
+  captionOnImage = false,
+  bylineOnImage = false,
+  kindBadge = false,
 }: {
   title: string;
   posts: Post[];
@@ -66,8 +81,39 @@ export default function PostStrip({
   largeCaption?: boolean;
   onPostPress: (post: Post) => void;
   onViewAll: () => void;
+  /**
+   * Show "View all" even when everything is already on the shelf — for a page
+   * whose full list is also where things get added, like a car's records.
+   */
+  alwaysViewAll?: boolean;
+  /** Owner only: a button beside View all that opens the form for one more. */
+  onAdd?: () => void;
+  /** "Add record" — the button's words. */
+  addLabel?: string;
+  /** A rule above, setting this shelf apart from the one before it. */
+  ruled?: boolean;
+  /** Room above the rule, when the default 26 is too much for what's above. */
+  ruleGap?: number;
+  /** The cards' width — wider for a shelf that's read more than scanned. */
+  cardWidth?: number;
+  /** Lines of caption before it trails off. */
+  captionLines?: number;
+  /**
+   * The caption over the foot of the picture, on a fade to black, rather than
+   * under it — the card becomes the picture. A text post keeps its words in
+   * the picture's place as before.
+   */
+  captionOnImage?: boolean;
+  /** Who posted it, as a pill on the picture's top-left corner instead of under it. */
+  bylineOnImage?: boolean;
+  /**
+   * What kind of post it is, as a colour-coded pill on the picture's top-left —
+   * its category where it has one (Maintenance, Restoration…), else its type.
+   */
+  kindBadge?: boolean;
 }) {
   const colors = useColors();
+  const brand = useBrandColor();
 
   /**
    * Which cards are in view, by index, so a video stops when it's swiped out
@@ -88,13 +134,13 @@ export default function PostStrip({
   const measure = useCallback(() => {
     const shown: number[] = [];
     for (let i = 0; i < posts.length; i++) {
-      const left = ROW_PAD_LEFT + i * (CARD_WIDTH + CARD_GAP) - offsetX.current;
-      const onScreen = Math.min(left + CARD_WIDTH, viewportWidth.current) - Math.max(left, 0);
-      if (onScreen >= CARD_WIDTH * VISIBLE_FRACTION) shown.push(i);
+      const left = ROW_PAD_LEFT + i * (cardWidth + CARD_GAP) - offsetX.current;
+      const onScreen = Math.min(left + cardWidth, viewportWidth.current) - Math.max(left, 0);
+      if (onScreen >= cardWidth * VISIBLE_FRACTION) shown.push(i);
     }
     const key = shown.join(',');
     setVisibleKey((prev) => (prev === key ? prev : key));
-  }, [posts.length]);
+  }, [posts.length, cardWidth]);
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     viewportWidth.current = e.nativeEvent.layout.width;
     measure();
@@ -107,32 +153,49 @@ export default function PostStrip({
 
   // Nothing to show is nothing to say — an empty shelf reads as something
   // failing to load.
-  if (posts.length === 0) return null;
-  const hasMore = (total ?? posts.length) > posts.length;
+  // Except to the owner, who gets the heading and its Add.
+  const empty = posts.length === 0;
+  if (empty && !onAdd) return null;
+  const hasMore = !empty && (alwaysViewAll || (total ?? posts.length) > posts.length);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, ruled && [styles.ruled, { borderTopColor: colors.border }, ruleGap != null && { marginTop: ruleGap }]]}>
       <View style={styles.head}>
         <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
-        {hasMore && (
-          <TouchableOpacity
-            style={styles.viewAll}
-            onPress={onViewAll}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`View all ${total} posts`}
-          >
-            <Text style={[styles.viewAllText, { color: colors.primaryAlt }]}>View all</Text>
-            <ChevronRight size={14} color={colors.primaryAlt} />
-          </TouchableOpacity>
-        )}
+        <View style={styles.headActions}>
+          {/* Just a +, in the account's colour — the one thing here only the
+              owner can do. Its words are for the screen reader. */}
+          {onAdd ? (
+            <TouchableOpacity
+              style={[styles.addCircle, { backgroundColor: brand }]}
+              onPress={onAdd}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={addLabel ?? 'Add'}
+            >
+              <Plus size={16} color={COLOR_BLACK} strokeWidth={2.8} />
+            </TouchableOpacity>
+          ) : null}
+          {hasMore && (
+            <TouchableOpacity
+              style={[styles.viewAllBtn, { borderColor: colors.borderDark }]}
+              onPress={onViewAll}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`View all ${total} posts`}
+            >
+              <Text style={[styles.viewAllText, { color: colors.fg }]}>View all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
+      {!empty && (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
-        snapToInterval={CARD_WIDTH + CARD_GAP}
+        snapToInterval={cardWidth + CARD_GAP}
         snapToAlignment="start"
         decelerationRate="fast"
         onLayout={onLayout}
@@ -147,92 +210,230 @@ export default function PostStrip({
            * already swipes the same way, and the two would fight over every
            * drag. The card is a preview; the rest is one tap away.
            */
-          const lead = postMediaList(post)[0];
-          const caption = post.title || (post.body ? stripHtml(post.body) : '');
-          const timeAgo = post.created_at
-            ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
-            : '';
-
           return (
-            /* A View rather than one big touchable, because the media and the
-               words are separate targets — but both open the post, video tiles
-               included: a card this size is a preview, and the post is where a
-               video is worth watching. */
-            <View
+            <PostCard
               key={post.internal_id}
-              style={[styles.card, { backgroundColor: cardBackground ?? colors.card, borderColor: colors.borderDark }]}
-            >
-              {lead ? (
-                <PostMediaCarousel
-                  media={[lead]}
-                  // Fixed rather than taken from the photo, so every card in
-                  // the row stays the same height.
-                  ratio={MEDIA_RATIO}
-                  showPageIndicator={false}
-                  visible={visible.has(index)}
-                  onPressItem={() => onPostPress(post)}
-                  videoOpensItem
-                />
-              ) : (
-                // Text posts keep the same footprint, so the row stays even —
-                // and fill it with their words rather than an icon, which said
-                // "a post" and nothing about which. The caption below would
-                // only repeat it, so it goes.
-                <TouchableOpacity
-                  style={[styles.image, caption ? styles.imageText : styles.imageBlank, { backgroundColor: cardBackground ?? colors.segment }]}
-                  onPress={() => onPostPress(post)}
-                  activeOpacity={0.85}
-                >
-                  {caption ? (
-                    <Text style={[styles.leadText, { color: colors.fg }]} numberOfLines={TEXT_LEAD_LINES}>
-                      {caption}
-                    </Text>
-                  ) : (
-                    <MessageSquare size={20} color={colors.grey} />
-                  )}
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.body} onPress={() => onPostPress(post)} activeOpacity={0.85}>
-                {caption && lead ? (
-                  <Text style={[styles.caption, largeCaption && styles.captionLarge, { color: colors.fg }]} numberOfLines={2}>{caption}</Text>
-                ) : null}
-                {showByline ? (
-                  <View style={[styles.byline, styles.pinBottom]}>
-                    <Avatar
-                      user={post.user}
-                      size={18}
-                    />
-                    <Text style={[styles.bylineText, { color: colors.grey }]} numberOfLines={1}>
-                      {post.user?.username ? `@${post.user.username}` : ''}{showTime && timeAgo ? ` · ${timeAgo}` : ''}
-                    </Text>
-                  </View>
-                ) : showTime && timeAgo ? (
-                  <Text style={[styles.bylineText, styles.pinBottom, { color: colors.grey }]} numberOfLines={1}>{timeAgo}</Text>
-                ) : null}
-              </TouchableOpacity>
-            </View>
+              post={post}
+              width={cardWidth}
+              visible={visible.has(index)}
+              onPress={() => onPostPress(post)}
+              cardBackground={cardBackground}
+              showByline={showByline}
+              showTime={showTime}
+              largeCaption={largeCaption}
+              captionLines={captionLines}
+              captionOnImage={captionOnImage}
+              bylineOnImage={bylineOnImage}
+              kindBadge={kindBadge}
+            />
           );
         })}
         <RowEndSpacer />
       </ScrollView>
+      )}
     </View>
   );
 }
 
+/**
+ * How a post card looks — the options a shelf and the list behind its "View
+ * all" share, so the two draw the same card.
+ */
+export interface PostCardLook {
+  /** The card's fill, and a text post's preview with it. */
+  cardBackground?: string;
+  /** Off where every post has the same author, e.g. a profile. */
+  showByline?: boolean;
+  /** The "3 hours ago" line. */
+  showTime?: boolean;
+  /** A bigger caption under the picture. */
+  largeCaption?: boolean;
+  /** Lines of caption before it trails off. */
+  captionLines?: number;
+  /** The caption over the foot of the picture, on a fade to black. */
+  captionOnImage?: boolean;
+  /** Who posted it, as a pill on the picture's top-left. */
+  bylineOnImage?: boolean;
+  /** The post's category (or type), colour-coded, on the picture's top-left. */
+  kindBadge?: boolean;
+  /**
+   * The picture at its own shape (clamped to 4:5–16:9) rather than the shelf's
+   * 4:3 — for a mosaic, where cards of different heights are the point.
+   */
+  naturalRatio?: boolean;
+}
+
+/**
+ * One post as a card — a shelf's, and the grid's behind its "View all".
+ * See PostStrip for what each part is for.
+ */
+export function PostCard({
+  post, width, visible, onPress,
+  cardBackground, showByline = true, showTime = true, largeCaption = false,
+  captionLines = 2, captionOnImage = false, bylineOnImage = false, kindBadge = false, naturalRatio = false,
+}: PostCardLook & {
+  post: Post;
+  width: number;
+  /** Whether it's on screen, so a video stops when it isn't. */
+  visible?: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const lead = postMediaList(post)[0];
+  const caption = post.title || (post.body ? stripHtml(post.body) : '');
+  const timeAgo = post.created_at
+    ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
+    : '';
+
+  return (
+    /* A View rather than one big touchable, because the media and the
+       words are separate targets — but both open the post, video tiles
+       included: a card this size is a preview, and the post is where a
+       video is worth watching. */
+    <View
+      style={[styles.card, { width, backgroundColor: cardBackground ?? colors.card, borderColor: colors.borderDark }]}
+    >
+      {lead ? (
+        <View style={styles.mediaClip}>
+          <PostMediaCarousel
+            media={[lead]}
+            // Fixed rather than taken from the photo, so every card in
+            // the row stays the same height.
+            ratio={naturalRatio ? undefined : MEDIA_RATIO}
+            showPageIndicator={false}
+            visible={visible}
+            onPressItem={onPress}
+            videoOpensItem
+          />
+        </View>
+      ) : (
+        // Text posts keep the same footprint, so the row stays even —
+        // and fill it with their words rather than an icon, which said
+        // "a post" and nothing about which. The caption below would
+        // only repeat it, so it goes.
+        <TouchableOpacity
+          style={[styles.image, caption ? styles.imageText : styles.imageBlank, { backgroundColor: cardBackground ?? colors.segment }]}
+          onPress={onPress}
+          activeOpacity={0.85}
+        >
+          {caption ? (
+            <Text style={[styles.leadText, { color: colors.fg }]} numberOfLines={TEXT_LEAD_LINES}>
+              {caption}
+            </Text>
+          ) : (
+            <MessageSquare size={20} color={colors.grey} />
+          )}
+        </TouchableOpacity>
+      )}
+      {/* The caption on a fade at the foot of the card — the card's foot,
+          not the picture's: the row stretches every card to its tallest,
+          and pinned to the picture the fade stopped short of a card
+          that had been stretched. */}
+      {captionOnImage && caption && lead ? (
+        <>
+          <LinearGradient
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.78)']}
+            locations={[0, 0.45, 1]}
+            style={styles.scrim}
+            pointerEvents="none"
+          />
+          <Text style={styles.captionOver} numberOfLines={captionLines} pointerEvents="none">{caption}</Text>
+        </>
+      ) : null}
+      {kindBadge && kindOf(post) ? (
+        <View style={[styles.kindPill, { backgroundColor: kindOf(post)!.color }]} pointerEvents="none">
+          <Text style={[styles.kindPillText, { color: pillTextColor(kindOf(post)!.color) }]} numberOfLines={1}>
+            {kindOf(post)!.label}
+          </Text>
+        </View>
+      ) : null}
+      {/* The author, on the picture — whose story the car turned up in. */}
+      {bylineOnImage && post.user ? (
+        <View style={styles.bylinePill} pointerEvents="none">
+          <Avatar user={post.user} size={20} />
+          <Text style={styles.bylinePillText} numberOfLines={1}>@{post.user.username}</Text>
+        </View>
+      ) : null}
+      {(caption && lead && !captionOnImage) || (showByline && !bylineOnImage) || (showTime && timeAgo) ? (
+      <TouchableOpacity style={styles.body} onPress={onPress} activeOpacity={0.85}>
+        {caption && lead && !captionOnImage ? (
+          <Text style={[styles.caption, largeCaption && styles.captionLarge, { color: colors.fg }]} numberOfLines={captionLines}>{caption}</Text>
+        ) : null}
+        {showByline && !bylineOnImage ? (
+          <View style={[styles.byline, styles.pinBottom]}>
+            <Avatar
+              user={post.user}
+              size={18}
+            />
+            <Text style={[styles.bylineText, { color: colors.grey }]} numberOfLines={1}>
+              {post.user?.username ? `@${post.user.username}` : ''}{showTime && timeAgo ? ` · ${timeAgo}` : ''}
+            </Text>
+          </View>
+        ) : showTime && timeAgo ? (
+          <Text style={[styles.bylineText, styles.pinBottom, { color: colors.grey }]} numberOfLines={1}>{timeAgo}</Text>
+        ) : null}
+      </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+/** A post's kind for its badge: its category, coloured as everywhere else, or its type. */
+function kindOf(post: Post): { label: string; color: string } | null {
+  if (post.category && post.category !== 'general') {
+    return { label: CATEGORY_LABELS[post.category] ?? post.category, color: categoryColor(post.category) };
+  }
+  const type = POST_TYPES.find((t) => t.type === post.type);
+  return type ? { label: type.label, color: type.color } : null;
+}
+
+/** The cards' corners — a touch tighter than the app's 20, at this size. */
+const CARD_RADIUS = 14;
+
 const styles = StyleSheet.create({
-  wrap: { paddingTop: 20 },
+  // Room between one shelf and the next.
+  wrap: { paddingTop: 30 },
+  // A full-width rule with room either side of it.
+  ruled: { marginTop: 26, paddingTop: 26, borderTopWidth: 1 },
   head: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 10,
+    // Buttons tucked nearer the edge than the title is.
+    paddingLeft: 16, paddingRight: 10, paddingBottom: 10,
   },
-  title:    { fontSize: 17, fontFamily: FONT_INTER.bold },
-  viewAll:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: { fontSize: 13, fontFamily: FONT_INTER.bold },
+  title:    { fontSize: 17, fontFamily: FONT_INTER.semibold },
+  headActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // Outlined, and as tall as the + beside it.
+  viewAllBtn: { height: 28, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  viewAllText: { fontSize: 12.5, fontFamily: FONT_INTER.semibold },
+  addCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 
   // Every card as tall as the tallest, so the row reads as one shelf.
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
-  card: { width: CARD_WIDTH, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  image: { width: '100%', aspectRatio: MEDIA_RATIO },
+  card: { width: CARD_WIDTH, borderRadius: CARD_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  // Rounded at the foot as well as the card's top corners, so the picture
+  // reads as its own tile sitting on the card.
+  image: {
+    width: '100%', aspectRatio: MEDIA_RATIO,
+    borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden',
+  },
+  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '60%' },
+  kindPill: {
+    position: 'absolute', top: 8, left: 8, maxWidth: '80%',
+    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999,
+  },
+  kindPillText: { fontSize: 11.5, fontFamily: FONT_INTER.bold },
+  bylinePill: {
+    position: 'absolute', top: 8, left: 8, maxWidth: '85%',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingLeft: 3, paddingRight: 9, paddingVertical: 3, borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  bylinePillText: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.semibold, color: '#FFFFFF' },
+  captionOver: {
+    position: 'absolute', left: 10, right: 10, bottom: 9,
+    fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 18, color: '#FFFFFF',
+  },
+  mediaClip: { borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden' },
   imageBlank: { alignItems: 'center', justifyContent: 'center' },
   imageText:  { padding: 12, justifyContent: 'center' },
   leadText:   { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 21 },

@@ -334,7 +334,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 compact
               >
                 {(choice, setDraft) => (
-                  <LocationFilterRow choice={choice} onChoose={setDraft} />
+                  <LocationFilterRow choice={choice} onChoose={setDraft} allLabel="All cars" AllIcon={Car} />
                 )}
               </FilterSummaryRow>
               </View>

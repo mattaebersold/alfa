@@ -788,6 +788,12 @@ export const apiService = createApi({
       providesTags: (result, error, carId) => [{ type: 'CarGallery', id: carId }],
     }),
 
+    /** A page of a car's albums, newest first, with the whole count. */
+    getCarGalleriesPage: builder.query<{ entries: CarGalleryAlbum[]; total: number }, { carId: string; page: number; limit: number }>({
+      query: ({ carId, page, limit }) => ({ url: `api/car/galleries/${carId}`, params: { page, limit } }),
+      providesTags: (result, error, { carId }) => [{ type: 'CarGallery', id: carId }],
+    }),
+
     createCarGallery: builder.mutation<{ _id: string }, FormData>({
       query: (body) => ({ url: 'api/cargallery/create', method: 'POST', body }),
       invalidatesTags: (result, error, body) => {
@@ -801,6 +807,12 @@ export const apiService = createApi({
     getCarMods: builder.query<{ entries: Mod[] }, string>({
       query: (carId) => `api/car/mods/${carId}`,
       providesTags: (result, error, carId) => [{ type: 'CarGallery', id: `mods-${carId}` }],
+    }),
+
+    /** A page of a car's mods, newest first, with the whole count. */
+    getCarModsPage: builder.query<{ entries: Mod[]; total: number }, { carId: string; page: number; limit: number }>({
+      query: ({ carId, page, limit }) => ({ url: `api/car/mods/${carId}`, params: { page, limit } }),
+      providesTags: (result, error, { carId }) => [{ type: 'CarGallery', id: `mods-${carId}` }],
     }),
 
     createMod: builder.mutation<{ _id: string }, FormData>({
@@ -2810,6 +2822,8 @@ export const {
   useGetCarGalleriesQuery,
   useCreateCarGalleryMutation,
   useGetCarModsQuery,
+  useGetCarModsPageQuery,
+  useGetCarGalleriesPageQuery,
   useCreateModMutation,
   useUpdateModMutation,
   useDeleteModMutation,

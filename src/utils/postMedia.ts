@@ -135,6 +135,23 @@ export const MAX_MEDIA_RATIO = 16 / 9;
 /** Used until the first item reports its real size. Square is the least wrong. */
 export const DEFAULT_MEDIA_RATIO = 1;
 
+/**
+ * A photo's shape, rounded to one of three — landscape 4:3, square, or
+ * portrait 4:5 — rather than its exact proportions. For a strip whose height
+ * follows the slide on show (PostMediaCarousel's `adaptiveHeight`): three
+ * steady shapes read as a choice, where every photo's own ratio read as the
+ * box wobbling. Within about 15% of square counts as square.
+ */
+export const LANDSCAPE_MEDIA_RATIO = 4 / 3;
+export const PORTRAIT_MEDIA_RATIO = 4 / 5;
+export function mediaShape(width: number, height: number): number {
+  if (!width || !height) return DEFAULT_MEDIA_RATIO;
+  const r = width / height;
+  if (r >= 1.15) return LANDSCAPE_MEDIA_RATIO;
+  if (r <= 0.87) return PORTRAIT_MEDIA_RATIO;
+  return 1;
+}
+
 export function clampMediaRatio(ratio: number): number {
   if (!Number.isFinite(ratio) || ratio <= 0) return DEFAULT_MEDIA_RATIO;
   return Math.min(MAX_MEDIA_RATIO, Math.max(MIN_MEDIA_RATIO, ratio));

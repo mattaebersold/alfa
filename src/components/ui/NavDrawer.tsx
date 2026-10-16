@@ -45,6 +45,7 @@ import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
 import { imageUrl } from '../../utils/image';
 import WhatsNewButton from './WhatsNew';
+import OilSheen, { WARM_SHEEN_FILL } from './OilSheen';
 import { logout } from '../../store/authSlice';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
@@ -777,8 +778,10 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     because that is what Pro is everywhere else in the app.
                     The header's own PRO mark is turned on its side to fit
                     beside a small logo; there's room for a pill here. */}
+                {/* Gold with the oil-slick film, as the header's Pro button is. */}
                 {isPro && (
                   <View style={styles.proPill}>
+                    <OilSheen tone="warm" radius={999} />
                     <Text style={styles.proPillText}>PRO</Text>
                   </View>
                 )}
@@ -872,7 +875,9 @@ const styles = StyleSheet.create({
   proPill: {
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: PRO_GOLD,
+    // The sheen's own fill, the old Pro gold — not PRO_GOLD, now the red.
+    backgroundColor: WARM_SHEEN_FILL,
+    overflow: 'hidden',
   },
   proPillText: {
     fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,

@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, TouchableOpacity, ScrollView, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {Search, MapPin} from 'lucide-react-native';
+import {Search, MapPin, Users} from 'lucide-react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {useGetUsersQuery, useGetFollowStatusesQuery} from '../../api/apiService';
@@ -17,7 +17,7 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { REGIONS } from '../../constants/regions';
-import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useColors } from '../../hooks/useColors';
@@ -181,7 +181,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
           compact
         >
           {(choice, setDraft) => (
-            <LocationFilterRow choice={choice} onChoose={setDraft} />
+            <LocationFilterRow choice={choice} onChoose={setDraft} allLabel="All members" AllIcon={Users} />
           )}
         </FilterSummaryRow>
       </View>
@@ -215,7 +215,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
           isLoading ? <SkeletonPeople count={8} style={{ paddingHorizontal: GUTTER }} /> : (
             <EmptyState
               title={location.choice !== 'all'
-                ? `No members ${location.choice === 'near' ? `within ${location.radius} miles` : `in the ${REGIONS.find((r) => r.key === location.choice)?.label}`}`
+                ? `No members ${isNear(location.choice) ? `within ${location.radius} miles` : `in the ${REGIONS.find((r) => r.key === location.choice)?.label}`}`
                 : 'No members found'}
             />
           )

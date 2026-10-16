@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Lock, Plus } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import ListPreviewMosaic from './ListPreviewMosaic';
@@ -17,6 +18,8 @@ export const LIST_SHELF_PREVIEW_COUNT = 6;
 const CARD_GAP = 12;
 const ROW_PAD_LEFT = 12;
 const CARD_WIDTH = 168;
+/** The car page's shelves' card width — see `carShelf`. */
+const CAR_CARD_WIDTH = 232;
 /** Tall enough that the three-up mosaic's small tiles are still pictures, not swatches. */
 const PREVIEW_HEIGHT = 104;
 /** The post cards' shade — see PostStrip's `cardBackground` on the profile. */
@@ -43,6 +46,7 @@ export default function ListShelf({
   onAdd,
   addLabel = 'New list',
   emptyHint,
+  carShelf = false,
 }: {
   title: string;
   lists: List[];
@@ -56,21 +60,41 @@ export default function ListShelf({
   addLabel?: string;
   /** One line under the heading while the shelf is empty — only ever seen by the owner. */
   emptyHint?: string;
+  /**
+   * The car page's shelves' look (PostStrip / CarShelf there): a rule above,
+   * a semibold heading, a round + for Add, and wider cards that are all
+   * picture — the item count in a pill at the top, the title on a fade at the
+   * foot.
+   */
+  carShelf?: boolean;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
   const brandText = useBrandTextColor();
 
   if (lists.length === 0 && !onAdd) return null;
+  const cardWidth = carShelf ? CAR_CARD_WIDTH : CARD_WIDTH;
+  const previewHeight = carShelf ? Math.round(CAR_CARD_WIDTH * 3 / 4) : PREVIEW_HEIGHT;
   const hasMore = !!onViewAll && (total ?? lists.length) > lists.length;
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.head}>
-        <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
+    <View style={[styles.wrap, carShelf && [styles.ruled, { borderTopColor: colors.border }]]}>
+      <View style={[styles.head, carShelf && styles.headCar]}>
+        <Text style={[styles.title, carShelf && styles.titleCar, { color: colors.fg }]}>{title}</Text>
         <View style={styles.headActions}>
           {/* Empty, the panel below is the button — one is enough. */}
-          {onAdd && lists.length > 0 && (
+          {onAdd && lists.length > 0 && carShelf && (
+            <TouchableOpacity
+              style={[styles.addCircle, { backgroundColor: brand }]}
+              onPress={onAdd}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={addLabel}
+            >
+              <Plus size={16} color={brandText} strokeWidth={2.8} />
+            </TouchableOpacity>
+          )}
+          {onAdd && lists.length > 0 && !carShelf && (
             <TouchableOpacity
               // Brand-filled: a grey chip beside the heading read as a tag,
               // not as the one thing on the shelf you can do.
@@ -125,7 +149,7 @@ export default function ListShelf({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
           // Card-by-card rather than page-by-page, so the peek stays put.
-          snapToInterval={CARD_WIDTH + CARD_GAP}
+          snapToInterval={cardWidth + CARD_GAP}
           snapToAlignment="start"
           decelerationRate="fast"
         >
@@ -135,16 +159,27 @@ export default function ListShelf({
               <SummaryTouchable
                 key={list.internal_id}
                 // The post cards' darker shade, so the page's shelves match.
-                style={[styles.card, { backgroundColor: CARD_BG, borderColor: colors.borderDark }]}
+                style={[styles.card, carShelf && styles.cardCar, { width: cardWidth, backgroundColor: CARD_BG, borderColor: colors.borderDark }]}
                 onPress={(origin) => onListPress(list, origin)}
                 accessibilityLabel={`${list.title}, ${count} item${count === 1 ? '' : 's'}`}
               >
                 {/* What's on it, not just what's on the front of it — see ListPreviewMosaic. */}
                 <View>
-                  <ListPreviewMosaic list={list} height={PREVIEW_HEIGHT} />
+                  <ListPreviewMosaic list={list} height={previewHeight} />
+                  {carShelf ? (
+                    <>
+                      <LinearGradient
+                        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.78)']}
+                        locations={[0, 0.45, 1]}
+                        style={styles.scrim}
+                        pointerEvents="none"
+                      />
+                      <Text style={styles.titleOver} numberOfLines={1}>{list.title}</Text>
+                    </>
+                  ) : null}
                   {/* The count rides on the picture, so the text below is just
                       the title — the same shape as a post card's caption. */}
-                  <View style={styles.countBadge}>
+                  <View style={[styles.countBadge, carShelf && styles.countBadgeTop]}>
                     {list.private ? <Lock size={10} color={COLOR_WHITE} /> : null}
                     <Text style={styles.countBadgeText}>
                       {count} item{count === 1 ? '' : 's'}
@@ -153,9 +188,11 @@ export default function ListShelf({
                     </Text>
                   </View>
                 </View>
-                <View style={styles.cardText}>
-                  <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{list.title}</Text>
-                </View>
+                {!carShelf && (
+                  <View style={styles.cardText}>
+                    <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={2}>{list.title}</Text>
+                  </View>
+                )}
               </SummaryTouchable>
             );
           })}
@@ -209,4 +246,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
   },
   countBadgeText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+
+  // ── carShelf ──
+  ruled: { marginTop: 26, paddingTop: 26, borderTopWidth: 1 },
+  headCar: { paddingRight: 10 },
+  titleCar: { fontFamily: FONT_INTER.semibold },
+  addCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  cardCar: { borderRadius: 14 },
+  countBadgeTop: { top: 8, bottom: undefined },
+  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '60%' },
+  titleOver: {
+    position: 'absolute', left: 10, right: 10, bottom: 9,
+    fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 18, color: COLOR_WHITE,
+  },
 });

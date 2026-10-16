@@ -30,7 +30,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { Group } from '../../types/api';
 import { REGIONS, regionKey, regionLabel } from '../../constants/regions';
 import { GROUP_TYPES } from '../../constants/groupTypes';
-import FilterSummaryRow, { FilterChoiceRow } from '../../components/ui/FilterSummaryRow';
+import FilterSummaryRow, { FilterChoiceRow, FilterDivider } from '../../components/ui/FilterSummaryRow';
 import GroupSummaryModal from '../../components/groups/GroupSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 
@@ -460,18 +460,19 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 >
                   {(draft, setDraft) => (
                     <>
+                      {/* Unlabelled, ruled apart like the location panel's. */}
                       <FilterChoiceRow<string | null>
-                        label="Region"
                         options={REGION_CHOICES}
                         selected={draft.region}
                         onSelect={(region) => setDraft((d) => ({ ...d, region }))}
                       />
+                      <FilterDivider />
                       <FilterChoiceRow<string | null>
-                        label="Type"
                         options={TYPE_CHOICES}
                         selected={draft.type}
                         onSelect={(type) => setDraft((d) => ({ ...d, type }))}
                       />
+                      <FilterDivider last />
                     </>
                   )}
                 </FilterSummaryRow>

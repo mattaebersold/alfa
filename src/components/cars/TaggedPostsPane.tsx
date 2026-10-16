@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import FeedItemCard from '../cards/FeedItemCard';
+import { PostCard } from '../social/PostStrip';
+import { TAGGED_LOOK } from './TaggedPostsRow';
+import MasonryGrid from '../ui/MasonryGrid';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import { useGetCarTaggedPostsQuery } from '../../api/apiService';
@@ -53,9 +55,15 @@ export default function TaggedPostsPane({
 
   return (
     <View style={styles.wrap}>
-      {all.map((post) => (
-        <FeedItemCard key={post.internal_id} post={post} onPress={() => onPostPress(post)} />
-      ))}
+      {/* The shelf's cards, as a two-column mosaic — see TaggedPostsRow. */}
+      <MasonryGrid
+        style={styles.grid}
+        items={all}
+        keyOf={(p) => p.internal_id}
+        renderItem={(post, width) => (
+          <PostCard post={post} width={width} onPress={() => onPostPress(post)} naturalRatio {...TAGGED_LOOK} />
+        )}
+      />
 
       {hasMore && (
         <TouchableOpacity
@@ -77,6 +85,7 @@ export default function TaggedPostsPane({
 
 const styles = StyleSheet.create({
   wrap: { paddingTop: 8, gap: 10 },
+  grid: { paddingHorizontal: 12 },
   more: {
     alignSelf: 'center', minWidth: 180,
     paddingVertical: 11, paddingHorizontal: 24,

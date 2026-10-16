@@ -53,7 +53,7 @@ const BACKDROP = 'rgba(40,40,40,0.82)';
  */
 // Android has no blur to separate the panel from the screen behind, so a
 // lighter, heavier grey does it instead — against black the dark panels sank.
-const SUMMARY_BACKDROP = 'rgba(20,20,20,0.85)';
+const SUMMARY_BACKDROP = 'rgba(42,42,42,0.92)';
 
 /**
  * A panel that grows out of the button that opened it.

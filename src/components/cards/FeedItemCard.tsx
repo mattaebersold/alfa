@@ -112,9 +112,16 @@ interface FeedItemCardProps {
   visible?: boolean;
   /** The group whose page this card is on, so its tile isn't shown — see PostContextRow. */
   omitGroupId?: string;
+  /**
+   * No card of its own — no fill, shadow or margin — for a host that is
+   * already the card around it, like a summary panel.
+   */
+  bare?: boolean;
+  /** The whole title and description, never clamped — for a sheet given over to the one post. */
+  fullText?: boolean;
 }
 
-export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible, omitGroupId }: FeedItemCardProps) {
+export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible, omitGroupId, bare = false, fullText = false }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -190,7 +197,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
    */
   /** Whose summary panel is open, if any. */
   const { openUser } = useSummary();
-  const [bodyExpanded, setBodyExpanded] = useState(false);
+  const [bodyExpanded, setBodyExpanded] = useState(fullText);
   const [bodyLines, setBodyLines] = useState<number | null>(null);
   /** The first BODY_LINES lines as laid out — what the clamped preview shows. */
   const [bodyClip, setBodyClip] = useState<string | null>(null);
@@ -303,9 +310,9 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
      * gallery's own gesture uncontested.
      */
     <GestureDetector gesture={doubleTap}>
-    <View style={[styles.card, { backgroundColor: cardBg }]}>
+    <View style={[styles.card, { backgroundColor: cardBg }, bare && styles.cardBare]}>
       {/* Header — avatar/name tap navigates to profile */}
-      <View style={styles.header}>
+      <View style={[styles.header, bare && styles.headerBare]}>
         {/* The author half is the link; the menu is not. Its own touchable, so
             tapping ⋯ doesn't also navigate to whoever posted. */}
         <TouchableOpacity
@@ -382,7 +389,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           <MentionText
             text={post.title || bodyText}
             style={[hasMedia ? styles.title : styles.titleAlone, { color: fgColor }]}
-            numberOfLines={hasMedia ? 2 : 5}
+            numberOfLines={fullText ? undefined : hasMedia ? 2 : 5}
           />
         </TouchableOpacity>
       )}
@@ -454,9 +461,12 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* The post's media — photos and videos in one strip, drawn at one
           shape so swiping doesn't resize the card. */}
       {hasMedia && (
-          <View style={styles.mediaFrame}>
+          <View style={[styles.mediaFrame, bare && styles.mediaFrameBare]}>
             <PostMediaCarousel
               media={media}
+              // The height follows the slide — landscape, square or portrait —
+              // easing between them as you swipe. See PostMediaCarousel.
+              adaptiveHeight
               // Dots at the foot of the photo, back again. The count badge says
               // how many there are and opens the viewer; it can't say which one
               // you're on, and without that a swipe gave no sign it had
@@ -572,6 +582,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
 }
 
 const styles = StyleSheet.create({
+  cardBare: { backgroundColor: 'transparent', marginVertical: 0, shadowOpacity: 0, elevation: 0, borderRadius: 0 },
   card: {
     // The card is full-bleed, so this rounds against the page rather than
     // inside a gutter — enough to read as a card, short of the point where a
@@ -582,6 +593,9 @@ const styles = StyleSheet.create({
     shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 12, paddingBottom: 10, gap: 8 },
+  // In a panel, nearer its top — the panel's own edge is the room above —
+  // and in from the side far enough that the avatar clears its rounded corner.
+  headerBare:  { paddingTop: 8, paddingHorizontal: 16 },
   // Takes the row, so the timestamp and the menu stay pinned right.
   headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerText:  { flex: 1, minWidth: 0 },
@@ -617,6 +631,9 @@ const styles = StyleSheet.create({
   // Rounded all round, the card's radius — a tile set into the card between
   // the words above it and what's under it.
   mediaFrame: { borderRadius: COMMON_RADIUS, overflow: 'hidden' },
+  // Square in a panel: it runs edge to edge there, and rounded it read as a
+  // card inside the card.
+  mediaFrameBare: { borderRadius: 0 },
 
   imageBadgesLeft: {
     position: 'absolute', top: 10, left: 10, flexDirection: 'row', gap: 5, flexWrap: 'wrap',

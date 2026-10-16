@@ -50,6 +50,8 @@ export default function CarListsRow({ carId, canAdd }: {
         onAdd={canAdd ? () => nav.navigate('CreateList', { carId }) : undefined}
         addLabel="Add a list"
         emptyHint="Plans for this car, in order — the mods you want next, the cars that inspired it."
+        // The car page's shelf look, as its records, mods and galleries have.
+        carShelf
       />
       {/* `hideCar`: on this page, "a list for this car" is the page you're on. */}
       <ListSummaryModal

@@ -1,8 +1,21 @@
 import React from 'react';
-import PostStrip, { STRIP_PREVIEW_COUNT } from '../social/PostStrip';
+import PostStrip, { STRIP_PREVIEW_COUNT, type PostCardLook } from '../social/PostStrip';
 import { useGetCarTaggedPostsQuery } from '../../api/apiService';
 import type { Post } from '../../types/api';
 import { COLOR_GRAY_23 } from '../../constants/config';
+
+/**
+ * How a tagged post's card looks — on the shelf and in the list behind it: all
+ * picture, the caption on a fade at its foot, and who posted it in a pill at
+ * the top.
+ */
+export const TAGGED_LOOK: PostCardLook = {
+  cardBackground: COLOR_GRAY_23,
+  showTime: false,
+  captionLines: 1,
+  captionOnImage: true,
+  bylineOnImage: true,
+};
 
 /**
  * "Tagged in Posts" — other people's posts that pointed at this car.
@@ -27,11 +40,12 @@ export default function TaggedPostsRow({
       title="Tagged in Posts"
       posts={data?.entries ?? []}
       total={data?.total}
-      // Darker cards, a bigger two-line caption, and no "3 hours ago": what
-      // matters here is who put the car in a story and what they said.
-      cardBackground={COLOR_GRAY_23}
-      largeCaption
-      showTime={false}
+      // The car page's shelves' look: a wider card that's all picture, the
+      // caption on a fade at its foot, and who posted it in a pill at the top —
+      // who put the car in a story, and what they said.
+      {...TAGGED_LOOK}
+      cardWidth={232}
+      ruled
       onPostPress={onPostPress}
       onViewAll={onViewAll}
     />

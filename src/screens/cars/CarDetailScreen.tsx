@@ -18,7 +18,8 @@ import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
-  useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery, useGetCarModsQuery,
+  useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery,
+  useGetCarModsPageQuery, useGetCarGalleriesPageQuery,
   useDeletePostMutation,
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
   useDeleteCarGalleryMutation,
@@ -34,7 +35,6 @@ import { skipToken } from '@reduxjs/toolkit/query';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { CATEGORY_LABELS } from '../../components/ui/Badge';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
-import RecordRow from '../../components/social/RecordRow';
 import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -42,12 +42,18 @@ import LikeButton from '../../components/social/LikeButton';
 import CommentButton from '../../components/social/CommentButton';
 import FollowButton from '../../components/social/FollowButton';
 import CommentsSheet from '../../components/social/CommentsSheet';
-import InlineComments from '../../components/social/InlineComments';
+import PostCommentsModal from '../../components/social/PostCommentsModal';
+import PostSummaryModal, { PostSheet } from '../../components/social/PostSummaryModal';
+import PostMediaCarousel from '../../components/media/PostMediaCarousel';
+import InlineComments, { CommentsHeading } from '../../components/social/InlineComments';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import TasksSheet from '../../components/cars/TasksSheet';
 import CarDeleteOptionsModal from '../../components/cars/CarDeleteOptionsModal';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
+import PostStrip, { PostCard, type PostCardLook } from '../../components/social/PostStrip';
+import CarShelf, { ShelfTile, type ShelfCard } from '../../components/cars/CarShelf';
 import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
+import MasonryGrid from '../../components/ui/MasonryGrid';
 import TaggedPostsPane from '../../components/cars/TaggedPostsPane';
 import CarListsRow from '../../components/cars/CarListsRow';
 import CarSetupCard from '../../components/cars/CarSetupCard';
@@ -55,13 +61,13 @@ import AskForPhotosButton from '../../components/cars/AskForPhotosButton';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import RoutesPane from '../../components/routes/RoutesPane';
 import BottomSheet from '../../components/ui/SharedModal';
-import SummaryModal from '../../components/ui/SummaryModal';
+import SummaryModal, { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import ActionSheet from '../../components/ui/ActionSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
-import { postThumb } from '../../utils/postMedia';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ZoomableImage } from '../../components/ui/ImageLightbox';
+import { GestureHandlerRootView, FlatList as GHFlatList } from 'react-native-gesture-handler';
+import { PortalHost } from '@ors/kit';
+import PinchZoom from '../../components/media/PinchZoom';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { stripHtml } from '../../utils/text';
 import { colors } from '../../constants/colors';
@@ -86,6 +92,7 @@ import {
   COLOR_BADGE_SPOT,
   COLOR_BLACK,
   COLOR_GRAY_11,
+  COLOR_GRAY_141,
   COLOR_GRAY_22,
   COLOR_GRAY_236,
   COLOR_GRAY_26,
@@ -144,9 +151,6 @@ const CAR_TILES: {
   /** Singular and plural, so a row of one doesn't say "1 records". */
   noun: [string, string];
 }[] = [
-  { key: 'posts',      label: 'Records',   Icon: FileText,   noun: ['record', 'records'] },
-  { key: 'mods',       label: 'Mods',      Icon: Wrench,     noun: ['mod', 'mods'] },
-  { key: 'galleries',  label: 'Galleries', Icon: Images,     noun: ['album', 'albums'] },
   { key: 'followers',  label: 'Followers', Icon: Users,      noun: ['follower', 'followers'] },
   { key: 'groups',     label: 'Groups',    Icon: UsersRound, noun: ['group', 'groups'] },
 ];
@@ -154,22 +158,28 @@ const CAR_TILES: {
 // ── Full-screen lightbox ─────────────────────────────────────────────────────
 
 /**
- * One page of the car lightbox.
+ * One page of the car lightbox: the photo, fitted, growing under a pinch and
+ * settling back on release — the home feed's PinchZoom.
  *
- * This used to be a ScrollView with `maximumZoomScale`, which is iOS-only —
- * on Android the photos simply didn't zoom. ZoomableImage does it with
- * gestures, so pinch, pan and double-tap work on both.
+ * It was ZoomableImage, whose pan and double-tap held every drag on the photo
+ * whether zoomed or not, so a swipe never reached the list and the gallery
+ * wouldn't page. PinchZoom takes only two fingers, and is told about the list
+ * (`simultaneousWith`) so the two share the screen.
  */
 function LightboxPage({
-  item, height, onZoomChange,
-}: { item: GalleryItem; height: number; onZoomChange: (zoomed: boolean) => void }) {
+  item, height, listRef, onPinchChange,
+}: {
+  item: GalleryItem;
+  height: number;
+  listRef: React.RefObject<any>;
+  onPinchChange: (pinching: boolean) => void;
+}) {
   return (
-    <ZoomableImage
-      uri={imageUrl(item.filename)!}
-      width={SCREEN_WIDTH}
-      height={height}
-      onZoomChange={onZoomChange}
-    />
+    <View style={{ width: SCREEN_WIDTH, height }}>
+      <PinchZoom style={StyleSheet.absoluteFill} simultaneousWith={listRef} onActiveChange={onPinchChange}>
+        <Image source={{ uri: imageUrl(item.filename)! }} style={StyleSheet.absoluteFill} contentFit="contain" />
+      </PinchZoom>
+    </View>
   );
 }
 
@@ -178,9 +188,11 @@ function Lightbox({
 }: { images: GalleryItem[]; initialIndex: number; title?: string; onClose: () => void; onManage?: () => void }) {
   const [index, setIndex] = useState(initialIndex);
   const [listHeight, setListHeight] = useState(SCREEN_HEIGHT - 80);
-  // A zoomed photo owns the horizontal drag, or panning across a detail flicks
-  // to the next one instead.
-  const [zoomed, setZoomed] = useState(false);
+  // The list holds still while a photo is pinched, so a pinch that drifts
+  // sideways doesn't page.
+  const [pinching, setPinching] = useState(false);
+  /** Gesture-handler's list, named to each photo's pinch — see LightboxPage. */
+  const listRef = useRef<any>(null);
   // RN's SafeAreaView only pads on iOS. On Android the modal is
   // `statusBarTranslucent`, so the header — close button included — was drawn
   // under the status bar, where its taps go to the system instead. The app's
@@ -191,6 +203,9 @@ function Lightbox({
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* The pinch draws its growing copy into a portal; a Modal is its own
+          window, so it needs a host of its own or the copy lands under it. */}
+      <PortalHost>
       <RNSafeAreaView style={styles.lightboxSafe}>
         <StatusBar barStyle="light-content" backgroundColor={COLOR_BLACK} />
         <View style={[styles.lightboxHeader, androidTop > 0 && { paddingTop: 12 + androidTop }]}>
@@ -207,23 +222,25 @@ function Lightbox({
             <X size={22} color={COLOR_WHITE} />
           </TouchableOpacity>
         </View>
-        <FlatList
+        <GHFlatList
+          ref={listRef}
           style={{ flex: 1 }}
           onLayout={(e) => setListHeight(e.nativeEvent.layout.height)}
           data={images}
           keyExtractor={(img, i) => img.filename ?? String(i)}
           horizontal
           pagingEnabled
-          scrollEnabled={!zoomed}
+          scrollEnabled={!pinching}
           initialScrollIndex={initialIndex}
           showsHorizontalScrollIndicator={false}
           getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
           onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
           renderItem={({ item }) => (
-            <LightboxPage item={item} height={listHeight} onZoomChange={setZoomed} />
+            <LightboxPage item={item} height={listHeight} listRef={listRef} onPinchChange={setPinching} />
           )}
         />
       </RNSafeAreaView>
+      </PortalHost>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -277,7 +294,7 @@ function ChangeHeroButton({ onPress, busy }: { onPress: () => void; busy?: boole
   );
 }
 
-function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onOpenAlbum, onChangeHero, heroBusy }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void; onOpenAlbum: (album: CarGalleryAlbum) => void; onChangeHero?: () => void; heroBusy?: boolean }) {
+function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onOpenAlbum, onChangeHero, heroBusy, heroBadges }: { carId: string; heroFilename?: string; onAddGallery?: () => void; onManageAlbum?: (album: CarGalleryAlbum) => void; onOpenAlbum: (album: CarGalleryAlbum) => void; onChangeHero?: () => void; heroBusy?: boolean; /** Drawn in the main photo's top-left corner — the car's type and category. */ heroBadges?: React.ReactNode }) {
   const [lightbox, setLightbox] = useState<{ images: GalleryItem[]; index: number; title?: string } | null>(null);
   /**
    * The lone hero's true ratio, once the image reports it.
@@ -328,6 +345,7 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
             }}
           />
           {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
+            {heroBadges ? <View style={styles.heroBadges} pointerEvents="none">{heroBadges}</View> : null}
         </TouchableOpacity>
         {onAddGallery && (
           <TouchableOpacity style={styles.addGalleryOverlay} onPress={onAddGallery} activeOpacity={0.8}>
@@ -359,11 +377,13 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
           >
             <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
             {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
+            {heroBadges ? <View style={styles.heroBadges} pointerEvents="none">{heroBadges}</View> : null}
           </TouchableOpacity>
         ) : (
           <View style={styles.heroSlide}>
             <Image source={require('../../../assets/car-placeholder.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
             {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
+            {heroBadges ? <View style={styles.heroBadges} pointerEvents="none">{heroBadges}</View> : null}
           </View>
         )}
         {albumCols.map((pair, colIdx) => (
@@ -417,9 +437,49 @@ function FilterChip({ label, active, onPress, accent }: { label: string; active:
 
 // ── Mod card ─────────────────────────────────────────────────────────────────
 
-function ModCard({ mod, colors, onOptions, onComments, onPhoto }: {
+/**
+ * A mod in a summary panel: its card — photos, words, likes — and its comments
+ * under it, the composer pinned to the panel's foot. What a mod tile opens,
+ * from the shelf or from the list behind it.
+ */
+function ModSummaryModal({ mod, onClose, onPhoto }: {
+  mod: Mod | null;
+  onClose: () => void;
+  onPhoto: (mod: Mod, index: number) => void;
+}) {
+  const colors = useColors();
+  // Kept through the close, so it fades out on its mod rather than emptying.
+  const last = useRef<Mod | null>(null);
+  if (mod) last.current = mod;
+  const shown = mod ?? last.current;
+  return (
+    <SummaryModal visible={!!mod} onClose={onClose}>
+      {shown ? (
+        <View>
+          <ModCard mod={shown} colors={colors} onPhoto={(i) => onPhoto(shown, i)} bare />
+          <CommentsHeading count={shown.comment_count ?? 0} style={{ paddingTop: 10, marginBottom: 6 }} />
+          <InlineComments
+            documentId={shown.internal_id}
+            entryType="mod"
+            title=""
+            backgroundColor="transparent"
+            variant="panel"
+            pinComposer
+          />
+        </View>
+      ) : null}
+    </SummaryModal>
+  );
+}
+
+function ModCard({ mod, colors, onOptions, onComments, onPhoto, bare = false }: {
   mod: Mod;
   colors: ReturnType<typeof useColors>;
+  /**
+   * No card of its own — no fill, margin or rounding — and its photos as the
+   * feed's swipeable gallery, full width: for a panel that is already the card.
+   */
+  bare?: boolean;
   onOptions?: () => void;
   /** Opens the thread. Hoisted to the screen so one sheet serves the list. */
   onComments?: () => void;
@@ -429,10 +489,20 @@ function ModCard({ mod, colors, onOptions, onComments, onPhoto }: {
   const photos = (mod.gallery ?? []).filter((g) => g.filename && g.type !== 'video');
   const when = mod.created_at ? formatDistanceToNow(new Date(mod.created_at), { addSuffix: true }) : '';
   return (
-    <View style={[modStyles.card, { backgroundColor: colors.card }]}>
+    <View style={bare ? null : [modStyles.card, { backgroundColor: colors.card }]}>
+      {/* In a panel: the photos as a record post's are — full width, swiped
+          through, pinched into — rather than a strip of thumbnails. */}
+      {bare && photos.length > 0 ? (
+        <PostMediaCarousel
+          media={photos.map((g) => ({ kind: 'image' as const, key: g.internal_id ?? g.filename!, url: imageUrl(g.filename)! }))}
+          onPressItem={onPhoto}
+          adaptiveHeight
+          pinchZoom
+        />
+      ) : null}
       {/* One photo fills the top of the card; several sit in a strip, so a
           mod with a dozen install shots doesn't run a screen tall. */}
-      {photos.length === 1 ? (
+      {bare ? null : photos.length === 1 ? (
         <Pressable onPress={() => onPhoto?.(0)} accessibilityRole="imagebutton" accessibilityLabel="View photo">
           <Image source={{ uri: imageUrl(photos[0].filename)! }} style={modStyles.thumb} contentFit="cover" />
         </Pressable>
@@ -454,7 +524,7 @@ function ModCard({ mod, colors, onOptions, onComments, onPhoto }: {
           ))}
         </ScrollView>
       ) : null}
-      <View style={modStyles.body}>
+      <View style={[modStyles.body, bare && modStyles.bodyBare]}>
         <View style={modStyles.titleRow}>
           <Text style={[modStyles.title, { color: colors.fg }]} numberOfLines={2}>{mod.title ?? 'Untitled'}</Text>
           {onOptions && (
@@ -493,38 +563,6 @@ function ModCard({ mod, colors, onOptions, onComments, onPhoto }: {
   );
 }
 
-/**
- * A car's mods, grouped by what part of the car they're on.
- *
- * Mods are filed under a type (MOD_TYPES — engine, suspension…); `category`
- * is on the model but nothing sets it, so it's only a fallback. Groups go in
- * alphabetical order with General and Other — the catch-alls — last, and the
- * newest mod first within each.
- */
-const CATCH_ALL_MOD_GROUPS = ['general', 'other'];
-
-function groupMods(mods: Mod[]): { key: string; label: string; mods: Mod[] }[] {
-  const byKey = new Map<string, Mod[]>();
-  for (const mod of mods) {
-    const key = (mod.type || mod.category || 'other').toLowerCase();
-    if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key)!.push(mod);
-  }
-  const labelFor = (key: string) =>
-    MOD_TYPES.find((t) => t.key === key)?.label ?? key.charAt(0).toUpperCase() + key.slice(1);
-  const time = (m: Mod) => (m.created_at ? new Date(m.created_at).getTime() : 0);
-  const rank = (key: string) => CATCH_ALL_MOD_GROUPS.indexOf(key);
-  return Array.from(byKey, ([key, list]) => ({
-    key,
-    label: labelFor(key),
-    mods: [...list].sort((a, b) => time(b) - time(a)),
-  })).sort((a, b) => {
-    const ra = rank(a.key), rb = rank(b.key);
-    if (ra !== rb) return ra === -1 ? -1 : rb === -1 ? 1 : ra - rb;
-    return a.label.localeCompare(b.label);
-  });
-}
-
 const modStyles = StyleSheet.create({
   card:      { marginHorizontal: 12, marginBottom: 8, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   actions:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, marginLeft: -6 },
@@ -532,6 +570,8 @@ const modStyles = StyleSheet.create({
   strip:     { gap: 6, paddingHorizontal: 12, paddingTop: 12 },
   stripThumb:{ width: 120, height: 90, borderRadius: COMMON_RADIUS },
   body:      { padding: 12 },
+  // In a panel, in line with the comments under it.
+  bodyBare:  { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   title:     { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold, lineHeight: 20 },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, flexShrink: 0 },
@@ -572,13 +612,19 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [activeSheet, setActiveSheet] = useState<Sheet>(action === 'gallery' ? 'gallery' : null);
   const [modsExpanded, setModsExpanded] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
-  const [descLines, setDescLines] = useState<number | null>(null);
+  /** The description as laid out in full, line by line — measured once, to cut it at three. */
+  const [descLines, setDescLines] = useState<string[] | null>(null);
   const [pane, setPane] = useState<CarPane>(null);
   /** The section last opened — see shownPane. */
   const lastPaneRef = useRef<CarPane>(null);
   /** The fill for the panes' "New" buttons. */
   const brand = useBrandColor();
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  /** A record (or a tagged post) open in its summary panel — from a shelf or a list. */
+  const [recordSummary, setRecordSummary] = useState<Post | null>(null);
+  /** A mod open in its summary panel — its details, its photos, its comments. */
+  const [modSummary, setModSummary] = useState<Mod | null>(null);
+  /** The car's comments panel: undefined while closed — see PostCommentsModal. */
+  const [commentsOrigin, setCommentsOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   /** A mod or an album whose thread is open, and which document it is. */
   const [subComments, setSubComments] = useState<{ id: string; type: string } | null>(null);
   // Records pane filter — cleared whenever the pane leaves Records.
@@ -640,19 +686,50 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const tasksDone = tasks.filter((t) => t.completed).length;
   const tasksOpen = taskTotal - tasksDone;
 
-  const { data: postsData, isFetching: postsFetching, refetch: refetchPosts } = useGetPostsQuery(
-    { car_id: carId, limit: 30 },
+  /**
+   * The latest few records, mods and albums, for the shelves on the page —
+   * see PostStrip and CarShelf. Each asks for SHELF_COUNT and the total.
+   */
+  const { data: postsData, refetch: refetchPosts } = useGetPostsQuery({ car_id: carId, limit: SHELF_COUNT });
+  const { data: modsData, refetch: refetchMods } = useGetCarModsPageQuery(
+    { carId, page: 0, limit: SHELF_COUNT }, { skip: !car },
   );
-  const posts = postsData?.entries ?? [];
-
-  const { data: modsData, isFetching: modsFetching, refetch: refetchMods } = useGetCarModsQuery(
-    carId,
-    { skip: !car }
+  const { data: albumsData, refetch: refetchGalleries } = useGetCarGalleriesPageQuery(
+    { carId, page: 0, limit: SHELF_COUNT }, { skip: !car },
   );
-  const mods = modsData?.entries ?? [];
+  const shelfPosts = postsData?.entries ?? [];
+  const shelfMods = modsData?.entries ?? [];
+  const shelfAlbums = albumsData?.entries ?? [];
 
-  const { data: paneGalData, refetch: refetchGalleries } = useGetCarGalleriesQuery(carId, { skip: !car });
-  const paneAlbums = paneGalData?.entries ?? [];
+  /**
+   * Everything, a page at a time, behind each shelf's "View all" — asked for
+   * only while that list is open (or fading out), and grown by "Show more".
+   */
+  const listOpen = pane ?? lastPaneRef.current;
+  const [postsPage, setPostsPage] = useState(0);
+  const [modsPage, setModsPage] = useState(0);
+  const [albumsPage, setAlbumsPage] = useState(0);
+  // Back to the first page each time a list opens.
+  useEffect(() => {
+    if (pane === 'posts') setPostsPage(0);
+    if (pane === 'mods') setModsPage(0);
+    if (pane === 'galleries') setAlbumsPage(0);
+  }, [pane]);
+  const { data: postsPageData, isFetching: postsPaging } = useGetPostsQuery(
+    { car_id: carId, page: postsPage, limit: LIST_PAGE }, { skip: listOpen !== 'posts' },
+  );
+  const { data: modsPageData, isFetching: modsPaging } = useGetCarModsPageQuery(
+    { carId, page: modsPage, limit: LIST_PAGE }, { skip: listOpen !== 'mods' },
+  );
+  const { data: albumsPageData, isFetching: albumsPaging } = useGetCarGalleriesPageQuery(
+    { carId, page: albumsPage, limit: LIST_PAGE }, { skip: listOpen !== 'galleries' },
+  );
+  const posts = useAccumulated(postsPageData?.entries, postsPage);
+  const mods = useAccumulated(modsPageData?.entries, modsPage);
+  const paneAlbums = useAccumulated(albumsPageData?.entries, albumsPage);
+  const postsTotal = postsPageData?.total ?? postsData?.total ?? 0;
+  const modsTotal = modsPageData?.total ?? modsData?.total ?? 0;
+  const albumsTotal = albumsPageData?.total ?? albumsData?.total ?? 0;
 
   /**
    * The drives this car was in.
@@ -1029,21 +1106,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [deletePost] = useDeletePostMutation();
   const [editingPost, setEditingPost] = useState<Post | null>(null);
 
-  const openRecordMenu = (post: Post) => {
-    Alert.alert(post.title ?? 'Record', undefined, [
-      { text: 'Edit', onPress: () => setEditingPost(post) },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => Alert.alert('Delete record?', 'This cannot be undone.', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => deletePost({ internal_id: post.internal_id }) },
-        ]),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
   // iOS can't present a new modal until the current one has finished
   // dismissing; give it a beat. Android stacks modals fine, so run immediately.
   const presentAfterDismiss = (fn: () => void, hadModalOpen: boolean) => {
@@ -1220,9 +1282,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     .map((t) => ({
       ...t,
       count:
-        t.key === 'posts'      ? (postsData?.total ?? posts.length) :
-        t.key === 'mods'       ? ((modsData as any)?.total ?? mods.length) :
-        t.key === 'galleries'  ? paneAlbums.length :
         t.key === 'followers'  ? (carFollowersData?.total ?? carFollowers.length) :
         /* groups */             (carGroupsData?.total ?? carGroups.length),
     }))
@@ -1242,6 +1301,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
       ? 'Tagged in Posts'
       : shownPane === 'routes'
       ? 'Routes'
+      : shownPane === 'posts'
+      ? 'Records'
+      : shownPane === 'mods'
+      ? 'Mods'
+      : shownPane === 'galleries'
+      ? 'Galleries'
       : CAR_TILES.find((t) => t.key === shownPane)?.label ?? '';
 
   // The last row ends at the panel's edge, so it has nothing to divide.
@@ -1254,11 +1319,79 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
    * are modals of their own. A record or a mod brings you back to the list.
    */
   const paneNew: Partial<Record<Exclude<CarPane, null>, { label: string; run: () => void }>> = isOwnerOrCoOwner ? {
-    posts: { label: 'New record', run: () => { restorePaneRef.current = 'posts'; closePaneThen(() => appNav.navigate('Create', { carId, carTitle: carDisplayName })); } },
     mods: { label: 'New mod', run: () => { restorePaneRef.current = 'mods'; closePaneThen(() => appNav.navigate('ModCreate', { carId, carTitle: carDisplayName })); } },
     galleries: { label: 'New gallery', run: () => closePaneThen(() => presentAfterDismiss(() => setActiveSheet('gallery'), true)) },
   } : {};
   const shownNew = shownPane ? paneNew[shownPane] : undefined;
+
+  /**
+   * A mod's photos in the car's viewer, from its summary panel: every panel
+   * closes first — a viewer is a modal of its own, and iOS won't present one
+   * over another still on its way out.
+   */
+  const openModPhotos = (mod: Mod, index: number) => {
+    const album = {
+      internal_id: mod.internal_id,
+      car_id: mod.car_id,
+      title: mod.title,
+      gallery: (mod.gallery ?? []).filter((g) => g.filename && g.type !== 'video'),
+      isMod: true,
+    } as CarGalleryAlbum & { isMod: true };
+    setModSummary(null);
+    setPane(null);
+    presentAfterDismiss(() => setViewer({ album, index }), true);
+  };
+
+  /** A mod as a shelf tile — its photo, its kind in a pill; it opens its details. */
+  const modShelfCard = (mod: Mod): ShelfCard => {
+    const photo = mod.gallery?.find((g) => g.filename && g.type !== 'video');
+    return {
+      key: mod.internal_id,
+      image: photo?.filename ? imageUrl(photo.filename) : null,
+      title: mod.title ?? 'Mod',
+      badge: MOD_TYPES.find((t) => t.key === (mod.type || mod.category))?.label,
+      onPress: () => setModSummary(mod),
+    };
+  };
+  /** An album as a shelf tile — its cover, its photo count in a pill; it opens the album. */
+  const albumShelfCard = (album: CarGalleryAlbum): ShelfCard => ({
+    key: album.internal_id,
+    image: album.gallery?.[0]?.filename ? imageUrl(album.gallery[0].filename) : null,
+    title: album.title ?? 'Album',
+    badge: String(album.gallery?.length ?? 0),
+    BadgeIcon: Images,
+    onPress: () => openAlbum(album),
+  });
+
+  /**
+   * The Records list's category filter — pinned as the panel's header, so it
+   * stays put while the grid under it scrolls. Built from what this car
+   * actually has, so a filter never offers a choice that returns nothing.
+   */
+  const categoryKeys = Array.from(new Set(posts.map((p) => p.category).filter(Boolean))) as string[];
+
+  const recordFiltersEl = categoryKeys.length > 1 ? (
+    <View style={[styles.recordFilters, { borderBottomColor: SHEET_BORDER }]}>
+      {/* One row that scrolls sideways, rather than a block of wrapped
+          chips above the list it filters. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.recordFilterRow}
+      >
+        <FilterChip label="All" active={!recordCategory} accent={colors.primaryAlt} onPress={() => setRecordCategory(null)} />
+        {categoryKeys.map((c) => (
+          <FilterChip
+            key={c}
+            label={CATEGORY_LABELS[c] ?? c}
+            active={recordCategory === c}
+            accent={categoryColor(c)}
+            onPress={() => setRecordCategory(recordCategory === c ? null : c)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  ) : null;
 
   const renderPane = () => {
     switch (shownPane) {
@@ -1266,9 +1399,8 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         return (
           <TaggedPostsPane
             carId={car.internal_id}
-            // Same route the records list opens, so the pane is closed and
-            // restored on the way back rather than left under the post.
-            onPostPress={(post) => openRecord(post.internal_id)}
+            // In the post panel, over this list — see PostSummaryModal.
+            onPostPress={(post) => setRecordSummary(post)}
           />
         );
       case 'routes':
@@ -1282,136 +1414,57 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           />
         );
       case 'posts': {
-        if (posts.length === 0) return <EmptyState title="No records yet" />;
+        if (posts.length === 0) return postsPaging ? <PaneLoading /> : <EmptyState title="No records yet" />;
 
-        // Built from what this car actually has, so a filter never offers a
-        // choice that returns nothing.
-        const categoryKeys = Array.from(new Set(posts.map((p) => p.category).filter(Boolean))) as string[];
         const visiblePosts = recordCategory ? posts.filter((p) => p.category === recordCategory) : posts;
-
-        const filtersEl = categoryKeys.length > 1 ? (
-          <View style={[styles.recordFilters, { borderBottomColor: SHEET_BORDER }]}>
-            <View style={styles.recordFilterRow}>
-              <FilterChip label="All" active={!recordCategory} accent={colors.primaryAlt} onPress={() => setRecordCategory(null)} />
-              {categoryKeys.map((c) => (
-                <FilterChip
-                  key={c}
-                  label={CATEGORY_LABELS[c] ?? c}
-                  active={recordCategory === c}
-                  accent={categoryColor(c)}
-                  onPress={() => setRecordCategory(recordCategory === c ? null : c)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null;
 
         return (
           <>
-            {filtersEl}
             {visiblePosts.length === 0
               ? <EmptyState title="No records match those filters" />
-              : visiblePosts.map((item, i) => {
-                  // The lead photo or a video's poster — see postThumb. These
-                  // rows are thumbnails, so a video plays once the record opens.
-                  const thumb = postThumb(item);
-                  const title = item.title ?? (item.body ? stripHtml(item.body) : null);
-                  const timeAgo = item.created_at ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true }) : '';
-                  return (
-                    <RecordRow
-                      key={item.internal_id}
-                      title={title}
-                      imageUri={thumb.url}
-                      isVideo={thumb.isVideo}
-                      meta={timeAgo}
-                      category={item.category}
-                      onPress={() => openRecord(item.internal_id)}
-                      onMenuPress={isOwnerOrCoOwner ? () => openRecordMenu(item) : undefined}
-                      fg={SHEET_FG}
-                      border={rowBorder(i, visiblePosts.length)}
-                      placeholder={SHEET_PLACEHOLDER}
-                    />
-                  );
-                })}
+              : (
+                // The shelf's cards, two up — the same PostCard, the same look.
+                <MasonryGrid
+                  style={styles.paneGrid}
+                  items={visiblePosts}
+                  keyOf={(p) => p.internal_id}
+                  renderItem={(item, width) => (
+                    <PostCard post={item} width={width} onPress={() => setRecordSummary(item)} naturalRatio {...RECORD_LOOK} />
+                  )}
+                />
+              )}
+            <ShowMore shown={posts.length} total={postsTotal} loading={postsPaging} onPress={() => setPostsPage((p) => p + 1)} />
           </>
         );
       }
       case 'mods':
-        if (mods.length === 0) return <EmptyState title="No mods yet" />;
-        return groupMods(mods).map((group) => (
-          <View key={group.key}>
-            <View style={modStyles.groupHead}>
-              <Text style={[modStyles.groupLabel, { color: colors.fg }]}>{group.label}</Text>
-              <View style={[modStyles.groupCount, { backgroundColor: colors.segment }]}>
-                <Text style={[modStyles.groupCountText, { color: colors.grey }]}>{group.mods.length}</Text>
-              </View>
-            </View>
-            {group.mods.map((mod) => (
-              <ModCard
-                key={mod.internal_id}
-                mod={mod}
-                colors={colors}
-                onComments={() => setSubComments({ id: mod.internal_id, type: 'mod' })}
-                // The car's own lightbox, given the mod's photos as an album
-                // of its own — opened once the pane has closed, as an
-                // album's is.
-                onPhoto={(index) => openAlbum({
-                  internal_id: mod.internal_id,
-                  car_id: mod.car_id,
-                  title: mod.title,
-                  gallery: (mod.gallery ?? []).filter((g) => g.filename && g.type !== 'video'),
-                  isMod: true,
-                } as CarGalleryAlbum & { isMod: true }, index)}
-              />
-            ))}
-          </View>
-        ));
+        if (mods.length === 0) return modsPaging ? <PaneLoading /> : <EmptyState title="No mods yet" />;
+        return (
+          <>
+          {/* The shelf's tiles, two up; a tile opens the mod's details. */}
+          <MasonryGrid
+            style={styles.paneGrid}
+            items={mods}
+            keyOf={(m) => m.internal_id}
+            renderItem={(mod, width) => <ShelfTile card={modShelfCard(mod)} width={width} naturalRatio />}
+          />
+          <ShowMore shown={mods.length} total={modsTotal} loading={modsPaging} onPress={() => setModsPage((p) => p + 1)} />
+          </>
+        );
       case 'galleries':
-        if (paneAlbums.length === 0) return <EmptyState title="No galleries yet" />;
-        return paneAlbums.map((album, i) => {
-          const thumb = album.gallery?.[0] ? imageUrl(album.gallery[0].filename) : null;
-          return (
-            <TouchableOpacity
-              key={album.internal_id}
-              style={[ss.listRow, { borderBottomColor: rowBorder(i, paneAlbums.length) }]}
-              onPress={() => openAlbum(album)}
-              activeOpacity={0.7}
-            >
-              {thumb
-                ? <Image source={{ uri: thumb }} style={styles.recordThumb} contentFit="cover" />
-                : <View style={[styles.recordThumb, { backgroundColor: SHEET_PLACEHOLDER }]} />}
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: SHEET_FG, fontSize: 15, fontFamily: FONT_INTER.bold }} numberOfLines={1}>{album.title ?? 'Album'}</Text>
-                <Text style={{ color: colors.grey, fontSize: 12, marginTop: 2 }}>{album.gallery?.length ?? 0} photos</Text>
-                {/* Same reasoning as ModCard: an album is likeable from the
-                    feed, so it has to show that here too. */}
-                <View style={modStyles.actions}>
-                  <LikeButton
-                    documentId={album.internal_id}
-                    entryType="cargallery"
-                    ownerId={album.user_id}
-                    initialCount={album.like_count ?? 0}
-                    initialLiked={album.isLiked ?? false}
-                    color={colors.grey}
-                  />
-                  <CommentButton
-                    count={album.comment_count ?? 0}
-                    documentId={album.internal_id}
-                    onPress={() => setSubComments({ id: album.internal_id, type: 'cargallery' })}
-                    color={colors.grey}
-                  />
-                </View>
-              </View>
-              {isOwnerOrCoOwner ? (
-                <TouchableOpacity onPress={() => handleAlbumOptions(album)} hitSlop={8} style={{ padding: 4 }}>
-                  <MoreHorizontal size={20} color={colors.grey} />
-                </TouchableOpacity>
-              ) : (
-                <ChevronRight size={18} color={colors.grey} />
-              )}
-            </TouchableOpacity>
-          );
-        });
+        if (paneAlbums.length === 0) return albumsPaging ? <PaneLoading /> : <EmptyState title="No galleries yet" />;
+        return (
+          <>
+          {/* The shelf's tiles, two up; a tile opens the album. */}
+          <MasonryGrid
+            style={styles.paneGrid}
+            items={paneAlbums}
+            keyOf={(a) => a.internal_id}
+            renderItem={(album, width) => <ShelfTile card={albumShelfCard(album)} width={width} naturalRatio />}
+          />
+          <ShowMore shown={paneAlbums.length} total={albumsTotal} loading={albumsPaging} onPress={() => setAlbumsPage((p) => p + 1)} />
+          </>
+        );
       case 'followers':
         if (carFollowers.length === 0) return <EmptyState title="No followers yet" />;
         return carFollowers.map((u, i) => (
@@ -1522,18 +1575,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               ) : null}
               </View>
 
-              <View style={styles.metaRight}>
-              {car.type ? (
-                <View style={[styles.carBadge, { backgroundColor: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).bg }]}>
-                  <Text style={[styles.carBadgeText, { color: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).text }]}>{carTypeLabel(car.type)}</Text>
-                </View>
-              ) : null}
-              {car.category ? (
-                <View style={[styles.carBadge, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-                  <Text style={[styles.carBadgeText, { color: COLOR_WHITE }]}>{carCategoryLabel(car.category)}</Text>
-                </View>
-              ) : null}
-              </View>
             </>
           }
         />
@@ -1548,6 +1589,22 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             onOpenAlbum={openAlbum}
             onChangeHero={isOwnerOrCoOwner ? pickHeroImage : undefined}
             heroBusy={heroUploading}
+            // On the photo rather than in the row under the title: what kind of
+            // car it is reads with the car itself.
+            heroBadges={car.type || car.category ? (
+              <>
+                {car.type ? (
+                  <View style={[styles.carBadge, { backgroundColor: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).bg }]}>
+                    <Text style={[styles.carBadgeText, { color: (CAR_TYPE_COLORS[car.type] ?? CAR_TYPE_COLORS.other).text }]}>{carTypeLabel(car.type)}</Text>
+                  </View>
+                ) : null}
+                {car.category ? (
+                  <View style={[styles.carBadge, styles.carBadgeOnPhoto]}>
+                    <Text style={[styles.carBadgeText, { color: COLOR_WHITE }]}>{carCategoryLabel(car.category)}</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : undefined}
           />
         </View>
 
@@ -1651,7 +1708,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 <CommentButton
                   documentId={car.internal_id}
                   count={commentCount ?? 0}
-                  onPress={() => setCommentsOpen(true)}
+                  onPress={() => setCommentsOrigin(null)}
                   color={colors.fg}
                 />
               </View>
@@ -1676,7 +1733,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
           {/* What's still missing on your own car — a photo, its specs, a first
               mod — each finished in a panel right here. Nothing once done. */}
-          {isOwnerOrCoOwner && <CarSetupCard car={car} modCount={(modsData as any)?.total ?? mods.length} />}
+          {isOwnerOrCoOwner && <CarSetupCard car={car} modCount={modsData?.total ?? shelfMods.length} />}
 
           {/* Someone else's car with no photos: ask its owner for some. Signed
               in only — the ask is sent from someone. */}
@@ -1693,18 +1750,49 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
 
           {car.body ? (
             <View style={styles.descWrap}>
-              <Text
-                style={[styles.carDescription, { color: colors.fgDark }]}
-                numberOfLines={descLines == null ? undefined : (descExpanded ? undefined : 3)}
-                onTextLayout={descLines == null ? (e) => setDescLines(e.nativeEvent.lines.length) : undefined}
-              >
-                {stripHtml(car.body)}
-              </Text>
-              {descLines != null && descLines > 3 && (
-                <TouchableOpacity onPress={() => setDescExpanded((v) => !v)} hitSlop={6}>
-                  <Text style={[styles.moreLink, { color: colors.fgDark }]}>{descExpanded ? 'Less' : 'More'}</Text>
-                </TouchableOpacity>
-              )}
+              {/* Laid out once in full to learn where its lines break, then
+                  shown cut to three with "… more" on the end of the third, in
+                  the same run of text — a link on a line of its own read as a
+                  button. The third line gives up a few characters to make
+                  room. Expanded, "less" trails the last line the same way. */}
+              {(() => {
+                const full = stripHtml(car.body);
+                const long = !!descLines && descLines.length > DESC_LINES;
+                const toggle = (
+                  <Text
+                    style={[styles.moreLink, { color: colors.fgDark }]}
+                    onPress={() => setDescExpanded((v) => !v)}
+                    suppressHighlighting
+                  >
+                    {descExpanded ? 'less' : 'more'}
+                  </Text>
+                );
+                if (!long) {
+                  return (
+                    <Text
+                      style={[styles.carDescription, { color: colors.fgDark }]}
+                      onTextLayout={descLines == null ? (e) => setDescLines(e.nativeEvent.lines.map((l) => l.text)) : undefined}
+                    >
+                      {full}
+                    </Text>
+                  );
+                }
+                if (descExpanded) {
+                  return (
+                    <Text style={[styles.carDescription, { color: colors.fgDark }]}>
+                      {full} {toggle}
+                    </Text>
+                  );
+                }
+                const lines = descLines!.slice(0, DESC_LINES);
+                const last = lines[DESC_LINES - 1].replace(/\s+$/, '');
+                const cut = last.slice(0, Math.max(0, last.length - MORE_ROOM)).replace(/\s+$/, '');
+                return (
+                  <Text style={[styles.carDescription, { color: colors.fgDark }]} numberOfLines={DESC_LINES}>
+                    {lines.slice(0, -1).join('')}{cut}… {toggle}
+                  </Text>
+                );
+              })()}
             </View>
           ) : null}
 
@@ -1742,7 +1830,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                     key={spec.label}
                     style={styles.specsCell}
                   >
-                    <Text style={[styles.specsLabel, { color: colors.grey }]} numberOfLines={1}>{spec.label}</Text>
+                    <Text style={[styles.specsLabel, { color: COLOR_GRAY_141 }]} numberOfLines={1}>{spec.label}</Text>
                     <Text style={[styles.specsValue, { color: colors.fg }]} numberOfLines={1}>
                       {spec.value}
                     </Text>
@@ -1758,6 +1846,50 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             ))}
           </View>
         )}
+
+        {/* ── Records, mods and galleries ── */}
+        {/* The latest few of each as a shelf, the rest behind "View all" —
+            the list behind it pages in the whole lot. The owner gets an Add on
+            each, straight to that one form. */}
+        <PostStrip
+          title="Records"
+          // Wider, one line, no time — a record's title is what tells them apart.
+          cardWidth={232}
+          {...RECORD_LOOK}
+          ruled
+          // The spec cards above already end on their own margin.
+          ruleGap={4}
+          posts={shelfPosts}
+          total={postsData?.total}
+          alwaysViewAll
+          // In a summary panel, as the home feed shows a post — see PostSummaryModal.
+          onPostPress={(post) => setRecordSummary(post)}
+          onViewAll={() => setPane('posts')}
+          onAdd={isOwnerOrCoOwner ? () => appNav.navigate('Create', { carId, carTitle: carDisplayName }) : undefined}
+          addLabel="Add record"
+        />
+        <CarShelf
+          title="Mods"
+          cardWidth={232}
+          ruled
+          total={modsData?.total}
+          cards={shelfMods.map(modShelfCard)}
+          onViewAll={() => setPane('mods')}
+          onAdd={isOwnerOrCoOwner ? () => appNav.navigate('ModCreate', { carId, carTitle: carDisplayName }) : undefined}
+          addLabel="Add mod"
+        />
+        <CarShelf
+          title="Galleries"
+          // The last of the three: room before the tiles below.
+          spaceBelow={26}
+          cardWidth={232}
+          ruled
+          total={albumsData?.total}
+          cards={shelfAlbums.map(albumShelfCard)}
+          onViewAll={() => setPane('galleries')}
+          onAdd={isOwnerOrCoOwner ? () => setActiveSheet('gallery') : undefined}
+          addLabel="Add gallery"
+        />
 
         {/* ── Section tiles — open panes like the profile page ── */}
         <View style={[styles.tilesWrap]}>
@@ -1842,7 +1974,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         {/* ── Where this car has turned up in other people's posts ── */}
         <TaggedPostsRow
           carId={car.internal_id}
-          onPostPress={(post) => openRecord(post.internal_id)}
+          onPostPress={(post) => setRecordSummary(post)}
           onViewAll={() => setPane('tagged')}
         />
 
@@ -1865,11 +1997,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             the server accepts a list on a car from either. */}
         <CarListsRow carId={car.internal_id} canAdd={isOwnerOrCoOwner && isPro} />
 
-        {/* ── Comments on this car ── */}
-        <InlineComments
-          documentId={car.internal_id}
-          entryType={(car as any).entry_type ?? 'garagecar'}
-        />
 
       </FormScrollView>
 
@@ -2140,7 +2267,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onClose={() => setPane(null)}
         onClosed={handlePaneDismissed}
         minHeightRatio={0.45}
-        header={
+        header={shownPane === 'posts' ? (recordFiltersEl ?? undefined) : (
           <View style={styles.paneHead}>
             <Text style={[styles.paneTitle, { color: SHEET_FG }]} numberOfLines={1}>{paneTitle}</Text>
             {shownNew ? (
@@ -2156,28 +2283,48 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               </TouchableOpacity>
             ) : null}
           </View>
-        }
+        )}
         // Stacked inside the panel's own Modal, so editing layers over the list
         // rather than forcing it closed the way the detail screen has to.
-        stacked={editingPost ? (
-          <PostEditSheet
-            post={editingPost}
-            visible={!!editingPost}
-            onClose={() => setEditingPost(null)}
-          />
-        ) : null}
+        // Rendered inside the list's panel, so they present over it — see
+        // SummaryModal's "Stacking". The same two sit at the page's level
+        // below for when they're opened from a shelf.
+        stacked={(
+          <>
+            {editingPost ? (
+              <PostEditSheet
+                post={editingPost}
+                visible={!!editingPost}
+                onClose={() => setEditingPost(null)}
+              />
+            ) : null}
+            {/* From a list, a post slides up as a sheet — closed, you're back
+                on the list where you were. */}
+            <PostSheet post={pane ? recordSummary : null} onClose={() => setRecordSummary(null)} />
+            <ModSummaryModal mod={pane ? modSummary : null} onClose={() => setModSummary(null)} onPhoto={openModPhotos} />
+          </>
+        )}
       >
         <View style={{ paddingBottom: 24 }}>
           {renderPane()}
         </View>
       </SummaryModal>
 
+      {/* ── A record from the shelf, as the feed shows a post ── */}
+      <PostSummaryModal
+        post={pane ? null : recordSummary}
+        onClose={() => setRecordSummary(null)}
+      />
+      <ModSummaryModal mod={pane ? null : modSummary} onClose={() => setModSummary(null)} onPhoto={openModPhotos} />
+
       {/* ── Comments ── */}
-      <CommentsSheet
+      {/* Behind the comment bubble, in a summary panel — the thread and its
+          composer — rather than written out at the foot of the page. */}
+      <PostCommentsModal
         postId={car.internal_id}
         entryType={(car as any).entry_type ?? 'garagecar'}
-        visible={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
+        origin={commentsOrigin}
+        onClose={() => setCommentsOrigin(undefined)}
       />
 
       {/* One sheet for the car's sub-items — a mod, an album — rather than one
@@ -2241,7 +2388,66 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   );
 }
 
+/** How a record's card looks — on the shelf and in the list behind it. */
+const RECORD_LOOK: PostCardLook = {
+  showByline: false,
+  showTime: false,
+  captionLines: 1,
+  captionOnImage: true,
+  kindBadge: true,
+};
+
+/** How many of each a shelf shows. */
+const SHELF_COUNT = 6;
+/** How many more each "Show more" brings in a "View all" list. */
+const LIST_PAGE = 12;
+
+/**
+ * Pages of a list, joined as they arrive — page 0 starts it again, any later
+ * page adds what it doesn't already have.
+ */
+function useAccumulated<T extends { internal_id: string }>(entries: T[] | undefined, page: number): T[] {
+  const [all, setAll] = useState<T[]>([]);
+  useEffect(() => {
+    if (!entries) return;
+    setAll((prev) => {
+      if (page === 0) return entries;
+      const seen = new Set(prev.map((e) => e.internal_id));
+      return [...prev, ...entries.filter((e) => !seen.has(e.internal_id))];
+    });
+  }, [entries, page]);
+  return all;
+}
+
+/** The foot of a "View all" list: more to load, or nothing. */
+function ShowMore({ shown, total, loading, onPress }: { shown: number; total: number; loading: boolean; onPress: () => void }) {
+  if (shown >= total) return null;
+  return (
+    <TouchableOpacity style={styles.showMore} onPress={onPress} disabled={loading} activeOpacity={0.8}>
+      {loading
+        ? <ActivityIndicator size="small" color={COLOR_WHITE} />
+        : <Text style={styles.showMoreText}>Show more ({total - shown})</Text>}
+    </TouchableOpacity>
+  );
+}
+
+/** A list opening before its first page is in. */
+function PaneLoading() {
+  return <ActivityIndicator style={{ marginVertical: 40 }} color={COLOR_WHITE} />;
+}
+
+/** Lines of description shown before "… more". */
+const DESC_LINES = 3;
+/** Characters the third line gives up so "… more" fits on the end of it. */
+const MORE_ROOM = 9;
+
 const styles = StyleSheet.create({
+  paneGrid: { paddingHorizontal: 12, paddingTop: 12 },
+  showMore: {
+    alignSelf: 'center', marginTop: 14, minWidth: 160, alignItems: 'center',
+    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  showMoreText: { fontSize: 13.5, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
 
   /**
    * Sizes to what's in it.
@@ -2253,7 +2459,7 @@ const styles = StyleSheet.create({
    * so it still measures correctly without this.
    */
   galleryWrap:    { backgroundColor: COLOR_BLACK },
-  galleryStrip:   { paddingVertical: 12, paddingLeft: 12, gap: 10, alignItems: 'flex-start' },
+  galleryStrip:   { paddingTop: 12, paddingBottom: 4, paddingLeft: 12, gap: 10, alignItems: 'flex-start' },
   heroSlide:      { width: HERO_WIDTH, height: GALLERY_HEIGHT, borderRadius: 12, overflow: 'hidden' },
   // A lone photo is inset and rounded rather than run to the edges: with no
   // second card beside it there's no strip to be part of, so full-bleed made it
@@ -2323,7 +2529,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     // Tight to the gallery above it — the owner row belongs to the photo, not
     // to the block of controls under it.
-    paddingTop: 10,
+    paddingTop: 6,
     paddingBottom: 16,
   },
   // Centred, not top-aligned: the actions are 34pt tall and the subtitle is one
@@ -2342,7 +2548,8 @@ const styles = StyleSheet.create({
     // No margins of its own — `todosAboveDesc` places it, and carrying both
     // stacked the two into a gap neither of them asked for.
     paddingVertical: 14, paddingHorizontal: 16,
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
+    // A pill, like the panels' Apply and View buttons.
+    borderRadius: 999, borderWidth: 1,
   },
   tasksBtnText:   { fontSize: 16, fontFamily: FONT_INTER.bold },
   tasksBtnLabel:  { flex: 1, textAlign: 'center' },
@@ -2365,13 +2572,16 @@ const styles = StyleSheet.create({
   // `flexShrink` on the left group only: a long spec truncates before it can
   // push the type and category chips off the row.
   metaLeft:       { flexShrink: 1, minWidth: 0 },
-  metaRight:      { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 0 },
   specChip: {
     paddingHorizontal: 7, paddingVertical: 2,
     borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
   },
   specChipText:   { fontSize: 11, fontFamily: FONT_INTER.bold },
   carBadge:       { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
+  // On a photo the old translucent white vanished into a bright one; a dark
+  // translucent pill reads on anything.
+  carBadgeOnPhoto: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  heroBadges:     { position: 'absolute', top: 10, left: 10, right: 56, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   carBadgeText:   { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'capitalize' },
   descWrap:       { marginTop: 12 },
   todosAboveDesc: { marginTop: 8 },
@@ -2381,7 +2591,8 @@ const styles = StyleSheet.create({
   },
   addContentText: { fontSize: 14, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.2 },
   carDescription: { fontSize: 14, lineHeight: 20 },
-  moreLink:       { fontSize: 13, fontFamily: FONT_INTER.black, textDecorationLine: 'underline', marginTop: 4 },
+  // Inline after the text: the description's size, a step bolder, underlined.
+  moreLink:       { fontFamily: FONT_INTER.semibold, textDecorationLine: 'underline' },
   // No rule across the top: the row already reads as its own thing, and the
   // line under a description looked like the end of the page rather than the
   // start of a control.
@@ -2430,8 +2641,10 @@ const styles = StyleSheet.create({
   modRowTitle:          { fontSize: 14, fontFamily: FONT_INTER.semibold },
   modRowType:           { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
 
-  recordFilters:   { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 1, gap: 8 },
-  recordFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // The row runs to the panel's edges; its inset is the content's padding.
+  // The panel's header now, so it brings the room from the panel's top edge.
+  recordFilters:   { paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1 },
+  recordFilterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12 },
   filterChip:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   filterChipText:  { fontSize: 12, fontFamily: FONT_INTER.bold },
 
@@ -2449,13 +2662,14 @@ const styles = StyleSheet.create({
   // the one thing making them look like the tappable tiles below.
   specsCell: {
     flex: 1, minWidth: 0,
-    paddingVertical: 8, paddingHorizontal: 9, gap: 2,
+    paddingTop: 8, paddingBottom: 11, paddingLeft: 12, paddingRight: 9, gap: 8,
     borderRadius: 9,
     backgroundColor: COLOR_GRAY_26,
   },
   specsSpacer: { flex: 1, minWidth: 0 },
   // A shade smaller than at two columns — a third of a phone is not much room.
-  specsLabel:  { fontSize: 10, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
+  // Sentence case, a shade under the value — the label, not a heading.
+  specsLabel:  { fontSize: 11.5, fontFamily: FONT_INTER.semibold },
   specsValue:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   // 12, to line the tiles up with the specs table and the heading above them —
   // they were the one block on the page still inset at 16.
@@ -2478,7 +2692,7 @@ const styles = StyleSheet.create({
   // Takes the middle, so the chevron stays pinned right whatever the label.
   carTileText:     { flex: 1, minWidth: 0, gap: 1 },
   carTileLabel:    { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: 0.1 },
-  paneHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10 },
+  paneHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 8 },
   paneTitle: { flex: 1, fontSize: 18, fontFamily: FONT_INTER.extrabold },
   paneNewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS },
   paneNewText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },

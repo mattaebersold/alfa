@@ -6,7 +6,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images } from 'lucide-react-native';
-import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
+import SummaryModal, { SUMMARY_WIDTH_RATIO, type SummaryOrigin } from '../ui/SummaryModal';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
 import CommentsSheet from '../social/CommentsSheet';
@@ -18,8 +18,8 @@ import type { GalleryItem } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 import { COLOR_WHITE } from '../../constants/config';
 
-/** The panel is 90% of the screen; its gallery matches so pages land square. */
-const PAGE_WIDTH = Dimensions.get('window').width * 0.9;
+/** The panel's own width (SUMMARY_WIDTH_RATIO); its gallery matches so pages land square. */
+const PAGE_WIDTH = Dimensions.get('window').width * SUMMARY_WIDTH_RATIO;
 
 export interface CarItem {
   internal_id: string;

@@ -2,6 +2,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import React from 'react';
 import FilterSummaryRow, { FilterChoiceRow } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { locationPill } from '../ui/LocationFilterRow';
+import { CalendarDays } from 'lucide-react-native';
 import { EVENT_CATEGORIES } from '../../constants/eventTypes';
 import type { LocationChoice } from '../../hooks/useLocationFilter';
 
@@ -76,10 +77,12 @@ export default function EventFilters({
               choice={draft.choice}
               onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
               regions={regions}
+              allLabel="All events"
+              AllIcon={CalendarDays}
             />
 
+            {/* No heading: the rule under the regions already sets the types apart. */}
             <FilterChoiceRow<string | null>
-              label="Type"
               options={[
                 { key: null, label: 'All' },
                 ...categories.map((c) => ({ key: c.key, label: c.label, color: c.color })),

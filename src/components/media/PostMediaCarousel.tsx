@@ -8,10 +8,11 @@ import { Image } from 'expo-image';
 // list's scroll (see PinchZoom), and only this one can be named to it.
 import { FlatList } from 'react-native-gesture-handler';
 import { NavigationContext } from '@react-navigation/native';
+import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
 import Svg, { Polygon } from 'react-native-svg';
 import VideoLightbox from '../ui/VideoLightbox';
 import PinchZoom from './PinchZoom';
-import { clampMediaRatio, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
+import { clampMediaRatio, mediaShape, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config';
 
@@ -33,6 +34,14 @@ import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config'
  * right trade in a feed — the alternative shows more of the photo but makes
  * every post a different, mostly-empty height.
  *
+ * ## Unless the height follows the slide
+ *
+ * With `adaptiveHeight` (the home feed), each slide is rounded to one of three
+ * shapes — landscape, square, portrait (see mediaShape) — and the strip's
+ * height follows the swipe from one slide's shape to the next, in step with
+ * the thumb rather than jumping when the page lands. A gallery of the same
+ * shape doesn't move at all.
+ *
  * ## Videos play full screen, not in the strip
  *
  * A video slide is only ever its poster frame. Tapping it opens VideoLightbox,
@@ -50,6 +59,7 @@ export default function PostMediaCarousel({
   ratio: fixedRatio,
   videoOpensItem = false,
   pinchZoom = false,
+  adaptiveHeight = false,
 }: {
   media: PostMedia[];
   /**
@@ -93,6 +103,12 @@ export default function PostMediaCarousel({
   videoOpensItem?: boolean;
   /** Photos grow under a pinch and settle back on release — see PinchZoom. */
   pinchZoom?: boolean;
+  /**
+   * The strip's height follows the slide on show, rounded to landscape, square
+   * or portrait — see "Unless the height follows the slide" above. Ignored
+   * with a fixed `ratio`.
+   */
+  adaptiveHeight?: boolean;
 }) {
   const [width, setWidth] = useState(0);
   const [measuredRatio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
@@ -117,6 +133,21 @@ export default function PostMediaCarousel({
     ratioLocked.current = true;
     setRatio(clampMediaRatio(w / h));
   }, []);
+
+  /** Each slide's rounded shape, as its image reports its size — adaptive only. */
+  const adaptive = adaptiveHeight && fixedRatio == null;
+  const [shapes, setShapes] = useState<Record<number, number>>({});
+  const noteSize = useCallback((index: number, w: number, h: number) => {
+    if (index === 0) lockRatio(w, h);
+    if (!adaptive) return;
+    const shape = mediaShape(w, h);
+    setShapes((prev) => (prev[index] === shape ? prev : { ...prev, [index]: shape }));
+  }, [adaptive, lockRatio]);
+  /**
+   * Where the swipe is, for the height to follow — a Reanimated value, so the
+   * height is worked out and laid out on the UI thread (see adaptiveStyle).
+   */
+  const scrollX = useSharedValue(0);
 
   const closeViewer = useCallback(() => setWatchingId(null), []);
 
@@ -172,7 +203,7 @@ export default function PostMediaCarousel({
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               transition={200}
-              onLoad={index === 0 ? (e) => lockRatio(e.source.width, e.source.height) : undefined}
+              onLoad={(e) => noteSize(index, e.source.width, e.source.height)}
             />
           </PinchZoom>
         </TouchableOpacity>
@@ -199,7 +230,7 @@ export default function PostMediaCarousel({
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             transition={200}
-            onLoad={index === 0 ? (e) => lockRatio(e.source.width, e.source.height) : undefined}
+            onLoad={(e) => noteSize(index, e.source.width, e.source.height)}
           />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.processingBg]} />
@@ -223,7 +254,7 @@ export default function PostMediaCarousel({
         </View>
       </Pressable>
     );
-  }, [width, onPressItem, lockRatio, videoOpensItem, pinchZoom, media.length]);
+  }, [width, onPressItem, noteSize, videoOpensItem, pinchZoom, media.length]);
 
   const keyExtractor = useCallback((item: PostMedia) => item.key, []);
   const getItemLayout = useCallback(
@@ -233,10 +264,43 @@ export default function PostMediaCarousel({
 
   const dots = useMemo(() => media.map((m) => m.key), [media]);
 
+  /**
+   * The strip's height, adaptive: each page's shape as a height, and the swipe
+   * between them interpolated — so the box eases from one to the next under
+   * the thumb. A slide not yet loaded borrows the lead's shape.
+   *
+   * On the UI thread. It was React's Animated, JS-driven (height is layout,
+   * which its native driver can't touch), and every scroll frame then crossed
+   * to JS and back before the card below could move — whenever JS was busy,
+   * the height stuttered behind the photo. Here the list only hands its offset
+   * over; the interpolation and the layout both happen without JS.
+   */
+  const lead = shapes[0] ?? DEFAULT_MEDIA_RATIO;
+  const heights = useMemo(
+    () => (adaptive && width ? media.map((_, i) => width / (shapes[i] ?? lead)) : []),
+    [adaptive, width, media, shapes, lead],
+  );
+  const pages = useMemo(() => heights.map((_, i) => i * width), [heights, width]);
+  const adaptiveStyle = useAnimatedStyle(() => {
+    if (heights.length === 0) return {};
+    if (heights.length === 1) return { height: heights[0] };
+    return { height: interpolate(scrollX.value, pages, heights, Extrapolation.CLAMP) };
+  }, [heights, pages]);
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollX.value = e.nativeEvent.contentOffset.x;
+  }, [scrollX]);
+
   if (media.length === 0) return null;
 
   return (
-    <View style={[styles.wrap, { aspectRatio: ratio }]} onLayout={onLayout}>
+    <Reanimated.View
+      style={[
+        styles.wrap,
+        // Shaped by the lead until it can be measured, then by the slides.
+        heights.length ? adaptiveStyle : { aspectRatio: adaptive ? lead : ratio },
+      ]}
+      onLayout={onLayout}
+    >
       {/* Nothing can be laid out until the strip has been measured — a
           paging list needs its page width, and that's the width of this box. */}
       {width > 0 && (
@@ -255,6 +319,8 @@ export default function PostMediaCarousel({
             style={StyleSheet.absoluteFill}
             getItemLayout={getItemLayout}
             onMomentumScrollEnd={onMomentumEnd}
+            onScroll={adaptive ? onScroll : undefined}
+            scrollEventThrottle={16}
           />
         )
       )}
@@ -270,7 +336,7 @@ export default function PostMediaCarousel({
       )}
 
       <VideoLightbox videoId={watchingId} onClose={closeViewer} />
-    </View>
+    </Reanimated.View>
   );
 }
 

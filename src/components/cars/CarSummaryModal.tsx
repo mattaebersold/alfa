@@ -198,6 +198,8 @@ export default function CarSummaryModal({
       onClose={onClose}
       origin={origin}
       actionLabel="View Car"
+      actionIcon={CarIcon}
+      actionRounded
       onAction={carId ? () => nav.navigate('CarDetail', { carId }) : undefined}
     >
       {isLoading || !car ? (

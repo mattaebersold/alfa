@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
+  View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { Search, X, Plus, Tag, Megaphone } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
-import FilterSummaryRow, { FilterLabel, FilterChoiceRow, type FilterPill } from '../ui/FilterSummaryRow';
+import FilterSummaryRow, { FilterChoiceRow, type FilterPill } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../ui/LocationFilterRow';
 import ListingCard from './ListingCard';
 import ManageListingsEntry from './ManageListingsEntry';
@@ -22,7 +22,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK, GUTTER,
 } from '../../constants/config';
-import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { Listing, ListingKind, ListingShipping, ListingSort } from '../../types/api';
@@ -453,65 +453,29 @@ export default function MarketplaceBrowse({
                 measuring from anywhere, so leaving near me drops it. */}
             <LocationFilterRow
               choice={draft.location}
+              allLabel="All Listings"
+              AllIcon={Tag}
               onChoose={(choice) => setDraft((d) => ({
                 ...d,
                 location: choice,
-                sort: choice === 'near' || d.sort !== 'distance' ? d.sort : 'match',
+                sort: isNear(choice) || d.sort !== 'distance' ? d.sort : 'match',
               }))}
             />
 
-            <FilterChoiceRow
-              label="Category"
-              options={categoryOptions}
-              selected={draft.category}
-              onSelect={(category) => setDraft((d) => ({ ...d, category }))}
-            />
-
-            {/* Sale only — a want ad has no condition, it has a wish. */}
-            {kind === 'sale' && (meta?.conditions?.length ?? 0) > 0 && (
+            {/* Room under the rule that closes the location section. */}
+            <View style={styles.typeGap}>
               <FilterChoiceRow
-                label="Condition"
-                options={[
-                  { key: null as string | null, label: 'Any' },
-                  ...meta!.conditions.map((label, i) => ({
-                    key: String(i) as string | null,
-                    // A floor, not an exact match: picking "Good" wants
-                    // everything that good or better.
-                    label: i === meta!.conditions.length - 1 ? label : `${label}+`,
-                  })),
-                ]}
-                selected={draft.conditionMin === null ? null : String(draft.conditionMin)}
-                onSelect={(key) => setDraft((d) => ({
-                  ...d, conditionMin: key === null ? null : Number(key),
-                }))}
+                options={categoryOptions}
+                selected={draft.category}
+                onSelect={(category) => setDraft((d) => ({ ...d, category }))}
               />
-            )}
+            </View>
 
-            <FilterChoiceRow
-              label="Shipping"
-              options={SHIPPING_OPTIONS}
-              selected={draft.shipping}
-              onSelect={(shipping) => setDraft((d) => ({ ...d, shipping }))}
-            />
 
-            {/* Typed into the draft as you go, so Apply takes it
-                without a Done first. Either end can be left empty. */}
-            <FilterLabel>Price</FilterLabel>
-            <PriceFilter
-              min={draft.minPrice}
-              max={draft.maxPrice}
-              onChange={(minPrice, maxPrice) => setDraft((d) => ({ ...d, minPrice, maxPrice }))}
-            />
+            {/* Condition, shipping, price and sort are off the panel for now; their
+                fields stay in the filters at their defaults, so nothing
+                applied changes and they can come back as they were. */}
 
-            {/* Ordering, not filtering. */}
-            <FilterChoiceRow
-              label="Sort"
-              options={SORT_OPTIONS
-                .filter((s) => !s.needsLocation || draft.location === 'near')
-                .map((s) => ({ key: s.key, label: s.label }))}
-              selected={draft.sort}
-              onSelect={(sort) => setDraft((d) => ({ ...d, sort }))}
-            />
           </>
         )}
       </FilterSummaryRow>
@@ -632,50 +596,12 @@ export default function MarketplaceBrowse({
   );
 }
 
-/** The price range, typed straight into the panel's draft. */
-/**
- * iOS's number pad has no return key to put the keyboard away — so iOS gets
- * the numbers-and-punctuation keyboard, which has one. Android's number pad
- * has its own.
- */
-const PRICE_KEYBOARD = Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric';
-
-function PriceFilter({ min, max, onChange }: {
-  min: string;
-  max: string;
-  onChange: (min: string, max: string) => void;
-}) {
-  const colors = useColors();
-  const inputStyle = [styles.priceInput, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }];
-  return (
-    <View style={styles.priceRow}>
-      <TextInput
-        style={inputStyle}
-        value={min}
-        onChangeText={(lo) => onChange(lo.trim(), max)}
-        placeholder="Min"
-        placeholderTextColor={colors.grey}
-        keyboardType={PRICE_KEYBOARD}
-        returnKeyType="done"
-      />
-      <Text style={[styles.priceDash, { color: colors.grey }]}>to</Text>
-      <TextInput
-        style={inputStyle}
-        value={max}
-        onChangeText={(hi) => onChange(min, hi.trim())}
-        placeholder="Max"
-        placeholderTextColor={colors.grey}
-        keyboardType={PRICE_KEYBOARD}
-        returnKeyType="done"
-      />
-    </View>
-  );
-}
 
 // The switch track's inset around its thumb.
 const KIND_TRACK_PAD = 4;
 
 const styles = StyleSheet.create({
+  typeGap: { paddingTop: 14 },
   fill: { flex: 1 },
   // Two columns of cards, each its photo's shape — the Cars page's mosaic.
   mosaic: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER },
@@ -717,10 +643,4 @@ const styles = StyleSheet.create({
 
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: GUTTER, marginBottom: 10 },
 
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, marginBottom: 6 },
-  priceInput: {
-    flex: 1, minHeight: 40, borderWidth: 1, borderRadius: COMMON_RADIUS,
-    paddingHorizontal: 12, fontSize: 14,
-  },
-  priceDash: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

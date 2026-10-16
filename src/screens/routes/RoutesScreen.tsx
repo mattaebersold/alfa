@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
-import { Search } from 'lucide-react-native';
+import { Search, Car } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetRoutesQuery } from '../../api/apiService';
 import RouteCard from '../../components/cards/RouteCard';
 import {
   DEFAULT_FILTERS, SORTS, buildRouteQuery,
 } from '../../components/routes/RouteFilters';
-import FilterSummaryRow, { FilterChoiceRow } from '../../components/ui/FilterSummaryRow';
+import FilterSummaryRow, { FilterChoiceRow, FilterDivider } from '../../components/ui/FilterSummaryRow';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
-import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import { REGIONS } from '../../constants/regions';
 import type { RouteSort } from '../../types/api';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -129,13 +129,18 @@ export default function RoutesScreen() {
               <LocationFilterRow
                 choice={draft.location}
                 onChoose={(next) => setDraft((d) => ({ ...d, location: next }))}
+                allLabel="All routes"
+                AllIcon={Car}
               />
-              <FilterChoiceRow<RouteSort>
-                label="Sort"
-                options={SORTS}
-                selected={draft.sort}
-                onSelect={(next) => setDraft((d) => ({ ...d, sort: next }))}
-              />
+              {/* Unlabelled, ruled off like the location section above it. */}
+              <View style={styles.sortGap}>
+                <FilterChoiceRow<RouteSort>
+                  options={SORTS}
+                  selected={draft.sort}
+                  onSelect={(next) => setDraft((d) => ({ ...d, sort: next }))}
+                />
+              </View>
+              <FilterDivider last />
             </>
           )}
         </FilterSummaryRow>
@@ -163,7 +168,7 @@ export default function RoutesScreen() {
             <EmptyState
               title={debounced
                 ? `No routes match "${debounced}"`
-                : `No routes ${location.choice === 'near'
+                : `No routes ${isNear(location.choice)
                   ? `within ${location.radius} miles`
                   : `in the ${REGIONS.find((r) => r.key === location.choice)?.label ?? location.choice}`}`}
             />
@@ -187,6 +192,7 @@ export default function RoutesScreen() {
 const CONTROL_BG = COLOR_GRAY_17;
 
 const styles = StyleSheet.create({
+  sortGap: { paddingTop: 14 },
   root: { flex: 1 },
 
   // The search and the filter pill, side by side — MembersScreen's measures.
