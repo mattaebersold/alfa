@@ -25,6 +25,36 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.69': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Cars',
+        items: [
+          'A full refresh of the rows and pop-up panels on a car\'s page.',
+          'New carousels on a car\'s page for mods, records and galleries, each with a "View all" panel.',
+          'Car type badges have moved on a car\'s page.',
+          'Comments on garage cars now open in a pop-up panel when you tap the comments bubble, instead of sitting at the bottom of the screen.',
+          'Fixed swiping and pinch-to-zoom in car galleries.',
+          'Fixed the tint colour on car brand cards.',
+        ],
+      },
+      {
+        title: 'Search',
+        items: [
+          'A cleaner filter for searching members, cars, events, marketplace, photography and groups.',
+          'A new distance slider in the filter to set how far out to search.',
+        ],
+      },
+      {
+        title: 'Look and feel',
+        items: [
+          'A refreshed member profile summary pop-up.',
+          'Feed galleries now adjust to each photo\'s shape as you swipe.',
+        ],
+      },
+    ],
+  },
   '1.68': {
     date: 'October 2026',
     groups: [
