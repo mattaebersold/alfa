@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { Bookmark, Car, FileText } from 'lucide-react-native';
 import { useSummaryPanel } from '../ui/SummaryModal';
+import SubTabs from '../ui/SubTabs';
 import {
   useGetCarsQuery, useGetLoggedInUserQuery, useGetPostBookmarksQuery, useGetUserByIdQuery,
   useToggleModelBookmarkMutation, useTogglePostBookmarkMutation,
@@ -17,19 +18,28 @@ import { useColors } from '../../hooks/useColors';
 import { bookmarkTitle, bookmarkRoute } from '../../utils/modelBookmark';
 import type { ModelBookmark, Post } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_GRAY_17, COLOR_GRAY_26, PILL_RADIUS } from '../../constants/config';
+import { COLOR_GRAY_17, COLOR_GRAY_26 } from '../../constants/config';
 
 type Tab = 'posts' | 'cars';
 
 /**
  * The filled bookmark at a row's end — and the way to take the bookmark off.
- * A tap removes it there and then; the row goes with it.
+ * Asked first: it's a small target beside a row you tap to open, and a
+ * bookmark taken off by a slip is gone from the list with no way back.
  */
 function Unbookmark({ onPress, label }: { onPress: () => void; label: string }) {
   const brand = useBrandColor();
+  const confirm = () => Alert.alert(
+    'Remove from bookmarks?',
+    `${label} will come off your bookmarks.`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress },
+    ],
+  );
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={confirm}
       hitSlop={10}
       style={styles.unmark}
       accessibilityRole="button"
@@ -54,7 +64,7 @@ function ModelRow({ bookmark: b, onPress }: { bookmark: ModelBookmark; onPress: 
 
   return (
     <TouchableOpacity
-      style={[styles.row, { borderColor: colors.border }]}
+      style={styles.row}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
@@ -95,7 +105,7 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
 
   return (
     <TouchableOpacity
-      style={[styles.row, { borderColor: colors.border }]}
+      style={styles.row}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
@@ -126,7 +136,6 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
  */
 export default function BookmarksPanel() {
   const colors = useColors();
-  const brand = useBrandColor();
   const nav = useNavigation<any>();
   const panel = useSummaryPanel();
   const { data: me } = useGetLoggedInUserQuery();
@@ -154,26 +163,14 @@ export default function BookmarksPanel() {
 
   return (
     <View style={styles.body}>
-      <Text style={[styles.title, { color: colors.fg }]}>Bookmarks</Text>
-
-      <View style={styles.tabs} accessibilityRole="tablist">
-        {tabs.map((t) => {
-          const on = tab === t.key;
-          return (
-            <TouchableOpacity
-              key={t.key}
-              style={[styles.tab, { borderColor: on ? brand : colors.border }, on && { backgroundColor: brand }]}
-              onPress={() => setTab(t.key)}
-              activeOpacity={0.8}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-            >
-              <Text style={[styles.tabText, { color: on ? '#000000' : colors.fg }]}>
-                {t.label}{t.count > 0 ? ` · ${t.count}` : ''}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      {/* No heading — the panel opened from the bookmark button, so it's
+          already clear what this is. Posts or cars, as sub tabs. */}
+      <View style={styles.tabs}>
+        <SubTabs
+          options={tabs.map((t) => ({ key: t.key, label: t.count > 0 ? `${t.label} · ${t.count}` : t.label }))}
+          value={tab}
+          onChange={setTab}
+        />
       </View>
 
       {tab === 'posts' ? (
@@ -205,18 +202,22 @@ export default function BookmarksPanel() {
 
 const styles = StyleSheet.create({
   body: { padding: 16, gap: 12 },
-  title: { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
-  tabs: { flexDirection: 'row', gap: 8 },
-  tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  tabText: { fontSize: 13, fontFamily: FONT_INTER.bold },
+  // SubTabs brings its own 12 of side margin; the body already has 16.
+  tabs: { marginHorizontal: -12 },
   empty: { fontSize: 14, lineHeight: 20 },
   list: { gap: 8 },
+  // No padding and no edge: the photo runs to the row's top, bottom and left,
+  // and the row's own corners clip it there. Only the bookmark keeps room.
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 8, paddingRight: 8, borderRadius: 12, borderWidth: 1,
+    paddingRight: 8, borderRadius: 12, overflow: 'hidden',
     backgroundColor: COLOR_GRAY_17,
   },
-  thumb: { width: 64, height: 48, borderRadius: 8, backgroundColor: COLOR_GRAY_26 },
+  // Rounded on the right only — the side that meets the words.
+  thumb: {
+    width: 88, height: 64, backgroundColor: COLOR_GRAY_26,
+    borderTopRightRadius: 10, borderBottomRightRadius: 10,
+  },
   thumbBlank: { alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useGetPhotoSpotQuery } from '@ors/kit';
+import { useGetPhotoSpotQuery, orsApi } from '@ors/kit';
+import { useAppDispatch } from '../../store/store';
 import PostActionRail from '../social/PostActionRail';
 import LikersSheet from '../social/LikersSheet';
 import { usePostLike } from '../../hooks/usePostLike';
@@ -19,12 +20,30 @@ import type { Post } from '../../types/api';
 export default function SpotActions({ spotId }: { spotId: string }) {
   const { data: spot } = useGetPhotoSpotQuery(spotId);
   const s = spot as any;
+  const dispatch = useAppDispatch();
+  /**
+   * The like goes through alfa's API, but the spot — and with it `isLiked` —
+   * is the kit's cached detail, which that request doesn't touch. Left alone,
+   * reopening the spot drew the heart from the copy cached before the tap, so
+   * the like looked like it hadn't saved. The cached copy is moved on the tap,
+   * and refetched once the server has answered.
+   */
   const like = usePostLike({
     postId: spotId,
     entryType: ENTRY_TYPE,
     ownerId: spot?.user_id,
     initialLiked: s?.isLiked ?? false,
     initialCount: s?.like_count ?? 0,
+    onToggle: (liked) => {
+      dispatch(orsApi.util.updateQueryData('getPhotoSpot', spotId, (draft: any) => {
+        if (!!draft.isLiked === liked) return;
+        draft.isLiked = liked;
+        draft.like_count = Math.max(0, (draft.like_count ?? 0) + (liked ? 1 : -1));
+      }));
+    },
+    onSettled: () => {
+      dispatch(orsApi.util.invalidateTags([{ type: 'PhotoSpot', id: spotId }]));
+    },
   });
   /** Non-null while the likers panel is open — and the rect it grows from. */
   const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);

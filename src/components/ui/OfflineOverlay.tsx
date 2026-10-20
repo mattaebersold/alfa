@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, AppState } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text, withAlpha } from '@ors/kit';
 import { WifiOff } from 'lucide-react-native';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { connectionLost, connectionRestored, offlineNoticeDismissed } from '../../store/connectivitySlice';
 import { probeInternet } from '../../utils/connectivity';
 import { colors } from '../../constants/colors';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_PRO } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** How often to check back while the device has no network. */
@@ -138,8 +138,8 @@ const styles = StyleSheet.create({
   iconRing: {
     width: 62, height: 62, borderRadius: 31,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(228,99,99,0.14)',
-    borderWidth: 1, borderColor: 'rgba(228,99,99,0.35)',
+    backgroundColor: withAlpha(COLOR_PRO, 0.14),
+    borderWidth: 1, borderColor: withAlpha(COLOR_PRO, 0.35),
     marginBottom: 18,
   },
   title: { fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 8 },

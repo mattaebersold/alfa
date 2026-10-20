@@ -257,8 +257,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: COMMON_RADIUS,
     borderTopRightRadius: COMMON_RADIUS,
   },
+  // The strip you drag by — 24 tall rather than 16, full width, so the drag
+  // starts on the first try. The header below gives back the extra, so the
+  // title barely moves. (The header drags the sheet too; a sheet without one
+  // has only this strip.)
   grabberHit: {
-    alignItems: 'center', paddingTop: 8, paddingBottom: 4,
+    alignItems: 'center', paddingTop: 10, paddingBottom: 10,
     backgroundColor: SHEET_HEADER_BG,
   },
   grabber: {
@@ -267,7 +271,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10,
+    paddingHorizontal: 16, paddingTop: 0, paddingBottom: 10,
     backgroundColor: SHEET_HEADER_BG,
     // No rule under it: the header shares the sheet's ground now, so a line
     // only redraws a seam the colour change already removed.

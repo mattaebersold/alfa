@@ -7,6 +7,7 @@ import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
+import { blockProfanity } from '../../utils/profanity';
 import { X, Plus, Check, Trash2, Search, ChevronUp, PenSquare } from 'lucide-react-native';
 import {
   useCreateCarMutation, useUpdateCarMutation,
@@ -500,6 +501,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
 
   // Final submit
   const handleSubmit = async () => {
+    if (blockProfanity({ title: form.title, description: form.body })) return;
     /**
      * Make and model must be picked, not just typed.
      *
@@ -644,7 +646,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
           step={step}
           totalSteps={STEP_TITLES.length}
           onBack={() => setStep((s) => s - 1)}
-          onNext={() => setStep((s) => s + 1)}
+          // Checked on the way past each step — see utils/profanity.
+          onNext={() => { if (!blockProfanity({ title: form.title, description: form.body })) setStep((s) => s + 1); }}
           // Off until this step's required fields are in — see canAdvance.
           canAdvance={canAdvance()}
           onSubmit={handleSubmit}
@@ -655,13 +658,15 @@ export function CarCreateSheet({ carId, onDismissed }: {
             /* Start over. Only on step 1, and only when this pane opened onto
                remembered answers — there's no back to go to from here, and a
                form you didn't expect to still be filled in needs a way out. */
+            // Said in words, outlined: a bin glyph in the header's corner read
+            // as "delete the car", not "drop this draft".
             <TouchableOpacity
-              style={[styles.navBtn, { backgroundColor: colors.red }]}
+              style={[styles.discardBtn, { borderColor: COLOR_WHITE }]}
               onPress={clearDraft}
               accessibilityRole="button"
-              accessibilityLabel="Start over"
+              accessibilityLabel="Discard draft and start over"
             >
-              <Trash2 size={18} color={COLOR_WHITE} strokeWidth={2.4} />
+              <Text style={[styles.discardText, { color: COLOR_WHITE }]}>Discard</Text>
             </TouchableOpacity>
           ) : undefined}
         />
@@ -690,15 +695,20 @@ export function CarCreateSheet({ carId, onDismissed }: {
                 model={form.model}
                 onMakeChange={set('make')}
                 onModelChange={set('model')}
-              />
-
-              {/* Only for a model with generations — "993" of a 911. */}
-              <GenerationField
-                make={form.make}
-                model={form.model}
-                year={form.year}
-                value={form.generation}
-                onChange={set('generation')}
+                // Only for a model with generations — "993" of a 911 — and
+                // with the pair, above the "Can't find your car?" link.
+                afterModel={(
+                  <GenerationField
+                    make={form.make}
+                    model={form.model}
+                    year={form.year}
+                    value={form.generation}
+                    onChange={set('generation')}
+                    // Editing a car saved before generations existed: point
+                    // at the new field while it's empty.
+                    highlight={isEditMode}
+                  />
+                )}
               />
 
               <ChipSelect
@@ -1197,4 +1207,10 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
+  // The nav buttons' height, as a pill with a word in it.
+  discardBtn: {
+    height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  discardText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

@@ -389,7 +389,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   <View style={styles.proCalloutText}>
                     <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
                     <Text style={styles.proCalloutSub}>
-                      Unlimited garage, posts, routes, & more
+                      A bigger garage, more posts, routes & more
                     </Text>
                   </View>
                   <ChevronRight size={16} color="rgba(0,0,0,0.5)" strokeWidth={3} />

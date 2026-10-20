@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { likeStates } from '../../hooks/useLikeState';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
 import { GUTTER } from '../../constants/config';
@@ -209,6 +210,9 @@ export default function FeedList({
   const handleRefresh = useCallback(async () => {
     refreshingRef.current = true;
     setRefreshing(true);
+    // A fresh feed carries fresh like counts — others' likes since your own
+    // taps included — so the session's record stops overriding them.
+    likeStates.clear();
     setPage(0);
     // The home feed's header rows ride the same pull — the "played today"
     // row most of all, which changes all day.

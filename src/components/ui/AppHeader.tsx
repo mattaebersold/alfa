@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, ScrollView } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform } from 'react-native';
 import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -22,6 +22,7 @@ import { useGetUserGarageQuery, useGetLoggedInUserQuery } from '../../api/apiSer
 import SummaryModal, { type SummaryOrigin } from './SummaryModal';
 import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import MainTabs, { type MainTab } from './MainTabs';
 import OilSheen, { useSheenTone, WARM_SHEEN_FILL, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
 import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
@@ -91,16 +92,15 @@ export function useHeaderPad({ tabs = false }: { tabs?: boolean } = {}): number 
   return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0);
 }
 
-/** Height of the tab row under the buttons, on screens that have one. */
-export const HEADER_TABS_HEIGHT = 52;
+/**
+ * Height of the tab row under the buttons, on screens that have one: the
+ * pills (34) and the room under them (tabsRow's paddingBottom, 10), and
+ * nothing more — at 52 it carried 8 of dead space under that room too.
+ */
+export const HEADER_TABS_HEIGHT = 44;
 
-/** One entry in the header's tab row. */
-export interface HeaderTab {
-  key: string;
-  label: string;
-  /** Before the label, in the label's colour — the group page's tabs wear them too. */
-  Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-}
+/** One entry in the header's tab row — see MainTabs. */
+export type HeaderTab = MainTab;
 
 /**
  * Floating header button — a rounded square fully filled with the brand color,
@@ -163,33 +163,6 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
   onTabPress?: (key: string) => void;
   top: number;
 }) {
-  // The account's colour for the lit tab — gold for Pro, blue otherwise — so
-  // it matches the switches and filter pills beneath it.
-  const brand = useBrandColor();
-
-  /**
-   * The lit tab, brought toward the front of the row — scrolled so it starts
-   * TABS_ACTIVE_LEFT in from the screen's edge, leaving the tab before it
-   * peeking in on the left so you can see there's somewhere to go back to.
-   * The first tab has nothing before it to show, so it stays anchored on the
-   * gutter. The row can't scroll past its end, so the last few stop short of
-   * the mark but are still all in view.
-   *
-   * Positions are each tab's own x within the row, measured as they lay out;
-   * the row's TABS_START_PAD is outside that, so it's added back to find
-   * where the tab sits against the screen.
-   */
-  const scrollRef = useRef<ScrollView>(null);
-  const tabX = useRef<Record<string, number>>({});
-  useEffect(() => {
-    if (!activeTab) return;
-    const x = tabX.current[activeTab];
-    if (x == null) return;
-    const first = activeTab === tabs[0]?.key;
-    const to = first ? 0 : Math.max(0, TABS_START_PAD + x - TABS_ACTIVE_LEFT);
-    scrollRef.current?.scrollTo({ x: to, animated: true });
-  }, [activeTab]);
-
   const indent = headerOffset.interpolate({
     inputRange: [-APP_HEADER_HEIGHT, 0],
     outputRange: [TABS_STUCK_INDENT, 0],
@@ -223,53 +196,22 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
 
   return (
     <Animated.View style={[styles.tabs, { top, transform: [{ translateY: lift }] }]}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        style={styles.tabsScroll}
-        showsHorizontalScrollIndicator={false}
+      {/* The pills are MainTabs. What's the header's own is how the row
+          rides it: it slides further in as the row sticks — flush with the
+          header's buttons at rest, but on its own against the screen edge it
+          read as crammed into the corner — and shrinks a little as it goes:
+          under the status bar it's a strip you reach for, not the screen's
+          title. Scaled rather than re-sized, so it rides the same
+          native-driven offset. */}
+      <MainTabs
+        tabs={tabs}
+        value={activeTab}
+        onChange={onTabPress}
+        inset={TABS_START_PAD}
+        stuck={stuck}
+        itemsStyle={{ transform: [{ translateX: indent }, { scale: shrink }] }}
         contentContainerStyle={styles.tabsRow}
-      >
-        {/* Slides further in as the row sticks — flush with the header's
-            buttons at rest, but on its own against the screen edge it read as
-            crammed into the corner. */}
-        {/* …and shrinks a little as it goes: under the status bar it's a
-            strip you reach for, not the screen's title. Scaled rather than
-            re-sized, so it rides the same native-driven offset — anchored at
-            the left, so the first tab keeps its place. */}
-        <Animated.View style={[styles.tabsItems, { transform: [{ translateX: indent }, { scale: shrink }] }]}>
-        {tabs.map((t) => {
-          const on = t.key === activeTab;
-          return (
-            <TouchableOpacity
-              key={t.key}
-              onLayout={(e) => { tabX.current[t.key] = e.nativeEvent.layout.x; }}
-              onPress={() => onTabPress?.(t.key)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8 }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-            >
-              {/* A pill per tab, outlined and lettered: the lit one in the account's
-                  colour, the rest in grey. */}
-              <View style={[styles.tabInner, { borderColor: on ? brand : COLOR_BORDER }]}>
-                {t.Icon ? <t.Icon size={15} color={on ? brand : TAB_IDLE} strokeWidth={on ? 2.4 : 2} /> : null}
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    { color: on ? brand : TAB_IDLE },
-                    !on && styles.tabLabelIdle,
-                    stuck && (on ? styles.tabLabelStuck : styles.tabLabelIdleStuck),
-                  ]}
-                >
-                  {t.label}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-        </Animated.View>
-      </ScrollView>
+      />
     </Animated.View>
   );
 }
@@ -671,18 +613,10 @@ const TABS_STUCK_SCALE = 0.72;
 const TABS_END_SPACE = 24;
 /** How much further in from the edge the tabs sit once stuck. */
 const TABS_STUCK_INDENT = 12;
-/**
- * Where a picked tab settles, in points from the screen's left edge — far
- * enough in that the tab before it peeks into view. Not the first tab, which
- * stays on the gutter.
- */
-const TABS_ACTIVE_LEFT = 50;
 
 /** Room before the first tab: the global gutter, so it lines up with the header's buttons and the page under it. */
 const TABS_START_PAD = GUTTER;
 
-/** An unlit tab's label and icon — full white; the grey outline and lighter weight keep the lit one leading. */
-const TAB_IDLE = COLOR_WHITE;
 
 const styles = StyleSheet.create({
   // Over the scrim and level with the buttons, so it covers the content
@@ -693,16 +627,6 @@ const styles = StyleSheet.create({
     height: HEADER_TABS_HEIGHT,
     zIndex: 21,
   },
-  // Scales from its left edge (see `shrink`), so the first tab stays put.
-  // Plain GUTTER on Android, where GUTTER itself is three times iOS's — any
-  // multiple of it spread the tabs there a thumb's width apart.
-  tabsItems: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8,
-    transformOrigin: 'left center',
-  },
-  // Full width, edge to edge — the row scrolls under both sides of the screen.
-  tabsScroll: { width: '100%' },
   // Under the scrim and the buttons, over the screen's content.
   ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
   // Black over the blur — enough that labels read over any photo, not so
@@ -711,11 +635,8 @@ const styles = StyleSheet.create({
   // content under it read as one surface; still a tint, so the blur shows
   // as things scroll beneath.
   groundTint: { backgroundColor: 'rgba(10,10,10,0.88)' },
-  // The first tab starts TABS_START_PAD in; the padding is on the content,
-  // not the scroll view, so the row itself still runs to both edges.
+  // MainTabs' row, with the header's own room at the end and below.
   tabsRow: {
-    alignItems: 'center',
-    paddingLeft: TABS_START_PAD,
     // Past the last tab: room for the stuck indent, so it can still scroll
     // fully into view, plus clear space so it doesn't end hard against the
     // screen edge when scrolled all the way along.
@@ -725,19 +646,6 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 10,
   },
-  // Semibold at rest.
-  tabInner: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    height: 34, paddingHorizontal: 14, borderRadius: 999,
-    // The header buttons' outline: the same width, and unlit, the same colour.
-    borderWidth: 1,
-  },
-  tabLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
-  // Stuck, and scaled down: a step heavier, so it reads as the same weight.
-  tabLabelStuck: { fontFamily: FONT_INTER.bold },
-  // The unlit tabs a weight lighter, at rest and stuck, so the lit one leads.
-  tabLabelIdle: { fontFamily: FONT_INTER.medium },
-  tabLabelIdleStuck: { fontFamily: FONT_INTER.semibold },
 
   // Behind the bar, and starting at the physical top of the screen rather than
   // below the safe-area inset — the status bar is translucent, so the content

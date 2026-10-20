@@ -57,6 +57,16 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
   const meta = (n.metadata ?? {}) as Record<string, any>;
   const kind = (n.content_type ?? '').toLowerCase();
 
+  /**
+   * A notice that asks you to change something on your own car — "set your
+   * car's generation" (horacio's scripts/notify-generations-available.js).
+   * The car's edit form, rather than its page. Filed against the car, so an
+   * app from before this opens the car's page instead, where Edit is.
+   */
+  if (kind === 'garagecar' && meta.open === 'edit' && id) {
+    return { name: 'CarCreate', params: { carId: id } };
+  }
+
   // A message points at a conversation, not at a record — and it's the only
   // kind whose target needs a second id, since the thread alone doesn't say who
   // you're talking to.

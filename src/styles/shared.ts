@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COMMON_RADIUS, COLOR_BLACK } from '../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, FORM_RADIUS, INPUT_TEXT, INPUT_LINE_HEIGHT } from '../constants/config';
 import { FONT_INTER } from '../constants/fonts'
 
 export const ss = StyleSheet.create({
@@ -32,6 +32,16 @@ export const ss = StyleSheet.create({
     fontSize: 15,
   },
   inputMulti: { minHeight: 100, textAlignVertical: 'top' },
+  /**
+   * The create forms' fields (post, poll, listing): a fill and no edge, with
+   * the placeholder for a label. Colour it with `inputBg` and `fg`.
+   */
+  formInput: {
+    paddingHorizontal: 14, paddingVertical: 12,
+    ...INPUT_TEXT, borderRadius: FORM_RADIUS,
+  },
+  /** A formInput that takes paragraphs — the description. */
+  formInputMulti: { lineHeight: INPUT_LINE_HEIGHT, minHeight: 110, textAlignVertical: 'top' },
   chatInput: {
     flex: 1, borderRadius: 20, borderWidth: 1,
     paddingHorizontal: 14, paddingVertical: 10,

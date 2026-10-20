@@ -24,7 +24,8 @@ import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import CameraSheet, { type CameraCapture } from '../../components/media/CameraSheet';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
-import Segmented from '../../components/ui/Segmented';
+import SubTabs from '../../components/ui/SubTabs';
+import MainTabs from '../../components/ui/MainTabs';
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
 import PostToSelector from '../../components/social/PostToSelector';
 import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '../../components/social/PollEditor';
@@ -32,12 +33,13 @@ import { ListingCreateSheet } from '../marketplace/ListingCreateScreen';
 import { colors } from '../../constants/colors';
 import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
 import { uploadFile, toUploadableJpeg } from '../../utils/upload';
+import { blockProfanity } from '../../utils/profanity';
 import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
 import { useColors } from '../../hooks/useColors';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_PRO, COLOR_GRAY_14 } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_GRAY_14, FORM_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -116,8 +118,6 @@ const CREATE_KINDS: { key: CreateKind; label: string; Icon: React.ComponentType<
   { key: 'poll',    label: 'Poll',    Icon: BarChart3 },
   { key: 'listing', label: 'Listing', Icon: Tag },
 ];
-/** The header tabs' unlit white — see AppHeader's TAB_IDLE. */
-const TAB_IDLE = 'rgba(255,255,255,0.6)';
 
 /**
  * One added item, with the handle to remove it.
@@ -414,6 +414,13 @@ export default function CreateScreen() {
 
   const handleSubmit = useCallback(async () => {
     Keyboard.dismiss();
+    // Before any photo or video goes up: the server would refuse the post
+    // after the upload, and the member would have waited for nothing.
+    if (blockProfanity({
+      title,
+      description: body,
+      poll: kind === 'poll' ? [poll.question, ...poll.options.map((o) => o.label)] : null,
+    })) return;
     // The poll goes only from the Poll tab; a draft left on it while posting
     // from the Post tab stays here.
     const draft: PollDraft = { ...poll, enabled: kind === 'poll' };
@@ -613,10 +620,17 @@ export default function CreateScreen() {
     // No bottom edge: the form runs to the foot of the screen, under the home
     // indicator, and its own end padding (below) is what clears it.
     <SafeAreaView style={[ss.fill, { backgroundColor: colors.card }]} edges={[]}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.card }}>
+      {/* iOS presents this as a page sheet, already clear of the status bar:
+          a top inset there only pushed the grabber down a notch's height.
+          Android's modal is full screen, so it still needs one. */}
+      <SafeAreaView edges={Platform.OS === 'ios' ? [] : ['top']} style={{ backgroundColor: colors.card }}>
         {/* A sheet's grabber in place of the X: tap it or drag it down to
             close, as every other sheet in the app closes. The drag is read
             here for Android; iOS's modal has the gesture natively. */}
+        {/* The drag takes the tabs as well as the grabber: a pull down
+            anywhere across the top starts it, where the grabber's own strip
+            was a thin target. A tap on a tab is still a tap — the pan only
+            claims a move that's clearly downward. */}
         <View {...dismissPan.panHandlers}>
           <TouchableOpacity
             onPress={() => appNav.goBack()}
@@ -627,34 +641,17 @@ export default function CreateScreen() {
           >
             <View style={styles.grabber} />
           </TouchableOpacity>
-        </View>
-        {/* What this becomes, as three equal tabs across the top. The listing
-            tab opens the marketplace's own form over this one, with the
-            photos; closing it lands back here. */}
-        <View style={styles.kindRow} accessibilityRole="tablist">
-          {CREATE_KINDS.map(({ key, label, Icon }) => {
-            const on = kind === key;
-            // The header tabs' look: gold lit, dimmed white idle, an icon
-            // before the word, a rule under the lit one only.
-            const color = on ? COLOR_PRO : TAB_IDLE;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={styles.kindTab}
-                onPress={() => setKind(key)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8 }}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-              >
-                <View style={styles.kindInner}>
-                  <Icon size={16} color={color} strokeWidth={on ? 2.4 : 2} />
-                  <Text style={[styles.kindLabel, { color }, !on && styles.kindLabelIdle]}>{label}</Text>
-                </View>
-                <View style={[styles.kindUnderline, { backgroundColor: on ? COLOR_PRO : 'transparent' }]} />
-              </TouchableOpacity>
-            );
-          })}
+          {/* What this becomes — main tabs, the home screen's. The listing tab
+              opens the marketplace's own form over this one, with the photos;
+              closing it lands back here. */}
+          <MainTabs
+            tabs={CREATE_KINDS}
+            value={kind}
+            onChange={setKind}
+            inset={12}
+            stretch
+            contentContainerStyle={styles.kindRow}
+          />
         </View>
         {/* The listing's step row stays put while its steps scroll. */}
         {kind === 'listing' && listingNav ? <View style={styles.pinnedNav}>{listingNav}</View> : null}
@@ -685,6 +682,26 @@ export default function CreateScreen() {
             onNav={setListingNav}
           />
         ) : (<>
+        {/* Type, then the type's categories — one choice in two steps, so
+            the same control twice and no labels: the options say what they
+            are. First on the form, ahead of the photos. */}
+        {kind === 'post' && (
+          <View style={styles.typeBlock}>
+            <SubTabs
+              options={CREATABLE_POST_TYPES.map(({ type, label }) => ({ key: type, label }))}
+              value={postType}
+              onChange={handleTypeChange}
+            />
+            {currentCategories.length > 0 && (
+              <SubTabs
+                options={currentCategories.map(({ key, label }) => ({ key, label }))}
+                value={category}
+                onChange={setCategory}
+              />
+            )}
+          </View>
+        )}
+
         {/* Photos / video */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           {media.length === 0 ? (
@@ -724,35 +741,10 @@ export default function CreateScreen() {
         </View>
 
         {kind === 'post' && (<>
-        {/* Type and category, each one of a few in a track — the same
-            control, so the two read as two steps of one choice. */}
-        <View style={styles.fieldHead}>
-          <Text style={[styles.fieldCaption, { color: colors.grey }]}>Type</Text>
-        </View>
-        <Segmented
-          options={CREATABLE_POST_TYPES.map(({ type, label }) => ({ key: type, label }))}
-          value={postType}
-          onChange={handleTypeChange}
-        />
-
-        {currentCategories.length > 0 && (
-          <>
-            <View style={styles.fieldHead}>
-              <Text style={[styles.fieldCaption, { color: colors.grey }]}>Category</Text>
-            </View>
-            <Segmented
-              options={currentCategories.map(({ key, label }) => ({ key, label }))}
-              value={category}
-              onChange={setCategory}
-              fit="scroll"
-            />
-          </>
-        )}
-
         {/* Title */}
         <View style={[styles.inputBlock, { backgroundColor: colors.card }]}>
           <TextInput
-            style={[styles.titleInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
+            style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={title}
             onChangeText={setTitle}
             placeholder="Title"
@@ -773,7 +765,7 @@ export default function CreateScreen() {
         {/* Body */}
         <View style={[styles.inputBlock, { backgroundColor: colors.card, paddingBottom: 12 }]}>
           <MentionInput
-            style={[styles.bodyInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
+            style={[ss.formInput, ss.formInputMulti, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={body}
             onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
             placeholder="Description"
@@ -911,28 +903,21 @@ const styles = StyleSheet.create({
   grabber:     { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
   // Under the header: the app header's tab row, three across, each taking
   // a third — its type, its gold, its underline.
-  kindRow:       { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10 },
-  kindTab:       { flex: 1, alignItems: 'center' },
-  kindInner:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
-  kindLabel:     { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
-  kindLabelIdle: { fontFamily: FONT_INTER.medium },
-  kindUnderline: { height: 3, borderRadius: 999, marginTop: 1, alignSelf: 'stretch' },
+  kindRow:       { paddingBottom: 10 },
   pollBlock: { paddingTop: 4 },
   // Under the tabs, on the header's ground, with a rule to the scroller.
   pinnedNav: { paddingBottom: 10 },
   // Tight to the header above — the header's own padding is the gap.
   // Small captions over the type and category, the group form's.
-  fieldHead:    { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
-  fieldCaption: { fontSize: 12, fontFamily: FONT_INTER.semibold },
+  // No top padding: the tab row's own 10 below it is the gap.
+  typeBlock:    { gap: 8 },
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
-  titleInput:   { paddingHorizontal: 14, paddingVertical: 12, ...INPUT_TEXT, borderRadius: 10 },
-  bodyInput:    { paddingHorizontal: 14, paddingVertical: 12, ...INPUT_TEXT, lineHeight: INPUT_LINE_HEIGHT, minHeight: 110, borderRadius: 10, textAlignVertical: 'top' as const },
 
-  photosSection:{ borderBottomWidth: 1, paddingBottom: 10 },
+  photosSection:{ borderBottomWidth: 1, paddingBottom: 2 },
   // The width of the form, like the fields under it — the well's own default
   // is a narrower box centred on the page.
-  photoField:   { alignSelf: 'stretch', maxWidth: '100%', marginHorizontal: 14, marginTop: 12, marginBottom: 4 },
+  photoField:   { alignSelf: 'stretch', maxWidth: '100%', marginHorizontal: 14, marginTop: 12, marginBottom: 0 },
   thumbRow:     { paddingHorizontal: 14 },
   thumbRowInner:{ paddingVertical: 12 },
   // The add tile: the preview's size and shape, outlined, the word under a plus.
@@ -956,7 +941,8 @@ const styles = StyleSheet.create({
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14 },
   // The gap the label used to leave, without the label.
-  tagSection:    { marginTop: 12 },
+  // None of its own: the first tag card's marginTop is the gap.
+  tagSection:    { marginTop: 0 },
   sectionLabel:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   fieldRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7 },
   fieldLabel:    { fontSize: 13, fontFamily: FONT_INTER.semibold, width: 90 },
@@ -966,7 +952,7 @@ const styles = StyleSheet.create({
   // Optional Details' block: a ground a step darker than the form, no edge.
   postToCard: {
     marginHorizontal: 12, marginTop: 12,
-    padding: POST_TO_PAD, borderRadius: COMMON_RADIUS,
+    padding: POST_TO_PAD, borderRadius: FORM_RADIUS,
   },
   // The tag cards' head: a white icon and a title.
   postToHead:  { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },

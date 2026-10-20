@@ -38,7 +38,7 @@ import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, GUTTER, CAR_LIMIT_BASIC, PILL_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, GUTTER, PILL_RADIUS, garageFull, showProGarageFull, GARAGE_UPSELL } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid } from '../../components/ui/Skeleton';
 
@@ -104,9 +104,9 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const isPro = useIsPro();
   const { data: garage } = useGetUserGarageQuery();
   const [upsell, setUpsell] = useState(false);
-  const atLimit = !isPro && (garage?.entries?.length ?? 0) >= CAR_LIMIT_BASIC;
+  const atLimit = garageFull(isPro, garage?.entries?.length ?? 0);
   const addCar = () =>
-    atLimit ? setUpsell(true) : (navigation as any).navigate('CarCreate', {});
+    atLimit ? (isPro ? showProGarageFull() : setUpsell(true)) : (navigation as any).navigate('CarCreate', {});
 
   // A car is where its owner is, so this filters on the member behind it —
   // near me by default, measured from the zip on your profile.
@@ -183,22 +183,21 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
             return (
               <React.Fragment key={`${i}-${label}`}>
                 {i > 0 && <Text style={[styles.crumbSlash, { color: colors.grey }]}>/</Text>}
-                {/* Each a small outlined pill — the ones behind are buttons
-                    back up the trail; the last is filled, and where you are. */}
+                {/* The ones behind are small outlined pills — buttons back up
+                    the trail. Where you are is just its name: nothing to tap. */}
                 <TouchableOpacity
                   onPress={() => popTo(i)}
                   disabled={last}
                   activeOpacity={0.75}
-                  style={[
+                  style={last ? styles.crumbHere : [
                     styles.crumbBtn,
                     // A dark ground: the row floats over photos as often as not.
                     { borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(0,0,0,0.5)' },
-                    last && { backgroundColor: brand, borderColor: brand },
                   ]}
                   accessibilityRole={last ? 'header' : 'button'}
                   accessibilityLabel={last ? label : `Back to ${label}`}
                 >
-                  <Text style={[styles.crumb, { color: last ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>
+                  <Text style={[styles.crumb, { color: colors.fg }, last && styles.crumbHereText]} numberOfLines={1}>
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -389,8 +388,8 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
       <ProUpsellModal
         visible={upsell}
         onClose={() => setUpsell(false)}
-        title="Unlimited garage with Pro"
-        message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+        title={GARAGE_UPSELL.title}
+        message={GARAGE_UPSELL.message}
       />
     </>
   );
@@ -406,6 +405,10 @@ const styles = StyleSheet.create({
   crumbSlash: { fontSize: 14, fontFamily: FONT_INTER.semibold, paddingHorizontal: 2 },
   crumbBtn:  { height: 32, paddingHorizontal: 12, borderRadius: PILL_RADIUS, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   crumb:     { fontSize: 13, fontFamily: FONT_INTER.bold, maxWidth: 160 },
+  // The current page: the pills' height, so the row stays level, and no pill.
+  crumbHere: { height: 32, paddingHorizontal: 4, justifyContent: 'center' },
+  // Shadowed — with no pill's dark ground, it still has to read over a photo.
+  crumbHereText: { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   content: { flex: 1 },
   heading: { paddingHorizontal: GUTTER },
   // Outlined, beside the title — the Videos screen's "View channel" pill.

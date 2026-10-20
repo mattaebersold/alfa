@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -18,11 +18,11 @@ import {
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor } from '../../hooks/useBrandColor';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts';
+import MainTabs from '../../components/ui/MainTabs';
 import { COLOR_BLACK, COLOR_GRAY_26, COLOR_GREEN, COLOR_WHITE, GUTTER, PILL_RADIUS } from '../../constants/config';
 
 type Tab = 'cars' | 'discussion' | 'resources' | 'groups';
@@ -30,10 +30,13 @@ type Tab = 'cars' | 'discussion' | 'resources' | 'groups';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** The banner photo's height — behind the status bar and the header's buttons too. */
 const BANNER_H = Math.round(SCREEN_WIDTH * 0.72);
+/**
+ * How many characters the last clamped line gives up for "… more" — the
+ * link's width and a little, in the description's type.
+ */
+const MORE_ROOM = 9;
 /** The description's lines before "more". */
 const DESCRIPTION_LINES = 3;
-/** An unlit tab — as the app header's tabs. */
-const TAB_IDLE = 'rgba(255,255,255,0.6)';
 
 /**
  * What a model page is called: "Porsche 911", or for a generation "Porsche
@@ -98,7 +101,6 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
   const { brand, model, modelHandle, generationHandle } = params;
   const title = modelPageTitle(params);
   const colors = useColors();
-  const brandColor = useBrandColor();
   const [tab, setTab] = useState<Tab>('cars');
   const { data: firstCar } = useGetCarsQuery({ page: 0, limit: 1, make: brand.toLowerCase(), model: modelHandle, generation: generationHandle });
   const total = firstCar?.total;
@@ -123,7 +125,23 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
   // The description, 3 lines until "more" — measured off an invisible copy,
   // so "more" only shows when there's more to show.
   const [expanded, setExpanded] = useState(false);
-  const [clamps, setClamps] = useState(false);
+  /** The description as it breaks into lines at full width — off the invisible copy. */
+  const [lines, setLines] = useState<string[]>([]);
+  const clamps = lines.length > DESCRIPTION_LINES;
+  /**
+   * The clamped description, with room left at the end of its last line for
+   * "… more": the lines before it whole, and that one cut back at a word to
+   * leave about the width of the link.
+   */
+  const clamped = useMemo(() => {
+    if (!clamps) return null;
+    const head = lines.slice(0, DESCRIPTION_LINES - 1).join('');
+    const last = lines[DESCRIPTION_LINES - 1].trimEnd();
+    const room = Math.max(0, last.length - MORE_ROOM);
+    const cut = last.slice(0, room);
+    const atWord = cut.lastIndexOf(' ');
+    return head + (atWord > room * 0.6 ? cut.slice(0, atWord) : cut).trimEnd();
+  }, [clamps, lines]);
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'cars', label: 'Cars', count: total },
@@ -171,6 +189,9 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
             <Car size={44} color={colors.grey} />
           </View>
         )}
+        {/* A shade over the whole photo, so it sits back as a backdrop and the
+            page's words read wherever they land on it. */}
+        <View style={[StyleSheet.absoluteFill, styles.bannerShade]} pointerEvents="none" />
         {/* Dark at the top, for the back button and the status bar… */}
         <LinearGradient
           colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)']}
@@ -220,7 +241,8 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
               />
             </View>
           )}
-          <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{title}</Text>
+          {/* Without the make — the trail just above already says it. */}
+          <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{modelShortTitle(params)}</Text>
           {total != null && (
             <View style={styles.count} accessibilityLabel={`${total} ${total === 1 ? 'car' : 'cars'}`}>
               <Car size={13} color={COLOR_WHITE} strokeWidth={2.2} />
@@ -232,27 +254,29 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
         {/* ── About it ── */}
         {profile?.description ? (
           <View>
-            <Text
-              style={[styles.description, { color: colors.fg }]}
-              numberOfLines={expanded ? undefined : DESCRIPTION_LINES}
-            >
-              {profile.description}
+            {/* "more" ends the last line rather than sitting on one of its
+                own; "less" follows the text once it's open. */}
+            <Text style={[styles.description, { color: colors.fg }]}>
+              {clamps && !expanded ? `${clamped}… ` : profile.description}
+              {clamps ? (
+                <Text style={styles.more} onPress={() => setExpanded((v) => !v)} suppressHighlighting>
+                  {expanded ? ' less' : 'more'}
+                </Text>
+              ) : null}
             </Text>
-            {/* The same text, unclamped and invisible, to count its lines. */}
+            {/* The same text, unclamped and invisible, to find its lines. */}
             <Text
               style={[styles.description, styles.measure]}
-              onTextLayout={(e) => setClamps(e.nativeEvent.lines.length > DESCRIPTION_LINES)}
+              onTextLayout={(e) => {
+                const next = e.nativeEvent.lines.map((l) => l.text);
+                setLines((prev) => (prev.length === next.length && prev.every((t, i) => t === next[i]) ? prev : next));
+              }}
               pointerEvents="none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
               {profile.description}
             </Text>
-            {clamps && (
-              <TouchableOpacity onPress={() => setExpanded((v) => !v)} hitSlop={8} style={styles.moreBtn}>
-                <Text style={[styles.more, { color: colors.fg }]}>{expanded ? 'less' : 'more'}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ) : null}
       </View>
@@ -278,41 +302,21 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
           {profile.stats.map((s) => (
             <View key={s.label} style={styles.stat}>
               <Text style={[styles.statLabel, { color: colors.grey }]}>{s.label}</Text>
-              <Text style={[styles.statValue, { color: colors.fg }]} numberOfLines={2}>{s.value}</Text>
+              <Text style={[styles.statValue, { color: colors.fg }]} numberOfLines={1}>{s.value}</Text>
             </View>
           ))}
         </ScrollView>
       ) : null}
 
-      {/* ── The sections, as the app header's tabs — a row that scrolls
-          across, now there are four. ── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabs}>
-        {tabs.map((t) => {
-          const active = tab === t.key;
-          return (
-            <TouchableOpacity
-              key={t.key}
-              style={styles.tab}
-              onPress={() => setTab(t.key)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8 }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-            >
-              <View style={styles.tabLabelRow}>
-                <Text style={[styles.tabLabel, active ? { color: brandColor } : styles.tabLabelIdle]}>{t.label}</Text>
-                {t.count ? (
-                  <View style={[styles.tabCount, active && { backgroundColor: brandColor }]}>
-                    <Text style={[styles.tabCountText, { color: active ? COLOR_BLACK : COLOR_WHITE }]}>{t.count}</Text>
-                  </View>
-                ) : null}
-              </View>
-              {/* Under the lit tab only, in its colour, the width of its word. */}
-              <View style={[styles.tabUnderline, { backgroundColor: active ? brandColor : 'transparent' }]} />
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {/* ── The sections, as main tabs — the home screen's pills, each with
+          its count. ── */}
+      <MainTabs
+        tabs={tabs}
+        value={tab}
+        onChange={setTab}
+        inset={GUTTER + 8}
+        style={styles.tabsScroll}
+      />
     </>
   );
 
@@ -400,11 +404,14 @@ const styles = StyleSheet.create({
   bannerBlank: { alignItems: 'center', justifyContent: 'center' },
   bannerOverlay: { position: 'absolute', left: 0, right: 0, top: 0 },
   bannerTop: { position: 'absolute', left: 0, right: 0, top: 0, height: 130 },
-  // A point past the foot, so no hairline of photo shows under it.
-  bannerFoot: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '45%' },
+  bannerShade: { backgroundColor: 'rgba(0,0,0,0.5)' },
+  // A point past the foot, so no hairline of photo shows under it. Tall
+  // enough to sit under all of the intro that now overlaps the photo.
+  bannerFoot: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '80%' },
 
-  // Pulled up over the banner's faded foot.
-  intro: { paddingHorizontal: GUTTER + 8, marginTop: -44, gap: 10 },
+  // Pulled well up over the banner's faded foot — the trail and the title
+  // sit on the photo, not under it.
+  intro: { paddingHorizontal: GUTTER + 8, marginTop: -180, gap: 10 },
   crumbs: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   // Small outlined pills, as the other outline buttons (Add car, View channel).
   crumb: {
@@ -424,13 +431,15 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, lineHeight: 20 },
   // Same box as the real one, invisible and out of flow.
   measure: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
-  moreBtn: { alignSelf: 'flex-start', marginTop: 2 },
-  more: { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
+  // Inside the description's own text, so it inherits the colour and the line.
+  more: { fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
 
   // Tiles in a row that scrolls — a stat each, the label over the value.
   stats: { gap: 8, paddingHorizontal: GUTTER + 8, paddingTop: 14 },
+  // As wide as its value on one line — the row scrolls, so a tile can widen
+  // rather than wrap — up to a cap, past which the value ends in "…".
   stat: {
-    minWidth: 112, maxWidth: 180,
+    minWidth: 112, maxWidth: 280,
     paddingHorizontal: 12, paddingVertical: 10, gap: 3,
     borderRadius: 14, backgroundColor: COLOR_GRAY_26,
   },
@@ -464,20 +473,8 @@ const styles = StyleSheet.create({
   // The app header's tabs: a row of words, the lit one in the brand colour
   // with a rounded bar the width of its word beneath it.
   tabsScroll: { marginTop: 18, marginBottom: 12, flexGrow: 0 },
-  tabs: { flexDirection: 'row', alignItems: 'center', gap: 22, paddingHorizontal: GUTTER + 8 },
-  tab: { alignItems: 'stretch' },
-  tabLabelRow: { flexDirection: 'row', alignItems: 'center' },
-  tabLabel: { fontSize: 17, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
-  tabLabelIdle: { color: TAB_IDLE, fontFamily: FONT_INTER.medium },
   // The count in a small circle, centred on the word and set off from it —
   // brand-filled on the lit tab.
-  tabCount: {
-    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, marginLeft: 7,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  tabCountText: { fontSize: 11, fontFamily: FONT_INTER.bold },
-  tabUnderline: { height: 3, borderRadius: 1.5, marginTop: 4 },
 
   scroll: { paddingBottom: 120 },
 });

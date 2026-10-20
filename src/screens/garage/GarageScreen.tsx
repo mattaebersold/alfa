@@ -21,7 +21,7 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { GetProButton, ProUpsellModal } from '../../components/pro/ProUpsell';
-import { CAR_LIMIT_BASIC } from '../../constants/config';
+import { carLimitFor, garageFull, showProGarageFull, GARAGE_UPSELL } from '../../constants/config';
 import type { CarsStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 
@@ -68,9 +68,9 @@ export default function GarageScreen() {
   // surfaces in the one place it can actually bite — the add button, which now
   // opens the upsell instead of a form the server will refuse.
   const [upsell, setUpsell] = useState(false);
-  const atLimit = !isPro && cars.length >= CAR_LIMIT_BASIC;
+  const atLimit = garageFull(isPro, cars.length);
   const addCar = () =>
-    atLimit ? setUpsell(true) : (navigation as any).navigate('CarCreate', {});
+    atLimit ? (isPro ? showProGarageFull() : setUpsell(true)) : (navigation as any).navigate('CarCreate', {});
 
   const goToTasks = useCallback(
     (carId: string, carTitle: string) => (navigation as any).navigate('CarTasks', { carId, carTitle }),
@@ -117,7 +117,7 @@ export default function GarageScreen() {
                 inline
                 // A basic membership is capped, so the count says what's left
                 // as well as what's there. Pro has no cap to count against.
-                count={isPro ? cars.length : `${cars.length}/${CAR_LIMIT_BASIC}`}
+                count={`${cars.length}/${carLimitFor(isPro)}`}
                 right={
                   <View style={styles.headingActions}>
                     {/* Nothing to sell a member who already has it. */}
@@ -146,8 +146,8 @@ export default function GarageScreen() {
       <ProUpsellModal
         visible={upsell}
         onClose={() => setUpsell(false)}
-        title="Unlimited garage with Pro"
-        message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+        title={GARAGE_UPSELL.title}
+        message={GARAGE_UPSELL.message}
       />
     </SafeAreaView>
   );

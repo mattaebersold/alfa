@@ -145,7 +145,7 @@ export default function MarketplaceBrowse({
 
   const [kind, setKind] = useState<ListingKind>('sale');
   // The switch's thumb: 0 on For sale, 1 on Want ads, sprung between like
-  // Segmented's. Slid by half the track's inner width, known once it's laid out.
+  // SubTabs'. Slid by half the track's inner width, known once it's laid out.
   const thumb = useRef(new Animated.Value(0)).current;
   const [trackW, setTrackW] = useState(0);
   useEffect(() => {

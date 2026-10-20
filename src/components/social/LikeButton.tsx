@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
 import * as Haptics from 'expo-haptics';
 import { useLikeEntryMutation, useUnlikeEntryMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
+import { likeStates, useLikeState } from '../../hooks/useLikeState';
 import { useColors } from '../../hooks/useColors';
 import { formatActionCount } from '../../utils/text';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
@@ -74,13 +75,11 @@ export default function LikeButton({
   const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   const btnRef = useRef<View>(null);
   const resting = color ?? colors.grey;
-  const [liked, setLiked] = useState(initialLiked);
-  const [count, setCount] = useState(initialCount);
-
-  // Sync with server-derived state once the live like query resolves (or refetches
-  // after a like/unlike elsewhere), so the heart reflects the true "did I like this".
-  useEffect(() => { setLiked(initialLiked); }, [initialLiked]);
-  useEffect(() => { setCount(initialCount); }, [initialCount]);
+  // What this session knows — a like made here, settled from the server's
+  // liker list — over the snapshot this button was handed. See useLikeState.
+  const known = useLikeState(documentId);
+  const liked = known?.liked ?? initialLiked;
+  const count = known?.count ?? initialCount;
 
   const [likeEntry] = useLikeEntryMutation();
   const [unlikeEntry] = useUnlikeEntryMutation();
@@ -92,21 +91,27 @@ export default function LikeButton({
       return;
     }
 
-    const wasLiked = liked;
-    setLiked(!wasLiked);
-    setCount((c) => (wasLiked ? c - 1 : c + 1));
-    onToggle?.(!wasLiked);
+    const was = { liked, count, users: known?.users };
+    const now = !was.liked;
+    likeStates.set(documentId, {
+      liked: now,
+      count: Math.max(0, was.count + (now ? 1 : -1)),
+      users: was.users && myId
+        ? (now ? [...was.users.filter((u) => u !== myId), myId] : was.users.filter((u) => u !== myId))
+        : undefined,
+    });
+    onToggle?.(now);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      if (wasLiked) {
-        await unlikeEntry({ document_id: documentId, document_entry_type: entryType }).unwrap();
-      } else {
-        await likeEntry({ document_id: documentId, document_entry_type: entryType }).unwrap();
-      }
-    } catch {
-      setLiked(wasLiked);
-      setCount((c) => (wasLiked ? c + 1 : c - 1));
+      const body = { document_id: documentId, document_entry_type: entryType };
+      const record: any = now ? await likeEntry(body).unwrap() : await unlikeEntry(body).unwrap();
+      // The server's liker list: the count, exactly.
+      if (Array.isArray(record?.users)) likeStates.fromRecord(documentId, record.users, myId);
+    } catch (err: any) {
+      // Nothing to unlike: not liked, as the tap already says.
+      if (!now && err?.status === 404) return;
+      likeStates.set(documentId, was);
     }
   };
 

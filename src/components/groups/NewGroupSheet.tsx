@@ -16,6 +16,7 @@ import { useCreateGroupMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { uploadFile } from '../../utils/upload';
+import { blockProfanity } from '../../utils/profanity';
 import { GROUP_TYPES, groupCategoriesFor } from '../../constants/groupTypes';
 import { REGIONS } from '../../constants/regions';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
@@ -144,6 +145,7 @@ export default function NewGroupSheet({
   const submit = async () => {
     const name = title.trim();
     if (!name || isLoading) return;
+    if (blockProfanity({ name: title, tagline: subtitle })) return;
 
     const fd = new FormData();
     fd.append('title', name);
@@ -206,7 +208,8 @@ export default function NewGroupSheet({
           step={step}
           totalSteps={STEP_TITLES.length}
           onBack={() => setStep((s) => s - 1)}
-          onNext={() => setStep((s) => s + 1)}
+          // Checked on the way past each step — see utils/profanity.
+          onNext={() => { if (!blockProfanity({ name: title, tagline: subtitle })) setStep((s) => s + 1); }}
           canAdvance={canAdvance}
           onSubmit={submit}
           submitLabel="Create"
@@ -431,7 +434,7 @@ export default function NewGroupSheet({
                 where the thumb is after the last field. */}
             <TouchableOpacity
               style={[styles.submit, { backgroundColor: brand }, !canAdvance && styles.submitOff]}
-              onPress={() => setStep(2)}
+              onPress={() => { if (!blockProfanity({ name: title, tagline: subtitle })) setStep(2); }}
               disabled={!canAdvance}
               activeOpacity={0.85}
               accessibilityRole="button"

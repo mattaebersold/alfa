@@ -13,7 +13,7 @@ import { useGetUserGarageQuery, useGetCarTasksQuery, useGetCarsQuery } from '../
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
-import { CAR_LIMIT_BASIC, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { PILL_RADIUS, COLOR_BLACK, carLimitFor, garageFull, showProGarageFull, GARAGE_UPSELL } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** The panel's ground — true black, the same as the menu. */
@@ -84,13 +84,13 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
   // The head's and the list's heights, which together size the panel.
   const headH = useRef(0);
   const listH = useRef(0);
-  const atLimit = !isPro && cars.length >= CAR_LIMIT_BASIC;
+  const atLimit = garageFull(isPro, cars.length);
 
   return (
     <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={SURFACE} backdrop="summary">
       {({ closeThen, fitHeight }) => {
         const go = (name: string, params?: object) => closeThen(() => navigation.navigate(name, params));
-        const addCar = () => (atLimit ? setUpsell(true) : go('CarCreate', {}));
+        const addCar = () => (atLimit ? (isPro ? showProGarageFull() : setUpsell(true)) : go('CarCreate', {}));
         // The panel is as tall as the head plus the list's own content — up to
         // most of the screen, past which the list scrolls. A garage of one
         // car no longer opens onto a screenful of empty panel.
@@ -119,7 +119,7 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
                   )}
                   <View style={[styles.countPill, { backgroundColor: colors.segment }]}>
                     <Text style={[styles.countText, { color: colors.fg }]}>
-                      {visiting ? (theirs.data?.total ?? cars.length) : isPro ? cars.length : `${cars.length}/${CAR_LIMIT_BASIC}`}
+                      {visiting ? (theirs.data?.total ?? cars.length) : `${cars.length}/${carLimitFor(isPro)}`}
                     </Text>
                   </View>
                 </View>
@@ -170,8 +170,8 @@ export default function GaragePanel({ visible, origin, onClose, owner }: {
             <ProUpsellModal
               visible={upsell}
               onClose={() => setUpsell(false)}
-              title="Unlimited garage with Pro"
-              message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+              title={GARAGE_UPSELL.title}
+              message={GARAGE_UPSELL.message}
             />
           </>
         );

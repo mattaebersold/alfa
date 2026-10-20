@@ -10,7 +10,7 @@ import { FONT_INTER } from '../../constants/fonts';
  * A scrolling row of filter chips: the chosen one filled in the brand
  * colour, the rest outlined in grey on nothing.
  *
- * Distinct from Segmented, which is a filled track with a sliding thumb.
+ * Distinct from SubTabs, which is a filled track with a sliding thumb.
  * That reads as one control with modes; this reads as a set of tags to
  * pick from, which is what a category filter is. It carries no margin of
  * its own — it lines up with whatever gutter its screen gives it.

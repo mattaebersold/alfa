@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { GetProButton, ProUpsellModal } from '../pro/ProUpsell';
-import { CAR_LIMIT_BASIC } from '../../constants/config';
+import { carLimitFor, garageFull, GARAGE_UPSELL } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -32,10 +32,8 @@ export default function GarageLimitBadge({
   const brand = useBrandColor();
   const [open, setOpen] = useState(false);
 
-  const atLimit = !isPro && count >= CAR_LIMIT_BASIC;
-  const label = isPro
-    ? `${count} ${count === 1 ? 'car' : 'cars'}`
-    : `${count} of ${CAR_LIMIT_BASIC} cars`;
+  const atLimit = garageFull(isPro, count);
+  const label = `${count} of ${carLimitFor(isPro)} cars`;
 
   return (
     <>
@@ -62,8 +60,8 @@ export default function GarageLimitBadge({
       <ProUpsellModal
         visible={open}
         onClose={() => setOpen(false)}
-        title="Unlimited garage with Pro"
-        message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+        title={GARAGE_UPSELL.title}
+        message={GARAGE_UPSELL.message}
       />
     </>
   );

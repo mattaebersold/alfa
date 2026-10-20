@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput, useRoomAbove, useGetPhotoSpotsQuery } from '@ors/kit';
 import { Image } from 'expo-image';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon, MapPin } from 'lucide-react-native';
 import { SpotPicker } from '@ors/kit/src/photography';
-import { useSearchQuery, useGetPreviouslyTaggedPhotoSpotsQuery } from '../../api/apiService';
+import {
+  useSearchQuery, useGetPreviouslyTaggedPhotoSpotsQuery, useGetPreviouslyTaggedUsersQuery,
+} from '../../api/apiService';
 import GarageCarStrip from './GarageCarStrip';
+import TagCardStrip, { type TagCard } from './TagCardStrip';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
+import { useAppSelector } from '../../store/store';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
-import { PILL_RADIUS, COLOR_WHITE, COMMON_RADIUS, COLOR_GRAY_14 } from '../../constants/config';
+import { PILL_RADIUS, COLOR_WHITE, FORM_RADIUS, COLOR_GRAY_14 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 export type TagKind = 'user' | 'car' | 'event' | 'group' | 'spot';
@@ -26,6 +30,9 @@ export interface TagItem {
   /** The member themself, for the Avatar in a suggestion — initials and colour when there's no photo. */
   avatarUser?: AvatarUser;
 }
+
+/** The most a row's suggestions take before they scroll — about five rows. */
+const SUGGEST_MAX_H = 220;
 
 // Small debounce so each row's search only fires when typing settles.
 function useDebounced(value: string, delay = 300) {
@@ -54,18 +61,18 @@ interface RowProps {
 /**
  * One kind of tag: what's picked, and a search for more.
  *
- * Search only. The rows used to open with a strip of whoever and whatever
- * you'd tagged before, which looked like a set of suggestions and mostly
- * wasn't — the last five people you tagged are rarely the people in *this*
- * photo, and a row of faces that has to be scrolled past is a cost every
- * post paid. The garage strip above the car search is a different thing:
- * those are your own cars, not your history, and it stays.
+ * Above the search, a row of photo tiles to tag with a tap (`above`): your
+ * own cars on the cars card, and on the people and spots cards what you've
+ * tagged lately (captioned "Recently tagged" on the spots card).
  */
 function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, suggestions, onToggle, above }: RowProps) {
   const colors = useColors();
   const selectedIds = new Set(selected.map((t) => t.id));
   const typing = query.trim().length >= 2;
   const list = suggestions.filter((i) => !selectedIds.has(i.id)).slice(0, 8);
+  // On focus the field is brought down onto the keyboard, and the list gets
+  // whatever's left above it, up to SUGGEST_MAX_H.
+  const room = useRoomAbove(SUGGEST_MAX_H);
 
   // Chips and count pills are filled with `accent`, so their text has to
   // follow the fill's brightness — black on gold, white on teal.
@@ -110,13 +117,13 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
           than below so the keyboard can't cover them, and floating so they
           never push the form around. Content that moved as you typed also
           had the form re-scrolling under the field on every keystroke. */}
-      <View style={styles.searchWrap}>
+      <View ref={room.ref} collapsable={false} style={styles.searchWrap}>
         {(query.trim().length === 1 || typing) && (
           <View style={[styles.suggestBox, { borderColor: colors.inputBorder, backgroundColor: colors.card }]}>
             {query.trim().length === 1 ? (
               <Text style={[styles.hint, { color: colors.grey }]}>Keep typing…</Text>
             ) : list.length > 0 ? (
-              <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.suggestScroll}>
+              <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={{ maxHeight: room.maxHeight }}>
                 {list.map((s, i) => (
                   <TouchableOpacity
                     key={s.id}
@@ -153,6 +160,8 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
             style={[styles.input, { color: colors.fg }]}
             value={query}
             onChangeText={onQuery}
+            onFocus={room.onFocus}
+            onBlur={room.onBlur}
             placeholder={placeholder}
             placeholderTextColor={colors.grey}
             autoCorrect={false}
@@ -211,6 +220,23 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
   const onAccent = contrastText(accent);
   const { data: previous } = useGetPreviouslyTaggedPhotoSpotsQuery();
   const recentIds = (previous?.spots ?? []).map((s) => s.internal_id);
+  // The tagged-before list carries only ids and titles; the spots themselves
+  // carry the photos the tiles need. The same query SpotPicker makes for its
+  // recents, so the two share one request.
+  const { data: recentSpots } = useGetPhotoSpotsQuery(
+    { ids: [...new Set(recentIds)].join(','), limit: 20 },
+    { skip: recentIds.length === 0 },
+  );
+  // In the order they were tagged, latest first.
+  const recentCards: TagCard[] = recentIds.flatMap((id) => {
+    const spot = recentSpots?.entries.find((sp) => sp.internal_id === id);
+    if (!spot) return [];
+    return [{
+      tag: { id, label: spot.title || 'Photo spot', kind: 'spot' as const },
+      image: firstGalleryUrl(spot.gallery),
+      fallback: <MapPin size={22} color={colors.grey} />,
+    }];
+  });
 
   return (
     <View style={[styles.row, { backgroundColor: COLOR_GRAY_14 }]}>
@@ -240,6 +266,14 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
           ))}
         </View>
       )}
+
+      <TagCardStrip
+        title="Recently tagged"
+        cards={recentCards}
+        selectedIds={selected.map((t) => t.id)}
+        onToggle={onToggle}
+        bleed={ROW_PAD}
+      />
 
       <SpotPicker
         spotId={null}
@@ -300,6 +334,17 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
     kind: 'event',
     image: firstGalleryUrl(e.gallery) ?? (e.hero_image ? imageUrl(e.hero_image) : null),
   });
+  // What you've tagged before, as tiles over each search — see TagRow.
+  const { data: recentUsers }  = useGetPreviouslyTaggedUsersQuery();
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
+  // Never yourself: tagging yourself in your own post isn't a shortcut anyone needs.
+  const userCards: TagCard[] = (recentUsers?.users ?? []).filter((u: any) => !myId || u.user_id !== myId).map((u: any) => ({
+    tag: toUser(u),
+    image: imageUrl(u.gallery?.[0]?.filename ?? u.profilePicture),
+    // No photo: their initials on their colour, as everywhere else.
+    fallback: <Avatar user={u} size={40} />,
+  }));
+
   const toGroup = (g: any): TagItem => ({ id: g.internal_id, label: g.title || 'Group', kind: 'group' });
 
   return (
@@ -309,6 +354,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
         query={userQ} onQuery={setUserQ} selected={users}
         suggestions={(userSearch?.users ?? []).map(toUser)}
         onToggle={onToggle}
+        above={<TagCardStrip cards={userCards} selectedIds={users.map((t) => t.id)} onToggle={onToggle} bleed={ROW_PAD} />}
       />
       <TagRow
         title="Tag Cars"
@@ -348,9 +394,9 @@ const styles = StyleSheet.create({
   row: {
     marginHorizontal: 12, marginTop: 12,
     paddingHorizontal: ROW_PAD, paddingTop: 12, paddingBottom: 12,
-    // Optional Details' block: the app's radius on a ground a step darker
+    // Optional Details' block: the form's radius on a ground a step darker
     // than the form, and no edge of its own.
-    borderRadius: COMMON_RADIUS,
+    borderRadius: FORM_RADIUS,
   },
   // Just the title, in white — the accent colour lives on the chips and count
   // now, where it marks what's been tagged rather than decorating the card.
@@ -372,7 +418,7 @@ const styles = StyleSheet.create({
 
   // No border: the field is its darker fill against the card.
   // Outlined like the form's other fields, now the card around it has no edge.
-  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: 10 },
+  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: FORM_RADIUS },
   input:        { flex: 1, fontSize: 14, padding: 0 },
 
   // Raised for good, not only while the list shows — a zIndex that changes
@@ -384,7 +430,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 10, overflow: 'hidden',
     boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.45)',
   },
-  suggestScroll:{ maxHeight: 220 },
   suggestHeader:{ fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
   suggestRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9 },
   suggestText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },

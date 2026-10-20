@@ -4,9 +4,10 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  Tag, MessageSquare, CheckCircle2, RotateCcw, Pencil, Trash2, ChevronRight,
+  Tag, MessageSquare, CheckCircle2, RotateCcw, Pencil, Trash2, ChevronRight, Settings,
   MessageCircle, Megaphone, Check, Plus,
 } from 'lucide-react-native';
 import {
@@ -19,13 +20,15 @@ import ListingSnapshot from './ListingSnapshot';
 import { priceLabel } from './listingFormat';
 import MarketplaceUnreadBadge, { useMarketplaceUnread } from './MarketplaceUnreadBadge';
 import SharedModal from '../ui/SharedModal';
+import ActionSheet from '../ui/ActionSheet';
+import SubTabs from '../ui/SubTabs';
 import Spinner from '../ui/Spinner';
 import EmptyState from '../ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Listing } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_BLACK, COLOR_GRAY_30, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -98,6 +101,8 @@ function ManageRow({
   const [deleteListing, { isLoading: deleting }] = useDeleteListingMutation();
 
   const sold = !!listing.sold;
+  /** Edit and delete — off the row's buttons, behind its cog. */
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const run = async (fn: () => Promise<unknown>, failure: string) => {
     try { await fn(); } catch (err: any) { Alert.alert('Error', err?.data?.error || failure); }
@@ -128,15 +133,39 @@ function ManageRow({
   }));
 
   return (
-    <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.borderDark }]}>
+    <View style={styles.row}>
       <ListingSnapshot
         title={listing.title ?? ''}
         photo={listing.gallery?.[0]}
         // The browse side's formatter, because this is a whole listing: it
         // knows that a want ad names what you'll pay and that a sale can be OBO.
         priceText={priceLabel(listing)}
+        priceBadge
         sold={sold}
         size={52}
+        // Clear of the cog in the top-right corner.
+        style={styles.snapshot}
+      />
+
+      {/* The cog in the row's top-right corner: changing or removing the
+          listing, kept apart from the everyday buttons below. */}
+      <TouchableOpacity
+        style={styles.cog}
+        onPress={() => setMenuOpen(true)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Listing options"
+      >
+        <Settings size={14} color={COLOR_WHITE} strokeWidth={2.4} />
+      </TouchableOpacity>
+      <ActionSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title={listing.title ?? undefined}
+        options={[
+          { label: 'Edit listing', Icon: Pencil, onPress: onEdit },
+          { label: 'Delete listing', Icon: Trash2, destructive: true, onPress: onDelete },
+        ]}
       />
 
       {/* Said once, in place, rather than as a separate nag screen: this is
@@ -181,8 +210,6 @@ function ManageRow({
             )}
           />
         )}
-        <ActionButton label="Edit" Icon={Pencil} onPress={onEdit} />
-        <ActionButton label="Delete" Icon={Trash2} tone="danger" busy={deleting} onPress={onDelete} />
       </View>
     </View>
   );
@@ -202,6 +229,7 @@ export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
   const { data, isLoading, refetch } = useGetMyListingsQuery();
   const { countForListing } = useMarketplaceUnread();
   const refreshControl = useRefreshControl(refetch);
+  const insets = useSafeAreaInsets();
 
   // Default: run it now. Right for a host that isn't a modal, and harmless for
   // one that is only ever opened from a full screen.
@@ -209,36 +237,60 @@ export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
 
   const stale = new Set(data?.needs_confirmation ?? []);
 
-  const sections: { key: string; title: string; entries: Listing[]; empty: string }[] = [
-    { key: 'listings', title: 'For sale', entries: data?.listings ?? [], empty: "Nothing listed" },
-    { key: 'wants', title: 'Want ads', entries: data?.wants ?? [], empty: 'No want ads' },
-    { key: 'sold', title: 'Sold', entries: data?.sold ?? [], empty: 'Nothing sold yet' },
-  ];
+  const listings = data?.listings ?? [];
+  const wants = data?.wants ?? [];
+  const sold = data?.sold ?? [];
+  /**
+   * Listings or want ads, as sub tabs with their counts. Sold ones are
+   * listings, so they sit under the listings tab with a heading of their own.
+   */
+  const [tab, setTab] = useState<'listings' | 'wants'>('listings');
+  const sections: { key: string; title?: string; entries: Listing[] }[] = tab === 'listings'
+    ? [{ key: 'listings', entries: listings }, { key: 'sold', title: 'Sold', entries: sold }]
+    : [{ key: 'wants', entries: wants }];
 
   if (isLoading) return <Spinner />;
 
-  const nothingAtAll = sections.every((s) => s.entries.length === 0);
-  if (nothingAtAll) {
+  if (!listings.length && !wants.length && !sold.length) {
     return <EmptyState title="You haven't listed anything" />;
   }
 
   return (
+    // Bounded to the sheet, and padded at its end past the home indicator:
+    // the last row used to run into the screen's rounded corner.
     <ScrollView
-      contentContainerStyle={styles.pane}
+      style={styles.paneScroll}
+      contentContainerStyle={[styles.pane, { paddingBottom: insets.bottom + 28 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={refreshControl}
     >
+      <View style={styles.tabs}>
+        <SubTabs
+          options={[
+            { key: 'listings', label: listings.length ? `Listings · ${listings.length}` : 'Listings' },
+            { key: 'wants', label: wants.length ? `Want ads · ${wants.length}` : 'Want ads' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      </View>
+      {sections.every((s) => s.entries.length === 0) ? (
+        <Text style={[styles.empty, { color: colors.grey }]}>
+          {tab === 'listings' ? 'Nothing listed' : 'No want ads'}
+        </Text>
+      ) : null}
       {sections.map((section) => (
-        // An empty pile is left out entirely rather than headed and empty: a
-        // seller with no want ads doesn't need to be told twice.
+        // An empty pile is left out entirely rather than headed and empty.
         section.entries.length === 0 ? null : (
           <View key={section.key} style={styles.section}>
-            <View style={styles.sectionHead}>
-              <Text style={[styles.sectionTitle, { color: colors.fg }]}>{section.title}</Text>
-              <Text style={[styles.sectionCount, { color: colors.grey }]}>
-                {section.entries.length}
-              </Text>
-            </View>
+            {section.title ? (
+              <View style={styles.sectionHead}>
+                <Text style={[styles.sectionTitle, { color: colors.fg }]}>{section.title}</Text>
+                <Text style={[styles.sectionCount, { color: colors.grey }]}>
+                  {section.entries.length}
+                </Text>
+              </View>
+            ) : null}
             {section.entries.map((listing) => (
               <ManageRow
                 key={listing.internal_id}
@@ -392,8 +444,11 @@ export default function ManageListingsEntry({
         visible={open}
         onClose={() => setOpen(false)}
         onDismissed={onDismissed}
-        title="Your listings"
+        // No heading: the sub tabs at the top say what's here.
+        hideHeader
         heightRatio={0.85}
+        // Black, so the rows on it read as cards.
+        surface={COLOR_BLACK}
       >
         <ManageListingsPane navigate={navigate} />
       </SharedModal>
@@ -406,7 +461,8 @@ const STAT_BG = 'rgba(0,0,0,0.4)';
 const STAT_INK = 'rgba(255,255,255,0.85)';
 
 const styles = StyleSheet.create({
-  pane: { paddingHorizontal: 12, paddingBottom: 28 },
+  paneScroll: { flex: 1 },
+  pane: { paddingHorizontal: 12 },
 
   section:      { paddingTop: 14 },
   sectionHead:  {
@@ -416,10 +472,22 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   sectionCount: { fontSize: 12, fontFamily: FONT_INTER.bold },
 
+  // A step lighter than the pane, and no edge.
   row: {
-    borderWidth: 1, borderRadius: 14,
+    borderRadius: 14, backgroundColor: COLOR_GRAY_30,
     padding: 12, marginBottom: 10, gap: 10,
   },
+  // The row's top-right corner, inside its padding.
+  cog: {
+    position: 'absolute', top: 10, right: 10, zIndex: 2,
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  snapshot: { paddingRight: 30 },
+  // SubTabs brings its own 12 of side margin; the pane already has 12.
+  tabs: { marginHorizontal: -12, paddingTop: 12 },
+  empty: { fontSize: 13, paddingHorizontal: 4, paddingTop: 16 },
   stale: { fontSize: 12, lineHeight: 17 },
 
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

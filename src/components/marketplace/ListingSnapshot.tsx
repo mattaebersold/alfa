@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem, ListingPriceMode } from '../../types/api';
-import { COMMON_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GREEN, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -50,6 +50,7 @@ export default function ListingSnapshot({
   priceMode,
   currency,
   priceText,
+  priceBadge = false,
   sold,
   deleted,
   size = 46,
@@ -70,6 +71,8 @@ export default function ListingSnapshot({
   priceText?: string | null;
   sold?: boolean;
   deleted?: boolean;
+  /** The price as the marketplace's green badge — as on a listing — not plain text. */
+  priceBadge?: boolean;
   size?: number;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
@@ -103,9 +106,13 @@ export default function ListingSnapshot({
           {title || 'Listing'}
         </Text>
         <View style={styles.metaRow}>
-          {!!money && (
+          {!!money && (priceBadge ? (
+            <View style={styles.priceBadge}>
+              <Text style={styles.priceBadgeText} numberOfLines={1}>{money}</Text>
+            </View>
+          ) : (
             <Text style={[styles.price, { color: colors.primaryAlt }]}>{money}</Text>
-          )}
+          ))}
           {deleted ? (
             <Text style={[styles.state, { color: colors.grey }]}>Removed</Text>
           ) : sold ? (
@@ -125,5 +132,11 @@ const styles = StyleSheet.create({
   title:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   price:   { fontSize: 13, fontFamily: FONT_INTER.extrabold },
+  // The listing summary's price bubble, the same size and green.
+  priceBadge: {
+    height: 22, paddingHorizontal: 9, borderRadius: 999,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_GREEN,
+  },
+  priceBadgeText: { color: COLOR_BLACK, fontSize: 12, lineHeight: 15, fontFamily: FONT_INTER.semibold, includeFontPadding: false },
   state:   { fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
 });

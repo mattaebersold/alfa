@@ -12,6 +12,7 @@ import MentionText from '../ui/MentionText';
 import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../ui/Badge';
 import PostActionRail from '../social/PostActionRail';
 import { usePostLike } from '../../hooks/usePostLike';
+import { useLikeState } from '../../hooks/useLikeState';
 import PostOptionsButton from '../social/PostOptionsButton';
 import PostOwnerMenu from '../social/PostOwnerMenu';
 import { useSummary } from '../../providers/SummaryProvider';
@@ -154,25 +155,29 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   /**
    * Like state, from the feed when the feed knows it.
    *
-   * The feed endpoint now sends `likers`, `isLiked` and the liker names it
+   * The feed endpoint sends `likers`, `isLiked` and the liker names it
    * batched server-side, so a card being scrolled past asks for nothing. Cards
-   * rendered from endpoints that don't enrich fall through to the query, as
-   * does any card once you've touched its heart — from that point the liked-by
-   * line has to track a change the payload predates.
+   * rendered from endpoints that don't enrich fall through to the query.
+   *
+   * Over both: what this session knows (useLikeState) — a like you made here,
+   * settled from the server's own liker list. The payload predates it, and a
+   * card rebuilt from the payload used to forget it.
    */
-  const [likeTouched, setLikeTouched] = useState(false);
+  const known = useLikeState(post.internal_id);
   const fedLikers: string[] | null = Array.isArray(post.likers) ? post.likers : null;
   const { data: likeData } = useGetLikeUsersQuery(post.internal_id, {
-    skip: !post.internal_id || (!!fedLikers && !likeTouched),
+    skip: !post.internal_id || !!fedLikers,
   });
 
-  const likers = likeData?.users ?? fedLikers ?? [];
-  const likeCount = likeData?.total ?? post.like_count ?? post.likeCount ?? 0;
-  const iLiked = likeData
-    // `likers` is capped in the feed payload, so membership only answers the
-    // question once we hold the real list.
-    ? !!userInfo?.user_id && likers.includes(userInfo.user_id)
-    : (isLiked ?? post.isLiked ?? false);
+  const likers = known?.users ?? likeData?.users ?? fedLikers ?? [];
+  const likeCount = known?.count ?? likeData?.total ?? post.like_count ?? post.likeCount ?? 0;
+  const iLiked = known
+    ? known.liked
+    : likeData
+      // `likers` is capped in the feed payload, so membership only answers
+      // the question once we hold the real list.
+      ? !!userInfo?.user_id && likers.includes(userInfo.user_id)
+      : (isLiked ?? post.isLiked ?? false);
 
   const fedUser = post.user ?? post.user_objectid;
   const { data: fetchedUser } = useGetUserByIdQuery(post.user_id, {
@@ -229,9 +234,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
     ownerId: post.user_id,
     initialLiked: iLiked,
     initialCount: likeCount,
-    // Switches this card off the feed's snapshot and onto the live query, so
-    // the faces in the likes row catch up with what you just did.
-    onToggle: () => setLikeTouched(true),
   });
 
   /**
@@ -327,10 +329,12 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           {/* Squared to the app's corner rather than a circle — it sits in a
               card built from the same radius, and a lone circle in that row
               read as a different kind of object. */}
-          <Avatar user={user} size={36} />
+          {/* 30, not 36: the avatar is the tallest thing in the row, so it
+              sets the header's height. */}
+          <Avatar user={user} size={30} />
           <View style={styles.headerText}>
             <Text style={[styles.author, { color: fgColor }]} numberOfLines={spotResult ? 1 : undefined}>
-              @{displayName}
+              {displayName}
               {/* A game result says what it is in the header, so folded
                   down to this one row it still reads as something. */}
               {spotResult ? <Text style={[styles.played, { color: mutedColor }]}> played Guess the car</Text> : null}
@@ -597,7 +601,7 @@ const styles = StyleSheet.create({
   // and in from the side far enough that the avatar clears its rounded corner.
   headerBare:  { paddingTop: 8, paddingHorizontal: 16 },
   // Takes the row, so the timestamp and the menu stay pinned right.
-  headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
   headerText:  { flex: 1, minWidth: 0 },
   author:      { fontSize: 14, fontFamily: FONT_INTER.bold },
   played:      { fontFamily: FONT_INTER.medium },

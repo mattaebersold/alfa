@@ -8,6 +8,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { formatDistanceToNow } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { Trash2, Check, X } from 'lucide-react-native';
+import SteeringWheel from '../ui/SteeringWheel';
+import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
@@ -25,7 +27,7 @@ import Spinner from '../ui/Spinner';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import Segmented from '../ui/Segmented';
+import SubTabs from '../ui/SubTabs';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { notificationTarget } from '../../utils/notificationTarget';
 import type { Notification } from '../../types/api';
@@ -195,6 +197,7 @@ function NotificationRow({
     : '';
 
   const isUnread = !notification.read_status;
+  const brand = useBrandColor();
   const username = notification.sender?.username ?? null;
   const senderName = username
     ? `@${username}`
@@ -207,7 +210,14 @@ function NotificationRow({
   // "liked your post: Caught a Ferrari" — the action, and the thing it was
   // done to, which the server joins with a colon. Drawn as two kinds of text
   // rather than one run, so who / what / which can be told apart at a glance.
-  const colon = message ? message.indexOf(': ') : -1;
+  /**
+   * From the app rather than a member — an announcement the server sends with
+   * no sender ("generations are here"). The ORS mark where a face would be,
+   * and the whole message: it's written to be read, not a "who did what" line
+   * that two lines always hold.
+   */
+  const fromApp = !notification.sender && notification.type === 'system';
+  const colon = message && !fromApp ? message.indexOf(': ') : -1;
   const action = colon > 0 ? message.slice(0, colon) : message;
   const subject = colon > 0 ? message.slice(colon + 2) : null;
 
@@ -220,12 +230,18 @@ function NotificationRow({
       {/* Unread: a red dot by the avatar — a mark on the card, not a
           different card. */}
       {isUnread && <View style={styles.unreadDot} />}
-      <Avatar
-        user={notification.sender}
-        size={38}
-      />
+      {fromApp ? (
+        <View style={[styles.appMark, { backgroundColor: brand }]}>
+          <SteeringWheel size={20} color={contrastText(brand)} strokeWidth={2.4} />
+        </View>
+      ) : (
+        <Avatar
+          user={notification.sender}
+          size={38}
+        />
+      )}
       <View style={styles.rowContent}>
-        <Text style={[styles.message, isUnread ? styles.messageUnread : styles.messageRead]} numberOfLines={2}>
+        <Text style={[styles.message, isUnread ? styles.messageUnread : styles.messageRead]} numberOfLines={fromApp ? undefined : 2}>
           {senderName ? <Text style={[styles.senderName, { color: colors.fg }]}>{senderName} </Text> : null}
           <Text style={styles.action}>{action}</Text>
         </Text>
@@ -603,13 +619,14 @@ function NotificationsList({
           notification is what archives it; clearing the archive is the one
           bulk action, and it lives on that tab. */}
       <View style={styles.tabs}>
-        <Segmented
+        <SubTabs
           options={[
             { key: 'unread', label: unread.length ? `Unread (${unread.length})` : 'Unread' },
             { key: 'archived', label: archived.length ? `Archived (${archived.length})` : 'Archived' },
           ]}
           value={tab}
           onChange={(t) => { setTab(t); setShown(NOTIFICATIONS_PAGE); }}
+          stretch
         />
       </View>
       {tab === 'archived' && archived.length > 0 && (
@@ -707,6 +724,8 @@ const styles = StyleSheet.create({
   moreText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   rowContent:  { flex: 1 },
+  // The Avatar's size and shape, for a notice from the app itself.
+  appMark:     { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   message:     { fontSize: 13, lineHeight: 18 },
   // The action's ink: a step back from the name either way, further on read rows.
   messageUnread: { color: 'rgba(255,255,255,0.82)' },

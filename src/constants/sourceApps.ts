@@ -59,9 +59,11 @@ export const SOURCE_APPS: Record<SourceAppId, SourceApp> = {
     // Always today's puzzle — yesterday's result is already on the post, and
     // the thing worth sending someone to is the one they can still play.
     deepLink: () => 'orsspot://play',
+    // The store listings: App Store id from spot's eas.json (ascAppId), the
+    // Play package from its app.json.
     fallback: {
-      ios: 'https://openroadsociety.co/apps/spot',      // TODO: App Store URL
-      android: 'https://openroadsociety.co/apps/spot',  // TODO: Play Store URL
+      ios: 'https://apps.apple.com/app/id6815379055',
+      android: 'https://play.google.com/store/apps/details?id=co.openroadsociety.spot',
     },
     tile: COLOR_SPOTTER_GREEN,
     accent: COLOR_SPOTTER_GREEN,

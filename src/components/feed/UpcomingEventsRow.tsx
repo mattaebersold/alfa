@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { UpcomingEventCard, UpcomingRallyCard, UPCOMING_CARD_WIDTH } from '../cards/UpcomingCard';
 import RallyDetailSheet from '../society/RallyDetailSheet';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
+import SuggestionCard, { SUGGESTION_BARE_PAD } from './SuggestionCard';
 import { useGetUpcomingEventsQuery, useGetRallysQuery } from '../../api/apiService';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { mergeUpcoming } from '../../utils/rally';
@@ -97,7 +97,7 @@ export default function UpcomingEventsRow() {
             />
           )
         )}
-        <RowEndSpacer width={SUGGESTION_CARD_PAD} />
+        <RowEndSpacer width={SUGGESTION_BARE_PAD} />
       </ScrollView>
 
       {/* One sheet for the row, told which rally to show — the row can hold
@@ -110,5 +110,5 @@ export default function UpcomingEventsRow() {
 const styles = StyleSheet.create({
   // Compact cards are all one height already; the top alignment stays so a
   // card can never be stretched to match a taller one.
-  scroll: { gap: CARD_GAP, paddingLeft: SUGGESTION_CARD_PAD, alignItems: 'flex-start' },
+  scroll: { gap: CARD_GAP, paddingLeft: SUGGESTION_BARE_PAD, alignItems: 'flex-start' },
 });

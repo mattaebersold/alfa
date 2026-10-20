@@ -1,6 +1,6 @@
 {
   "name": "alfa",
-  "version": "1.69",
+  "version": "1.70",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -51,6 +51,7 @@
     "expo-video-thumbnails": "~57.0.2",
     "lucide-react-native": "^1.8.0",
     "nativewind": "^4.2.7",
+    "obscenity": "^0.4.5",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-compressor": "^2.0.3",

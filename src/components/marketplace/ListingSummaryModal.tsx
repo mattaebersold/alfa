@@ -5,9 +5,9 @@ import {
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
-import PostContextRow from '../social/PostContextRow';
+import GalleryLightbox from '../media/GalleryLightbox';
 import { useNavigation } from '@react-navigation/native';
-import { MapPin, Truck, Settings, MessageCircle, Check } from 'lucide-react-native';
+import { MapPin, Truck, MoreHorizontal, MessageCircle, Check } from 'lucide-react-native';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
 import Avatar from '../ui/Avatar';
@@ -62,13 +62,16 @@ const LISTING_ENTRY_TYPE = 'listing';
  * and it's the panel's primary button. The contact flow itself belongs to the
  * messaging work — see useStartListingThread.
  */
-export default function ListingSummaryModal({ listingId, origin, onClose, omitGroupId }: {
+export default function ListingSummaryModal({ listingId, origin, onClose }: {
   /** The listing to summarise. `null` closes the panel. */
   listingId: string | null;
   /** The card that was tapped — the panel grows out of it. */
   origin?: SummaryOrigin | null;
   onClose: () => void;
-  /** The group whose page opened this, so its tile isn't shown — see PostContextRow. */
+  /**
+   * The group whose page opened this. Unused since the panel stopped showing
+   * the groups a listing is posted in; still accepted so callers needn't change.
+   */
   omitGroupId?: string;
 }) {
   const colors = useColors();
@@ -89,8 +92,10 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
   );
   const [createComment, { isLoading: posting }] = useCreateCommentMutation();
   const [commentText, setCommentText] = useState('');
-  /** A lone photo's width over height, once it has loaded — 4:3 until then. */
-  const [soloRatio, setSoloRatio] = useState(4 / 3);
+  /** Each photo's width over height, by URL, once it has loaded. */
+  const [ratios, setRatios] = useState<Record<string, number>>({});
+  /** The photo the viewer opened on, or null while it's shut. */
+  const [viewing, setViewing] = useState<number | null>(null);
   // The composer's attachments — not the listing's own `photos` below.
   const attachments = useComposerPhotos();
 
@@ -110,16 +115,8 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
     .map((g) => imageUrl(g.filename))
     .filter((u): u is string => !!u);
 
-  const car = data?.car ?? null;
-  const groups = data?.groups ?? [];
 
-  /**
-   * Everything the listing says about the thing itself, as a strip you skim.
-   *
-   * One line that scrolls rather than a block that wraps — the same treatment
-   * a car's summary gives its specs, and for the same reason: eight details
-   * wrapped to four rows made the panel taller than the photo in it.
-   */
+  /** Everything the listing says about the thing itself, drawn as a plain list. */
   const specs = listing ? ([
     { label: 'Year', value: listing.year },
     { label: 'Make', value: listing.make },
@@ -137,7 +134,6 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
     { label: 'VIN', value: listing.vin },
     { label: 'Brand', value: listing.diecast?.brand },
     { label: 'Rarity', value: listing.diecast?.rarity },
-    { label: 'Shipping', value: shipping ?? (listing.shipping === 'pickup' ? 'Pickup only' : null) },
     { label: 'Location', value: listing.cityState },
   ].filter((s) => s.value) as { label: string; value: string }[]) : [];
 
@@ -193,57 +189,81 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
         <View style={styles.loading}><Spinner /></View>
       ) : (
         <View>
-          <View>
-          {/* Photos lead — on a listing they're most of the decision. One
-              sideways strip rather than a carousel with dots: there are rarely
-              more than four, and a swipe is the gesture either way. */}
+          {/* Photos lead, as a row of tiles at each photo's own shape — a
+              part shot upright stays upright, a car stays wide — that scrolls
+              sideways. A tap opens them full screen, as a car's gallery does. */}
           {photos.length === 1 ? (
-            // One photo: the whole width, at its own shape — nothing to swipe
-            // to, so no strip.
-            <Image
-              source={{ uri: photos[0] }}
-              style={[styles.photoSingle, { aspectRatio: soloRatio }]}
-              contentFit="cover"
-              transition={150}
-              onLoad={(e) => {
-                const { width, height } = e.source;
-                if (width > 0 && height > 0) setSoloRatio(Math.max(MIN_SOLO_RATIO, width / height));
-              }}
-            />
-          ) : photos.length > 1 ? (
+            // One photo: the width between the panel's margins, at its own
+            // shape — there's no row to scroll. Capped at 3:4 tall, so a part
+            // shot upright doesn't fill the panel before any of the listing.
+            <TouchableOpacity
+              style={styles.photoInset}
+              onPress={() => setViewing(0)}
+              activeOpacity={0.9}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="Photo"
+            >
+              <Image
+                source={{ uri: photos[0] }}
+                style={[styles.photoSingle, { aspectRatio: Math.max(MIN_SOLO_RATIO, ratios[photos[0]] ?? DEFAULT_RATIO) }]}
+                contentFit="cover"
+                transition={150}
+                onLoad={(e) => {
+                  const { width, height } = e.source;
+                  const uri = photos[0];
+                  if (width > 0 && height > 0) setRatios((prev) => ({ ...prev, [uri]: width / height }));
+                }}
+              />
+            </TouchableOpacity>
+          ) : photos.length === 2 ? (
+            // Two: half each, side by side — nothing to scroll to.
+            <View style={[styles.photoInset, styles.photoPair]}>
+              {photos.map((uri, i) => (
+                <TouchableOpacity
+                  key={uri}
+                  style={styles.photoHalf}
+                  onPress={() => setViewing(i)}
+                  activeOpacity={0.85}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`Photo ${i + 1} of 2`}
+                >
+                  <Image source={{ uri }} style={styles.photoHalfImage} contentFit="cover" transition={150} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : photos.length > 2 ? (
+            // Three or more: tiles at their own shapes, a row that scrolls.
             <ScrollView
               horizontal
-              pagingEnabled={photos.length > 1}
               showsHorizontalScrollIndicator={false}
               style={styles.photoStrip}
+              contentContainerStyle={styles.photoRow}
             >
-              {photos.map((uri) => (
-                <Image key={uri} source={{ uri }} style={styles.photo} contentFit="cover" transition={150} />
+              {photos.map((uri, i) => (
+                <TouchableOpacity
+                  key={uri}
+                  onPress={() => setViewing(i)}
+                  activeOpacity={0.85}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`Photo ${i + 1} of ${photos.length}`}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={[styles.photoTile, { width: TILE_H * (ratios[uri] ?? DEFAULT_RATIO) }]}
+                    contentFit="cover"
+                    transition={150}
+                    onLoad={(e) => {
+                      const { width, height } = e.source;
+                      if (width > 0 && height > 0) {
+                        const r = Math.min(MAX_RATIO, Math.max(MIN_RATIO, width / height));
+                        setRatios((prev) => (prev[uri] === r ? prev : { ...prev, [uri]: r }));
+                      }
+                    }}
+                  />
+                </TouchableOpacity>
               ))}
             </ScrollView>
-          ) : (
-            <View style={[styles.photo, styles.noPhoto, { backgroundColor: colors.segment }]}>
-              <Text style={[styles.noPhotoText, { color: colors.grey }]}>No photos</Text>
-            </View>
-          )}
-
-          {/* On the photo, as on the cards: the car it fits top left, gold
-              with the oil-slick film, and the price bottom left — bigger
-              here than on a card. */}
-          {match ? (
-            <View style={[styles.matchPill, styles.onPhoto, styles.matchOnPhoto, { backgroundColor: WARM_SHEEN_FILL }]}>
-              <OilSheen tone="warm" radius={999} />
-              <Check size={11} color={COLOR_BLACK} strokeWidth={3} />
-              <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
-            </View>
           ) : null}
-          {price ? (
-            <View style={[styles.priceBubble, styles.onPhoto]}>
-              <Text style={styles.priceBubbleText} numberOfLines={1}>{price}</Text>
-              {wasPrice ? <Text style={styles.priceBubbleWas} numberOfLines={1}>{wasPrice}</Text> : null}
-            </View>
-          ) : null}
-          </View>
 
           <View style={styles.body}>
 
@@ -261,11 +281,36 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
             {/* What it is and how good, as coloured badges under the title —
                 the category its own steady colour, the condition red to
                 green along its scale. Off the photo, which keeps the price. */}
-            {(listing.category || condition) ? (
+            {/* The car it fits, on its own line straight under the title —
+                gold with the oil-slick film, as on the cards. */}
+            {match ? (
+              <View style={[styles.matchPill, styles.matchUnderTitle, { backgroundColor: WARM_SHEEN_FILL }]}>
+                <OilSheen tone="warm" radius={999} />
+                <Check size={11} color={COLOR_BLACK} strokeWidth={3} />
+                <Text style={styles.matchText} numberOfLines={1}>{match}</Text>
+              </View>
+            ) : null}
+
+            {/* The price leads the badges — what it costs, then what it is
+                and how good. */}
+            {(price || listing.category || condition) ? (
               <View style={styles.badges}>
+                {price ? (
+                  <View style={styles.priceBubble}>
+                    <Text style={styles.priceBubbleText} numberOfLines={1}>{price}</Text>
+                    {wasPrice ? <Text style={styles.priceBubbleWas} numberOfLines={1}>{wasPrice}</Text> : null}
+                  </View>
+                ) : null}
                 {listing.category ? (
                   <View style={[styles.kindBadge, { backgroundColor: categoryColor(listing.category) }]}>
                     <Text style={styles.kindBadgeText}>{categoryLabel(listing.category)}</Text>
+                  </View>
+                ) : null}
+                {/* How it gets to you, beside what it is — "Ships" or "Pickup". */}
+                {shipping ? (
+                  <View style={[styles.kindBadge, styles.shipBadge, { backgroundColor: colors.segment }]}>
+                    <Truck size={11} color={colors.grey} />
+                    <Text style={[styles.kindBadgeText, { color: colors.grey }]}>{shipping}</Text>
                   </View>
                 ) : null}
                 {condition ? (
@@ -280,87 +325,65 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
 
             {/* Who's selling. The whole row opens their summary over this one
                 rather than leaving the listing behind. */}
-            {seller ? (
-              <TouchableOpacity
-                style={styles.sellerRow}
-                onPress={() => openUser(seller.user_id, null)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel={`View @${seller.username}`}
-              >
-                <Avatar user={seller} size={30} />
-                <Text style={[styles.sellerName, { color: colors.fg }]} numberOfLines={1}>
-                  @{seller.username}
-                </Text>
-                {distance ? (
-                  <View style={[styles.badge, { backgroundColor: colors.segment }]}>
-                    <MapPin size={10} color={colors.grey} />
-                    <Text style={[styles.badgeText, { color: colors.grey }]}>{distance}</Text>
-                  </View>
-                ) : null}
-                {shipping ? (
-                  <View style={[styles.badge, { backgroundColor: colors.segment }]}>
-                    <Truck size={10} color={colors.grey} />
-                    <Text style={[styles.badgeText, { color: colors.grey }]}>{shipping}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            ) : null}
+            {/* The seller on the left, and the listing's like and comment
+                count at the row's right end — one line, rather than a row of
+                its own further down. */}
+            <View style={styles.sellerLine}>
+              {seller ? (
+                <TouchableOpacity
+                  style={styles.sellerRow}
+                  onPress={() => openUser(seller.user_id, null)}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${seller.username}`}
+                >
+                  <Avatar user={seller} size={30} />
+                  <Text style={[styles.sellerName, { color: colors.fg }]} numberOfLines={1}>
+                    {seller.username}
+                  </Text>
+                  {distance ? (
+                    <View style={[styles.badge, { backgroundColor: colors.segment }]}>
+                      <MapPin size={10} color={colors.grey} />
+                      <Text style={[styles.badgeText, { color: colors.grey }]}>{distance}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ) : <View style={styles.sellerRow} />}
+              {/* Likes and comments, on the listing's own record — the generic
+                  collections keyed by entry type 'listing'. */}
+              <View style={styles.social}>
+                <LikeButton
+                  documentId={listing.internal_id}
+                  entryType={LISTING_ENTRY_TYPE}
+                  ownerId={listing.user_id}
+                  initialCount={data?.like_count ?? listing.like_count ?? 0}
+                  initialLiked={data?.has_liked ?? listing.has_liked ?? false}
+                />
+                <CommentsJump count={comments.length} />
+              </View>
+            </View>
 
             {body ? (
               <Text style={[styles.about, { color: colors.muted }]}>{body}</Text>
             ) : null}
 
+            {/* The details as a plain list — a label and its value a line —
+                rather than tiles: read down, not swiped across. */}
             {specs.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.specsScroll}
-                contentContainerStyle={styles.specs}
-              >
+              <View style={styles.specs}>
                 {specs.map((spec) => (
-                  <View key={spec.label} style={[styles.spec, { backgroundColor: colors.segment }]}>
+                  <View key={spec.label} style={styles.spec}>
                     <Text style={styles.specLabel}>{spec.label}</Text>
-                    <Text style={[styles.specValue, { color: colors.fg }]} numberOfLines={1}>{spec.value}</Text>
+                    <Text style={[styles.specValue, { color: colors.fg }]} numberOfLines={2}>{spec.value}</Text>
                   </View>
                 ))}
-              </ScrollView>
+              </View>
             )}
 
-            {/* The car it's listed off and the groups it's posted in, as the
-                same tiles a post in the home feed carries (PostContextRow):
-                one at half width, two sharing the row, three or more a
-                carousel. Each opens its own summary over this one. */}
-            {(car || groups.some((g) => g.internal_id !== omitGroupId)) ? (
-              <View style={styles.context}>
-                <PostContextRow
-                  omitGroupId={omitGroupId}
-                  post={{
-                    internal_id: listing.internal_id,
-                    group_ids: groups.map((g) => g.internal_id),
-                    tags: car ? [{ tag_entry_type: 'garagecar', tag_internal_id: car.internal_id }] as any : [],
-                  }}
-                />
-              </View>
-            ) : null}
 
-            {/* Likes and comments, on the listing's own record — the generic
-                collections keyed by entry type 'listing'. */}
-            <View style={[styles.social, { borderTopColor: colors.borderDark }]}>
-              <LikeButton
-                documentId={listing.internal_id}
-                entryType={LISTING_ENTRY_TYPE}
-                ownerId={listing.user_id}
-                initialCount={data?.like_count ?? listing.like_count ?? 0}
-                initialLiked={data?.has_liked ?? listing.has_liked ?? false}
-              />
-              {/* The bubble and a number, white, the way the heart beside it
-                  reads — not a sentence. */}
-              <View style={styles.commentCount}>
-                <MessageCircle size={18} color={COLOR_WHITE} />
-                <Text style={styles.commentCountText}>{comments.length}</Text>
-              </View>
-            </View>
+            {/* The rule the like row used to draw, kept to set the thread off
+                from the listing above it. */}
+            <View style={[styles.threadRule, { borderTopColor: colors.borderDark }]} />
 
             {/* A bounded scroller inside the panel's own: unbounded, a busy
                 listing's thread pushed everything else out of a panel that
@@ -403,6 +426,16 @@ export default function ListingSummaryModal({ listingId, origin, onClose, omitGr
           </View>
         </View>
       )}
+
+      {/* The photos full screen, from the one tapped — the car gallery's viewer. */}
+      {viewing !== null && listing ? (
+        <GalleryLightbox
+          images={(listing.gallery ?? []).filter((g) => !!imageUrl(g.filename))}
+          initialIndex={viewing}
+          title={listing.title || undefined}
+          onClose={() => setViewing(null)}
+        />
+      ) : null}
     </SummaryModal>
   );
 }
@@ -424,55 +457,82 @@ function EditListingCog({ listingId }: { listingId: string }) {
       accessibilityRole="button"
       accessibilityLabel="Edit listing"
     >
-      <Settings size={16} color={COLOR_WHITE} strokeWidth={2.2} />
+      {/* ⋯, the app's mark for "things you can do with this" — a cog read as settings. */}
+      <MoreHorizontal size={16} color={COLOR_WHITE} strokeWidth={2.4} />
     </TouchableOpacity>
   );
 }
 
 /**
- * The tallest a lone photo is drawn — 3:4 portrait. Past that, a phone shot
- * of a part held upright filled the panel before any of the listing showed.
+ * The comment bubble and its count — white, the way the heart beside it reads,
+ * not a sentence — and a tap takes the pane down to the thread and the box to
+ * write in. Its own component so it reads the panel it's *inside*: from the
+ * modal's own body, useSummaryPanel answers with the panel underneath.
  */
+function CommentsJump({ count }: { count: number }) {
+  const panel = useSummaryPanel();
+  return (
+    <TouchableOpacity
+      style={styles.commentCount}
+      onPress={() => panel?.scrollToEnd()}
+      hitSlop={8}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${count} comment${count === 1 ? '' : 's'} — go to comments`}
+    >
+      <MessageCircle size={18} color={COLOR_WHITE} />
+      <Text style={styles.commentCountText}>{count}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** The photo tiles' height; each is as wide as its photo's shape makes it. */
+const TILE_H = 150;
+/** A tile's shape before its photo has loaded. */
+const DEFAULT_RATIO = 4 / 3;
+/**
+ * The narrowest and widest a tile is drawn — a tall phone shot of a part, a
+ * panorama — so neither becomes a sliver or a whole screen of one photo.
+ */
+const MIN_RATIO = 9 / 16;
+const MAX_RATIO = 2;
+/** The tallest a lone, full-width photo is drawn — 3:4 portrait. */
 const MIN_SOLO_RATIO = 3 / 4;
 
 const styles = StyleSheet.create({
   loading: { height: 260, alignItems: 'center', justifyContent: 'center' },
 
   photoStrip: { flexGrow: 0 },
-  // Square-ish: a listing photo is as likely to be a portrait shot of a part
-  // as a landscape one of a car, and a letterbox crops the part out of it.
-  photo:      { width: 320, height: 240, backgroundColor: COLOR_GRAY_22 },
-  photoSingle:{ width: '100%', backgroundColor: COLOR_GRAY_22 },
-  // The tile row brings its own 8 of inset and 12 above and below; pulled out
-  // by that much so the tiles line up with the words and sit in the body's gap.
-  context: { marginHorizontal: -8, marginVertical: -8 },
+  // In line with the body's 18, above it.
+  photoRow:   { gap: 8, paddingHorizontal: 18, paddingTop: 18 },
+  photoTile:  { height: TILE_H, borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
+  // One or two photos: inside the body's 18 margins, below the top of the panel.
+  photoInset: { marginHorizontal: 18, marginTop: 18 },
+  photoSingle:{ width: '100%', borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
+  photoPair:  { flexDirection: 'row', gap: 8 },
+  photoHalf:  { flex: 1 },
+  photoHalfImage: { width: '100%', height: TILE_H, borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
   // Beside the title, at its end — the height of the title's first line, so
-  // the two sit on one centre.
+  // the two sit on one centre. Bare, just the ⋯, but still 26 square so it's
+  // as easy to hit.
   editCog: {
-    width: 26, height: 26, borderRadius: 13, flexShrink: 0,
+    width: 26, height: 26, flexShrink: 0,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  // Badges laid over the photo, lifted off it by a soft shadow.
-  onPhoto: {
-    position: 'absolute', maxWidth: '70%',
-    boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
-  },
-  matchOnPhoto: { top: 10, left: 10, overflow: 'hidden' },
+  // Its own line under the title, as wide as its words.
+  matchUnderTitle: { overflow: 'hidden', alignSelf: 'flex-start', maxWidth: '100%' },
   // As on the cards, a size up.
+  // The badges' size — a set 22 tall, the words centred — beside them.
   priceBubble: {
-    left: 10, bottom: 10,
-    flexDirection: 'row', alignItems: 'baseline', gap: 5,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    height: 22, paddingHorizontal: 9, borderRadius: 999,
     backgroundColor: COLOR_GREEN,
   },
-  priceBubbleText: { color: COLOR_BLACK, fontSize: 14, fontFamily: FONT_INTER.semibold, letterSpacing: 0.3 },
+  priceBubbleText: { color: COLOR_BLACK, fontSize: 12, lineHeight: 15, fontFamily: FONT_INTER.semibold, includeFontPadding: false },
   priceBubbleWas: {
-    color: 'rgba(0,0,0,0.6)', fontSize: 11, fontFamily: FONT_INTER.semibold,
+    color: 'rgba(0,0,0,0.6)', fontSize: 10.5, lineHeight: 15, fontFamily: FONT_INTER.semibold, includeFontPadding: false,
     textDecorationLine: 'line-through',
   },
-  noPhoto:    { width: '100%', alignItems: 'center', justifyContent: 'center' },
-  noPhotoText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   body: { padding: 18, paddingBottom: 20, gap: 8 },
 
@@ -489,11 +549,15 @@ const styles = StyleSheet.create({
 
   // Under the title, wrapping if a long condition needs the room.
   badges:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  kindBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+  // A set height with the word centred in it both ways — padding alone sat
+  // the text a hair high, Inter's line box being taller above than below.
+  kindBadge: { height: 22, paddingHorizontal: 9, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  shipBadge: { flexDirection: 'row', gap: 4 },
   // Black on every fill — the palette is all mid-bright.
-  kindBadgeText: { color: '#000000', fontSize: 12, fontFamily: FONT_INTER.semibold },
+  kindBadgeText: { color: '#000000', fontSize: 12, lineHeight: 15, fontFamily: FONT_INTER.semibold, textAlign: 'center', includeFontPadding: false },
 
-  sellerRow:  { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 2 },
+  sellerLine: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
+  sellerRow:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
   sellerName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -503,17 +567,15 @@ const styles = StyleSheet.create({
 
   about: { fontSize: 13.5, lineHeight: 19, marginTop: 4 },
 
-  specsScroll: { flexGrow: 0, flexShrink: 0, marginHorizontal: -18 },
-  specs: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingTop: 6 },
-  spec:  { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, minWidth: 84 },
-  // Quiet, sentence case — the value is what you're reading for.
-  specLabel: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.4)' },
-  specValue: { fontSize: 14, fontFamily: FONT_INTER.semibold, marginTop: 2 },
+  specs: { paddingTop: 6, gap: 4 },
+  spec:  { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  // Quiet, sentence case, in a column of its own — the value is what you're
+  // reading for, and the values line up down the list.
+  specLabel: { width: 76, fontSize: 13, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.45)' },
+  specValue: { flex: 1, fontSize: 13.5, fontFamily: FONT_INTER.semibold },
 
-  social: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    marginTop: 10, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  social:     { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 0 },
+  threadRule: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   commentCount: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   commentCountText: { fontSize: 13, fontFamily: FONT_INTER.medium, color: COLOR_WHITE },
 

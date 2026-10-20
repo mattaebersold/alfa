@@ -1,7 +1,22 @@
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { FONT_INTER } from '@ors/kit/src/theme/fonts';
+import { colors as KIT_COLORS } from '@ors/kit/src/theme/colors';
+/** The live API. */
+const PRODUCTION_API = 'https://factory.openroadsociety.co';
+
+/**
+ * Where requests go. Production, unless a development build is pointed at a
+ * horacio running on this machine with `EXPO_PUBLIC_API_URL` in `.env.local`
+ * (git-ignored) — e.g. `http://192.168.1.20:5000`. Read in __DEV__ only, so a
+ * release build can't ship pointed at a laptop. Expo inlines EXPO_PUBLIC_*
+ * when Metro starts, so restart it (`npx expo start -c`) after changing it.
+ */
+const LOCAL_API = __DEV__ ? process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '') : undefined;
+// Said once at startup, so it's never a guess which server you're talking to.
+if (LOCAL_API) console.log(`[config] API → ${LOCAL_API} (local, from EXPO_PUBLIC_API_URL)`);
+
 export const CONFIG = {
-  API_BASE_URL: 'https://factory.openroadsociety.co',
+  API_BASE_URL: LOCAL_API || PRODUCTION_API,
   S3_BASE_URL: 'https://partstash-ghia-images.s3.us-west-2.amazonaws.com',
   RECAPTCHA_SITE_KEY: '6Le2gDssAAAAAEEsB35y_2yMMs3BWOIRFL9lnrOo',
   NOTIFICATION_POLL_INTERVAL: 30_000,
@@ -68,6 +83,12 @@ export const GUTTER = Platform.OS === 'android' ? 14 : 6;
  * height is the only value that works.
  */
 export const COMMON_RADIUS = 20;
+/**
+ * A form's blocks and fields — its inputs and the cards that hold them
+ * (Optional Details, the tag cards, Post To). Tighter than COMMON_RADIUS so
+ * the cards and the fields inside them read as one set of corners.
+ */
+export const FORM_RADIUS = 10;
 
 /**
  * A fully rounded end, for a shape whose height decides its curve.
@@ -107,8 +128,10 @@ export const COLOR_SECONDARY  = '#DDD8D6'; // the light-mode secondary surface
 export const COLOR_CREAM      = '#F5EFED'; // the light-mode page background
 export const COLOR_LOGO_CREAM = '#F7F1D9'; // the wordmark in the nav drawer
 export const COLOR_CYAN       = '#08DEE3'; // the primary button's fill
-export const COLOR_PRO        = '#E46363'; // Pro red (was the Pro gold, #CDA96F)
-export const COLOR_PRO_DARK   = '#CE4F4F';
+// The Pro red and its darker fill are set in the kit's palette, which the kit's
+// own components draw with too — so the app and the kit can't drift apart.
+export const COLOR_PRO        = KIT_COLORS.pro;        // Pro red (was the Pro gold, #CDA96F)
+export const COLOR_PRO_DARK   = KIT_COLORS.primaryPro;
 // The old Pro gold, kept for what borrowed it without meaning Pro — the
 // condition scale's middle step, the "show" category, ORS-sponsored events —
 // and the fill under the warm oil-sheen film (WARM_SHEEN_FILL in OilSheen).
@@ -326,7 +349,9 @@ export const COLOR_GOOGLE_GREEN  = '#34A853';
  * Note this is a *presentation* limit today: the API does not enforce it, so it
  * shapes what the app offers rather than what the account can hold.
  */
-export const CAR_LIMIT_BASIC = 5;
+export const CAR_LIMIT_BASIC = 3;
+/** Pro's garage — a ceiling, not an allowance. Like the basic one, held here in the app. */
+export const CAR_LIMIT_PRO = 12;
 
 /**
  * Posts a basic member may publish per calendar month.
@@ -335,7 +360,9 @@ export const CAR_LIMIT_BASIC = 5;
  * step with `helpers/limits.js` there — the app draws the meter, the server
  * decides.
  */
-export const POST_LIMIT_BASIC = 20;
+export const POST_LIMIT_BASIC = 15;
+/** Pro's monthly ceiling on posts. Enforced by horacio like the basic one. */
+export const POST_LIMIT_PRO = 100;
 
 /**
  * Events a basic member may create per calendar month. Enforced by horacio
@@ -350,7 +377,9 @@ export const EVENT_LIMIT_BASIC = 3;
  * Diecast listings are outside this count — they're Pro-only outright, so
  * there's no allowance of them to spend.
  */
-export const LISTING_LIMIT_BASIC = 5;
+export const LISTING_LIMIT_BASIC = 3;
+/** Pro's monthly ceiling on listings. Enforced by horacio like the basic one. */
+export const LISTING_LIMIT_PRO = 100;
 
 /**
  * The two ways a basic membership stops short of a marketplace listing, worded
@@ -359,7 +388,7 @@ export const LISTING_LIMIT_BASIC = 5;
  */
 export const LISTING_LIMIT_UPSELL = {
   title: 'Monthly listings used up',
-  message: `A basic membership posts ${LISTING_LIMIT_BASIC} marketplace listings a month, and you've used all of them. Your allowance comes back on the 1st — or go Pro for unlimited listings.`,
+  message: `A basic membership posts ${LISTING_LIMIT_BASIC} marketplace listings a month, and you've used all of them. Your allowance comes back on the 1st — or go Pro for up to ${LISTING_LIMIT_PRO} a month.`,
 };
 
 export const ROUTE_UPSELL = {
@@ -414,7 +443,21 @@ export const LIST_UPSELL = {
   message: "Your top five car designers. The roads you'd drive again. The five mods you want done by next year — pinned to the car they're for. Go Pro to make lists of your own, each entry with a photo, a note and a link. Reading everyone else's stays open to all.",
 };
 
-/** How many cars this member may keep. Pro is unlimited. */
-export function carLimitFor(isPro: boolean): number | null {
-  return isPro ? null : CAR_LIMIT_BASIC;
+/** How many cars this member may keep. */
+export function carLimitFor(isPro: boolean): number {
+  return isPro ? CAR_LIMIT_PRO : CAR_LIMIT_BASIC;
+}
+
+/** Whether this member's garage has room for another car. */
+export const garageFull = (isPro: boolean, count: number) => count >= carLimitFor(isPro);
+
+/** The pitch when a basic garage is full — every add-car button shows this. */
+export const GARAGE_UPSELL = {
+  title: 'A bigger garage with Pro',
+  message: `A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro holds ${CAR_LIMIT_PRO} — every car you've owned, kept in one place.`,
+};
+
+/** A full Pro garage: nothing to sell, so just say where the room comes from. */
+export function showProGarageFull() {
+  Alert.alert('Your garage is full', `Pro holds ${CAR_LIMIT_PRO} cars. Archive or delete one to make room for another.`);
 }

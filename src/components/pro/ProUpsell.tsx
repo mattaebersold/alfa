@@ -13,7 +13,11 @@ import {
   COLOR_BLACK,
   COLOR_ERROR_TEXT_DARK,
   COLOR_ON_GOLD,
+  CAR_LIMIT_PRO,
+  POST_LIMIT_PRO,
+  LISTING_LIMIT_PRO,
 } from '../../constants/config';
+import { PHOTO_SPOT_LIMIT_PRO } from '@ors/kit/src/photography';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -25,16 +29,16 @@ import { FONT_INTER } from '../../constants/fonts'
  * is noise.
  */
 export const PRO_BENEFITS = [
-  'Unlimited cars in your garage',
-  'Unlimited posts — no monthly cap',
-  'Create Unlimited events — no monthly cap',
-  'Unlimited marketplace listings — no monthly cap',
-  'List diecast in the marketplace — a Pro-only category',
+  `${CAR_LIMIT_PRO} cars in your garage`,
+  `${POST_LIMIT_PRO} posts a month`,
+  'Create events — no monthly cap',
+  `${LISTING_LIMIT_PRO} marketplace listings a month`,
   '20 custom alerts — get told the moment a part for your car is listed',
   'Create groups',
   'Create driving routes',
   'Task lists on every car',
-  "Lists on your profile and your cars — top fives, wish lists, next year's mods",
+  `${PHOTO_SPOT_LIMIT_PRO} photography pins`,
+  'Lists on your profile and your cars',
   'Automated diecast marketplace listings',
   'Yearly invite-only PRO rally',
   'Access to the Pro channels on Discord',
@@ -145,7 +149,10 @@ export function ProUpsellModal({
               the action off the bottom of the card. */}
           <ScrollView
             style={styles.listScroll}
-            showsVerticalScrollIndicator={false}
+            // Shown, so a list cut off at its cap reads as one to scroll.
+            showsVerticalScrollIndicator
+            persistentScrollbar
+            nestedScrollEnabled
           >
             {PRO_BENEFITS.map((line, i) => (
               <View key={line} style={[styles.listRow, i > 0 && styles.listRowRule]}>
@@ -251,7 +258,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontFamily: FONT_INTER.bold, color: ON_GOLD, letterSpacing: -0.3, paddingRight: 20 },
   body:  { fontSize: 14, lineHeight: 20, color: ON_GOLD_MUTED, marginTop: 7 },
 
+  // Capped, and free to shrink below that: a ScrollView in a card that only
+  // has a maxHeight otherwise grows to its whole content, so the list never
+  // scrolled — it pushed the button off the card instead.
   listScroll: {
+    flexShrink: 1, maxHeight: 260,
     marginTop: 16, marginBottom: 4,
     borderRadius: 12, overflow: 'hidden',
     borderWidth: 1, borderColor: ON_GOLD_RULE,

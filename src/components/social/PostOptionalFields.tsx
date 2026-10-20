@@ -4,7 +4,7 @@ import { Text, TextInput } from '@ors/kit';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS, COLOR_GRAY_14 } from '../../constants/config';
+import { COLOR_GRAY_14, FORM_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** Every optional field a post can carry. */
@@ -99,7 +99,7 @@ export default function PostOptionalFields({
             <Text style={[styles.countText, { color: colors.fg }]}>{filled}</Text>
           </View>
         )}
-        {open ? <ChevronUp size={18} color={colors.grey} /> : <ChevronDown size={18} color={colors.grey} />}
+        {open ? <ChevronUp size={18} color={colors.grey} strokeWidth={2.8} /> : <ChevronDown size={18} color={colors.grey} strokeWidth={2.8} />}
       </TouchableOpacity>
 
       {open && (
@@ -136,8 +136,8 @@ export default function PostOptionalFields({
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 12, marginTop: 12,
-    borderRadius: COMMON_RADIUS, overflow: 'hidden',
+    marginHorizontal: 12, marginTop: 6,
+    borderRadius: FORM_RADIUS, overflow: 'hidden',
   },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -157,5 +157,5 @@ const styles = StyleSheet.create({
   // The make and model labels' type (the kit's AutocompleteField): bold,
   // sentence case, in the foreground.
   label:     { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
-  input: { height: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
+  input: { height: 44, borderWidth: 1, borderRadius: FORM_RADIUS, paddingHorizontal: 12, fontSize: 15 },
 });

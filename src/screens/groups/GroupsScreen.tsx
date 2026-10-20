@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Users, MapPin, Ban } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupsQuery, useGetUserGroupsQuery, useGetDeclinedInvitesQuery } from '../../api/apiService';
@@ -283,10 +283,18 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const brand = useBrandColor();
   const [newGroupOpen, setNewGroupOpen] = useState(false);
 
-  const { data: rawUserGroups, isLoading: userGroupsLoading } = useGetUserGroupsQuery(
+  const { data: rawUserGroups, isLoading: userGroupsLoading, refetch: refetchUserGroups } = useGetUserGroupsQuery(
     userInfo?.user_id ?? '',
     { skip: !userInfo?.user_id },
   );
+  /**
+   * The server orders your groups by when you last used them — opened or
+   * posted in (horacio's helpers/groupActivity). Opening one and coming back
+   * moves it to the front, so the list is read again on the way back.
+   */
+  useFocusEffect(useCallback(() => {
+    if (userInfo?.user_id) refetchUserGroups();
+  }, [userInfo?.user_id, refetchUserGroups]));
   /**
    * Groups you've actually joined.
    *

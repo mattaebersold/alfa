@@ -9,8 +9,12 @@ import {
   EVENT_LIMIT_BASIC,
   LISTING_LIMIT_BASIC,
   POST_LIMIT_BASIC,
+  CAR_LIMIT_PRO,
+  POST_LIMIT_PRO,
+  LISTING_LIMIT_PRO,
   COLOR_BLACK,
 } from '../../constants/config';
+import { PHOTO_SPOT_LIMIT_BASIC, PHOTO_SPOT_LIMIT_PRO } from '@ors/kit/src/photography';
 import type { MonthlyUsage } from '../../types/api';
 import { ProUpsell } from './ProUpsell';
 import { FONT_INTER } from '../../constants/fonts'
@@ -40,6 +44,7 @@ export default function UsagePanel({
   events,
   listings,
   alerts,
+  photoSpots,
   style,
 }: {
   cars: { used: number; limit: number | null };
@@ -54,6 +59,11 @@ export default function UsagePanel({
    * not under it. Missing from servers older than the feature.
    */
   alerts?: { used: number; limit: number | null };
+  /**
+   * Photography pins on the map — a standing count like cars: deleting a spot
+   * gives its slot back. Missing until the kit's spot usage has loaded.
+   */
+  photoSpots?: { used: number; limit: number | null };
   style?: any;
 }) {
   const brand = useBrandColor();
@@ -77,6 +87,9 @@ export default function UsagePanel({
           reporting draws nothing at all. */}
       {typeof alerts?.used === 'number' && (
         <UsageBar label="Custom alerts" used={alerts.used} limit={alerts.limit ?? null} />
+      )}
+      {photoSpots && (
+        <UsageBar label="Photography pins" used={photoSpots.used} limit={photoSpots.limit} />
       )}
 
       <View style={styles.sectionHead}>
@@ -102,10 +115,10 @@ export default function UsagePanel({
       {/* Nothing to sell someone who already has it. */}
       {!isPro && (
         <View style={styles.foot}>
-          <Text style={styles.footText}>Pro removes every limit.</Text>
+          <Text style={styles.footText}>Pro raises every limit.</Text>
           <ProUpsell
             title="No limits with Pro"
-            message={`A basic membership holds ${CAR_LIMIT_BASIC} garage cars and ${ALERT_LIMIT_BASIC} custom alert, with ${POST_LIMIT_BASIC} posts, ${EVENT_LIMIT_BASIC} new events and ${LISTING_LIMIT_BASIC} marketplace listings a month. Pro removes the limits, opens up diecast listings, and unlocks route recording and the rest of the garage tools.`}
+            message={`A basic membership holds ${CAR_LIMIT_BASIC} garage cars, ${PHOTO_SPOT_LIMIT_BASIC} photography pins and ${ALERT_LIMIT_BASIC} custom alert, with ${POST_LIMIT_BASIC} posts, ${EVENT_LIMIT_BASIC} new events and ${LISTING_LIMIT_BASIC} marketplace listings a month. Pro raises them to ${CAR_LIMIT_PRO} cars, ${PHOTO_SPOT_LIMIT_PRO} pins, and ${POST_LIMIT_PRO} posts and ${LISTING_LIMIT_PRO} listings a month, and unlocks route recording and the rest of the garage tools.`}
             // Its own gold would vanish into a Pro card, but a Pro card never
             // shows it; on blue it needs a dark edge to stand off the fill.
             style={styles.upsellBtn}

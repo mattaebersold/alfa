@@ -649,7 +649,9 @@ const styles = StyleSheet.create({
   expandHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   // SharedModal's grabber, darkened behind so it reads over any map.
   grabberWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  grabberHit:  { paddingTop: 8, paddingBottom: 12, paddingHorizontal: 24 },
+  // Floats over the map, so a bigger target costs no layout: taller, and
+  // wide enough to find without looking.
+  grabberHit:  { paddingTop: 12, paddingBottom: 18, paddingHorizontal: 72 },
   grabber:     {
     width: 38, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.85)',
     shadowColor: COLOR_BLACK, shadowOpacity: 0.5, shadowRadius: 3, shadowOffset: { width: 0, height: 0 }, elevation: 2,

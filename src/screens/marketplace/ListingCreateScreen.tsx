@@ -5,11 +5,11 @@ import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Check, Tag, X, Plus } from 'lucide-react-native';
+import { X, Plus } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
-import Segmented from '../../components/ui/Segmented';
+import SubTabs from '../../components/ui/SubTabs';
 import PostToSelector from '../../components/social/PostToSelector';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import GarageCarStrip from '../../components/social/GarageCarStrip';
@@ -34,6 +34,7 @@ import {
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
+import { blockProfanity } from '../../utils/profanity';
 import {
   categoryLabel, isDiecastCategory, isVehicleCategory, LISTING_CONDITIONS,
 } from '../../components/marketplace/listingFormat';
@@ -349,6 +350,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
    * listing that started from a car can be loosened into a generic one without
    * retyping what was right.
    */
+  const hasGarage = (garage?.entries?.length ?? 0) > 0;
   const chooseCar = (carId: string) => {
     if (form.car_id === carId) {
       setForm((prev) => ({ ...prev, car_id: '' }));
@@ -362,7 +364,8 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
       model: car?.model ?? prev.model,
       year: car?.year ?? prev.year,
       trim: car?.trim ?? prev.trim,
-      color: car?.color ?? prev.color,
+      // Not the colour: a part or a want ad isn't the car's colour, so it
+      // was a field filled in for nothing that the seller had to clear.
       vin: car?.vin ?? prev.vin,
       mileage: car?.mileage ?? prev.mileage,
     }));
@@ -389,6 +392,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   };
 
   const handleSubmit = async () => {
+    if (blockProfanity({ title: form.title, description: form.body })) { setStep(1); return; }
     if (!form.title.trim() || !form.category) {
       Alert.alert('Almost there', 'A title and a category are needed before this can be posted.');
       setStep(1);
@@ -534,7 +538,9 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
       step={step}
       totalSteps={STEP_TITLES.length}
       onBack={() => setStep((s) => s - 1)}
-      onNext={() => setStep((s) => s + 1)}
+      // Checked on the way past each step, so the word is fixed on the step
+      // that has it rather than found at the end.
+      onNext={() => { if (!blockProfanity({ title: form.title, description: form.body })) setStep((s) => s + 1); }}
       canAdvance={advance}
       onSubmit={() => submitRef.current()}
       submitLabel={isEdit ? 'Save' : 'Post'}
@@ -560,40 +566,17 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
         {/* ── STEP 1: which side of the market, and what it is ───────────── */}
         {step === 1 && (
           <View>
-            {/* For sale or wanted: two tiles, half the row each. */}
-            <View style={styles.kindGrid}>
-              {([
-                { key: 'sale' as const, title: 'For sale' },
-                { key: 'want' as const, title: 'Want ad' },
-              ]).map((opt) => {
-                const on = form.kind === opt.key;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[
-                      styles.kindTile,
-                      { backgroundColor: colors.inputBg, borderColor: colors.inputBorder },
-                      on && { borderColor: brand, backgroundColor: brand + '1F' },
-                    ]}
-                    onPress={() => set('kind')(opt.key)}
-                    activeOpacity={0.85}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: on }}
-                  >
-                    <Tag size={16} color={on ? brand : colors.grey} />
-                    <Text style={[styles.kindTitle, { color: on ? colors.fg : colors.muted }]} numberOfLines={1}>
-                      {opt.title}
-                    </Text>
-                    <View style={[
-                      styles.check,
-                      { borderColor: on ? brand : colors.inputBorder },
-                      on && { backgroundColor: brand },
-                    ]}>
-                      {on && <Check size={11} color={COLOR_BLACK} strokeWidth={3.5} />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+            {/* For sale or wanted: sub tabs, like the category under it —
+                the two read as two steps of one choice. */}
+            <View style={styles.kindTrack}>
+              <SubTabs
+                options={[
+                  { key: 'sale' as const, label: 'For sale' },
+                  { key: 'want' as const, label: 'Want ad' },
+                ]}
+                value={form.kind}
+                onChange={set('kind')}
+              />
             </View>
 
             {/* The post form's type track: one of these, the thumb sliding
@@ -601,23 +584,41 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                 member who can't see the category doesn't know the app does
                 it, and one who picks it is told why now — not at the end
                 by a server refusal. */}
-            <Label colors={colors}>Category</Label>
             <View style={styles.categoryTrack}>
-              <Segmented
+              <SubTabs
                 options={categories.map((c) => ({
                   key: c,
                   label: isDiecastCategory(c) && !isPro ? `${categoryLabel(c)} · Pro` : categoryLabel(c),
                 }))}
                 value={form.category}
                 onChange={(c) => (isDiecastCategory(c) && !isPro ? setUpsell(DIECAST_UPSELL) : set('category')(c))}
-                fit="scroll"
               />
             </View>
 
-            {/* Photos, as the post form has them: the well, then a row of
+            {/* The post form's title and description: the placeholder is the
+                label. */}
+            <TextInput
+              style={[ss.formInput, styles.formField, { backgroundColor: colors.inputBg, color: colors.fg }]}
+              value={form.title}
+              onChangeText={set('title')}
+              placeholder="Title"
+              placeholderTextColor={colors.grey}
+              maxLength={120}
+            />
+            <TextInput
+              style={[ss.formInput, ss.formInputMulti, styles.formField, { backgroundColor: colors.inputBg, color: colors.fg }]}
+              value={form.body}
+              onChangeText={set('body')}
+              placeholder="Description"
+              placeholderTextColor={colors.grey}
+              multiline
+              numberOfLines={5}
+            />
+
+            {/* Photos, under the description: the well, then a row of
                 thumbnails that scrolls. The photos already on the listing
                 lead it — removing one of those is done from the listing. */}
-            <Label colors={colors}>Photos</Label>
+            <View style={styles.photos}>
             {existingPhotos.length === 0 && form.images.length === 0 ? (
               <PhotoPickerField
                 onPress={pickImages}
@@ -662,23 +663,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                 </TouchableOpacity>
               </ScrollView>
             )}
-
-            <Label colors={colors}>Title</Label>
-            <TextInput
-              style={[ss.input, inputStyle(colors)]}
-              value={form.title}
-              onChangeText={set('title')}
-              maxLength={120}
-            />
-
-            <Label colors={colors}>Description</Label>
-            <TextInput
-              style={[ss.input, ss.inputMulti, inputStyle(colors)]}
-              value={form.body}
-              onChangeText={set('body')}
-              multiline
-              numberOfLines={5}
-            />
+            </View>
           </View>
         )}
 
@@ -691,13 +676,11 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                 scale's index. */}
             {form.kind === 'sale' && (
               <>
-                <Label colors={colors} first>Condition</Label>
-                <View style={styles.categoryTrack}>
-                  <Segmented
+                <View style={[styles.categoryTrack, styles.firstTrack]}>
+                  <SubTabs
                     options={conditions.map((label, i) => ({ key: String(i), label })).reverse()}
                     value={form.condition == null ? '' : String(form.condition)}
                     onChange={(k) => set('condition')(Number(k))}
-                    fit="scroll"
                   />
                 </View>
               </>
@@ -705,12 +688,12 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
 
             {form.kind === 'sale' ? (
               <>
-                <Label colors={colors} first={form.kind !== 'sale'}>Price</Label>
                 <View style={styles.categoryTrack}>
-                  <Segmented
+                  <SubTabs
                     options={PRICE_MODES.map((m) => ({ key: m.key, label: m.label }))}
                     value={form.price_mode}
                     onChange={set('price_mode')}
+                    stretch
                   />
                 </View>
 
@@ -719,10 +702,10 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                     price is the choice. */}
                 {form.price_mode === 'amount' && (
                   <TextInput
-                    style={[ss.input, inputStyle(colors), styles.spaced]}
+                    style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }, styles.spaced]}
                     value={form.price}
                     onChangeText={set('price')}
-                    placeholder="$"
+                    placeholder="Price ($)"
                     placeholderTextColor={colors.grey}
                     keyboardType="numeric"
                   />
@@ -735,7 +718,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                   Optional. A number here is what the card shows as "Will pay $400".
                 </Text>
                 <TextInput
-                  style={[ss.input, inputStyle(colors)]}
+                  style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
                   value={form.willing_to_pay}
                   onChangeText={set('willing_to_pay')}
                   placeholder="$"
@@ -745,19 +728,33 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
               </>
             )}
 
-            <Label colors={colors}>Shipping</Label>
             <View style={styles.categoryTrack}>
-              <Segmented
+              <SubTabs
                 options={SHIPPING_CHOICES.map((c) => ({ key: c.key, label: c.label }))}
                 value={form.shipping}
                 onChange={set('shipping')}
+                stretch
               />
             </View>
 
             {/* Only the categories that are — or come off — a car. */}
             {isVehicleCategory(form.category) && (
               <>
-                <View style={styles.makeModel}>
+                {/* The garage as the post form's tag strip, over the fields it
+                    fills: the cars by their photos, one pickable. Picking one
+                    puts its make, model and the rest into the fields below —
+                    over whatever was typed — and links the listing to it. */}
+                {hasGarage && (
+                  <View style={styles.garage}>
+                    <Label colors={colors} first>Link a car from your garage</Label>
+                    <GarageCarStrip
+                      selectedIds={form.car_id ? [form.car_id] : []}
+                      onToggle={(tag) => chooseCar(tag.id)}
+                      bleed={inline ? 12 : 16}
+                    />
+                  </View>
+                )}
+                <View style={[styles.makeModel, !hasGarage && styles.makeModelFirst]}>
                   <MakeModelFields
                     make={form.make}
                     model={form.model}
@@ -803,25 +800,11 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
         {/* ── STEP 3: which car, where it is, and who sees it ────────────── */}
         {step === 3 && (
           <View>
-            {/* The garage as the post form's tag strip: the cars by their
-                photos, one pickable. Picking fills the make and model, and
-                the listing links back to the car. */}
-            {(garage?.entries?.length ?? 0) > 0 && (
-              <>
-                <Label colors={colors} first>Link a car from your garage</Label>
-                <GarageCarStrip
-                  selectedIds={form.car_id ? [form.car_id] : []}
-                  onToggle={(tag) => chooseCar(tag.id)}
-                  bleed={inline ? 12 : 16}
-                />
-              </>
-            )}
-
             {/* Defaulted from your profile, so nobody retypes their zip for
                 every part they list — which is how a marketplace ends up
                 unable to answer "near me". */}
             <TextInput
-              style={[ss.input, inputStyle(colors), styles.spaced]}
+              style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }, styles.spaced]}
               value={form.zip}
               onChangeText={set('zip')}
               placeholder="Zip code"
@@ -908,13 +891,6 @@ function Label({ children, colors, first }: {
   );
 }
 
-// The post form's fields: the input ground, not the card's.
-const inputStyle = (colors: ReturnType<typeof useColors>) => ({
-  borderColor: colors.inputBorder,
-  color: colors.fg,
-  backgroundColor: colors.inputBg,
-});
-
 function SmallField({ colors, label, value, onChange, numeric }: {
   colors: ReturnType<typeof useColors>;
   label: string;
@@ -923,13 +899,15 @@ function SmallField({ colors, label, value, onChange, numeric }: {
   numeric?: boolean;
 }) {
   return (
+    // The form's field, the label as its placeholder.
     <View style={styles.pairHalf}>
-      <Text style={[styles.smallLabel, { color: colors.grey }]}>{label}</Text>
       <TextInput
-        style={[ss.input, inputStyle(colors)]}
+        style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
         value={value}
         onChangeText={onChange}
+        placeholder={label}
         placeholderTextColor={colors.grey}
+        accessibilityLabel={label}
         keyboardType={numeric ? 'numeric' : 'default'}
         autoCapitalize="none"
       />
@@ -976,19 +954,25 @@ const styles = StyleSheet.create({
   spacedMore: { height: 14 },
 
   // Two across, half each: the icon, the word, the check.
-  kindGrid:  { flexDirection: 'row', gap: 10, marginTop: 4 },
-  kindTile:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 12, height: 50 },
-  kindTitle: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
-  categoryTrack: { marginHorizontal: -12 },
-  // Room under the make/model pair before the year and trim.
+  // Out to the form's edges: SubTabs brings its own side margin.
+  kindTrack: { marginHorizontal: -12, marginTop: 4 },
+  // The first track on a step sits up under the step row, as the kind track does.
+  firstTrack: { marginTop: 4 },
+  categoryTrack: { marginHorizontal: -12, marginTop: 12 },
+  // No labels over step 1's fields: these gaps stand in for them.
+  formField: { marginTop: 12 },
+  photos:    { marginTop: 12 },
+  // Clear of the shipping track above.
+  garage:        { marginTop: 20 },
+  // Room under the make/model pair before the year and trim. Under the
+  // garage strip, its own bottom margin is the gap; with no strip, the
+  // pair takes the garage's gap from the shipping track itself.
   makeModel:     { marginBottom: 12 },
+  makeModelFirst:{ marginTop: 20 },
   // The post form's photo well and thumbnail row.
-  photoField: { alignSelf: 'stretch', maxWidth: '100%', marginBottom: 6 },
+  // No top margin of its own — the well's 18 on top of `photos`' 12 left a gap under the description.
+  photoField: { alignSelf: 'stretch', maxWidth: '100%', marginTop: 0, marginBottom: 6 },
   thumbRow:   { marginBottom: 4 },
-  check: {
-    width: 20, height: 20, borderRadius: 6, borderWidth: 2,
-    alignItems: 'center', justifyContent: 'center',
-  },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:  {
@@ -1012,7 +996,6 @@ const styles = StyleSheet.create({
 
   pairRow:  { flexDirection: 'row', gap: 10 },
   pairHalf: { flex: 1, marginBottom: 10 },
-  smallLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 5 },
 
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

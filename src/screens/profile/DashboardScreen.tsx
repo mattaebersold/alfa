@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text, useGetPhotoSpotUsageQuery } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
 import { Image } from 'expo-image';
@@ -51,7 +51,7 @@ import { useIsPro } from '../../hooks/useBrandColor';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import {
-  CAR_LIMIT_BASIC,
+  garageFull, showProGarageFull, GARAGE_UPSELL,
   COMMON_RADIUS,
   PILL_RADIUS,
   COLOR_BLACK,
@@ -370,6 +370,9 @@ export default function DashboardScreen() {
   const isPro = useIsPro();
   // Only the basic card reads this, so Pro doesn't pay for the count queries.
   const { data: usage } = useGetUsageQuery(undefined, { skip: isPro });
+  // From the kit's own endpoint rather than /api/users/usage: pinning and
+  // removing a spot go through the kit's API, which refreshes this one.
+  const { data: spotUsage } = useGetPhotoSpotUsageQuery(undefined, { skip: isPro });
   const { data: garageData, refetch: refetchGarage } = useGetUserGarageQuery();
   const { data: postsData } = useGetPostsQuery(
     { user_id: userInfo?.user_id ?? '', limit: 30 },
@@ -422,7 +425,7 @@ export default function DashboardScreen() {
 
   const displayName = user.username;
   const cars = garageData?.entries ?? [];
-  const atCarLimit = !isPro && cars.length >= CAR_LIMIT_BASIC;
+  const atCarLimit = garageFull(isPro, cars.length);
   const [upsell, setUpsell] = useState(false);
   const posts = postsData?.entries ?? [];
   const blockedUsers = blockedData?.entries ?? [];
@@ -624,6 +627,7 @@ export default function DashboardScreen() {
             events={usage.events}
             listings={usage.listings}
             alerts={usage.alerts}
+            photoSpots={spotUsage}
           />
         )}
 
@@ -801,7 +805,7 @@ export default function DashboardScreen() {
               // worked this way; this one navigated straight through.
               onPress={() => {
                 setSheet(null);
-                if (atCarLimit) setUpsell(true);
+                if (atCarLimit) { if (isPro) showProGarageFull(); else setUpsell(true); }
                 else navigation.navigate('CarCreate', {});
               }}
               style={{ marginHorizontal: 16, marginVertical: 14 }}
@@ -863,8 +867,8 @@ export default function DashboardScreen() {
       <ProUpsellModal
         visible={upsell}
         onClose={() => setUpsell(false)}
-        title="Unlimited garage with Pro"
-        message={`A basic membership holds ${CAR_LIMIT_BASIC} cars. Pro removes the limit — every car you've owned, kept in one place.`}
+        title={GARAGE_UPSELL.title}
+        message={GARAGE_UPSELL.message}
       />
 
       {/* Archived cars sheet — where a car goes instead of being deleted, and

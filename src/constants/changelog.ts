@@ -25,6 +25,53 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.70': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Creating posts',
+        items: [
+          'Cleaner styling and layout on the create form for posts, polls and listings.',
+          'Suggestions when tagging members, cars and events now show above the field, so the keyboard doesn\'t cover them.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'Set the generation of your car, when its model has more than one.',
+          'If one of your garage cars can now have a generation set, you\'ll get a notice. Edit the car to choose it.',
+          'Fixed only some models showing after choosing a car\'s make.',
+          'A better layout for brand and model pages.',
+        ],
+      },
+      {
+        title: 'Marketplace',
+        items: [
+          'Pick a car from your garage when making a listing to fill in its make and model.',
+          'An improved layout for a listing\'s detail view.',
+          'A better layout for managing your listings.',
+        ],
+      },
+      {
+        title: 'Home feed',
+        items: [
+          'Tidier ORS Guessing Game cards at the top of the feed.',
+          'Small updates to the suggested members and cars.',
+          'Likes are more reliable, and keep their count as you scroll.',
+        ],
+      },
+      {
+        title: 'Everything else',
+        items: [
+          'Your groups are sorted by the ones you\'ve used most recently.',
+          'Fixed likes on photography pins not saving.',
+          'A cleaner bookmarks panel, and a check before removing a bookmark.',
+          'Updated limits for basic and Pro memberships.',
+          'A language filter on everything you write.',
+        ],
+      },
+    ],
+  },
   '1.69': {
     date: 'October 2026',
     groups: [
