@@ -97,6 +97,12 @@ interface SharedModalProps {
    * behind its content, like What's new.
    */
   surface?: string;
+  /**
+   * The grabber strip and title row alone, in their own colour — the step
+   * forms' darker header (see STEP_FORM_HEADER_BG). The fade under it starts
+   * from this colour too.
+   */
+  headerSurface?: string;
   /** No title row — the grabber alone, for a sheet whose content heads itself. */
   hideHeader?: boolean;
   /**
@@ -115,7 +121,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, hideHeader = false, edgeToEdge = false, headFade = true, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, headerSurface, hideHeader = false, edgeToEdge = false, headFade = true, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -235,13 +241,13 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             {/* Tap it or drag it down — both close. */}
             <Pressable
               onPress={onClose}
-              style={[styles.grabberHit, hideHeader ? styles.grabberClear : surface != null && { backgroundColor: surface }]}
+              style={[styles.grabberHit, hideHeader ? styles.grabberClear : (headerSurface ?? surface) != null && { backgroundColor: headerSurface ?? surface }]}
               hitSlop={6}
             >
               <View style={[styles.grabber, hideHeader && styles.grabberOver]} />
             </Pressable>
             {hideHeader ? null : (
-            <View style={[styles.header, surface != null && { backgroundColor: surface }]}>
+            <View style={[styles.header, (headerSurface ?? surface) != null && { backgroundColor: headerSurface ?? surface }]}>
               {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
               <View style={styles.headerRight}>
                 {headerRight}
@@ -262,7 +268,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           {hideHeader || !headFade ? null : (
             <View style={styles.headSeam} pointerEvents="none">
               <LinearGradient
-                colors={fadeColors(surface ?? SHEET_BG)}
+                colors={fadeColors(headerSurface ?? surface ?? SHEET_BG)}
                 locations={FADE_LOCATIONS}
                 style={styles.headFade}
               />

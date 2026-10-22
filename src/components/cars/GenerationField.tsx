@@ -62,11 +62,11 @@ export default function GenerationField({ make, model, year, value, onChange, hi
 
   const field = (
     <AutocompleteField
-      label="Generation (optional)"
+      // No label: the placeholder names it, as on the rest of the form's first step.
       value={value}
       onChangeText={onChange}
       suggestions={names}
-      placeholder={`e.g. ${names[names.length - 1]}`}
+      placeholder={`Generation (optional) — e.g. ${names[names.length - 1]}`}
       autoCapitalize="none"
       // A line under it only while it's asking to be filled.
       message={highlight && !value ? `New — choose which ${model.trim()} this is.` : undefined}

@@ -209,8 +209,12 @@ export function ComposerAttach({ photos, tint }: { photos: ComposerPhotos; tint:
 
 /** The field grows with the text to about five lines, then scrolls. */
 const FIELD_MAX_H = 120;
-/** A line of the field's text, and a little — past it, the text has wrapped. */
-const ONE_LINE_H = 26;
+/**
+ * One line of the field, and a little — past it, the text has wrapped. The
+ * reported content size counts the field's padding (10 above and below the
+ * 20pt line), so one line reads as 40, not 20.
+ */
+const ONE_LINE_H = 48;
 
 /**
  * Where a comment or a message is written: a bar whose field is the real text

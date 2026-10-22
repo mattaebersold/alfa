@@ -32,7 +32,7 @@ import MakeModelFields from '../../components/cars/MakeModelFields';
 import GenerationField from '../../components/cars/GenerationField';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import SharedModal from '../../components/ui/SharedModal';
-import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
+import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
 import { groupCarsLine } from '../../utils/groupCars';
 import { FONT_INTER } from '../../constants/fonts'
@@ -65,8 +65,9 @@ const STEP_TITLES = [
  * this a preview rather than a form control — you pick the orange one because
  * you can see it's the orange one.
  *
- * Unpicked chips are dimmed rather than decoloured, so the set still reads as
- * a palette and the choice still reads as a choice.
+ * Only the picked chip wears its colour; the rest are the plain outline every
+ * other row uses. A whole row of dimmed badge colours was a lot of colour for
+ * one decision, and the preview only needs to show the one you chose.
  */
 function ChipSelect<T extends { key: string; label: string }>({
   items, value, onChange, label, colorFor, style,
@@ -100,17 +101,14 @@ function ChipSelect<T extends { key: string; label: string }>({
               key={item.key}
               style={[
                 cs.chip,
-                tone
-                  ? [{ backgroundColor: tone.bg }, !on && cs.chipOff]
-                  : [
-                      cs.chipPlain,
-                      on
-                        // Blue, or gold for Pro — the same fill every other
-                        // selected control uses. Black on both: these are light
-                        // fills and white on them is unreadable.
-                        ? { backgroundColor: brand, borderColor: brand }
-                        : { borderColor: colors.border, backgroundColor: colors.card },
-                    ],
+                cs.chipPlain,
+                on
+                  // The badge colour, or — for rows without one — blue, or gold
+                  // for Pro, the same fill every other selected control uses.
+                  // Black on both: these are light fills and white on them is
+                  // unreadable.
+                  ? { backgroundColor: tone?.bg ?? brand, borderColor: tone?.bg ?? brand }
+                  : { borderColor: colors.border, backgroundColor: colors.card },
               ]}
               onPress={() => onChange(item.key)}
               activeOpacity={0.8}
@@ -120,7 +118,7 @@ function ChipSelect<T extends { key: string; label: string }>({
               <Text
                 style={[
                   cs.chipText,
-                  tone ? { color: tone.text } : { color: on ? COLOR_BLACK : colors.fg },
+                  { color: on ? tone?.text ?? COLOR_BLACK : colors.fg },
                 ]}
               >
                 {item.label}
@@ -140,37 +138,47 @@ const cs = StyleSheet.create({
   label:   { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 8 },
   chips:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:    { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS },
-  chipOff: { opacity: 0.32 },
-  // The uncoloured variant, for rows with no badge palette of their own.
   chipPlain:  { borderWidth: 1.5 },
   chipText:   { fontSize: 13, fontFamily: FONT_INTER.bold },
 });
 
 // ── Field ─────────────────────────────────────────────────────────────────────
 function Field({
-  label, value, onChange, placeholder, numeric, optional, multiline, style,
+  label, value, onChange, placeholder, numeric, optional, multiline, maxLength, bare, style,
 }: {
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; numeric?: boolean; optional?: boolean; multiline?: boolean;
+  maxLength?: number;
+  /**
+   * No label over it: the label is the placeholder instead ("Title *",
+   * "Your type (optional)"), with `placeholder` after it as an example.
+   */
+  bare?: boolean;
   /** Overrides the field's own width — see the specs grid. */
   style?: any;
 }) {
   const colors = useColors();
+  const spoken = optional ? `${label} (optional)` : label;
   return (
     <View style={[f.wrapper, style]}>
-      <Text style={[f.label, { color: colors.fg }]}>
-        {label} {optional && <Text style={[f.opt, { color: colors.grey }]}>(optional)</Text>}
-      </Text>
+      {!bare && (
+        <Text style={[f.label, { color: colors.fg }]}>
+          {label} {optional && <Text style={[f.opt, { color: colors.grey }]}>(optional)</Text>}
+        </Text>
+      )}
       <TextInput
         style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }, multiline && ss.inputMulti]}
         value={value}
         onChangeText={onChange}
-        placeholder={placeholder ?? ''}
+        placeholder={bare ? (placeholder ? `${spoken} — ${placeholder}` : spoken) : placeholder ?? ''}
         placeholderTextColor={colors.grey}
         keyboardType={numeric ? 'numeric' : 'default'}
         autoCapitalize="none"
         multiline={multiline}
         numberOfLines={multiline ? 4 : 1}
+        maxLength={maxLength}
+        // With no label drawn, the field still has to say what it's for.
+        accessibilityLabel={bare ? spoken : undefined}
       />
     </View>
   );
@@ -185,6 +193,12 @@ const f = StyleSheet.create({
 type FormData = {
   title: string; year: string; make: string; model: string; generation: string;
   type: string; category: string;
+  /**
+   * What the member typed when "Other" was picked — a type, or a category on
+   * a type whose list doesn't have theirs. Sent in place of "other"; see
+   * resolvedType / resolvedCategory.
+   */
+  customType: string; customCategory: string;
   trim: string; color: string; engine: string; mileage: string;
   horsepower: string; torque: string; vin: string; condition: string; body: string;
   group_id: string;
@@ -194,6 +208,7 @@ type FormData = {
 
 const EMPTY_FORM: FormData = {
   title: '', year: '', make: '', model: '', generation: '', type: 'daily', category: '',
+  customType: '', customCategory: '',
   trim: '', color: '', engine: '', mileage: '', horsepower: '', torque: '',
   vin: '', condition: CONDITIONS[0]?.key ?? '', body: '', group_id: '',
   mods: [], images: [],
@@ -205,6 +220,45 @@ const freshForm = (): FormData => ({
   type: 'daily',
   category: CAR_CATEGORIES['daily'][0]?.key ?? '',
 });
+
+/** Long enough for a name, short enough to fit on a badge. */
+const CUSTOM_MAX = 30;
+
+/** A type that isn't one of ours was typed in under "Other". */
+const isCustomType = (type: string) => !CAR_TYPES.some((t) => t.key === type);
+
+/**
+ * A saved car's type and category, as the form holds them.
+ *
+ * The reverse of resolveType / resolveCategory: a type or category the
+ * member typed comes back as "Other" with their words in the field under it,
+ * so editing the car shows what they wrote rather than a chip with nothing
+ * picked. Types with no list ("Other", "Part Out") hold the category as typed.
+ */
+const splitCustom = (savedType: string, savedCategory: string) => {
+  const customType = isCustomType(savedType) ? savedType : '';
+  const type = customType ? 'other' : savedType;
+  const list = CAR_CATEGORIES[type] ?? [];
+  const customCategory = list.length && savedCategory && !list.some((c) => c.key === savedCategory)
+    ? savedCategory
+    : '';
+  return {
+    type,
+    category: customCategory ? 'other' : savedCategory,
+    customType,
+    customCategory,
+  };
+};
+
+/** The type to save: what was typed under "Other", or the chip's key. */
+const resolveType = (form: FormData) =>
+  (form.type === 'other' && form.customType.trim()) || form.type;
+
+/** The category to save: what was typed under "Other", or the chip's key. */
+const resolveCategory = (form: FormData) => {
+  if (!(CAR_CATEGORIES[form.type] ?? []).length) return form.category.trim();
+  return (form.category === 'other' && form.customCategory.trim()) || form.category;
+};
 
 /**
  * A half-finished car, kept for as long as the app is running.
@@ -332,8 +386,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
         make: existingCar.make ?? '',
         model: existingCar.model ?? '',
         generation: existingCar.generation ?? '',
-        type: existingCar.type ?? 'daily',
-        category: existingCar.category ?? '',
+        ...splitCustom(existingCar.type ?? 'daily', existingCar.category ?? ''),
         trim: existingCar.trim ?? '',
         color: existingCar.color ?? '',
         engine: existingCar.engine ?? '',
@@ -384,6 +437,20 @@ export function CarCreateSheet({ carId, onDismissed }: {
   };
 
   const categories = CAR_CATEGORIES[form.type] ?? [];
+  // Every list ends in "Other", so any type can take a category of its own.
+  const categoryChips = categories.length && !categories.some((c) => c.key === 'other')
+    ? [...categories, { key: 'other', label: 'Other' }]
+    : categories;
+  const resolvedType = resolveType(form);
+  const resolvedCategory = resolveCategory(form);
+  // Checked on Next and on submit — see utils/profanity. Type and category
+  // only once typed: a picked chip is the app's own word.
+  const hasProfanity = () => blockProfanity({
+    title: form.title,
+    type: form.type === 'other' ? form.customType : '',
+    category: resolvedCategory,
+    description: form.body,
+  });
 
   // Step validation
   /**
@@ -501,7 +568,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
 
   // Final submit
   const handleSubmit = async () => {
-    if (blockProfanity({ title: form.title, description: form.body })) return;
+    if (hasProfanity()) return;
     /**
      * Make and model must be picked, not just typed.
      *
@@ -528,8 +595,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
     fd.append('model_handle', form.model.toLowerCase());
     // Always sent on an edit, so clearing it clears it.
     if (isEditMode || form.generation.trim()) fd.append('generation', form.generation.trim());
-    fd.append('type', form.type);
-    fd.append('category', form.category);
+    fd.append('type', resolvedType);
+    fd.append('category', resolvedCategory);
     if (form.trim)       fd.append('trim', form.trim);
     if (form.color)      fd.append('color', form.color);
     if (form.engine)     fd.append('engine', form.engine);
@@ -632,6 +699,9 @@ export function CarCreateSheet({ carId, onDismissed }: {
      * The header X is gone — it was a third control for the same job.
      */
     <SharedModal
+      headerSurface={STEP_FORM_HEADER_BG}
+      // No fade under the darker header: it reads as a smear on the body.
+      headFade={false}
       visible={visible}
       onClose={() => setVisible(false)}
       onDismissed={() => {
@@ -646,8 +716,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
           step={step}
           totalSteps={STEP_TITLES.length}
           onBack={() => setStep((s) => s - 1)}
-          // Checked on the way past each step — see utils/profanity.
-          onNext={() => { if (!blockProfanity({ title: form.title, description: form.body })) setStep((s) => s + 1); }}
+          // Checked on the way past each step — see hasProfanity.
+          onNext={() => { if (!hasProfanity()) setStep((s) => s + 1); }}
           // Off until this step's required fields are in — see canAdvance.
           canAdvance={canAdvance()}
           onSubmit={handleSubmit}
@@ -675,7 +745,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
     >
       {/* The header carries the pane's name and the bar carries the position,
           so the caption is just what you're filling in. */}
-      <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
+      <StepFormProgress caption={STEP_TITLES[step - 1]} />
 
       <View style={styles.flex}>
         <FormScrollView
@@ -686,8 +756,9 @@ export function CarCreateSheet({ carId, onDismissed }: {
           {/* ── STEP 1: Required ───────────────────────────────────────── */}
           {step === 1 && (
             <View>
-              <Field label="Title *" value={form.title} onChange={set('title')} />
-              <Field label="Year *" value={form.year} onChange={set('year')} numeric />
+              {/* Step 1's text fields carry their names as placeholders. */}
+              <Field bare label="Title *" value={form.title} onChange={set('title')} />
+              <Field bare label="Year *" value={form.year} onChange={set('year')} numeric />
 
               <MakeModelFields
                 required
@@ -719,9 +790,30 @@ export function CarCreateSheet({ carId, onDismissed }: {
                 colorFor={(k) => TYPE_COLORS[k] ?? { bg: colors.segment, text: colors.fg }}
               />
 
+              {/* "Other" takes a name of its own — it wears Other's badge. */}
+              {form.type === 'other' && (
+                <View style={styles.customType}>
+                  <Field
+                    bare
+                    label="Your type"
+                    value={form.customType}
+                    onChange={set('customType')}
+                    placeholder="e.g. Track Toy"
+                    maxLength={CUSTOM_MAX}
+                    optional
+                  />
+                  {!!form.customType.trim() && (
+                    <View style={[styles.customCatChip, { backgroundColor: TYPE_COLORS.other.bg }]}>
+                      <Text style={[styles.customCatChipText, { color: TYPE_COLORS.other.text }]}>{form.customType.trim()}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
               {categories.length > 0 ? (
+                <>
                 <ChipSelect
-                  items={categories}
+                  items={categoryChips}
                   value={form.category}
                   onChange={set('category')}
                   label="Category"
@@ -732,6 +824,24 @@ export function CarCreateSheet({ carId, onDismissed }: {
                   // so a category keeps one colour across the whole app.
                   colorFor={(k) => ({ bg: categoryColor(k), text: COLOR_BLACK })}
                 />
+                {form.category === 'other' && (
+                  <View style={styles.customCat}>
+                    <Field
+                      bare
+                      label="Your category"
+                      value={form.customCategory}
+                      onChange={set('customCategory')}
+                      maxLength={CUSTOM_MAX}
+                      optional
+                    />
+                    {!!form.customCategory.trim() && (
+                      <View style={[styles.customCatChip, { backgroundColor: categoryColor(form.customCategory.trim()) }]}>
+                        <Text style={styles.customCatChipText}>{form.customCategory.trim()}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                </>
               ) : (
                 /**
                  * "Other" has no categories to choose from, so it takes one.
@@ -745,9 +855,11 @@ export function CarCreateSheet({ carId, onDismissed }: {
                  */
                 <View style={styles.customCat}>
                   <Field
+                    bare
                     label="Category"
                     value={form.category}
                     onChange={set('category')}
+                    maxLength={CUSTOM_MAX}
                     optional
                   />
                   {!!form.category.trim() && (
@@ -1085,7 +1197,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
 
 const styles = StyleSheet.create({
   flex:      { flex: 1 },
-  scroll:    { paddingHorizontal: 16, paddingBottom: 24 },
+  // paddingTop clears the step's dark heading band, and scrolls away with the form.
+  scroll:    { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
   stepSub:   { fontSize: 14, marginBottom: 20, lineHeight: 20 },
 
   modCard: {
@@ -1194,6 +1307,7 @@ const styles = StyleSheet.create({
   },
 
   customCat: { marginTop: 12, marginBottom: 20 },
+  customType: { marginTop: -8 },
   // A preview of the badge it will become, so a typed category isn't a leap of
   // faith the way the picked ones aren't.
   customCatChip: {
@@ -1204,12 +1318,12 @@ const styles = StyleSheet.create({
   // The "start over" button handed to StepFormNav as its leading slot — sized
   // to match that header's own carets.
   navBtn: {
-    width: 34, height: 34, borderRadius: COMMON_RADIUS,
+    width: 28, height: 28, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
   },
   // The nav buttons' height, as a pill with a word in it.
   discardBtn: {
-    height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5,
+    height: 28, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1.5,
     alignItems: 'center', justifyContent: 'center',
   },
   discardText: { fontSize: 13, fontFamily: FONT_INTER.bold },

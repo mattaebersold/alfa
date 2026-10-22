@@ -3,24 +3,29 @@ import {
   View, TouchableOpacity, StyleSheet, Modal, Pressable, FlatList, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
-import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Search as SearchIcon, X, ChevronRight } from 'lucide-react-native';
+import { Search as SearchIcon, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Avatar from '../ui/Avatar';
-import SteeringWheel from '../ui/SteeringWheel';
+import MainTabs from '../ui/MainTabs';
 import { useSearchQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { colors } from '../../constants/colors';
 import { KeyboardAvoidingView } from '@ors/kit';
-import { imageUrl, firstGalleryUrl, carHeroUrl } from '../../utils/image';
+import MemberCard from '../members/MemberCard';
+import CarPosterCard from '../cards/CarPosterCard';
+import FeedItemCard from '../cards/FeedItemCard';
+import EventCard from '../cards/EventCard';
+import RallyCard from '../rallys/RallyCard';
+import GroupCard from '../groups/GroupCard';
+import RouteCard from '../cards/RouteCard';
+import ListingCard from '../marketplace/ListingCard';
+import ArticleCard from '../articles/ArticleCard';
 import { priceLabel } from '../marketplace/listingFormat';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
-import { PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -29,11 +34,11 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type Hit = {
   id: string;
   kind: string;
+  /** Title and subtitle are what ranking reads — see score. */
   title: string;
   subtitle?: string;
-  image?: string | null;
-  /** Members get an avatar rather than a photo, initials and all. */
-  user?: any;
+  /** The record itself, for its type's card. */
+  item: any;
   /** `openGroup` routes a group by membership — see GroupSummaryProvider. */
   go: (nav: NavProp, openGroup: (groupId: string) => void) => void;
 };
@@ -55,9 +60,9 @@ const SECTIONS: {
     key: 'users', kind: 'Member',
     toHit: (u) => ({
       id: `user-${u.user_id}`, kind: 'Member',
+      item: u,
       title: `@${u.username}`,
       subtitle: [u.firstName, u.lastName].filter(Boolean).join(' ') || undefined,
-      user: u,
       go: (nav) => nav.navigate('UserDetail', { userId: u.user_id, username: u.username }),
     }),
   },
@@ -65,9 +70,9 @@ const SECTIONS: {
     key: 'cars', kind: 'Car',
     toHit: (c) => ({
       id: `car-${c.internal_id}`, kind: 'Car',
+      item: c,
       title: c.title || [c.year, c.make, c.model].filter(Boolean).join(' ') || 'Car',
       subtitle: c.title ? [c.year, c.make, c.model].filter(Boolean).join(' ') : c.type,
-      image: carHeroUrl(c),
       go: (nav) => (nav as any).navigate('CarDetail', { carId: c.internal_id }),
     }),
   },
@@ -75,9 +80,9 @@ const SECTIONS: {
     key: 'posts', kind: 'Post',
     toHit: (p) => ({
       id: `post-${p.internal_id}`, kind: 'Post',
+      item: p,
       title: p.title || '(Untitled)',
       subtitle: p.body ? stripHtml(p.body) : undefined,
-      image: firstGalleryUrl(p.gallery),
       go: (nav) => nav.navigate('PostDetailModal', { postId: p.internal_id }),
     }),
   },
@@ -85,9 +90,9 @@ const SECTIONS: {
     key: 'events', kind: 'Event',
     toHit: (e) => ({
       id: `event-${e.internal_id}`, kind: 'Event',
+      item: e,
       title: e.title || 'Event',
       subtitle: e.location || (e.body ? stripHtml(e.body) : undefined),
-      image: firstGalleryUrl(e.gallery) ?? (e.hero_image ? imageUrl(e.hero_image) : null),
       go: (nav) => nav.navigate('EventDetailModal', { eventId: e.internal_id }),
     }),
   },
@@ -95,9 +100,9 @@ const SECTIONS: {
     key: 'rallys', kind: 'Rally',
     toHit: (r) => ({
       id: `rally-${r.internal_id}`, kind: 'Rally',
+      item: r,
       title: r.title || 'Rally',
       subtitle: r.location || (r.body ? stripHtml(r.body) : undefined),
-      image: firstGalleryUrl(r.gallery) ?? (r.hero_image ? imageUrl(r.hero_image) : null),
       go: (nav) => nav.navigate('RallyDetailModal', { rallyId: r.internal_id }),
     }),
   },
@@ -105,9 +110,9 @@ const SECTIONS: {
     key: 'groups', kind: 'Group',
     toHit: (g) => ({
       id: `group-${g.internal_id}`, kind: 'Group',
+      item: g,
       title: g.title || 'Group',
       subtitle: g.subtitle || g.region || undefined,
-      image: firstGalleryUrl(g.gallery),
       go: (_nav, openGroup) => openGroup(g.internal_id),
     }),
   },
@@ -115,9 +120,9 @@ const SECTIONS: {
     key: 'routes', kind: 'Route',
     toHit: (r) => ({
       id: `route-${r.internal_id}`, kind: 'Route',
+      item: r,
       title: r.title || 'Route',
       subtitle: [r.start_place, r.end_place].filter(Boolean).join(' → ') || undefined,
-      image: firstGalleryUrl(r.gallery),
       go: (nav) => nav.navigate('RouteDetailModal', { routeId: r.internal_id }),
     }),
   },
@@ -130,13 +135,13 @@ const SECTIONS: {
     key: 'marketplace', kind: 'Listing',
     toHit: (l) => ({
       id: `listing-${l.internal_id}`, kind: 'Listing',
+      item: l,
       title: l.title || 'Listing',
       subtitle: [
         priceLabel(l),
         l.sold ? 'Sold' : null,
         [l.year, l.make, l.model].filter(Boolean).join(' ') || null,
       ].filter(Boolean).join(' · ') || undefined,
-      image: firstGalleryUrl(l.gallery),
       go: (nav) => nav.navigate('ListingDetailModal', { listingId: l.internal_id }),
     }),
   },
@@ -144,34 +149,13 @@ const SECTIONS: {
     key: 'articles', kind: 'Article',
     toHit: (a) => ({
       id: `article-${a.internal_id}`, kind: 'Article',
+      item: a,
       title: a.title || 'Article',
       subtitle: a.body ? stripHtml(a.body) : undefined,
-      image: firstGalleryUrl(a.gallery),
       go: (nav) => nav.navigate('ArticleDetail', { articleId: a.internal_id }),
     }),
   },
 ];
-
-/**
- * A colour per result type.
- *
- * Drawn from the same palette the feed's type badges use, so a Post in search
- * is the colour a Post is everywhere else. The ones with no existing badge —
- * members, cars, routes — take brand colours that aren't already spoken for.
- */
-const KIND_COLORS: Record<string, { bg: string; fg: string }> = {
-  Member:  { bg: colors.badgeGarage,  fg: COLOR_BLACK },
-  Car:     { bg: colors.badgeRecord,  fg: COLOR_BLACK },
-  Post:    { bg: colors.badgeDefault, fg: COLOR_BLACK },
-  Event:   { bg: colors.badgeEvent,   fg: COLOR_BLACK },
-  Rally:   { bg: colors.tangerine,    fg: COLOR_BLACK },
-  Group:   { bg: colors.badgeGroup,   fg: COLOR_BLACK },
-  Route:   { bg: colors.green,        fg: COLOR_BLACK },
-  Article: { bg: colors.badgeUpdate,  fg: COLOR_WHITE },
-  Listing: { bg: colors.badgeListing, fg: COLOR_BLACK },
-};
-
-const isProUser = (u: any) => u?.accountType === 'pro' || u?.accountType === 'admin';
 
 /** Rows per collection while results are still grouped by type. */
 const PER_SECTION = 4;
@@ -206,43 +190,6 @@ function score(hit: Hit, q: string): number {
 }
 
 /**
- * One filter chip, always in its type's colour.
- *
- * Unselected it's an outline in that colour; selected it fills with it. Colour
- * therefore means "this is what Cars look like" at all times, matching the
- * badge on every row below, and selection is carried by the fill rather than by
- * the hue — which leaves the hue free to do only one job.
- */
-function FilterChip({ label, count, color, active, onPress }: {
-  label: string;
-  count?: number;
-  color?: { bg: string; fg: string };
-  active: boolean;
-  onPress: () => void;
-}) {
-  const c = useColors();
-  const tint = color?.bg ?? c.fg;
-  return (
-    <TouchableOpacity
-      style={[
-        styles.chip,
-        active
-          ? { backgroundColor: tint, borderColor: tint }
-          : { backgroundColor: 'transparent', borderColor: tint },
-      ]}
-      onPress={onPress}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-    >
-      <Text style={[styles.chipText, { color: active ? (color?.fg ?? c.cream) : tint }]}>
-        {label}{count !== undefined ? ` ${count}` : ''}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-/**
  * Search, over whatever you were already looking at.
  *
  * A field on a blurred copy of the screen rather than a page of its own. Search
@@ -269,7 +216,7 @@ export default function SearchOverlay({
 
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
-  /** Null is "everything" — the chips narrow rather than choose. */
+  /** Null is "everything" — the tabs narrow rather than choose. */
   const [kind, setKind] = useState<string | null>(null);
 
   // Typing is faster than the network. Without this every keystroke is a
@@ -283,7 +230,7 @@ export default function SearchOverlay({
    * Back to empty — the query, the debounced copy of it, and the type filter.
    *
    * All three, because clearing only the field leaves `debounced` holding the
-   * last search: the results below stay on screen and the chips keep counting
+   * last search: the results below stay on screen and the tabs keep counting
    * a query that no longer exists.
    */
   const clear = useCallback(() => {
@@ -332,7 +279,7 @@ export default function SearchOverlay({
       .slice(0, 40);
   }, [data, kind, debounced]);
 
-  /** How many of each type the current search found, for the chip labels. */
+  /** How many of each type the current search found, for the tab labels. */
   const counts = useMemo<Record<string, number>>(() => {
     const out: Record<string, number> = {};
     if (!data) return out;
@@ -406,33 +353,24 @@ export default function SearchOverlay({
         </View>
 
         {/* ── Filters ──
-            Only the types this search actually turned up. A row of chips that
-            lead to "nothing found" is a row of dead ends, and which types are
-            even present changes with every query.
-
-            Wrapped, not scrolled: a horizontal strip cut the last type off at
-            the edge of the screen with nothing to say it was there, and a
-            filter you can't see is a filter you don't know you have. There are
-            at most eight of these and they're short, so two lines shows all
-            of them. */}
+            Only the types this search actually turned up. A tab that leads to
+            "nothing found" is a dead end, and which types are even present
+            changes with every query. Main tabs, as on home: picking a type is
+            choosing a kind of thing. The row scrolls, bled past the sheet's
+            padding so it runs off the edge rather than stopping short of it. */}
         {ready && Object.keys(counts).length > 1 && (
-          <View style={styles.chips}>
-            <FilterChip
-              label="All"
-              active={kind === null}
-              onPress={() => setKind(null)}
-            />
-            {SECTIONS.filter((sec) => counts[sec.kind]).map((sec) => (
-              <FilterChip
-                key={sec.kind}
-                label={sec.kind}
-                count={counts[sec.kind]}
-                color={(KIND_COLORS[sec.kind] ?? KIND_COLORS.Post)}
-                active={kind === sec.kind}
-                onPress={() => setKind(kind === sec.kind ? null : sec.kind)}
-              />
-            ))}
-          </View>
+          <MainTabs
+            tabs={[
+              { key: 'all', label: 'All' },
+              ...SECTIONS.filter((sec) => counts[sec.kind]).map((sec) => ({
+                key: sec.kind, label: sec.kind, count: counts[sec.kind],
+              })),
+            ]}
+            value={kind ?? 'all'}
+            onChange={(k) => setKind(k === 'all' ? null : k)}
+            inset={SHEET_PAD}
+            style={styles.tabs}
+          />
         )}
 
         {/* ── Results ── */}
@@ -456,67 +394,37 @@ export default function SearchOverlay({
             </Text>
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.row, Platform.OS === 'android' && styles.rowAndroid]}
-              onPress={() => dismiss(() => item.go(navigation, openGroup))}
-              activeOpacity={0.8}
-            >
-              {item.user ? (
-                // Pro members carry their ring and wheel here too — a member is
-                // recognised the same way wherever they turn up.
-                <View style={[styles.avatarWrap, isProUser(item.user) && styles.proRing]}>
-                  <Avatar user={item.user} size={isProUser(item.user) ? 87 : 99} />
-                  {isProUser(item.user) && (
-                    <View style={styles.proWheel}>
-                      <SteeringWheel size={16} color={COLOR_BLACK} strokeWidth={2.5} />
-                    </View>
-                  )}
-                </View>
-              ) : item.image ? (
-                <Image source={{ uri: item.image }} style={styles.thumb} contentFit="cover" />
-              ) : (
-                <View style={[styles.thumb, { backgroundColor: c.secondary }]} />
-              )}
-
-              <View style={styles.rowText}>
-                {/* Above the title rather than beside the subtitle: it says what
-                    kind of thing you're about to open, which is the first
-                    question, and inline it was competing with the answer. */}
-                <View style={styles.kindRow}>
-                  <View
-                    style={[
-                      styles.kindBadge,
-                      { backgroundColor: (KIND_COLORS[item.kind] ?? KIND_COLORS.Post).bg },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.kindText,
-                        { color: (KIND_COLORS[item.kind] ?? KIND_COLORS.Post).fg },
-                      ]}
-                    >
-                      {item.kind}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>{item.title}</Text>
-                {item.subtitle ? (
-                  <Text style={[styles.rowSub, { color: c.grey }]} numberOfLines={1}>
-                    {item.subtitle}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={[styles.go, { backgroundColor: c.secondary }]}>
-                <ChevronRight size={15} color={c.fg} />
-              </View>
-            </TouchableOpacity>
+            <ResultCard hit={item} open={() => dismiss(() => item.go(navigation, openGroup))} />
           )}
         />
       </KeyboardAvoidingView>
     </Modal>
   );
 }
+
+/**
+ * A result as its type's own card — the one it wears everywhere else — rather
+ * than a generic row. `open` closes the sheet first and then goes: iOS won't
+ * push a screen while this Modal is still on its way out.
+ */
+function ResultCard({ hit, open }: { hit: Hit; open: () => void }) {
+  const it = hit.item;
+  switch (hit.kind) {
+    case 'Member':  return <MemberCard member={it} onPress={open} style={styles.memberCard} />;
+    case 'Car':     return <CarPosterCard car={it} onPress={open} showOwner />;
+    case 'Post':    return <FeedItemCard post={it} onPress={open} />;
+    case 'Event':   return <EventCard event={it} onPress={open} />;
+    case 'Rally':   return <RallyCard rally={it} onPress={open} />;
+    case 'Group':   return <GroupCard group={it} onPress={open} />;
+    case 'Route':   return <RouteCard route={it} onPress={open} />;
+    case 'Listing': return <ListingCard listing={it} onPress={open} />;
+    case 'Article': return <ArticleCard article={it} onPress={open} />;
+    default:        return null;
+  }
+}
+
+/** The sheet's side padding — the tab row bleeds back out past it. */
+const SHEET_PAD = 12;
 
 const styles = StyleSheet.create({
   // A little extra dark over the blur — a plain blur of a bright feed is still
@@ -536,17 +444,7 @@ const styles = StyleSheet.create({
    * and still buries whatever was on screen behind it.
    */
   scrimAndroid: { backgroundColor: 'rgba(38,38,38,0.88)' },
-  /**
-   * Near-solid rows on Android.
-   *
-   * A 30%-black row works on iOS because there is a real blur under it doing
-   * the separating — the row only has to tint what's already softened. On
-   * Android that blur is weak or absent, so the same row is a faint darkening
-   * over a legible screen, and the title competes with whatever it lands on.
-   * Here the row itself has to be the surface.
-   */
-  rowAndroid: { backgroundColor: 'rgba(12,12,12,0.92)' },
-  sheet: { flex: 1, paddingHorizontal: 12 },
+  sheet: { flex: 1, paddingHorizontal: SHEET_PAD },
   topBar:   { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
   closeBtn: { padding: 4 },
 
@@ -558,62 +456,12 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.semibold, padding: 0 },
 
   listFlex: { flex: 1 },
-  list: { paddingTop: 12, gap: 8 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 11,
-    padding: 9, borderRadius: 12,
-    // Nearly solid. This was 30% black, on the theory that letting the blurred
-    // page read faintly through each row is what made them look like they were
-    // floating over it. In practice the thing that does that is the shadow
-    // below — the translucency just let whatever was behind the row compete
-    // with the title on it. Still short of opaque, so the rows sit on the
-    // backdrop rather than replacing it.
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    // Android needs more again — see `rowAndroid`.
-    // Lifted off the blur, so the rows read as floating over the page rather
-    // than as part of it.
-    ...Platform.select({
-      ios: { shadowColor: COLOR_BLACK, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
-      android: { elevation: 5 },
-    }),
-  },
-  thumb:    { width: 99, height: 99, borderRadius: 12 },
-  avatarWrap: { position: 'relative' },
-  // The avatar shrinks by the ring's own width, so a pro member's row is the
-  // same height as everyone else's.
-  proRing:  { borderWidth: 2.5, borderColor: colors.pro, borderRadius: 50, padding: 1.5 },
-  proWheel: {
-    position: 'absolute', bottom: -2, right: -2,
-    width: 27, height: 27, borderRadius: 13.5,
-    backgroundColor: colors.pro,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  list: { paddingTop: 12, gap: 12 },
+  // Members' cards are photo cards with no width of their own; here, the list's.
+  memberCard: { width: '100%' },
 
-  chips: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    // `alignItems` matters here for the same reason it did when this scrolled:
-    // without it the chips stretch to the tallest thing on their line.
-    alignItems: 'center', gap: 8,
-    paddingTop: 14, paddingBottom: 6,
-  },
-  chip: {
-    height: 30, justifyContent: 'center',
-    paddingHorizontal: 12, borderRadius: 999, borderWidth: 1,
-  },
-  chipText:  { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
-  rowText:  { flex: 1, minWidth: 0, gap: 3 },
-  rowTitle: { fontSize: 14.5, fontFamily: FONT_INTER.bold },
-  // The badge sizes to its word rather than filling the row.
-  kindRow:   { flexDirection: 'row' },
-  kindBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },
-  // Not bold — it's a label on the row, and at weight 800 it was reading as
-  // loudly as the title next to it.
-  kindText:  { fontSize: 10, fontFamily: FONT_INTER.semibold },
-  rowSub:   { fontSize: 12, flexShrink: 1 },
-  go: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  // 'auto' over MainTabs' own 100%, which would stop short at the sheet's right padding.
+  tabs: { width: 'auto', marginHorizontal: -SHEET_PAD, flexGrow: 0, marginTop: 14, marginBottom: 4 },
 
   empty: {
     textAlign: 'center', marginTop: 40,

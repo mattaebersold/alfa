@@ -65,7 +65,6 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
 }, ref) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [contentHeight, setContentHeight] = useState<number | null>(null);
   const mentionedIds = useRef<Set<string>>(new Set());
 
   const skip = mentionQuery === null || mentionQuery.length < 1;
@@ -185,13 +184,14 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
         onChangeText={handleChangeText}
         placeholder={placeholder}
         placeholderTextColor={placeholderTextColor}
-        style={[style, multiline && contentHeight ? { height: contentHeight } : null]}
+        // No height of our own: a multiline field sizes to its text. Pinning
+        // it to the last content size stuck it at one line — the new
+        // architecture only reports a content size when the layout changes,
+        // and a pinned height means the layout never does.
+        style={style}
         multiline={multiline}
         maxLength={maxLength}
-        onContentSizeChange={(e) => {
-          if (multiline) setContentHeight(e.nativeEvent.contentSize.height);
-          onContentSizeChange?.(e);
-        }}
+        onContentSizeChange={onContentSizeChange}
         onFocus={onFocus}
         onBlur={onBlur}
         autoFocus={autoFocus}

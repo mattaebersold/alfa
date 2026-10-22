@@ -119,6 +119,7 @@ export default function UserSummaryModal({
       actionLabel="View Profile"
       actionIcon={UserIcon}
       actionRounded
+      bottomRadius={BOTTOM_RADIUS}
       onAction={userId ? () => nav.navigate('UserDetail', { userId, username: user?.username }) : undefined}
     >
       {isLoading || !user ? (
@@ -347,6 +348,8 @@ const GARAGE_PREVIEW = 6;
 const AVATAR = 72;
 const BODY_PAD = 18;
 const TOP_RADIUS = AVATAR / 2 + BODY_PAD;
+// Rounder than the panel's own 32 at the foot, toward the View Profile pill's ends.
+const BOTTOM_RADIUS = 40;
 
 /**
  * The banner's shape: its own, between a 2.4:1 strip and a 5:4 photo — a
@@ -407,8 +410,9 @@ const styles = StyleSheet.create({
   bio: { fontSize: 13, lineHeight: 19 },
 
   // Close over the panel's own "View Profile" footer: the body's foot padding
-  // is mostly given back here, so the two rows of buttons read as one group.
-  actions: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginBottom: -20 },
+  // and the footer's top padding are given back here, down to the same 8 the
+  // pair keep between them, so the two rows of buttons read as one group.
+  actions: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginBottom: -28 },
   actionSlot: { flex: 1 },
   actionGrow: { flex: 1, justifyContent: 'center' },
 });

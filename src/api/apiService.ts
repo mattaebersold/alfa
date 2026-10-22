@@ -1675,8 +1675,13 @@ export const apiService = createApi({
       invalidatesTags: ['Notifications'],
     }),
 
-    markAllNotificationsRead: builder.mutation<void, void>({
-      query: () => ({ url: 'api/notifications/read-all', method: 'PATCH' }),
+    /** `keepPending` leaves requests still awaiting an answer unread — the list's "Archive all". */
+    markAllNotificationsRead: builder.mutation<void, { keepPending?: boolean } | void>({
+      query: (arg) => ({
+        url: 'api/notifications/read-all',
+        method: 'PATCH',
+        params: arg?.keepPending ? { keep_pending: 1 } : undefined,
+      }),
       invalidatesTags: ['Notifications'],
     }),
 

@@ -169,7 +169,8 @@ export default function CarSummaryModal({
     : null;
   const description = car?.body ? stripHtml(car.body).trim() : '';
 
-  const typeBadge = TYPE_COLORS[car?.type ?? ''];
+  // A type the owner named themselves wears Other's colour.
+  const typeBadge = car?.type ? TYPE_COLORS[car?.type] ?? TYPE_COLORS.other : undefined;
   const typeLabel = formatLabel(car?.type);
   const categoryLabel = formatLabel(car?.category);
 

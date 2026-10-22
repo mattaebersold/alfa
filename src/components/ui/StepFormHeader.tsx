@@ -3,16 +3,18 @@ import { View, TouchableOpacity, StyleSheet, ActivityIndicator, type StyleProp, 
 import { Text } from '@ors/kit';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_14 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import Tachometer from './Tachometer';
+import CheckeredFlag from './CheckeredFlag';
 
 /**
  * The chrome every multi-step form in the app wears.
  *
- * Back, the form's name, forward — in the header, because that is the one row
- * always on screen, so the step controls belong in it. Under it a bar that
- * fills, and the name of the step you're actually filling in.
+ * A rev counter for where you are, the form's name beside it, and back and
+ * forward together at the right — in the header, because that is the one row
+ * always on screen, so the step controls belong in it. Under it, the name of
+ * the step you're actually filling in.
  *
  * It started on CarCreateScreen, was copied wholesale into NewGroupSheet, and
  * was about to be copied a third time for the marketplace's create form. Three
@@ -23,6 +25,12 @@ import { FONT_INTER } from '../../constants/fonts'
  * Create means. Pass `titleContent={<StepFormNav … />}` to a SharedModal and
  * render `<StepFormProgress … />` as the first thing inside it.
  */
+
+/**
+ * The step forms' header, a shade darker than the sheet — pass it to the
+ * SharedModal as `headerSurface`, so the steps' chrome reads as one band.
+ */
+export const STEP_FORM_HEADER_BG = COLOR_GRAY_14;
 
 // ── The header row ───────────────────────────────────────────────────────────
 export function StepFormNav({
@@ -38,7 +46,7 @@ export function StepFormNav({
   canSubmit = true,
   submitting = false,
   leading, style, center }: {
-  /** The form's name, on the pane's midline. */
+  /** The form's name, beside the tach. */
   title: string;
   /** 1-based. */
   step: number;
@@ -49,70 +57,69 @@ export function StepFormNav({
   canAdvance?: boolean;
   /** The last step ends in the save, not another caret. */
   onSubmit: () => void;
-  /** What the button says — "Create", "Save". */
+  /** The submit button's spoken name — "Create", "Save". It shows a flag. */
   submitLabel: string;
   submitAccessibilityLabel?: string;
   canSubmit?: boolean;
   /** Swaps the label for a spinner and blocks a second press. */
   submitting?: boolean;
   /**
-   * Replaces the leading spacer on step 1 — the garage form's "start over",
-   * which only exists where there is no back to go to.
+   * Replaces the faded back button on step 1 — the garage form's "start
+   * over", which only exists where there is no back to go to.
    */
   leading?: React.ReactNode;
   /** Onto the row — side padding when it sits in a page rather than a sheet's title bar. */
   style?: StyleProp<ViewStyle>;
-  /** In the title's place between the arrows — the progress bar, when the form has no heading. */
+  /** In the title's place — an empty spacer, when the form has no heading. */
   center?: React.ReactNode;
 }) {
-  const brand = useBrandColor();
 
   return (
-    /* Each caret is absent rather than disabled at the ends of the run: there
-       is no step before the first or after the last, and a dimmed control
-       implies one exists and is merely unavailable. A spacer holds the gap so
-       the name stays on the pane's midline either way. */
     <View style={[styles.navRow, style]}>
+      {/* The tach is the progress: the needle climbs a step at a time. */}
+      <Tachometer step={step} total={totalSteps} size={60} />
+
+      {center ?? <Text style={styles.navTitle} numberOfLines={1}>{title}</Text>}
+
+      <View style={styles.navBtns}>
       {/* Back is always drawn, faded on the first step where there's nothing
-          behind it: a row whose left end comes and goes made the bar jump. A
+          behind it: a cluster that changes width made the title jump. A
           `leading` still takes its place when a form has one. */}
       {step > 1 ? (
         <TouchableOpacity
-          style={[styles.navBtn, { backgroundColor: brand }]}
+          style={styles.navBtn}
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Previous step"
         >
-          <ChevronLeft size={20} color={COLOR_BLACK} strokeWidth={2.6} />
+          <ChevronLeft size={16} color={COLOR_WHITE} strokeWidth={2.6} />
         </TouchableOpacity>
       ) : leading ?? (
         <View
-          style={[styles.navBtn, styles.navBtnOff, { backgroundColor: brand }]}
+          style={[styles.navBtn, styles.navBtnOff]}
           accessibilityRole="button"
           accessibilityState={{ disabled: true }}
           accessibilityLabel="Previous step"
         >
-          <ChevronLeft size={20} color={COLOR_BLACK} strokeWidth={2.6} />
+          <ChevronLeft size={16} color={COLOR_WHITE} strokeWidth={2.6} />
         </View>
       )}
 
-      {center ?? <Text style={styles.navTitle} numberOfLines={1}>{title}</Text>}
-
       {step < totalSteps ? (
         <TouchableOpacity
-          style={[styles.navBtn, { backgroundColor: brand }, !canAdvance && styles.navBtnOff]}
+          style={[styles.navBtn, !canAdvance && styles.navBtnOff]}
           onPress={onNext}
           disabled={!canAdvance}
           accessibilityRole="button"
           accessibilityLabel="Next step"
         >
-          <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.6} />
+          <ChevronRight size={16} color={COLOR_WHITE} strokeWidth={2.6} />
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
-          // Named, not a tick: this is the one press that commits everything,
-          // and a glyph made it look like another step.
-          style={[styles.navBtn, styles.navBtnWide, { backgroundColor: brand }, !canSubmit && styles.navBtnOff]}
+          // The finish line: a solid white square with a checkered flag, so the
+          // one press that commits everything doesn't read as another step.
+          style={[styles.navBtn, styles.navBtnFinish, !canSubmit && styles.navBtnOff]}
           onPress={onSubmit}
           disabled={!canSubmit || submitting}
           accessibilityRole="button"
@@ -120,65 +127,50 @@ export function StepFormNav({
         >
           {submitting
             ? <ActivityIndicator size="small" color={COLOR_BLACK} />
-            : <Text style={styles.navBtnText}>{submitLabel}</Text>}
+            : <CheckeredFlag size={16} color={COLOR_BLACK} strokeWidth={2.2} />}
         </TouchableOpacity>
       )}
+      </View>
     </View>
   );
 }
 
-// ── The bar and the step's name ──────────────────────────────────────────────
-export function StepFormProgress({ step, total, caption, style }: {
-  step: number;
-  total: number;
+// ── The step's name ──────────────────────────────────────────────────────────
+/**
+ * What you're filling in, under the header. The bar that used to sit above it
+ * is the tach in the header now.
+ */
+export function StepFormProgress({ caption, style }: {
   /** What you're filling in — the header above already carries the form's name. */
   caption?: string;
-  /** Onto the track — to drop its margins when it sits between the arrows. */
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
-  const brand = useBrandColor();
-  return (
-    <>
-      <View style={[styles.track, style]}>
-        {/* One bar that fills, not five tiles with gaps between them — the gaps
-            read as five separate things rather than one journey. */}
-        <View style={[styles.fill, { width: `${(step / total) * 100}%`, backgroundColor: brand }]} />
-      </View>
-      {caption ? (
-        <Text style={[styles.stepCaption, { color: colors.fg }]}>{caption}</Text>
-      ) : null}
-    </>
-  );
+  if (!caption) return null;
+  // On the header's darker ground, so the header and the step's name read as one band.
+  return <Text style={[styles.stepCaption, { color: colors.fg, backgroundColor: STEP_FORM_HEADER_BG }, style]}>{caption}</Text>;
 }
 
 const styles = StyleSheet.create({
-  navRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  // Centred by taking the space between two fixed-width buttons, so the name
-  // sits on the pane's midline whatever the buttons show.
+  navRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Takes the space between the tach and the buttons, reading from the left.
   navTitle: {
-    flex: 1, textAlign: 'center',
+    flex: 1,
     fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE,
   },
-  // A black glyph on the account's own colour — blue, or gold for Pro. No
-  // border: the fill is the shape. A disabled one fades rather than changing.
+  navBtns: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // Back and next: white outlines on the header. A disabled one fades rather
+  // than changing. Submit is the same square filled white (navBtnFinish).
   navBtn: {
-    width: 34, height: 34, borderRadius: COMMON_RADIUS,
+    width: 28, height: 28, borderRadius: COMMON_RADIUS,
     alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: COLOR_WHITE,
   },
   navBtnOff: { opacity: 0.5 },
-  // Wide enough for a word — the chevrons stay square.
-  navBtnWide: { width: 'auto', paddingHorizontal: 12 },
-  navBtnText: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
+  navBtnFinish: { backgroundColor: COLOR_WHITE },
 
-  track: {
-    height: 4, borderRadius: 2, overflow: 'hidden',
-    marginHorizontal: 16, marginTop: 12, marginBottom: 10,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  fill: { height: '100%', borderRadius: 2 },
   stepCaption: {
     fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3,
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14,
+    paddingHorizontal: 16, paddingTop: 4, paddingBottom: 14,
   },
 });

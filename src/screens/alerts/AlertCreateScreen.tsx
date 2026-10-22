@@ -6,7 +6,7 @@ import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Check, Mail, Smartphone } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
-import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
+import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../../components/ui/StepFormHeader';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import {
@@ -320,6 +320,9 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
 
   return (
     <SharedModal
+      headerSurface={STEP_FORM_HEADER_BG}
+      // No fade under the darker header: it reads as a smear on the body.
+      headFade={false}
       visible={visible}
       onClose={() => setVisible(false)}
       onDismissed={onDismissed}
@@ -340,7 +343,7 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
       )}
       fullHeight
     >
-      <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
+      <StepFormProgress caption={STEP_TITLES[step - 1]} />
 
       {/* The sentence, on every step. Not a summary at the end: a member
           adding a price cap wants to see the cap appear in the sentence right
@@ -849,10 +852,11 @@ function ChannelRow({ label, Icon, value, onChange, colors, brand }: {
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  // paddingTop clears the step's dark heading band, and scrolls away with the form.
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
 
   preview: {
-    marginHorizontal: 16, marginBottom: 6,
+    marginHorizontal: 16, marginTop: 16, marginBottom: 6,
     borderRadius: 12, borderWidth: 1,
     paddingHorizontal: 13, paddingVertical: 11, gap: 4,
   },

@@ -8,9 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useGetRallysQuery } from '../../api/apiService';
 import RallyDetailSheet from '../../components/society/RallyDetailSheet';
-import EventImage from '../../components/society/EventImage';
-import { useNaturalRatio } from '../../hooks/useNaturalRatio';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import ScreenHeading from '../../components/ui/ScreenHeading';
@@ -20,9 +17,9 @@ import { useColors } from '../../hooks/useColors';
 import type { Rally } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { calendarDate, calendarTime } from '../../utils/calendarDate';
-import { RALLY_DATE_TBA } from '../../utils/rally';
-import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import RallyCard, { rallyHero } from '../../components/rallys/RallyCard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** A past rally in the scroller — wide enough to read, narrow enough that the
@@ -30,43 +27,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PAST_CARD_WIDTH = Math.min(220, SCREEN_WIDTH * 0.58);
 /** Past rallys are a reference shelf, not a browsable list — one page is plenty. */
 const PAST_LIMIT = 20;
-
-const rallyHero = (rally: Rally) =>
-  (rally.hero_image ? imageUrl(rally.hero_image) : null) ?? firstGalleryUrl(rally.gallery);
-
-/**
- * The full card for an upcoming rally: hero, pill, date, title, and a way in.
- *
- * The card takes the photo's own shape rather than cropping it to 16/9. These
- * are the club's own posters and route maps as often as they are photographs,
- * and a fixed frame cut the tops off them. The bounds are the event cards' —
- * see `clampCardRatio` — so a rally and an event photo are the same shape.
- */
-function UpcomingRallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
-  const colors = useColors();
-  const hero = rallyHero(rally);
-  // 16/9 until the photo reports its shape, and for rallies without one.
-  const { ratio, onAspectRatio } = useNaturalRatio(16 / 9);
-  const eventDay = calendarDate(rally.event_date);
-  // Never null: an unscheduled rally says so rather than losing the line.
-  const date = eventDay ? format(eventDay, 'EEE, MMM d, yyyy') : RALLY_DATE_TBA;
-
-  return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }]} onPress={onPress} activeOpacity={0.9}>
-      <View style={[styles.cardImage, { aspectRatio: ratio }]}>
-        <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={onAspectRatio} />
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.date}>{date}</Text>
-        <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{rally.title}</Text>
-        {rally.location && <Text style={[styles.location, { color: colors.grey }]} numberOfLines={1}>{rally.location}</Text>}
-        {rally.slots_available != null && (
-          <Text style={styles.slots}>{rally.slots_available} slots available</Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-}
 
 /** The compact card for a past rally — an archive entry, so image and title only. */
 function PastRallyCard({ rally, onPress }: { rally: Rally; onPress: () => void }) {
@@ -151,7 +111,7 @@ export default function RallysScreen() {
         data={sortedUpcoming}
         keyExtractor={(item) => item.internal_id}
         renderItem={({ item }) => (
-          <UpcomingRallyCard rally={item} onPress={() => setSelectedRallyId(item.internal_id)} />
+          <RallyCard rally={item} onPress={() => setSelectedRallyId(item.internal_id)} />
         )}
         ListHeaderComponent={
           sortedUpcoming.length > 0
@@ -202,20 +162,7 @@ const styles = StyleSheet.create({
     fontSize: 17, fontFamily: FONT_INTER.bold,
     paddingHorizontal: 12, paddingTop: 18, paddingBottom: 2,
   },
-
-  card:         {
-    marginHorizontal: 12, marginTop: 12,
-    borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
   cardPlaceholder: { backgroundColor: colors.primaryAlt },
-  // Rounded at the foot too, so the photo sits in the card rather than capping it.
-  cardImage:    { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
-  cardBody:     { padding: 12 },
-  date:         { fontSize: 12, fontFamily: FONT_INTER.bold, color: colors.primaryAlt, marginBottom: 4 },
-  title:        { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 22 },
-  location:     { fontSize: 13, marginTop: 4 },
-  slots:        { fontSize: 12, color: colors.primaryAlt, fontFamily: FONT_INTER.bold, marginTop: 6 },
 
   pastSection:  { marginTop: 6 },
   pastScroll:   { paddingHorizontal: 12, paddingTop: 10, gap: 10 },

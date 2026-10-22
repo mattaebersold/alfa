@@ -15,6 +15,7 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
   useDeleteReadNotificationsMutation,
   useDeleteNotificationMutation,
   useApproveGroupMemberMutation,
@@ -244,12 +245,11 @@ function NotificationRow({
   );
 
   /**
-   * Archive, from the other side: a short swipe right shows the button, a long
-   * one — past half the card — archives it on release, the way Mail does.
-   * Which it was is read off the row's own travel as it lets go.
+   * Archive, from the other side: one swipe right archives it on release.
+   * It used to take a long swipe — a short one only uncovered a button, so
+   * archiving was a swipe and then a tap.
    */
   const [rowW, setRowW] = useState(0);
-  const leftTravel = useRef<{ value: number } | null>(null);
   const archived = useRef(false);
   const archive = () => {
     if (archived.current || !onArchive) return;
@@ -257,13 +257,11 @@ function NotificationRow({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onArchive();
   };
-  const renderArchive = (_progress: unknown, translation: { value: number }) => {
-    leftTravel.current = translation;
+  const renderArchive = () => {
     return (
       <View style={styles.swipeArchiveSide}>
-        {/* The blue runs on under the card, past the button's own width, so
-            a long swipe uncovers more of it rather than a gap. Outside the
-            panel's measured width, which is what a short swipe opens to. */}
+        {/* The blue runs on under the card, past the panel's own width, so
+            a long swipe uncovers more of it rather than a gap. */}
         <View style={[styles.swipeArchiveRun, { width: Math.max(rowW - 8, 0) }]} pointerEvents="none" />
         <TouchableOpacity
           style={styles.swipeArchive}
@@ -285,7 +283,7 @@ function NotificationRow({
       renderRightActions={renderDelete}
       renderLeftActions={onArchive ? renderArchive : undefined}
       onSwipeableWillOpen={(direction) => {
-        if (direction === 'right' && rowW && (leftTravel.current?.value ?? 0) > rowW / 2) archive();
+        if (direction === 'right') archive();
       }}
       friction={2}
       rightThreshold={40}
@@ -446,6 +444,29 @@ export function DeleteAllButton({
     >
       <Trash2 size={12} color={color} strokeWidth={2.4} />
       <Text style={[styles.deleteAllText, { color }]}>Delete all</Text>
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * "Archive all", as a small button — the Unread tab's counterpart to Delete
+ * all. Moves every row on the tab to Archived except requests still waiting
+ * on an answer, which only answering archives (see awaitingDecision). No
+ * confirmation: nothing is lost, it's all one tab over.
+ */
+function ArchiveAllButton({ onPress }: { onPress: () => void }) {
+  const brand = useBrandColor();
+  return (
+    <TouchableOpacity
+      style={[styles.deleteAllBtn, { borderColor: `${brand}73` }]}
+      onPress={onPress}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel="Archive all notifications"
+    >
+      <Archive size={12} color={brand} strokeWidth={2.4} />
+      <Text style={[styles.deleteAllText, { color: brand }]}>Archive all</Text>
     </TouchableOpacity>
   );
 }
@@ -654,6 +675,24 @@ function NotificationsList({
   const unread = all.filter((n) => openedUnread.current.has(n.internal_id));
   const archived = all.filter((n) => !openedUnread.current.has(n.internal_id));
   const onTab = tab === 'unread' ? unread : archived;
+  const [markAllRead] = useMarkAllNotificationsReadMutation();
+  /** Everything on Unread that Archive all moves — see ArchiveAllButton. */
+  const archivable = unread.filter((n) => !awaitingDecision(n));
+  // A beat to see the tab empty out, then the surface closes — like Delete
+  // all, an emptied tab isn't somewhere to stay. Dropped if it closes first.
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  const archiveAll = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await markAllRead({ keepPending: true }).unwrap();
+      archivable.forEach((n) => openedUnread.current.delete(n.internal_id));
+      setShown(NOTIFICATIONS_PAGE);
+      closeTimer.current = setTimeout(() => onDismiss(), 1000);
+    } catch (err: any) {
+      Alert.alert("Couldn't archive", err?.data?.message ?? err?.data?.error ?? 'Please try again.');
+    }
+  };
   /**
    * The newest few, then more on request. Fifty rows with their stagger and
    * their avatars made the panel stutter as it opened; five is what fits in
@@ -692,6 +731,11 @@ function NotificationsList({
           stretch
         />
       </View>
+      {tab === 'unread' && archivable.length > 0 && (
+        <View style={styles.deleteAllRow}>
+          <ArchiveAllButton onPress={archiveAll} />
+        </View>
+      )}
       {tab === 'archived' && archived.length > 0 && (
         <View style={styles.deleteAllRow}>
           <DeleteAllButton onDone={() => onDismiss()} />
@@ -777,7 +821,7 @@ const styles = StyleSheet.create({
   },
   cardRead:   { backgroundColor: COLOR_GRAY_20, borderColor: 'rgba(255,255,255,0.07)' },
   swipeAction: { width: 80, paddingLeft: 8 },
-  // The width a short swipe opens to; the run behind it covers a long one.
+  // The panel behind the card; the run behind it covers a long swipe.
   swipeArchiveSide: { width: 80, marginRight: 8 },
   swipeArchiveRun: {
     position: 'absolute', top: 0, bottom: 0, left: 0,

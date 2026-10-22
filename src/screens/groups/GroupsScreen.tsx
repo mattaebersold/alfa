@@ -7,7 +7,7 @@ import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Users, MapPin } from 'lucide-react-native';
+import { Search, Users } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,7 +15,6 @@ import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
 import { useBrandTextColor, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
-import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -31,7 +30,21 @@ import { REGIONS, regionKey, regionLabel } from '../../constants/regions';
 import { GROUP_TYPES } from '../../constants/groupTypes';
 import FilterSummaryRow, { FilterChoiceRow, FilterDivider } from '../../components/ui/FilterSummaryRow';
 import GroupSummaryModal from '../../components/groups/GroupSummaryModal';
-import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { ss } from '../../styles/shared';
+import {
+  COMMON_RADIUS,
+  PILL_RADIUS,
+  COLOR_BLACK,
+  COLOR_MEMBER_BLUE,
+  COLOR_WHITE,
+  GUTTER,
+  COLOR_GRAY_40,
+  SEARCH_EDGE,
+} from '../../constants/config';
+import { FONT_INTER } from '../../constants/fonts'
+import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
+import GroupCard, { CARD_RADIUS } from '../../components/groups/GroupCard';
 
 /** What the filter row says is applied. */
 function regionButtonLabel(key: string | null) {
@@ -72,14 +85,8 @@ interface GroupFilterValue {
   region: string | null;
   type: string | null;
 }
-import { ss } from '../../styles/shared';
-import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
-  SEARCH_EDGE } from '../../constants/config';
-import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 /** The shelf's side inset — the app's GUTTER, as every section here sits on. */
@@ -96,78 +103,6 @@ const MY_CARD_BG = COLOR_GRAY_40;
 
 const ADMIN_BADGE = { label: 'ADMIN', bg: WARM_SHEEN_FILL, fg: COLOR_BLACK };
 const MEMBER_BADGE = { label: 'MEMBER', bg: COLOR_MEMBER_BLUE, fg: COLOR_WHITE };
-
-/**
- * A group you're not in.
- *
- * Opens a summary rather than the group itself. Everything in this grid is
- * somewhere you haven't joined — the list is filtered to exclude your own — so
- * the question a card raises is "what is this and do I want in", not "take me
- * there". Pushing the whole group screen to answer it cost you the browse
- * position you'd scrolled to, and the panel carries a View Group button for
- * when the answer is yes.
- */
-/**
- * A region's badge colour — steady per region, from the app's hue palette,
- * hashed from the key so a region added later still gets one.
- */
-const REGION_HUES = [
-  COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID,
-  COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
-];
-function regionColor(key?: string | null): string {
-  if (!key) return COLOR_HUE_STEEL;
-  let h = 0;
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  return REGION_HUES[h % REGION_HUES.length];
-}
-
-function GroupCard({ group, onPress }: {
-  group: Group;
-  onPress: (origin: SummaryOrigin | null) => void;
-}) {
-  const colors = useColors();
-  const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
-  const region = regionLabel(group.region);
-  return (
-    // Built like a marketplace card: a bordered card, its picture rounded
-    // all round, and the words on a lighter panel under it.
-    <SummaryTouchable
-      // One ground for the whole card — the words' panel colour, so it shows
-      // the same around the picture's rounded corners as under it.
-      style={[styles.card, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.9}
-      accessibilityLabel={group.title ?? 'Group'}
-    >
-      <View style={styles.cardBannerWrap}>
-        {banner
-          ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
-          : <View style={[styles.cardBanner, { backgroundColor: colors.primaryAlt + '55' }]} />
-        }
-        {/* Where it is, on the picture's bottom left — each region its own
-            colour, as a listing's category is. */}
-        {region ? (
-          <View style={[styles.cardRegion, { backgroundColor: regionColor(group.region) }]}>
-            <MapPin size={10} color={COLOR_BLACK} strokeWidth={2.4} />
-            <Text style={styles.cardRegionText} numberOfLines={1}>{region}</Text>
-          </View>
-        ) : null}
-        {/* How many are in it, bottom right — as on your own groups' cards. */}
-        {typeof group.member_count === 'number' ? (
-          <View style={styles.cardMembers}>
-            <Users size={11} color={COLOR_WHITE} />
-            <Text style={styles.cardMembersText}>{group.member_count}</Text>
-          </View>
-        ) : null}
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
-        {group.subtitle && <Text style={[styles.cardSub, { color: colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>}
-      </View>
-    </SummaryTouchable>
-  );
-}
 
 function MyGroupCard({ group, onPress, solo = false }: { group: Group; onPress: () => void; solo?: boolean }) {
   const colors = useColors();
@@ -480,7 +415,6 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 </FilterSummaryRow>
               </View>
 
-
             </View>
           }
           renderItem={({ item }) => (
@@ -516,18 +450,9 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   );
 }
 
-/** A card's corners, and its picture's — a touch tighter than the app's radius at this size. */
-const CARD_RADIUS = 14;
-
 const styles = StyleSheet.create({
   content: { flex: 1 },
   list:    { paddingBottom: 32 },
-
-  screenTitleBar: {
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  screenTitle: { fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
 
   /**
    * Your groups sit on their own ground.
@@ -593,15 +518,6 @@ const styles = StyleSheet.create({
   // The lighter panel the words sit on, filling to the card's foot.
   cardBody:   { flexGrow: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
   cardTitle:  { fontSize: 13, fontFamily: FONT_INTER.bold },
-  cardSub:    { fontSize: 12, marginTop: 2 },
-  // On the picture's bottom left, lifted off it like the marketplace's price.
-  cardRegion: {
-    position: 'absolute', left: 6, bottom: 6, maxWidth: '62%',
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 3.5, borderRadius: PILL_RADIUS,
-    boxShadow: '0px 4px 18px 2px rgba(0, 0, 0, 0.35)',
-  },
-  cardRegionText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_BLACK, flexShrink: 1 },
   // Bottom right, on a dark disc so it reads over any picture.
   cardMembers: {
     position: 'absolute', right: 6, bottom: 6,

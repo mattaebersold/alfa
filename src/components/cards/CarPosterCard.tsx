@@ -3,11 +3,11 @@ import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { Car as CarIcon, Wrench, Settings, Users, Plus, PenSquare, Trash2, MessageSquarePlus, Images, ArrowRightLeft, Check } from 'lucide-react-native';
 import {
   useGetUserByIdQuery, useGetCarFollowerCountQuery, useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation } from '../../api/apiService';
+import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -234,13 +234,12 @@ export default function CarPosterCard({
     : car.trim;
   const displayName = car.title || carTitle || 'this car';
 
-  const typeBadge = TYPE_COLORS[car.type ?? ''];
+  // A type the owner named themselves wears Other's colour.
+  const typeBadge = car.type ? TYPE_COLORS[car.type] ?? TYPE_COLORS.other : undefined;
   const typeLabel = formatLabel(car.type);
   const categoryLabel = formatLabel(car.category);
 
-  const timeAgo = car.created_at
-    ? formatDistanceToNow(new Date(car.created_at), { addSuffix: true })
-    : '';
+  const timeAgo = shortTimeAgo(car.created_at);
 
   const hero = carHeroUrl(car);
 
@@ -313,17 +312,21 @@ export default function CarPosterCard({
             <Avatar user={owner} size={30} />
             <View style={styles.bylineText}>
               <Text style={[styles.bylineName, { color: c.fg }]} numberOfLines={1}>
-                @{owner?.username ?? 'Someone'}
+                {owner?.username ?? 'Someone'}
               </Text>
               <Text style={[styles.bylineSub, { color: c.grey }]} numberOfLines={1}>
                 added a car to their garage
               </Text>
             </View>
           </TouchableOpacity>
-          {timeAgo ? <Text style={[styles.bylineTime, { color: c.grey }]}>{timeAgo}</Text> : null}
-          {!isOwner && (
-            <ReportButton contentType="garagecar" contentId={car.internal_id} size={18} />
-          )}
+          {/* Grouped tighter than the byline's gap, as on a post: the time is
+              short now ("3h") and at the full gap it floated off on its own. */}
+          <View style={styles.bylineMeta}>
+            {timeAgo ? <Text style={[styles.bylineTime, { color: c.grey }]}>{timeAgo}</Text> : null}
+            {!isOwner && (
+              <ReportButton contentType="garagecar" contentId={car.internal_id} size={18} />
+            )}
+          </View>
         </View>
       )}
 
@@ -630,7 +633,7 @@ export default function CarPosterCard({
                 styles.followBtn,
                 isFollowing
                   ? { backgroundColor: colors.segment, borderColor: colors.border }
-                  : { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+                  : styles.followBtnOutline,
                 followBusy && styles.followBtnBusy,
               ]}
               onPress={toggleFollow}
@@ -642,8 +645,8 @@ export default function CarPosterCard({
             >
               {isFollowing
                 ? <Check size={13} color={colors.fg} strokeWidth={3} />
-                : <Plus size={13} color={COLOR_BLACK} strokeWidth={3} />}
-              <Text style={[styles.followText, { color: isFollowing ? colors.fg : COLOR_BLACK }]}>
+                : <Plus size={11} color={COLOR_WHITE} strokeWidth={3} />}
+              <Text style={[styles.followText, isFollowing ? { color: colors.fg } : styles.followTextOutline]}>
                 {isFollowing ? 'Following' : 'Follow'}
               </Text>
             </TouchableOpacity>
@@ -713,6 +716,7 @@ const styles = StyleSheet.create({
   bylineName: { fontSize: 14, fontFamily: FONT_INTER.bold },
   bylineSub:  { fontSize: 12, marginTop: 1 },
   bylineTime: { fontSize: 11, fontStyle: 'italic' },
+  bylineMeta: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
   /**
    * The ratio lives on the card in the feed, not on the image.
@@ -731,8 +735,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, height: 32, borderRadius: PILL_RADIUS, borderWidth: 1,
   },
+  // Not yet followed: a lighter ask — smaller, and only outlined, so it
+  // doesn't outweigh the card it sits under.
+  followBtnOutline: {
+    backgroundColor: 'transparent', borderColor: COLOR_WHITE,
+    paddingHorizontal: 10, height: 26, gap: 4,
+  },
   followBtnBusy: { opacity: 0.6 },
   followText: { fontSize: 12.5, fontFamily: FONT_INTER.bold },
+  followTextOutline: { fontSize: 11.5, color: COLOR_WHITE },
   actionsPill: {
     alignSelf: 'flex-start',
     flexDirection: 'row', alignItems: 'center', gap: 2,

@@ -9,7 +9,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
-import { StepFormNav, StepFormProgress } from '../ui/StepFormHeader';
+import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../ui/StepFormHeader';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import GroupInvitePicker from './GroupInvitePicker';
 import { useCreateGroupMutation } from '../../api/apiService';
@@ -199,6 +199,9 @@ export default function NewGroupSheet({
 
   return (
     <SharedModal
+      headerSurface={STEP_FORM_HEADER_BG}
+      // No fade under the darker header: it reads as a smear on the body.
+      headFade={false}
       visible={visible}
       onClose={close}
       heightRatio={0.9}
@@ -219,7 +222,7 @@ export default function NewGroupSheet({
         />
       )}
     >
-      <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />
+      <StepFormProgress caption={STEP_TITLES[step - 1]} />
 
       <FormScrollView
         contentContainerStyle={styles.content}
@@ -483,7 +486,8 @@ function Label({ children, colors, first = false }: { children: React.ReactNode;
 
 const styles = StyleSheet.create({
   carHint: { fontSize: 12, lineHeight: 17, marginBottom: 8 },
-  content: { paddingHorizontal: PANE_GUTTER, paddingBottom: 40 },
+  // paddingTop clears the step's dark heading band, and scrolls away with the form.
+  content: { paddingHorizontal: PANE_GUTTER, paddingTop: 16, paddingBottom: 40 },
   label: {
     fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase',
     letterSpacing: 0.5, marginTop: 18, marginBottom: 8,

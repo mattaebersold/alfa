@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Plus } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
-import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
+import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../../components/ui/StepFormHeader';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import SubTabs from '../../components/ui/SubTabs';
 import PostToSelector from '../../components/social/PostToSelector';
@@ -531,9 +531,8 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   const advance = canAdvance();
   const nav = (
     <StepFormNav
-      // Inline there's no heading: the progress bar sits between the arrows,
-      // level with them, and says where you are on its own.
-      center={inline ? <StepFormProgress step={step} total={STEP_TITLES.length} style={styles.inlineTrack} /> : undefined}
+      // Inline there's no heading: the tach says where you are on its own.
+      center={inline ? <View style={styles.inlineSpacer} /> : undefined}
       title={isEdit ? 'Edit Listing' : form.kind === 'want' ? 'New Want Ad' : 'New Listing'}
       step={step}
       totalSteps={STEP_TITLES.length}
@@ -559,7 +558,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
 
   const frame = (
     <>
-      {!inline && <StepFormProgress step={step} total={STEP_TITLES.length} caption={STEP_TITLES[step - 1]} />}
+      {!inline && <StepFormProgress caption={STEP_TITLES[step - 1]} />}
 
       <Body {...bodyProps}>
         {/* ── STEP 1: which side of the market ───────────────────────────── */}
@@ -862,6 +861,9 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   }
   return (
     <SharedModal
+      headerSurface={STEP_FORM_HEADER_BG}
+      // No fade under the darker header: it reads as a smear on the body.
+      headFade={false}
       visible={visible}
       onClose={() => setVisible(false)}
       onDismissed={() => {
@@ -936,13 +938,14 @@ function ToggleRow({ colors, brand, label, value, onChange }: {
 }
 
 const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  // paddingTop clears the step's dark heading band, and scrolls away with the form.
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
   // Inline: the host's inset, and the nav row's clearance above it.
   inlineWrap: { paddingTop: 4 },
   // The Back / Next / Post row, in from the screen's edge.
   inlineNav:  { paddingHorizontal: 12, paddingTop: 18, paddingBottom: 14 },
-  // Between the arrows: no margins of its own, the row's gap instead.
-  inlineTrack: { flex: 1, marginHorizontal: 14, marginTop: 0, marginBottom: 0 },
+  // The title's place, empty: keeps the buttons over at the right.
+  inlineSpacer: { flex: 1 },
   inlineBody: { paddingHorizontal: 12, paddingBottom: 8 },
 
   // The post form's field captions: sentence case, a size up from the old
