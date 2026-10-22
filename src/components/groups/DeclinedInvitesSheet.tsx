@@ -9,7 +9,7 @@ import {
   useGetDeclinedInvitesQuery,
   useAllowGroupInvitesMutation,
 } from '../../api/apiService';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import { firstGalleryUrl } from '../../utils/image';
@@ -156,10 +156,10 @@ export default function DeclinedInvitesSheet({
 
 const styles = StyleSheet.create({
   list:  { paddingBottom: 32 },
-  intro: { fontSize: 12.5, lineHeight: 18, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  intro: { fontSize: 12.5, lineHeight: 18, paddingHorizontal: PANE_GUTTER, paddingTop: 14, paddingBottom: 6 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: PANE_GUTTER, paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   thumb:      { width: 46, height: 46, borderRadius: 8 },

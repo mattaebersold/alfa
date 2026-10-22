@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetCarTasksQuery, useToggleCarTaskMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import type { AppStackParamList } from '../../navigation/types';
 import {
   COMMON_RADIUS,
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   list:        { paddingBottom: 40 },
   row:         {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: PANE_GUTTER, paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLOR_GRAY_42,
   },
   check:       {

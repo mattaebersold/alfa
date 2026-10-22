@@ -247,9 +247,28 @@ export default function InlineComments({
     }
   };
 
+  /**
+   * Opening the box to write in takes the panel to its foot — the thread's
+   * newest comments and the box itself — and keeps it there while the panel
+   * shrinks for the keyboard (SummaryModal's scrollToEnd holds the foot).
+   */
+  const toFootOnOpen = (isOpen: boolean) => {
+    if (!isOpen || !panel) return;
+    // The panel holds its foot in view while it shrinks for the keyboard.
+    panel.scrollToEnd();
+    // And once more when the keyboard has finished, in case it took longer.
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      sub.remove();
+      panel.scrollToEnd();
+    });
+    // Not every open raises the keyboard (it may already be up).
+    setTimeout(() => sub.remove(), 1500);
+  };
+
   const composerEl = (
     <Composer
       value={commentText}
+      onOpenChange={toFootOnOpen}
       onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
       placeholder="Write a comment..."
       photos={photos}

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLOR_GRAY_17 } from '../../constants/config';
 import FeedItemCard from '../cards/FeedItemCard';
@@ -48,7 +48,8 @@ const styles = StyleSheet.create({
   // The card's header brings its own room from the panel's top.
   body: { paddingTop: 0 },
   heading: { paddingTop: 10, marginBottom: 6 },
-  sheetScroll: {},
+  // Starts clear of the grabber floating over the top — see PANE_GRABBER_H.
+  sheetScroll: { paddingTop: PANE_GRABBER_H },
 });
 
 /** The full post, with its author, once it's fetched — the copy handed in until then. */

@@ -28,6 +28,7 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useRallyDelete } from '../../hooks/useRallyDelete';
 import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { openInMaps } from '../../utils/openInMaps';
 
 /**
  * Full-screen rally detail — reached from deep links and notifications. The
@@ -58,11 +59,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
-    if (rally.location_lat && rally.location_lng) {
-      Linking.openURL(`https://maps.apple.com/?ll=${rally.location_lat},${rally.location_lng}&q=${encodeURIComponent(rally.location ?? '')}`);
-    } else if (rally.location) {
-      Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(rally.location)}`);
-    }
+    openInMaps(rally);
   }, [rally]);
 
   /** Records a section's y position so the tabs can jump to it. */

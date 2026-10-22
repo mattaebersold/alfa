@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGetPhotoSpotsQuery } from '@ors/kit';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings, MapPinned,
 
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -78,14 +78,11 @@ const PANEL_WIDTH = Dimensions.get('window').width * PANEL_RATIO;
 const TILE_WIDTH = Math.floor((PANEL_WIDTH - 32 - 8) / 2) - 1;
 
 /**
- * Your Events is parked, not removed.
- *
- * Everything behind it still works — the count query, the sheet, the tap that
- * opens it — so this is one word away from coming back. Home went for good:
+ * My Events — the events you've said you're interested in. Home went for good:
  * the feed is what closing the menu returns you to, so a tile for it was a
  * second way to do nothing.
  */
-const SHOW_YOUR_EVENTS = false;
+const SHOW_YOUR_EVENTS = true;
 
 /**
  * The merch shop.
@@ -483,7 +480,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
 
               {SHOW_YOUR_EVENTS && (
                 <View style={styles.pairRow}>
-                  <NavTile label="Your Events" Icon={CalendarCheck}
+                  <NavTile label="My Events" Icon={CalendarCheck}
                     flex={1}
                     count={myEventsCount}
                     onPress={() => setMyEventsOpen(true)} />
@@ -531,6 +528,11 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     that lane. */}
                 <NavTile label="Routes" Icon={Route}
                   onPress={() => closeThen(() => navigation.navigate('Routes'))} />
+                {/* Where posts were made, as pins — beside Routes, the other
+                    map you browse. "Posts Map" rather than anything longer:
+                    the tiles are half the row and a label stays on one line. */}
+                <NavTile label="Posts Map" Icon={MapPinned}
+                  onPress={() => closeThen(() => navigation.navigate('PostsMap'))} />
                 {/* Marketplace is somewhere you browse, so it browses with
                     everything else. It had a SHOP heading of its own next to
                     the merch shop; with that parked, the heading was left

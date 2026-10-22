@@ -6,8 +6,7 @@ import RegionBadge from '../ui/RegionBadge';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { RALLY_DATE_TBA } from '../../utils/rally';
 import {
-  categoryFor, occurrenceDate, formatEventDate, formatEventRange, ORS_EVENT_COLOR,
-} from '../../constants/eventTypes';
+  categoryFor, occurrenceDate, formatEventDate, formatEventRange, ORS_EVENT_COLOR, orsBadgeLabel } from '../../constants/eventTypes';
 import { contrastText } from '../../hooks/useBrandColor';
 import type { Rally, SocietyEvent } from '../../types/api';
 import {
@@ -115,7 +114,7 @@ export function UpcomingEventCard({ event, width, showRegion, onPress }: {
     <UpcomingCard
       tag={category.label}
       color={category.color}
-      badge={event.ors_sponsored ? 'ORS Event' : undefined}
+      badge={orsBadgeLabel(event)}
       title={event.title}
       when={when}
       image={firstGalleryUrl(event.gallery)}

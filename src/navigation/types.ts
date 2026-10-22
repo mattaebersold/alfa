@@ -256,6 +256,8 @@ export type AppStackParamList = {
    * nobody can press.
    */
   Routes: undefined;
+  /** Where posts were made, as pins on a map — reached from the menu. */
+  PostsMap: undefined;
   RouteRecord: undefined;
   /** Marks a past drive on a map — start, finish, the roads between. */
   RoutePlot: undefined;

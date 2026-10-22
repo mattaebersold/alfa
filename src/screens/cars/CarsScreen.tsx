@@ -28,7 +28,7 @@ import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
 import { useHeaderScroll, headerOffset } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
-import { useGetCarsQuery, useGetCarBrandsQuery, useGetUserGarageQuery } from '../../api/apiService';
+import { useGetCarsQuery, useGetUserGarageQuery } from '../../api/apiService';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import CarGridItem from '../../components/cars/CarGridItem';
 import { colors } from '../../constants/colors';
@@ -38,7 +38,7 @@ import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, GUTTER, PILL_RADIUS, garageFull, showProGarageFull, GARAGE_UPSELL } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, GUTTER, PILL_RADIUS, garageFull, showProGarageFull, GARAGE_UPSELL, SEARCH_EDGE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid } from '../../components/ui/Skeleton';
 
@@ -95,9 +95,6 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const { openCar } = useSummary();
-  // The same list the Brands screen shows — its length is the count on the button.
-  const { data: brands } = useGetCarBrandsQuery();
-  const brandCount = brands?.length ?? 0;
 
   // Add a car — or, at a basic account's limit, the upsell, as the garage's
   // own add button does rather than opening a form the server will refuse.
@@ -169,14 +166,16 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
     // Cars › Brands › Porsche › 911 — every crumb but the last is a way back.
     // On the grids it floats under the header; on a model it's laid over the
     // banner and scrolls away with it.
+    /** A make and a model both open on a banner, which carries the trail. */
+    const onBanner = here.kind === 'model' || here.kind === 'brand';
     const crumbRow = (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={[styles.crumbsScroller, here.kind !== 'model' && { position: 'absolute', top: headerPad }]}
-          // A little further down on a model, where the row sits on the
-          // banner photo rather than tight under the header.
-          contentContainerStyle={[styles.crumbs, here.kind === 'model' && styles.crumbsOnBanner]}
+          style={[styles.crumbsScroller, !onBanner && { position: 'absolute', top: headerPad }]}
+          // A little further down on a make or a model, where the row sits on
+          // the banner photo rather than tight under the header.
+          contentContainerStyle={[styles.crumbs, onBanner && styles.crumbsOnBanner]}
         >
           {crumbs.map((label, i) => {
             const last = i === crumbs.length - 1;
@@ -218,7 +217,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
           { transform: [{ translateY: headerOffset.interpolate({ inputRange: [-TABS_STUCK_RISE, 0], outputRange: [-TABS_STUCK_RISE, 0], extrapolate: 'clamp' }) }] },
         ]}
       >
-        {here.kind !== 'model' && crumbRow}
+        {!onBanner && crumbRow}
         {here.kind === 'brands' && (
           <BrandsView
             headerPad={CRUMBS_H}
@@ -229,8 +228,10 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
         {here.kind === 'brand' && (
           <BrandDetailView
             key={here.brand}
-            headerPad={CRUMBS_H}
             brand={here.brand}
+            bannerOverlay={crumbRow}
+            // The header's tab row stays pinned once the rest has slid away.
+            scrollClearance={Math.max(0, headerPad - TABS_STUCK_RISE)}
             onScroll={onScroll}
             onOpenModel={(p) => setTrail((t) => [...t, { kind: 'model', params: p }])}
           />
@@ -242,6 +243,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
             onOpenBrand={() => popTo(2)}
             onScroll={onScroll}
             bannerOverlay={crumbRow}
+            scrollClearance={Math.max(0, headerPad - TABS_STUCK_RISE)}
           />
         )}
       </Animated.View>
@@ -292,15 +294,10 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 onPress={() => setTrail([{ kind: 'brands' }])}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel={brandCount ? `Browse by brand, ${brandCount} brands` : 'Browse by brand'}
+                accessibilityLabel="Browse by brand"
               >
                 <Car size={22} color={COLOR_BLACK} strokeWidth={2.2} />
                 <Text style={styles.brandsBtnText}>Browse by Brand</Text>
-                {brandCount > 0 && (
-                  <View style={styles.brandsCount}>
-                    <Text style={[styles.brandsCountText, { color: brand }]}>{brandCount}</Text>
-                  </View>
-                )}
                 <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.4} style={styles.brandsChevron} />
               </TouchableOpacity>
             </View>
@@ -309,7 +306,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
               {/* Search on the left, the filter on the right — the pattern
                   events, the marketplace and groups share. */}
               <View style={styles.toolsRow}>
-              <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: SEARCH_EDGE }]}>
                 <Search size={15} color={colors.grey} />
                 <TextInput
                   style={[styles.searchInput, { color: colors.fg }]}
@@ -445,14 +442,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   brandsBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 16 },
-  // Black on the brand fill, with the number in the brand colour — reads as a
-  // badge on the button rather than another word on it.
-  brandsCount: {
-    minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6,
-    backgroundColor: COLOR_BLACK,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  brandsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold },
   brandsChevron: { marginLeft: 'auto' },
   list: { paddingBottom: 20 },
   // The brand page's mosaic (CarMosaic): two columns, each card its photo's shape.

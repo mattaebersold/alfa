@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
 import * as Haptics from 'expo-haptics';
-import { Check, Lock } from 'lucide-react-native';
+import { Lock } from 'lucide-react-native';
 import AvatarStack from '../ui/AvatarStack';
-import OilSheen from '../ui/OilSheen';
 import PollVotersSheet from './PollVotersSheet';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useVotePollMutation, useUnvotePollMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import type { Post, PollOptionSummary } from '../../types/api';
-import { COLOR_GRAY_14, COLOR_BLACK } from '../../constants/config';
+import { COLOR_PRO, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** Faces shown on an option before the rest collapse into "+N". */
@@ -18,7 +17,6 @@ const FACES_PER_OPTION = 5;
 const FACE_SIZE = 20;
 /** How much each face covers the one before — a tight stack, like the likers'. */
 const FACE_OVERLAP = 0.4;
-const CARD_RADIUS = 14;
 
 /**
  * A post's poll — the question, then its options, in a card of its own on
@@ -48,6 +46,8 @@ export default function PostPoll({ post, style }: {
   const [votePoll] = useVotePollMutation();
   const [unvotePoll] = useUnvotePollMutation();
   // The option whose voters are open, and the faces the panel grew out of.
+  /** Each option row's width — the black copy of its words is laid out at it. */
+  const [rowW, setRowW] = useState<Record<string, number>>({});
   const [voters, setVoters] = useState<{ option: PollOptionSummary; origin: SummaryOrigin | null } | null>(null);
 
   const poll = post.poll_summary;
@@ -78,61 +78,35 @@ export default function PostPoll({ post, style }: {
   return (
     <View style={style}>
     <View style={styles.card}>
-      {/* The film, under everything: the cool tone whoever's looking — the
-          poll is the post's, not the viewer's — and faint enough to be a
-          tint, not a picture. */}
-      {/* Blown up past the card, so the bands run wide across it rather
-          than crowding in as they do on a button-sized film. The card clips. */}
-      <View style={[StyleSheet.absoluteFill, styles.sheenScale]} pointerEvents="none">
-        <OilSheen tone="cool" radius={0} opacity={0.2} />
-      </View>
       <View style={styles.head}>
+        {/* The question, set apart from the post's own title above it: the
+            Pro red, as its bars are, and a lighter weight. */}
         {poll.question ? (
-          <Text style={[styles.question, { color: colors.fg }]}>{poll.question}</Text>
+          <Text style={[styles.question, { color: COLOR_PRO }]}>{poll.question}</Text>
         ) : <View style={styles.headSpacer} />}
-        <Text style={[styles.votes, { color: colors.muted }]}>
-          {poll.total_votes} {poll.total_votes === 1 ? 'vote' : 'votes'}
-        </Text>
       </View>
 
       <View style={styles.options}>
       {poll.options.map((o) => {
         const mine = o.internal_id === myVote;
         const share = pct(o);
-        return (
-          <TouchableOpacity
-            key={o.internal_id}
-            style={styles.option}
-            onPress={() => tap(o)}
-            disabled={!canVote}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityState={{ selected: mine }}
-            accessibilityLabel={`${o.label}, ${share} percent${canVote ? '. Tap to vote' : ''}`}
-          >
-            {/* The share, as a fill behind the row. Width is the percentage,
-                so the bar is the number drawn — the text beside it is the
-                same fact for people who want it exact. Nothing at zero: the
-                row's own ground is what an unpicked option looks like. */}
-            {share > 0 && (
-              <View
-                style={[styles.bar, { width: `${share}%` }]}
-                pointerEvents="none"
-              />
-            )}
-            <View style={styles.optionRow}>
-              {mine && <Check size={14} color={colors.fg} strokeWidth={3} />}
-              <Text
-                style={[styles.optionLabel, { color: colors.fg }, mine && styles.optionLabelMine]}
-                numberOfLines={2}
-              >
-                {o.label}
-              </Text>
+        /** The row's words and tally, in one ink — drawn twice, see the bar. */
+        const content = (ink: string, live: boolean) => (
+          <View style={styles.optionRow}>
+            <Text
+              style={[styles.optionLabel, { color: ink }, mine && styles.optionLabelMine]}
+              numberOfLines={2}
+            >
+              {o.label}
+            </Text>
+            {/* The faces and the share together, at the row's end. */}
+            <View style={styles.tally}>
               {showFaces && o.voter_total > 0 && (
                 // The faces are the way into the list, so they're the
                 // pressable part — the row itself is still the vote.
                 <SummaryTouchable
                   onPress={(origin) => setVoters({ option: o, origin })}
+                  disabled={!live}
                   accessibilityLabel={`See who voted ${o.label}`}
                   // Room for the stack's trailing overlap, which AvatarStack
                   // leaves as a negative margin on its last face.
@@ -147,8 +121,44 @@ export default function PostPoll({ post, style }: {
                   />
                 </SummaryTouchable>
               )}
-              <Text style={[styles.pct, { color: mine ? colors.fg : colors.muted }]}>{share}%</Text>
+              {/* The share in a small black bubble — the same on the bar
+                  and off it, so it doesn't take the row's ink. */}
+              <View style={styles.pctBubble}>
+                <Text style={styles.pct}>{share}%</Text>
+              </View>
             </View>
+          </View>
+        );
+        return (
+          <TouchableOpacity
+            key={o.internal_id}
+            style={styles.option}
+            onPress={() => tap(o)}
+            onLayout={(e) => {
+              const w = e.nativeEvent.layout.width;
+              setRowW((prev) => (prev[o.internal_id] === w ? prev : { ...prev, [o.internal_id]: w }));
+            }}
+            disabled={!canVote}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mine }}
+            accessibilityLabel={`${o.label}, ${share} percent${canVote ? '. Tap to vote' : ''}`}
+          >
+            {content(colors.fg, true)}
+            {/* The share, as a solid Pro red fill. Width is the percentage, so
+                the bar is the number drawn. Over the row, carrying the same
+                words in black clipped to its width — so wherever the bar is,
+                the text on it is black, and past its end it's white again.
+                Taps fall through to the row and its faces underneath. */}
+            {share > 0 && (
+              <View style={[styles.bar, { width: `${share}%` }]} pointerEvents="none">
+                {rowW[o.internal_id] ? (
+                  <View style={[styles.barInk, { width: rowW[o.internal_id] }]}>
+                    {content(COLOR_BLACK, false)}
+                  </View>
+                ) : null}
+              </View>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -175,29 +185,25 @@ export default function PostPoll({ post, style }: {
 }
 
 const styles = StyleSheet.create({
-  // Its own card on the post: a step darker than the post's ground with the
-  // sheen laid over it. No edge — the film is what sets it apart.
-  card: {
-    borderRadius: CARD_RADIUS,
-    backgroundColor: COLOR_GRAY_14,
-    paddingHorizontal: 10, paddingTop: 10, paddingBottom: 8,
-    overflow: 'hidden',
-  },
+  // No panel of its own: the question and the options sit straight on the
+  // post — a card inside the card read as a box in a box. The option rows
+  // are what give it shape. The host's padding sets the sides.
+  card: { paddingTop: 4 },
   // The question, and the tally at its right.
   head:       { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   headSpacer: { flex: 1 },
-  question:   { flex: 1, minWidth: 0, fontSize: 14, fontFamily: FONT_INTER.bold, lineHeight: 19 },
-  votes:      { fontSize: 12, fontFamily: FONT_INTER.semibold, lineHeight: 19, flexShrink: 0 },
+  question:   { flex: 1, minWidth: 0, fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 19 },
   options:  { gap: 5 },
   // A bar, not a button: no outline, the fill behind it is its shape. The
-  // row is the sheen dimmed, the share is solid black on it.
+  // row is a dark well in the post; the share is the Pro red on it.
   option: {
     borderRadius: 9,
     overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  bar: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 9, backgroundColor: COLOR_BLACK },
-  sheenScale: { transform: [{ scale: 1.8 }] },
+  bar: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 9, overflow: 'hidden', backgroundColor: COLOR_PRO },
+  barInk: { position: 'absolute', left: 0, top: 0, bottom: 0 },
+  tally: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   optionRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 10, paddingVertical: 9,
@@ -206,7 +212,11 @@ const styles = StyleSheet.create({
   optionLabelMine: { fontWeight: '800' },
   // Room for the last face's negative margin, so the stack ends inside the row.
   faces: { paddingRight: Math.round(FACE_SIZE * FACE_OVERLAP), paddingVertical: 1 },
-  pct:   { fontSize: 13, fontFamily: FONT_INTER.extrabold, minWidth: 36, textAlign: 'right' },
+  pctBubble: {
+    height: 20, minWidth: 34, paddingHorizontal: 7, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_BLACK,
+  },
+  pct:   { color: '#FFFFFF', fontSize: 11, lineHeight: 14, fontFamily: FONT_INTER.bold, includeFontPadding: false },
   foot:     { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 8 },
   footText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 });

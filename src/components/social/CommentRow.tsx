@@ -4,6 +4,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { MoreVertical, Trash2, Reply } from 'lucide-react-native';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import Avatar from '../ui/Avatar';
 import MentionText from '../ui/MentionText';
 import ReportButton from '../ui/ReportButton';
@@ -18,7 +19,7 @@ import ImageLightbox from '../ui/ImageLightbox';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_11, COLOR_GRAY_42 } from '../../constants/config';
+import { COLOR_GRAY_11, COLOR_GRAY_42, COLOR_GRAY_208, COLOR_WHITE } from '../../constants/config';
 
 /**
  * The ground comments sit on, wherever they appear.
@@ -99,12 +100,19 @@ interface CommentRowProps {
    * encloses it.
    */
   below?: React.ReactNode;
+  /** No side margin — for a host that already insets its content. */
+  flush?: boolean;
+  /**
+   * The quieter form — smaller text, the name without its @, the short time —
+   * for a pane where the comments sit under a post's own body.
+   */
+  compact?: boolean;
 }
 
 export default function CommentRow({
   comment, currentUserId, onReply, isReply,
   isThreadStart = true, isThreadEnd = true, threadId, onOpenUser, backgroundColor,
-  onDeleted, replyOpen = false, below,
+  onDeleted, replyOpen = false, below, flush = false, compact = false,
 }: CommentRowProps) {
   const colors = useColors();
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
@@ -156,7 +164,7 @@ export default function CommentRow({
 
   const displayName = user?.username || '…';
   const timeAgo = comment.created_at
-    ? formatDistanceToNowStrict(new Date(comment.created_at), { addSuffix: true })
+    ? compact ? shortTimeAgo(comment.created_at) : formatDistanceToNowStrict(new Date(comment.created_at), { addSuffix: true })
     : '';
 
   const isOwn = currentUserId && currentUserId === comment.user_id;
@@ -167,10 +175,14 @@ export default function CommentRow({
     return (
       <View style={[
         styles.container,
+        flush && styles.flush,
+        compact && styles.containerCompact,
         styles.removed,
         { backgroundColor: backgroundColor ?? colors.card, borderColor: colors.borderDark },
         isThreadStart && styles.threadStart,
         isThreadEnd && styles.threadEnd,
+        compact && isThreadStart && styles.threadStartCompact,
+        compact && isThreadEnd && styles.threadEndCompact,
         isReply && styles.replyContainer,
       ]}>
         {isReply && <View style={styles.replyLine} />}
@@ -214,7 +226,7 @@ export default function CommentRow({
           accessibilityLabel={replyOpen ? 'Cancel reply' : `Reply to @${displayName}`}
           accessibilityState={{ expanded: replyOpen }}
         >
-          <Reply size={18} color={replyOpen ? contrastText(colors.primaryAlt) : colors.primaryAlt} />
+          <Reply size={18} color={replyOpen ? contrastText(colors.primaryAlt) : compact ? colors.greyDark : colors.primaryAlt} />
         </TouchableOpacity>
       )}
     </View>
@@ -224,9 +236,13 @@ export default function CommentRow({
   return (
     <View style={[
       styles.container,
+      flush && styles.flush,
+      compact && styles.containerCompact,
       { backgroundColor: backgroundColor ?? colors.card, borderColor: colors.borderDark },
       isThreadStart && styles.threadStart,
       isThreadEnd && styles.threadEnd,
+      compact && isThreadStart && styles.threadStartCompact,
+      compact && isThreadEnd && styles.threadEndCompact,
       isReply && styles.replyContainer,
     ]}>
       {/* A hairline in the border colour, not the brand one: it marks the
@@ -251,7 +267,7 @@ export default function CommentRow({
               user={user}
               size={isReply ? 20 : 22}
             />
-            <Text style={[styles.name, { color: colors.fg }]}>@{displayName}</Text>
+            <Text style={[styles.name, { color: compact ? COLOR_WHITE : colors.fg }]}>{compact ? displayName : `@${displayName}`}</Text>
           </View>
         </SummaryTouchable>
         <View style={styles.bylineRight}>
@@ -288,7 +304,7 @@ export default function CommentRow({
           {/* Full white: a comment is something someone said, not a caption
               about it, and at `muted` it sat quieter than the timestamps. */}
           {comment.body ? (
-            <MentionText text={comment.body} style={[styles.text, { color: colors.fg }]} />
+            <MentionText text={comment.body} style={[styles.text, { color: colors.fg }, compact && styles.textCompact]} />
           ) : null}
 
           {/* Fixed 16:9 in the thread so a run of comments keeps an even rhythm
@@ -370,6 +386,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
   },
+  flush: { marginHorizontal: 0 },
+  // A little closer in, to go with the smaller text, and no outline — the
+  // fill alone sets it off the pane.
+  containerCompact: { paddingHorizontal: 12, paddingVertical: 7, borderLeftWidth: 0, borderRightWidth: 0 },
   threadStart: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
@@ -382,6 +402,9 @@ const styles = StyleSheet.create({
     // The gap goes between threads, rather than between every row.
     marginBottom: 10,
   },
+  // The compact caps: closer in, and rounder.
+  threadStartCompact: { paddingTop: 9, borderTopWidth: 0, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
+  threadEndCompact:   { paddingBottom: 9, borderBottomWidth: 0, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
   // Half the old inset: a reply is a step in, not a column of its own.
   replyContainer: {
     paddingLeft: REPLY_PAD_L,
@@ -422,6 +445,7 @@ const styles = StyleSheet.create({
   // time is a footnote. The weights say so.
   name:     { fontSize: 13, fontFamily: FONT_INTER.medium },
   text:     { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.semibold },
+  textCompact: { fontSize: 13, lineHeight: 18, color: COLOR_GRAY_208 },
   // `alignItems: flex-start` so the row doesn't stretch its children on the
   // cross axis, which is the default and fights an aspect ratio.
   photoRow: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 8 },

@@ -1,32 +1,35 @@
 import React, { useState } from 'react';
 import {
-  View, StyleSheet, FlatList, Dimensions, ActivityIndicator, TouchableOpacity, Alert, Keyboard,
+  View, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { carScopeKey } from '../../utils/carScope';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
 import { WebView } from 'react-native-webview';
-import { ExternalLink, Pencil, Trash2, ChevronRight } from 'lucide-react-native';
+import { ExternalLink, Pencil, Trash2, ChevronRight, Settings, Images } from 'lucide-react-native';
 import { Linking } from 'react-native';
-import { formatDistanceToNow } from 'date-fns';
+import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import {
   useCreateCommentMutation,
   useDeleteGroupDiscussionPostMutation,
   useDeleteGroupResourceMutation,
 } from '../../api/apiService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../../hooks/useColors';
+import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import GroupItemActions from './GroupItemActions';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import MentionInput from '../ui/MentionInput';
-import ImageLightbox from '../ui/ImageLightbox';
+import ActionSheet from '../ui/ActionSheet';
+import PostMediaCarousel, { PageDots } from '../media/PostMediaCarousel';
+import { postMediaList, type PostMedia } from '../../utils/postMedia';
 import CommentRow, { type CommentData } from '../social/CommentRow';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER, PANE_GRABBER_H } from '../ui/SharedModal';
 import SharedButton from '../ui/SharedButton';
 import GroupCreateSheet from './GroupCreateSheet';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import {
@@ -37,11 +40,11 @@ import {
   COLOR_GRAY_180,
   COLOR_GRAY_236,
   COLOR_GRAY_42,
+  COLOR_GRAY_13,
+  COLOR_GRAY_102,
   COLOR_WHITE,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 type Kind = 'news' | 'discussion' | 'resource';
 const ENTRY_TYPE: Record<Kind, string> = {
@@ -83,6 +86,9 @@ export default function GroupItemDetailModal({
 }: Props) {
   const { userInfo } = useAppSelector((s) => s.auth);
   const colors = useColors();
+  // The Post button in the member's own colour: blue, or Pro red.
+  const brand = useBrandColor();
+  const insets = useSafeAreaInsets();
   const [deleteDiscussion, { isLoading: deletingDiscussion }] = useDeleteGroupDiscussionPostMutation();
   const [deleteResource, { isLoading: deletingResource }] = useDeleteGroupResourceMutation();
   const deleting = deletingDiscussion || deletingResource;
@@ -90,14 +96,14 @@ export default function GroupItemDetailModal({
   const [commentText, setCommentText] = useState('');
   const [mentionedIds, setMentionedIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<{ commentId: string; username: string } | null>(null);
-  // Which photo the full-screen viewer is on, if it's open.
-  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const entryType = kind ? ENTRY_TYPE[kind] : '';
   const id = item?.internal_id ?? '';
 
   const { rows, comments, isFetching } = useCommentThread(entryType, id, {
     skip: !visible || !id || !entryType,
+    newestFirst: true,
   });
   const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
 
@@ -135,12 +141,11 @@ export default function GroupItemDetailModal({
   const scopeKey: string = d?.group_id || carScopeKey(d?.make, d?.model);
   const carScope = !d?.group_id && d?.make && d?.model ? { make: d.make, model: d.model } : undefined;
   const gallery = d.gallery ?? [];
-  const zoomUrls = (gallery.length > 0
-    ? gallery.map((g: any) => imageUrl(g.filename))
-    : [d.image ? imageUrl(d.image) : null]
-  ).filter((u: string | null): u is string => !!u);
-  const hero = firstGalleryUrl(gallery) ?? (d.image ? imageUrl(d.image) : null);
-  const timeAgo = d.created_at ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true }) : '';
+  // The gallery, or an older entry's lone image.
+  const legacyImage = d.image ? imageUrl(d.image) : null;
+  const media: PostMedia[] = gallery.length > 0
+    ? postMediaList({ gallery, video_id: d.video_id })
+    : legacyImage ? [{ kind: 'image', key: 'image', url: legacyImage }] : [];
   const kindLabel = kind === 'news' ? 'News' : kind === 'resource' ? 'Resource' : 'Discussion';
   const ytId = kind === 'resource' ? youtubeId(d.url) : null;
 
@@ -170,83 +175,84 @@ export default function GroupItemDetailModal({
   };
 
   return (
-    <SharedModal visible={visible} onClose={onClose} title={kindLabel}>
-      <FormScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+    // No title row: the item's own title heads it, and "Discussion" over it
+    // said nothing the content didn't.
+    // Edge to edge: the content runs on under the home indicator rather than
+    // being cut off above it, and pads its own foot clear of it.
+    <SharedModal visible={visible} onClose={onClose} hideHeader edgeToEdge>
+      <FormScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, !onViewMore && { paddingBottom: insets.bottom + 40 }]}>
         {/* Media */}
         {ytId ? (
           <View style={styles.ytWrap}>
             <WebView source={{ uri: `https://www.youtube.com/embed/${ytId}` }} style={styles.ytPlayer} allowsFullscreenVideo javaScriptEnabled />
           </View>
-        ) : gallery.length > 1 ? (
-          <FlatList
-            data={gallery}
-            keyExtractor={(g: any, i) => g.filename ?? String(i)}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item: g, index }: any) => (
-              // Tap opens it full-screen, where it can be pinched into.
-              <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(index)}>
-                <Image source={{ uri: imageUrl(g.filename) ?? undefined }} style={styles.galleryImage} contentFit="cover" />
-              </TouchableOpacity>
-            )}
+        ) : media.length ? (
+          // As the feed card draws it: one strip, each slide at its own shape
+          // with the height easing between them, dots at the foot, a pinch for
+          // a closer look.
+          <PostMediaCarousel
+            media={media}
+            adaptiveHeight
+            visible={visible}
+            pinchZoom
+            // The feed card's pager: the dots in a pill with the gallery
+            // icon, bottom left, rather than centred at the foot.
+            showPageIndicator={false}
+            overlay={({ active }) => (media.length > 1 ? (
+              <View style={styles.galleryRow} pointerEvents="none">
+                <View style={styles.galleryPill} accessibilityLabel={`${media.length} photos`}>
+                  <Images size={16} color={COLOR_WHITE} strokeWidth={2} />
+                  <PageDots count={media.length} active={active} />
+                </View>
+              </View>
+            ) : null)}
           />
-        ) : hero ? (
-          <TouchableOpacity activeOpacity={0.95} onPress={() => setZoomIndex(0)}>
-            <Image source={{ uri: hero }} style={styles.hero} contentFit="cover" />
-          </TouchableOpacity>
         ) : null}
 
-        <View style={styles.body}>
+        {/* Right under the grabber when there's no media over it. */}
+        <View style={[styles.body, !(ytId || media.length) && styles.bodyBare]}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{d.title}</Text>
+            {/* The author's own controls, behind a cog rather than laid out
+                as buttons — they're rarely wanted, and never by anyone else. */}
+            {canManage && (
+              <TouchableOpacity
+                onPress={() => setMenuOpen(true)}
+                disabled={deleting}
+                hitSlop={10}
+                style={[styles.cog, deleting && { opacity: 0.4 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`${kindLabel} options`}
+              >
+                <Settings size={18} color={COLOR_GRAY_141} />
+              </TouchableOpacity>
+            )}
+          </View>
           {categoryLabel ? (
             <View style={styles.catChip}>
               <Text style={styles.catChipText}>{categoryLabel}</Text>
             </View>
           ) : null}
-          <Text style={styles.title}>{d.title}</Text>
+          {/* The author as the list row shows them — see GroupDetailScreen. */}
           <View style={styles.meta}>
-            <Avatar user={d.user} size={26} />
-            <Text style={styles.metaText} numberOfLines={1}>@{d.user?.username} · {timeAgo}</Text>
-            {canManage && (
-              <View style={styles.ownerActions}>
-                <TouchableOpacity
-                  style={[styles.ownerBtn, { borderColor: colors.borderDark }]}
-                  onPress={() => setEditOpen(true)}
-                  disabled={deleting}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${kindLabel.toLowerCase()}`}
-                >
-                  <Pencil size={13} color={colors.fg} />
-                  <Text style={[styles.ownerBtnText, { color: colors.fg }]}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.ownerBtn, { borderColor: colors.borderDark }, deleting && { opacity: 0.4 }]}
-                  onPress={confirmDelete}
-                  disabled={deleting}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Delete ${kindLabel.toLowerCase()}`}
-                >
-                  <Trash2 size={13} color={colors.red} />
-                  <Text style={[styles.ownerBtnText, { color: colors.red }]}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <Avatar user={d.user} size={22} />
+            <Text style={styles.metaText} numberOfLines={1}>
+              {d.user?.username ?? 'member'}
+              {d.created_at ? <Text style={styles.metaWhen}>{`  ${shortTimeAgo(d.created_at)}`}</Text> : null}
+            </Text>
+            {/* Like and comment at the row's end, as on the list row. */}
+            <GroupItemActions kind={kind} item={d} style={styles.metaActions} />
           </View>
           {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}
 
-          {/* Voting. Lives here rather than on the list row — it's a response to
-              having read the thing, and the row is a link, not a control.
-              All three kinds vote now; resources and news showed nothing at
-              all before, though the endpoints existed. */}
-          <GroupItemActions kind={kind} item={d} style={styles.voteRow} />
 
           {/* Resource link */}
           {kind === 'resource' && d.url && !ytId ? (
             <SharedButton label="Open Link" Icon={ExternalLink} onPress={() => Linking.openURL(d.url)} full style={{ marginTop: 16 }} />
           ) : null}
 
-          {/* Comments */}
-          <Text style={styles.commentsHeading}>Comments{comments.length ? ` (${comments.length})` : ''}</Text>
+          {/* Comments, ruled off from what they're about. */}
+          <View style={styles.rule} />
 
           {replyingTo && (
             <View style={styles.replyBanner}>
@@ -262,7 +268,7 @@ export default function GroupItemDetailModal({
           <View style={styles.inputRow}>
             <MentionInput
               containerStyle={{ flex: 1 }}
-              style={[ss.chatInput, { borderColor: COLOR_GRAY_42, color: COLOR_GRAY_236, maxHeight: 120 }]}
+              style={[ss.chatInput, { borderColor: COLOR_GRAY_42, backgroundColor: COLOR_GRAY_13, color: COLOR_GRAY_236, maxHeight: 120 }]}
               value={commentText}
               onChangeText={(t, ids) => { setCommentText(t); setMentionedIds(ids); }}
               placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
@@ -272,9 +278,9 @@ export default function GroupItemDetailModal({
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={submitting || !commentText.trim()}
-              style={[styles.postBtn, (!commentText.trim() || submitting) && { opacity: 0.4 }]}
+              style={[styles.postBtn, { backgroundColor: brand }, (!commentText.trim() || submitting) && { opacity: 0.4 }]}
             >
-              <Text style={styles.postBtnText}>Post</Text>
+              <Text style={[styles.postBtnText, { color: contrastText(brand) }]}>Post</Text>
             </TouchableOpacity>
           </View>
 
@@ -292,6 +298,9 @@ export default function GroupItemDetailModal({
                 isThreadStart={isThreadStart}
                 isThreadEnd={isThreadEnd}
                 threadId={threadId}
+                flush
+                compact
+                backgroundColor={COLOR_GRAY_13}
                 onReply={(commentId, username) => {
                   setReplyingTo({ commentId, username });
                   setCommentText(`@${username} `);
@@ -309,7 +318,7 @@ export default function GroupItemDetailModal({
            the dismissal, because iOS won't present over a modal that is still
            going away. */
         <TouchableOpacity
-          style={[styles.viewMore, { borderTopColor: colors.border }]}
+          style={[styles.viewMore, { borderTopColor: colors.border, paddingBottom: 15 + insets.bottom }]}
           onPress={() => { onClose(); onViewMore(); }}
           activeOpacity={0.8}
         >
@@ -318,12 +327,18 @@ export default function GroupItemDetailModal({
         </TouchableOpacity>
       )}
 
-      <ImageLightbox
-        images={zoomUrls}
-        initialIndex={zoomIndex ?? 0}
-        visible={zoomIndex !== null}
-        onClose={() => setZoomIndex(null)}
-      />
+
+      {canManage && (
+        <ActionSheet
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          title={`Your ${kindLabel.toLowerCase()}`}
+          options={[
+            { label: 'Edit', Icon: Pencil, onPress: () => setEditOpen(true) },
+            { label: 'Delete', Icon: Trash2, destructive: true, onPress: confirmDelete },
+          ]}
+        />
+      )}
 
       {/* Inside this modal's tree, so it presents over it rather than needing
           the detail closed first. */}
@@ -358,32 +373,35 @@ const styles = StyleSheet.create({
   },
   viewMoreText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
 
+  // Media runs right up under the floating grabber; without any, the body
+  // starts clear of it — see PANE_GRABBER_H.
   scroll:  { paddingBottom: 40 },
   ytWrap:  { width: '100%', aspectRatio: 16 / 9, backgroundColor: COLOR_BLACK },
   ytPlayer:{ flex: 1, backgroundColor: COLOR_BLACK },
-  hero:    { width: '100%', aspectRatio: 16 / 9 },
-  galleryImage: { width: SCREEN_WIDTH, aspectRatio: 16 / 9 },
-  body:    { padding: 16 },
-  catChip: { alignSelf: 'flex-start', backgroundColor: COLOR_GRAY_42, paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, marginBottom: 8 },
+  body:    { padding: PANE_GUTTER },
+  bodyBare:{ paddingTop: PANE_GRABBER_H + 2 },
+  // The feed card's gallery pill — see FeedItemCard.
+  galleryRow:  { position: 'absolute', left: 10, bottom: 10, flexDirection: 'row', alignItems: 'center' },
+  galleryPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 13, paddingVertical: 9, borderRadius: PILL_RADIUS },
+  catChip: { alignSelf: 'flex-start', backgroundColor: COLOR_GRAY_42, paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS, marginBottom: 12 },
   catChipText: { color: COLOR_GRAY_180, fontSize: 10, fontFamily: FONT_INTER.extrabold },
-  title:   { fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, lineHeight: 26, marginBottom: 12 },
-  meta:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  metaText:{ fontSize: 12, color: COLOR_GRAY_180, flexShrink: 1 },
-  ownerActions: { flexDirection: 'row', gap: 6, marginLeft: 'auto' },
-  ownerBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
-  },
-  ownerBtnText: { fontSize: 12, fontFamily: FONT_INTER.bold },
-  voteRow:  { flexDirection: 'row', gap: 10, marginTop: 18 },
+  titleRow:{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 8 },
+  title:   { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, lineHeight: 26 },
+  // Centred on the title's first line.
+  cog:     { paddingTop: 4 },
+  meta:    { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 16 },
+  metaText:{ fontSize: 12, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE, flexShrink: 1 },
+  metaWhen:{ color: COLOR_GRAY_102, fontFamily: FONT_INTER.regular },
+  metaActions: { marginLeft: 'auto' },
   text:    { fontSize: 15, lineHeight: 24, color: COLOR_GRAY_236 },
-  commentsHeading: { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginTop: 24, marginBottom: 12 },
+  // A full point of faint white: a hairline in the theme's border vanished on the pane.
+  // Out through the body's padding, edge to edge.
+  rule:    { height: 1, marginTop: 24, marginBottom: 18, marginHorizontal: -PANE_GUTTER, backgroundColor: 'rgba(255,255,255,0.08)' },
   replyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },
   replyBannerText: { color: COLOR_GRAY_141, fontSize: 13 },
   replyCancel: { color: 'rgb(54, 178, 226)', fontSize: 13, fontFamily: FONT_INTER.bold },
   inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
-  postBtn: { backgroundColor: 'rgb(54, 178, 226)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
+  postBtn: { borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
   postBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 14 },
   empty:   { color: COLOR_GRAY_141, fontSize: 14, textAlign: 'center', paddingVertical: 20 },
 });

@@ -26,12 +26,15 @@ const SEG_GAP = 3;
  * MainTabs' `stretch` does. Both animate on the JS driver, since the thumb's
  * width changes too.
  */
-export default function SubTabs<T extends string>({ options, value, onChange, stretch = false }: {
-  options: { key: T; label: string }[];
+export default function SubTabs<T extends string>({ options, value, onChange, stretch = false, inset = 12 }: {
+  /** `Icon`, optionally, before the label in the label's colour. */
+  options: { key: T; label: string; Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[];
   value: T;
   onChange: (key: T) => void;
   /** Run the track the full width, the options sharing it equally. */
   stretch?: boolean;
+  /** The track's side margin — 12 by default; a host lines it up with its own edge. */
+  inset?: number;
 }) {
   const fit = stretch ? 'equal' : 'scroll';
   const colors = useColors();
@@ -94,9 +97,12 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.segmentLabel, { color: active ? contrastText(brand) : colors.muted }]} numberOfLines={1}>
-              {o.label}
-            </Text>
+            <View style={styles.segmentInner}>
+              {o.Icon ? <o.Icon size={14} color={active ? contrastText(brand) : colors.muted} strokeWidth={2.4} /> : null}
+              <Text style={[styles.segmentLabel, { color: active ? contrastText(brand) : colors.muted }]} numberOfLines={1}>
+                {o.label}
+              </Text>
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -108,7 +114,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
       // A horizontal ScrollView takes all the width it's given, so the track
       // can't simply shrink to it. The outer view measures the room; the
       // track is sized to the options, up to that, and past it they scroll.
-      <View style={styles.segmentRoom} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
+      <View style={[styles.segmentRoom, { marginHorizontal: inset }]} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
       <View style={[
         styles.segmentTrack, styles.segmentTrackScroll,
         { backgroundColor: colors.inputBg },
@@ -132,7 +138,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   }
   return (
     <View
-      style={[styles.segmentTrack, { backgroundColor: colors.inputBg }]}
+      style={[styles.segmentTrack, { backgroundColor: colors.inputBg, marginHorizontal: inset }]}
       onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
       accessibilityRole="radiogroup"
     >
@@ -155,5 +161,6 @@ const styles = StyleSheet.create({
   segment:      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 4 },
   // Its own width, at full size — the row scrolls instead.
   segmentOwn:   { flex: 0, paddingHorizontal: 14 },
+  segmentInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   segmentLabel: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

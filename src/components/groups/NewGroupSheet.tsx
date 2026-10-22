@@ -8,7 +8,7 @@ import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../ui/StepFormHeader';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import GroupInvitePicker from './GroupInvitePicker';
@@ -483,7 +483,7 @@ function Label({ children, colors, first = false }: { children: React.ReactNode;
 
 const styles = StyleSheet.create({
   carHint: { fontSize: 12, lineHeight: 17, marginBottom: 8 },
-  content: { paddingHorizontal: 16, paddingBottom: 40 },
+  content: { paddingHorizontal: PANE_GUTTER, paddingBottom: 40 },
   label: {
     fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase',
     letterSpacing: 0.5, marginTop: 18, marginBottom: 8,

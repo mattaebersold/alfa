@@ -20,7 +20,7 @@ import { useAppSelector } from '../../store/store';
 import type { GarageCar } from '../../types/api';
 import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
 import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
@@ -83,7 +83,7 @@ export const carPreview = (car: Partial<GarageCar> | null | undefined, ratio?: n
   return {
     title: car.title || built || undefined,
     subtitle: car.title ? [car.year, car.make, car.model, car.trim].filter(Boolean).join(' ') : car.trim,
-    hero: firstGalleryUrl(car.gallery as any) ?? (car.profile_image ? imageUrl(car.profile_image) : null),
+    hero: carHeroUrl(car),
     ratio,
   };
 };
@@ -165,7 +165,7 @@ export default function CarSummaryModal({
     : car?.trim;
 
   const hero = car
-    ? firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null)
+    ? carHeroUrl(car)
     : null;
   const description = car?.body ? stripHtml(car.body).trim() : '';
 

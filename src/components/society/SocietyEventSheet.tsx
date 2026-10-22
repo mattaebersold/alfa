@@ -2,9 +2,8 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { FormScrollView, KEYBOARD_GAP } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import { EventDetailBody, EventInterestBar } from './EventDetailBody';
-import { useGetSocietyEventQuery } from '../../api/apiService';
 
 /** Roughly the Interested bar's height, above the keyboard while typing. */
 const INTEREST_BAR_H = 64;
@@ -25,10 +24,10 @@ export default function SocietyEventSheet({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { data: event } = useGetSocietyEventQuery(eventId ?? '', { skip: !eventId });
 
   return (
-    <SharedModal visible={visible} onClose={onClose} title={event?.title ?? 'Event'}>
+    // No title row: the title is under the poster, which runs up under the grabber.
+    <SharedModal visible={visible} onClose={onClose} hideHeader>
       {eventId ? (
         <>
           {/* The comment field at the foot of the event is scrolled up onto
@@ -43,12 +42,13 @@ export default function SocietyEventSheet({
               eventId={eventId}
               occurrenceDate={occurrenceDate}
               onNavigateAway={onClose}
+              fullBleed
             />
             <View style={{ height: 16 }} />
           </FormScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-            <EventInterestBar eventId={eventId} />
+            <EventInterestBar eventId={eventId} occurrenceDate={occurrenceDate} />
           </View>
         </>
       ) : null}
@@ -59,5 +59,5 @@ export default function SocietyEventSheet({
 const styles = StyleSheet.create({
   // flexShrink lets the sheet's maxHeight bound the scroll area.
   scroll: { flexShrink: 1 },
-  footer: { paddingHorizontal: 16, paddingTop: 12 },
+  footer: { paddingHorizontal: PANE_GUTTER, paddingTop: 12 },
 });

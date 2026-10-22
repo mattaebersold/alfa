@@ -6,7 +6,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import { MapPin, Clock, Navigation, Users, Trash2 } from 'lucide-react-native';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import { useGetRallyQuery } from '../../api/apiService';
 import RouteMap from '../routes/RouteMap';
 import RallyRegistrationForm from './RallyRegistrationForm';
@@ -23,6 +23,7 @@ import { colors as palette } from '../../constants/colors';
 import { useRallyDelete } from '../../hooks/useRallyDelete';
 import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { openInMaps } from '../../utils/openInMaps';
 
 interface Props {
   rallyId: string | null;
@@ -41,11 +42,7 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
-    if (rally.location_lat && rally.location_lng) {
-      Linking.openURL(`https://maps.apple.com/?ll=${rally.location_lat},${rally.location_lng}&q=${encodeURIComponent(rally.location ?? '')}`);
-    } else if (rally.location) {
-      Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(rally.location)}`);
-    }
+    openInMaps(rally);
   }, [rally]);
 
   // A member chip leaves the sheet behind: the profile is a screen, and
@@ -262,7 +259,7 @@ const styles = StyleSheet.create({
   hero:    { width: '100%', aspectRatio: 16 / 9 },
   galleryStrip: { padding: 8, gap: 6 },
   galleryThumb: { width: 80, height: 60, borderRadius: 6 },
-  body:    { padding: 16 },
+  body:    { padding: PANE_GUTTER },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   title:   { fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 12, flex: 1 },
   deleteBtn: {
@@ -275,7 +272,7 @@ const styles = StyleSheet.create({
   description: { fontSize: 15, lineHeight: 22 },
 
   // Shared shape with RallyDays/RallyFaq, so the sheet reads as one rhythm.
-  section:  { paddingHorizontal: 16, paddingTop: 28 },
+  section:  { paddingHorizontal: PANE_GUTTER, paddingTop: 28 },
   heading:  { fontSize: 20, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   hint:     { fontSize: 12, marginTop: 8 },
   mapImageWrap: { borderRadius: 12, overflow: 'hidden' },
@@ -289,7 +286,7 @@ const styles = StyleSheet.create({
   },
   memberName: { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
 
-  mapSection: { paddingHorizontal: 16, gap: 10 },
+  mapSection: { paddingHorizontal: PANE_GUTTER, gap: 10 },
   // The map is a picture of where this is, not something to pan around inside a
   // scrolling sheet — `pointerEvents="none"` on the wrapper keeps every drag
   // going to the sheet, and the button below handles the one real interaction.

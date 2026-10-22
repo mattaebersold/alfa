@@ -335,6 +335,8 @@ export interface DiecastAnalysis {
 export interface Post {
   _id?: string;
   internal_id: string;
+  /** Where it was made — see PostPlace. */
+  place?: PostPlace | null;
   user_id: string;
   entry_type?: string;
   type?: string;
@@ -889,6 +891,10 @@ export interface SocietyEvent {
   event_organizer?: string;
   /** Officially run or backed by ORS — earns the "ORS Event" badge. */
   ors_sponsored?: boolean;
+  /** The ORS team is attending this date — "ORS will be attending". */
+  ors_attending?: boolean;
+  /** The date the interest fields answer for, "YYYY-MM-DD". */
+  interest_day?: string | null;
   interested_count?: number;
   is_interested?: boolean;
   /** A few profiles for the avatar stack on cards. */
@@ -1010,6 +1016,41 @@ export interface PlaceDetail {
   address: string | null;
   lat: number | null;
   lng: number | null;
+}
+
+/**
+ * Where a post was made — a Google place, picked in the composer's "Add a
+ * location". Stored on the post as picked; `place_id` is what groups posts
+ * into one place.
+ */
+export interface PostPlace {
+  place_id: string;
+  name: string;
+  address?: string | null;
+  lat: number;
+  lng: number;
+}
+
+/** A place you've posted at before — the composer's recent places. */
+export interface RecentPostPlace extends PostPlace {
+  last_used: string;
+}
+
+/** A place on the posts map: one pin, however many posts were made there. */
+export interface PostMapPlace extends PostPlace {
+  count: number;
+  latest_at: string;
+  /** A photo from its latest post with one — a filename, for imageUrl. */
+  cover?: string | null;
+}
+
+/** The posts map's filters, as query params. */
+export interface PostMapParams {
+  north: number; south: number; east: number; west: number;
+  /** How far back: '' (any time), 'week', 'month' or 'year'. */
+  since?: '' | 'week' | 'month' | 'year';
+  /** Whose posts: everyone's, the people you follow (and you), or only yours. */
+  who?: 'everyone' | 'following' | 'mine';
 }
 
 /**
@@ -1642,6 +1683,31 @@ export interface ConciergeRow {
   url?: string | null;
   gallery?: GalleryItem[];
   sort_order?: number;
+  created_at?: string;
+}
+
+/**
+ * One of the society's own sponsored auctions — a car ORS is running on
+ * Bring a Trailer (or elsewhere), as the admin entered it on the web
+ * dashboard. Live while `ends_at` is ahead; after that it's a past result.
+ */
+export type SponsoredAuctionSource = 'bat' | 'carsandbids' | 'other';
+export interface SponsoredAuction {
+  internal_id: string;
+  /** The listing on the auction site. */
+  url: string;
+  source: SponsoredAuctionSource;
+  title: string;
+  subtitle?: string | null;
+  /** S3 filenames, the cover first — resolve with imageUrl. */
+  images: string[];
+  /** ISO. */
+  ends_at: string;
+  current_bid?: number | null;
+  /** The final price, once it's ended. */
+  price?: number | null;
+  /** Whether it sold at `price`, rather than being bid to it. */
+  sold?: boolean | null;
   created_at?: string;
 }
 

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable, FlatList, Alert, Animated,
-  ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, Platform } from 'react-native';
+  ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, Platform, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +14,7 @@ import {
   Car, Calendar, ShoppingBag, BookOpen, Settings, Plus, Check, X, UserPlus, PenSquare,
   Route as RouteIcon,
 } from 'lucide-react-native';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
 import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
@@ -28,23 +29,22 @@ import {
   useGetRallysQuery,
   useGetRoutesQuery,
   useGetPostsQuery,
-  useGetListingsQuery,
 } from '../../api/apiService';
-import type { GarageCar, Listing } from '../../types/api';
+import type { GarageCar } from '../../types/api';
 import { GroupSettingsBody } from '../../components/groups/GroupSettingsSheet';
 import FollowButton from '../../components/social/FollowButton';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
 import AvatarStack from '../../components/ui/AvatarStack';
 import AppHeader, { useHeaderPad, APP_HEADER_HEIGHT } from '../../components/ui/AppHeader';
-import { headerOffset, useHeaderScroll } from '../../hooks/useHeaderScroll';
+import { headerOffset, hideHeader, holdHeader, useHeaderScroll } from '../../hooks/useHeaderScroll';
 import CarGridItem from '../../components/cars/CarGridItem';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import RouteTrace from '../../components/routes/RouteTrace';
-import ListingCard from '../../components/marketplace/ListingCard';
+import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import ListingSummaryModal from '../../components/marketplace/ListingSummaryModal';
 import GroupItemDetailModal from '../../components/groups/GroupItemDetailModal';
 import GroupItemActions from '../../components/groups/GroupItemActions';
@@ -54,7 +54,7 @@ import { withAlpha } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import { stripHtml } from '../../utils/text';
 import { calendarDate } from '../../utils/calendarDate';
@@ -72,13 +72,15 @@ import { DISCUSSION_CATEGORIES, RESOURCE_CATEGORIES } from '../../constants/grou
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_20,
-  COLOR_GRAY_22,
   COLOR_GRAY_31,
+  COLOR_GRAY_102,
   COLOR_COUNT_BADGE,
   COLOR_WHITE,
   COLOR_BORDER,
   COLOR_PRO,
+  GROUP_GROUND,
+  GROUP_LISTING_CARD,
+  COLOR_GRAY_34,
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
@@ -93,7 +95,7 @@ type AppNav = NativeStackNavigationProp<AppStackParamList>;
  * that whole block back from the content beneath it. The banner's bottom fade
  * has to land on exactly this value or the seam it exists to hide comes back.
  */
-const HERO_SURFACE = COLOR_GRAY_20;
+const HERO_SURFACE = GROUP_GROUND;
 /** Controls sitting on the banner — one step up, so they read as raised. */
 const HERO_CONTROL = COLOR_GRAY_31;
 /**
@@ -103,14 +105,17 @@ const HERO_CONTROL = COLOR_GRAY_31;
  */
 const HERO_BTN_BORDER = 'rgba(255,255,255,0.28)';
 /** The discussion, news and resource cards' ground — a shade under the other cards'. */
-const ITEM_CARD = COLOR_GRAY_22;
+// A step up from the ground (GROUP_GROUND).
+const ITEM_CARD = COLOR_GRAY_34;
 const GUTTER = 12;
 /** Rows added each time the roster list reaches its end. */
 const MEMBER_PAGE_SIZE = 25;
 /** How many of a section's most recent items the tab shows before "view all". */
 const RECENT_LIMIT = 5;
-/** Listings go two to a row, so an even number. */
-const RECENT_GRID = 6;
+/** The group's name over the docked tab row. */
+const DOCK_TITLE_H = 22;
+/** For the list's least height — see `tabsTop`. */
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 /** The back and cog squares on the banner. */
 const HEADER_BTN = 34;
@@ -138,7 +143,7 @@ const TABS: {
   // Drives members shared into the group — GroupSectionScreen's routes tab.
   { key: 'routes',     label: 'Routes',      Icon: RouteIcon,     blurb: 'Drives members have shared with the group.' },
   // The group's own marketplace — GroupSectionScreen's market tab. Keyed to match.
-  { key: 'market',     label: 'Marketplace', Icon: ShoppingBag,   blurb: 'Parts and cars members are selling, listed only here.' },
+  { key: 'market',     label: 'Marketplace', Icon: ShoppingBag,   blurb: 'Parts and cars members are selling.' },
   { key: 'resources',  label: 'Resources',   Icon: BookOpen,      blurb: 'Guides, links and references the group has collected.' },
 ];
 
@@ -158,7 +163,6 @@ const catLabel = (kind: string, key?: string) =>
 const newestFirst = <T extends { created_at?: string }>(items: T[]) =>
   [...items].sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
 
-const timeAgo = (iso?: string) => (iso ? formatDistanceToNow(new Date(iso), { addSuffix: true }) : '');
 
 type DetailKind = 'news' | 'discussion' | 'resource';
 
@@ -224,15 +228,30 @@ export default function GroupDetailScreen() {
     });
     return () => headerOffset.removeListener(id);
   }, []);
-  /** The scroll offset at which the page's tab row meets the fixed copy. */
-  const dockOffset = useCallback(() => {
+  /** Where the page's tab row starts in the content: the rows above it, summed. */
+  const tabsTopNow = () => {
     let tabsY = 0;
     for (const key of rowOrder.current) {
       if (key === 'tabs') break;
       tabsY += rowH.current[key] ?? 0;
     }
-    return tabsY - (headerHidden.current ? insets.top : headerPad);
-  }, [insets.top, headerPad]);
+    return tabsY;
+  };
+  /** The scroll offset at which the page's tab row meets the fixed copy. */
+  const dockOffset = useCallback(
+    () => tabsTopNow() - (headerHidden.current ? insets.top : headerPad) - DOCK_TITLE_H,
+    [insets.top, headerPad],
+  );
+  /**
+   * The tab row's place in the content, as state — for the content's least
+   * height (see the list), which has to follow it as the rows above it lay out.
+   */
+  const [tabsTop, setTabsTop] = useState(0);
+  const noteRowHeight = (key: string, h: number) => {
+    rowH.current[key] = h;
+    const top = tabsTopNow();
+    setTabsTop((was) => (was === top ? was : top));
+  };
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     onHeaderScroll(e);
     const stuck = e.nativeEvent.contentOffset.y >= dockOffset();
@@ -278,14 +297,13 @@ export default function GroupDetailScreen() {
     useGetRallysQuery({ group_id: groupId, time_filter: 'upcoming', limit: RECENT_LIMIT }, { skip: tab !== 'events' });
   const { data: routesData, isFetching: routesFetching, refetch: refetchRoutes } =
     useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: RECENT_LIMIT }, { skip: tab !== 'routes' });
-  const { data: listingsData, isFetching: listingsFetching, refetch: refetchListings } =
-    useGetListingsQuery({ group_id: groupId, limit: RECENT_GRID }, { skip: tab !== 'market' });
 
   // Only the visible tab's query is running — refetching a skipped one throws.
   const refetchTab: Record<TabKey, () => unknown> = {
     discussion: refetchDiscussion, posts: refetchPosts, news: refetchNews, resources: refetchResources,
     events: () => Promise.all([refetchEvents(), refetchRallys()]),
-    routes: refetchRoutes, market: refetchListings, cars: refetchCars,
+    // The market's browse refreshes itself.
+    routes: refetchRoutes, market: () => undefined, cars: refetchCars,
   };
   const refreshControl = useRefreshControl(() =>
     Promise.all([refetchGroup(), refetchMembers(), refetchCars(), refetchTab[tab]()]));
@@ -338,13 +356,32 @@ export default function GroupDetailScreen() {
     tabScrollRef.current?.scrollTo(to);
     overlayTabScrollRef.current?.scrollTo(to);
   }, []);
+  const pendingTabScroll = useRef(false);
   const switchTab = (key: TabKey) => {
     setTab(key);
     scrollTabIntoView(key);
-    // Switched from the docked row, the new section starts right under it —
-    // rather than wherever down the old section you happened to be.
-    if (tabsStuck) listRef.current?.scrollToOffset({ offset: dockOffset(), animated: false });
+    pendingTabScroll.current = true;
   };
+  // Every switch rests the tab row docked at the top, with the new section
+  // right under it — as the make and model pages do: a jump, once the new
+  // section has drawn, not an animated scroll (that, the header's slide and the
+  // fixed row appearing part-way all ran at once, and shook). The header goes
+  // to its small state, as on the home screen, and the docked row sits under
+  // the status bar with the group's name over it. The header is held through
+  // the jump so it doesn't read it as a swipe and come back.
+  useEffect(() => {
+    if (!pendingTabScroll.current) return;
+    pendingTabScroll.current = false;
+    requestAnimationFrame(() => {
+      hideHeader(headerPad);
+      holdHeader();
+      listRef.current?.scrollToOffset({
+        offset: Math.max(0, tabsTopNow() - insets.top - DOCK_TITLE_H),
+        animated: false,
+      });
+    });
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // The roster decides whether you can see this page at all, so nothing renders
   // before it has answered.
@@ -491,7 +528,7 @@ export default function GroupDetailScreen() {
   // The app header's tab row, in the page: outlined pills, the lit one in the
   // Pro red, the rest white on the header buttons' grey edge.
   const renderTabBar = (ref: React.RefObject<ScrollView | null>) => (
-    <View style={[styles.tabBar, { backgroundColor: c.cream }]}>
+    <View style={[styles.tabBar, { backgroundColor: GROUP_GROUND }]}>
       <ScrollView
         ref={ref}
         horizontal
@@ -527,8 +564,7 @@ export default function GroupDetailScreen() {
   const fetching =
     (tab === 'discussion' && discussionFetching) || (tab === 'posts' && postsFetching) ||
     (tab === 'news' && newsFetching) || (tab === 'resources' && resourcesFetching) ||
-    (tab === 'events' && (eventsFetching || rallysFetching)) || (tab === 'routes' && routesFetching) ||
-    (tab === 'market' && listingsFetching);
+    (tab === 'events' && (eventsFetching || rallysFetching)) || (tab === 'routes' && routesFetching);
 
   let items: any[] = [];
   switch (tab) {
@@ -544,12 +580,11 @@ export default function GroupDetailScreen() {
     case 'routes':     items = (routesData?.entries ?? []).slice(0, RECENT_LIMIT); break;
     // All of them, not a recent few: this is where the group's cars live now.
     case 'cars':       items = groupCars; break;
-    case 'market':     items = (listingsData?.entries ?? []).slice(0, RECENT_GRID); break;
   }
 
-  // Discussion, news and resources share one card: the heading with the
-  // author's face beside it, two lines of body, then when it was posted
-  // bottom-left and the like and comment bottom-right. Those are their own
+  // Discussion, news and resources share one card: the heading, two lines of
+  // body, then who posted it and how long ago — face, name, "2d" —
+  // bottom-left, and the like and comment bottom-right. Those are their own
   // touchables inside the card's, so a like doesn't also open the item.
   const itemCard = (d: any, kind: DetailKind) => (
     <TouchableOpacity
@@ -559,14 +594,15 @@ export default function GroupDetailScreen() {
       activeOpacity={0.8}
     >
       <Text style={[styles.rowTitle, styles.cardTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
-      {/* Pinned to the card's corner rather than in the heading's row, so it
-          sits at the same spot however long the heading runs. */}
-      <View style={styles.cardAvatar} pointerEvents="none">
-        <Avatar user={d.user} size={36} />
-      </View>
       {d.body ? <Text style={[styles.rowBody, styles.cardBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text> : null}
       <View style={styles.cardFoot}>
-        <Text style={[styles.authorWhen, { color: c.grey }]} numberOfLines={1}>{timeAgo(d.created_at)}</Text>
+        <View style={styles.cardAuthor}>
+          <Avatar user={d.user} size={22} />
+          <Text style={[styles.cardAuthorName, { color: c.fg }]} numberOfLines={1}>
+            {d.user?.username ?? 'member'}
+            {d.created_at ? <Text style={styles.cardWhen}>{`  ${shortTimeAgo(d.created_at)}`}</Text> : null}
+          </Text>
+        </View>
         <GroupItemActions kind={kind} item={d} />
       </View>
     </TouchableOpacity>
@@ -588,6 +624,9 @@ export default function GroupDetailScreen() {
               post={d}
               isLiked={d.isLiked}
               omitGroupId={groupId}
+              // The page's ground is the feed card's own, so the card steps up
+              // to stand off it — as far as the listing cards do.
+              background={GROUP_LISTING_CARD}
               onPress={() => (navigation as any).navigate('PostDetailModal', { postId: d.internal_id })}
             />
           </View>
@@ -658,26 +697,7 @@ export default function GroupDetailScreen() {
     }
   };
 
-  // Cars and listings are mostly their pictures, so they go two to a row.
-  const pairs = (list: any[]) => list.reduce((rows: any[][], item, i) => {
-    if (i % 2 === 0) rows.push([item]); else rows[rows.length - 1].push(item);
-    return rows;
-  }, []);
 
-  // Listings two to a row.
-  const renderListings = () => pairs(items).map((pair, r) => (
-    <View key={r} style={styles.gridRow}>
-      {pair.map((item) => (
-        <ListingCard
-          key={item.internal_id}
-          listing={item as Listing}
-          onPress={(origin) => setListingSummary({ listingId: item.internal_id, origin })}
-        />
-      ))}
-      {/* Keeps a lone last item half-width instead of letting it stretch. */}
-      {pair.length === 1 && <View style={ss.fill} />}
-    </View>
-  ));
 
   // Cars as the Cars screen lays them out: two columns, each card shaped by
   // its photo, the name and owner over its foot — the same component, so a
@@ -746,11 +766,16 @@ export default function GroupDetailScreen() {
           <ChevronRight size={13} color={c.primaryAlt} strokeWidth={2.6} />
         </TouchableOpacity>
       </View>
-      {fetching ? (
+      {tab === 'market' ? (
+        // The main marketplace's browse — for sale or wanted, categories,
+        // search, filter and the mosaic — narrowed to this group. It fetches
+        // for itself.
+        <MarketplaceBrowse groupId={groupId} embedded ground="transparent" cardBackground={GROUP_LISTING_CARD} />
+      ) : fetching ? (
         <ActivityIndicator size="large" color={c.primaryAlt} style={styles.loader} />
       ) : items.length === 0 ? (
         <EmptyState title={`No ${activeTab.label.toLowerCase()} yet`} />
-      ) : tab === 'cars' ? renderCars() : tab === 'market' ? renderListings() : items.map(renderTabItem)}
+      ) : tab === 'cars' ? renderCars() : items.map(renderTabItem)}
     </View>
   );
 
@@ -821,7 +846,7 @@ export default function GroupDetailScreen() {
   rowOrder.current = rows.map((r) => r.key);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={[]}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={[]}>
       {/* The header floats so the banner starts at the very top of the
           viewport, the way the profile screen's cover does. */}
       <AppHeader />
@@ -831,12 +856,14 @@ export default function GroupDetailScreen() {
         data={rows}
         keyExtractor={(r) => r.key}
         renderItem={({ item }) => (
-          <View onLayout={(e) => { rowH.current[item.key] = e.nativeEvent.layout.height; }}>
+          <View onLayout={(e) => noteRowHeight(item.key, e.nativeEvent.layout.height)}>
             {item.node}
           </View>
         )}
-        style={[ss.fill, { backgroundColor: c.cream }]}
-        contentContainerStyle={styles.scroll}
+        style={[ss.fill, { backgroundColor: GROUP_GROUND }]}
+        // At least a screen past the tab row, so any section — a short one
+        // included — can be scrolled up under the docked tabs.
+        contentContainerStyle={[styles.scroll, tabsTop ? { minHeight: tabsTop - insets.top + SCREEN_HEIGHT } : null]}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -846,9 +873,10 @@ export default function GroupDetailScreen() {
           layer, so its buttons stay on top and take their taps. */}
       {tabsStuck && (
         <Animated.View
-          style={[styles.tabsOverlay, { paddingTop: headerPad, backgroundColor: c.cream, transform: [{ translateY: overlayLift }] }]}
+          style={[styles.tabsOverlay, { paddingTop: headerPad, backgroundColor: GROUP_GROUND, transform: [{ translateY: overlayLift }] }]}
           pointerEvents="box-none"
         >
+          <Text style={[styles.dockTitle, { color: c.fg }]} numberOfLines={1}>{group.title}</Text>
           {renderTabBar(overlayTabScrollRef)}
         </Animated.View>
       )}
@@ -872,7 +900,7 @@ export default function GroupDetailScreen() {
               contentContainerStyle={{ paddingBottom: 32 }}
               renderItem={({ item }) => {
                 const associated = item.group_id === groupId;
-                const img = firstGalleryUrl(item.gallery) ?? (item.profile_image ? imageUrl(item.profile_image) : null);
+                const img = carHeroUrl(item);
                 return (
                   <TouchableOpacity
                     style={[styles.carPickRow, { borderBottomColor: c.border }]}
@@ -1178,6 +1206,8 @@ const styles = StyleSheet.create({
   tabBar:       { paddingBottom: 0 },
   // Between the page and the app header (zIndex 20), so the header's
   // buttons stay on top of it.
+  // The group's name over the docked tabs, so you know whose they are.
+  dockTitle:    { height: DOCK_TITLE_H, lineHeight: DOCK_TITLE_H, paddingHorizontal: GUTTER + 2, fontSize: 13, fontFamily: FONT_INTER.bold },
   tabsOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 15, elevation: 15 },
   // The header's measures: its pill gap, the gutter at the start.
   tabRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingVertical: 10 },
@@ -1220,12 +1250,13 @@ const styles = StyleSheet.create({
   cardBody:     { width: '90%', fontSize: 12, lineHeight: 17 },
   feedCard:     { paddingHorizontal: GUTTER, marginTop: 10 },
   // Room on the right for the avatar in the corner.
-  cardTitle:    { marginBottom: 0, paddingRight: 46 },
-  cardAvatar:   { position: 'absolute', top: 12, right: 12 },
-  cardFoot:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 6 },
-  authorWhen:   { fontSize: 10, fontStyle: 'italic' },
+  cardTitle:    { marginBottom: 0 },
+  // A step back from the name: darker and lighter-weight, so it reads as a note.
+  cardWhen:     { color: COLOR_GRAY_102, fontFamily: FONT_INTER.regular },
+  cardAuthor:   { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
+  cardAuthorName: { fontSize: 12, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
+  cardFoot:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 2 },
   mediaRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
-  gridRow:      { flexDirection: 'row', gap: 10, marginHorizontal: GUTTER, marginTop: 10 },
   // The Cars screen's mosaic: two columns, each card its photo's shape.
   mosaic:       { flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingTop: 10 },
   column:       { flex: 1 },

@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, Pressable, Animated, Easing, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
+  View, TouchableOpacity, StyleSheet, Pressable, Animated, Easing, Platform, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -8,7 +8,9 @@ import { Image } from 'expo-image';
 // list's scroll (see PinchZoom), and only this one can be named to it.
 import { FlatList } from 'react-native-gesture-handler';
 import { NavigationContext } from '@react-navigation/native';
-import Reanimated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, interpolate, Extrapolation, withTiming, Easing as REasing,
+} from 'react-native-reanimated';
 import Svg, { Polygon } from 'react-native-svg';
 import VideoLightbox from '../ui/VideoLightbox';
 import PinchZoom from './PinchZoom';
@@ -172,9 +174,13 @@ export default function PostMediaCarousel({
     return navigation.addListener('blur', closeViewer);
   }, [navigation, closeViewer]);
 
+  /** Set below, once the slides' heights are known — see `settledH`. */
+  const settleTo = useRef<(index: number) => void>(() => {});
   const onMomentumEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!width) return;
-    setActive(Math.round(e.nativeEvent.contentOffset.x / width));
+    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    setActive(index);
+    settleTo.current(index);
   }, [width]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -281,11 +287,30 @@ export default function PostMediaCarousel({
     [adaptive, width, media, shapes, lead],
   );
   const pages = useMemo(() => heights.map((_, i) => i * width), [heights, width]);
+  /**
+   * Android doesn't follow the swipe. A height that changes every frame lays
+   * out the card and every card under it in the feed, every frame — smooth on
+   * iOS, a stutter on most Android phones. There the strip holds its height
+   * through the swipe and eases to the new slide's shape once it settles: a
+   * fifth of a second of layout instead of the whole drag, and no scroll
+   * events crossing to JS at all.
+   */
+  const followSwipe = Platform.OS === 'ios';
+  const settledH = useSharedValue(0);
+  // A slide's photo arriving changes its height: take it, without easing.
+  useEffect(() => {
+    if (!followSwipe && heights.length) settledH.value = heights[Math.min(active, heights.length - 1)];
+  }, [heights]); // eslint-disable-line react-hooks/exhaustive-deps
+  settleTo.current = (index: number) => {
+    if (followSwipe || !heights[index]) return;
+    settledH.value = withTiming(heights[index], { duration: 220, easing: REasing.out(REasing.cubic) });
+  };
   const adaptiveStyle = useAnimatedStyle(() => {
     if (heights.length === 0) return {};
     if (heights.length === 1) return { height: heights[0] };
+    if (!followSwipe) return { height: settledH.value || heights[0] };
     return { height: interpolate(scrollX.value, pages, heights, Extrapolation.CLAMP) };
-  }, [heights, pages]);
+  }, [heights, pages, followSwipe]);
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollX.value = e.nativeEvent.contentOffset.x;
   }, [scrollX]);
@@ -319,7 +344,8 @@ export default function PostMediaCarousel({
             style={StyleSheet.absoluteFill}
             getItemLayout={getItemLayout}
             onMomentumScrollEnd={onMomentumEnd}
-            onScroll={adaptive ? onScroll : undefined}
+            // iOS only — Android settles instead (see followSwipe).
+            onScroll={adaptive && followSwipe ? onScroll : undefined}
             scrollEventThrottle={16}
           />
         )

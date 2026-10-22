@@ -19,7 +19,7 @@ import {
 import ListingSnapshot from './ListingSnapshot';
 import { priceLabel } from './listingFormat';
 import MarketplaceUnreadBadge, { useMarketplaceUnread } from './MarketplaceUnreadBadge';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import ActionSheet from '../ui/ActionSheet';
 import SubTabs from '../ui/SubTabs';
 import Spinner from '../ui/Spinner';
@@ -28,7 +28,7 @@ import { useColors } from '../../hooks/useColors';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Listing } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_BLACK, COLOR_GRAY_30, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_BLACK, COLOR_GRAY_14, COLOR_GRAY_30, COLOR_WHITE, SEARCH_EDGE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -396,7 +396,9 @@ export default function ManageListingsEntry({
       <TouchableOpacity
         style={[
           variant === 'card' ? styles.entryCard : styles.entryRow,
-          variant === 'card' && { backgroundColor: colors.card, borderColor: colors.border },
+          // A step under the marketplace's ground, so it reads as a panel set
+          // into it — edged like the search and filter below it.
+          variant === 'card' && { backgroundColor: COLOR_GRAY_14, borderColor: SEARCH_EDGE },
           style,
         ]}
         onPress={() => setOpen(true)}
@@ -446,6 +448,8 @@ export default function ManageListingsEntry({
         onDismissed={onDismissed}
         // No heading: the sub tabs at the top say what's here.
         hideHeader
+        // Its scroller pads its own foot clear of the home indicator.
+        edgeToEdge
         heightRatio={0.85}
         // Black, so the rows on it read as cards.
         surface={COLOR_BLACK}
@@ -462,7 +466,8 @@ const STAT_INK = 'rgba(255,255,255,0.85)';
 
 const styles = StyleSheet.create({
   paneScroll: { flex: 1 },
-  pane: { paddingHorizontal: 12 },
+  // Starts clear of the grabber floating over the top — see PANE_GRABBER_H.
+  pane: { paddingHorizontal: 12, paddingTop: PANE_GRABBER_H },
 
   section:      { paddingTop: 14 },
   sectionHead:  {
@@ -505,8 +510,9 @@ const styles = StyleSheet.create({
   },
   entryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    // On the app's GUTTER, like the rest of the marketplace browse around it.
-    marginHorizontal: GUTTER,
+    // On the app's GUTTER, like the rest of the marketplace browse around it,
+    // and clear of the header's tabs above.
+    marginHorizontal: GUTTER, marginTop: 10,
     paddingHorizontal: 14, paddingVertical: 13,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },

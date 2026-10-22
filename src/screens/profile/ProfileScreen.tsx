@@ -40,7 +40,6 @@ import GaragePanel from '../../components/cars/GaragePanel';
 import GarageThumbs from '../../components/cars/GarageThumbs';
 import SettingsPanel from '../../components/profile/SettingsPanel';
 import { regionForCityState } from '../../constants/regions';
-import { Shimmer } from '@ors/kit';
 import { BannerSheet } from '../../components/members/ProfileSetupSheets';
 import ListCard from '../../components/lists/ListCard';
 import ListShelf, { LIST_SHELF_PREVIEW_COUNT } from '../../components/lists/ListShelf';
@@ -55,6 +54,7 @@ import {
   COLOR_GRAY_30,
   COLOR_WHITE,
   COLOR_BORDER,
+  COLOR_PRO_DARK,
 } from '../../constants/config';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -96,8 +96,9 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes'
   | 'forSale' | 'wants' | 'soldListings' | 'polls' | 'photoSpots';
 
+// No Posts: the posts carousel right under these is the way in, and its
+// "View all" opens the same section.
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'posts',     label: 'Posts' },
   { key: 'followers', label: 'Followers' },
   { key: 'following', label: 'Following' },
   { key: 'lists',     label: 'Lists' },
@@ -123,6 +124,12 @@ const SECTION_LABELS: Record<Tab, string> = {
 
 // Garage carousel — cards stop short of full width so the next one peeks out.
 /**
+ * Every card in the garage carousel takes this one shape, whatever its photo.
+ * Each taking its photo's own (3:2 or 2:3) left a wide car's card short beside
+ * a tall one, over a gap. 4:5 sits between the two, so neither loses much.
+ */
+const GARAGE_CARD_RATIO = 4 / 5;
+/**
  * Membership badge colours, read from the raw palette rather than useColors():
  * that hook remaps `primaryAlt` to gold for a pro *viewer*, which would put a
  * gold badge on every member a pro browses. Gold is the pro mark, blue is
@@ -131,11 +138,6 @@ const SECTION_LABELS: Record<Tab, string> = {
 const BADGE_PRO = colors.pro;
 const BADGE_MEMBER = colors.primaryAlt;
 
-/**
- * Wide enough for a five-figure follower count without wrapping, narrow enough
- * that a third card peeks in and says the row scrolls.
- */
-const TILE_WIDTH = 118;
 
 /** How many posts the "View all" pane pulls per page. */
 const POSTS_PAGE_SIZE = 12;
@@ -710,19 +712,10 @@ export default function ProfileScreen() {
 
   // ── Section tiles — tap to open a modal with that section's content ───────
   const tilesEl = (
-    // Sideways rather than a wrapping grid: a grid has to give every tile the
-    // same slot and reflows into a ragged last row as tabs come and go — the
-    // Lists tile only appears on profiles with lists, so that row is two-up
-    // for some people and three-up for others. A strip just runs on, and
-    // matches the garage and posts rows below it.
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.tilesRow}
-      snapToInterval={TILE_WIDTH + 10}
-      snapToAlignment="start"
-      decelerationRate="fast"
-    >
+    // Small pills, the count and the word on one line — a step down from the
+    // tiles they were: who follows whom is a fact about the person, not a
+    // section heading. Few enough to sit in a row without scrolling.
+    <View style={styles.tilesRow}>
       {visibleTabs.map((t) => (
         <TouchableOpacity
           key={t.key}
@@ -736,8 +729,7 @@ export default function ProfileScreen() {
           <Text style={[styles.tileLabel, { color: colors.grey }]}>{t.label}</Text>
         </TouchableOpacity>
       ))}
-      <RowEndSpacer width={12} />
-    </ScrollView>
+    </View>
   );
 
   // ── Garage — lives on the page rather than behind a tile ──────────────────
@@ -749,7 +741,10 @@ export default function ProfileScreen() {
     <View style={styles.garageSection}>
       <View style={styles.garageHeader}>
         <Text style={[styles.garageTitle, { color: colors.fg }]}>Garage</Text>
-        <Text style={[styles.garageCount, { color: colors.grey }]}>{carsData?.total ?? cars.length}</Text>
+        {/* The count as a round badge, as the main tabs carry theirs. */}
+        <View style={styles.garageCountBadge}>
+          <Text style={[styles.garageCount, { color: colors.fg }]}>{carsData?.total ?? cars.length}</Text>
+        </View>
       </View>
 
       {cars.length === 0 ? (
@@ -777,7 +772,7 @@ export default function ProfileScreen() {
                   {/* Nearly full-screen width, so it takes the full plate and
                       just drops its margins — `compact` scales the name down
                       for half-width grids, which these aren't. */}
-                  <CarPosterCard car={car} style={styles.garageCarouselCard} />
+                  <CarPosterCard car={car} ratio={GARAGE_CARD_RATIO} style={styles.garageCarouselCard} />
                 </View>
               ))}
               <RowEndSpacer width={GARAGE_GUTTER} />
@@ -863,20 +858,15 @@ export default function ProfileScreen() {
             itself clips to a circle, so a badge inside it would be cut in half.
             Same gold ring and wheel a pro member gets in the member list. */}
         <View style={styles.avatarBox}>
-          {/* A Pro member's ring is the Pro buttons' gold, oil-slick sheen and
-              passing shine included, rather than a flat stroke. The ring is the fill showing around the photo;
-              the badges stay outside it, since it clips to its own circle. */}
+          {/* A Pro member's ring: a flat band of the Pro red, a shade darker,
+              showing around the photo. No sheen, and no edge of the avatar's
+              own between the two. The badges stay outside it. */}
           {viewedIsPro ? (
-            <Shimmer
-              radius={AVATAR_SIZE / 2 + PRO_RING}
-              color={colors.pro}
-              tone="warm"
-              style={styles.proRing}
-            >
-              <View style={styles.avatarWrap}>
-                <Avatar user={user} size={AVATAR_SIZE} />
+            <View style={[styles.proRing, { backgroundColor: COLOR_PRO_DARK }]}>
+              <View style={[styles.avatarWrap, { backgroundColor: COLOR_PRO_DARK }]}>
+                <Avatar user={user} size={AVATAR_SIZE} edge={false} />
               </View>
-            </Shimmer>
+            </View>
           ) : (
             <View style={styles.avatarWrap}>
               <Avatar user={user} size={AVATAR_SIZE} />
@@ -912,7 +902,7 @@ export default function ProfileScreen() {
             face it belongs to. */}
         <View style={styles.identity}>
           <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            @{user.username}
+            {user.username}
           </Text>
         </View>
       </View>
@@ -922,13 +912,13 @@ export default function ProfileScreen() {
       {!isOwnProfile && (
         <View style={styles.actionsRow}>
           <View style={styles.followRow}>
-            {/* Squared off to match Message and the ⋮ beside it — a pill next
-                to two 8pt corners read as a different kind of control. */}
+            {/* A pill: following is the one thing here you do to the person,
+                set apart from Message and the ⋮ beside it. */}
             {/* Darker than the app's usual grey, in step with the tiles below.
                 Wrapped so it can take half the row: Button has no style prop,
                 and a column child stretches to its parent's width. */}
             <View style={styles.actionGrow}>
-              <FollowButton username={user.username} radius={8} followingBackground={COLOR_GRAY_30} />
+              <FollowButton username={user.username} radius={PILL_RADIUS} followingBackground={COLOR_GRAY_30} />
             </View>
             <TouchableOpacity
               style={[styles.msgBtn, styles.actionGrow, { borderColor: colors.border }]}
@@ -1217,11 +1207,15 @@ export default function ProfileScreen() {
       >
         {profileHeader}
         {tilesEl}
-        {garageEl}
-        {/* Their posts, the same shape as the garage above it. "View all"
-            opens the same pane the Posts tile does. */}
+        {/* Their posts, ahead of the garage — what they've been saying
+            first. "View all" opens the same pane the Posts tile does. */}
         <PostStrip
-          title="Posts"
+          title="Activity"
+          // No "2 days ago" on these — the posts are theirs, and recent first.
+          showTime={false}
+          // One line under each picture, so every card in the row is the
+          // same height.
+          captionLines={1}
           posts={posts.slice(0, STRIP_PREVIEW_COUNT)}
           total={postsData?.total ?? posts.length}
           // Every post here is theirs, so a byline on each card would just be
@@ -1232,6 +1226,7 @@ export default function ProfileScreen() {
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
         />
+        {garageEl}
         {/* The questions they've asked, drawn as the feed draws them so the
             choices show and can be picked. Nothing at all when there are
             none — see PollShelf. */}
@@ -1394,7 +1389,8 @@ const styles = StyleSheet.create({
   avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 16, marginTop: -AVATAR_SIZE / 2 },
   // Sits on the avatar's baseline, with a little lift so it reads level with
   // the photo rather than hanging off its bottom edge.
-  identity:        { flex: 1, minWidth: 0, paddingBottom: 10 },
+  // Sits up from the row's foot, nearer the middle of the photo beside it.
+  identity:        { flex: 1, minWidth: 0, paddingBottom: 21, paddingLeft: 3 },
   actionsRow:      { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 12 },
   // Clear of the avatar, which overlaps the banner's bottom-left by half its height.
   bannerActions:   { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
@@ -1410,7 +1406,7 @@ const styles = StyleSheet.create({
   avatarBox:       { position: 'relative' },
   // Pads out to hold the ring clear of the photo, so the avatar reads at the
   // same AVATAR_SIZE either way.
-  proRing:         { padding: PRO_RING },
+  proRing:         { padding: PRO_RING, borderRadius: AVATAR_SIZE / 2 + PRO_RING },
   proWheel: {
     position: 'absolute', bottom: BADGE_OFFSET, right: BADGE_OFFSET,
     width: 38, height: 38, borderRadius: 19,
@@ -1455,18 +1451,16 @@ const styles = StyleSheet.create({
   bio:        { fontSize: 14, lineHeight: 20 },
   moreLink:   { fontSize: 13, fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
   location:   { fontSize: 13, marginTop: 4 },
-  tilesRow:   { paddingLeft: 12, paddingTop: 4, gap: 10 },
+  // Across the screen, the pills sharing it — and up toward the header.
+  tilesRow:   { flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginTop: -6 },
+  // A pill: the count and the word side by side, on the tiles' darker grey.
   tile:       {
-    width: TILE_WIDTH,
-    // A step under the card colour (#1e1e1e): a row of them at full card
-    // brightness outweighed the profile they sit under.
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    height: 32, paddingHorizontal: 10, borderRadius: PILL_RADIUS, borderWidth: 1,
     backgroundColor: COLOR_GRAY_23,
-    borderRadius: 12, borderWidth: 1,
-    paddingVertical: 16, paddingHorizontal: 14,
-    alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  tileCount:  { fontSize: 22, fontFamily: FONT_INTER.bold },
-  tileLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.3, textTransform: 'uppercase' },
+  tileCount:  { fontSize: 13, fontFamily: FONT_INTER.bold },
+  tileLabel:  { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   modalBackdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet:         { height: '85%', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
@@ -1492,13 +1486,20 @@ const styles = StyleSheet.create({
   },
   postCardBody:  { padding: 12, gap: 4 },
 
-  garageSection: { marginTop: 18 },
+  // Clear of the Activity row above it.
+  garageSection: { marginTop: 32 },
+  // The shelves' heading (PostStrip's), so Garage and Activity read as one set.
   garageHeader:  {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, marginBottom: 6,
+    paddingHorizontal: 16, marginBottom: 10,
   },
-  garageTitle:   { fontSize: 18, fontFamily: FONT_INTER.bold },
-  garageCount:   { fontSize: 14, fontFamily: FONT_INTER.bold },
+  garageTitle:   { fontSize: 17, fontFamily: FONT_INTER.semibold },
+  garageCountBadge: {
+    minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  garageCount:   { fontSize: 12, fontFamily: FONT_INTER.bold },
   garageCarousel: {
     // Vertical padding so the glow under each card has somewhere to fall —
     // without it the ScrollView clips its content bounds and the shadow stops

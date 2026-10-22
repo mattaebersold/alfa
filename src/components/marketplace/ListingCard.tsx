@@ -34,7 +34,7 @@ import { FONT_INTER } from '../../constants/fonts';
  * without saying why reads as a list in a random order — so a card that was
  * lifted says what lifted it.
  */
-export default function ListingCard({ listing, onPress, conditions, natural }: {
+export default function ListingCard({ listing, onPress, conditions, natural, background = COLOR_GRAY_40 }: {
   listing: Listing;
   /** The rect the summary panel grows out of — see SummaryTouchable. */
   onPress: (origin: SummaryOrigin | null) => void;
@@ -46,6 +46,8 @@ export default function ListingCard({ listing, onPress, conditions, natural }: {
    * rows line up.
    */
   natural?: boolean;
+  /** The card's fill — a step lighter on a group's page, whose ground is lighter. */
+  background?: string;
 }) {
   const colors = useColors();
   // Width over height, once the photo has said; a landscape guess until then.
@@ -68,7 +70,7 @@ export default function ListingCard({ listing, onPress, conditions, natural }: {
     <SummaryTouchable
       // One ground for the whole card — the words' panel colour, so it shows
       // the same around the picture's rounded corners as under it.
-      style={[styles.card, natural && styles.cardNatural, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
+      style={[styles.card, natural && styles.cardNatural, { backgroundColor: background, borderColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityLabel={[listing.title, price, condition, distance, ships ? shippingLabel(listing.shipping) : null].filter(Boolean).join(', ')}
@@ -115,7 +117,7 @@ export default function ListingCard({ listing, onPress, conditions, natural }: {
         ) : null}
       </View>
 
-      <View style={styles.info}>
+      <View style={[styles.info, { backgroundColor: background }]}>
 
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
           {listing.title || 'Untitled listing'}
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
   soldText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6 },
 
   // A step lighter than the card, so the words read as their own panel under the photo.
-  info: { flexGrow: 1, minWidth: 0, gap: 1, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
+  info: { flexGrow: 1, minWidth: 0, gap: 1, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 10 },
   // On the photo, top left, lifted off it like the price.
   matchOnPhoto: {
     position: 'absolute', left: 4, top: 4, maxWidth: '90%',

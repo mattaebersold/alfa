@@ -411,12 +411,16 @@ export function GuessDots({ won, attempts, grid }: { won: boolean; attempts: num
  * mostly game grids; folded, each is one line, and the grid is a tap away.
  */
 /** The game's day as a small badge — the folded card's header shows it beside the chevron. */
-export function SpotDateBadge({ carspot }: { carspot: CarSpotSummary }) {
+export function SpotDateBadge({ carspot, dark = false }: {
+  carspot: CarSpotSummary;
+  /** A grey pill with light type, for a card where the light one stood out too much. */
+  dark?: boolean;
+}) {
   const colors = useColors();
   if (!carspot.play_date) return null;
   return (
-    <View style={[styles.headerDateBadge, { backgroundColor: colors.fg }]}>
-      <Text style={[styles.date, { color: colors.bg }]}>{shortDateLabel(carspot.play_date)}</Text>
+    <View style={[styles.headerDateBadge, { backgroundColor: dark ? colors.segment : colors.fg }]}>
+      <Text style={[styles.date, { color: dark ? colors.fg : colors.bg }]}>{shortDateLabel(carspot.play_date)}</Text>
     </View>
   );
 }

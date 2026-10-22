@@ -47,9 +47,14 @@ interface AvatarProps {
   size?: number;
   /** Corner radius. Defaults to a circle; pass a smaller value for a squircle. */
   radius?: number;
+  /**
+   * The 1pt catch-of-light edge every avatar wears. Off for one sat inside a
+   * ring of its own (the profile's Pro ring), where it read as a second border.
+   */
+  edge?: boolean;
 }
 
-export default function Avatar({ user, filename, name, size = 40, radius }: AvatarProps) {
+export default function Avatar({ user, filename, name, size = 40, radius, edge = true }: AvatarProps) {
   const source = filename ?? user?.gallery?.[0]?.filename ?? user?.profilePicture;
   const uri = imageUrl(source);
   const corner = radius ?? size / 2;
@@ -71,8 +76,9 @@ export default function Avatar({ user, filename, name, size = 40, radius }: Avat
   const background = user?.avatarColor || avatarColorFor(user?.user_id ?? user?.username ?? name);
 
   const showImage = uri && !failed;
-  const inner = size - EDGE * 2;
-  const innerCorner = Math.max(corner - EDGE, 0);
+  const edgeW = edge ? EDGE : 0;
+  const inner = size - edgeW * 2;
+  const innerCorner = Math.max(corner - edgeW, 0);
 
   /**
    * Every avatar, photo or initials, is edged the same way: a 1px ring
@@ -86,7 +92,7 @@ export default function Avatar({ user, filename, name, size = 40, radius }: Avat
    */
   return (
     <LinearGradient
-      colors={RING}
+      colors={edge ? RING : ['transparent', 'transparent']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.container, { width: size, height: size, borderRadius: corner }]}

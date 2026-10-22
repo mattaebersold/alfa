@@ -11,6 +11,7 @@ import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalle
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from './PostOptionalFields';
 import StickyFormFooter from '../ui/StickyFormFooter';
 import PostToSelector from './PostToSelector';
+import PostLocationField from './PostLocationField';
 import PollEditor, { pollDraftFrom, pollDraftToInput, type PollDraft } from './PollEditor';
 import { uploadFile } from '../../utils/upload';
 import {
@@ -22,7 +23,7 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
-import type { Post } from '../../types/api';
+import type { Post, PostPlace } from '../../types/api';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -105,6 +106,9 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   const [taggedCars, setTaggedCars] = useState<TagItem[]>([]);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
 
+  // Where it was made — see CreateScreen's "Add a Location".
+  const [place, setPlace] = useState<PostPlace | null>(post.place ?? null);
+
   // Groups
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isPublic, setIsPublic] = useState(true);
@@ -149,6 +153,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       // whenever the post had any group, dropping the public flag on save).
       setIsPublic(true);
       setPoll(pollDraftFrom(post.poll));
+      setPlace(post.place ?? null);
     }
   }, [visible, post]);
 
@@ -219,6 +224,11 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     fd.append('part_number', optional.partNumber.trim());
     fd.append('group_ids', JSON.stringify(selectedGroupIds));
     if (isPublic) fd.append('also_public', 'true');
+    // One JSON field, as on create. Taken off a post that had one, it goes
+    // empty — the server's "clear it". Absent means leave it alone, so a post
+    // that never had a place doesn't send anything.
+    if (place) fd.append('place', JSON.stringify(place));
+    else if (post.place) fd.append('place', '');
   };
 
   /**
@@ -428,6 +438,10 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               {userGroups.length === 0 && (
                 <Text style={[styles.postToEmpty, { color: colors.grey }]}>You're not a member of any groups.</Text>
               )}
+
+              {/* ── Where it was made — the create form's "Add a Location", last here too ── */}
+              <Text style={[styles.label, { color: colors.grey }]}>Location</Text>
+              <PostLocationField value={place} onChange={setPlace} />
 
             </FormScrollView>
 

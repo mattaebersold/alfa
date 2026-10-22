@@ -38,7 +38,7 @@ const UNSKEW = `${SKEW_DEG}deg`;
  * carousel (count = cars of that model). In the carousel (`fitName`) the tile
  * is as wide as its name needs, so a name never breaks across two lines.
  */
-export default function MakeTile({ name, subtitle, photos, count, countLabel, onPress, style, badge, badgeLeft, fitName }: {
+export default function MakeTile({ name, subtitle, photos, count, countLabel, onPress, style, badge, badgeLeft, fitName, photoHeight = PHOTO_H, compact = false }: {
   name: string;
   /** A second, quieter line — the model a generation tile belongs to. */
   subtitle?: string;
@@ -55,6 +55,13 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
   badgeLeft?: React.ReactNode;
   /** Size to the name rather than to the host — for a horizontal row. */
   fitName?: boolean;
+  /** The photo panel's height — shorter where a row should show more of them. */
+  photoHeight?: number;
+  /**
+   * For a narrow card in a row of many: a smaller name on one line, and the
+   * count moved onto the photo's top-right corner.
+   */
+  compact?: boolean;
 }) {
   const colors = useColors();
   const shots = (photos ?? []).slice(0, 3).map((f) => imageUrl(f)).filter((u): u is string => !!u);
@@ -69,7 +76,7 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
       accessibilityRole="button"
       accessibilityLabel={countLabel ? `${name}, ${countLabel}` : name}
     >
-      <View style={styles.photos} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      <View style={[styles.photos, { height: photoHeight }]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
         {shots.length === 0 ? (
           <View style={[styles.photo, styles.blank]}>
             <Car size={26} color={COLOR_GRAY_64} />
@@ -121,22 +128,30 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
       </View>
 
       {badge ? <View style={styles.badge} pointerEvents="none">{badge}</View> : null}
+      {/* A compact card carries its count on the photo, top right. */}
+      {compact && count != null && count > 0 && (
+        <View style={[styles.badge, styles.countOnPhoto]} pointerEvents="none">
+          <Car size={14} color={COLOR_GRAY_208} strokeWidth={2.4} />
+          <Text style={[styles.countText, styles.countOnPhotoText]}>{count}</Text>
+        </View>
+      )}
       {badgeLeft ? <View style={styles.badgeLeft} pointerEvents="none">{badgeLeft}</View> : null}
 
       <View style={[styles.nameRow, fitName && styles.nameRowFill]}>
         <View style={styles.nameText}>
           <Text
-            style={[styles.name, { color: colors.fg }]}
+            style={[styles.name, compact && styles.nameCompact, { color: colors.fg }]}
             numberOfLines={1}
-            // In a fixed-width grid a long name shrinks rather than breaking.
-            adjustsFontSizeToFit={!fitName}
+            // In a fixed-width grid a long name shrinks rather than breaking —
+            // a compact card's is small already, so it's cut off instead.
+            adjustsFontSizeToFit={!fitName && !compact}
             minimumFontScale={0.75}
           >
             {name}
           </Text>
           {subtitle ? <Text style={[styles.subtitle, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text> : null}
         </View>
-        {count != null && count > 0 && (
+        {!compact && count != null && count > 0 && (
           <View style={styles.countBubble}>
             <Text style={styles.countText}>{count}</Text>
           </View>
@@ -151,10 +166,10 @@ const TILE_TINT = COLOR_GRAY_38;
 
 const styles = StyleSheet.create({
   card: {
-    // No border; a step lighter than the page instead — the upcoming event
-    // cards' grey.
+    // No border; a step lighter than the page instead — lighter than the
+    // make page's own grey (#1A1A1A) too, so the tile has an edge on it.
     borderRadius: COMMON_RADIUS,
-    backgroundColor: COLOR_GRAY_26,
+    backgroundColor: COLOR_GRAY_38,
     // No padding: the photos run to the card's edges, and the clip gives them
     // its top corners. The name brings its own.
     gap: 8, overflow: 'hidden',
@@ -187,6 +202,7 @@ const styles = StyleSheet.create({
   nameRowFill: { flex: 1 },
   nameText: { flexShrink: 1, alignItems: 'flex-start' },
   name: { fontSize: 17, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
+  nameCompact: { fontSize: 14, letterSpacing: 0 },
   subtitle: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   countBubble: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
@@ -194,4 +210,13 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   countText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_GRAY_208 },
+  // On the photo: dark enough to read over any picture.
+  // The car and the number, a size up from the name row's bubble.
+  countOnPhoto: {
+    flexDirection: 'row', gap: 5,
+    height: 26, borderRadius: 13, paddingHorizontal: 9,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  countOnPhotoText: { fontSize: 14 },
 });

@@ -10,7 +10,7 @@ import {
 } from '../../api/apiService';
 import GarageCarStrip from './GarageCarStrip';
 import TagCardStrip, { type TagCard } from './TagCardStrip';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
@@ -326,7 +326,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
     id: c.internal_id,
     label: [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car',
     kind: 'car',
-    image: firstGalleryUrl(c.gallery) ?? (c.profile_image ? imageUrl(c.profile_image) : null),
+    image: carHeroUrl(c),
   });
   const toEvent = (e: any): TagItem => ({
     id: e.internal_id,

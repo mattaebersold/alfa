@@ -3,13 +3,13 @@ import { baseQuery, UPLOAD_TIMEOUT_MS } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article, CrossPosts,
   CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
-  CarSpotToday, CarSpotDay, CarSpotDifficulty, SpotFeedToday, ConciergeRow,
+  CarSpotToday, CarSpotDay, CarSpotDifficulty, SpotFeedToday, ConciergeRow, SponsoredAuction,
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
   FeedPreferences, HomeBanner, CarActivityItem, PollSummary,
   DeclinedInvite, ReportableType, ShopProduct, ShopProductList, ShopCollection, NotificationType, NotificationSettings,
-  PlacePrediction, PlaceDetail, GroupActivityItem,
+  PlacePrediction, PlaceDetail, GroupActivityItem, RecentPostPlace, PostMapPlace, PostMapParams,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
   Listing, ListingMeta, ListingBrowseParams, ListingBrowseResponse,
   ListingDetailResponse, MyListingsResponse,
@@ -126,6 +126,8 @@ export const apiService = createApi({
      * unread query would be invalidated by a conversation it can't show.
      */
     'MarketplaceThread', 'MarketplaceUnread',
+    /** The society's own auctions — the home feed's live banner and the concierge page's results. */
+    'SponsoredAuction',
   ],
   endpoints: (builder) => ({
 
@@ -254,6 +256,8 @@ export const apiService = createApi({
       include_groups?: boolean;
       /** Only posts carrying a poll — the profile's Polls shelf, with `user_id`. */
       has_poll?: boolean;
+      /** Only posts made at this place — a place's own list. See PostPlace. */
+      place_id?: string;
     }>({
       query: (params = {}) => ({
         url: 'api/post',
@@ -369,6 +373,22 @@ export const apiService = createApi({
     /** The concierge page's rows, in the admin's order. Managed from the web dashboard. */
     getConciergeRows: builder.query<{ entries: ConciergeRow[] }, void>({
       query: () => 'api/concierge',
+    }),
+
+    // ── Sponsored auctions ──────────────────────────────────────────────────
+    /**
+     * The society's auctions still running, the soonest to end first — the
+     * home feed's banner. Callers refetch on mount and poll, so one the admin
+     * adds shows up without a restart.
+     */
+    getLiveSponsoredAuctions: builder.query<{ entries: SponsoredAuction[] }, void>({
+      query: () => 'api/sponsored-auctions/live',
+      providesTags: [{ type: 'SponsoredAuction', id: 'LIVE' }],
+    }),
+    /** The society's auctions that have ended, the latest first — the concierge page's results. */
+    getPastSponsoredAuctions: builder.query<{ entries: SponsoredAuction[]; total: number }, { limit?: number } | void>({
+      query: (args) => ({ url: 'api/sponsored-auctions/past', params: args?.limit ? { limit: args.limit } : undefined }),
+      providesTags: [{ type: 'SponsoredAuction', id: 'PAST' }],
     }),
 
     // ── Likes ────────────────────────────────────────────────────────────────
@@ -554,9 +574,12 @@ export const apiService = createApi({
       invalidatesTags: ['GarageCar', 'Cars'],
     }),
 
+    // A car's photo and details travel beyond the garage lists — the feed's
+    // car cards, followed cars, group car rows — so all of those refetch too,
+    // or they keep showing the old photo until the app restarts.
     updateCar: builder.mutation<GarageCar, FormData>({
       query: (body) => ({ url: 'api/car/update', method: 'POST', body }),
-      invalidatesTags: ['GarageCar', 'Cars'],
+      invalidatesTags: ['GarageCar', 'Cars', 'Post', 'CarFollow', 'Group'],
     }),
 
     deleteCar: builder.mutation<void, { internal_id: string }>({
@@ -969,14 +992,20 @@ export const apiService = createApi({
       providesTags: ['SocietyEvent'],
     }),
 
-    getSocietyEvent: builder.query<SocietyEvent, string>({
-      query: (id) => `api/events/${id}`,
-      providesTags: (r, e, id) => [{ type: 'SocietyEvent', id }],
+    /** An event — answered for `day` ("YYYY-MM-DD") when given: who's going that date. */
+    getSocietyEvent: builder.query<SocietyEvent, string | { id: string; day?: string }>({
+      query: (arg) => typeof arg === 'string'
+        ? `api/events/${arg}`
+        : { url: `api/events/${arg.id}`, params: arg.day ? { day: arg.day } : {} },
+      providesTags: (r, e, arg) => [{ type: 'SocietyEvent', id: typeof arg === 'string' ? arg : arg.id }],
     }),
 
-    getEventInterestedUsers: builder.query<{ entries: User[]; total: number }, string>({
-      query: (id) => `api/events/${id}/interested`,
-      providesTags: (r, e, id) => [{ type: 'EventInterest', id }],
+    /** Everyone going on one date of an event — its next, without `day`. */
+    getEventInterestedUsers: builder.query<{ entries: User[]; total: number; day?: string }, string | { id: string; day?: string }>({
+      query: (arg) => typeof arg === 'string'
+        ? `api/events/${arg}/interested`
+        : { url: `api/events/${arg.id}/interested`, params: { limit: 200, ...(arg.day ? { day: arg.day } : {}) } },
+      providesTags: (r, e, arg) => [{ type: 'EventInterest', id: typeof arg === 'string' ? arg : arg.id }],
     }),
 
     getEventTaggedPosts: builder.query<{ entries: Post[]; total: number }, string>({
@@ -998,9 +1027,13 @@ export const apiService = createApi({
       providesTags: ['EventInterest'],
     }),
 
-    toggleEventInterest: builder.mutation<{ is_interested: boolean; interested_count: number }, string>({
-      query: (event_id) => ({ url: 'api/events/interest', method: 'POST', body: { event_id } }),
-      invalidatesTags: (r, e, id) => [{ type: 'SocietyEvent', id }, 'EventInterest', 'SocietyEvent'],
+    /** Attend, or stop attending, one date of an event. */
+    toggleEventInterest: builder.mutation<
+      { is_interested: boolean; interested_count: number; day?: string },
+      { event_id: string; day?: string }
+    >({
+      query: (body) => ({ url: 'api/events/interest', method: 'POST', body }),
+      invalidatesTags: (r, e, { event_id }) => [{ type: 'SocietyEvent', id: event_id }, 'EventInterest', 'SocietyEvent'],
     }),
 
     createSocietyEvent: builder.mutation<SocietyEvent, FormData>({
@@ -1858,6 +1891,20 @@ export const apiService = createApi({
       place_id: string; session: string;
     }>({
       query: (params) => ({ url: 'api/places/details', params }),
+    }),
+
+    // ── Post places ───────────────────────────────────────────────────────────
+
+    /** The places you've posted at, latest first — the composer's recents. */
+    getRecentPostPlaces: builder.query<{ places: RecentPostPlace[] }, void>({
+      query: () => 'api/post/places/recent',
+      providesTags: ['Post'],
+    }),
+
+    /** Places inside a map's bounds that posts were made at, one per place. */
+    getPostMapPlaces: builder.query<{ places: PostMapPlace[] }, PostMapParams>({
+      query: (params) => ({ url: 'api/post/places/map', params }),
+      providesTags: ['Post'],
     }),
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -2774,6 +2821,8 @@ export const {
   useGetCarSpotDayQuery,
   useGetSpotFeedTodayQuery,
   useGetConciergeRowsQuery,
+  useGetLiveSponsoredAuctionsQuery,
+  useGetPastSponsoredAuctionsQuery,
   useGetCommentsQuery,
   useGetCommentRepliesQuery,
   useGetCommentCountQuery,
@@ -2928,6 +2977,8 @@ export const {
   useGetPostTagsQuery,
   useGetGroupActivityQuery,
   useLazySearchPlacesQuery,
+  useGetRecentPostPlacesQuery,
+  useGetPostMapPlacesQuery,
   useLazyGetPlaceDetailsQuery,
   useSearchQuery,
   useUpdateUserSettingMutation,

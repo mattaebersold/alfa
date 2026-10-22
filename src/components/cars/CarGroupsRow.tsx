@@ -10,7 +10,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { groupCarsLine } from '../../utils/groupCars';
 import type { Group } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_GRAY_26, COLOR_WHITE, GUTTER, PILL_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_GRAY_26, COLOR_WHITE, GUTTER, PILL_RADIUS, COLOR_GRAY_38 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -108,7 +108,8 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: GUTTER + 8, gap: 12, paddingTop: 4 },
   empty: { fontSize: 14, textAlign: 'center', paddingTop: 30, paddingHorizontal: 24 },
   // No border — a step lighter than the page, as the car and make tiles.
-  card: { borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: COLOR_GRAY_26 },
+  // A step lighter than the make page's grey, so the card has an edge on it.
+  card: { borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: COLOR_GRAY_38 },
   cardRow: { width: CARD_WIDTH },
   cardList: { width: '100%' },
   // Rounded at the foot too, where it meets the words — the card's radius.

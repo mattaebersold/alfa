@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Plus } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
@@ -19,6 +20,7 @@ import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { POST_TYPES } from '../../constants/postTypes';
 import { COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { SpotDateBadge } from '../feed/SpotResultBody';
 
 /** As many as fit before "View all" is the better answer. */
 export const STRIP_PREVIEW_COUNT = 6;
@@ -280,7 +282,13 @@ export function PostCard({
 }) {
   const colors = useColors();
   const lead = postMediaList(post)[0];
-  const caption = post.title || (post.body ? stripHtml(post.body) : '');
+  /**
+   * A guessing game result: named as the game is everywhere in the app — not
+   * by the app it was shared from — with the day it was played in a badge
+   * under the name, and its picture shaded back.
+   */
+  const spot = post.type === 'spot_result' && post.carspot ? post.carspot : null;
+  const caption = spot ? 'ORS Guessing Game' : (post.title || (post.body ? stripHtml(post.body) : ''));
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
@@ -293,7 +301,18 @@ export function PostCard({
     <View
       style={[styles.card, { width, backgroundColor: cardBackground ?? colors.card, borderColor: colors.borderDark }]}
     >
-      {lead ? (
+      {spot ? (
+        // A game result has no photo of its own. The car placeholder stands
+        // in, shaded dark, so it reads as a picture block apart from the card
+        // — the game's name centred on it, the day it was played beneath.
+        <TouchableOpacity style={styles.image} onPress={onPress} activeOpacity={0.85}>
+          <Image source={require('../../../assets/car-placeholder.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <View style={styles.spotShade} pointerEvents="none" />
+          <View style={styles.spotCenter} pointerEvents="none">
+            <Text style={styles.spotTitle} numberOfLines={2}>ORS Guessing Game</Text>
+          </View>
+        </TouchableOpacity>
+      ) : lead ? (
         <View style={styles.mediaClip}>
           <PostMediaCarousel
             media={[lead]}
@@ -354,8 +373,11 @@ export function PostCard({
           <Text style={styles.bylinePillText} numberOfLines={1}>@{post.user.username}</Text>
         </View>
       ) : null}
-      {(caption && lead && !captionOnImage) || (showByline && !bylineOnImage) || (showTime && timeAgo) ? (
+      {(caption && lead && !captionOnImage) || spot || (showByline && !bylineOnImage) || (showTime && timeAgo) ? (
       <TouchableOpacity style={styles.body} onPress={onPress} activeOpacity={0.85}>
+        {/* A game result's title row: the day it was played, where another
+            card's title sits. */}
+        {spot ? <View style={styles.spotDate}><SpotDateBadge carspot={spot} dark /></View> : null}
         {caption && lead && !captionOnImage ? (
           <Text style={[styles.caption, largeCaption && styles.captionLarge, { color: colors.fg }]} numberOfLines={captionLines}>{caption}</Text>
         ) : null}
@@ -434,6 +456,16 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 18, color: '#FFFFFF',
   },
   mediaClip: { borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden' },
+  // A guessing game's picture, shaded back — a bright share card outshone
+  // every post beside it.
+  // Dark enough that the picture reads as its own block over the title under it.
+  spotShade: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.65)' },
+  spotCenter: {
+    position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+    alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12,
+  },
+  spotTitle: { color: '#FFFFFF', fontSize: 15, fontFamily: FONT_INTER.bold, textAlign: 'center' },
+  spotDate:  { alignSelf: 'flex-start' },
   imageBlank: { alignItems: 'center', justifyContent: 'center' },
   imageText:  { padding: 12, justifyContent: 'center' },
   leadText:   { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 21 },

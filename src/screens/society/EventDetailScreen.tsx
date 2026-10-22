@@ -30,6 +30,7 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useViewableIds } from '../../hooks/useViewableIds';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { openInMaps } from '../../utils/openInMaps';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 type Tab = 'info' | 'posts';
@@ -56,13 +57,7 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
 
   const handleOpenMaps = useCallback(() => {
     if (!event) return;
-    if (event.location_lat && event.location_lng) {
-      const url = `https://maps.apple.com/?ll=${event.location_lat},${event.location_lng}&q=${encodeURIComponent(event.location ?? '')}`;
-      Linking.openURL(url);
-    } else if (event.location) {
-      const url = `https://maps.apple.com/?q=${encodeURIComponent(event.location)}`;
-      Linking.openURL(url);
-    }
+    openInMaps(event);
   }, [event]);
 
   if (isLoading || !event) return <Spinner fullScreen />;

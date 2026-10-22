@@ -6,7 +6,7 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetCarsQuery } from '../../api/apiService';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Avatar from '../../components/ui/Avatar';
@@ -21,7 +21,7 @@ import { FONT_INTER } from '../../constants/fonts';
 
 function CarRow({ car, onPress }: { car: GarageCar; onPress: (origin: SummaryOrigin | null) => void }) {
   const colors = useColors();
-  const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  const hero = carHeroUrl(car);
   return (
     <SummaryTouchable style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress}>
       <Image

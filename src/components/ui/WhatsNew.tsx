@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
 import { Sparkles, ChevronRight } from 'lucide-react-native';
-import SharedModal from './SharedModal';
+import SharedModal, { PANE_GUTTER } from './SharedModal';
 import OilSheen from './OilSheen';
 import { APP_VERSION } from '../../utils/appVersion';
 import { latestChangelog, changelogBefore, EARLIEST_SHOWN, type ChangelogEntry } from '../../constants/changelog';
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
 
-  scrollContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 32 },
+  scrollContent: { paddingHorizontal: PANE_GUTTER, paddingTop: 4, paddingBottom: 32 },
   date: {
     fontSize: 12, fontFamily: FONT_MONO, fontWeight: monoWeight('600'),
     color: TEXT_FAINT,

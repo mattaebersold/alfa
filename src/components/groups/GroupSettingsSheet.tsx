@@ -21,7 +21,7 @@ import {
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import Spinner from '../ui/Spinner';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import { JoinRequestsList } from './JoinRequests';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
@@ -445,7 +445,7 @@ export function GroupSettingsBody({
             <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Images</Text>
 
-              <Text style={[styles.fieldLabel, { color: c.grey, paddingHorizontal: 16, paddingTop: 12 }]}>
+              <Text style={[styles.fieldLabel, { color: c.grey, paddingHorizontal: PANE_GUTTER, paddingTop: 12 }]}>
                 Group photo
               </Text>
               <ImageSlot
@@ -456,7 +456,7 @@ export function GroupSettingsBody({
                 hint="Shown on group cards and listings"
               />
 
-              <Text style={[styles.fieldLabel, { color: c.grey, paddingHorizontal: 16 }]}>
+              <Text style={[styles.fieldLabel, { color: c.grey, paddingHorizontal: PANE_GUTTER }]}>
                 Banner
               </Text>
               <ImageSlot
@@ -650,16 +650,16 @@ export function GroupSettingsBody({
 const styles = StyleSheet.create({
   scroll:      { paddingBottom: 40 },
   section:     { borderBottomWidth: StyleSheet.hairlineWidth },
-  sectionTitle:{ paddingHorizontal: 16, paddingVertical: 8, fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  sectionTitle:{ paddingHorizontal: PANE_GUTTER, paddingVertical: 8, fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: PANE_GUTTER, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
   infoLabel:   { fontSize: 14 },
   infoValue:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
-  editBlock:   { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 },
+  editBlock:   { paddingHorizontal: PANE_GUTTER, paddingTop: 12, paddingBottom: 14 },
   fieldLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
   input:       { paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderRadius: 10 },
 
-  imageSlot:   { paddingHorizontal: 16, paddingBottom: 14, position: 'relative' },
+  imageSlot:   { paddingHorizontal: PANE_GUTTER, paddingBottom: 14, position: 'relative' },
   imagePreview:{ width: '100%', height: 150, borderRadius: 10, backgroundColor: COLOR_BLACK },
   bannerPreview: { height: 110 },
   imageChange: {
@@ -676,15 +676,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)',
   },
 
-  saveWrap:    { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  saveWrap:    { paddingHorizontal: PANE_GUTTER, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   saveBtn:     { paddingVertical: 12, borderRadius: COMMON_RADIUS, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.45 },
   saveText:    { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 
-  actionRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: StyleSheet.hairlineWidth },
+  actionRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: PANE_GUTTER, paddingVertical: 13, borderTopWidth: StyleSheet.hairlineWidth },
   actionText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
 
-  memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PANE_GUTTER, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   memberInfo:  { flex: 1 },
   memberName:  { fontSize: 14, fontFamily: FONT_INTER.semibold },
   memberRole:  { fontSize: 11, marginTop: 1 },
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9, paddingVertical: 6,
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  dangerBlock:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  dangerBlock:   { paddingHorizontal: PANE_GUTTER, paddingVertical: 14, borderTopWidth: StyleSheet.hairlineWidth },
   dangerHeading: { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   dangerBody:    { fontSize: 13, lineHeight: 19 },
   deleteBtn: {

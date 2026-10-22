@@ -5,6 +5,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import SpotTodayRow from '../../components/feed/SpotTodayRow';
+import LiveAuctionBanner from '../../components/feed/LiveAuctionBanner';
 import StoriesRow from '../../components/stories/StoriesRow';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
@@ -81,6 +82,8 @@ function FeedHeader() {
 
   return (
     <View>
+      {/* The society's own auction while it's live — gone when it ends. */}
+      <LiveAuctionBanner />
       <SpotTodayRow />
       {/* {isPro && <StoriesRow />} */}
       {/* Feature banner parked for now — <HomeFeatureBanner /> */}

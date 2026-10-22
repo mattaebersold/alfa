@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Car, Search, X } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
+import { COLOR_GRAY_26 } from '../../constants/config';
+import SubTabs from '../../components/ui/SubTabs';
+import PageBanner, { PAGE_BANNER_OVERLAP } from '../../components/cars/PageBanner';
+import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { View, StyleSheet, ScrollView, Dimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { Text } from '@ors/kit';
+import { Car } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
 import ModelTile from '../../components/cars/ModelTile';
@@ -15,19 +19,19 @@ import type { CarsScreenProps } from '../../navigation/types';
 import { modelShortTitle } from './ModelDetailScreen';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_BLACK } from '../../constants/config';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
 
 /**
- * Whether a tile's name answers what's typed: every word, in any order, so
- * "E46 M3" finds the M3's E46 tile and "m3" all of the M3's.
+ * The make page's ground — a step lighter than the app's black, so the sub
+ * tabs' dark tracks have an edge against it, as on the marketplace.
  */
-const matches = (query: string, text: string) => {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const hay = text.toLowerCase();
-  return words.every((w) => hay.includes(w));
-};
+const MAKE_GROUND = COLOR_GRAY_26;
+
+/** The "All" sub tab's key — no filter. */
+const ALL = '__all';
 
 /** A pill under "All BMW cars" — a model, or one generation of it. */
 type Filter = { key: string; label: string; qty: number; model: string; generation?: string };
@@ -46,9 +50,8 @@ export type ModelPageParams = {
 };
 
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
-  const colors = useColors();
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: MAKE_GROUND }]} edges={[]}>
       <BrandDetailView brand={route.params.brand} onOpenModel={(p) => navigation.navigate('ModelDetail', p)} />
     </SafeAreaView>
   );
@@ -59,20 +62,41 @@ export default function BrandDetailScreen({ route, navigation }: CarsScreenProps
  * tab, which shows it in place under a breadcrumb trail. Opening a model is
  * the host's: a push, or one more step on the trail.
  */
-export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }: {
+export function BrandDetailView({ brand, onOpenModel, headerPad = 0, bannerOverlay, onScroll, scrollClearance = 0 }: {
   brand: string;
   onOpenModel: (params: ModelPageParams) => void;
-  /** Room at the top for a host whose header floats over the content. */
+  /**
+   * Room at the top for a host whose header floats over the content. The
+   * banner runs up under it either way — only the page's start moves.
+   */
   headerPad?: number;
+  /** Laid over the banner's top — the Cars tab's breadcrumb trail. */
+  bannerOverlay?: React.ReactNode;
+  /**
+   * How much of the screen's top a host's floating header still covers once
+   * scrolled — where picking a sub tab stops the cars heading, below it.
+   */
+  scrollClearance?: number;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const colors = useColors();
   const [filter, setFilter] = useState<Filter | null>(null);
-  const [query, setQuery] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  /**
+   * Where the sub tabs sit in the page: their block's top, plus the row's
+   * own offset in it. Picking one rests the row just under the header.
+   */
+  const carsY = useRef(0);
+  const tabsInBlock = useRef(0);
+  const [tabsY, setTabsY] = useState(0);
+  const noteTabsY = () => setTabsY(carsY.current + tabsInBlock.current);
   const { data: models = [] } = useGetCarModelsQuery(brand);
-  // The make's total, for the bubble beside its name.
+  // The make's total, for the bubble beside its name — and its first car,
+  // whose photo is the banner.
   const { data: totalData } = useGetCarsQuery({ page: 0, limit: 1, make: brand.toLowerCase() });
   const total = totalData?.total;
+  const bannerCar = totalData?.entries?.[0];
+  const bannerPhoto = bannerCar ? (imageUrl(bannerCar.profile_image) ?? firstGalleryUrl(bannerCar.gallery)) : null;
 
   const { ownsModel, ownsGeneration } = useGarageMatch();
   const ownsGen = (m: { model_handle: string }, g: { generation_handle: string }) =>
@@ -88,9 +112,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
     .sort((a, b) => Number(ownsModel(brand, b.model_handle)) - Number(ownsModel(brand, a.model_handle))
       || b.qty - a.qty || a.model.localeCompare(b.model));
 
-  const tileCount = sortedModels.reduce((n, m) => n + (m.generations?.length
-    ? m.generations.filter((g) => matches(query, `${g.generation} ${m.model}`)).length
-    : matches(query, m.model) ? 1 : 0), 0);
+  const tileCount = sortedModels.reduce((n, m) => n + (m.generations?.length || 1), 0);
 
   const filters: Filter[] = sortedModels.flatMap((m) => m.generations?.length
     ? m.generations.map((g) => ({
@@ -105,6 +127,10 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
 
   const header = (
     <>
+      {/* One of its cars as a shaded backdrop, the page floating over it — the
+          model page's banner. */}
+      <PageBanner photo={bannerPhoto} overlay={bannerOverlay} ground={MAKE_GROUND} />
+      <View style={styles.overBanner}>
       {/* The name, and how many of it there are as a bubble beside it. */}
       <View style={styles.brandHeader}>
         <Text style={[styles.brandTitle, { color: colors.fg }]} numberOfLines={1}>{brand}</Text>
@@ -119,30 +145,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
         )}
       </View>
 
-      {sortedModels.length > 0 && (
-        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Search size={16} color={colors.grey} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.fg }]}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Filter models"
-            placeholderTextColor={colors.grey}
-            autoCorrect={false}
-            autoCapitalize="none"
-            clearButtonMode="never"
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear">
-              <X size={16} color={colors.grey} />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {sortedModels.length > 0 && tileCount === 0 && (
-        <Text style={[styles.noMatch, { color: colors.grey }]}>No {brand} models match “{query.trim()}”</Text>
-      )}
+      </View>
 
       {tileCount > 0 && (
         <ScrollView
@@ -151,7 +154,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
           contentContainerStyle={styles.models}
         >
           {sortedModels.flatMap((m) => [
-            m.generations?.length || !matches(query, m.model) ? null : <ModelTile
+            m.generations?.length ? null : <ModelTile
               key={m.model_handle}
               brand={brand}
               modelHandle={m.model_handle}
@@ -160,6 +163,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
               count={m.qty}
               countLabel={`${m.qty} ${m.qty === 1 ? 'car' : 'cars'}`}
               style={styles.modelTile}
+              compact
               badgeLeft={ownsModel(brand, m.model_handle) ? <GarageMatchBadge /> : undefined}
               onPress={() => onOpenModel({
                 brand,
@@ -169,7 +173,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
             />,
             // Then the model's generations that have cars — "993" after "911",
             // each its own page.
-            ...(m.generations ?? []).filter((g) => matches(query, `${g.generation} ${m.model}`)).map((g) => (
+            ...(m.generations ?? []).map((g) => (
               <MakeTile
                 key={`${m.model_handle}-${g.generation_handle}`}
                 // "Atlas 1st Gen", not "1st Gen" — see modelShortTitle.
@@ -178,6 +182,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
                 count={g.qty}
                 countLabel={`${g.qty} ${g.qty === 1 ? 'car' : 'cars'}`}
                 style={styles.modelTile}
+                compact
                 badgeLeft={ownsGen(m, g) ? <GarageMatchBadge /> : undefined}
                 onPress={() => onOpenModel({
                   brand,
@@ -196,43 +201,32 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
       {/* Every group of this make — model groups and make-wide ones alike. */}
       <CarGroupsRow make={brand} />
 
-      <Text style={[styles.section, { color: colors.fg }]}>All {brand} cars</Text>
+      {/* The heading and its sub tabs, measured so picking one can bring
+          them to the top of the screen, the grid it narrows right under. */}
+      <View onLayout={(e) => { carsY.current = e.nativeEvent.layout.y; noteTabsY(); }}>
+        <Text style={[styles.section, { color: colors.fg }]}>All {brand} cars</Text>
 
-      {filters.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
-          {[null, ...filters].map((f) => {
-            const active = (filter?.key ?? null) === (f?.key ?? null);
-            return (
-              <TouchableOpacity
-                key={f?.key ?? 'all'}
-                style={[
-                  styles.pill,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                  active && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-                ]}
-                onPress={() => setFilter(f)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                {/* Black on the lit pill, as on every brand-filled pill. */}
-                <Text style={[styles.pillText, { color: active ? COLOR_BLACK : colors.fg }]}>
-                  {f ? f.label : 'All'}
-                </Text>
-                {f?.qty ? (
-                  <View style={[styles.pillCount, active && styles.pillCountActive]}>
-                    <Text style={[styles.pillCountText, { color: active ? COLOR_BLACK : colors.fg }]}>{f.qty}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+        {filters.length > 1 && (
+          <View style={styles.pills} onLayout={(e) => { tabsInBlock.current = e.nativeEvent.layout.y; noteTabsY(); }}>
+            <SubTabs
+              options={[
+                { key: ALL, label: 'All' },
+                ...filters.map((f) => ({ key: f.key, label: f.label })),
+              ]}
+              value={filter?.key ?? ALL}
+              onChange={(key) => {
+                setFilter(filters.find((f) => f.key === key) ?? null);
+                scrollRef.current?.scrollTo({ y: Math.max(0, tabsY - scrollClearance), animated: true });
+              }}
+            />
+          </View>
+        )}
+      </View>
     </>
   );
 
   return (
-    <View style={[ss.fill, { paddingTop: headerPad }]}>
+    <View style={[ss.fill, { paddingTop: headerPad, backgroundColor: MAKE_GROUND }]}>
       <CarMosaic
         make={brand}
         model={filter?.model}
@@ -240,12 +234,19 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, onScroll }:
         header={header}
         emptyTitle={filter ? `No ${brand} ${filter.label}s yet` : `No ${brand}s yet`}
         onScroll={onScroll}
+        scrollRef={scrollRef}
+        // Always room to bring the tabs to the top: a model with only a car
+        // or two would otherwise run out of page before they got there.
+        minContentHeight={tabsY ? tabsY - scrollClearance + SCREEN_HEIGHT : undefined}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // The name and the filter, pulled up over the banner's faded foot — the
+  // model page's intro does the same.
+  overBanner: { marginTop: -PAGE_BANNER_OVERLAP },
   brandHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2,
@@ -256,31 +257,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999,
   },
   brandCountText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginHorizontal: 12, marginTop: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 10, borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 15 },
-  noMatch:   { fontSize: 14, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
   // Stretched to the tallest tile; each centers its name in the extra height.
   models:    { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6, gap: 10, alignItems: 'stretch' },
   section:   { fontSize: 17, fontFamily: FONT_INTER.bold, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
-  // A fixed 60% of the screen, so the next peeks in. Two or three cars show as
-  // MakeTile's angled, shadowed slices; one fills the photo.
-  modelTile: { width: SCREEN_WIDTH * 0.6 },
-  pills:     { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
-  pill:      {
-    flexDirection: 'row', alignItems: 'center',
-    minHeight: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5,
-  },
-  pillText:  { fontSize: 13, fontFamily: FONT_INTER.bold },
+  // 38% of the screen — two and a half, so more of the make's models show
+  // at once. Two or three cars show as MakeTile's angled, shadowed slices;
+  // one fills the photo. Compact: small name, count on the photo.
+  modelTile: { width: SCREEN_WIDTH * 0.38 },
+  // SubTabs brings its own side margin.
+  pills:     { paddingBottom: 12 },
   // The count in its own small circle, centred on the label, set off from it.
-  pillCount: {
-    minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, marginLeft: 8, marginRight: -6,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  pillCountActive: { backgroundColor: 'rgba(0,0,0,0.18)' },
-  pillCountText: { fontSize: 11, fontFamily: FONT_INTER.bold },
 });

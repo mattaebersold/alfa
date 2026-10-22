@@ -15,7 +15,7 @@ import AppHeader from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User, Post, GarageCar } from '../../types/api';
 import { stripHtml } from '../../utils/text';
@@ -37,7 +37,7 @@ function UserRow({ user, onPress }: { user: User; onPress: () => void }) {
 
 function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
   const colors = useColors();
-  const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  const hero = carHeroUrl(car);
   return (
     <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
       {hero

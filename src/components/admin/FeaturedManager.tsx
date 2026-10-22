@@ -17,7 +17,7 @@ import {
 import Avatar from '../ui/Avatar';
 import { useColors } from '../../hooks/useColors';
 import { colors as palette } from '../../constants/colors';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { User, GarageCar } from '../../types/api';
 import { COMMON_RADIUS } from '../../constants/config';
@@ -46,7 +46,7 @@ const CAR_RESULTS = 20;
 
 const carName = (car: GarageCar) =>
   [car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Untitled car';
-const carThumb = (car: GarageCar) => firstGalleryUrl(car.gallery) ?? imageUrl(car.profile_image);
+const carThumb = (car: GarageCar) => carHeroUrl(car);
 const personName = (u: User) => [u.firstName, u.lastName].filter(Boolean).join(' ');
 
 export default function FeaturedManager() {

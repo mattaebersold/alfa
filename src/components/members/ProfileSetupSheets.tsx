@@ -6,7 +6,7 @@ import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ImageIcon } from 'lucide-react-native';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import Avatar from '../ui/Avatar';
 import {
   useGetLoggedInUserQuery,
@@ -285,7 +285,7 @@ export function BioSheet({ visible, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  body: { padding: 16, paddingBottom: 32, gap: 14 },
+  body: { padding: PANE_GUTTER, paddingBottom: 32, gap: 14 },
 
   previewWrap: { alignItems: 'center', paddingVertical: 6 },
   bannerPreview: { width: '100%', aspectRatio: 10 / 4, borderRadius: 10 },

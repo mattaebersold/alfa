@@ -1,13 +1,16 @@
 import React, { useMemo, useRef } from 'react';
+import { COLOR_GRAY_26 } from '../../constants/config';
 import { View, FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll, headerBottom } from '../../hooks/useHeaderScroll';
-import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
 import type { Listing } from '../../types/api';
+
+/** The marketplace's ground — see the screen's note. */
+const MARKET_GROUND = COLOR_GRAY_26;
 
 /**
  * The marketplace tab.
@@ -21,7 +24,6 @@ export default function MarketplaceScreen() {
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const scrollRef = useRef<FlatList<Listing>>(null);
   useScrollTopOnBack(scrollRef);
-  const colors = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
   const insets = useSafeAreaInsets();
@@ -31,10 +33,13 @@ export default function MarketplaceScreen() {
   const stickyTop = useMemo(() => headerBottom(headerPad, insets.top), [headerPad, insets.top]);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    // A step lighter than the app's black, so the sub tabs' dark tracks have
+    // an edge against it — the listing cards are lighter still.
+    <SafeAreaView style={[ss.fill, { backgroundColor: MARKET_GROUND }]} edges={[]}>
       <AppHeader />
-      <View style={[ss.fill, { backgroundColor: colors.cream }]}>
+      <View style={[ss.fill, { backgroundColor: MARKET_GROUND }]}>
         <MarketplaceBrowse
+          ground={MARKET_GROUND}
           heading="Marketplace"
           listRef={scrollRef}
           onScroll={onScroll}

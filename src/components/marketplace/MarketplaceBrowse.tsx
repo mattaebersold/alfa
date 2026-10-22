@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import SubTabs from '../ui/SubTabs';
 import {
   View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
@@ -7,7 +8,7 @@ import { Search, X, Plus, Tag, Megaphone } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
-import FilterSummaryRow, { FilterChoiceRow, type FilterPill } from '../ui/FilterSummaryRow';
+import FilterSummaryRow, { type FilterPill, COMPACT_FILTER_HEIGHT } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../ui/LocationFilterRow';
 import ListingCard from './ListingCard';
 import ManageListingsEntry from './ManageListingsEntry';
@@ -20,8 +21,8 @@ import {
   LISTING_LIMIT_UPSELL,
   COMMON_RADIUS,
   PILL_RADIUS,
-  COLOR_BLACK, GUTTER,
-} from '../../constants/config';
+  COLOR_BLACK, COLOR_GRAY_26, GUTTER,
+  SEARCH_EDGE } from '../../constants/config';
 import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
@@ -105,6 +106,9 @@ export default function MarketplaceBrowse({
   contentContainerStyle,
   style,
   stickyTop = 0,
+  ground = COLOR_GRAY_26,
+  embedded = false,
+  cardBackground,
 }: {
   /**
    * Narrow to one group's listings. The server reads it as "only things in
@@ -126,6 +130,23 @@ export default function MarketplaceBrowse({
    * omitted.
    */
   stickyTop?: number | Animated.Value | Animated.AnimatedInterpolation<number>;
+  /**
+   * The browse's own ground — painted here, so every host gets it, and the
+   * pinned search bar matches it as it slides over the list. A step lighter
+   * than the app's black by default, so the sub tabs' dark tracks have an
+   * edge against it; a group's market passes its page's own.
+   */
+  ground?: string;
+  /**
+   * Drawn into a host's own scroller — a group page's Marketplace tab — rather
+   * than as a list of its own: the same switch, categories, search, filter and
+   * mosaic, laid out in the flow, with nothing pinned. Its first page only;
+   * the host links on to the whole browse. No + and no "your listings" card
+   * either — the host's tab has its own "New".
+   */
+  embedded?: boolean;
+  /** The listing cards' fill, when the host's ground calls for another — see ListingCard. */
+  cardBackground?: string;
 }) {
   const nav = useNavigation<any>();
   const colors = useColors();
@@ -144,14 +165,6 @@ export default function MarketplaceBrowse({
   const [upsell, setUpsell] = useState(false);
 
   const [kind, setKind] = useState<ListingKind>('sale');
-  // The switch's thumb: 0 on For sale, 1 on Want ads, sprung between like
-  // SubTabs'. Slid by half the track's inner width, known once it's laid out.
-  const thumb = useRef(new Animated.Value(0)).current;
-  const [trackW, setTrackW] = useState(0);
-  useEffect(() => {
-    Animated.spring(thumb, { toValue: kind === 'want' ? 1 : 0, tension: 170, friction: 22, useNativeDriver: true }).start();
-  }, [kind, thumb]);
-  const half = Math.max(0, (trackW - KIND_TRACK_PAD * 2) / 2);
 
   // The sticky bar: where it sits in the list (barY, in content), how tall it
   // is, and the scroll — so it can ride with the list until it reaches
@@ -304,7 +317,7 @@ export default function MarketplaceBrowse({
     const conditionLabel = kind === 'sale' && filters.conditionMin !== null
       ? meta?.conditions?.[filters.conditionMin] : undefined;
     out.push(locationPill(location.choice));
-    if (filters.category) out.push({ key: 'category', label: categoryLabel(filters.category) });
+    // Not the category: the sub tabs under the switch already show it.
     if (conditionLabel) out.push({ key: 'condition', label: `${conditionLabel}+` });
     if (filters.shipping) {
       out.push({
@@ -346,50 +359,24 @@ export default function MarketplaceBrowse({
           two screens, so the filters above apply to whichever you're
           looking at. */}
       <View style={styles.kindRow}>
-        {/* A switch, the width of the row — the same two-sided pill as
-            the photography map's Map / List: a track, and the side
-            you're on filled in the brand colour. */}
-        <View style={[styles.kindSwitch, { backgroundColor: COLOR_BLACK }]} accessibilityRole="tablist">
-          <View
-            style={StyleSheet.absoluteFill}
-            onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
-            pointerEvents="none"
-          >
-            {half > 0 ? (
-              <Animated.View
-                style={[styles.kindThumb, {
-                  width: half, backgroundColor: brand,
-                  transform: [{ translateX: thumb.interpolate({ inputRange: [0, 1], outputRange: [0, half] }) }],
-                }]}
-              />
-            ) : null}
-          </View>
-          {([
-            { key: 'sale' as const, label: 'For sale', Icon: Tag },
-            { key: 'want' as const, label: 'Want ads', Icon: Megaphone },
-          ]).map(({ key, label, Icon }) => {
-            const on = kind === key;
-            const ink = on ? COLOR_BLACK : colors.fg;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[styles.kindBtn, on && half === 0 && { backgroundColor: brand }]}
-                onPress={() => switchKind(key)}
-                activeOpacity={0.8}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-              >
-                <Icon size={16} color={ink} strokeWidth={2.4} />
-                <Text style={[styles.kindText, { color: ink }]}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* For sale or wanted, as sub tabs — the same control as the
+            categories under it, so the two read as two steps of one choice. */}
+        <View style={styles.kindTabs}>
+          <SubTabs
+            options={[
+              { key: 'sale' as const, label: 'For sale', Icon: Tag },
+              { key: 'want' as const, label: 'Want ads', Icon: Megaphone },
+            ]}
+            value={kind}
+            onChange={switchKind}
+            inset={GUTTER}
+          />
         </View>
         {/* Listing something, inside a group — the group comes with it
             (see the create form's "Where to post" step). On the main
             marketplace this lives on the app's + instead (CreateFab),
             beside a new post. */}
-        {groupId ? (
+        {groupId && !embedded ? (
         <TouchableOpacity
           style={[styles.newBtn, { backgroundColor: brand }]}
           onPress={() => (listingAllowance?.reached
@@ -408,20 +395,29 @@ export default function MarketplaceBrowse({
         </TouchableOpacity>
         ) : null}
       </View>
+
+      {/* The categories, as sub tabs — All first, and picked by default.
+          The same filter the panel used to hold, a tap away. */}
+      <View style={styles.categoryTabs}>
+        <SubTabs
+          options={categoryOptions.map((o) => ({ key: o.key ?? '', label: o.label }))}
+          value={filters.category ?? ''}
+          onChange={(key) => applyFilters({ ...filterValue, category: key || null })}
+          inset={GUTTER}
+        />
+      </View>
     </>
   );
 
   // The search and filter, pinned once you scroll past them: drawn over the
   // list at their place in it (barY, less the scroll), never above `stickyTop`.
-  const stickyBar = (
-    <Animated.View
-      style={[styles.stickyBar, { backgroundColor: colors.cream, transform: [{ translateY: barTranslate }] }]}
-      onLayout={(e) => setBarH(e.nativeEvent.layout.height)}
-    >
+  const tools = (
+    <>
       {/* Search on the left, the filter on the right — the pattern the
           photography map and the Events tab share. */}
       <View style={styles.toolsRow}>
-      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {/* Edged like the filter beside it (SEARCH_EDGE), so the pair match. */}
+      <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: SEARCH_EDGE }]}>
         <Search size={15} color={colors.grey} />
         <TextInput
           style={[styles.searchInput, { color: colors.fg }]}
@@ -462,14 +458,8 @@ export default function MarketplaceBrowse({
               }))}
             />
 
-            {/* Room under the rule that closes the location section. */}
-            <View style={styles.typeGap}>
-              <FilterChoiceRow
-                options={categoryOptions}
-                selected={draft.category}
-                onSelect={(category) => setDraft((d) => ({ ...d, category }))}
-              />
-            </View>
+            {/* The category is on the browse screen itself now, as sub tabs
+                under For sale / Want ads — not repeated here. */}
 
 
             {/* Condition, shipping, price and sort are off the panel for now; their
@@ -480,11 +470,85 @@ export default function MarketplaceBrowse({
         )}
       </FilterSummaryRow>
       </View>
+    </>
+  );
+  const stickyBar = (
+    <Animated.View
+      style={[styles.stickyBar, { backgroundColor: ground, transform: [{ translateY: barTranslate }] }]}
+      onLayout={(e) => setBarH(e.nativeEvent.layout.height)}
+    >
+      {tools}
     </Animated.View>
   );
 
+  // The mosaic: two columns of cards, each its photo's own shape.
+  const mosaic = (
+    <View style={styles.mosaic}>
+      {[0, 1].map((col) => (
+        <View key={col} style={styles.column}>
+          {entries.filter((_, i) => i % 2 === col).map((item) => (
+            <ListingCard
+              key={item.internal_id}
+              listing={item}
+              natural
+              background={cardBackground}
+              conditions={meta?.conditions}
+              onPress={(origin) => setSummary({ id: item.internal_id, origin })}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+
+  const emptyState = isLoading ? (
+    <SkeletonGrid count={6} ratio={16 / 9} style={{ paddingHorizontal: GUTTER, paddingTop: 8 }} />
+  ) : (
+    <EmptyState
+      title={kind === 'want' ? 'No want ads' : 'Nothing for sale'}
+      message={
+        activeSearch || pills.length > 1
+          ? 'Try a wider radius or fewer filters.'
+          : groupId
+            ? 'Nothing has been posted to this group yet.'
+            : 'Be the first to list something.'
+      }
+    />
+  );
+
+  const modals = (
+    <>
+      <ListingSummaryModal
+        listingId={summary?.id ?? null}
+        origin={summary?.origin}
+        onClose={() => setSummary(null)}
+      />
+
+      <ProUpsellModal
+        visible={upsell}
+        onClose={() => setUpsell(false)}
+        title={LISTING_LIMIT_UPSELL.title}
+        message={LISTING_LIMIT_UPSELL.message}
+      />
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <View style={[{ backgroundColor: ground }, style]}>
+        {kindSwitch}
+        {tools}
+        {location.fellBack && (
+          <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
+        )}
+        {entries.length ? mosaic : emptyState}
+        {modals}
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.fill, style]}>
+    <View style={[styles.fill, { backgroundColor: ground }, style]}>
       <Animated.FlatList
         ref={listRef}
         style={styles.fill}
@@ -533,39 +597,8 @@ export default function MarketplaceBrowse({
 
           </>
         }
-        renderItem={() => (
-          <View style={styles.mosaic}>
-            {[0, 1].map((col) => (
-              <View key={col} style={styles.column}>
-                {entries.filter((_, i) => i % 2 === col).map((item) => (
-                  <ListingCard
-                    key={item.internal_id}
-                    listing={item}
-                    natural
-                    conditions={meta?.conditions}
-                    onPress={(origin) => setSummary({ id: item.internal_id, origin })}
-                  />
-                ))}
-              </View>
-            ))}
-          </View>
-        )}
-        ListEmptyComponent={
-          isLoading ? (
-            <SkeletonGrid count={6} ratio={16 / 9} style={{ paddingHorizontal: GUTTER, paddingTop: 8 }} />
-          ) : (
-            <EmptyState
-              title={kind === 'want' ? 'No want ads' : 'Nothing for sale'}
-              message={
-                activeSearch || pills.length > 1
-                  ? 'Try a wider radius or fewer filters.'
-                  : groupId
-                    ? 'Nothing has been posted to this group yet.'
-                    : 'Be the first to list something.'
-              }
-            />
-          )
-        }
+        renderItem={() => mosaic}
+        ListEmptyComponent={emptyState}
         ListFooterComponent={
           isFetching && page > 0 ? (
             <ActivityIndicator size="small" color={colors.grey} style={{ padding: 20 }} />
@@ -580,28 +613,13 @@ export default function MarketplaceBrowse({
 
       {stickyBar}
 
-      <ListingSummaryModal
-        listingId={summary?.id ?? null}
-        origin={summary?.origin}
-        onClose={() => setSummary(null)}
-      />
-
-      <ProUpsellModal
-        visible={upsell}
-        onClose={() => setUpsell(false)}
-        title={LISTING_LIMIT_UPSELL.title}
-        message={LISTING_LIMIT_UPSELL.message}
-      />
+      {modals}
     </View>
   );
 }
 
 
-// The switch track's inset around its thumb.
-const KIND_TRACK_PAD = 4;
-
 const styles = StyleSheet.create({
-  typeGap: { paddingTop: 14 },
   fill: { flex: 1 },
   // Two columns of cards, each its photo's shape — the Cars page's mosaic.
   mosaic: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER },
@@ -611,16 +629,12 @@ const styles = StyleSheet.create({
   stickyBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingTop: 6 },
   // Every row's edge inset is the app's GUTTER, so the browse lines up with
   // the header's tabs and the rest of the home screen.
-  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 4 },
-  // The track; each side takes half of it.
-  kindSwitch: { flex: 1, flexDirection: 'row', padding: KIND_TRACK_PAD, borderRadius: PILL_RADIUS },
-  // The brand-filled half, sliding under the labels.
-  kindThumb: { position: 'absolute', top: KIND_TRACK_PAD, bottom: KIND_TRACK_PAD, left: KIND_TRACK_PAD, borderRadius: PILL_RADIUS },
-  kindBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingVertical: 10, borderRadius: PILL_RADIUS,
-  },
-  kindText: { fontSize: 14, fontFamily: FONT_INTER.bold },
+  // Close under For sale / Want ads, with room before the search below.
+  categoryTabs: { marginTop: 4, marginBottom: 6 },
+  // SubTabs brings its own 12 of side margin, so the row only pads its end —
+  // where a group's + sits — and the two rows of tabs line up.
+  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: GUTTER, paddingTop: 8, paddingBottom: 4 },
+  kindTabs: { flex: 1 },
   // Inside a group only — the switch's height, round like it.
   newBtn: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
@@ -634,7 +648,7 @@ const styles = StyleSheet.create({
   },
   // A pill, the height of the filter beside it, taking the rest of the row.
   searchBar: {
-    flex: 1, height: 38,
+    flex: 1, height: COMPACT_FILTER_HEIGHT,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14,
     borderRadius: PILL_RADIUS, borderWidth: 1,

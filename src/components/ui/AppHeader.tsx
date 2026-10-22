@@ -604,7 +604,9 @@ const TABS_STUCK_TRIM = 6;
  * and anything pinned under it close that up, while the tabs stop where they
  * are under the status bar.
  */
-const TABS_STUCK_TIGHTEN = 12;
+// Kept small: closed up all the way, the ground's edge ran right under the
+// docked pills with nothing beneath them.
+const TABS_STUCK_TIGHTEN = 4;
 export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM + TABS_STUCK_TIGHTEN;
 
 /** The tabs' size once stuck, against 1 at rest. */

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
@@ -24,7 +24,7 @@ import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { carDisplayName } from '../../utils/mentions';
 import SummaryMessageButton from './SummaryMessageButton';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_GRAY_38, COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GRAY_38, COLOR_WHITE } from '../../constants/config';
 
 /**
  * Enough of a member to decide whether you want their profile.
@@ -69,12 +69,16 @@ export default function UserSummaryModal({
   const lastUserId = useRef<string | null>(null);
   if (userId) lastUserId.current = userId;
   const shownUserId = userId ?? lastUserId.current;
-  const { data: user, isLoading } = useGetPublicUserByIdQuery(shownUserId ?? '', { skip: !shownUserId });
+  const { data: user, isLoading: userLoading } = useGetPublicUserByIdQuery(shownUserId ?? '', { skip: !shownUserId });
   // A handful of the cars themselves, not just how many: "what do they drive"
   // is the question a summary gets asked most — by an admin weighing a join
   // request above all — and a count doesn't answer it.
-  const { data: carsData }  = useGetCarsQuery({ user_id: shownUserId ?? '', limit: GARAGE_PREVIEW }, { skip: !shownUserId });
+  const { data: carsData, isLoading: carsLoading } = useGetCarsQuery({ user_id: shownUserId ?? '', limit: GARAGE_PREVIEW }, { skip: !shownUserId });
   const garage = carsData?.entries ?? [];
+  // The stand-ins stay up until both have landed: the garage arriving a beat
+  // after the profile made the panel grow twice, the View Profile button
+  // riding its foot each time.
+  const isLoading = userLoading || carsLoading;
 
   /**
    * Somewhere to go once the panel has finished closing — a car tapped in the
@@ -96,6 +100,9 @@ export default function UserSummaryModal({
   const isMe = !!user && user.user_id === userInfo?.user_id;
   const bio = user?.bio ? stripHtml(user.bio) : '';
   const bannerUri = user?.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
+  // The banner's own shape once it loads, kept within BANNER_RATIO's bounds.
+  const [bannerRatio, setBannerRatio] = useState(BANNER_RATIO.initial);
+  useEffect(() => { setBannerRatio(BANNER_RATIO.initial); }, [bannerUri]);
 
   return (
     <SummaryModal
@@ -137,19 +144,31 @@ export default function UserSummaryModal({
           {/* Their banner, where they have one — it's the thing they chose to
               represent themselves with, and the panel opened with an avatar on
               a flat grey instead. */}
+          {/* At its own shape, within bounds, and fading into the panel's
+              black at the foot, where the avatar and name float over it — the
+              make and model pages' banner. */}
           {bannerUri ? (
-            <View style={styles.bannerWrap}>
-              <Image source={{ uri: bannerUri }} style={styles.banner} contentFit="cover" />
+            <View style={[styles.bannerWrap, { aspectRatio: bannerRatio }]}>
+              <Image
+                source={{ uri: bannerUri }}
+                style={styles.banner}
+                contentFit="cover"
+                onLoad={({ source }) => {
+                  if (source?.width && source?.height) {
+                    setBannerRatio(Math.min(BANNER_RATIO.widest, Math.max(BANNER_RATIO.tallest, source.width / source.height)));
+                  }
+                }}
+              />
               <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.65)']}
-                locations={[0.4, 1]}
-                style={StyleSheet.absoluteFill}
+                colors={BANNER_FADE.colors}
+                locations={BANNER_FADE.locations}
+                style={styles.bannerFade}
                 pointerEvents="none"
               />
             </View>
           ) : null}
 
-          <View style={styles.body}>
+          <View style={[styles.body, bannerUri ? styles.bodyOverBanner : null]}>
             <View style={styles.head}>
               <Avatar user={user} size={AVATAR} />
               <View style={styles.headText}>
@@ -329,6 +348,24 @@ const AVATAR = 72;
 const BODY_PAD = 18;
 const TOP_RADIUS = AVATAR / 2 + BODY_PAD;
 
+/**
+ * The banner's shape: its own, between a 2.4:1 strip and a 5:4 photo — a
+ * panorama stays a strip and a portrait shows more than a slice. 16:9 until
+ * it loads.
+ */
+const BANNER_RATIO = { initial: 16 / 9, widest: 2.4, tallest: 5 / 4 };
+/**
+ * The banner's fade into the panel: long and eased — slow to start, slow to
+ * finish — so it never shows an edge. A straight ramp to black over the last
+ * stretch read as a line across the photo.
+ */
+const BANNER_FADE = {
+  colors: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.08)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.75)', 'rgba(0,0,0,0.92)', COLOR_BLACK] as const,
+  locations: [0, 0.2, 0.4, 0.58, 0.74, 0.88, 1] as const,
+};
+/** How far the avatar and name sit up over the banner's fade. */
+const BANNER_OVERLAP = 76;
+
 const styles = StyleSheet.create({
   garageWrap:  { gap: 10, marginTop: 2 },
   garageHead:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -352,10 +389,13 @@ const styles = StyleSheet.create({
   moreCard:    { alignItems: 'center', justifyContent: 'center' },
   moreCount:   { fontSize: 20, fontFamily: FONT_INTER.extrabold },
   moreLabel:   { fontSize: 12, fontFamily: FONT_INTER.semibold, marginTop: 2 },
-  // 3:1 — wide enough to read as a banner, short enough that it doesn't push
-  // the name and the buttons off a short phone.
-  bannerWrap: { width: '100%', aspectRatio: 3 / 1 },
+  // The shape is set inline (BANNER_RATIO).
+  bannerWrap: { width: '100%' },
   banner:     { width: '100%', height: '100%' },
+  // A point past the foot, so no hairline of photo shows under it.
+  bannerFade: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '100%' },
+  // The avatar and name pulled up onto the banner's faded foot.
+  bodyOverBanner: { marginTop: -BANNER_OVERLAP },
   body:    { padding: BODY_PAD, paddingBottom: 22, gap: 14 },
 
   head:     { flexDirection: 'row', alignItems: 'center', gap: 14 },

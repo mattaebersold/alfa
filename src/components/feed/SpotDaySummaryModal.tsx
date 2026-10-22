@@ -164,7 +164,6 @@ function GameCard({ game, them, me, author, myUser, theirName }: {
       : k === 'trivia' ? (day.trivia ? <TriviaResult trivia={day.trivia} /> : null)
         : (day.auction ? <AuctionResult auction={day.auction} /> : null)
   );
-  const theyPlayed = fillOf(k, them) != null;
   const iPlayed = fillOf(k, me) != null;
 
   return (
@@ -179,8 +178,9 @@ function GameCard({ game, them, me, author, myUser, theirName }: {
         ) : null}
       </View>
 
+      {/* Only cards for games they played are drawn — see the panel. */}
       <PlayerLine user={author} label={theirName} crowned={winner === 'them'}>
-        {theyPlayed ? result(them) : <Text style={[styles.didnt, { color: colors.muted }]}>Didn't play</Text>}
+        {result(them)}
       </PlayerLine>
 
       {iPlayed ? (
@@ -213,7 +213,7 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
   const { data: myUser } = useGetLoggedInUserQuery(undefined, { skip: !myId });
   const mine: SpotDayGames = me ?? { car: null, trivia: null, auction: null };
   const user = player?.user;
-  const name = user?.username ? `@${user.username}` : 'They';
+  const name = user?.username || 'They';
   const shortName = user?.username
     ? (user.username.length > 12 ? `${user.username.slice(0, 12)}…` : user.username)
     : 'Them';
@@ -232,7 +232,9 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
             </View>
           </View>
 
-          {SPOT_GAMES.map((g) => (
+          {/* Only the games they played — a game they skipped has nothing of
+              theirs to compare against. */}
+          {SPOT_GAMES.filter((g) => fillOf(g.key, player) != null).map((g) => (
             <GameCard key={g.key} game={g} them={player} me={mine} author={user} myUser={myUser} theirName={shortName} />
           ))}
 
@@ -262,7 +264,6 @@ const styles = StyleSheet.create({
   lineName: { width: 84, fontSize: 12, fontFamily: FONT_INTER.semibold },
   lineResult: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   figure: { fontSize: 13, fontFamily: FONT_INTER.extrabold, minWidth: 30, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  didnt: { fontSize: 12, fontFamily: FONT_INTER.semibold, fontStyle: 'italic' },
   verdict: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth },
   verdictText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   auctionCol: { flex: 1, maxWidth: 120, gap: 3 },

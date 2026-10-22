@@ -22,6 +22,8 @@ const DELTA_THRESHOLD = 6;
 const ENGAGE_AFTER = 24;
 
 let hidden = false;
+/** Until when scrolls leave the header be — see holdHeader. */
+let holdUntil = 0;
 let animation: Animated.CompositeAnimation | null = null;
 
 function setHidden(next: boolean, hideDistance: number) {
@@ -53,6 +55,24 @@ export function showHeader() {
   animation.start();
 }
 
+/**
+ * Slide the header away, as a scroll down does — for a screen that scrolls
+ * itself somewhere and wants the header gone when it gets there, rather than
+ * left to whether that scroll's steps were big enough to hide it.
+ */
+export function hideHeader(hideDistance: number) {
+  setHidden(true, hideDistance);
+}
+
+/**
+ * Leave the header where it is through a scroll the screen makes itself — a
+ * jump that would otherwise read as a big swipe and flip it. The scroll is
+ * still tracked, so the next real swipe is measured from where it landed.
+ */
+export function holdHeader(ms = 300) {
+  holdUntil = Date.now() + ms;
+}
+
 /** Snap the header back into view without animating — used on screen mount. */
 export function resetHeader() {
   animation?.stop();
@@ -82,6 +102,10 @@ export function useHeaderScroll(hideDistance: number) {
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const y = e.nativeEvent.contentOffset.y;
       const dy = y - lastY.current;
+      if (Date.now() < holdUntil) {
+        lastY.current = y;
+        return;
+      }
 
       // Near the top the header is always visible, so overscroll bounce can't
       // leave it stuck off-screen.

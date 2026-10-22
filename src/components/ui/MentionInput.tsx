@@ -39,6 +39,8 @@ interface MentionInputProps {
    * it there (a summary panel with a short thread) uses this to make room.
    */
   onSuggestionsOpenChange?: (open: boolean) => void;
+  /** Told as the text's height changes — a host shaping the field to it. */
+  onContentSizeChange?: (e: { nativeEvent: { contentSize: { width: number; height: number } } }) => void;
 }
 
 /** How many of each kind the dropdown shows before it stops. */
@@ -59,6 +61,7 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   disableSuggestions = false,
   maxLength,
   onSuggestionsOpenChange,
+  onContentSizeChange,
 }, ref) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -185,9 +188,10 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
         style={[style, multiline && contentHeight ? { height: contentHeight } : null]}
         multiline={multiline}
         maxLength={maxLength}
-        onContentSizeChange={
-          multiline ? (e) => setContentHeight(e.nativeEvent.contentSize.height) : undefined
-        }
+        onContentSizeChange={(e) => {
+          if (multiline) setContentHeight(e.nativeEvent.contentSize.height);
+          onContentSizeChange?.(e);
+        }}
         onFocus={onFocus}
         onBlur={onBlur}
         autoFocus={autoFocus}

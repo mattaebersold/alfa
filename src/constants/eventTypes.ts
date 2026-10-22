@@ -26,6 +26,16 @@ export const EVENT_CATEGORIES: { key: string; label: string; color: string }[] =
 export const ORS_EVENT_COLOR = COLOR_SOFT_GOLD;
 
 /**
+ * Styled as an ORS event: one ORS runs or backs, or one the team is going to.
+ * The two share the gold; only the wording tells them apart.
+ */
+export const isOrsEvent = (event?: { ors_sponsored?: boolean; ors_attending?: boolean } | null) =>
+  !!(event?.ors_sponsored || event?.ors_attending);
+/** The gold pill's wording — "ORS Event", or "ORS Attending" for one the team is only going to. */
+export const orsBadgeLabel = (event?: { ors_sponsored?: boolean; ors_attending?: boolean } | null) =>
+  event?.ors_sponsored ? 'ORS Event' : event?.ors_attending ? 'ORS Attending' : undefined;
+
+/**
  * Bounds on an event card's photo, which otherwise takes the photo's own shape.
  *
  * The floor sits just past a Letter or A4 flyer (0.77 and 0.71) so a poster —
@@ -65,6 +75,21 @@ export const toDayKey = (date: Date | string): string => {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
+};
+
+/**
+ * The occurrence an event entry stands for, "YYYY-MM-DD" — what attending is
+ * keyed on. An expanded occurrence's own day, else the date it was opened on,
+ * else the date the server answered for. Null when nothing names one.
+ */
+export const eventDayKey = (
+  event?: { day?: string; occurrence_date?: string; interest_day?: string | null } | null,
+  openedOn?: string | null,
+): string | null => {
+  if (event?.day) return event.day;
+  const date = openedOn || event?.occurrence_date;
+  if (date) return toDayKey(date);
+  return event?.interest_day ?? null;
 };
 
 /** "18:30" → "6:30 PM". Times are local wall-clock strings. */
@@ -139,3 +164,20 @@ export const occurrenceDate = (event?: {
   date?: string;
 } | null): string | null | undefined =>
   event?.occurrence_date || event?.next_occurrence || (event?.frequency === 'single' ? event?.date : null);
+
+/**
+ * "Portland, OR" for an event: the typed city and state when there is one,
+ * otherwise read off a picked address ("1 Main St, Portland, OR 97201, USA") —
+ * the part before the state-and-zip. Null when neither gives one up.
+ */
+export const eventCityState = (event?: { location?: string; location_city_state?: string } | null): string | null => {
+  const typed = event?.location_city_state?.trim();
+  if (typed) return typed;
+  const parts = (event?.location ?? '').split(',').map((p) => p.trim()).filter(Boolean);
+  while (parts.length && /^(usa|us|united states)$/i.test(parts[parts.length - 1])) parts.pop();
+  for (let i = parts.length - 1; i > 0; i--) {
+    const state = parts[i].match(/^([A-Z]{2})(\s+\d{5}(-\d{4})?)?$/);
+    if (state) return `${parts[i - 1]}, ${state[1]}`;
+  }
+  return null;
+};

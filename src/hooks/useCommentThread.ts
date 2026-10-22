@@ -27,7 +27,12 @@ export interface CommentRowItem {
  * where each top-level comment is immediately followed by its nested replies —
  * so every screen renders identical, correctly-threaded comments.
  */
-export function useCommentThread(entryType: string, documentId: string, opts?: { skip?: boolean }) {
+export function useCommentThread(
+  entryType: string,
+  documentId: string,
+  /** `newestFirst`: the newest thread on top, whatever order the server sent. A thread's replies stay oldest first, so it still reads as a conversation. */
+  opts?: { skip?: boolean; newestFirst?: boolean },
+) {
   const skip = opts?.skip || !documentId;
 
   const { data: commentsData, isFetching } = useGetCommentsQuery(
@@ -57,7 +62,10 @@ export function useCommentThread(entryType: string, documentId: string, opts?: {
     // scroller inside a scroller) while the rows still know where their thread
     // starts and ends, which is what lets a thread be drawn as one card.
     const out: CommentRowItem[] = [];
-    for (const cmt of comments) {
+    const ordered = opts?.newestFirst
+      ? [...comments].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      : comments;
+    for (const cmt of ordered) {
       const threadReplies = byParent[cmt.internal_id] || [];
       out.push({
         comment: cmt,
@@ -77,7 +85,7 @@ export function useCommentThread(entryType: string, documentId: string, opts?: {
       });
     }
     return out;
-  }, [comments, repliesData]);
+  }, [comments, repliesData, opts?.newestFirst]);
 
   return { rows, comments, isFetching };
 }

@@ -54,7 +54,7 @@ export default function SocietyEventDetailScreen({
           },
         ]}
       >
-        <EventInterestBar eventId={eventId} />
+        <EventInterestBar eventId={eventId} occurrenceDate={occurrenceDate} />
       </View>
     </SafeAreaView>
   );

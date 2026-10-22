@@ -10,7 +10,7 @@ import {
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
@@ -50,7 +50,7 @@ function CarCardMini({ car, onPress }: {
   onPress: (origin: SummaryOrigin | null) => void;
 }) {
   const colors = useColors();
-  const hero = firstGalleryUrl(car.gallery) ?? imageUrl(car.profile_image);
+  const hero = carHeroUrl(car);
 
   return (
     <SummaryTouchable style={styles.card} onPress={onPress}>

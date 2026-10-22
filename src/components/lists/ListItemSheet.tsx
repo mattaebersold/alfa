@@ -7,7 +7,7 @@ import { FormScrollView } from '@ors/kit';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ImagePlus, X } from 'lucide-react-native';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
@@ -265,7 +265,7 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 28 },
+  scroll: { padding: PANE_GUTTER, paddingBottom: 28 },
   // Square, because that's how the item is shown — a letterbox picker invites
   // a crop the list then cuts the sides off.
   photoPicker: {

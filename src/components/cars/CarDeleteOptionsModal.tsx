@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { Archive, ArrowRightLeft, Trash2, Search, ChevronLeft } from 'lucide-react-native';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import Avatar from '../ui/Avatar';
 import EmptyState from '../ui/EmptyState';
 import {
@@ -307,14 +307,14 @@ export default function CarDeleteOptionsModal({
 }
 
 const styles = StyleSheet.create({
-  body: { padding: 16, paddingBottom: 32, gap: 10 },
+  body: { padding: PANE_GUTTER, paddingBottom: 32, gap: 10 },
   option: { borderWidth: 1, borderRadius: 12, padding: 14 },
   optionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   optionTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
   optionHelp: { fontSize: 12, lineHeight: 17, marginTop: 5 },
   busy: { marginTop: 6 },
 
-  transferBody: { flex: 1, padding: 16, paddingBottom: 24, gap: 12 },
+  transferBody: { flex: 1, padding: PANE_GUTTER, paddingBottom: 24, gap: 12 },
   back: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },
   backText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
   searchBar: {

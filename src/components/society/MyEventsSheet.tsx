@@ -1,62 +1,81 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
 import SharedModal from '../ui/SharedModal';
+import SubTabs from '../ui/SubTabs';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
-import EventCard from '../cards/EventCard';
+import ExpandableEventCard from './ExpandableEventCard';
 import { useGetMyEventsQuery } from '../../api/apiService';
-import { useColors } from '../../hooks/useColors';
 import type { SocietyEvent } from '../../types/api';
-import { FONT_INTER } from '../../constants/fonts';
+
+type Tab = 'upcoming' | 'past';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'past', label: 'Past' },
+];
 
 /**
- * "Your Events" — everything you've flagged interest in, soonest first. Events
- * whose schedule has run out move to a past section rather than vanishing.
+ * "My Events" — everything you've flagged interest in. Upcoming, soonest
+ * first, by default; events whose schedule has run out are under Past. The
+ * cards open in place, like the calendar's day pane, so the event detail pane
+ * is a step you only take for comments and posts.
  */
 export default function MyEventsSheet({
   visible, onClose, onSelectEvent,
 }: {
   visible: boolean;
   onClose: () => void;
+  /** The whole event — comments, tagged posts — from an open card's link. */
   onSelectEvent: (event: SocietyEvent) => void;
 }) {
-  const colors = useColors();
   const { data, isLoading } = useGetMyEventsQuery(undefined, { skip: !visible });
+  const [tab, setTab] = useState<Tab>('upcoming');
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const entries = data?.entries ?? [];
-  const upcoming = entries.filter((e) => e.next_occurrence);
-  const past = entries.filter((e) => !e.next_occurrence);
+  const shown = tab === 'upcoming'
+    ? entries.filter((e) => e.next_occurrence)
+    : entries.filter((e) => !e.next_occurrence);
 
   return (
-    <SharedModal visible={visible} onClose={onClose} title="Your Events">
+    <SharedModal
+      visible={visible}
+      onClose={onClose}
+      onDismissed={() => { setTab('upcoming'); setOpenId(null); }}
+      title="My Events"
+      headFade={false}
+      // Full height either tab, so switching doesn't resize the pane.
+      heightRatio={0.9}
+    >
+      <View style={styles.tabs}>
+        <SubTabs options={TABS} value={tab} onChange={(k) => { setTab(k); setOpenId(null); }} />
+      </View>
       {/* Scrolls: the cards take their photos' own heights, so a handful of
           them run past the sheet, and the sheet clips whatever it's handed. */}
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <Spinner />
-        ) : entries.length === 0 ? (
-          <EmptyState
-            title="No events saved yet"
-            message="Tap Interested on an event to keep it here."
-          />
+        ) : shown.length === 0 ? (
+          tab === 'upcoming' ? (
+            <EmptyState
+              title="Nothing coming up"
+              message="Tap Attend on an event to keep it here."
+            />
+          ) : <EmptyState title="No past events" />
         ) : (
-          <>
-            {upcoming.map((event) => (
-              <EventCard key={event.internal_id} event={event} onPress={onSelectEvent} />
-            ))}
-
-            {past.length > 0 && (
-              <>
-                <Text style={[styles.pastLabel, { color: colors.grey }]}>PAST</Text>
-                <View style={{ opacity: 0.6, gap: 12 }}>
-                  {past.map((event) => (
-                    <EventCard key={event.internal_id} event={event} onPress={onSelectEvent} />
-                  ))}
-                </View>
-              </>
-            )}
-          </>
+          shown.map((event) => {
+            // One row per date you're going to — a weekly meet can be here twice.
+            const key = `${event.internal_id}-${event.day ?? ''}`;
+            return (
+            <ExpandableEventCard
+              key={key}
+              event={event}
+              expanded={openId === key}
+              onToggleExpanded={() => setOpenId(openId === key ? null : key)}
+              onOpenFull={onSelectEvent}
+            />
+            );
+          })
         )}
       </ScrollView>
     </SharedModal>
@@ -64,6 +83,6 @@ export default function MyEventsSheet({
 }
 
 const styles = StyleSheet.create({
+  tabs: { paddingTop: 4 },
   body: { padding: 12, gap: 12, paddingBottom: 32 },
-  pastLabel: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.8, marginTop: 12 },
 });

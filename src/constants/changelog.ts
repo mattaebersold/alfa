@@ -25,6 +25,114 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.73': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Events',
+        items: [
+          "Filter a calendar day's events by category with the new tabs at the top.",
+          'Event lists for a day now show the city and state beside the time.',
+          'A cleaner layout for event rows.',
+          'Pick how far ahead the events map looks, from the next 7 days to the next 6 months.',
+          "Mark yourself interested right from an event's card in a calendar day.",
+          "Events you're interested in now show in the app menu.",
+          'Tap an event card to expand it in place, rather than opening a separate panel.',
+          'A tidier layout for event details.',
+          "Tap an event's location to open it in your maps app.",
+        ],
+      },
+      {
+        title: 'Auctions',
+        items: [
+          'A new banner shows when an ORS Sponsored auction is live.',
+          'Past auctions now show on the concierge screen.',
+        ],
+      },
+      {
+        title: 'Everything else',
+        items: [
+          "Member previews are improved, and their banner keeps more of the photo's shape.",
+          "The View Profile button no longer jumps around while a member's preview loads.",
+          'Small UI fixes.',
+        ],
+      },
+    ],
+  },
+  '1.72': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Posts',
+        items: [
+          'Add a location to a post, and tap it to see every post made there.',
+          'A new map view of all the posts pinned to a location.',
+          "Tap a post's description in the feed to read the rest, or use the \"more\" link.",
+        ],
+      },
+      {
+        title: 'Everything else',
+        items: [
+          'Cars in a member\'s garage now line up at the same size on their profile.',
+          "Tall photos on a car's page are no longer cropped as much.",
+          'Small UI fixes.',
+        ],
+      },
+    ],
+  },
+  '1.71': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Posts and comments',
+        items: [
+          'A cleaner panel when you open a post from a notification.',
+          'Better styling for poll results.',
+          'Adding a comment now scrolls down to it.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'A clearer layout for discussion and resource panels.',
+          'Changed your mind about a group invite you declined? You can change it in your dashboard settings.',
+          'Switching tabs on a group\'s page leaves you in a better spot.',
+        ],
+      },
+      {
+        title: 'Marketplace',
+        items: [
+          'Browse by category with the new tabs at the top of the marketplace.',
+          'Edit, delete or mark your listing as sold right from its panel.',
+          'A refreshed search and filter bar.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'Make pages now have the same photo header as model pages.',
+          'Tapping a model tab on a make page takes you straight to its cars.',
+          'Switching tabs on a model page leaves you in a better spot.',
+          'Filter by model in the "Other [make]" panel on a car\'s page.',
+        ],
+      },
+      {
+        title: 'Events',
+        items: [
+          'A better panel for calendar days with several events.',
+          'Search and filters on the events map. Several events at the same place show as cards you can swipe through.',
+        ],
+      },
+      {
+        title: 'Everything else',
+        items: [
+          'Small layout and style updates to profile pages.',
+          'The ORS Guessing Game panel only shows the games each member played.',
+          'Smoother resizing in photo galleries.',
+        ],
+      },
+    ],
+  },
   '1.70': {
     date: 'October 2026',
     groups: [
@@ -67,7 +175,7 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
           'Fixed likes on photography pins not saving.',
           'A cleaner bookmarks panel, and a check before removing a bookmark.',
           'Updated limits for basic and Pro memberships.',
-          'A language filter on everything you write.',
+          'Added a profanity filter for all text inputs.',
         ],
       },
     ],

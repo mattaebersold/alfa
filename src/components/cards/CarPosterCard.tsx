@@ -12,7 +12,7 @@ import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import ActionSheet from '../ui/ActionSheet';
 import CarDeleteOptionsModal from '../cars/CarDeleteOptionsModal';
 import Avatar from '../ui/Avatar';
@@ -81,6 +81,12 @@ interface CarPosterCardProps {
    */
   square?: boolean;
   /**
+   * One fixed shape, whatever the photo — `square` for any other ratio. For a
+   * carousel, where a tall card beside a wide one left the short one floating
+   * over a gap.
+   */
+  ratio?: number;
+  /**
    * A tap opens the car's summary panel, grown from the card, rather than
    * the car's page — the feed's behaviour, for surfaces where a preview is
    * the better first step.
@@ -131,6 +137,7 @@ export default function CarPosterCard({
   plain = false,
   featured = false,
   square = false,
+  ratio: fixedRatio,
   summaryOnPress = false,
   style,
 }: CarPosterCardProps) {
@@ -235,7 +242,7 @@ export default function CarPosterCard({
     ? formatDistanceToNow(new Date(car.created_at), { addSuffix: true })
     : '';
 
-  const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  const hero = carHeroUrl(car);
 
   // Controls belong to the owner, and a carousel card is too small to hold them.
   const showControls = isOwner && !compact;
@@ -338,7 +345,7 @@ export default function CarPosterCard({
         ref={cardRef}
         style={[
           styles.card,
-          { aspectRatio: square ? 1 : ratio },
+          { aspectRatio: square ? 1 : fixedRatio ?? ratio },
           attribution && styles.cardInFrame,
         ]}
         onPress={attribution || summaryOnPress ? openSummary : handlePress}

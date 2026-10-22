@@ -7,7 +7,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { formatDistanceToNow } from 'date-fns';
 import * as Haptics from 'expo-haptics';
-import { Trash2, Check, X } from 'lucide-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { Trash2, Check, X, Archive } from 'lucide-react-native';
 import SteeringWheel from '../ui/SteeringWheel';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import {
@@ -37,12 +39,11 @@ import {
   COMMON_RADIUS,
   COLOR_BLACK,
   COLOR_GRAY_136,
-  COLOR_GRAY_184,
   COLOR_GRAY_20,
   COLOR_GRAY_236,
   COLOR_GRAY_42,
   COLOR_SUCCESS,
-  COLOR_WHITE, COLOR_COUNT_BADGE } from '../../constants/config';
+  COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -143,6 +144,7 @@ const invitationGroupId = (n: Notification) => {
 function NotificationRow({
   notification,
   onRead,
+  onArchive,
   onDelete,
   onApprove,
   onDeny,
@@ -150,6 +152,8 @@ function NotificationRow({
 }: {
   notification: Notification;
   onRead: () => void;
+  /** Only passed where the row can be archived — an unread one with no decision waiting. */
+  onArchive?: () => void;
   onDelete: () => void;
   onApprove: () => Promise<void>;
   onDeny: () => Promise<void>;
@@ -221,15 +225,80 @@ function NotificationRow({
   const action = colon > 0 ? message.slice(0, colon) : message;
   const subject = colon > 0 ? message.slice(colon + 2) : null;
 
+  // Delete sits behind the card, a swipe left away — on the card itself it was
+  // one more mark on every row, for the action taken least. It doesn't ask
+  // first: what it destroys is a note saying something happened, not the
+  // thing that happened.
+  const renderDelete = () => (
+    <View style={styles.swipeAction}>
+      <TouchableOpacity
+        style={styles.swipeDelete}
+        onPress={onDelete}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Delete notification"
+      >
+        <Trash2 size={20} color={COLOR_WHITE} strokeWidth={2.2} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  /**
+   * Archive, from the other side: a short swipe right shows the button, a long
+   * one — past half the card — archives it on release, the way Mail does.
+   * Which it was is read off the row's own travel as it lets go.
+   */
+  const [rowW, setRowW] = useState(0);
+  const leftTravel = useRef<{ value: number } | null>(null);
+  const archived = useRef(false);
+  const archive = () => {
+    if (archived.current || !onArchive) return;
+    archived.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onArchive();
+  };
+  const renderArchive = (_progress: unknown, translation: { value: number }) => {
+    leftTravel.current = translation;
+    return (
+      <View style={styles.swipeArchiveSide}>
+        {/* The blue runs on under the card, past the button's own width, so
+            a long swipe uncovers more of it rather than a gap. Outside the
+            panel's measured width, which is what a short swipe opens to. */}
+        <View style={[styles.swipeArchiveRun, { width: Math.max(rowW - 8, 0) }]} pointerEvents="none" />
+        <TouchableOpacity
+          style={styles.swipeArchive}
+          onPress={archive}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Archive notification"
+        >
+          <Archive size={20} color={COLOR_WHITE} strokeWidth={2.2} />
+          <Text style={styles.swipeArchiveText}>Archive</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
+    <ReanimatedSwipeable
+      containerStyle={styles.cardWrap}
+      renderRightActions={renderDelete}
+      renderLeftActions={onArchive ? renderArchive : undefined}
+      onSwipeableWillOpen={(direction) => {
+        if (direction === 'right' && rowW && (leftTravel.current?.value ?? 0) > rowW / 2) archive();
+      }}
+      friction={2}
+      rightThreshold={40}
+      leftThreshold={40}
+      overshootRight={false}
+      overshootLeft
+    >
     <TouchableOpacity
       style={[styles.card, styles.cardRead]}
+      onLayout={(e) => setRowW(e.nativeEvent.layout.width)}
       onPress={onRead}
       activeOpacity={0.8}
     >
-      {/* Unread: a red dot by the avatar — a mark on the card, not a
-          different card. */}
-      {isUnread && <View style={styles.unreadDot} />}
       {fromApp ? (
         <View style={[styles.appMark, { backgroundColor: brand }]}>
           <SteeringWheel size={20} color={contrastText(brand)} strokeWidth={2.4} />
@@ -318,21 +387,8 @@ function NotificationRow({
           </View>
         )}
       </View>
-      {/* Delete is the only per-row action left. At #666 it read as disabled,
-          which for the one control on the row is the wrong impression.
-          It doesn't ask first: what it destroys is a note saying something
-          happened, not the thing that happened. */}
-      <View style={styles.rowActions}>
-        <TouchableOpacity
-          onPress={onDelete}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Delete notification"
-        >
-          <Trash2 size={18} color={COLOR_GRAY_184} />
-        </TouchableOpacity>
-      </View>
     </TouchableOpacity>
+    </ReanimatedSwipeable>
   );
 }
 
@@ -504,6 +560,11 @@ function NotificationsList({
     onDismiss(target ? () => navigation.navigate(target.name as any, target.params) : undefined);
   }, [markRead, navigation, onDismiss]);
   const [deleteNotif] = useDeleteNotificationMutation();
+  /** Read without opening — off the Unread tab, into Archived, staying put. */
+  const archiveNotif = useCallback((n: Notification) => {
+    openedUnread.current.delete(n.internal_id);
+    markRead(n.internal_id);
+  }, [markRead]);
   const [approveMember] = useApproveGroupMemberMutation();
   const [rejectMember] = useRejectGroupMemberMutation();
   const [acceptInvite] = useAcceptGroupInviteMutation();
@@ -609,8 +670,10 @@ function NotificationsList({
   const remaining = onTab.length - notifications.length;
   if (isLoading) return <Spinner fullScreen />;
 
+  // Its own gesture root: the bell's panel is a Modal, which on Android is a
+  // window the app root's doesn't reach, and the rows' swipe needs one.
   return (
-    <View style={ss.fill}>
+    <GestureHandlerRootView style={ss.fill}>
       {/* Everything above the rows is measured with them — the host sizes its
           panel to what's reported, and a panel sized to the rows alone came
           up a tab bar short, with the last row cut off at its foot. */}
@@ -646,6 +709,7 @@ function NotificationsList({
               <NotificationRow
                 notification={item}
                 onRead={() => handlePress(item)}
+                onArchive={tab === 'unread' && !awaitingDecision(item) ? () => archiveNotif(item) : undefined}
                 onDelete={() => deleteNotif(item.internal_id)}
                 onApprove={() => handleApprove(item)}
                 onDeny={() => handleDeny(item)}
@@ -676,7 +740,7 @@ function NotificationsList({
         onContentSizeChange={onContentHeight ? (_w, h) => { rowsH.current = h; report(); } : undefined}
         refreshControl={refreshControl}
       />
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -700,20 +764,30 @@ const styles = StyleSheet.create({
    * is what it is: a separate thing that arrived, and that you can delete on
    * its own.
    */
+  // The swipe's container carries the inset, so the delete behind the card
+  // lines up with the card rather than with the screen's edge.
+  cardWrap: { marginHorizontal: 12, marginVertical: 5 },
+  // The avatar at the top, beside the first line, however long the message.
+  // Unread shows in the words alone, which stay heavier (messageUnread).
   card: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     paddingHorizontal: 14, paddingVertical: 12,
-    marginHorizontal: 12, marginVertical: 5,
     borderRadius: COMMON_RADIUS,
-    // Clips the unread bar to the card's own corners.
     overflow: 'hidden',
   },
   cardRead:   { backgroundColor: COLOR_GRAY_20, borderColor: 'rgba(255,255,255,0.07)' },
-  // Unread is marked, not recoloured: a red dot in the card's corner by the
-  // avatar. The words stay heavier too (messageUnread).
-  unreadDot: {
-    position: 'absolute', top: 10, left: 8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: COLOR_COUNT_BADGE,
+  swipeAction: { width: 80, paddingLeft: 8 },
+  // The width a short swipe opens to; the run behind it covers a long one.
+  swipeArchiveSide: { width: 80, marginRight: 8 },
+  swipeArchiveRun: {
+    position: 'absolute', top: 0, bottom: 0, left: 0,
+    borderRadius: COMMON_RADIUS, backgroundColor: 'rgb(54, 178, 226)',
+  },
+  swipeArchive: { flex: 1, gap: 3, alignItems: 'center', justifyContent: 'center' },
+  swipeArchiveText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  swipeDelete: {
+    flex: 1, borderRadius: COMMON_RADIUS, backgroundColor: colors.red,
+    alignItems: 'center', justifyContent: 'center',
   },
   tabs:    { paddingTop: 4, paddingBottom: 6 },
   moreBtn: {
@@ -735,7 +809,6 @@ const styles = StyleSheet.create({
   // What it was done to, on its own line: the title is what you scan for.
   subject:     { fontSize: 13, lineHeight: 18, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   time:        { fontSize: 11, marginTop: 3, color: COLOR_GRAY_136 },
-  rowActions:  { flexDirection: 'row', gap: 12, paddingTop: 2 },
   joinReqActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   approveBtn:  { backgroundColor: 'rgb(54, 178, 226)', borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 7, justifyContent: 'center' },
   approveText: { color: COLOR_BLACK, fontSize: 13, fontFamily: FONT_INTER.extrabold },

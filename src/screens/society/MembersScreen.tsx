@@ -30,7 +30,7 @@ import MemberRow from '../../components/members/MemberRow';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_17, GUTTER } from '../../constants/config';
+import { COLOR_GRAY_17, GUTTER, SEARCH_EDGE } from '../../constants/config';
 import { SkeletonPeople } from '../../components/ui/Skeleton';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -163,7 +163,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
       {/* Search on the left, the filter on the right — the pattern events,
           the marketplace, groups and cars share. */}
       <View style={styles.toolsRow}>
-        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: SEARCH_EDGE }]}>
           <Search size={16} color={colors.grey} />
           <TextInput
             style={[styles.searchInput, { color: colors.fg }]}

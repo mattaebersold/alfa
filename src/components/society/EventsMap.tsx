@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform, ScrollView, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
 import { format } from 'date-fns';
 import { MapPin, ChevronRight } from 'lucide-react-native';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { categoryFor, parseDayKey } from '../../constants/eventTypes';
 import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
@@ -112,6 +113,15 @@ function cameraFor(events: SocietyEvent[]) {
   };
 }
 
+/** Events at the same spot share a pin — keyed by their coordinate, to about a metre. */
+const spotKey = (e: SocietyEvent) =>
+  `${(e.location_lat as number).toFixed(5)},${(e.location_lng as number).toFixed(5)}`;
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+/** A card in the spot's carousel: the width less a peek of the next one. */
+const PEEK_CARD_W = SCREEN_WIDTH - 24 - 36;
+const PEEK_GAP = 10;
+
 /**
  * The upcoming events as pins, in a sheet that slides up over the Events
  * screen rather than a screen of its own — it's a different view of the list
@@ -121,8 +131,13 @@ function cameraFor(events: SocietyEvent[]) {
  * to it; Google Maps draws its own pin, which takes no tint). Tapping one
  * brings up the event underneath the map; tapping that opens the event.
  */
-export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismissed }: {
+export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismissed, tools }: {
   visible: boolean;
+  /**
+   * Search and filter, laid over the top of the map — the Events screen's own,
+   * passed in so the two stay one choice.
+   */
+  tools?: React.ReactNode;
   onClose: () => void;
   events: SocietyEvent[];
   /** The preview card was tapped. The host closes the sheet and opens the event. */
@@ -130,35 +145,76 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
   onDismissed?: () => void;
 }) {
   const colors = useColors();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = events.find((e) => e.internal_id === selectedId) ?? null;
+  const insets = useSafeAreaInsets();
+  // The tapped pin's spot, and every event at it.
+  const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
+  const selectedEvents = useMemo(
+    () => (selectedSpot ? events.filter((e) => spotKey(e) === selectedSpot) : []),
+    [events, selectedSpot],
+  );
 
   const camera = useMemo(() => (events.length ? cameraFor(events) : null), [events]);
-  const markers = useMemo(() => events.map((e) => ({
-    id: e.internal_id,
-    coordinates: { latitude: e.location_lat as number, longitude: e.location_lng as number },
-    title: e.title,
-    ...(Platform.OS === 'ios'
-      ? { systemImage: 'calendar', tintColor: categoryFor(e.category).color }
-      : {}),
-  })), [events]);
+  // One pin per spot, however many events are at it — stacked pins only ever
+  // gave up the top one. Coloured for the spot's first event.
+  const markers = useMemo(() => {
+    const bySpot = new Map<string, SocietyEvent[]>();
+    for (const e of events) bySpot.set(spotKey(e), [...(bySpot.get(spotKey(e)) ?? []), e]);
+    return [...bySpot.entries()].map(([key, at]) => ({
+      id: key,
+      coordinates: { latitude: at[0].location_lat as number, longitude: at[0].location_lng as number },
+      title: at.length > 1 ? `${at.length} events` : at[0].title,
+      ...(Platform.OS === 'ios'
+        ? { systemImage: 'calendar', tintColor: categoryFor(at[0].category).color }
+        : {}),
+    }));
+  }, [events]);
 
   const mapProps = {
     style: StyleSheet.absoluteFill,
     cameraPosition: camera ?? undefined,
-    onMarkerClick: (m: { id?: string }) => { if (m.id) setSelectedId(m.id); },
+    onMarkerClick: (m: { id?: string }) => { if (m.id) setSelectedSpot(m.id); },
   };
 
-  const day = selected ? parseDayKey(selected.occurrence_date) : null;
-  const cat = selected ? categoryFor(selected.category) : null;
-  const photo = selected ? firstGalleryUrl(selected.gallery) : null;
+  /** One event's card over the map's foot. */
+  const previewCard = (ev: SocietyEvent, width?: number) => {
+    const day = parseDayKey(ev.occurrence_date);
+    const cat = categoryFor(ev.category);
+    const photo = firstGalleryUrl(ev.gallery);
+    return (
+      <TouchableOpacity
+        key={ev.internal_id}
+        style={[styles.preview, { backgroundColor: colors.card, borderColor: colors.borderDark }, width != null && { width }]}
+        onPress={() => onOpenEvent(ev)}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${ev.title ?? 'event'}`}
+      >
+        {photo
+          ? <Image source={{ uri: photo }} style={styles.previewPhoto} contentFit="cover" />
+          : <View style={[styles.previewPhoto, { backgroundColor: COLOR_GRAY_22 }]} />}
+        <View style={styles.previewText}>
+          <View style={[styles.catPill, { backgroundColor: cat.color }]}>
+            <Text style={styles.catText}>{cat.label}</Text>
+          </View>
+          <Text style={[styles.previewTitle, { color: colors.fg }]} numberOfLines={1}>{ev.title}</Text>
+          <Text style={[styles.previewMeta, { color: colors.grey }]} numberOfLines={1}>
+            {[day ? format(day, 'EEE, MMM d') : null, ev.location].filter(Boolean).join(' · ')}
+          </Text>
+        </View>
+        <ChevronRight size={18} color={colors.grey} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
+    // No title row: the map runs up to the pane's top, under the floating
+    // grabber, and to its foot, under the home indicator.
     <SharedModal
       visible={visible}
       onClose={onClose}
-      onDismissed={() => { setSelectedId(null); onDismissed?.(); }}
-      title="Upcoming events"
+      onDismissed={() => { setSelectedSpot(null); onDismissed?.(); }}
+      hideHeader
+      edgeToEdge
       heightRatio={0.9}
     >
       <View style={styles.mapWrap}>
@@ -172,32 +228,29 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
             />
           ))}
 
-        {/* The tapped pin's event, floating over the foot of the map. */}
-        {selected && (
-          <TouchableOpacity
-            style={[styles.preview, { backgroundColor: colors.card, borderColor: colors.borderDark }]}
-            onPress={() => onOpenEvent(selected)}
-            activeOpacity={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${selected.title ?? 'event'}`}
+        {/* Search and filter along the top, clear of the grabber. */}
+        {tools ? <View style={styles.tools}>{tools}</View> : null}
+
+        {/* The tapped pin's events, floating over the foot of the map — one
+            card, or a carousel when several share the spot, the next one
+            peeking in from the edge. */}
+        {selectedEvents.length === 1 ? (
+          <View style={[styles.previewDock, { bottom: insets.bottom + 16 }]}>
+            {previewCard(selectedEvents[0])}
+          </View>
+        ) : selectedEvents.length > 1 ? (
+          <ScrollView
+            horizontal
+            style={[styles.previewDockScroll, { bottom: insets.bottom + 16 }]}
+            contentContainerStyle={styles.previewRow}
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={PEEK_CARD_W + PEEK_GAP}
+            snapToAlignment="start"
+            decelerationRate="fast"
           >
-            {photo
-              ? <Image source={{ uri: photo }} style={styles.previewPhoto} contentFit="cover" />
-              : <View style={[styles.previewPhoto, { backgroundColor: COLOR_GRAY_22 }]} />}
-            <View style={styles.previewText}>
-              {cat && (
-                <View style={[styles.catPill, { backgroundColor: cat.color }]}>
-                  <Text style={styles.catText}>{cat.label}</Text>
-                </View>
-              )}
-              <Text style={[styles.previewTitle, { color: colors.fg }]} numberOfLines={1}>{selected.title}</Text>
-              <Text style={[styles.previewMeta, { color: colors.grey }]} numberOfLines={1}>
-                {[day ? format(day, 'EEE, MMM d') : null, selected.location].filter(Boolean).join(' · ')}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.grey} />
-          </TouchableOpacity>
-        )}
+            {selectedEvents.map((ev) => previewCard(ev, PEEK_CARD_W))}
+          </ScrollView>
+        ) : null}
       </View>
     </SharedModal>
   );
@@ -215,8 +268,13 @@ const styles = StyleSheet.create({
   tileSub:   { fontSize: 12, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.7)' },
 
   mapWrap: { flex: 1, minHeight: 300 },
+  // Edge to edge: the row brings its own side padding.
+  tools: { position: 'absolute', top: PANE_GRABBER_H + 6, left: 0, right: 0, zIndex: 5 },
+  previewDock: { position: 'absolute', left: 12, right: 12 },
+  previewDockScroll: { position: 'absolute', left: 0, right: 0, flexGrow: 0 },
+  // Padded vertically for the cards' shadow, which a scroller would clip.
+  previewRow: { paddingHorizontal: 12, gap: PEEK_GAP, paddingVertical: 12 },
   preview: {
-    position: 'absolute', left: 12, right: 12, bottom: 24,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 10, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     shadowColor: COLOR_BLACK, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },

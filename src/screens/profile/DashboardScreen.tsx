@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
+import DeclinedInvitesSheet from '../../components/groups/DeclinedInvitesSheet';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { Text, useGetPhotoSpotUsageQuery } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
+import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +14,7 @@ import {
   useGetPostsQuery,
   useDeleteAccountMutation,
   useGetBlockedUsersQuery,
+  useGetDeclinedInvitesQuery,
   useUnblockUserMutation,
   useGetFollowedCarsQuery,
   useGetArchivedGarageQuery,
@@ -48,7 +50,7 @@ import SharedModal from '../../components/ui/SharedModal';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import {
   garageFull, showProGarageFull, GARAGE_UPSELL,
@@ -124,8 +126,7 @@ function ArchivedCarRow({ car, incoming, colors, onOpen }: {
   const busy = restoring || accepting || declining;
 
   const name = [car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car';
-  const thumb = firstGalleryUrl(car.gallery)
-    ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  const thumb = carHeroUrl(car);
   const pending = !!car.transfer_to_id;
 
   const run = async (fn: () => Promise<unknown>, failure: string) => {
@@ -397,6 +398,9 @@ export default function DashboardScreen() {
   );
   const listCount = myLists?.total ?? 0;
   const { data: blockedData } = useGetBlockedUsersQuery();
+  const { data: declinedData } = useGetDeclinedInvitesQuery();
+  const declinedCount = declinedData?.entries?.length ?? 0;
+  const [declinedOpen, setDeclinedOpen] = useState(false);
   const { data: followedCarsData } = useGetFollowedCarsQuery();
   // Cars put away rather than deleted, plus any offered to this member.
   const { data: archivedData } = useGetArchivedGarageQuery();
@@ -736,6 +740,19 @@ export default function DashboardScreen() {
             )}
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+          {/* Groups you turned down — beside Blocked Users, the other "no"
+              you keep here. Each can be lifted, so the group can ask again;
+              see DeclinedInvitesSheet. */}
+          <TouchableOpacity style={styles.actionRow} onPress={() => setDeclinedOpen(true)} activeOpacity={0.7}>
+            <UserX size={16} color={colors.primaryAlt} />
+            <Text style={[styles.actionLabel, { color: colors.fg }]}>Declined Group Invites</Text>
+            {declinedCount > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
+                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{declinedCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
           <TouchableOpacity style={styles.actionRow} onPress={() => dispatch(logout())} activeOpacity={0.7}>
             <LogOut size={16} color={colors.red} />
             <Text style={[styles.actionLabel, { color: colors.red }]}>Log Out</Text>
@@ -896,6 +913,8 @@ export default function DashboardScreen() {
         />
       </SheetModal>
 
+      <DeclinedInvitesSheet visible={declinedOpen} onClose={() => setDeclinedOpen(false)} />
+
       {/* Blocked users sheet */}
       <SheetModal visible={sheet === 'blocked'} title="Blocked Users" onClose={() => setSheet(null)} colors={colors}>
         <FlatList
@@ -967,7 +986,7 @@ export default function DashboardScreen() {
                   <FlaggedRow
                     key={c.internal_id}
                     colors={colors}
-                    thumb={firstGalleryUrl(c.gallery) ?? (c.profile_image ? imageUrl(c.profile_image) : null)}
+                    thumb={carHeroUrl(c)}
                     title={[c.year, c.make, c.model].filter(Boolean).join(' ') || 'Untitled car'}
                     user={c.user}
                     reportCount={c.report_count}

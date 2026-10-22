@@ -22,7 +22,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import HeadingActionButton from '../../components/ui/HeadingActionButton';
-import { COLOR_GRAY_17, GUTTER } from '../../constants/config';
+import { COLOR_GRAY_17, GUTTER, SEARCH_EDGE } from '../../constants/config';
 
 export default function RoutesScreen() {
   // The header's back button lands here at the top — see useScrollTopOnBack.
@@ -102,7 +102,7 @@ export default function RoutesScreen() {
       </View>
 
       <View style={styles.toolsRow}>
-        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: SEARCH_EDGE }]}>
           <Search size={16} color={colors.grey} />
           <TextInput
             style={[styles.searchInput, { color: colors.fg }]}

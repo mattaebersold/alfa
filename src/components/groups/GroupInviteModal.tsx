@@ -9,7 +9,7 @@ import {
   useGetGroupMembersQuery,
   useInviteGroupMemberMutation,
 } from '../../api/apiService';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import Avatar from '../ui/Avatar';
 import EmptyState from '../ui/EmptyState';
 import { useAppSelector } from '../../store/store';
@@ -271,7 +271,7 @@ export default function GroupInviteModal({
 }
 
 const styles = StyleSheet.create({
-  searchWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  searchWrap: { paddingHorizontal: PANE_GUTTER, paddingTop: 12, paddingBottom: 4 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
     paddingHorizontal: 12, paddingVertical: 11,
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, padding: 0 },
 
   list:        { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  listContent: { paddingHorizontal: PANE_GUTTER, paddingBottom: 32 },
   loader:      { marginTop: 20, marginBottom: 12 },
 
   row: {

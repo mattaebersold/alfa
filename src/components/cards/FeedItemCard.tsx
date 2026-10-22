@@ -4,7 +4,6 @@ import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
-import { formatDistanceToNowStrict } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Avatar from '../ui/Avatar';
@@ -60,17 +59,93 @@ const BODY_LINES = 2;
  * sitting alone on a third.
  */
 const MORE_ROOM = 10;
-function clipForMore(lines: string[]): string {
+function clipForMore(lines: string[], room = MORE_ROOM): string {
   const shown = lines.join('').replace(/\s+$/, '');
-  const cut = shown.slice(0, Math.max(0, shown.length - MORE_ROOM));
+  const cut = shown.slice(0, Math.max(0, shown.length - room));
   const atWord = cut.replace(/\S*$/, '').replace(/\s+$/, '');
   return atWord || cut;
+}
+
+/**
+ * Words clamped to `lines`, with "… more" riding the end of the last line
+ * when the clamp is hiding something.
+ *
+ * Tapping anywhere on the words does what "more" does while there's more to
+ * show — one small underlined word is a hard target on a phone. Once it's all
+ * showing (or it all fit), the tap goes to `onPress`, the card's destination.
+ * It never re-collapses: closing under the finger that opened it is the wrong
+ * surprise.
+ *
+ * Whether there's more is measured on an invisible, unclamped twin.
+ * `onTextLayout` on the clamped copy reports only the lines it drew, so it
+ * can't tell a post that happens to fit from one that was cut off. The twin
+ * has the same text, style and width (absolute, both edges pinned), sits out
+ * of flow, and unmounts once it has answered.
+ */
+function ClampedText({
+  text, lines, expandable, startExpanded, wrapStyle, style, moreColor, moreRoom, onPress,
+}: {
+  text: string;
+  lines: number;
+  /** Off for a title, which clamps but has nothing behind it to open. */
+  expandable: boolean;
+  startExpanded: boolean;
+  wrapStyle: any;
+  style: any;
+  moreColor: string;
+  /** Characters cut from the last line to fit the link — wider for bigger type. */
+  moreRoom: number;
+  onPress?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(startExpanded);
+  const [lineCount, setLineCount] = useState<number | null>(null);
+  /** The first `lines` lines as laid out — what the clamped preview shows. */
+  const [clip, setClip] = useState<string | null>(null);
+  const truncated = expandable && !expanded && lineCount !== null && lineCount > lines;
+  // Only when there's something to cut and the clip is known; otherwise the
+  // native clamp does what it always did.
+  const inlineMore = truncated && clip !== null;
+  const handlePress = truncated ? () => setExpanded(true) : onPress;
+
+  return (
+    <TouchableOpacity style={wrapStyle} onPress={handlePress} activeOpacity={0.95} disabled={!handlePress}>
+      <MentionText
+        text={inlineMore ? `${clipForMore([clip!], moreRoom)}… ` : text}
+        style={style}
+        numberOfLines={expanded ? undefined : lines}
+        trailing={inlineMore ? (
+          <Text
+            style={[styles.moreLink, { color: moreColor }]}
+            onPress={() => setExpanded(true)}
+            accessibilityRole="button"
+          >
+            more
+          </Text>
+        ) : null}
+      />
+      {expandable && !expanded && lineCount === null && (
+        <View style={styles.bodyMeasure} pointerEvents="none" aria-hidden>
+          <MentionText
+            text={text}
+            style={style}
+            onTextLayout={(e) => {
+              const laid: { text: string }[] = e.nativeEvent?.lines ?? [];
+              setLineCount(laid.length);
+              setClip(laid.slice(0, lines).map((l) => l.text).join(''));
+            }}
+          />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 }
 import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import PostContextRow from '../social/PostContextRow';
+import PostPlaceLine from '../social/PostPlaceLine';
 import LikersSheet from '../social/LikersSheet';
 import PostPoll from '../social/PostPoll';
 import { type SummaryOrigin } from '../ui/SummaryModal';
@@ -118,11 +193,20 @@ interface FeedItemCardProps {
    * already the card around it, like a summary panel.
    */
   bare?: boolean;
+  /** The card's fill, for a host whose ground is the feed card's own — a group's page. */
+  background?: string;
   /** The whole title and description, never clamped — for a sheet given over to the one post. */
   fullText?: boolean;
+  /**
+   * The owner's Edit, for a host that already holds the editor (the post's own
+   * pane). Left out, Edit opens the post's pane with the editor up.
+   */
+  onEdit?: () => void;
+  /** After the owner deletes it — the post's own pane closes itself. */
+  onDeleted?: () => void;
 }
 
-export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible, omitGroupId, bare = false, fullText = false }: FeedItemCardProps) {
+export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, visible, omitGroupId, bare = false, background, fullText = false, onEdit, onDeleted }: FeedItemCardProps) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -187,38 +271,11 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   const displayName = user?.username || 'Unknown';
   const entryType = post.entry_type ?? post.type ?? 'post';  // for LikeButton API calls
   const badgeType = post.type ?? post.entry_type ?? 'post';  // what the user actually chose
-  const timeAgo = post.created_at
-    ? formatDistanceToNowStrict(new Date(post.created_at), { addSuffix: true })
-    : '';
+  const timeAgo = shortTimeAgo(post.created_at);
   const mediaCount = media.length;
 
-  /**
-   * The description, clamped until asked otherwise.
-   *
-   * `bodyLines` is null until the first layout reports how many lines the text
-   * wants; that measurement is what decides whether "more" has anything to
-   * reveal. It never resets — a card doesn't re-collapse once opened, because
-   * collapsing under the finger that expanded it is the wrong surprise.
-   */
   /** Whose summary panel is open, if any. */
   const { openUser } = useSummary();
-  const [bodyExpanded, setBodyExpanded] = useState(fullText);
-  const [bodyLines, setBodyLines] = useState<number | null>(null);
-  /** The first BODY_LINES lines as laid out — what the clamped preview shows. */
-  const [bodyClip, setBodyClip] = useState<string | null>(null);
-  const bodyTruncated = !bodyExpanded && bodyLines !== null && bodyLines > BODY_LINES;
-  // Only when there's something to cut and the clip is known; otherwise the
-  // native clamp does what it always did.
-  const inlineMore = bodyTruncated && bodyClip !== null;
-
-  /**
-   * Tapping the words.
-   *
-   * A host with a destination wins — that's what `onPress` is for. Otherwise
-   * the tap does what the "more" link does, so the whole card is the target
-   * rather than one small underlined word.
-   */
-  const handleBodyPress = onPress ?? (bodyTruncated ? () => setBodyExpanded(true) : undefined);
 
   /**
    * Like, comment, share, bookmark — a column over the photo, or a row in the
@@ -272,7 +329,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
 
   const isListing = post.type === 'listing' || post.type === 'want';
   const isDiecast = post.category === 'diecast';
-  const cardBg = isDiecast ? DIECAST_BLUE : FEED_CARD_BG;
+  const cardBg = isDiecast ? DIECAST_BLUE : background ?? FEED_CARD_BG;
   const fgColor = isDiecast ? COLOR_WHITE : colors.fg;
   const mutedColor = isDiecast ? 'rgba(255,255,255,0.7)' : colors.muted;
   // The time and the menu take the description's ink: the row's furniture
@@ -282,15 +339,17 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   // When it was posted, and the ⋯ menu — the header's right end, or, on a
   // game result, the top of its opened part.
   const postMenu = userInfo?.user_id === post.user_id ? (
-    <PostOwnerMenu postId={post.internal_id} color={mutedColor} />
+    <PostOwnerMenu postId={post.internal_id} color={mutedColor} onEdit={onEdit} onDeleted={onDeleted} />
   ) : (
     <PostOptionsButton postId={post.internal_id} author={user} size={18} color={mutedColor} />
   );
+  // Grouped, and tighter than the header's own gap: the time is short now
+  // ("3h"), and left at the header's spacing it floated off on its own.
   const postMeta = (
-    <>
+    <View style={styles.meta}>
       <Text style={[styles.time, { color: timeColor }]}>{timeAgo}</Text>
       {postMenu}
-    </>
+    </View>
   );
   const typeBadge = BADGE_COLORS[badgeType] ?? BADGE_COLORS.default;
   const categoryBadge = post.category
@@ -384,77 +443,38 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       ) : null}
 
 
+      {/* The words: the title, or the description standing in for one, then
+          a taste of the description under a title. Whichever is the
+          description clamps with a "more" — tapping the words opens them in
+          place when they were cut off, and goes on to the post when there's
+          nothing more to show. */}
       {!spotResult && (post.title || bodyText) && (
-        <TouchableOpacity
-          style={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
-          onPress={handleBodyPress}
-          activeOpacity={0.95}
-        >
-          <MentionText
-            text={post.title || bodyText}
-            style={[hasMedia ? styles.title : styles.titleAlone, { color: fgColor }]}
-            numberOfLines={fullText ? undefined : hasMedia ? 2 : 5}
-          />
-        </TouchableOpacity>
+        <ClampedText
+          text={post.title || bodyText}
+          lines={hasMedia ? 2 : 5}
+          // A title is a title; only the description has more to give.
+          expandable={!post.title}
+          startExpanded={fullText}
+          wrapStyle={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
+          style={[hasMedia ? styles.title : styles.titleAlone, { color: fgColor }]}
+          moreColor={fgColor}
+          moreRoom={hasMedia ? 12 : 16}
+          onPress={onPress}
+        />
       )}
 
-      {/* A taste of the body under the title — enough to know whether to open
-          it, not enough to be the post. Skipped when the body *is* the line
-          above. */}
       {post.title && bodyText ? (
-        <TouchableOpacity
-          style={styles.bodyPreviewWrap}
-          onPress={handleBodyPress}
-          activeOpacity={0.95}
-          disabled={!handleBodyPress}
-        >
-          <MentionText
-            text={inlineMore ? `${clipForMore([bodyClip!])}… ` : bodyText}
-            style={[styles.bodyPreview, { color: mutedColor }]}
-            numberOfLines={bodyExpanded ? undefined : BODY_LINES}
-            // Only when the clamp is hiding something. A "more" that opens
-            // nothing is worse than no affordance at all.
-            trailing={inlineMore ? (
-              <Text
-                style={[styles.moreLink, { color: mutedColor }]}
-                onPress={() => setBodyExpanded(true)}
-                accessibilityRole="button"
-              >
-                more
-              </Text>
-            ) : null}
-          />
-
-          {/**
-            * An invisible copy, purely to count lines.
-            *
-            * `onTextLayout` reports the lines it actually drew, so asking the
-            * clamped copy how long the text is always answers "two" — there is
-            * no way to tell a post that happens to fit from one that was cut
-            * off, which is why "more" never appeared. Measuring the visible
-            * copy unclamped for one frame would work but flashes the whole
-            * body before collapsing it.
-            *
-            * So the measurement happens on a twin: same text, same style, same
-            * width (absolute with both edges pinned), no line limit, zero
-            * opacity, out of the layout flow so it displaces nothing. It
-            * unmounts the moment it has answered, so this costs one extra text
-            * layout per card and nothing after that.
-            */}
-          {bodyLines === null && (
-            <View style={styles.bodyMeasure} pointerEvents="none" aria-hidden>
-              <MentionText
-                text={bodyText}
-                style={[styles.bodyPreview, { color: mutedColor }]}
-                onTextLayout={(e) => {
-                  const lines: { text: string }[] = e.nativeEvent?.lines ?? [];
-                  setBodyLines(lines.length);
-                  setBodyClip(lines.slice(0, BODY_LINES).map((l) => l.text).join(''));
-                }}
-              />
-            </View>
-          )}
-        </TouchableOpacity>
+        <ClampedText
+          text={bodyText}
+          lines={BODY_LINES}
+          expandable
+          startExpanded={fullText}
+          wrapStyle={styles.bodyPreviewWrap}
+          style={[styles.bodyPreview, { color: mutedColor }]}
+          moreColor={mutedColor}
+          moreRoom={MORE_ROOM}
+          onPress={onPress}
+        />
       ) : null}
 
       {/* The poll, when the post has one — under the words and above the
@@ -563,6 +583,11 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* A spot result's sits in its opening part, above. */}
       {spotResult ? null : <PostContextRow post={post} omitGroupId={omitGroupId} />}
 
+      {/* Where it was made, under the post and whatever's tagged in it — a
+          footnote, so small and in the muted ink. A tap opens the place, with
+          every post made there; the line owns that panel. */}
+      {spotResult ? null : <PostPlaceLine place={post.place} color={mutedColor} style={styles.placeLine} />}
+
       {/* No photo to carry the actions: they end the card in a row of their
           own instead, right-aligned. */}
       {!hasMedia && !spotResult && (
@@ -607,6 +632,7 @@ const styles = StyleSheet.create({
   played:      { fontFamily: FONT_INTER.medium },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
+  meta:        { flexDirection: 'row', alignItems: 'center', gap: 2 },
   titleWrap:      { paddingHorizontal: 8, paddingBottom: 10 },
   title:          { fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 20 },
   titleAloneWrap: { paddingHorizontal: 8, paddingTop: 2, paddingBottom: 12 },
@@ -680,6 +706,9 @@ const styles = StyleSheet.create({
   // Tucked up under the author row; the card's own inset on the left.
   sourceChip:  { marginLeft: 8, marginTop: -2, marginBottom: 10 },
   poll:        { paddingHorizontal: 8, paddingBottom: 10 },
+  // The card's own inset; under the photo or the tags, and room under it in
+  // case the card ends here.
+  placeLine:   { marginHorizontal: 8, marginTop: 6, marginBottom: 8 },
   footerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,

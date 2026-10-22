@@ -18,7 +18,7 @@ import {
   useCreateGroupDiscussionPostFormMutation, useCreateGroupNewsPostFormMutation, useCreateGroupResourceFormMutation,
   useGetGroupQuery, useGetUserGroupsQuery,
 } from '../../api/apiService';
-import SharedModal from '../ui/SharedModal';
+import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import ActionSheet from '../ui/ActionSheet';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import { useColors } from '../../hooks/useColors';
@@ -647,7 +647,7 @@ export default function GroupCreateSheet({
 
 const styles = StyleSheet.create({
   // Close under the heading: the header carries its own foot padding.
-  body:        { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
+  body:        { paddingHorizontal: PANE_GUTTER, paddingTop: 4, paddingBottom: 40 },
   groupChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     maxWidth: 190,
@@ -660,8 +660,8 @@ const styles = StyleSheet.create({
   input:       { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
   inputMulti:  { height: 96, paddingTop: 12, textAlignVertical: 'top' },
   chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chipScroller:{ marginHorizontal: -16 },
-  chipRow:     { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  chipScroller:{ marginHorizontal: -PANE_GUTTER },
+  chipRow:     { flexDirection: 'row', gap: 8, paddingHorizontal: PANE_GUTTER },
   chip:        { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   chipText:    { fontSize: 12, fontFamily: FONT_INTER.bold },
   publicRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 22 },

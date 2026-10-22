@@ -69,6 +69,17 @@ export default function PollShelf({
         )}
       </View>
 
+      {/* One poll takes the width — a carousel of one only hinted at a next
+          card that isn't there. */}
+      {posts.length === 1 ? (
+        <View style={styles.single}>
+          <FeedItemCard
+            post={posts[0]}
+            onPress={() => onPostPress(posts[0])}
+            onCommentPress={() => onPostPress(posts[0])}
+          />
+        </View>
+      ) : (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -91,6 +102,7 @@ export default function PollShelf({
         ))}
         <RowEndSpacer width={ROW_PAD_LEFT} />
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -107,4 +119,6 @@ const styles = StyleSheet.create({
 
   row:  { paddingLeft: ROW_PAD_LEFT, gap: CARD_GAP },
   item: { width: CARD_WIDTH },
+  // The row's own inset on both sides.
+  single: { paddingHorizontal: ROW_PAD_LEFT },
 });

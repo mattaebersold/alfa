@@ -76,7 +76,10 @@ export default function PostActionRail({
               three faces, and a "+x" circle for the rest. */}
           <View style={[styles.likeInfo, vertical ? styles.facesOut : styles.facesIn]} pointerEvents="box-none">
             <LikerFaces likers={likers} total={like.count} onOpen={onOpenLikers} />
-            {like.count > 0 && (
+            {/* On the photo, the number too. In a footer row the faces carry
+                it alone — a face beside a "2" read as one thing, not as who
+                and how many. */}
+            {vertical && like.count > 0 && (
               // White either way — the red heart is what says you liked it.
               <Text style={styles.count}>{formatActionCount(like.count)}</Text>
             )}
@@ -129,7 +132,8 @@ const styles = StyleSheet.create({
   // On the photo the faces hang off the column's left edge, so the column stays
   // one icon wide; in the footer row they simply lead the heart.
   facesOut: { position: 'absolute', right: '100%', marginRight: 1 },
-  facesIn:  { marginRight: 6 },
+  // Close in to the heart they belong to.
+  facesIn:  { marginRight: 0 },
   itemH:  { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 4 },
   count: {
     color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.bold,

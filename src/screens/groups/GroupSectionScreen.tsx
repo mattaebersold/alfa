@@ -40,7 +40,7 @@ import GroupCreateSheet, { type CreateKind } from '../../components/groups/Group
 import RecordRow from '../../components/social/RecordRow';
 import { withAlpha } from '../../constants/colors';
 import FollowButton from '../../components/social/FollowButton';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import { postThumb } from '../../utils/postMedia';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import type { AppStackParamList } from '../../navigation/types';
@@ -55,7 +55,7 @@ import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, GROUP_GROUND, GROUP_LISTING_CARD } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -726,7 +726,7 @@ export default function GroupSectionScreen() {
       return (
         <View style={styles.carGridRow}>
           {(item.pair as any[]).map((car) => {
-            const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+            const hero = carHeroUrl(car);
             return (
               <SummaryTouchable
                 key={car.internal_id}
@@ -896,7 +896,7 @@ export default function GroupSectionScreen() {
   // Content is gated to active members — pending/non-members see a prompt.
   if (!isMember) {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={['top', 'bottom']}>
         {compactHeader}
         <View style={styles.gate}>
           <EmptyState
@@ -911,7 +911,7 @@ export default function GroupSectionScreen() {
   // Bottom edge only — the banner runs under the status bar, and the header
   // content pads itself past the top inset.
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={['bottom']}>
       {compactHeader}
       {/* The market tab is the marketplace itself, scoped to this group — the
           same component the Marketplace tab renders, so the two can't drift.
@@ -923,6 +923,9 @@ export default function GroupSectionScreen() {
           <MarketplaceBrowse
             groupId={groupId}
             onScroll={onScroll}
+            // The group page's own ground, not the marketplace tab's.
+            ground={GROUP_GROUND}
+            cardBackground={GROUP_LISTING_CARD}
             style={ss.fill}
             contentContainerStyle={styles.list}
           />
@@ -948,7 +951,7 @@ export default function GroupSectionScreen() {
 
       {/* Add cars to group modal */}
       <Modal visible={showCarModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCarModal(false)}>
-        <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['top', 'bottom']}>
+        <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={['top', 'bottom']}>
           <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
             <Text style={[styles.modalTitle, { color: c.fg }]}>Your Cars</Text>
             <TouchableOpacity onPress={() => setShowCarModal(false)} hitSlop={10}>
@@ -963,7 +966,7 @@ export default function GroupSectionScreen() {
             ListEmptyComponent={<EmptyState title="No cars in your garage" message="Add a car first." />}
             renderItem={({ item: car }) => {
               const inGroup = car.group_id === groupId;
-              const hero = firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+              const hero = carHeroUrl(car);
               return (
                 <TouchableOpacity style={[ss.listRow, { backgroundColor: c.card, borderBottomColor: c.border }]} onPress={async () => { await updateCarGroup({ carId: car.internal_id, groupId: inGroup ? null : groupId }); }} disabled={updatingCarGroup} activeOpacity={0.8}>
                   {hero ? <Image source={{ uri: hero }} style={styles.rowThumb} contentFit="cover" /> : <View style={[styles.rowThumb, { backgroundColor: c.segment }]} />}

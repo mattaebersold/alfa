@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform, PanResponder, Animated,
 } from 'react-native';
@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus, MapPin } from 'lucide-react-native';
 import {
   useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
   useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
@@ -28,6 +28,7 @@ import SubTabs from '../../components/ui/SubTabs';
 import MainTabs from '../../components/ui/MainTabs';
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
 import PostToSelector from '../../components/social/PostToSelector';
+import PostLocationField from '../../components/social/PostLocationField';
 import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '../../components/social/PollEditor';
 import { ListingCreateSheet } from '../marketplace/ListingCreateScreen';
 import { colors } from '../../constants/colors';
@@ -38,6 +39,7 @@ import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
 import { useColors } from '../../hooks/useColors';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
+import type { PostPlace } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_GRAY_14, FORM_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
@@ -219,18 +221,13 @@ export default function CreateScreen() {
   const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
   const [taggedCars, setTaggedCars]     = useState<TagItem[]>(prefilledCar);
   const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
-  const [taggedSpots, setTaggedSpots]   = useState<TagItem[]>([]);
 
-  // A pin made from the picker's "Create a new pin" comes back as route params
-  // once saved — see PhotoSpotCreateScreen — and joins the tags here.
-  const returnedSpotId = route.params?.spotId;
-  const returnedSpotTitle = route.params?.spotTitle;
-  useEffect(() => {
-    if (!returnedSpotId) return;
-    setTaggedSpots((prev) => prev.some((t) => t.id === returnedSpotId)
-      ? prev
-      : [...prev, { id: returnedSpotId, label: returnedSpotTitle || 'Photo spot', kind: 'spot' }]);
-  }, [returnedSpotId, returnedSpotTitle]);
+  /**
+   * Where it was made — "Add a Location", at the foot of the form. A Google
+   * place rather than a tag: it stands on its own, where photo spots were a
+   * kind of tag, and it rides on the create itself rather than the tag sync.
+   */
+  const [place, setPlace] = useState<PostPlace | null>(null);
 
   const [createPost, { isLoading: submitting }] = useCreatePostMutation();
   const [createMuxUploadUrl] = useCreateMuxUploadUrlMutation();
@@ -390,11 +387,11 @@ export default function CreateScreen() {
   // ── Tag helpers ─────────────────────────────────────────────────────────────
 
   const toggleTag = useCallback((tag: TagItem) => {
-    // Posts don't offer group tagging, so the picker never emits one here.
-    if (tag.kind === 'group') return;
+    // Posts don't offer group or spot tagging, so the picker never emits
+    // either here — where a post was made is its location, below.
+    if (tag.kind === 'group' || tag.kind === 'spot') return;
     const setter = tag.kind === 'user' ? setTaggedUsers
       : tag.kind === 'car' ? setTaggedCars
-      : tag.kind === 'spot' ? setTaggedSpots
       : setTaggedEvents;
     setter((prev) => {
       const exists = prev.some(t => t.id === tag.id);
@@ -469,6 +466,10 @@ export default function CreateScreen() {
 
     // One JSON field inside the multipart body — see PollInput.
     if (pollInput.poll) fd.append('poll', JSON.stringify(pollInput.poll));
+
+    // The place, the same way: one JSON field. A post's only — the Poll tab
+    // doesn't offer one, and a place picked on the Post tab stays there.
+    if (kind === 'post' && place) fd.append('place', JSON.stringify(place));
 
     // Videos go straight to Mux (never through our API). Each one is sent with
     // the position it occupies in the post's media, because Mux takes minutes to
@@ -553,7 +554,7 @@ export default function CreateScreen() {
         dispatch(apiService.util.invalidateTags(['Post', 'UserEntries']));
       }
 
-      const hasAnyTags = taggedUsers.length > 0 || taggedCars.length > 0 || taggedEvents.length > 0 || taggedSpots.length > 0;
+      const hasAnyTags = taggedUsers.length > 0 || taggedCars.length > 0 || taggedEvents.length > 0;
       if (hasAnyTags && postId) {
         // Await so the request finishes before we navigate away (unmounting was
         // racing the fire-and-forget call), and surface failures instead of
@@ -564,7 +565,6 @@ export default function CreateScreen() {
             tagged_users: taggedUsers.map(t => t.id),
             tagged_cars: taggedCars.map(t => t.id),
             tagged_events: taggedEvents.map(t => t.id),
-            tagged_photospots: taggedSpots.map(t => t.id),
           }).unwrap();
         } catch (e) {
           console.warn('[CreatePost] tag sync failed:', JSON.stringify(e));
@@ -592,8 +592,8 @@ export default function CreateScreen() {
     }
   }, [
     kind, postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
-    taggedUsers, taggedCars, taggedEvents, media,
-    createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav, taggedSpots,
+    taggedUsers, taggedCars, taggedEvents, media, place,
+    createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav,
   ]);
 
   /**
@@ -790,10 +790,7 @@ export default function CreateScreen() {
             users={taggedUsers}
             cars={taggedCars}
             events={taggedEvents}
-            spots={taggedSpots}
             onToggle={toggleTag}
-            // The pin form opens over this one and hands the new pin back — see returnedSpotId.
-            onCreateSpot={(name) => appNav.navigate('PhotoSpotCreate', { name: name || undefined, pickFor: { screen: 'Create' } })}
           />
         </View>
 
@@ -818,6 +815,20 @@ export default function CreateScreen() {
             </Text>
           )}
         </View>
+
+        {/* ── Add a location ──
+            Last of the cards, after Post To: where it was made is an extra,
+            and the tag cards' old "Tag Photo Spots" is gone in its favour.
+            A post's — the poll tab has none. */}
+        {kind === 'post' && (
+          <View style={[styles.postToCard, { backgroundColor: COLOR_GRAY_14 }]}>
+            <View style={styles.postToHead}>
+              <MapPin size={15} color={COLOR_WHITE} />
+              <Text style={[styles.postToTitle, { color: colors.fg }]}>Add a Location</Text>
+            </View>
+            <PostLocationField value={place} onChange={setPlace} />
+          </View>
+        )}
 
         {/* ── Post button ──
             Ends the form, full width, rather than floating over it: posting is

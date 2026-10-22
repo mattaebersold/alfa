@@ -37,6 +37,9 @@ export default function PostCommentsModal({ postId, entryType, origin, onClose }
         title=""
         backgroundColor="transparent"
         variant="panel"
+        // At the panel's foot, under the thread — not straight after the
+        // last comment, with the rest of the panel empty below it.
+        pinComposer
       />
     </SummaryModal>
   );

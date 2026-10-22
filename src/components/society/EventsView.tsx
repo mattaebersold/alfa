@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { View, ScrollView, StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import SharedModal from '../../components/ui/SharedModal';
+import SubTabs from '../../components/ui/SubTabs';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
-import EventCard from '../../components/cards/EventCard';
+import ExpandableEventCard from '../../components/society/ExpandableEventCard';
 import { UpcomingEventCard, UPCOMING_CARD_WIDTH } from '../../components/cards/UpcomingCard';
 import EventMonthCalendar from '../../components/society/EventMonthCalendar';
 import RallyCarousel from '../../components/society/RallyCarousel';
@@ -34,6 +36,13 @@ import { SkeletonCard } from '../ui/Skeleton';
 const UPCOMING_DAYS = 30;
 /** Cards in the carousel, once filtered. */
 const UPCOMING_SHOWN = 20;
+/** The map's date windows, in days — it opens on the carousel's 30. */
+const MAP_WINDOWS = [7, 30, 90, 180] as const;
+type MapWindow = typeof MAP_WINDOWS[number];
+const MAP_WINDOW_OPTIONS = MAP_WINDOWS.map((d) => ({
+  key: String(d) as `${MapWindow}`,
+  label: d === 180 ? 'Next 6 months' : `Next ${d} days`,
+}));
 
 /**
  * Events: the next 30 days as a carousel, then the month calendar. Tapping a
@@ -66,6 +75,14 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const [pendingEvent, setPendingEvent] = useState<SocietyEvent | null>(null);
   /** The map of upcoming events, in a sheet over this screen. */
   const [mapOpen, setMapOpen] = useState(false);
+  // An event picked from the map's search, opened once the map has gone.
+  const [pendingPickId, setPendingPickId] = useState<string | null>(null);
+  /** How far ahead the map looks. */
+  const [mapDays, setMapDays] = useState<MapWindow>(UPCOMING_DAYS);
+  /** The day sheet's category tab; null is All. */
+  const [dayCategory, setDayCategory] = useState<string | null>(null);
+  /** The day pane's open card — one at a time. */
+  const [dayOpenKey, setDayOpenKey] = useState<string | null>(null);
 
   // A rolling 30-day window rather than the calendar month: on the 28th, "the
   // rest of this month" is two days of events and the carousel looks abandoned.
@@ -102,8 +119,32 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   ).slice(0, UPCOMING_SHOWN);
 
   // The same window and filters as the carousel, minus anything with no
-  // address to pin — so the map and the cards above it always agree.
-  const mapped = mappableEvents(category ? all.filter((e) => categoryFor(e.category).key === category) : all);
+  // address to pin — so the map and the cards above it always agree. A
+  // different window from the map's date tabs is its own fetch; a longer one
+  // asks for more, since a weekly meet alone fills a month's worth of rows.
+  const { data: mapData, isFetching: mapFetching } = useGetUpcomingEventsQuery(
+    mapDays === UPCOMING_DAYS
+      ? skipToken
+      : { limit: mapDays > UPCOMING_DAYS ? 300 : 100, days: mapDays, ...location.params },
+  );
+  const mapAll = mapDays === UPCOMING_DAYS ? all : (mapData?.entries ?? all);
+  const tileMapped = mappableEvents(category ? all.filter((e) => categoryFor(e.category).key === category) : all);
+  const mapped = mappableEvents(category ? mapAll.filter((e) => categoryFor(e.category).key === category) : mapAll);
+
+  // The day sheet's tabs: All, then each category that day has — only when
+  // there's more than one to choose between.
+  const dayEvents = daySheet?.events ?? [];
+  const dayCategories = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const e of dayEvents) {
+      const c = categoryFor(e.category);
+      if (!seen.has(c.key)) seen.set(c.key, c.label);
+    }
+    return [...seen.entries()].map(([key, label]) => ({ key, label }));
+  }, [dayEvents]);
+  const dayShown = dayCategory
+    ? dayEvents.filter((e) => categoryFor(e.category).key === dayCategory)
+    : dayEvents;
 
   // Only categories with something coming up — a pill that filters to "Nothing
   // in the next 30 days" is a dead end. EventFilters keeps the selected one.
@@ -190,14 +231,14 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
 
         {/* The same events, on a map — a sheet over this screen. Nothing when
             none of them has an address to put a pin on. */}
-        <EventsMapTile events={mapped} days={UPCOMING_DAYS} onPress={() => setMapOpen(true)} />
+        <EventsMapTile events={tileMapped} days={UPCOMING_DAYS} onPress={() => setMapOpen(true)} />
 
         {/* Month calendar */}
         <View style={{ marginTop: 12 }}>
           <EventMonthCalendar
             category={category ?? undefined}
             location={location.params}
-            onSelectDay={(date, events) => setDaySheet({ date, events })}
+            onSelectDay={(date, events) => { setDayCategory(null); setDayOpenKey(null); setDaySheet({ date, events }); }}
           />
         </View>
 
@@ -216,8 +257,40 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
             const event = pendingEvent;
             setPendingEvent(null);
             openEvent(event);
+          } else if (pendingPickId) {
+            const eventId = pendingPickId;
+            setPendingPickId(null);
+            openEventSheet({ eventId });
           }
         }}
+        // The screen's own search and filter, over the top of the map — the
+        // same state, so narrowing it here narrows the screen behind too.
+        tools={(
+          <>
+          <View style={styles.toolsRow}>
+            <EventSearchField
+              style={styles.toolsSearch}
+              onPick={(eventId) => { setPendingPickId(eventId); setMapOpen(false); }}
+            />
+            <EventFilters
+              location={location}
+              regions={regions}
+              category={category}
+              onCategory={setCategory}
+              presentCategories={presentCategories}
+              compact
+            />
+          </View>
+          {/* How far ahead — the next 30 days to start, like the carousel. */}
+          <View style={[styles.mapWindows, mapFetching && { opacity: 0.6 }]}>
+            <SubTabs
+              options={MAP_WINDOW_OPTIONS}
+              value={String(mapDays) as `${MapWindow}`}
+              onChange={(k) => setMapDays(Number(k) as MapWindow)}
+            />
+          </View>
+          </>
+        )}
       />
 
       {/* A day's events */}
@@ -231,6 +304,10 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
             openEvent(event);
           }
         }}
+        // The category tabs sit right under the title; a fade there washed over them.
+        headFade={false}
+        // Always full height: filtering by category shouldn't make the pane jump.
+        heightRatio={0.9}
         title={
           daySheet
             ? daySheet.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -239,14 +316,28 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
       >
         {/* Scrolls: each card is as tall as its photo, so a busy Saturday runs
             past the sheet, and the sheet clips whatever it's handed. */}
-        <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-          {(daySheet?.events ?? []).map((event, i) => (
-            <EventCard
-              key={`${event.internal_id}-${i}`}
-              event={event}
-              onPress={(e) => { setPendingEvent(e); setDaySheet(null); }}
+        {dayCategories.length > 1 && (
+          <View style={styles.dayTabs}>
+            <SubTabs
+              options={[{ key: 'all', label: 'All' }, ...dayCategories]}
+              value={dayCategory ?? 'all'}
+              onChange={(k) => setDayCategory(k === 'all' ? null : k)}
             />
-          ))}
+          </View>
+        )}
+        <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+          {dayShown.map((event, i) => {
+            const key = `${event.internal_id}-${i}`;
+            return (
+              <ExpandableEventCard
+                key={key}
+                event={event}
+                expanded={dayOpenKey === key}
+                onToggleExpanded={() => setDayOpenKey(dayOpenKey === key ? null : key)}
+                onOpenFull={(e) => { setPendingEvent(e); setDaySheet(null); }}
+              />
+            );
+          })}
         </ScrollView>
       </SharedModal>
 
@@ -276,4 +367,6 @@ const styles = StyleSheet.create({
   carousel: { paddingLeft: GUTTER, gap: 12, alignItems: 'flex-start' },
 
   sheetBody: { padding: 12, gap: 12, paddingBottom: 32 },
+  dayTabs: { paddingTop: 4 },
+  mapWindows: { marginTop: 8 },
 });

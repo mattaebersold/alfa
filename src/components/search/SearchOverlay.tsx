@@ -16,7 +16,7 @@ import { useSearchQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { KeyboardAvoidingView } from '@ors/kit';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { imageUrl, firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import { priceLabel } from '../marketplace/listingFormat';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
@@ -67,7 +67,7 @@ const SECTIONS: {
       id: `car-${c.internal_id}`, kind: 'Car',
       title: c.title || [c.year, c.make, c.model].filter(Boolean).join(' ') || 'Car',
       subtitle: c.title ? [c.year, c.make, c.model].filter(Boolean).join(' ') : c.type,
-      image: firstGalleryUrl(c.gallery) ?? (c.profile_image ? imageUrl(c.profile_image) : null),
+      image: carHeroUrl(c),
       go: (nav) => (nav as any).navigate('CarDetail', { carId: c.internal_id }),
     }),
   },

@@ -58,6 +58,7 @@ import RouteRecordScreen from '../screens/routes/RouteRecordScreen';
 import RoutePlotScreen from '../screens/routes/RoutePlotScreen';
 import RouteSaveScreen from '../screens/routes/RouteSaveScreen';
 import RouteDetailScreen from '../screens/routes/RouteDetailScreen';
+import PostsMapScreen from '../screens/posts/PostsMapScreen';
 import { DIECAST_BLUE } from '../constants/diecast';
 import CreateStoryScreen from '../screens/create/CreateStoryScreen';
 import StoryDetailsScreen from '../screens/create/StoryDetailsScreen';
@@ -147,6 +148,13 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Routes"
         component={RoutesScreen}
+        options={{ headerShown: false }}
+      />
+      {/* Where posts were made, as pins — reached from the menu, so it lives on
+          the app stack like Routes, and draws its own heading and back. */}
+      <Stack.Screen
+        name="PostsMap"
+        component={PostsMapScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

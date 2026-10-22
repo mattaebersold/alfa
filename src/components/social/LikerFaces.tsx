@@ -36,20 +36,24 @@ export default function LikerFaces({ likers, total, max = 3, onOpen, style }: {
   style?: StyleProp<ViewStyle>;
 }) {
   const faces = likers.slice(0, max);
-  if (faces.length === 0) return null;
   const rest = total - faces.length;
+  // No faces and no one else: nothing to show. Likes with none of the faces
+  // to hand still show as the "+x" alone, rather than vanishing.
+  if (faces.length === 0 && rest <= 0) return null;
   return (
     <SummaryTouchable
       style={[styles.row, style]}
       onPress={onOpen}
       accessibilityLabel="See everyone who liked this"
     >
-      {total > max && rest > 0 && (
+      {/* Everyone past the faces shown — past `max`, or past the few the
+          list happened to carry. */}
+      {rest > 0 && (
         <View style={[styles.face, styles.more]}>
           <Text style={styles.moreText}>+{formatActionCount(rest)}</Text>
         </View>
       )}
-      {faces.map((id, i) => <Face key={id} userId={id} first={i === 0 && !(total > max && rest > 0)} />)}
+      {faces.map((id, i) => <Face key={id} userId={id} first={i === 0 && !(rest > 0)} />)}
     </SummaryTouchable>
   );
 }

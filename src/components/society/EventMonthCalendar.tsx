@@ -7,7 +7,7 @@ import { useGetEventCalendarQuery, useGetRallysQuery } from '../../api/apiServic
 import RallyDetailSheet from './RallyDetailSheet';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { categoryFor, toDayKey } from '../../constants/eventTypes';
+import { categoryFor, toDayKey, isOrsEvent } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
 import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
@@ -224,7 +224,7 @@ export default function EventMonthCalendar({
             );
           }
 
-          const orsEvent = dayEvents.find((e) => e.ors_sponsored);
+          const orsEvent = dayEvents.find(isOrsEvent);
           if (orsEvent) {
             return (
               <TouchableOpacity

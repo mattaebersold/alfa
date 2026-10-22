@@ -1,8 +1,8 @@
-import React, { useLayoutEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import PageBanner, { PAGE_BANNER_OVERLAP } from '../../components/cars/PageBanner';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Car, ChevronRight, Pencil, Check, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
@@ -27,9 +27,7 @@ import { COLOR_BLACK, COLOR_GRAY_26, COLOR_GREEN, COLOR_WHITE, GUTTER, PILL_RADI
 
 type Tab = 'cars' | 'discussion' | 'resources' | 'groups';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-/** The banner photo's height — behind the status bar and the header's buttons too. */
-const BANNER_H = Math.round(SCREEN_WIDTH * 0.72);
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 /**
  * How many characters the last clamped line gives up for "… more" — the
  * link's width and a little, in the description's type.
@@ -88,7 +86,7 @@ export default function ModelDetailScreen({ route, navigation }: CarsScreenProps
  * home screen's Cars tab, in place under a breadcrumb trail — the bookmark
  * sits on the banner itself, and going back to the make is the host's.
  */
-export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0, bannerOverlay, onScroll }: {
+export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0, bannerOverlay, onScroll, scrollClearance = 0 }: {
   params: ModelPageParams;
   navigation?: CarsScreenProps<'ModelDetail'>['navigation'];
   onOpenBrand: (brand: string) => void;
@@ -97,11 +95,41 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
   /** Laid over the banner's top — the Cars tab's breadcrumb trail, which scrolls away with the photo. */
   bannerOverlay?: React.ReactNode;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /**
+   * How much of the screen's top a host's floating header still covers once
+   * scrolled — where picking a tab rests the tab row, just below it.
+   */
+  scrollClearance?: number;
 }) {
   const { brand, model, modelHandle, generationHandle } = params;
   const title = modelPageTitle(params);
   const colors = useColors();
   const [tab, setTab] = useState<Tab>('cars');
+  /**
+   * Picking a tab rests the tab row just under the header, whatever the tab
+   * holds. Each tab has its own scroller (the cars grid, or the others' list),
+   * so the new one is moved there as soon as it's up; and every tab's content
+   * is at least a screen past the row, so a short one can still get there.
+   */
+  const scrollRef = useRef<ScrollView>(null);
+  const [tabsY, setTabsY] = useState(0);
+  const pendingTabScroll = useRef(false);
+  const pickTab = (next: Tab) => {
+    if (next === tab) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, tabsY - scrollClearance), animated: true });
+      return;
+    }
+    pendingTabScroll.current = true;
+    setTab(next);
+  };
+  useEffect(() => {
+    if (!pendingTabScroll.current) return;
+    pendingTabScroll.current = false;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, tabsY - scrollClearance), animated: false });
+    });
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const minContentHeight = tabsY ? tabsY - scrollClearance + SCREEN_HEIGHT : undefined;
   const { data: firstCar } = useGetCarsQuery({ page: 0, limit: 1, make: brand.toLowerCase(), model: modelHandle, generation: generationHandle });
   const total = firstCar?.total;
   // For the counts on the tabs; the sections read the same cached lists.
@@ -180,32 +208,8 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
 
   const header = (
     <>
-      {/* ── The banner ── */}
-      <View style={styles.banner}>
-        {banner ? (
-          <Image source={{ uri: banner }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.bannerBlank]}>
-            <Car size={44} color={colors.grey} />
-          </View>
-        )}
-        {/* A shade over the whole photo, so it sits back as a backdrop and the
-            page's words read wherever they land on it. */}
-        <View style={[StyleSheet.absoluteFill, styles.bannerShade]} pointerEvents="none" />
-        {/* Dark at the top, for the back button and the status bar… */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0)']}
-          style={styles.bannerTop}
-          pointerEvents="none"
-        />
-        {/* …and into the page's own ground at the foot. */}
-        <LinearGradient
-          colors={['rgba(10,10,10,0)', colors.cream]}
-          style={styles.bannerFoot}
-          pointerEvents="none"
-        />
-        {bannerOverlay ? <View style={styles.bannerOverlay}>{bannerOverlay}</View> : null}
-      </View>
+      {/* ── The banner — shared with the make's page ── */}
+      <PageBanner photo={banner} overlay={bannerOverlay} />
 
       <View style={styles.intro}>
         {/* ── The way back up ── */}
@@ -310,13 +314,17 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
 
       {/* ── The sections, as main tabs — the home screen's pills, each with
           its count. ── */}
-      <MainTabs
-        tabs={tabs}
-        value={tab}
-        onChange={setTab}
-        inset={GUTTER + 8}
-        style={styles.tabsScroll}
-      />
+      {/* Measured, so picking a tab rests the row at the top of the screen —
+          see pickTab. */}
+      <View onLayout={(e) => setTabsY(e.nativeEvent.layout.y)}>
+        <MainTabs
+          tabs={tabs}
+          value={tab}
+          onChange={pickTab}
+          inset={GUTTER + 8}
+          style={styles.tabsScroll}
+        />
+      </View>
     </>
   );
 
@@ -329,10 +337,22 @@ export function ModelDetailView({ params, navigation, onOpenBrand, headerPad = 0
         current={profile?.description}
       />
       {tab === 'cars' ? (
-        <CarMosaic make={brand} model={modelHandle} generation={generationHandle} header={header} emptyTitle={`No ${title}s yet`} onScroll={onScroll} />
+        <CarMosaic
+          make={brand} model={modelHandle} generation={generationHandle}
+          header={header} emptyTitle={`No ${title}s yet`} onScroll={onScroll}
+          scrollRef={scrollRef}
+          minContentHeight={minContentHeight}
+        />
       ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
-          {header}
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.scroll, minContentHeight ? { minHeight: minContentHeight } : null]}
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+        >
+          {/* A plain View, which never grows — see CarMosaic. */}
+          <View>{header}</View>
           {tab === 'groups'
             ? <CarGroupsRow make={brand} model={model} layout="list" />
             : <ModelPostsSection kind={tab === 'discussion' ? 'discussion' : 'resource'} make={brand} model={model} />}
@@ -400,18 +420,10 @@ function ProposalReview({ proposal }: { proposal: ModelProposal }) {
 
 const styles = StyleSheet.create({
   titleBookmark: { marginRight: 2 },
-  banner: { width: '100%', height: BANNER_H, backgroundColor: COLOR_GRAY_26 },
-  bannerBlank: { alignItems: 'center', justifyContent: 'center' },
-  bannerOverlay: { position: 'absolute', left: 0, right: 0, top: 0 },
-  bannerTop: { position: 'absolute', left: 0, right: 0, top: 0, height: 130 },
-  bannerShade: { backgroundColor: 'rgba(0,0,0,0.5)' },
-  // A point past the foot, so no hairline of photo shows under it. Tall
-  // enough to sit under all of the intro that now overlaps the photo.
-  bannerFoot: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '80%' },
 
   // Pulled well up over the banner's faded foot — the trail and the title
   // sit on the photo, not under it.
-  intro: { paddingHorizontal: GUTTER + 8, marginTop: -180, gap: 10 },
+  intro: { paddingHorizontal: GUTTER + 8, marginTop: -PAGE_BANNER_OVERLAP, gap: 10 },
   crumbs: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   // Small outlined pills, as the other outline buttons (Add car, View channel).
   crumb: {

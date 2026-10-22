@@ -35,7 +35,7 @@ const todayLabel = () =>
 const THUMB = 84;
 const CARD_GAP = 12;
 
-/** A game's chip colour on a card: how it went, or grey for one not played. */
+/** A game's chip colour on a card: how it went, or null for one not played. */
 function chipColor(game: SpotGameKind, day: SpotDayGames): string | null {
   if (game === 'car') return day.car ? (day.car.won ? HIT : MISS) : null;
   if (game === 'trivia') return day.trivia ? (day.trivia.correct ? HIT : MISS) : null;
@@ -45,7 +45,7 @@ function chipColor(game: SpotGameKind, day: SpotDayGames): string | null {
 
 /**
  * One member who played today: their photo as the square, then the three
- * games as chips — green, red, or grey for one they skipped — and their name.
+ * games they played as chips — green or red — and their name.
  * The events carousel's card, so the two rows read as the same kind of thing.
  */
 function PlayerCard({ player, onPress, full = false }: {
@@ -58,11 +58,13 @@ function PlayerCard({ player, onPress, full = false }: {
   const photo = imageUrl(user.gallery?.[0]?.filename ?? user.profilePicture);
   const chips = (
     <View style={styles.chips}>
+      {/* Only the games they played — a skipped one has nothing to say. */}
       {SPOT_GAMES.map(({ key, Icon }) => {
         const color = chipColor(key, player);
+        if (!color) return null;
         return (
-          <View key={key} style={[styles.chip, { backgroundColor: color ?? COLOR_GRAY_38 }]}>
-            <Icon size={15} color={color ? COLOR_BLACK : 'rgba(255,255,255,0.4)'} strokeWidth={2.4} />
+          <View key={key} style={[styles.chip, { backgroundColor: color }]}>
+            <Icon size={15} color={COLOR_BLACK} strokeWidth={2.4} />
           </View>
         );
       })}

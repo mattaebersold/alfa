@@ -209,6 +209,8 @@ export function ComposerAttach({ photos, tint }: { photos: ComposerPhotos; tint:
 
 /** The field grows with the text to about five lines, then scrolls. */
 const FIELD_MAX_H = 120;
+/** A line of the field's text, and a little — past it, the text has wrapped. */
+const ONE_LINE_H = 26;
 
 /**
  * Where a comment or a message is written: a bar whose field is the real text
@@ -247,6 +249,12 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
   }), []);
 
   const canSend = canSendWith(value, photos) && !sending && !photos?.preparing;
+  /**
+   * Whether the text has wrapped past one line. A pill holds one line; with
+   * two or more its round ends crowd the words, so the field squares off to a
+   * text box's corners as it grows, and back as it shrinks.
+   */
+  const [tall, setTall] = useState(false);
 
   const fieldProps = {
     ref: inputRef,
@@ -257,7 +265,11 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
     maxLength,
     onFocus: () => onOpenChange?.(true),
     onBlur: () => onOpenChange?.(false),
-    style: [ss.chatInput, styles.field, { color: t.text, backgroundColor: t.field, borderColor: t.border }],
+    onContentSizeChange: (e: { nativeEvent: { contentSize: { height: number } } }) => {
+      const next = e.nativeEvent.contentSize.height > ONE_LINE_H;
+      setTall((was) => (was === next ? was : next));
+    },
+    style: [ss.chatInput, styles.field, tall && styles.fieldTall, { color: t.text, backgroundColor: t.field, borderColor: t.border }],
   };
 
   return (
@@ -338,6 +350,8 @@ const styles = StyleSheet.create({
   // line you're typing on.
   fieldWrap: { flex: 1 },
   field:    { flex: 0, minHeight: 40, maxHeight: FIELD_MAX_H, lineHeight: 20 },
+  // More than a line: a text box's corners instead of a pill's.
+  fieldTall: { borderRadius: 14 },
   // 40 tall, like the field at one line, so the three sit level.
   sendBtn:  { minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: COMMON_RADIUS, flexShrink: 0 },
   sendIconBtn: {

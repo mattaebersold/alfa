@@ -7,7 +7,8 @@ import { Image } from 'expo-image';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import GalleryLightbox from '../media/GalleryLightbox';
 import { useNavigation } from '@react-navigation/native';
-import { MapPin, Truck, MoreHorizontal, MessageCircle, Check } from 'lucide-react-native';
+import { MapPin, Truck, Settings, MessageCircle, Check, Pencil, Trash2, Tag, RotateCcw } from 'lucide-react-native';
+import ActionSheet from '../ui/ActionSheet';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
 import Avatar from '../ui/Avatar';
@@ -19,6 +20,7 @@ import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { useStartListingThread } from '../../screens/marketplace/useStartListingThread';
 import {
   useGetListingQuery, useGetListingMetaQuery, useCreateCommentMutation,
+  useMarkListingSoldMutation, useDeleteListingMutation,
 } from '../../api/apiService';
 import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
@@ -275,7 +277,7 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
                 <View style={styles.soldPill}><Text style={styles.soldText}>SOLD</Text></View>
               ) : null}
               {/* Yours: the way to change it, beside its title. */}
-              {isMine ? <EditListingCog listingId={listing.internal_id} /> : null}
+              {isMine ? <ListingOwnerCog listingId={listing.internal_id} sold={!!listing.sold} /> : null}
             </View>
 
             {/* What it is and how good, as coloured badges under the title —
@@ -441,25 +443,69 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
 }
 
 /**
- * Edit, on your own listing — a cog over the photo. Inside the panel so it can
- * close the panel first (useSummaryPanel), then open the form on this listing.
+ * Your own listing's controls — a cog beside the title, opening a menu: edit,
+ * mark sold (or relist), delete. Inside the panel so it can close the panel
+ * first (useSummaryPanel) — before the form opens on this listing, and once
+ * the listing is gone. The same calls the Manage listings pane makes.
  */
-function EditListingCog({ listingId }: { listingId: string }) {
+function ListingOwnerCog({ listingId, sold }: { listingId: string; sold: boolean }) {
   const nav = useNavigation<any>();
   const panel = useSummaryPanel();
-  const go = () => nav.navigate('ListingCreate', { listingId });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [markSold, { isLoading: marking }] = useMarkListingSoldMutation();
+  const [deleteListing, { isLoading: deleting }] = useDeleteListingMutation();
+  const busy = marking || deleting;
+
+  const closePanel = (then?: () => void) => (panel ? panel.closeThen(then) : then?.());
+  const run = async (fn: () => Promise<unknown>, failure: string) => {
+    try { await fn(); return true; } catch (err: any) { Alert.alert('Error', err?.data?.error || failure); return false; }
+  };
+  const onEdit = () => closePanel(() => nav.navigate('ListingCreate', { listingId }));
+  const onToggleSold = () => run(
+    () => markSold({ id: listingId, sold: !sold }).unwrap(),
+    "That listing couldn't be updated.",
+  );
+  const onDelete = () => Alert.alert(
+    'Delete this listing?',
+    'It comes off the marketplace. Conversations about it stay in your messages.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (await run(() => deleteListing({ internal_id: listingId }).unwrap(), "That listing couldn't be deleted.")) closePanel();
+        },
+      },
+    ],
+  );
+
   return (
-    <TouchableOpacity
-      style={styles.editCog}
-      onPress={() => (panel ? panel.closeThen(go) : go())}
-      hitSlop={8}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityLabel="Edit listing"
-    >
-      {/* ⋯, the app's mark for "things you can do with this" — a cog read as settings. */}
-      <MoreHorizontal size={16} color={COLOR_WHITE} strokeWidth={2.4} />
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        style={[styles.editCog, busy && { opacity: 0.4 }]}
+        onPress={() => setMenuOpen(true)}
+        disabled={busy}
+        hitSlop={8}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Listing options"
+      >
+        <Settings size={17} color={COLOR_WHITE} strokeWidth={2.2} />
+      </TouchableOpacity>
+      <ActionSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title="Your listing"
+        options={[
+          { label: 'Edit listing', Icon: Pencil, onPress: onEdit },
+          sold
+            ? { label: 'Relist', Icon: RotateCcw, onPress: onToggleSold }
+            : { label: 'Mark as sold', Icon: Tag, onPress: onToggleSold },
+          { label: 'Delete listing', Icon: Trash2, destructive: true, onPress: onDelete },
+        ]}
+      />
+    </>
   );
 }
 
@@ -513,7 +559,7 @@ const styles = StyleSheet.create({
   photoHalf:  { flex: 1 },
   photoHalfImage: { width: '100%', height: TILE_H, borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
   // Beside the title, at its end — the height of the title's first line, so
-  // the two sit on one centre. Bare, just the ⋯, but still 26 square so it's
+  // the two sit on one centre. Bare, just the cog, but still 26 square so it's
   // as easy to hit.
   editCog: {
     width: 26, height: 26, flexShrink: 0,

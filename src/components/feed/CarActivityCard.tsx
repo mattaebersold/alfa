@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images, Car as CarIcon } from 'lucide-react-native';
 import { useGetUserByIdQuery } from '../../api/apiService';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import { CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { stripHtml } from '../../utils/text';
 import Avatar from '../ui/Avatar';
@@ -93,8 +93,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
     ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
     : '';
 
-  const carThumb = firstGalleryUrl(car.gallery)
-    ?? (car.profile_image ? imageUrl(car.profile_image) : null);
+  const carThumb = carHeroUrl(car);
   // The item's own photo where it has one — that's the new thing.
   const ownPhoto = firstGalleryUrl(item.gallery);
 

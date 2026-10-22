@@ -7,12 +7,12 @@ import EventImage from '../society/EventImage';
 import EventPills from '../society/EventPills';
 import { firstGalleryUrl } from '../../utils/image';
 import {
-  categoryFor, occurrenceDate, formatEventDate, formatEventRange, formatTime,
+  categoryFor, occurrenceDate, formatEventDate, formatEventRange, formatTime, eventCityState, isOrsEvent, orsBadgeLabel,
 } from '../../constants/eventTypes';
 import { useColors } from '../../hooks/useColors';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';
 import type { SocietyEvent, User } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -38,24 +38,63 @@ interface EventCardProps {
    * small enough that the stack crowds the copy more than the faces are worth.
    */
   showInterested?: boolean;
+  /**
+   * The photo on the left at its own shape, the details beside it — for a
+   * list of a day's events, where a run of full-width photos buried the
+   * details. The photo is SIDE_PHOTO_W wide, as tall as its shape makes it.
+   */
+  side?: boolean;
+  /** The plain "Event" pill beside the category — off in a list of nothing but events. */
+  typePill?: boolean;
+  /** Something small at the end of the attendees row — the day pane's interest button. */
+  accessory?: React.ReactNode;
+  /** Tapping the address does this instead of opening the card — opening it in maps. */
+  onPressLocation?: () => void;
 }
 
-/** Up to three overlapping avatars, then "+N" for the rest. */
-function InterestedStack({ users, total }: { users?: User[]; total: number }) {
+/** The side layout's photo width. */
+const SIDE_PHOTO_W = 140;
+
+/** How many faces a stack shows before the rest become "+N". */
+const STACK_MAX = 3;
+
+/**
+ * Up to three overlapping avatars, then "+N" for the rest. Shared with the
+ * event detail, which passes a bigger `size` and `onPressUser`.
+ */
+export function InterestedStack({ users, total, size = 26, onPressUser }: {
+  users?: User[];
+  total: number;
+  size?: number;
+  onPressUser?: (user: User) => void;
+}) {
   const colors = useColors();
   if (!users?.length) return null;
-  const extra = total - users.length;
+  const shown = users.slice(0, STACK_MAX);
+  const extra = Math.max(total, users.length) - shown.length;
+  const overlap = { marginLeft: -Math.round(size * 0.3) };
 
   return (
     <View style={styles.stack}>
-      {users.map((user, i) => (
-        <View key={user.user_id} style={i > 0 ? styles.stackOverlap : undefined}>
-          <Avatar user={user} size={26} />
-        </View>
+      {shown.map((user, i) => (
+        <TouchableOpacity
+          key={user.user_id}
+          style={i > 0 ? overlap : undefined}
+          onPress={() => onPressUser?.(user)}
+          disabled={!onPressUser}
+          activeOpacity={0.8}
+        >
+          <Avatar user={user} size={size} />
+        </TouchableOpacity>
       ))}
       {extra > 0 && (
-        <View style={[styles.stackMore, styles.stackOverlap, { backgroundColor: colors.secondary }]}>
-          <Text style={[styles.stackMoreText, { color: colors.fg }]}>+{extra}</Text>
+        <View
+          style={[
+            styles.stackMore, overlap,
+            { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.secondary },
+          ]}
+        >
+          <Text style={[styles.stackMoreText, { color: colors.fg, fontSize: Math.round(size * 0.38) }]}>+{extra}</Text>
         </View>
       )}
     </View>
@@ -75,7 +114,8 @@ function InterestedStack({ users, total }: { users?: User[]; total: number }) {
  * who's going.
  */
 export default function EventCard({
-  event, onPress, width, ratio, showInterested = true,
+  event, onPress, width, ratio, showInterested = true, side = false, typePill = true,
+  accessory, onPressLocation,
 }: EventCardProps) {
   const colors = useColors();
   const { ratio: measuredRatio, onAspectRatio } = useNaturalRatio(FALLBACK_RATIO);
@@ -95,17 +135,23 @@ export default function EventCard({
     ?? (formatEventDate(occurrenceDate(event), { weekday: true }) || event.schedule_label);
   const time = formatTime(event.start_time);
   const when = [day, time].filter(Boolean).join(' · ');
+  // The town, beside the time on the side layout — the address below is
+  // often cut off before it gets there.
+  const cityState = side ? eventCityState(event) : null;
 
-  const showMeta = !!event.location || showInterested;
+  const showMeta = !!event.location;
+  const showPeople = (showInterested && !!event.interested_preview?.length) || !!accessory;
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card }, width != null && { width }]}
+      style={[styles.card, side && styles.cardSide, { backgroundColor: colors.card }, width != null && { width }]}
       onPress={() => onPress?.(event)}
       activeOpacity={0.9}
     >
       {/* The card's own corners round the photo — nothing sits on top of it. */}
-      <View style={{ aspectRatio: frameRatio }}>
+      {/* Beside the copy, a tall flyer is held to a square — at its own shape it
+          made the card twice the copy's height, all of it empty space. */}
+      <View style={side ? [styles.photoSide, { minHeight: SIDE_PHOTO_W / Math.max(frameRatio, 1) }] : { aspectRatio: frameRatio }}>
         <EventImage
           uri={hero}
           style={StyleSheet.absoluteFill}
@@ -113,32 +159,76 @@ export default function EventCard({
         />
       </View>
 
-      <View style={styles.body}>
-        <EventPills category={category} ors={event.ors_sponsored} />
+      <View style={[styles.body, side && styles.bodySide]}>
+        <EventPills category={category} ors={isOrsEvent(event)} orsLabel={orsBadgeLabel(event)} typePill={typePill} />
+
+        {/* Beside a photo the title comes first, the day and time under it. */}
+        {side ? (
+          <>
+            <Text style={[styles.title, styles.titleSide]} numberOfLines={2}>{event.title}</Text>
+            {/* The town on its own line, between the title and the pills. */}
+            {cityState ? (
+              <Text style={[styles.whenPlace, { color: colors.fg }]} numberOfLines={1}>{cityState}</Text>
+            ) : null}
+          </>
+        ) : null}
 
         {/* The day in the category's colour: the pill alone is easy to miss
             when scanning a list, and this is enough colour to sort cards at a
             glance without giving the photo anything back. */}
-        {when ? <Text style={[styles.when, { color: category.color }]}>{when}</Text> : null}
+        {side ? (
+          // Beside a photo the day and the time are two things, not one run
+          // of coloured capitals: the day in white, the time apart from it
+          // with its clock, quieter.
+          (day || time) ? (
+            <View style={styles.whenRow}>
+              {/* The day and the time each in a dark pill, sunk into the card. */}
+              {day ? (
+                <View style={[styles.whenPill, styles.whenPillShrink, { backgroundColor: colors.bg }]}>
+                  <Text style={[styles.whenDay, { color: colors.fg }]} numberOfLines={1}>{day}</Text>
+                </View>
+              ) : null}
+              {time ? (
+                <View style={[styles.whenPill, { backgroundColor: colors.bg }]}>
+                  <Text style={[styles.whenTimeText, { color: colors.fg }]}>{time}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null
+        ) : when ? <Text style={[styles.when, { color: category.color }]}>{when}</Text> : null}
 
-        <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{event.title}</Text>
+        {side ? null : (
+          <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{event.title}</Text>
+        )}
 
-        {/* Where, left; who's going, right. The location takes whatever the
-            stack leaves so a long address truncates instead of pushing the
-            faces off the card. */}
+        {/* Where, then who's going on a row of its own under it — the
+            address gets the full width, and the faces sit with the button
+            that adds yours. */}
         {showMeta && (
           <View style={styles.meta}>
             {event.location ? (
-              <View style={styles.location}>
-                <MapPin size={12} color={colors.grey} />
-                <Text style={[styles.locationText, { color: colors.grey }]} numberOfLines={1}>
+              <TouchableOpacity
+                style={styles.location}
+                onPress={onPressLocation}
+                disabled={!onPressLocation}
+                activeOpacity={0.6}
+                hitSlop={6}
+                accessibilityRole={onPressLocation ? 'link' : undefined}
+              >
+                {side ? null : <MapPin size={12} color={colors.fg} />}
+                <Text style={[styles.locationText, { color: colors.fg }]} numberOfLines={1}>
                   {event.location}
                 </Text>
-              </View>
-            ) : <View style={styles.location} />}
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+        {showPeople && (
+          <View style={[styles.people, side && styles.peopleFoot]}>
             {showInterested && (
               <InterestedStack users={event.interested_preview} total={event.interested_count ?? 0} />
             )}
+            {accessory}
           </View>
         )}
       </View>
@@ -153,6 +243,17 @@ const styles = StyleSheet.create({
   },
 
   body: { padding: 12, gap: 6 },
+  // Side by side: the details run the photo's full height, so who's going
+  // (and the Attend pill) can sit at the foot.
+  cardSide: { flexDirection: 'row', alignItems: 'stretch' },
+  // Its own rounded right edge, where it meets the details. At least its own
+  // shape tall; stretched past that when the details run taller, the photo
+  // covering the extra rather than leaving a gap under it.
+  photoSide: {
+    width: SIDE_PHOTO_W, alignSelf: 'stretch', overflow: 'hidden',
+    borderTopRightRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS,
+  },
+  bodySide: { flex: 1, minWidth: 0, paddingVertical: 10, gap: 5 },
 
   when: {
     fontSize: 11, fontFamily: FONT_INTER.extrabold,
@@ -160,16 +261,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   title: { fontSize: 16, lineHeight: 20, fontFamily: FONT_INTER.bold },
+  titleSide: { fontSize: 16.5, lineHeight: 20, color: COLOR_WHITE },
+  whenRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  whenPill: { borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3 },
+  whenPillShrink: { flexShrink: 1 },
+  whenDay: { fontSize: 11.5, fontFamily: FONT_INTER.bold },
+  whenTimeText: { fontSize: 11.5, fontFamily: FONT_INTER.semibold },
+  whenPlace: { fontSize: 12, fontFamily: FONT_INTER.medium, opacity: 0.85, marginTop: -2 },
 
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
-  location: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  meta: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  people: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  // Anchored to the bottom of a side card, however short the copy above it.
+  peopleFoot: { marginTop: 'auto', paddingTop: 4 },
+  // Bright, but a step under the title.
+  location: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4, opacity: 0.85 },
   locationText: { flex: 1, fontSize: 12.5 },
 
   stack:        { flexDirection: 'row', alignItems: 'center' },
-  stackOverlap: { marginLeft: -8 },
-  stackMore: {
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  stackMoreText: { fontSize: 10, fontFamily: FONT_INTER.extrabold },
+  stackMore:    { alignItems: 'center', justifyContent: 'center' },
+  stackMoreText: { fontFamily: FONT_INTER.extrabold },
 });

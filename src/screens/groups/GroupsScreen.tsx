@@ -7,11 +7,11 @@ import { Text, TextInput } from '@ors/kit';
 import { Image } from 'expo-image';
 import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Users, MapPin, Ban } from 'lucide-react-native';
+import { Search, Users, MapPin } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useGetGroupsQuery, useGetUserGroupsQuery, useGetDeclinedInvitesQuery } from '../../api/apiService';
+import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
 import { useBrandTextColor, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
@@ -22,7 +22,6 @@ import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import HeadingActionButton from '../../components/ui/HeadingActionButton';
 import NewGroupSheet from '../../components/groups/NewGroupSheet';
-import DeclinedInvitesSheet from '../../components/groups/DeclinedInvitesSheet';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -76,7 +75,7 @@ interface GroupFilterValue {
 import { ss } from '../../styles/shared';
 import {
   COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_MEMBER_BLUE, COLOR_WHITE, GUTTER, COLOR_GRAY_40, COLOR_HUE_SEAFOAM, COLOR_HUE_CORNFLOWER, COLOR_HUE_CLAY, COLOR_HUE_ORCHID, COLOR_HUE_LAVENDER, COLOR_HUE_ROSE, COLOR_HUE_STEEL, COLOR_HUE_RASPBERRY,
-} from '../../constants/config';
+  SEARCH_EDGE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -265,14 +264,9 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
    * form asked.
    */
   const [type, setType] = useState<string | null>(null);
-  const [declinedOpen, setDeclinedOpen] = useState(false);
   /** The group whose summary panel is open, and the card it grew from. */
   const [summary, setSummary] = useState<{ id: string; origin: SummaryOrigin | null } | null>(null);
 
-  // Only surfaced when there's something in it — a permanent row explaining a
-  // state you've never been in is clutter.
-  const { data: declined } = useGetDeclinedInvitesQuery();
-  const declinedCount = declined?.entries?.length ?? 0;
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
 
@@ -435,7 +429,7 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
               )}
 
               <View style={styles.searchRow}>
-                <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: SEARCH_EDGE }]}>
                   <Search size={15} color={colors.grey} />
                   <TextInput
                     style={[styles.searchInput, { color: colors.fg }]}
@@ -487,24 +481,6 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
               </View>
 
 
-              {/* The only way back from a decline. It lives here rather than in
-                  settings because it's a fact about groups, and this is the
-                  groups screen — see DeclinedInvitesSheet. */}
-              {declinedCount > 0 && (
-                <TouchableOpacity
-                  style={[styles.declinedRow, { borderColor: colors.border }]}
-                  onPress={() => setDeclinedOpen(true)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Declined invitations"
-                >
-                  <Ban size={14} color={colors.grey} />
-                  <Text style={[styles.declinedText, { color: colors.grey }]}>
-                    {declinedCount} declined invitation{declinedCount !== 1 ? 's' : ''}
-                  </Text>
-                  <Text style={[styles.declinedAction, { color: colors.fg }]}>Manage</Text>
-                </TouchableOpacity>
-              )}
             </View>
           }
           renderItem={({ item }) => (
@@ -527,11 +503,6 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
         groupId={summary?.id ?? null}
         origin={summary?.origin}
         onClose={() => setSummary(null)}
-      />
-
-      <DeclinedInvitesSheet
-        visible={declinedOpen}
-        onClose={() => setDeclinedOpen(false)}
       />
 
       <NewGroupSheet
@@ -609,14 +580,6 @@ const styles = StyleSheet.create({
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
   searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
-  declinedRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: GUTTER, marginBottom: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderRadius: 10, borderWidth: 1,
-  },
-  declinedText:   { flex: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
-  declinedAction: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
 
   // The same 12 gutter as My Groups and the search row above.
   cardRow:  { gap: 8, marginBottom: 8, paddingHorizontal: MY_SECTION_MARGIN },

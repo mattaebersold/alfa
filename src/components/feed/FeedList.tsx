@@ -215,8 +215,8 @@ export default function FeedList({
     likeStates.clear();
     setPage(0);
     // The home feed's header rows ride the same pull — the "played today"
-    // row most of all, which changes all day.
-    if (includeGarageAdditions) dispatch(apiService.util.invalidateTags(['SpotFeed']));
+    // row most of all, which changes all day, and the live-auction banner.
+    if (includeGarageAdditions) dispatch(apiService.util.invalidateTags(['SpotFeed', { type: 'SponsoredAuction', id: 'LIVE' }]));
     // If page is already 0, RTK Query won't re-fetch automatically — force it
     if (page === 0) {
       await refetch();

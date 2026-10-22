@@ -52,5 +52,5 @@ export default function EventImage({
 }
 
 const styles = StyleSheet.create({
-  scrim: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  scrim: { backgroundColor: 'rgba(0,0,0,0.7)' },
 });

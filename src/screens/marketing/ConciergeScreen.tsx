@@ -4,21 +4,23 @@ import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Image } from 'expo-image';
 import { ArrowUpRight, MessageCircle, Images } from 'lucide-react-native';
 import { PageDots } from '../../components/media/PostMediaCarousel';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import Spinner from '../../components/ui/Spinner';
 import { ProductGallery } from '../../components/shop/ProductSummaryModal';
+import { LivePill, AuctionCountdown, useLiveSponsoredAuctions } from '../../components/feed/LiveAuctionBanner';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
-import { useGetConciergeRowsQuery, useGetPublicUserQuery } from '../../api/apiService';
+import { useGetConciergeRowsQuery, useGetPublicUserQuery, useGetPastSponsoredAuctionsQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { imageUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
-import type { ConciergeRow, ConciergeService, ConciergePlatform } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_22, COLOR_WHITE, GUTTER } from '../../constants/config';
+import type { ConciergeRow, ConciergeService, ConciergePlatform, SponsoredAuction } from '../../types/api';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_22, COLOR_GRAY_38, COLOR_GREEN, COLOR_WHITE, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -114,6 +116,97 @@ function RowCard({ row, width }: { row: ConciergeRow; width: number }) {
   );
 }
 
+/** How many past auctions show before "Show all" — the services below stay in reach. */
+const PAST_PREVIEW = 4;
+const PAST_LIMIT = 50;
+const AUCTION_THUMB = 60;
+
+/** "Oct 3, 2026". */
+const endedLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+
+/** "Sold for $48,500", "Bid to $40,000", or nothing without a price. */
+function auctionResult(a: SponsoredAuction): string | null {
+  if (a.price == null || !(a.price > 0)) return null;
+  return a.sold ? `Sold for ${usd(a.price)}` : `Bid to ${usd(a.price)}`;
+}
+
+/**
+ * One of the society's auctions as a line in the results: the cover, the
+ * car, when it ended and how it went — or, for one still running, a LIVE
+ * pill and its clock. Opens the listing.
+ */
+function AuctionRow({ auction, now, live = false }: { auction: SponsoredAuction; now: number; live?: boolean }) {
+  const colors = useColors();
+  const cover = imageUrl(auction.images?.[0]);
+  const result = live ? null : auctionResult(auction);
+  return (
+    <TouchableOpacity
+      style={[styles.auctionRow, { borderColor: live ? 'rgba(236,70,50,0.45)' : colors.borderDark }]}
+      onPress={() => Linking.openURL(auction.url).catch(() => {})}
+      activeOpacity={0.85}
+      accessibilityRole="link"
+    >
+      <View style={styles.auctionThumb}>
+        {cover ? <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
+      </View>
+      <View style={styles.auctionText}>
+        {live && <LivePill style={styles.auctionLive} />}
+        <Text style={[styles.auctionTitle, { color: colors.fg }]} numberOfLines={2}>{auction.title}</Text>
+        {!live && (
+          <Text style={[styles.auctionMeta, { color: colors.muted }]} numberOfLines={1}>
+            Ended {endedLabel(auction.ends_at)}
+          </Text>
+        )}
+        {result ? (
+          <Text style={[styles.auctionResult, { color: auction.sold ? COLOR_GREEN : colors.fg }]} numberOfLines={1}>
+            {result}
+          </Text>
+        ) : null}
+      </View>
+      {live ? (
+        <AuctionCountdown endsAt={auction.ends_at} now={now} />
+      ) : (
+        <ArrowUpRight size={18} color={colors.muted} strokeWidth={2.2} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * The society's own auctions — any running now first, then the past ones,
+ * the latest first. Nothing at all until there's been one.
+ */
+function PastAuctionsSection() {
+  const colors = useColors();
+  const { live, now } = useLiveSponsoredAuctions();
+  const { data } = useGetPastSponsoredAuctionsQuery({ limit: PAST_LIMIT });
+  const [expanded, setExpanded] = useState(false);
+  const past = data?.entries ?? [];
+  if (!live.length && !past.length) return null;
+  const shown = expanded ? past : past.slice(0, PAST_PREVIEW);
+  const hidden = past.length - shown.length;
+  return (
+    <View style={styles.auctions}>
+      <Text style={[styles.sectionTitle, { color: colors.fg }]}>Past ORS auctions</Text>
+      {live.map((a) => <AuctionRow key={a.internal_id} auction={a} now={now} live />)}
+      {shown.map((a) => <AuctionRow key={a.internal_id} auction={a} now={now} />)}
+      {hidden > 0 && (
+        <TouchableOpacity
+          style={[styles.showAll, { borderColor: colors.borderDark }]}
+          onPress={() => setExpanded(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.showAllText, { color: colors.fg }]}>Show all {past.length}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export default function ConciergeScreen() {
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const scrollRef = useRef<ScrollView>(null);
@@ -162,6 +255,11 @@ export default function ConciergeScreen() {
           <MessageCircle size={18} color={contrastText(brand)} strokeWidth={2.4} />
           <Text style={[styles.contactText, { color: contrastText(brand) }]}>Contact us</Text>
         </TouchableOpacity>
+
+        {/* The results, before the services — what the society has already
+            sold is the best case for the rows below, and one live now is the
+            most timely thing on the page. */}
+        <PastAuctionsSection />
 
         {isLoading ? (
           <Spinner />
@@ -212,4 +310,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, height: 38, borderRadius: PILL_RADIUS,
   },
   linkText:   { fontSize: 13, fontFamily: FONT_INTER.bold },
+
+  auctions:     { paddingHorizontal: CARD_MARGIN, paddingTop: 16, paddingBottom: 4, gap: 8 },
+  sectionTitle: { fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24, paddingHorizontal: 8, paddingBottom: 2 },
+  auctionRow:   {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 8, paddingRight: 14,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, backgroundColor: COLOR_GRAY_22,
+  },
+  auctionThumb: {
+    width: AUCTION_THUMB, height: AUCTION_THUMB, borderRadius: COMMON_RADIUS - 4, overflow: 'hidden',
+    backgroundColor: COLOR_GRAY_38,
+  },
+  auctionText:  { flex: 1, minWidth: 0, gap: 2 },
+  auctionLive:  { alignSelf: 'flex-start', marginBottom: 2 },
+  auctionTitle: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.bold },
+  auctionMeta:  { fontSize: 12, lineHeight: 16 },
+  auctionResult: { fontSize: 12.5, lineHeight: 16, fontFamily: FONT_INTER.bold },
+  showAll:      {
+    height: 40, borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  showAllText:  { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

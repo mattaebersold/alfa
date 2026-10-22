@@ -26,7 +26,7 @@ import {
   useCreateCarGalleryShellMutation, useAddCarGalleryImageMutation,
   useRemoveCarGalleryImagesMutation, useUpdateCarGalleryMetaMutation,
   useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation,
-  useGetCarFollowersQuery, useGetCarGroupsQuery, useGetCarsQuery,
+  useGetCarFollowersQuery, useGetCarGroupsQuery, useGetCarsQuery, useGetCarModelsQuery,
   useGetRoutesQuery, useUpdateCarMutation,
   apiService,
   useGetCommentCountQuery,
@@ -51,6 +51,7 @@ import TasksSheet from '../../components/cars/TasksSheet';
 import CarDeleteOptionsModal from '../../components/cars/CarDeleteOptionsModal';
 import TaskProgressPie from '../../components/cars/TaskProgressPie';
 import PostStrip, { PostCard, type PostCardLook } from '../../components/social/PostStrip';
+import SubTabs from '../../components/ui/SubTabs';
 import CarShelf, { ShelfTile, type ShelfCard } from '../../components/cars/CarShelf';
 import TaggedPostsRow from '../../components/cars/TaggedPostsRow';
 import MasonryGrid from '../../components/ui/MasonryGrid';
@@ -119,9 +120,17 @@ const ALBUM_COL_WIDTH = 260;
 // near-square it was at a fixed 380. The album cards and the strip's frame are
 // both sized off this, so they follow it down.
 const GALLERY_HEIGHT = Math.round(HERO_WIDTH * 3 / 4);
+/**
+ * The tallest the strip's main photo may go — 4:5, a portrait phone shot with
+ * a little off each end. At the fixed 4:3 a tall photo lost the roof and the
+ * wheels; much past 4:5 and the strip pushes the car's details off the screen.
+ */
+const STRIP_TALLEST = 4 / 5;
 
 type Sheet = 'mods' | 'gallery' | 'gallery-edit' | null;
-type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherModel' | 'otherMake' | 'tagged' | 'routes' | null;
+type CarPane = 'posts' | 'mods' | 'galleries' | 'followers' | 'groups' | 'otherGen' | 'otherModel' | 'otherMake' | 'tagged' | 'routes' | null;
+/** The panes that list cars — they run flush to the panel's foot. */
+const CAR_PANES = new Set<CarPane>(['otherGen', 'otherModel', 'otherMake']);
 
 // The app's true accent blue (useColors() remaps primaryAlt→gold for pro/admin,
 // so reference the raw token for a consistently-blue Follow button).
@@ -162,10 +171,10 @@ const CAR_TILES: {
 
 // ── Album card ───────────────────────────────────────────────────────────────
 
-function AlbumCard({ album, onPress, onManage }: { album: CarGalleryAlbum; onPress: () => void; onManage?: () => void }) {
+function AlbumCard({ album, onPress, onManage, height }: { album: CarGalleryAlbum; onPress: () => void; onManage?: () => void; /** Half the strip, less the gap — see CarGalleryStrip's stripH. */ height?: number }) {
   const thumb = album.gallery?.[0] ? imageUrl(album.gallery[0].filename) : null;
   return (
-    <TouchableOpacity style={styles.albumCard} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.albumCard, height != null && { height }]} onPress={onPress} activeOpacity={0.85}>
       {thumb
         ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" />
         : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.brgLight }]} />
@@ -226,6 +235,14 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
   const effectiveHero = heroFilename ?? albumHeroFilename;
   const heroUrl = effectiveHero ? imageUrl(effectiveHero) : null;
 
+  /**
+   * The strip's height, from the main photo: as tall as its shape asks, from
+   * the old 4:3 up to STRIP_TALLEST. Wider than 4:3 still fills the 4:3 box —
+   * a wide photo cropped at its ends loses sky, not car. The album cards
+   * beside it take the same height, so the strip stays one even band.
+   */
+  const stripH = Math.round(HERO_WIDTH / Math.min(4 / 3, Math.max(STRIP_TALLEST, heroRatio)));
+
   const albumCols: CarGalleryAlbum[][] = [];
   for (let i = 0; i < albums.length; i += 2) albumCols.push(albums.slice(i, i + 2));
 
@@ -285,11 +302,20 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
       >
         {heroUrl ? (
           <TouchableOpacity
-            style={styles.heroSlide}
+            style={[styles.heroSlide, { height: stripH }]}
             activeOpacity={0.92}
             onPress={() => effectiveHero && setLightbox({ images: [{ filename: effectiveHero }], index: 0 })}
           >
-            <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image
+              source={{ uri: heroUrl }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              onLoad={(e) => {
+                const w = e.source?.width;
+                const h = e.source?.height;
+                if (w && h) setHeroRatio(w / h);
+              }}
+            />
             {onChangeHero && <ChangeHeroButton onPress={onChangeHero} busy={heroBusy} />}
             {heroBadges ? <View style={styles.heroBadges} pointerEvents="none">{heroBadges}</View> : null}
           </TouchableOpacity>
@@ -308,13 +334,14 @@ function CarGalleryStrip({ carId, heroFilename, onAddGallery, onManageAlbum, onO
                 album={album}
                 onPress={() => onOpenAlbum(album)}
                 onManage={onManageAlbum ? () => onManageAlbum(album) : undefined}
+                height={(stripH - 10) / 2}
               />
             ))}
           </View>
         ))}
         {onAddGallery && (
           <TouchableOpacity
-            style={styles.addGalleryCard}
+            style={[styles.addGalleryCard, { height: stripH }]}
             onPress={onAddGallery}
             activeOpacity={0.7}
           >
@@ -544,8 +571,12 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   // Records pane filter — cleared whenever the pane leaves Records.
   const [recordCategory, setRecordCategory] = useState<string | null>(null);
 
+  // "Other <make>" pane's model filter — "All" again whenever the pane changes.
+  const [makeFilter, setMakeFilter] = useState<{ key: string; label: string; model: string; generation?: string } | null>(null);
+
   useEffect(() => {
     if (pane !== 'posts') setRecordCategory(null);
+    if (pane !== 'otherMake') setMakeFilter(null);
   }, [pane]);
   // Single top-level gallery viewer (lightbox). Opening it from inside the
   // galleries pane is deferred until the pane's modal has fully dismissed —
@@ -707,6 +738,55 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
     { skip: !makeQuery },
   );
   const otherMakeCars = (otherMakeData?.entries ?? []).filter((c) => c.internal_id !== carId);
+  // The narrowest of the three: the same generation of the same model — the
+  // other 993s, not every 911. Only for a car that has one set.
+  const generationQuery = car?.generation_handle ?? (car?.generation ? handleize(car.generation) : undefined);
+  const { data: otherGenData } = useGetCarsQuery(
+    { make: makeQuery, model: modelQuery, generation: generationQuery, limit: 24 },
+    { skip: !makeQuery || !modelQuery || !generationQuery },
+  );
+  const otherGenCars = (otherGenData?.entries ?? []).filter((c) => c.internal_id !== carId);
+  /**
+   * How many others there are: the server's total, less this car, which
+   * matches its own make, model and generation. Seen in the page it's
+   * certainly counted; past the page it's assumed to be. Never fewer than
+   * the cars actually shown.
+   */
+  const othersCount = (data: { total?: number; entries?: { internal_id: string }[] } | undefined, shown: number) => {
+    if (!data) return null;
+    const entries = data.entries ?? [];
+    const total = data.total ?? entries.length;
+    const countsSelf = entries.some((c) => c.internal_id === carId) || entries.length < total;
+    return Math.max(shown, countsSelf ? total - 1 : total);
+  };
+
+  /**
+   * The "Other <make>" pane's sub tabs: All, then each of the make's models —
+   * or each generation, for a model that has them — as the make's own page
+   * lays them out, most-owned first. Picking one narrows the list to it.
+   */
+  const { data: makeModels = [] } = useGetCarModelsQuery(car?.make ?? '', { skip: !car?.make || pane !== 'otherMake' });
+  const makeFilters = [...makeModels]
+    .sort((a, b) => b.qty - a.qty || a.model.localeCompare(b.model))
+    .flatMap((m) => (m.generations?.length
+      ? m.generations.map((g) => ({
+        key: `${m.model_handle}-${g.generation_handle}`,
+        // "E30" reads on its own; "Mk2" needs its model.
+        label: g.standalone ? g.generation : `${m.model} ${g.generation}`,
+        model: m.model_handle,
+        generation: g.generation_handle,
+      }))
+      : [{ key: m.model_handle, label: m.model, model: m.model_handle, generation: undefined as string | undefined }]));
+  const { data: filteredMakeData, isFetching: filteringMake } = useGetCarsQuery(
+    { make: makeQuery, model: makeFilter?.model, generation: makeFilter?.generation, limit: 24 },
+    { skip: !makeQuery || !makeFilter },
+  );
+  const makePaneCars = makeFilter
+    ? (filteredMakeData?.entries ?? []).filter((c) => c.internal_id !== carId)
+    : otherMakeCars;
+  const otherGenCount = othersCount(otherGenData, otherGenCars.length);
+  const otherModelCount = othersCount(otherModelData, otherModelCars.length);
+  const otherMakeCount = othersCount(otherMakeData, otherMakeCars.length);
 
   const isOwner = userInfo?.user_id === (car?.user_id ?? '');
   const isCoOwner = userInfo?.user_id === (car?.coowner_id ?? '');
@@ -1207,8 +1287,10 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const shownPane = pane ?? lastPaneRef.current;
 
   const paneTitle =
-    shownPane === 'otherModel'
-      ? `Other ${[car.make, car.model].filter(Boolean).join(' ')}`
+    shownPane === 'otherGen'
+      ? `Other ${[car.make, car.generation].filter(Boolean).join(' ')}s`
+      : shownPane === 'otherModel'
+      ? `Other ${[car.make, car.model].filter(Boolean).join(' ')}s`
       : shownPane === 'otherMake'
       ? `Other ${car.make} cars`
       : shownPane === 'tagged'
@@ -1392,15 +1474,41 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             <Text style={{ flex: 1, color: SHEET_FG, fontSize: 15, fontFamily: FONT_INTER.semibold }}>@{u.username}</Text>
           </TouchableOpacity>
         ));
+      case 'otherGen':
+        if (otherGenCars.length === 0) return <EmptyState title={`No other ${[car.make, car.generation].filter(Boolean).join(' ')}s on the site yet`} />;
+        return otherGenCars.map((c, i) => (
+          <CarPosterCard
+            key={c.internal_id}
+            car={c}
+            showOwner
+            onBeforeNavigate={() => setPane(null)}
+            style={i === otherGenCars.length - 1 ? styles.paneCarLast : undefined}
+          />
+        ));
       case 'otherModel':
         if (otherModelCars.length === 0) return <EmptyState title={`No other ${[car.make, car.model].filter(Boolean).join(' ')} on the site yet`} />;
-        return otherModelCars.map((c) => (
-          <CarPosterCard key={c.internal_id} car={c} showOwner onBeforeNavigate={() => setPane(null)} />
+        return otherModelCars.map((c, i) => (
+          <CarPosterCard
+            key={c.internal_id}
+            car={c}
+            showOwner
+            onBeforeNavigate={() => setPane(null)}
+            style={i === otherModelCars.length - 1 ? styles.paneCarLast : undefined}
+          />
         ));
       case 'otherMake':
-        if (otherMakeCars.length === 0) return <EmptyState title={`No other ${car.make} cars on the site yet`} />;
-        return otherMakeCars.map((c) => (
-          <CarPosterCard key={c.internal_id} car={c} showOwner onBeforeNavigate={() => setPane(null)} />
+        if (makeFilter && filteringMake && makePaneCars.length === 0) return <ActivityIndicator color={colors.grey} style={{ paddingVertical: 30 }} />;
+        if (makePaneCars.length === 0) {
+          return <EmptyState title={makeFilter ? `No other ${makeFilter.label}s on the site yet` : `No other ${car.make} cars on the site yet`} />;
+        }
+        return makePaneCars.map((c, i) => (
+          <CarPosterCard
+            key={c.internal_id}
+            car={c}
+            showOwner
+            onBeforeNavigate={() => setPane(null)}
+            style={i === makePaneCars.length - 1 ? styles.paneCarLast : undefined}
+          />
         ));
       case 'groups':
         if (carGroups.length === 0) return <EmptyState title="Not in any group" />;
@@ -1794,8 +1902,6 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         />
         <CarShelf
           title="Galleries"
-          // The last of the three: room before the tiles below.
-          spaceBelow={26}
           cardWidth={232}
           ruled
           total={albumsData?.total}
@@ -1838,10 +1944,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
               this page, so making them a different shape only implied they
               behaved differently. */}
           <View style={styles.discoverTilesRow}>
-            {car.make ? (
+            {/* Narrowest first: this generation, then the model, then the
+                make. Each with how many others there really are, and gone
+                when there are none — a tile onto "nothing yet" is a dead end. */}
+            {([
+              { key: 'otherGen' as const, show: !!car.generation, label: `Other ${car.make} ${car.generation}s`, count: otherGenCount },
+              { key: 'otherModel' as const, show: !!car.model, label: `Other ${car.make} ${car.model}s`, count: otherModelCount },
+              { key: 'otherMake' as const, show: !!car.make, label: `Other ${car.make}s`, count: otherMakeCount },
+            ]).filter((t) => t.show && t.count !== 0).map((t) => (
               <TouchableOpacity
+                key={t.key}
                 style={[styles.carTile, { backgroundColor: colors.inputBg, borderColor: colors.borderDark }]}
-                onPress={() => setPane('otherMake')}
+                onPress={() => setPane(t.key)}
                 activeOpacity={0.75}
               >
                 <View style={styles.carTileIcon}>
@@ -1849,39 +1963,17 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 </View>
                 <View style={styles.carTileText}>
                   <Text style={[styles.carTileLabel, { color: colors.fg }]} numberOfLines={1}>
-                    Other {car.make}s
+                    {t.label}
                   </Text>
                   <Text style={[styles.carTileCount, { color: colors.grey }]} numberOfLines={1}>
-                    Browse the make
+                    {t.count == null ? ' ' : `${t.count} ${t.count === 1 ? 'car' : 'cars'}`}
                   </Text>
                 </View>
                 <View style={[styles.carTileGo, { backgroundColor: colors.secondary }]}>
                   <ChevronRight size={16} color={colors.fg} />
                 </View>
               </TouchableOpacity>
-            ) : null}
-            {car.model ? (
-              <TouchableOpacity
-                style={[styles.carTile, { backgroundColor: colors.inputBg, borderColor: colors.borderDark }]}
-                onPress={() => setPane('otherModel')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.carTileIcon}>
-                  <Car size={20} color={colors.fg} strokeWidth={2} />
-                </View>
-                <View style={styles.carTileText}>
-                  <Text style={[styles.carTileLabel, { color: colors.fg }]} numberOfLines={1}>
-                    Other {car.make} {car.model}s
-                  </Text>
-                  <Text style={[styles.carTileCount, { color: colors.grey }]} numberOfLines={1}>
-                    Browse the model
-                  </Text>
-                </View>
-                <View style={[styles.carTileGo, { backgroundColor: colors.secondary }]}>
-                  <ChevronRight size={16} color={colors.fg} />
-                </View>
-              </TouchableOpacity>
-            ) : null}
+            ))}
           </View>
         </View>
 
@@ -2182,6 +2274,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         onClosed={handlePaneDismissed}
         minHeightRatio={0.45}
         header={shownPane === 'posts' ? (recordFiltersEl ?? undefined) : (
+          <View>
           <View style={styles.paneHead}>
             <Text style={[styles.paneTitle, { color: SHEET_FG }]} numberOfLines={1}>{paneTitle}</Text>
             {shownNew ? (
@@ -2196,6 +2289,17 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                 <Text style={styles.paneNewText}>{shownNew.label}</Text>
               </TouchableOpacity>
             ) : null}
+          </View>
+          {/* The make's models, to narrow the list by — pinned with the title. */}
+          {shownPane === 'otherMake' && makeFilters.length > 1 ? (
+            <View style={styles.paneTabs}>
+              <SubTabs
+                options={[{ key: '', label: 'All' }, ...makeFilters.map((f) => ({ key: f.key, label: f.label }))]}
+                value={makeFilter?.key ?? ''}
+                onChange={(key) => setMakeFilter(makeFilters.find((f) => f.key === key) ?? null)}
+              />
+            </View>
+          ) : null}
           </View>
         )}
         // Stacked inside the panel's own Modal, so editing layers over the list
@@ -2219,7 +2323,9 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
           </>
         )}
       >
-        <View style={{ paddingBottom: 24 }}>
+        {/* A list of cars runs to the panel's foot — the last card's photo
+            meets the edge rather than floating over a strip of panel. */}
+        <View style={{ paddingBottom: CAR_PANES.has(shownPane as CarPane) ? 0 : 24 }}>
           {renderPane()}
         </View>
       </SummaryModal>
@@ -2582,7 +2688,9 @@ const styles = StyleSheet.create({
   specsValue:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   // 12, to line the tiles up with the specs table and the heading above them —
   // they were the one block on the page still inset at 16.
-  tilesWrap:       { paddingHorizontal: 12, paddingBottom: 20 },
+  // The room above is the tiles' own, not the last shelf's: a shelf with
+  // nothing in it isn't drawn, and its space went with it.
+  tilesWrap:       { paddingHorizontal: 12, paddingTop: 26, paddingBottom: 20 },
   // Full-width rows rather than a two-up grid. Half-width tiles had to shorten
   // their label to fit and had nowhere to say what the number counted — "12"
   // over "Records" instead of "12 records".
@@ -2601,6 +2709,8 @@ const styles = StyleSheet.create({
   // Takes the middle, so the chevron stays pinned right whatever the label.
   carTileText:     { flex: 1, minWidth: 0, gap: 1 },
   carTileLabel:    { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: 0.1 },
+  paneTabs: { paddingBottom: 10 },
+  paneCarLast: { marginBottom: 0 },
   paneHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 8 },
   paneTitle: { flex: 1, fontSize: 18, fontFamily: FONT_INTER.extrabold },
   paneNewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS },

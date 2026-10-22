@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
 import { useGetUserByIdQuery } from '../../api/apiService';
-import { firstGalleryUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import type { GarageCar } from '../../types/api';
@@ -45,7 +45,7 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
 }) {
   const { ratio, onLoad } = usePosterRatio(undefined, OVERLAY_SHAPES);
   const colors = useColors();
-  const hero = firstGalleryUrl(item.gallery) ?? (item.profile_image ? `https://partstash-ghia-images.s3.us-west-2.amazonaws.com/${item.profile_image}` : null);
+  const hero = carHeroUrl(item);
   const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
   const ymm = [item.year, item.make, item.model].filter(Boolean).join(' ');
   // The owner's name for it leads, with what it is underneath. A car with no

@@ -26,6 +26,9 @@ export default function SummaryUserRow({
   avatarSize = 34,
   badge,
   style,
+  at = true,
+  edge = true,
+  viewButton = true,
 }: {
   userId: string;
   user?: AvatarUser;
@@ -35,6 +38,12 @@ export default function SummaryUserRow({
   badge?: React.ReactNode;
   /** Borders and spacing, which differ with the list the row is in. */
   style?: StyleProp<ViewStyle>;
+  /** The handle with its "@". Off where the list reads as names, not handles. */
+  at?: boolean;
+  /** The avatar's 1pt edge — see Avatar's `edge`. */
+  edge?: boolean;
+  /** The View button. Off where the row alone is enough of a target. */
+  viewButton?: boolean;
 }) {
   const colors = useColors();
   const rowRef = useRef<View>(null);
@@ -53,11 +62,12 @@ export default function SummaryUserRow({
       accessibilityRole="button"
       accessibilityLabel={username ? `View @${username}` : 'View member'}
     >
-      <Avatar user={user} size={avatarSize} />
+      <Avatar user={user} size={avatarSize} edge={edge} />
       <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>
-        @{username ?? 'member'}
+        {at ? '@' : ''}{username ?? 'member'}
       </Text>
       {badge}
+      {viewButton && (
       <TouchableOpacity
         style={styles.viewBtn}
         onPress={open}
@@ -70,6 +80,7 @@ export default function SummaryUserRow({
       >
         <Text style={styles.viewText}>View</Text>
       </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }

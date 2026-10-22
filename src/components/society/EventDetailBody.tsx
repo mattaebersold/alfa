@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import {
-  View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, ActivityIndicator, Alert,
+  View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, Alert,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import { useNavigation } from '@react-navigation/native';
-import { Clock, Repeat, MapPin, Check, Plus, CalendarPlus, MoreHorizontal } from 'lucide-react-native';
+import { Repeat, MapPin, UserPlus, UserCheck, CalendarPlus, Settings, Pencil, Trash2 } from 'lucide-react-native';
+import { useEventInterest } from './ExpandableEventCard';
 import Avatar from '../ui/Avatar';
+import ActionSheet from '../ui/ActionSheet';
+import { PANE_GRABBER_H } from '../ui/SharedModal';
 import CheckeredFlag from '../ui/CheckeredFlag';
 import InlineComments from '../social/InlineComments';
 import Spinner from '../ui/Spinner';
@@ -15,7 +18,6 @@ import {
   useGetSocietyEventQuery,
   useGetEventInterestedUsersQuery,
   useGetEventTaggedPostsQuery,
-  useToggleEventInterestMutation,
   useDeleteSocietyEventMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -23,34 +25,50 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { categoryFor, formatTime, occurrenceDate, ORS_EVENT_COLOR } from '../../constants/eventTypes';
+import { categoryFor, formatTime, occurrenceDate, toDayKey, ORS_EVENT_COLOR, isOrsEvent } from '../../constants/eventTypes';
 import EventDateBadge from './EventDateBadge';
 import EventImage from './EventImage';
 import { googleCalendarUrl } from '../../utils/calendarLinks';
+import { openInMaps } from '../../utils/openInMaps';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import type { SocietyEvent, User } from '../../types/api';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Three tiles across the padded section, so a fourth peeks from the slider.
 const POST_TILE = (SCREEN_WIDTH - 32 - 16) / 3;
+/** The poster's width in the head, beside the title. */
+const HEAD_PHOTO_W = 112;
 
-/** Time / repeats block beside the date badge. */
-function InfoTile({ icon: Icon, label, value, large }: { icon: any; label: string; value?: string | null; large?: boolean }) {
+
+/**
+ * Members attending this date — every face, wrapping, each to its profile.
+ * The Attend button is in the pane's foot.
+ */
+function MembersAttending({ users, onPressUser }: {
+  users: User[];
+  onPressUser: (user: User) => void;
+}) {
   const colors = useColors();
-  if (!value) return null;
   return (
-    <View style={{ flexShrink: 1 }}>
-      <View style={styles.tileHead}>
-        <Icon size={11} color={colors.grey} />
-        <Text style={[styles.tileLabel, { color: colors.grey }]}>{label}</Text>
-      </View>
-      <Text
-        style={[large ? styles.tileValueLarge : styles.tileValue, { color: colors.fg }]}
-        numberOfLines={2}
-      >
-        {value}
-      </Text>
+    <View style={styles.membersBlock}>
+      <Text style={[styles.sectionTitle, styles.membersTitle, { color: colors.fg }]}>Members attending</Text>
+      {users.length === 0 ? (
+        <Text style={[styles.quiet, { color: colors.grey }]}>No one yet — be the first.</Text>
+      ) : (
+        <View style={styles.avatarRow}>
+          {users.map((user) => (
+            <TouchableOpacity
+              key={user.user_id}
+              onPress={() => onPressUser(user)}
+              accessibilityLabel={user.username}
+            >
+              <Avatar user={user} size={44} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -67,10 +85,16 @@ export function EventDetailBody({
   occurrenceDate: clickedDate,
   topInset = 12,
   onNavigateAway,
+  fullBleed = false,
 }: {
   eventId: string;
   occurrenceDate?: string;
   topInset?: number;
+  /**
+   * In the pane, which has no title row of its own (the title is in the
+   * head): start just under its floating grabber.
+   */
+  fullBleed?: boolean;
   onNavigateAway?: () => void;
 }) {
   const colors = useColors();
@@ -82,9 +106,13 @@ export function EventDetailBody({
    * stand-in, which has no shape of its own worth taking.
    */
   const [heroRatio, setHeroRatio] = useState(4 / 3);
+  /** The owner's cog menu. */
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const { data: event, isLoading } = useGetSocietyEventQuery(eventId);
-  const { data: interestedData } = useGetEventInterestedUsersQuery(eventId);
+  // Answered for the date it was opened on — attending is per occurrence.
+  const day = clickedDate ? toDayKey(clickedDate) : undefined;
+  const { data: event, isLoading } = useGetSocietyEventQuery({ id: eventId, day });
+  const { data: interestedData } = useGetEventInterestedUsersQuery({ id: eventId, day });
   const { data: taggedData } = useGetEventTaggedPostsQuery(eventId);
 
   if (isLoading || !event) return <Spinner />;
@@ -111,42 +139,27 @@ export function EventDetailBody({
    */
   const isOwner = !!userInfo && userInfo.user_id === event.user_id;
   /** The member who made it — not shown for the club's own (admin) events. */
-  const organizer = event.user?.username && event.user.accountType !== 'admin' ? event.user : null;
   const canEdit = isOwner || (!!userInfo && userInfo.user_id === (event as any).coowner_id);
 
-  const handleOptions = () => {
-    Alert.alert(event.title ?? 'Event', undefined, [
-      {
-        text: 'Edit event',
-        onPress: () => {
-          onNavigateAway?.();
-          (nav as any).navigate('SocietyEventCreate', { eventId });
-        },
-      },
-      // Deleting is the owner's alone — a co-owner who can edit still can't
-      // remove somebody else's event out from under them.
-      ...(isOwner ? [{
-        text: 'Delete event',
-        style: 'destructive' as const,
-        onPress: () => Alert.alert('Delete event', "This can't be undone.", [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteEvent(eventId).unwrap();
-                onNavigateAway?.();
-              } catch {
-                Alert.alert('Error', 'Could not delete this event.');
-              }
-            },
-          },
-        ]),
-      }] : []),
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const onEdit = () => {
+    onNavigateAway?.();
+    (nav as any).navigate('SocietyEventCreate', { eventId });
   };
+  const onDelete = () => Alert.alert('Delete event', "This can't be undone.", [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Delete',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          await deleteEvent(eventId).unwrap();
+          onNavigateAway?.();
+        } catch {
+          Alert.alert('Error', 'Could not delete this event.');
+        }
+      },
+    },
+  ]);
 
   // Leaving for another screen closes whatever surface this is inside.
   const go = (screen: string, params: object) => {
@@ -154,128 +167,107 @@ export function EventDetailBody({
     (nav as any).navigate(screen, params);
   };
 
-  const openMap = () => {
-    const query = event.location_lat && event.location_lng
-      ? `${event.location_lat},${event.location_lng}`
-      : encodeURIComponent(event.location ?? '');
-    Linking.openURL(`https://maps.google.com/?q=${query}`);
-  };
+  const openMap = () => openInMaps(event);
 
   return (
     <>
-      {/* Hero — the poster whole, at its own shape, as a rounded card inset
-          from the edges. It used to run edge to edge, cropped to 4:3 with
-          the title laid over its lower half: a tall flyer lost its date and
-          the title fought whatever was under it. Now the picture is the
-          picture and the title sits beneath it on solid colour. */}
-      <View
-        style={[
-          styles.hero,
-          { aspectRatio: heroRatio, marginTop: headerPad, backgroundColor: colors.segment },
-        ]}
-      >
-        <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={setHeroRatio} />
-        <View style={[styles.categoryBadge, { backgroundColor: category.color }]}>
-          <Text style={styles.categoryText}>{category.label}</Text>
-        </View>
-
-        {canEdit && (
+      {/* Your own event's controls — a cog in the pane's top right, opening
+          the same kind of menu as every other cog: edit, and (the owner's
+          alone — a co-owner who can edit can't remove it) delete. */}
+      {canEdit && (
+        <>
           <TouchableOpacity
-            style={styles.optionsBtn}
-            onPress={handleOptions}
+            style={[styles.cog, { top: fullBleed ? 10 : headerPad }]}
+            onPress={() => setMenuOpen(true)}
             hitSlop={8}
+            activeOpacity={0.8}
+            accessibilityRole="button"
             accessibilityLabel="Event options"
           >
-            <MoreHorizontal size={20} color={COLOR_WHITE} />
+            <Settings size={19} color={COLOR_WHITE} strokeWidth={2.2} />
           </TouchableOpacity>
-        )}
-      </View>
+          <ActionSheet
+            visible={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            title="Your event"
+            options={[
+              { label: 'Edit event', Icon: Pencil, onPress: onEdit },
+              ...(isOwner ? [{ label: 'Delete event', Icon: Trash2, destructive: true, onPress: onDelete }] : []),
+            ]}
+          />
+        </>
+      )}
 
-      <Text style={[styles.heroTitle, { color: colors.fg }]} numberOfLines={3}>{event.title}</Text>
+      {/* The head, laid out like the event cards: the poster small and
+          rounded on the left (none at all when there isn't one), the category,
+          the options and the title beside it. */}
+      <View style={[styles.head, { marginTop: fullBleed ? PANE_GRABBER_H + 16 : headerPad + 12 }]}>
+        {hero ? (
+          <View
+            style={[
+              styles.headPhoto,
+              // Its own shape, kept between a short landscape and a square-ish portrait.
+              { height: HEAD_PHOTO_W / Math.min(Math.max(heroRatio, 0.8), 1.6), backgroundColor: colors.segment },
+            ]}
+          >
+            <EventImage uri={hero} style={StyleSheet.absoluteFill} onAspectRatio={setHeroRatio} />
+          </View>
+        ) : null}
+        <View style={styles.headText}>
+          <View style={styles.headTop}>
+            <View style={[styles.categoryInline, { backgroundColor: category.color }]}>
+              <Text style={styles.categoryText}>{category.label}</Text>
+            </View>
+          </View>
+          <Text style={[styles.heroTitle, { color: COLOR_WHITE }]} numberOfLines={4}>{event.title}</Text>
+        </View>
+      </View>
 
       {/* Sponsorship banner — under the title, so it frames the event rather
           than reading as one more attribute of it. */}
-      {event.ors_sponsored && (
+      {isOrsEvent(event) && (
         <View style={[styles.orsBanner, { backgroundColor: ORS_EVENT_COLOR }]}>
           <CheckeredFlag size={14} color={COLOR_BLACK} />
-          <Text style={styles.orsBannerText}>ORS Sponsored Event</Text>
+          <Text style={styles.orsBannerText}>
+            {event.ors_sponsored ? 'ORS Sponsored Event' : 'ORS will be attending'}
+          </Text>
         </View>
       )}
 
+      {/* A rule between the head and the when. */}
+      <View style={[styles.rule, { backgroundColor: colors.border }]} />
+
       <View style={styles.tiles}>
         <EventDateBadge date={shownDate} />
-        <InfoTile icon={Clock} label="Time" value={formatTime(event.start_time)} large />
-        {event.frequency !== 'single' && (
-          <InfoTile icon={Repeat} label="Repeats" value={event.schedule_label} />
-        )}
-      </View>
-
-      {shownDate ? (
-        <TouchableOpacity
-          style={[styles.calendarBtn, { backgroundColor: colors.card }]}
-          onPress={() => {
-            const url = googleCalendarUrl(event, shownDate);
-            if (url) Linking.openURL(url);
-          }}
-          activeOpacity={0.85}
-        >
-          <CalendarPlus size={15} color={colors.fg} />
-          <Text style={[styles.calendarBtnText, { color: colors.fg }]}>Add to Calendar</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={styles.section}>
-        {/* Who put this on, when it's a member rather than the club. An
-            admin-made event is the society's own, and a face on it would read
-            as one person's meet. Tapping goes to their profile. */}
-        {organizer && (
-          <TouchableOpacity
-            style={styles.organizerRow}
-            onPress={() => go('UserDetail', { userId: organizer.user_id, username: organizer.username })}
-            activeOpacity={0.75}
-          >
-            <Avatar user={organizer} size={40} />
-            <View style={styles.organizerText}>
-              <Text style={[styles.organizerLabel, { color: colors.grey }]}>Organizer</Text>
-              <Text style={[styles.organizerHandle, { color: colors.fg }]} numberOfLines={1}>
-                @{organizer.username}
+        <View style={styles.whenText}>
+          {formatTime(event.start_time) ? (
+            <Text style={[styles.timeText, { color: colors.fg }]} numberOfLines={1}>
+              {formatTime(event.start_time)}
+            </Text>
+          ) : null}
+          {/* How often, as on the cards: the icon in a dark circle, the words bold. */}
+          {event.frequency !== 'single' && event.schedule_label ? (
+            <View style={styles.repeatRow}>
+              <View style={[styles.repeatDot, { backgroundColor: colors.bg }]}>
+                <Repeat size={13} color={colors.fg} strokeWidth={2.4} />
+              </View>
+              <Text style={[styles.repeatText, { color: colors.fg }]} numberOfLines={2}>
+                {event.schedule_label}
               </Text>
             </View>
-          </TouchableOpacity>
-        )}
+          ) : null}
+        </View>
+      </View>
 
-        {event.event_organizer ? (
-          <Text style={[styles.quiet, { color: colors.grey }]}>
-            Organized by {event.event_organizer}
-          </Text>
-        ) : null}
+
+      <View style={styles.section}>
 
         {/* Description */}
         {event.body ? (
           <Text style={[styles.body, { color: colors.muted }]}>{stripHtml(event.body)}</Text>
         ) : null}
 
-        {/* Who's interested */}
-        {/* Who's interested — the avatars speak for themselves */}
-        {interested.length === 0 ? null : (
-          <View style={styles.avatarRow}>
-            {interested.slice(0, 12).map((user) => (
-              <TouchableOpacity
-                key={user.user_id}
-                onPress={() => go('UserDetail', { userId: user.user_id, username: user.username })}
-              >
-                <Avatar user={user} size={54} />
-              </TouchableOpacity>
-            ))}
-            {(interestedData?.total ?? 0) > 12 && (
-              <Text style={[styles.quiet, { color: colors.grey }]}>
-                +{(interestedData?.total ?? 0) - 12}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Location — a static map preview that opens the maps app */}
+        {/* Location — tap the address for the maps app */}
         {event.location ? (
           <>
             <Text style={[styles.sectionTitle, { color: colors.fg }]}>Location</Text>
@@ -283,25 +275,17 @@ export function EventDetailBody({
               <MapPin size={14} color={colors.grey} />
               <Text style={[styles.locationText, { color: colors.fg }]}>{event.location}</Text>
             </TouchableOpacity>
-            {event.location_lat && event.location_lng ? (
-              <TouchableOpacity onPress={openMap} activeOpacity={0.9}>
-                <Image
-                  source={{
-                    uri: `https://maps.googleapis.com/maps/api/staticmap?center=${event.location_lat},${event.location_lng}` +
-                      `&zoom=14&size=640x320&scale=2&maptype=roadmap` +
-                      `&markers=color:red%7C${event.location_lat},${event.location_lng}` +
-                      `&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? ''}`,
-                  }}
-                  style={styles.map}
-                  contentFit="cover"
-                />
-              </TouchableOpacity>
-            ) : null}
           </>
         ) : null}
 
+        {/* Who's going on this date, close under where */}
+        <MembersAttending
+          users={interested}
+          onPressUser={(user) => go('UserDetail', { userId: user.user_id, username: user.username })}
+        />
+
         {/* Posts tagged with this event — most recent first, as a slider */}
-        <Text style={[styles.sectionTitle, { color: colors.fg }]}>Posts from this event</Text>
+        <Text style={[styles.sectionTitle, styles.postsTitle, { color: colors.fg }]}>Posts from this event</Text>
         {taggedPosts.length === 0 ? (
           <EmptyState title="No posts tagged yet" />
         ) : (
@@ -345,58 +329,86 @@ export function EventDetailBody({
   );
 }
 
-/** The Interested toggle — pinned by the caller, above the content. */
-export function EventInterestBar({ eventId }: { eventId: string }) {
+/**
+ * The pane's foot, pinned by the caller below the content: Attend and Add to
+ * Calendar, side by side as pills. Attend is for the date the pane was
+ * opened on.
+ */
+export function EventInterestBar({ eventId, occurrenceDate: clickedDate }: {
+  eventId: string;
+  /** The occurrence being looked at — what Attend and Add to Calendar act on. */
+  occurrenceDate?: string;
+}) {
   const colors = useColors();
-  const brand = useBrandColor();
-  const { data: event } = useGetSocietyEventQuery(eventId);
-  const [toggleInterest, { isLoading: toggling }] = useToggleEventInterestMutation();
-
+  const day = clickedDate ? toDayKey(clickedDate) : undefined;
+  const { data: event } = useGetSocietyEventQuery({ id: eventId, day });
   if (!event) return null;
+  return <EventFoot event={event} clickedDate={clickedDate} colors={colors} />;
+}
+
+function EventFoot({ event, clickedDate, colors }: {
+  event: SocietyEvent;
+  clickedDate?: string;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const brand = useBrandColor();
+  const shownDate = clickedDate || occurrenceDate(event);
+  const { interested, onToggle, busy } = useEventInterest(event, shownDate);
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.interestBtn,
-        event.is_interested ? { backgroundColor: brand } : { backgroundColor: colors.card },
-        toggling && { opacity: 0.6 },
-      ]}
-      onPress={() => toggleInterest(eventId)}
-      disabled={toggling}
-      activeOpacity={0.85}
-    >
-      {toggling
-        ? <ActivityIndicator size="small" color={event.is_interested ? COLOR_BLACK : colors.fg} />
-        : event.is_interested ? <Check size={17} color={COLOR_BLACK} /> : <Plus size={17} color={colors.fg} />}
-      <Text style={[styles.interestText, { color: event.is_interested ? COLOR_BLACK : colors.fg }]}>
-        {event.is_interested ? 'Interested' : "I'm Interested"}
-      </Text>
-    </TouchableOpacity>
+    <View style={styles.footRow}>
+      <TouchableOpacity
+        style={[
+          styles.footPill,
+          { backgroundColor: interested ? brand : colors.card },
+          busy && { opacity: 0.6 },
+        ]}
+        onPress={onToggle}
+        disabled={busy}
+        activeOpacity={0.85}
+        accessibilityState={{ selected: interested }}
+      >
+        {interested
+          ? <UserCheck size={17} color={COLOR_BLACK} strokeWidth={2.6} />
+          : <UserPlus size={17} color={colors.fg} strokeWidth={2.6} />}
+        <Text style={[styles.footText, { color: interested ? COLOR_BLACK : colors.fg }]}>
+          {interested ? 'Attending' : 'Attend'}
+        </Text>
+      </TouchableOpacity>
+      {shownDate ? (
+        <TouchableOpacity
+          style={[styles.footPill, { backgroundColor: colors.card }]}
+          onPress={() => {
+            const url = googleCalendarUrl(event, shownDate);
+            if (url) Linking.openURL(url);
+          }}
+          activeOpacity={0.85}
+        >
+          <CalendarPlus size={16} color={colors.fg} />
+          <Text style={[styles.footText, { color: colors.fg }]}>Add to Calendar</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // aspectRatio and marginTop are set inline — the poster's own shape, and
-  // clearance for a floating header on the screen route.
-  hero: { marginHorizontal: 16, borderRadius: 16, overflow: 'hidden' },
+  // marginTop is set inline — clearance for the grabber, or a floating header.
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingHorizontal: 16 },
+  headPhoto: { width: HEAD_PHOTO_W, borderRadius: 12, overflow: 'hidden' },
+  headText: { flex: 1, minWidth: 0, gap: 6 },
+  headTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  categoryInline: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  // Over the pane's top-right corner, clear of the grabber in the middle.
+  cog: {
+    position: 'absolute', right: 12, zIndex: 4,
+    width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
+  },
   comments: { marginTop: 8, marginHorizontal: -16 },
-  optionsBtn: {
-    position: 'absolute', right: 10, top: 10,
-    width: 36, height: 36, borderRadius: COMMON_RADIUS,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  categoryBadge: {
-    position: 'absolute', left: 10, top: 10,
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999,
-  },
   categoryText: {
     fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
-  heroTitle: {
-    fontSize: 26, fontFamily: FONT_INTER.bold,
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, letterSpacing: -0.5,
-  },
+  heroTitle: { fontSize: 21, lineHeight: 25, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
 
   orsBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -407,32 +419,29 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.8,
   },
 
-  tiles: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, marginTop: 6 },
+  rule: { height: StyleSheet.hairlineWidth, marginHorizontal: 16, marginTop: 18 },
+  tiles: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, marginTop: 16 },
+  whenText: { flex: 1, minWidth: 0, gap: 8 },
+  // One line, AM/PM and all.
+  timeText: { fontSize: 17, fontFamily: FONT_INTER.bold },
+  repeatRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  repeatDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  repeatText: { flexShrink: 1, fontSize: 13.5, fontFamily: FONT_INTER.bold },
 
-  tileHead:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tileLabel: { fontSize: 9, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.4 },
-  tileValue: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
-  tileValueLarge: { fontSize: 20, fontFamily: FONT_INTER.bold },
 
-  calendarBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    marginHorizontal: 16, marginTop: 16, height: 44, borderRadius: COMMON_RADIUS,
-  },
-  calendarBtnText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
 
   section: { paddingHorizontal: 16, paddingTop: 24, gap: 12 },
   body:      { fontSize: 15, lineHeight: 22 },
   sectionTitle: { fontSize: 18, fontFamily: FONT_INTER.bold, marginTop: 10 },
-  quiet:     { fontSize: 13, fontStyle: 'italic' },
-  avatarRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  organizerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start' },
-  organizerText: { flexShrink: 1 },
-  organizerLabel: { fontSize: 11, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, textTransform: 'uppercase' },
-  organizerHandle: { fontSize: 15, fontFamily: FONT_INTER.bold, marginTop: 1 },
+  // A step down from the location; a clear break before the posts.
+  membersBlock: { gap: 10, marginTop: 10 },
+  avatarRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  quiet: { fontSize: 13, fontStyle: 'italic' },
+  membersTitle: { marginTop: 0 },
+  postsTitle: { marginTop: 22 },
 
   locationRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
   locationText: { fontSize: 14, flex: 1 },
-  map: { width: '100%', height: 130, borderRadius: 12 },
 
   postRowOuter: { marginHorizontal: -16 },
   postRow:      { paddingLeft: 16, gap: 8 },
@@ -442,9 +451,10 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  interestBtn: {
-    height: 50, borderRadius: COMMON_RADIUS,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+  footRow: { flexDirection: 'row', gap: 8 },
+  footPill: {
+    flex: 1, height: 48, borderRadius: PILL_RADIUS,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
   },
-  interestText: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
+  footText: { fontSize: 14.5, fontFamily: FONT_INTER.extrabold },
 });

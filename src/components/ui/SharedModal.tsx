@@ -5,6 +5,7 @@ import {
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost, KeyboardHandledAbove } from '@ors/kit';
 import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
@@ -15,6 +16,32 @@ const SHEET_BG = COLOR_GRAY_22;
 // separate bar stuck on top of the sheet rather than part of it. One ground,
 // with a hairline to mark the edge.
 const SHEET_HEADER_BG = SHEET_BG;
+/** A pane's side padding — the header's, and what its content should use. */
+export const PANE_GUTTER = 12;
+/**
+ * The grabber strip's height. A pane with no title row (`hideHeader`) has it
+ * float over its content, so the content starts at the sheet's top edge — its
+ * scroller pads its top by this to start clear of it.
+ */
+export const PANE_GRABBER_H = 24;
+/** How tall the fade under a pane's head is — see headSeam. */
+const HEAD_FADE_H = 36;
+/** The fade under a floating grabber — taller, as it lies over a photo. */
+const FLOAT_FADE_H = 64;
+/**
+ * The fades' alpha down their height, eased rather than straight: a linear
+ * ramp ends on a visible edge, these thin out into nothing.
+ */
+const FADE_STOPS = [0.75, 0.5, 0.25, 0.08, 0];
+const FADE_LOCATIONS = [0, 0.25, 0.5, 0.75, 1] as const;
+const fadeColors = (bg: string) =>
+  FADE_STOPS.map((a) => withAlpha(bg, a)) as unknown as readonly [string, string, ...string[]];
+/**
+ * `bg` at `alpha` (0–1) — so a fade to nothing stays the sheet's colour and
+ * doesn't pass through grey. `#rrggbb` only; anything else fades from clear.
+ */
+const withAlpha = (bg: string, alpha: number) =>
+  /^#[0-9a-f]{6}$/i.test(bg) ? `${bg}${Math.round(alpha * 255).toString(16).padStart(2, '0')}` : 'transparent';
 
 /** How far down a drag has to go before release dismisses rather than snaps back. */
 const DISMISS_DISTANCE = 90;
@@ -77,6 +104,8 @@ interface SharedModalProps {
    * spacer under it — the content pads its own foot for the device's UI.
    */
   edgeToEdge?: boolean;
+  /** The fade under the title row — off where something pinned sits right under it. */
+  headFade?: boolean;
   children: React.ReactNode;
 }
 
@@ -86,7 +115,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, hideHeader = false, edgeToEdge = false, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, hideHeader = false, edgeToEdge = false, headFade = true, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -159,9 +188,10 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           layer of its own for lists that float over the sheet (autocompletes). */}
       <PortalHost>
       <View style={styles.fill}>
-        {/* A dark grey, translucent scrim that fades with the sheet. No blur:
-            a blur can't fade and either popped in or cost the whole open. */}
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(20,20,20,0.7)', opacity: overlayOpacity }]} pointerEvents="none" />
+        {/* A near-black scrim that fades with the sheet — dark enough that the
+            sheet stands off the screen behind it. No blur: a blur can't fade
+            and either popped in or cost the whole open. */}
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.85)', opacity: overlayOpacity }]} pointerEvents="none" />
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         {/* The sheet rides on the keyboard: this fills the screen below the
             status bar and shrinks by the keyboard's height (kit's
@@ -190,10 +220,25 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
         >
           {/* No status-bar padding of its own: the stack's top padding already
               keeps every sheet, full-height included, clear of it. */}
-          <View {...panResponder.panHandlers}>
+          {/* Without a title row the grabber floats over the content, on a
+              fade rather than a solid strip, and the content scrolls up under
+              it — see PANE_GRABBER_H. With one, it heads the title row. */}
+          <View {...panResponder.panHandlers} style={hideHeader ? styles.grabberFloat : undefined}>
+            {hideHeader ? (
+              <LinearGradient
+                colors={fadeColors(surface ?? SHEET_BG)}
+                locations={FADE_LOCATIONS}
+                style={styles.floatFade}
+                pointerEvents="none"
+              />
+            ) : null}
             {/* Tap it or drag it down — both close. */}
-            <Pressable onPress={onClose} style={[styles.grabberHit, surface != null && { backgroundColor: surface }]} hitSlop={6}>
-              <View style={styles.grabber} />
+            <Pressable
+              onPress={onClose}
+              style={[styles.grabberHit, hideHeader ? styles.grabberClear : surface != null && { backgroundColor: surface }]}
+              hitSlop={6}
+            >
+              <View style={[styles.grabber, hideHeader && styles.grabberOver]} />
             </Pressable>
             {hideHeader ? null : (
             <View style={[styles.header, surface != null && { backgroundColor: surface }]}>
@@ -211,6 +256,18 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           </View>
           {/* The sheet has already shrunk for the keyboard: a FormScrollView
               inside adds no keyboard space of its own. */}
+          {/* Content scrolling up under the title row fades into it rather
+              than being sliced off on a hard line. Over the content — zIndex,
+              as it comes first. */}
+          {hideHeader || !headFade ? null : (
+            <View style={styles.headSeam} pointerEvents="none">
+              <LinearGradient
+                colors={fadeColors(surface ?? SHEET_BG)}
+                locations={FADE_LOCATIONS}
+                style={styles.headFade}
+              />
+            </View>
+          )}
           <KeyboardHandledAbove>{children}</KeyboardHandledAbove>
           {/* The home indicator's clearance, only while the keyboard is down —
               with it up, the keyboard covers that strip. A spacer that
@@ -265,17 +322,31 @@ const styles = StyleSheet.create({
     alignItems: 'center', paddingTop: 10, paddingBottom: 10,
     backgroundColor: SHEET_HEADER_BG,
   },
+  grabberFloat: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, elevation: 3 },
+  // Past the grabber's own strip, so it diffuses well into the content.
+  floatFade: { position: 'absolute', top: 0, left: 0, right: 0, height: FLOAT_FADE_H },
+  grabberClear: { backgroundColor: 'transparent' },
+  // Bigger and brighter than it was — at 38×4 and 28% it all but vanished.
   grabber: {
-    width: 38, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    width: 44, height: 5, borderRadius: 2.5,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  // Floating over content, maybe a bright photo: near-white, with a shadow to
+  // lift it off whatever's under it.
+  grabberOver: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
+    elevation: 4,
   },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 0, paddingBottom: 10,
+    paddingHorizontal: PANE_GUTTER, paddingTop: 0, paddingBottom: 10,
     backgroundColor: SHEET_HEADER_BG,
     // No rule under it: the header shares the sheet's ground now, so a line
     // only redraws a seam the colour change already removed.
   },
+  headSeam: { height: 0, zIndex: 2, elevation: 2 },
+  headFade: { position: 'absolute', left: 0, right: 0, top: 0, height: HEAD_FADE_H },
   title:       { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

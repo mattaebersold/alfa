@@ -5,6 +5,7 @@ import {
 import { Text } from '@ors/kit';
 import { Image } from 'expo-image';
 import UserSummaryModal from '../members/UserSummaryModal';
+import Avatar from '../ui/Avatar';
 import CarSummaryModal from '../cars/CarSummaryModal';
 import GroupSummaryModal from '../groups/GroupSummaryModal';
 import { useEventSheet } from '../../providers/EventSheetProvider';
@@ -18,7 +19,7 @@ import {
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
-import { imageUrl, firstGalleryUrl } from '../../utils/image';
+import { firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import type { Post } from '../../types/api';
 import { PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_11 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
@@ -29,16 +30,17 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const GUTTER = 6;
 const GAP = 6;
 /** A tile's height, and the side of the square picture that fills its left end. */
-const TILE_H = 58;
+const TILE_H = 44;
 
 /**
  * How wide each tile is, given how many there are — or undefined to share the
  * row evenly.
  *
- * One or two share the row's width, however wide the card is, so the inset
- * is the same on both sides: one alone runs the full width. (Sized off the
- * screen they ran past the card's right edge once the feed gave cards a side
- * margin.) Past two the row genuinely scrolls, and the tiles go narrower than
+ * Two share the row's width, however wide the card is, so the inset is the
+ * same on both sides. One alone sizes to its name instead (see `solo`) —
+ * running the full width made a single tag the loudest thing on the card.
+ * (Sized off the screen they ran past the card's right edge once the feed gave
+ * cards a side margin.) Past two the row genuinely scrolls, and the tiles go narrower than
  * half so the next one is visibly cut off by the edge — the peek is the only
  * thing that says there is more.
  */
@@ -76,14 +78,18 @@ const KIND_ICON = {
  * of a phone's width a badge and a name on one line leave the name about four
  * characters, and the name is the half that matters.
  */
-function Tile({ kind, name, image, width, compact, onPress }: {
+function Tile({ kind, name, image, picture, width, compact, solo, onPress }: {
   kind: Kind;
   name: string;
   image?: string | null;
+  /** Drawn in the picture's square instead of `image` — a member's avatar. */
+  picture?: React.ReactNode;
   /** Undefined: take an even share of the row (see tileWidth). */
   width?: DimensionValue;
   /** Sharing the row with others: the name goes smaller and bolder to fit. */
   compact?: boolean;
+  /** Alone in the row: as wide as its name, capped, rather than the full width. */
+  solo?: boolean;
   onPress: (origin: SummaryOrigin | null) => void;
 }) {
   const c = useColors();
@@ -95,19 +101,26 @@ function Tile({ kind, name, image, width, compact, onPress }: {
     // press handler so the panel it opens can grow out of this tile rather
     // than appearing from nowhere.
     <SummaryTouchable
-      style={[styles.tile, width != null ? { width } : styles.tileShare]}
+      style={[styles.tile, solo ? styles.tileSolo : width != null ? { width } : styles.tileShare]}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityLabel={`${badge.label}: ${name}`}
     >
-      {image ? (
-        <Image source={{ uri: image }} style={styles.thumb} contentFit="cover" />
+      {picture ? (
+        <View style={[styles.thumb, styles.pictureClip]}>{picture}</View>
+      ) : image ? (
+        // Clipped by a frame rather than rounded itself: an image given
+        // per-corner radii can draw stretched to its box instead of cropped
+        // to it, which squashed a wide car photo into the square.
+        <View style={[styles.thumb, styles.pictureClip]}>
+          <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        </View>
       ) : (
         <View style={[styles.thumb, styles.blank, { backgroundColor: c.segment }]}>
-          <Icon size={18} color={c.grey} />
+          <Icon size={16} color={c.grey} />
         </View>
       )}
-      <View style={styles.body}>
+      <View style={[styles.body, solo && styles.bodySolo]}>
         <View style={[styles.badge, { backgroundColor: badge.bg }]}>
           <Text style={styles.badgeText}>{badge.label}</Text>
         </View>
@@ -122,9 +135,9 @@ function Tile({ kind, name, image, width, compact, onPress }: {
 // unconditionally and the number of them doesn't change with the data.
 
 type Open = (origin: SummaryOrigin | null) => void;
-type TileProps = { id: string; width?: DimensionValue; compact?: boolean; onOpen: Open };
+type TileProps = { id: string; width?: DimensionValue; compact?: boolean; solo?: boolean; onOpen: Open };
 
-function GroupTile({ id, width, compact, onOpen }: TileProps) {
+function GroupTile({ id, width, compact, solo, onOpen }: TileProps) {
   const { data: group } = useGetGroupQuery(id, { skip: !id });
   if (!group) return null;
   return (
@@ -134,12 +147,13 @@ function GroupTile({ id, width, compact, onOpen }: TileProps) {
       image={firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery)}
       width={width}
       compact={compact}
+      solo={solo}
       onPress={onOpen}
     />
   );
 }
 
-function SpotTile({ id, width, compact, onOpen }: TileProps) {
+function SpotTile({ id, width, compact, solo, onOpen }: TileProps) {
   const { data: spot } = useGetPhotoSpotQuery(id, { skip: !id });
   if (!spot) return null;
   return (
@@ -149,27 +163,32 @@ function SpotTile({ id, width, compact, onOpen }: TileProps) {
       image={firstGalleryUrl(spot.gallery as any)}
       width={width}
       compact={compact}
+      solo={solo}
       onPress={onOpen}
     />
   );
 }
 
-function UserTile({ id, width, compact, onOpen }: TileProps) {
+function UserTile({ id, width, compact, solo, onOpen }: TileProps) {
   const { data: user } = useGetUserByIdQuery(id, { skip: !id });
   if (!user) return null;
   return (
     <Tile
       kind="user"
-      name={`@${user.username}`}
-      image={firstGalleryUrl(user.gallery) ?? (user.profilePicture ? imageUrl(user.profilePicture) : null)}
+      name={user.username}
+      // The member's own avatar, square: their photo, or their colour and
+      // initials when they have none — the same face they wear everywhere
+      // else, rather than a grey person glyph.
+      picture={<Avatar user={user} size={TILE_H} radius={0} edge={false} />}
       width={width}
       compact={compact}
+      solo={solo}
       onPress={onOpen}
     />
   );
 }
 
-function CarTile({ id, width, compact, onOpen }: TileProps) {
+function CarTile({ id, width, compact, solo, onOpen }: TileProps) {
   const { data: car } = useGetCarQuery(id, { skip: !id });
   if (!car) return null;
   const name = car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car';
@@ -177,15 +196,16 @@ function CarTile({ id, width, compact, onOpen }: TileProps) {
     <Tile
       kind="car"
       name={name}
-      image={firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null)}
+      image={carHeroUrl(car)}
       width={width}
       compact={compact}
+      solo={solo}
       onPress={onOpen}
     />
   );
 }
 
-function EventTile({ id, width, compact, onOpen }: TileProps) {
+function EventTile({ id, width, compact, solo, onOpen }: TileProps) {
   /**
    * A society event, not the legacy `Event`.
    *
@@ -208,6 +228,7 @@ function EventTile({ id, width, compact, onOpen }: TileProps) {
       image={firstGalleryUrl(event.gallery)}
       width={width}
       compact={compact}
+      solo={solo}
       onPress={onOpen}
     />
   );
@@ -324,7 +345,10 @@ export default function PostContextRow({ post, omitGroupId }: {
   const scrolls = items.length > 2;
 
   const tiles = items.map((item) => {
-    const props = { id: item.id, width, compact: items.length > 1, onOpen: openFor(item.kind, item.id) };
+    const props = {
+      id: item.id, width, compact: items.length > 1, solo: items.length === 1,
+      onOpen: openFor(item.kind, item.id),
+    };
     if (item.kind === 'group') return <GroupTile key={item.key} {...props} />;
     if (item.kind === 'user')  return <UserTile key={item.key} {...props} />;
     if (item.kind === 'car')   return <CarTile key={item.key} {...props} />;
@@ -389,24 +413,29 @@ const styles = StyleSheet.create({
   // and the drop from the card's grey are what give it a shape.
   tile: {
     height: TILE_H,
-    borderRadius: 16, overflow: 'hidden',
+    borderRadius: 12, overflow: 'hidden',
     backgroundColor: COLOR_GRAY_11,
     flexDirection: 'row', alignItems: 'center',
   },
   tileShare: { flex: 1 },
+  tileSolo: { maxWidth: '65%' },
   // The picture fills the tile's left end, square. Its outer corners are
   // clipped by the tile's own; the inner two are rounded so it reads as a
   // picture set into the tile rather than a strip cut off it.
   thumb: {
     width: TILE_H, height: TILE_H, flexShrink: 0,
-    borderTopRightRadius: 10, borderBottomRightRadius: 10,
+    borderTopRightRadius: 8, borderBottomRightRadius: 8,
   },
   blank: { alignItems: 'center', justifyContent: 'center' },
+  pictureClip: { overflow: 'hidden' },
   body: {
     flex: 1, minWidth: 0,
     alignItems: 'flex-start', justifyContent: 'center', gap: 3,
     paddingHorizontal: 10,
   },
+  // Sized to the name rather than stretched to the tile — the tile itself has
+  // no width to stretch into when it's alone.
+  bodySolo: { flex: 0, flexShrink: 1 },
   // `alignSelf` keeps the badge the width of its word rather than the width of
   // the name under it.
   // At 80%, like the type and category pills on the post's photo.

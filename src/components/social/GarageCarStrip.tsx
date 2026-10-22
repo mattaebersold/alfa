@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image } from 'expo-image';
 import { useGetUserGarageQuery } from '../../api/apiService';
-import { firstGalleryUrl, imageUrl } from '../../utils/image';
+import { carHeroUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
 import type { TagItem } from './PostTagPicker';
 import TagCardStrip from './TagCardStrip';
@@ -34,7 +34,7 @@ export default function GarageCarStrip({
   const { data } = useGetUserGarageQuery();
   const cards = (data?.entries ?? []).map((car) => ({
     tag: garageCarTag(car),
-    image: firstGalleryUrl(car.gallery) ?? (car.profile_image ? imageUrl(car.profile_image) : null),
+    image: carHeroUrl(car),
     // A car with no photo gets the stock one, filling the tile like a photo would.
     fallback: <Image source={require('../../../assets/car-placeholder.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" />,
   }));

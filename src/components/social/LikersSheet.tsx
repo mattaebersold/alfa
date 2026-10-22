@@ -13,9 +13,11 @@ import { FONT_INTER } from '../../constants/fonts'
  * row looks its person up; RTK Query shares those lookups with every other
  * place that shows the same people.
  */
-function LikerRow({ userId, onOpen }: {
+function LikerRow({ userId, onOpen, last }: {
   userId: string;
   onOpen: (userId: string, origin: SummaryOrigin | null) => void;
+  /** The list's last row — no rule under it, the panel's edge is enough. */
+  last: boolean;
 }) {
   const colors = useColors();
   const { data: user } = useGetUserByIdQuery(userId, { skip: !userId });
@@ -27,7 +29,10 @@ function LikerRow({ userId, onOpen }: {
       user={user}
       onOpen={onOpen}
       avatarSize={40}
-      style={[styles.row, { borderBottomColor: colors.border }]}
+      at={false}
+      edge={false}
+      viewButton={false}
+      style={[styles.row, { borderBottomColor: colors.border }, last && styles.rowLast]}
     />
   );
 }
@@ -75,9 +80,14 @@ export default function LikersSheet({
   return (
     <SummaryModal visible={visible} onClose={onClose} origin={origin} stacked={stacked}>
       <View style={styles.body}>
-        <Text style={[styles.title, { color: colors.fg }]}>
-          {title}{data?.total ? ` · ${data.total}` : ''}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
+          {data?.total ? (
+            <View style={[styles.countBadge, { backgroundColor: colors.secondary }]}>
+              <Text style={[styles.countText, { color: colors.fg }]}>{data.total}</Text>
+            </View>
+          ) : null}
+        </View>
 
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primaryAlt} style={styles.loader} />
@@ -87,7 +97,7 @@ export default function LikersSheet({
           // Mapped, not listed: SummaryModal brings its own scroller, and the
           // like count on a post never runs to the length where virtualising
           // would earn its keep.
-          userIds.map((id) => <LikerRow key={id} userId={id} onOpen={openUser} />)
+          userIds.map((id, i) => <LikerRow key={id} userId={id} onOpen={openUser} last={i === userIds.length - 1} />)
         )}
       </View>
     </SummaryModal>
@@ -95,10 +105,18 @@ export default function LikersSheet({
 }
 
 const styles = StyleSheet.create({
-  body:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12 },
-  title:  { fontSize: 19, fontFamily: FONT_INTER.bold, marginBottom: 6 },
+  body:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  title:  { fontSize: 19, fontFamily: FONT_INTER.bold },
+  // A circle for one or two digits, stretching to a pill past that.
+  countBadge: {
+    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  countText: { fontSize: 11.5, fontFamily: FONT_INTER.bold },
   loader: { marginTop: 30 },
   empty:  { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
 
-  row:    { gap: 12, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth },
+  row:    { gap: 8, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth },
+  rowLast: { borderBottomWidth: 0 },
 });

@@ -19,6 +19,7 @@ import { stripHtml } from '../../utils/text';
 import { calendarDate } from '../../utils/calendarDate';
 import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { openInMaps } from '../../utils/openInMaps';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -41,11 +42,7 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
 
   const handleOpenMaps = useCallback(() => {
     if (!event) return;
-    if (event.location_lat && event.location_lng) {
-      Linking.openURL(`https://maps.apple.com/?ll=${event.location_lat},${event.location_lng}&q=${encodeURIComponent(event.location ?? '')}`);
-    } else if (event.location) {
-      Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(event.location)}`);
-    }
+    openInMaps(event);
   }, [event]);
 
   const gallery = event?.gallery ?? [];

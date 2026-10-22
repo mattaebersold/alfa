@@ -23,7 +23,7 @@ const PAGE_SIZE = 12;
  *
  * A tap opens the car's summary over the page, as on the Cars screen.
  */
-export default function CarMosaic({ make, model, generation, header, emptyTitle, onScroll }: {
+export default function CarMosaic({ make, model, generation, header, emptyTitle, onScroll, scrollRef, minContentHeight }: {
   /** A make's display value or handle — the listing matches either. */
   make: string;
   /** One model's handle, to narrow to it. */
@@ -35,6 +35,13 @@ export default function CarMosaic({ make, model, generation, header, emptyTitle,
   emptyTitle: string;
   /** A host's own scroll handler — the header's hide-on-scroll, where the grid is a page's body. */
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** The scroller, for a host that moves it — a make page bringing its filters up. */
+  scrollRef?: React.Ref<ScrollView>;
+  /**
+   * The least the content is tall, however few cars there are — so a host can
+   * always scroll a point in its header to the top of the screen.
+   */
+  minContentHeight?: number;
 }) {
   const colors = useColors();
   const [page, setPage] = useState(0);
@@ -78,7 +85,8 @@ export default function CarMosaic({ make, model, generation, header, emptyTitle,
   return (
     <>
       <ScrollView
-        contentContainerStyle={styles.list}
+        ref={scrollRef}
+        contentContainerStyle={[styles.list, minContentHeight ? { minHeight: minContentHeight } : null]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={colors.primaryAlt} />}
         onScroll={(e) => {
@@ -90,7 +98,11 @@ export default function CarMosaic({ make, model, generation, header, emptyTitle,
         // it — otherwise the coarse tick that load-more is happy with.
         scrollEventThrottle={onScroll ? 16 : 200}
       >
-        {header}
+        {/* In a plain View, which never grows: given a minContentHeight, the
+            scroller's spare room would otherwise go to the header's own
+            horizontal rows — ScrollViews grow by default — and stretch their
+            cards down the screen. The room stays at the foot instead. */}
+        <View>{header}</View>
         {cars.length === 0 ? (
           isFetching
             ? <ActivityIndicator size="large" color={colors.primaryAlt} style={{ marginTop: 40 }} />

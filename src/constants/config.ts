@@ -178,6 +178,11 @@ export const COLOR_GRAY_79  = '#4F4F4F';
 export const COLOR_GRAY_74  = '#4A4A4A';
 export const COLOR_GRAY_64  = '#404040';
 export const COLOR_GRAY_60  = '#3C3C3C';
+/**
+ * The edge on a search field and the filter button beside it — the same as
+ * the kit's `borderStrong`, which the filter button reads, so the pair match.
+ */
+export const SEARCH_EDGE = COLOR_GRAY_60;
 export const COLOR_GRAY_58  = '#3A3A3A';
 export const COLOR_GRAY_46  = '#2E2E2E';
 export const COLOR_GRAY_42  = '#2A2A2A';
@@ -199,6 +204,14 @@ export const COLOR_GRAY_14  = '#0E0E0E';
 export const COLOR_GRAY_13  = '#0D0D0D';
 export const COLOR_GRAY_11  = '#0B0B0B';
 export const COLOR_GRAY_10  = '#0A0A0A';
+
+/**
+ * The group pages' ground — the marketplace's, a step up from the app's black,
+ * so the sub tabs' dark tracks have an edge against it.
+ */
+export const GROUP_GROUND = COLOR_GRAY_26;
+/** A listing card on that ground — a step lighter than the marketplace's own. */
+export const GROUP_LISTING_CARD = COLOR_GRAY_46;
 
 /* Status */
 export const COLOR_DANGER           = '#EF4444'; // recording dot, destructive fills
