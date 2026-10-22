@@ -25,6 +25,39 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.74': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Notifications',
+        items: [
+          'Swipe a notification to the right to archive it in one go.',
+          'Archive all your notifications at once with the new button at the top.',
+          'Notifications are now kept for 30 days.',
+        ],
+      },
+      {
+        title: 'Search',
+        items: [
+          'Cleaner search results: each one shows as its own card, like cars, events and groups.',
+        ],
+      },
+      {
+        title: 'Posts',
+        items: [
+          "See who's tagged in a post: their photos sit by a tag icon on the card, just above the likes.",
+        ],
+      },
+      {
+        title: 'Everything else',
+        items: [
+          'Multi-step forms, like adding a car or a listing, show your progress on a new tachometer.',
+          'The text box now grows as you type longer comments and messages.',
+          'Offensive images are now filtered out.',
+        ],
+      },
+    ],
+  },
   '1.73': {
     date: 'October 2026',
     groups: [

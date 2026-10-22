@@ -270,13 +270,18 @@ function kindFromEntryType(t?: string): Exclude<Kind, 'group'> | null {
 export type ContextSubject = Pick<Post, 'internal_id'> &
   Partial<Pick<Post, 'group_ids' | 'group_id' | 'tags'>>;
 
-export default function PostContextRow({ post, omitGroupId }: {
+export default function PostContextRow({ post, omitGroupId, omitUsers = false }: {
   post: ContextSubject;
   /**
    * A group not to show — the one whose page this row is on. A post seen
    * from inside its group doesn't need to be told which group it's in.
    */
   omitGroupId?: string;
+  /**
+   * No tiles for tagged members — the feed card shows them on its action
+   * rail instead (the tag and faces, see PostActionRail).
+   */
+  omitUsers?: boolean;
 }) {
   const { openEventSheet } = useEventSheet();
 
@@ -311,6 +316,7 @@ export default function PostContextRow({ post, omitGroupId }: {
       const kind = kindFromEntryType(t.tag_entry_type);
       const id = t.tag_internal_id;
       if (!kind || !id) return;
+      if (omitUsers && kind === 'user') return;
       const key = `${kind}-${id}`;
       // The same car tagged twice is one tile.
       if (out.some((o) => o.key === key)) return;
@@ -318,7 +324,7 @@ export default function PostContextRow({ post, omitGroupId }: {
     });
 
     return out;
-  }, [groupIds, tags]);
+  }, [groupIds, tags, omitUsers]);
 
   if (items.length === 0) return null;
 

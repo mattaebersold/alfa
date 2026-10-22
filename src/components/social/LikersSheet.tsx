@@ -58,6 +58,7 @@ export default function LikersSheet({
   origin,
   title = 'Liked by',
   emptyText = 'No likes yet. Be the first!',
+  userIds: given,
 }: {
   entryId: string;
   visible: boolean;
@@ -71,9 +72,16 @@ export default function LikersSheet({
    */
   title?: string;
   emptyText?: string;
+  /**
+   * The people to list, in place of the post's likers — the rail's tagged
+   * faces open this same panel with who's tagged.
+   */
+  userIds?: string[];
 }) {
   const colors = useColors();
-  const { data, isLoading } = useGetLikeUsersQuery(entryId, { skip: !visible || !entryId });
+  const { data: likeData, isLoading: likesLoading } = useGetLikeUsersQuery(entryId, { skip: !visible || !entryId || !!given });
+  const data = given ? { users: given, total: given.length } : likeData;
+  const isLoading = !given && likesLoading;
   const userIds = data?.users ?? [];
   const { openUser, stacked } = useStackedUserSummary(visible);
 

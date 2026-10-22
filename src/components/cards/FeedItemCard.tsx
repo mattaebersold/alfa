@@ -18,7 +18,7 @@ import { useSummary } from '../../providers/SummaryProvider';
 import { userPreview } from '../members/UserSummaryModal';
 import { Images } from 'lucide-react-native';
 import MessageAboutListingButton from '../social/MessageAboutListingButton';
-import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
+import { useGetUserByIdQuery, useGetLikeUsersQuery, useGetPostTagsQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { imageUrl } from '../../utils/image';
 import { postMediaList } from '../../utils/postMedia';
@@ -215,6 +215,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   // Non-null while the likers panel is open — it doubles as the rect the panel
   // grows out of.
   const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
+  /** The same, for the tagged members' panel. */
+  const [taggedOrigin, setTaggedOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   /** A spot result starts folded to its header row — see SpotExpandButton. */
   const [spotOpen, setSpotOpen] = useState(false);
 
@@ -314,6 +316,24 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
     });
   }, [like]);
 
+  /**
+   * Members tagged in it, for the rail. The feed sends tags with the post;
+   * elsewhere they're asked for — the same request PostContextRow makes, so
+   * it's shared rather than repeated.
+   */
+  const inlineTags = Array.isArray(post.tags) ? post.tags : null;
+  const { data: fetchedTags } = useGetPostTagsQuery(post.internal_id, {
+    skip: !!inlineTags || !post.internal_id,
+  });
+  const taggedIds = useMemo(
+    () => [...new Set(
+      (inlineTags ?? fetchedTags ?? [])
+        .filter((t: any) => t.tag_entry_type === 'user' && t.tag_internal_id)
+        .map((t: any) => t.tag_internal_id as string),
+    )],
+    [inlineTags, fetchedTags],
+  );
+
   const rail = (vertical: boolean) => (
     <PostActionRail
       post={post}
@@ -321,6 +341,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       like={like}
       likers={likers}
       onOpenLikers={(origin) => setLikersOrigin(origin)}
+      tagged={taggedIds}
+      onOpenTagged={(origin) => setTaggedOrigin(origin)}
       vertical={vertical}
       // A game result isn't something to come back to.
       bookmark={!spotResult}
@@ -581,7 +603,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           actually occurs to you. Above the likes, which belong with the
           actions they came from. */}
       {/* A spot result's sits in its opening part, above. */}
-      {spotResult ? null : <PostContextRow post={post} omitGroupId={omitGroupId} />}
+      {/* Members tagged in it are on the rail now (the tag and faces), not tiles here. */}
+      {spotResult ? null : <PostContextRow post={post} omitGroupId={omitGroupId} omitUsers />}
 
       {/* Where it was made, under the post and whatever's tagged in it — a
           footnote, so small and in the muted ink. A tap opens the place, with
@@ -602,6 +625,14 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
         visible={likersOrigin !== undefined}
         origin={likersOrigin}
         onClose={() => setLikersOrigin(undefined)}
+      />
+      <LikersSheet
+        entryId={post.internal_id}
+        userIds={taggedIds}
+        title="Tagged"
+        visible={taggedOrigin !== undefined}
+        origin={taggedOrigin}
+        onClose={() => setTaggedOrigin(undefined)}
       />
 
       <LikeBurst trigger={burst} />

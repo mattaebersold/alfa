@@ -26,13 +26,15 @@ function Face({ userId, first }: { userId: string; first: boolean }) {
  * per person. Past `max` of them, a "+x" circle leads the stack for the rest —
  * it sits on the left because the row reads leftward from the heart.
  */
-export default function LikerFaces({ likers, total, max = 3, onOpen, style }: {
+export default function LikerFaces({ likers, total, max = 3, onOpen, label = 'See everyone who liked this', style }: {
   /** user_ids, most recent first. */
   likers: string[];
   /** Everyone who liked it — the "+x" is what's past the faces. */
   total: number;
   max?: number;
   onOpen: (origin: SummaryOrigin | null) => void;
+  /** What a screen reader says the faces open — the rail's tagged faces reuse these. */
+  label?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const faces = likers.slice(0, max);
@@ -44,7 +46,7 @@ export default function LikerFaces({ likers, total, max = 3, onOpen, style }: {
     <SummaryTouchable
       style={[styles.row, style]}
       onPress={onOpen}
-      accessibilityLabel="See everyone who liked this"
+      accessibilityLabel={label}
     >
       {/* Everyone past the faces shown — past `max`, or past the few the
           list happened to carry. */}

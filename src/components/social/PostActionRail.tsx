@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
+import { Tag } from 'lucide-react-native';
 import CommentButton from './CommentButton';
 import PostBookmarkButton from './PostBookmarkButton';
 import PostCommentsModal from './PostCommentsModal';
@@ -27,10 +28,12 @@ import type { Post } from '../../types/api';
  *    (usePostLike), shared with the likes row's heart. Not on your own post —
  *    there the heart opens who liked it instead;
  *  - comment: opens the thread in a panel, with a box to write in;
+ *  - tagged (only when someone is): a tag, with the tagged members' faces
+ *    beside it as the likes have theirs; either opens who's tagged;
  *  - bookmark: saves it to the header's Bookmarks (PostBookmarkButton).
  */
 export default function PostActionRail({
-  post, entryType, like, likers, onOpenLikers, vertical = true, bookmark = true,
+  post, entryType, like, likers, onOpenLikers, tagged = [], onOpenTagged, vertical = true, bookmark = true,
 }: {
   post: Post;
   entryType: string;
@@ -40,12 +43,17 @@ export default function PostActionRail({
   likers: string[];
   /** Open the likers panel from this rect — the faces, or your own post's heart. */
   onOpenLikers: (origin: SummaryOrigin | null) => void;
+  /** Members tagged in the post — user_ids. Under the comments, over the like. */
+  tagged?: string[];
+  /** Open the list of who's tagged, from this rect. */
+  onOpenTagged?: (origin: SummaryOrigin | null) => void;
   vertical?: boolean;
   /** Off for a post that isn't worth keeping — a shared game result. */
   bookmark?: boolean;
 }) {
   const commentRef = useRef<View>(null);
   const heartRef = useRef<View>(null);
+  const tagRef = useRef<View>(null);
   const iconSize = vertical ? RAIL_ICON : 20;
   const [commentsOrigin, setCommentsOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
@@ -69,6 +77,25 @@ export default function PostActionRail({
             vertical={vertical}
           />
         </View>
+        {/* Who's tagged, laid out as the like below it: the faces to the
+            tag's left, a "+x" past three. */}
+        {tagged.length > 0 && onOpenTagged && (
+          <View style={styles.likeWrap}>
+            <View style={[styles.likeInfo, vertical ? styles.facesOut : styles.facesIn]} pointerEvents="box-none">
+              <LikerFaces likers={tagged} total={tagged.length} onOpen={onOpenTagged} label="See who's tagged" />
+            </View>
+            <TouchableOpacity
+              ref={tagRef}
+              onPress={() => measureOrigin(tagRef.current, onOpenTagged)}
+              style={vertical ? styles.itemV : styles.itemH}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="See who's tagged"
+            >
+              <Tag size={iconSize} color={COLOR_WHITE} strokeWidth={1.8} />
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Like, last — with the faces of who liked it just to its left:
             hanging off the column on the photo, in line in the footer row. */}
         <View style={styles.likeWrap}>

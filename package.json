@@ -1,6 +1,6 @@
 {
   "name": "alfa",
-  "version": "1.73",
+  "version": "1.74",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
