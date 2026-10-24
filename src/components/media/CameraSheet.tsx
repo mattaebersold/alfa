@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text } from '@ors/kit';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { X, Images, SwitchCamera } from 'lucide-react-native';
 import { COLOR_WHITE, COLOR_BLACK, COLOR_RED, PILL_RADIUS } from '../../constants/config';
@@ -14,6 +14,13 @@ export type CameraCapture =
 
 /** Longest a clip can run, in seconds — the post's own limit. */
 const MAX_VIDEO_S = 120;
+/** How long a photo just taken holds on screen before the camera closes. */
+const CLOSE_AFTER_PHOTO_MS = 500;
+/**
+ * Room below the status bar for the close button — past the Dynamic Island
+ * and the system's camera-in-use dot on Android, not tucked against them.
+ */
+const TOP_CLEARANCE = 16;
 
 /**
  * The app's own camera, over the form: take a photo, record a clip, or step
@@ -27,7 +34,10 @@ const MAX_VIDEO_S = 120;
 export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary }: {
   visible: boolean;
   onClose: () => void;
-  /** A photo or a clip, taken; the sheet stays up for another. */
+  /**
+   * A photo or a clip, taken. A photo closes the camera half a second later
+   * (onClose); a clip leaves it up for another.
+   */
   onCapture: (capture: CameraCapture) => void;
   /** "Choose from library" — the host closes this and opens its picker. */
   onPickLibrary: () => void;
@@ -41,6 +51,9 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const insets = useSafeAreaInsets();
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
   // Asked on open rather than on the first shutter press, so the preview is
   // up when the sheet is.
@@ -52,6 +65,7 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
 
   // Back to the start each time it opens.
   useEffect(() => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
     if (visible) { setMode('picture'); setRecording(false); setSeconds(0); setBusy(false); setReady(false); }
   }, [visible]);
 
@@ -67,11 +81,15 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
     setBusy(true);
     try {
       const shot = await cameraRef.current.takePictureAsync({ quality: 0.9 });
-      if (shot?.uri) onCapture({ kind: 'image', uri: shot.uri, width: shot.width, height: shot.height });
+      if (shot?.uri) {
+        onCapture({ kind: 'image', uri: shot.uri, width: shot.width, height: shot.height });
+        // A beat for the shutter to register, then back to the form.
+        closeTimer.current = setTimeout(onClose, CLOSE_AFTER_PHOTO_MS);
+      }
     } finally {
       setBusy(false);
     }
-  }, [ready, busy, onCapture]);
+  }, [ready, busy, onCapture, onClose]);
 
   const startRecording = useCallback(async () => {
     if (!cameraRef.current || !ready || busy || recording) return;
@@ -122,8 +140,10 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
           </View>
         )}
 
-        {/* Top: close, and the clock while recording. */}
-        <SafeAreaView style={styles.top} edges={['top']} pointerEvents="box-none">
+        {/* Top: close, and the clock while recording. Insets read from the
+            app's provider: a SafeAreaView inside the Modal measured nothing on
+            some devices, leaving the close button under the status bar. */}
+        <View style={[styles.top, { paddingTop: insets.top + TOP_CLEARANCE }]} pointerEvents="box-none">
           <TouchableOpacity onPress={onClose} style={styles.circleBtn} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close camera">
             <X size={22} color={COLOR_WHITE} strokeWidth={2.4} />
           </TouchableOpacity>
@@ -134,10 +154,10 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
             </View>
           )}
           <View style={styles.circleBtnGhost} />
-        </SafeAreaView>
+        </View>
 
         {/* Bottom: library, shutter, flip; the photo / video switch under. */}
-        <SafeAreaView style={styles.bottom} edges={['bottom']} pointerEvents="box-none">
+        <View style={[styles.bottom, { paddingBottom: insets.bottom + 12 }]} pointerEvents="box-none">
           <View style={styles.controls}>
             <TouchableOpacity
               onPress={onPickLibrary}
@@ -188,7 +208,7 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
               </TouchableOpacity>
             ))}
           </View>
-        </SafeAreaView>
+        </View>
       </View>
     </Modal>
   );
@@ -203,9 +223,9 @@ const styles = StyleSheet.create({
   top: {
     position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 8,
+    paddingHorizontal: 16,
   },
-  bottom: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 12 },
+  bottom: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   controls: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 32,

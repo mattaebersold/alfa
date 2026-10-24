@@ -504,15 +504,17 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           to. Renders nothing without a summary. */}
       {post.poll_summary ? <PostPoll post={post} style={styles.poll} /> : null}
 
-      {/* The post's media — photos and videos in one strip, drawn at one
-          shape so swiping doesn't resize the card. */}
+      {/* The post's media — photos and videos in one strip, each slide at
+          its own shape. */}
       {hasMedia && (
           <View style={[styles.mediaFrame, bare && styles.mediaFrameBare]}>
             <PostMediaCarousel
               media={media}
-              // The height follows the slide — landscape, square or portrait —
-              // easing between them as you swipe. See PostMediaCarousel.
+              // The box is exactly the shape of the slide on show — its photo's
+              // own ratio, uncropped — easing between shapes as you swipe. See
+              // PostMediaCarousel.
               adaptiveHeight
+              exactShape
               // Dots at the foot of the photo, back again. The count badge says
               // how many there are and opens the viewer; it can't say which one
               // you're on, and without that a swipe gave no sign it had
@@ -604,7 +606,15 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           actions they came from. */}
       {/* A spot result's sits in its opening part, above. */}
       {/* Members tagged in it are on the rail now (the tag and faces), not tiles here. */}
-      {spotResult ? null : <PostContextRow post={post} omitGroupId={omitGroupId} omitUsers />}
+      {/* Tighter under the tiles when the place line follows them. */}
+      {spotResult ? null : (
+        <PostContextRow
+          post={post}
+          omitGroupId={omitGroupId}
+          omitUsers
+          tight={!!(post.place?.place_id && post.place.name)}
+        />
+      )}
 
       {/* Where it was made, under the post and whatever's tagged in it — a
           footnote, so small and in the muted ink. A tap opens the place, with
@@ -739,7 +749,7 @@ const styles = StyleSheet.create({
   poll:        { paddingHorizontal: 8, paddingBottom: 10 },
   // The card's own inset; under the photo or the tags, and room under it in
   // case the card ends here.
-  placeLine:   { marginHorizontal: 8, marginTop: 6, marginBottom: 8 },
+  placeLine:   { marginLeft: 12, marginRight: 8, marginTop: 10, marginBottom: 8 },
   footerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,

@@ -25,6 +25,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.75': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Posting',
+        items: [
+          "Tap Post and you're straight back to the feed — a bar at the top shows your post uploading.",
+          "If a post doesn't go up, tap the bar to try again or reopen it to edit.",
+          'Taking a photo now closes the camera for you, and its close button sits clear of the status bar.',
+        ],
+      },
+      {
+        title: 'Feed',
+        items: [
+          'Photos show in full at their own shape, the card easing between shapes as you swipe.',
+          "Tidier spacing around a post's location, tags, and the like and comment buttons.",
+        ],
+      },
+      {
+        title: 'Everything else',
+        items: [
+          'Editing a group resource or discussion no longer jumps around as you type.',
+          "Members without a zip code are asked for one once, to find what's near them.",
+        ],
+      },
+    ],
+  },
   '1.74': {
     date: 'October 2026',
     groups: [

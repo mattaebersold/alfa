@@ -179,8 +179,10 @@ export default function GroupItemDetailModal({
     // said nothing the content didn't.
     // Edge to edge: the content runs on under the home indicator rather than
     // being cut off above it, and pads its own foot clear of it.
-    <SharedModal visible={visible} onClose={onClose} hideHeader edgeToEdge>
-      <FormScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, !onViewMore && { paddingBottom: insets.bottom + 40 }]}>
+    // Holds still for the keyboard while the edit pane is over it — see
+    // keyboardInert. Its own form scroller likewise.
+    <SharedModal visible={visible} onClose={onClose} hideHeader edgeToEdge keyboardInert={editOpen}>
+      <FormScrollView enabled={!editOpen} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, !onViewMore && { paddingBottom: insets.bottom + 40 }]}>
         {/* Media */}
         {ytId ? (
           <View style={styles.ytWrap}>

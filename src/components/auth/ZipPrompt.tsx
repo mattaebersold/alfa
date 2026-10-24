@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Modal,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { KeyboardAvoidingView } from '@ors/kit';
 import { BlurView } from 'expo-blur';
+import * as SecureStore from 'expo-secure-store';
 import { useAppSelector } from '../../store/store';
 import { useUpdateUserSettingMutation } from '../../api/apiService';
 import Button from '../ui/Button';
@@ -17,6 +18,9 @@ import { COLOR_ERROR_TEXT_LIGHT, COLOR_WHITE } from '../../constants/config';
 /** An account this young, with no zip, is one Google or Apple just made. */
 const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
 
+/** Set once "Not now" is tapped, per account, so the prompt is a one-time ask. */
+const seenKey = (userId: string) => `zipPromptSeen.${userId}`;
+
 /**
  * Asks for the zip the registration form would have.
  *
@@ -24,13 +28,12 @@ const NEW_ACCOUNT_MS = 24 * 60 * 60 * 1000;
  * no zip — and with no zip there is nothing to measure "near you" from, and the
  * member is filed under no region at all. This fills the gap once, over the app.
  *
- * Driven entirely by the profile's `hasZip`: saving writes the zip, the 'User'
- * tag refetches the profile, and the prompt never renders again. Nothing is
- * remembered on the device, so a member who skips it is asked again next
- * launch, on any device, until there's a zip on file.
+ * Driven by the profile's `hasZip`: saving writes the zip, the 'User' tag
+ * refetches the profile, and the prompt never renders again.
  *
  * A brand-new account can't skip — this is the last step of signing up. An
- * older one that simply never had a zip gets "Not now", for this session.
+ * older one that simply never had a zip is asked once: "Not now" is
+ * remembered on the device for that account, and it isn't asked again.
  */
 export default function ZipPrompt() {
   const userInfo = useAppSelector((s) => s.auth.userInfo);
@@ -40,6 +43,24 @@ export default function ZipPrompt() {
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [saved, setSaved] = useState(false);
+  /** Whether "Not now" was tapped before — null until it's been read back. */
+  const [seen, setSeen] = useState<boolean | null>(null);
+  const userId = userInfo?.user_id;
+
+  useEffect(() => {
+    if (!userId) return;
+    let live = true;
+    setSeen(null);
+    SecureStore.getItemAsync(seenKey(userId))
+      .then((v) => { if (live) setSeen(v === '1'); })
+      .catch(() => { if (live) setSeen(false); });
+    return () => { live = false; };
+  }, [userId]);
+
+  const notNow = () => {
+    setDismissed(true);
+    if (userId) SecureStore.setItemAsync(seenKey(userId), '1').catch(() => {});
+  };
 
   // `false`, not falsy: a server that predates the flag sends nothing, and
   // that must not read as "ask everyone".
@@ -47,6 +68,8 @@ export default function ZipPrompt() {
 
   const created = userInfo.created_at ? new Date(userInfo.created_at).getTime() : 0;
   const isNew = Date.now() - created < NEW_ACCOUNT_MS;
+  // Asked once already, or not yet known: say nothing.
+  if (!isNew && seen !== false) return null;
 
   const save = async () => {
     const problem = validateZip(zip);
@@ -60,7 +83,7 @@ export default function ZipPrompt() {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => !isNew && setDismissed(true)}>
+    <Modal visible transparent animationType="fade" onRequestClose={() => !isNew && notNow()}>
       {/* A short card, centred in the room above the keyboard. */}
       <KeyboardAvoidingView style={styles.backdrop}>
         <BlurView intensity={40} tint="dark" style={styles.card}>
@@ -98,7 +121,7 @@ export default function ZipPrompt() {
           />
 
           {!isNew && (
-            <TouchableOpacity style={styles.later} onPress={() => setDismissed(true)} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.later} onPress={notNow} activeOpacity={0.7}>
               <Text style={styles.laterLabel}>Not now</Text>
             </TouchableOpacity>
           )}

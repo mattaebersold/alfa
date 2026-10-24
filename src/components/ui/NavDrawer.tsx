@@ -476,16 +476,17 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   Icon={BellRing}
                   onPress={() => closeThen(() => navigation.navigate('Alerts'))}
                 />
-              </View>
-
-              {SHOW_YOUR_EVENTS && (
-                <View style={styles.pairRow}>
-                  <NavTile label="My Events" Icon={CalendarCheck}
-                    flex={1}
+                {/* Beside the alerts as a pill, not a tile of its own: it's
+                    yours, like the inbox, rather than a place to go. */}
+                {SHOW_YOUR_EVENTS && (
+                  <InboxPill
+                    label="My Events"
+                    Icon={CalendarCheck}
                     count={myEventsCount}
-                    onPress={() => setMyEventsOpen(true)} />
-                </View>
-              )}
+                    onPress={() => setMyEventsOpen(true)}
+                  />
+                )}
+              </View>
 
               {/* Two-column grid — half the height of a stacked list, which is
                   what kept the log-out button pushed below the fold.
@@ -924,7 +925,6 @@ const styles = StyleSheet.create({
   // `paddingTop` picks up the separation the removed section heading used to
   // provide between the inbox pills and the tiles.
   grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 12 },
-  pairRow:  { flexDirection: 'row', gap: 8 },
   navTile:  {
     width: TILE_WIDTH,
     // Stacked, not inline. An icon beside a label is a list row wearing a

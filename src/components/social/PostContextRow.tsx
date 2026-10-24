@@ -270,7 +270,7 @@ function kindFromEntryType(t?: string): Exclude<Kind, 'group'> | null {
 export type ContextSubject = Pick<Post, 'internal_id'> &
   Partial<Pick<Post, 'group_ids' | 'group_id' | 'tags'>>;
 
-export default function PostContextRow({ post, omitGroupId, omitUsers = false }: {
+export default function PostContextRow({ post, omitGroupId, omitUsers = false, tight = false }: {
   post: ContextSubject;
   /**
    * A group not to show — the one whose page this row is on. A post seen
@@ -282,6 +282,11 @@ export default function PostContextRow({ post, omitGroupId, omitUsers = false }:
    * rail instead (the tag and faces, see PostActionRail).
    */
   omitUsers?: boolean;
+  /**
+   * Less room under the tiles — for a card where the place line follows, so
+   * the location reads as part of the same footnote rather than a stray line.
+   */
+  tight?: boolean;
 }) {
   const { openEventSheet } = useEventSheet();
 
@@ -371,12 +376,12 @@ export default function PostContextRow({ post, omitGroupId, omitUsers = false }:
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.scroller}
-          contentContainerStyle={styles.strip}
+          contentContainerStyle={[styles.strip, tight && styles.stripTight]}
         >
           {tiles}
         </ScrollView>
       ) : (
-        <View style={styles.strip}>{tiles}</View>
+        <View style={[styles.strip, tight && styles.stripTight]}>{tiles}</View>
       )}
 
       <UserSummaryModal
@@ -415,6 +420,7 @@ const styles = StyleSheet.create({
     // drawn at all, so the card ends on its image, flush.
     paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 8,
   },
+  stripTight: { paddingBottom: 2 },
   // A near-black ground, no edge of its own: the picture at the left end
   // and the drop from the card's grey are what give it a shape.
   tile: {

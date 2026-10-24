@@ -245,7 +245,8 @@ export type AppStackParamList = {
   /** `spotId`/`spotTitle`: a pin made from the tag picker's "Create a new pin", handed back once saved. */
   /** `groupId`: opened from inside a group — that group starts as the only one ticked. */
   /** `capture`: open the camera first, and start the form with what it took — the tab bar's +. */
-  Create: { carId?: string; carTitle?: string; spotId?: string; spotTitle?: string; groupId?: string; capture?: boolean } | undefined;
+  /** `draftId`: a failed post put back in the form — see utils/postUpload. */
+  Create: { carId?: string; carTitle?: string; spotId?: string; spotTitle?: string; groupId?: string; capture?: boolean; draftId?: string } | undefined;
   DiecastCreate: undefined;
   // Routes — recording is a full-screen flow, so it lives outside the tabs.
   /**

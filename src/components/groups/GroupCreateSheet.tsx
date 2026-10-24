@@ -422,7 +422,9 @@ export default function GroupCreateSheet({
           editable={!busy}
           placeholder="Title"
           placeholderTextColor={c.grey}
-          autoFocus
+          // Not on an edit: what's there is the point, and the keyboard rising
+          // as the pane slides in over the item made the two fight for room.
+          autoFocus={!editing}
         />
 
         <Text style={[styles.label, { color: c.grey }]}>

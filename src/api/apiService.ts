@@ -276,6 +276,16 @@ export const apiService = createApi({
       invalidatesTags: ['Post', 'UserEntries'],
     }),
 
+    /**
+     * The same create, refreshing nothing. The posting bar (utils/postUpload)
+     * adds the photos after it and refreshes the feed once they're all on —
+     * refreshed here, the post turned up in the feed without its photos while
+     * the bar was still counting them.
+     */
+    createPostDeferred: builder.mutation<Post, FormData>({
+      query: (body) => ({ url: 'api/post/create', method: 'POST', body }),
+    }),
+
     // Direct-to-Mux: returns a one-time upload URL the client PUTs the video to.
     createMuxUploadUrl: builder.mutation<{ id: string; url: string }, void>({
       query: () => ({ url: 'api/post/mux/upload-url', method: 'POST' }),

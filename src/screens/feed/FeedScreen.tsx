@@ -6,6 +6,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import SpotTodayRow from '../../components/feed/SpotTodayRow';
 import LiveAuctionBanner from '../../components/feed/LiveAuctionBanner';
+import PostUploadBanner from '../../components/feed/PostUploadBanner';
+import { onPostUploadEvent } from '../../utils/postUpload';
 import StoriesRow from '../../components/stories/StoriesRow';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
@@ -82,6 +84,9 @@ function FeedHeader() {
 
   return (
     <View>
+      {/* Posts on their way up — first, so a post just made is the first
+          thing you see. See utils/postUpload. */}
+      <PostUploadBanner />
       {/* The society's own auction while it's live — gone when it ends. */}
       <LiveAuctionBanner />
       <SpotTodayRow />
@@ -297,6 +302,23 @@ export default function FeedScreen() {
     navigation.setParams({ tab: undefined, at: undefined, spotId: undefined } as never);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.at]);
+
+  /**
+   * A post handed to the upload bar: the feed, at its top, at once — so the
+   * bar is the first thing on screen. Landed: a fresh first page, with the
+   * new post at its head.
+   */
+  const selectTabRef = useRef(selectTab);
+  selectTabRef.current = selectTab;
+  useEffect(() => onPostUploadEvent((e) => {
+    if (e.type === 'start') {
+      if (tabRef.current !== 'feed') selectTabRef.current('feed');
+      showHeader();
+      scrollRef.current?.scrollToOffset({ offset: 0, animated: false });
+    } else {
+      setFeedRefresh((n) => n + 1);
+    }
+  }), []);
 
   // Keep the client-side blocked-users list in sync so blocked authors'
   // content stays hidden across sessions (Apple UGC requirement).

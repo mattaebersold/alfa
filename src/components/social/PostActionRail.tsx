@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   // No pill behind the column — just a shadow under the icons themselves to
   // set the white off a bright photo.
   column: {
-    alignItems: 'center', gap: 8,
+    alignItems: 'center', gap: 4,
     paddingVertical: 8, paddingHorizontal: 4,
     shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
   },

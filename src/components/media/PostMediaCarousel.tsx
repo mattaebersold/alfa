@@ -62,6 +62,7 @@ export default function PostMediaCarousel({
   videoOpensItem = false,
   pinchZoom = false,
   adaptiveHeight = false,
+  exactShape = false,
 }: {
   media: PostMedia[];
   /**
@@ -111,6 +112,13 @@ export default function PostMediaCarousel({
    * with a fixed `ratio`.
    */
   adaptiveHeight?: boolean;
+  /**
+   * With `adaptiveHeight`, each slide keeps its photo's own ratio rather than
+   * being rounded to landscape, square or portrait — the box is exactly the
+   * shape of the slide on show, so nothing is cropped. The swipe still eases
+   * the height from one slide's shape to the next.
+   */
+  exactShape?: boolean;
 }) {
   const [width, setWidth] = useState(0);
   const [measuredRatio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
@@ -142,9 +150,9 @@ export default function PostMediaCarousel({
   const noteSize = useCallback((index: number, w: number, h: number) => {
     if (index === 0) lockRatio(w, h);
     if (!adaptive) return;
-    const shape = mediaShape(w, h);
+    const shape = exactShape && w && h ? w / h : mediaShape(w, h);
     setShapes((prev) => (prev[index] === shape ? prev : { ...prev, [index]: shape }));
-  }, [adaptive, lockRatio]);
+  }, [adaptive, exactShape, lockRatio]);
   /**
    * Where the swipe is, for the height to follow — a Reanimated value, so the
    * height is worked out and laid out on the UI thread (see adaptiveStyle).

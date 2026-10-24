@@ -13,11 +13,9 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus, MapPin } from 'lucide-react-native';
-import {
-  useCreatePostMutation, useGetUserGroupsQuery, useSyncPostTagsMutation,
-  useCreateMuxUploadUrlMutation, useAddPostImageMutation, apiService,
-} from '../../api/apiService';
-import { useAppSelector, useAppDispatch } from '../../store/store';
+import { useGetUserGroupsQuery, apiService } from '../../api/apiService';
+import { useAppSelector, store } from '../../store/store';
+import { startPostUpload, takePostUploadDraft, type PostUploadJob } from '../../utils/postUpload';
 import ActionSheet from '../../components/ui/ActionSheet';
 import MentionInput from '../../components/ui/MentionInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
@@ -107,6 +105,30 @@ type DraftMedia =
   | { key: string; kind: 'image'; uri: string; uploadUri?: string; pending?: boolean; name: string; type: string }
   | { key: string; kind: 'video'; uri: string; poster: string | null };
 
+/**
+ * The form as it stood when Post was tapped — kept with the upload, so a post
+ * that fails can be put back in the form to fix (see utils/postUpload).
+ */
+type CreateDraft = {
+  kind: CreateKind;
+  postType: PostType;
+  category: string;
+  title: string;
+  body: string;
+  mentionedUserIds: string[];
+  media: DraftMedia[];
+  optional: OptionalFieldValues;
+  selectedGroupIds: string[];
+  isPublic: boolean;
+  poll: PollDraft;
+  taggedUsers: TagItem[];
+  taggedCars: TagItem[];
+  taggedEvents: TagItem[];
+  place: PostPlace | null;
+  /** Videos already on Mux — see `sentVideos`. */
+  sentVideos: Map<string, string>;
+};
+
 let _mediaSeq = 0;
 const nextMediaKey = () => `m${++_mediaSeq}_${Date.now()}`;
 
@@ -164,6 +186,17 @@ export default function CreateScreen() {
   // the route is registered (AppNavigator), not from here.
   const { userInfo } = useAppSelector((s) => s.auth);
 
+  /**
+   * A failed post put back in the form — the upload bar's "Edit post". Taken
+   * once, on the first render: taking it drops the failed upload, since this
+   * form's Post will start a new one.
+   */
+  const restoredRef = useRef<CreateDraft | null | undefined>(undefined);
+  if (restoredRef.current === undefined) {
+    restoredRef.current = route.params?.draftId ? takePostUploadDraft<CreateDraft>(route.params.draftId) : null;
+  }
+  const restored = restoredRef.current;
+
   // Opened from a car ("New post" on your own car's card), the post starts with
   // that car already tagged — the tag is the whole reason you started there.
   const prefilledCar: TagItem[] = route.params?.carId
@@ -176,64 +209,56 @@ export default function CreateScreen() {
    * question on it); the listing has a form of its own, which opens over this
    * one with the photos carried across.
    */
-  const [kind, setKind] = useState<CreateKind>('post');
+  const [kind, setKind] = useState<CreateKind>(restored?.kind ?? 'post');
   /** The listing flow's Back / progress / Next row, pinned under the tabs. */
   const [listingNav, setListingNav] = useState<React.ReactNode>(null);
 
   // Core
-  const [postType, setPostType]   = useState<PostType>('general');
+  const [postType, setPostType]   = useState<PostType>(restored?.postType ?? 'general');
   // The first of the type's categories, chosen up front — see handleTypeChange.
-  const [category, setCategory]   = useState(() => POST_CATEGORIES.general[0]?.key ?? '');
-  const [title, setTitle]         = useState('');
-  const [body, setBody]           = useState('');
-  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
-  const [media, setMedia]         = useState<DraftMedia[]>([]);
-  const [videoUploading, setVideoUploading] = useState(false);
-  /** Which video, of how many, which step it's on, and how far through that step (0–1). */
-  const [videoProgress, setVideoProgress] = useState<{
-    current: number; total: number; step: 'compressing' | 'uploading'; fraction: number;
-  } | null>(null);
+  const [category, setCategory]   = useState(() => restored?.category ?? POST_CATEGORIES.general[0]?.key ?? '');
+  const [title, setTitle]         = useState(restored?.title ?? '');
+  const [body, setBody]           = useState(restored?.body ?? '');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>(restored?.mentionedUserIds ?? []);
+  // A restored photo still marked pending was shrunk by the job, or never will
+  // be now: either way it goes up as it is.
+  const [media, setMedia]         = useState<DraftMedia[]>(
+    () => restored?.media.map((m) => (m.kind === 'image' ? { ...m, pending: false } : m)) ?? [],
+  );
   /**
    * Videos already on Mux, by file. A post that fails after its first video
    * made it — the second one, or the create itself — is tried again with the
    * same Post tap, and re-sending a video that already arrived is minutes of
    * someone's data for nothing.
    */
-  const sentVideos = useRef(new Map<string, string>());
-  // Photos upload one-at-a-time after the post is created — this is the progress.
-  const [imageProgress, setImageProgress] = useState<{ current: number; total: number } | null>(null);
+  const sentVideos = useRef(restored?.sentVideos ?? new Map<string, string>());
 
   // Optional fields, in one bag — the shared block owns their shape.
-  const [optional, setOptional] = useState<OptionalFieldValues>(EMPTY_OPTIONAL_FIELDS);
+  const [optional, setOptional] = useState<OptionalFieldValues>(restored?.optional ?? EMPTY_OPTIONAL_FIELDS);
   const { year, make, model, trim, price, mileage, condition, vin, partNumber } = optional;
 
   // Groups. Opened from a group's own page, that group starts ticked — and
   // only that one; the rest are the author's to add.
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(
-    route.params?.groupId ? [route.params.groupId] : [],
+    restored?.selectedGroupIds ?? (route.params?.groupId ? [route.params.groupId] : []),
   );
-  const [isPublic, setIsPublic]                 = useState(true);
+  const [isPublic, setIsPublic]                 = useState(restored?.isPublic ?? true);
 
   // Poll — off until the author switches it on; the editor owns the shape.
-  const [poll, setPoll] = useState<PollDraft>(emptyPollDraft);
+  const [poll, setPoll] = useState<PollDraft>(restored?.poll ?? emptyPollDraft);
 
   // Tags (people, cars, events) — the search/autocomplete lives in PostTagPicker
-  const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>([]);
-  const [taggedCars, setTaggedCars]     = useState<TagItem[]>(prefilledCar);
-  const [taggedEvents, setTaggedEvents] = useState<TagItem[]>([]);
+  const [taggedUsers, setTaggedUsers]   = useState<TagItem[]>(restored?.taggedUsers ?? []);
+  const [taggedCars, setTaggedCars]     = useState<TagItem[]>(restored?.taggedCars ?? prefilledCar);
+  const [taggedEvents, setTaggedEvents] = useState<TagItem[]>(restored?.taggedEvents ?? []);
 
   /**
    * Where it was made — "Add a Location", at the foot of the form. A Google
    * place rather than a tag: it stands on its own, where photo spots were a
    * kind of tag, and it rides on the create itself rather than the tag sync.
    */
-  const [place, setPlace] = useState<PostPlace | null>(null);
+  const [place, setPlace] = useState<PostPlace | null>(restored?.place ?? null);
 
-  const [createPost, { isLoading: submitting }] = useCreatePostMutation();
-  const [createMuxUploadUrl] = useCreateMuxUploadUrlMutation();
-  const [addPostImage] = useAddPostImageMutation();
-  const dispatch = useAppDispatch();
-  const [syncTags] = useSyncPostTagsMutation();
   const { data: rawGroups } = useGetUserGroupsQuery(userInfo?.user_id ?? '', {
     skip: !userInfo?.user_id,
   });
@@ -287,7 +312,7 @@ export default function CreateScreen() {
    * whatever isn't. Keyed by the draft, so a tile that's removed is simply
    * never read.
    */
-  const shrinking = useRef(new Map<string, Promise<void>>());
+  const shrinking = useRef(new Map<string, Promise<string>>());
   const compressing = useRef(new Map<string, Promise<string>>());
   const mediaRef = useRef<DraftMedia[]>([]);
   mediaRef.current = media;
@@ -316,8 +341,9 @@ export default function CreateScreen() {
       const d = drafts[i];
       if (d.kind === 'image') {
         const job = toUploadableJpeg(a.uri, { width: a.width, height: a.height })
-          .then((uploadUri) => { patchMedia(d.key, { uploadUri, pending: false }); })
-          .catch(() => { patchMedia(d.key, { uploadUri: a.uri, pending: false }); })
+          // Resolves to what goes up, for a post sent before the tile caught up.
+          .then((uploadUri) => { patchMedia(d.key, { uploadUri, pending: false }); return uploadUri; })
+          .catch(() => { patchMedia(d.key, { uploadUri: a.uri, pending: false }); return a.uri; })
           .finally(() => { shrinking.current.delete(d.key); });
         shrinking.current.set(d.key, job);
       } else {
@@ -433,43 +459,56 @@ export default function CreateScreen() {
       return;
     }
 
-    // Photos still shrinking finish first — a second or two at most, and the
-    // alternative is uploading the original. Then the drafts as they stand.
-    if (shrinking.current.size > 0) {
-      setImageProgress({ current: 0, total: shrinking.current.size });
-      await Promise.all([...shrinking.current.values()]);
-      setImageProgress(null);
-    }
+    // Everything left — the videos, the post, the photos, the tags — goes on
+    // after the form closes, under the bar at the top of the home feed (see
+    // utils/postUpload). Captured here, as it stands at the tap: the job
+    // outlives this screen.
     const current = mediaRef.current;
+    // Photos still shrinking: the job waits on each as it gets to it.
+    const shrinks = new Map(shrinking.current);
+    const compressions = new Map(compressing.current);
+    const sent = sentVideos.current;
+    const tags = {
+      tagged_users: taggedUsers.map((t) => t.id),
+      tagged_cars: taggedCars.map((t) => t.id),
+      tagged_events: taggedEvents.map((t) => t.id),
+    };
+    const formDraft: CreateDraft = {
+      kind, postType, category, title, body, mentionedUserIds, media: current, optional,
+      selectedGroupIds, isPublic, poll, taggedUsers, taggedCars, taggedEvents, place, sentVideos: sent,
+    };
 
-    const fd = new FormData();
-    fd.append('type', postType);
-    fd.append('entry_type', postType);
-    if (category)           fd.append('category', category);
-    if (title.trim())       fd.append('title', title.trim());
-    if (body.trim())        fd.append('body', body.trim());
-    if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
-    if (year.trim())        fd.append('year', year.trim());
-    if (make.trim())        fd.append('make', make.trim());
-    if (model.trim())       fd.append('model', model.trim());
-    if (trim.trim())        fd.append('trim', trim.trim());
-    if (price.trim())       fd.append('price', price.trim());
-    if (mileage.trim())     fd.append('mileage', mileage.trim());
-    if (condition.trim())   fd.append('condition', condition.trim());
-    if (vin.trim())         fd.append('vin', vin.trim());
-    if (partNumber.trim())  fd.append('part_number', partNumber.trim());
+    const buildFormData = () => {
+      const fd = new FormData();
+      fd.append('type', postType);
+      fd.append('entry_type', postType);
+      if (category)           fd.append('category', category);
+      if (title.trim())       fd.append('title', title.trim());
+      if (body.trim())        fd.append('body', body.trim());
+      if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
+      if (year.trim())        fd.append('year', year.trim());
+      if (make.trim())        fd.append('make', make.trim());
+      if (model.trim())       fd.append('model', model.trim());
+      if (trim.trim())        fd.append('trim', trim.trim());
+      if (price.trim())       fd.append('price', price.trim());
+      if (mileage.trim())     fd.append('mileage', mileage.trim());
+      if (condition.trim())   fd.append('condition', condition.trim());
+      if (vin.trim())         fd.append('vin', vin.trim());
+      if (partNumber.trim())  fd.append('part_number', partNumber.trim());
 
-    if (selectedGroupIds.length > 0) {
-      fd.append('group_ids', JSON.stringify(selectedGroupIds));
-      if (isPublic) fd.append('also_public', 'true');
-    }
+      if (selectedGroupIds.length > 0) {
+        fd.append('group_ids', JSON.stringify(selectedGroupIds));
+        if (isPublic) fd.append('also_public', 'true');
+      }
 
-    // One JSON field inside the multipart body — see PollInput.
-    if (pollInput.poll) fd.append('poll', JSON.stringify(pollInput.poll));
+      // One JSON field inside the multipart body — see PollInput.
+      if (pollInput.poll) fd.append('poll', JSON.stringify(pollInput.poll));
 
-    // The place, the same way: one JSON field. A post's only — the Poll tab
-    // doesn't offer one, and a place picked on the Post tab stays there.
-    if (kind === 'post' && place) fd.append('place', JSON.stringify(place));
+      // The place, the same way: one JSON field. A post's only — the Poll tab
+      // doesn't offer one, and a place picked on the Post tab stays there.
+      if (kind === 'post' && place) fd.append('place', JSON.stringify(place));
+      return fd;
+    };
 
     // Videos go straight to Mux (never through our API). Each one is sent with
     // the position it occupies in the post's media, because Mux takes minutes to
@@ -479,121 +518,101 @@ export default function CreateScreen() {
       .map((m, index) => ({ m, index }))
       .filter((x): x is { m: Extract<DraftMedia, { kind: 'video' }>; index: number } =>
         x.m.kind === 'video');
+    // Photos go one at a time after the post exists, so we never send one
+    // giant multipart request. Each carries its position in the media list —
+    // the server can't infer it, since a video may already hold a slot.
+    const photoItems = current
+      .map((m, index) => ({ m, index }))
+      .filter((x): x is { m: Extract<DraftMedia, { kind: 'image' }>; index: number } =>
+        x.m.kind === 'image');
 
-    if (videoItems.length > 0) {
-      setVideoUploading(true);
-      const uploads: { upload_id: string; index: number }[] = [];
+    // What the bar counts through: each video twice (prepared, then sent),
+    // the post itself, then each photo.
+    const steps = videoItems.length * 2 + 1 + photoItems.length;
+    /** Set once the post exists — a retry after that doesn't make a second one. */
+    let postId: string | null = null;
+
+    const job: PostUploadJob = async (report) => {
+      const at = (done: number, label: string, fraction = 0) =>
+        report({ progress: (done + fraction) / steps, label });
       try {
-        for (const [n, { m, index }] of videoItems.entries()) {
-          let id = sentVideos.current.get(m.uri);
-          if (!id) {
-            const at = { current: n + 1, total: videoItems.length };
-            setVideoProgress({ ...at, step: 'compressing', fraction: 0 });
-            // Begun when it was picked (see toDraft); usually done by now.
-            const file = await (compressing.current.get(m.uri) ?? compressVideo(
-              m.uri,
-              (fraction) => setVideoProgress({ ...at, step: 'compressing', fraction }),
-            ));
-            setVideoProgress({ ...at, step: 'uploading', fraction: 0 });
-            id = await uploadVideoToMux(
-              file,
-              () => createMuxUploadUrl().unwrap(),
-              (fraction) => setVideoProgress({ ...at, step: 'uploading', fraction }),
-            );
-            sentVideos.current.set(m.uri, id);
+        if (!postId) {
+          const fd = buildFormData();
+          const uploads: { upload_id: string; index: number }[] = [];
+          for (const [n, { m, index }] of videoItems.entries()) {
+            const which = videoItems.length > 1 ? ` ${n + 1} of ${videoItems.length}` : '';
+            // Already on Mux from a try that failed later: not sent twice.
+            let id = sent.get(m.uri);
+            if (!id) {
+              at(n * 2, `Preparing video${which}…`);
+              // Begun when it was picked (see toDraft); usually done by now.
+              const file = await (compressions.get(m.uri) ?? compressVideo(
+                m.uri,
+                (f) => at(n * 2, `Preparing video${which}…`, f),
+              ));
+              at(n * 2 + 1, `Uploading video${which}…`);
+              id = await uploadVideoToMux(
+                file,
+                () => store.dispatch(apiService.endpoints.createMuxUploadUrl.initiate(undefined)).unwrap(),
+                (f) => at(n * 2 + 1, `Uploading video${which}…`, f),
+              );
+              sent.set(m.uri, id);
+            }
+            uploads.push({ upload_id: id, index });
           }
-          uploads.push({ upload_id: id, index });
+          if (uploads.length > 0) fd.append('mux_uploads', JSON.stringify(uploads));
+
+          at(videoItems.length * 2, 'Posting…');
+          const result = await store.dispatch(apiService.endpoints.createPostDeferred.initiate(fd)).unwrap();
+          postId =
+            (result as any)?._id ??
+            (result as any)?.entry?.internal_id ??
+            (result as any)?.internal_id ??
+            null;
         }
-        fd.append('mux_uploads', JSON.stringify(uploads));
-      } catch (e) {
-        console.warn('[CreatePost] video upload failed:', e);
-        setVideoUploading(false);
-        setVideoProgress(null);
+
+        if (postId) {
+          const base = videoItems.length * 2 + 1;
+          for (const [n, { m, index }] of photoItems.entries()) {
+            at(base + n, `Uploading photo ${n + 1} of ${photoItems.length}…`);
+            const uploadUri = m.uploadUri ?? (await shrinks.get(m.key)) ?? m.uri;
+            const ifd = new FormData();
+            ifd.append('internal_id', postId);
+            ifd.append('index', String(index));
+            ifd.append('gallery', uploadFile(uploadUri));
+            try {
+              await store.dispatch(apiService.endpoints.addPostImage.initiate(ifd)).unwrap();
+            } catch { /* keep going; partial upload */ }
+          }
+
+          if (tags.tagged_users.length > 0 || tags.tagged_cars.length > 0 || tags.tagged_events.length > 0) {
+            try {
+              await store.dispatch(apiService.endpoints.syncPostTags.initiate({ post_id: postId, ...tags })).unwrap();
+            } catch (e) {
+              console.warn('[CreatePost] tag sync failed:', JSON.stringify(e));
+            }
+          }
+        }
+
+        store.dispatch(apiService.util.invalidateTags(['Post', 'UserEntries']));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (err) {
+        console.error('[CreatePost] failed:', JSON.stringify(err, null, 2));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
-          'Video upload failed',
-          "We couldn't get the video through after a few tries — usually a weak connection. "
-            + 'Anything that already made it is kept, so tapping Post again picks up where it stopped.',
-        );
-        return;
+        throw err;
       }
-      setVideoUploading(false);
-      setVideoProgress(null);
-    }
-    // NOTE: photos are NOT attached here — they're added one-at-a-time after the
-    // post exists (below), so we never send one giant multipart request.
+    };
 
-    try {
-      const result = await createPost(fd).unwrap();
-      const postId =
-        (result as any)?._id ??
-        (result as any)?.entry?.internal_id ??
-        (result as any)?.internal_id;
-
-      // Upload photos sequentially, then refresh the feed so they appear. Each
-      // carries its position in the media list — the server can't infer it,
-      // since a video may already be holding a slot among these photos.
-      const photoItems = current
-        .map((m, index) => ({ m, index }))
-        .filter((x): x is { m: Extract<DraftMedia, { kind: 'image' }>; index: number } =>
-          x.m.kind === 'image');
-
-      if (photoItems.length > 0 && postId) {
-        setImageProgress({ current: 0, total: photoItems.length });
-        let done = 0;
-        for (const { m, index } of photoItems) {
-          const ifd = new FormData();
-          ifd.append('internal_id', postId);
-          ifd.append('index', String(index));
-          ifd.append('gallery', uploadFile(m.uploadUri ?? m.uri));
-          try { await addPostImage(ifd).unwrap(); } catch { /* keep going; partial upload */ }
-          done += 1;
-          setImageProgress({ current: done, total: photoItems.length });
-        }
-        setImageProgress(null);
-        dispatch(apiService.util.invalidateTags(['Post', 'UserEntries']));
-      }
-
-      const hasAnyTags = taggedUsers.length > 0 || taggedCars.length > 0 || taggedEvents.length > 0;
-      if (hasAnyTags && postId) {
-        // Await so the request finishes before we navigate away (unmounting was
-        // racing the fire-and-forget call), and surface failures instead of
-        // swallowing them.
-        try {
-          await syncTags({
-            post_id: postId,
-            tagged_users: taggedUsers.map(t => t.id),
-            tagged_cars: taggedCars.map(t => t.id),
-            tagged_events: taggedEvents.map(t => t.id),
-          }).unwrap();
-        } catch (e) {
-          console.warn('[CreatePost] tag sync failed:', JSON.stringify(e));
-        }
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      appNav.goBack();
-    } catch (err: any) {
-      setImageProgress(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // Surface the real reason instead of a generic message.
-      console.error('[CreatePost] failed:', JSON.stringify(err, null, 2));
-      const status = err?.status;
-      const serverMsg = err?.data?.error ?? err?.data?.message ?? (typeof err?.data === 'string' ? err.data : '');
-      const rawMsg = typeof err?.error === 'string' ? err.error : '';
-      const detail =
-        status === 'FETCH_ERROR'   ? `Network request failed.\nError: ${rawMsg || 'n/a'}` :
-        status === 'TIMEOUT_ERROR' ? 'The request timed out.' :
-        status === 'PARSING_ERROR' ? `Server returned an unexpected response (HTTP ${err?.originalStatus}).` :
-        status === 401 || status === 403 ? 'You appear to be signed out. Please log in again.' :
-        serverMsg ? serverMsg :
-        typeof status === 'number' ? `Server error (HTTP ${status}).` :
-        `Unknown error: ${rawMsg || JSON.stringify(err)}`;
-      Alert.alert('Post failed', detail);
-    }
+    const lead = current[0];
+    startPostUpload({
+      job,
+      draft: formDraft,
+      thumb: !lead ? null : lead.kind === 'image' ? (lead.uploadUri ?? lead.uri) : lead.poster,
+    });
+    appNav.goBack();
   }, [
     kind, postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
-    taggedUsers, taggedCars, taggedEvents, media, place,
-    createPost, createMuxUploadUrl, addPostImage, dispatch, syncTags, appNav,
+    taggedUsers, taggedCars, taggedEvents, media, place, appNav,
   ]);
 
   /**
@@ -612,7 +631,6 @@ export default function CreateScreen() {
 
   // The Done footer is only there while the keyboard is — see below.
   const keyboardUp = useKeyboardState((st) => st.isVisible);
-  const busy = submitting || videoUploading || imageProgress !== null;
 
   return (
     // One ground from top to bottom: the card colour the type row and photos
@@ -837,28 +855,14 @@ export default function CreateScreen() {
         <TouchableOpacity
           // The brand colour — Pro gold or blue — with black on it, like every
           // other brand-filled button.
-          style={[styles.submitBtn, { backgroundColor: brand }, busy && styles.submitBtnDisabled]}
+          // Never busy: the form closes on the tap, and the upload's progress
+          // is the bar at the top of the home feed (utils/postUpload).
+          style={[styles.submitBtn, { backgroundColor: brand }]}
           onPress={handleSubmit}
-          disabled={busy}
           accessibilityRole="button"
           accessibilityLabel={kind === 'poll' ? 'Create poll' : 'Create post'}
         >
-          {busy ? (
-            <>
-              <ActivityIndicator color={COLOR_BLACK} size="small" />
-              {videoUploading ? (
-                <Text style={[styles.submitText, { marginLeft: 8 }]}>
-                  {videoProgress
-                    ? `${videoProgress.step === 'compressing' ? 'Preparing' : 'Uploading'} video${videoProgress.total > 1 ? ` ${videoProgress.current} of ${videoProgress.total}` : ''}… ${Math.round(videoProgress.fraction * 100)}%`
-                    : 'Uploading video…'}
-                </Text>
-              ) : imageProgress ? (
-                <Text style={[styles.submitText, { marginLeft: 8 }]}>Uploading {imageProgress.current} of {imageProgress.total}…</Text>
-              ) : null}
-            </>
-          ) : (
-            <Text style={styles.submitText}>{kind === 'poll' ? 'Create poll' : 'Post'}</Text>
-          )}
+          <Text style={styles.submitText}>{kind === 'poll' ? 'Create poll' : 'Post'}</Text>
         </TouchableOpacity>
         </>)}
       </FormScrollView>
@@ -1004,6 +1008,5 @@ const styles = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 28,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   },
-  submitBtnDisabled: { opacity: 0.6 },
   submitText:      { color: COLOR_BLACK, fontSize: 17, fontFamily: FONT_INTER.extrabold },
 });

@@ -112,6 +112,13 @@ interface SharedModalProps {
   edgeToEdge?: boolean;
   /** The fade under the title row — off where something pinned sits right under it. */
   headFade?: boolean;
+  /**
+   * Stop following the keyboard — for a pane with another pane open over it
+   * (an edit form over the item it edits). Both sheets resized to the same
+   * keyboard, the one underneath shuffling its content behind the scrim, and
+   * the pair never settled.
+   */
+  keyboardInert?: boolean;
   children: React.ReactNode;
 }
 
@@ -121,7 +128,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, headerSurface, hideHeader = false, edgeToEdge = false, headFade = true, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, headerSurface, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -208,6 +215,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
         <KeyboardAvoidingView
           style={[styles.stack, { paddingTop: insets.top + 8 }]}
           pointerEvents="box-none"
+          enabled={!keyboardInert}
         >
         <Animated.View
           style={[
