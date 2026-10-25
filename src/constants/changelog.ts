@@ -44,10 +44,18 @@ export const CHANGELOG: Record<string, ChangelogEntry> = {
         ],
       },
       {
+        title: 'Your profile',
+        items: [
+          "Signed up with Apple or Google? Swap your temporary username for one you choose — we'll check it's free as you type.",
+          'Add a profile photo and your zip code from the same card, each saving as you go.',
+          "A zip code is needed to find what's near you; the photo and username can wait.",
+        ],
+      },
+      {
         title: 'Everything else',
         items: [
           'Editing a group resource or discussion no longer jumps around as you type.',
-          "Members without a zip code are asked for one once, to find what's near them.",
+          "On Android, a post's Save Changes button sits at the end of the form, clear of the navigation bar.",
         ],
       },
     ],

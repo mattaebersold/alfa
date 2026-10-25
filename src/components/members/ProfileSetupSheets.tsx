@@ -39,6 +39,55 @@ const PHOTO_ASPECT: [number, number] = [1, 1];
 const BANNER_ASPECT: [number, number] = [10, 4];
 const PREVIEW = 132;
 
+/**
+ * A square photo from the library or the camera — the uri, or null when
+ * they backed out (or turned the camera down, which is said).
+ */
+export async function pickProfilePhoto(source: 'library' | 'camera'): Promise<string | null> {
+  if (source === 'camera') {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow camera access to take a profile photo.');
+      return null;
+    }
+  }
+  const options: ImagePicker.ImagePickerOptions = {
+    mediaTypes: ['images'], allowsEditing: true, aspect: PHOTO_ASPECT, quality: 0.8,
+  };
+  const result = source === 'camera'
+    ? await ImagePicker.launchCameraAsync(options)
+    : await ImagePicker.launchImageLibraryAsync(options);
+  return result.canceled ? null : result.assets[0].uri;
+}
+
+/**
+ * Upload a picked photo as the member's avatar. `save` answers whether it
+ * went up; a failure has already been told to them.
+ */
+export function useSaveProfilePhoto() {
+  const { data: user } = useGetLoggedInUserQuery();
+  const [updateImage, { isLoading: uploading }] = useUpdateUserSettingImageMutation();
+
+  const save = async (uri: string) => {
+    if (!user?.user_id) return false;
+    try {
+      // HEIC off an iPhone is something the server's image pipeline can't
+      // read, so it's converted before it leaves.
+      const jpeg = await toUploadableJpeg(uri);
+      const formData = new FormData();
+      formData.append('file', uploadFile(jpeg));
+      formData.append('userid', user.user_id);
+      await updateImage({ type: 'gallery', formData }).unwrap();
+      return true;
+    } catch {
+      Alert.alert('Error', "Couldn't upload that photo. Please try again.");
+      return false;
+    }
+  };
+
+  return { save, uploading };
+}
+
 export function ProfilePhotoSheet({ visible, onClose }: {
   visible: boolean;
   onClose: () => void;
@@ -46,7 +95,7 @@ export function ProfilePhotoSheet({ visible, onClose }: {
   const colors = useColors();
   const brand = useBrandColor();
   const { data: user } = useGetLoggedInUserQuery();
-  const [updateImage, { isLoading: uploading }] = useUpdateUserSettingImageMutation();
+  const { save: saveProfilePhoto, uploading } = useSaveProfilePhoto();
   const [picked, setPicked] = useState<string | null>(null);
 
   // Every opening starts from the current photo, not a pick left over from a
@@ -54,36 +103,13 @@ export function ProfilePhotoSheet({ visible, onClose }: {
   useEffect(() => { if (visible) setPicked(null); }, [visible]);
 
   const pick = async (source: 'library' | 'camera') => {
-    if (source === 'camera') {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow camera access to take a profile photo.');
-        return;
-      }
-    }
-    const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ['images'], allowsEditing: true, aspect: PHOTO_ASPECT, quality: 0.8,
-    };
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync(options)
-      : await ImagePicker.launchImageLibraryAsync(options);
-    if (!result.canceled) setPicked(result.assets[0].uri);
+    const uri = await pickProfilePhoto(source);
+    if (uri) setPicked(uri);
   };
 
   const save = async () => {
-    if (!picked || !user?.user_id) return;
-    try {
-      // HEIC off an iPhone is something the server's image pipeline can't
-      // read, so it's converted before it leaves.
-      const jpeg = await toUploadableJpeg(picked);
-      const formData = new FormData();
-      formData.append('file', uploadFile(jpeg));
-      formData.append('userid', user.user_id);
-      await updateImage({ type: 'gallery', formData }).unwrap();
-      onClose();
-    } catch {
-      Alert.alert('Error', "Couldn't upload that photo. Please try again.");
-    }
+    if (!picked) return;
+    if (await saveProfilePhoto(picked)) onClose();
   };
 
   return (

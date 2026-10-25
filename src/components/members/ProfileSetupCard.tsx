@@ -10,8 +10,11 @@ import type { SetupPrompt } from '../../types/api';
 import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
+/** The card's own steps — 'username' is AccountPrompt's alone. */
+type SetupStep = Exclude<SetupPrompt, 'username'>;
+
 /** In the order they're asked: a face, a line about you, your car, then a first post. */
-const STEPS: { key: SetupPrompt; title: string; sub: string }[] = [
+const STEPS: { key: SetupStep; title: string; sub: string }[] = [
   { key: 'photo', title: 'Add a profile photo', sub: 'So members know who they’re talking to' },
   { key: 'bio',   title: 'Add a bio',           sub: 'A line or two about you and what you drive' },
   { key: 'car',   title: 'Add a car to your garage', sub: 'The first thing people look at on a profile' },
@@ -57,7 +60,7 @@ export default function ProfileSetupCard({ onGo }: {
   // vanish as its query landed.
   if (!user || garageLoading || postsLoading) return null;
 
-  const done: Record<SetupPrompt, boolean> = {
+  const done: Record<SetupStep, boolean> = {
     // Either field: an upload writes `gallery`, a Google sign-up `profilePicture`.
     photo: !!user.gallery?.length || !!user.profilePicture,
     bio: !!user.bio?.trim(),

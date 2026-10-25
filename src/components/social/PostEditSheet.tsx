@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert,
+  Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, TextInput } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, PortalHost } from '@ors/kit';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -96,6 +97,9 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   // Readable foreground for anything filled with the brand color — black on the
   // pro gold, white on the default blue.
   const onAccent = contrastText(colors.primaryAlt);
+  const insets = useSafeAreaInsets();
+  // Android: Save closes the form, under its last field, rather than floating.
+  const inlineSave = Platform.OS === 'android';
 
   // Gallery — existing images plus any newly picked, in display order
   const [images, setImages] = useState<EditorImage[]>(() => toEditorImages(post.gallery));
@@ -332,6 +336,12 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     }
   };
 
+  const saveButton = (
+    <TouchableOpacity style={[styles.saveBtn, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
+      {isLoading ? <ActivityIndicator color={onAccent} size="small" /> : <Text style={[styles.saveBtnText, { color: onAccent }]}>Save Changes</Text>}
+    </TouchableOpacity>
+  );
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       {/* Its own layer for floating lists (autocompletes) — the app root's is under the Modal. */}
@@ -353,8 +363,14 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
             </View>
 
             {/* The Save footer floats over the form's bottom edge, so a focused
-                field is kept clear of it as well as of the keyboard. */}
-            <FormScrollView style={styles.scroll} contentContainerStyle={styles.form} bottomOffset={KEYBOARD_GAP + FOOTER_H}>
+                field is kept clear of it as well as of the keyboard. On
+                Android the button ends the form instead, clear of the
+                system's navigation bar. */}
+            <FormScrollView
+              style={styles.scroll}
+              contentContainerStyle={[styles.form, inlineSave && { paddingBottom: insets.bottom + 24 }]}
+              bottomOffset={KEYBOARD_GAP + (inlineSave ? 0 : FOOTER_H)}
+            >
               <PostGalleryEditor images={images} onChange={setImages} />
 
               <Text style={[styles.label, { color: colors.grey }]}>Title</Text>
@@ -443,13 +459,14 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               <Text style={[styles.label, { color: colors.grey }]}>Location</Text>
               <PostLocationField value={place} onChange={setPlace} />
 
+              {inlineSave && <View style={styles.inlineSave}>{saveButton}</View>}
             </FormScrollView>
 
-            <StickyFormFooter color={colors.card} bottomInset={0}>
-              <TouchableOpacity style={[styles.saveBtn, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
-                {isLoading ? <ActivityIndicator color={onAccent} size="small" /> : <Text style={[styles.saveBtnText, { color: onAccent }]}>Save Changes</Text>}
-              </TouchableOpacity>
-            </StickyFormFooter>
+            {!inlineSave && (
+              <StickyFormFooter color={colors.card} bottomInset={0}>
+                {saveButton}
+              </StickyFormFooter>
+            )}
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
@@ -510,6 +527,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
     paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center',
   },
+  inlineSave:  { marginTop: 24 },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: COLOR_WHITE, fontFamily: FONT_INTER.extrabold, fontSize: 15 },
 });

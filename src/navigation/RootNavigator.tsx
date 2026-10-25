@@ -12,7 +12,7 @@ import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
 import SessionRecovery from '../components/auth/SessionRecovery';
-import ZipPrompt from '../components/auth/ZipPrompt';
+import AccountPrompt from '../components/auth/AccountPrompt';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
 import { GroupSummaryProvider } from '../providers/GroupSummaryProvider';
 import { SummaryProvider } from '../providers/SummaryProvider';
@@ -178,8 +178,8 @@ function AuthGate() {
   return (
     <>
       <AppNavigator />
-      {/* Over the app, not in place of it — see ZipPrompt. */}
-      <ZipPrompt />
+      {/* Over the app, not in place of it — see AccountPrompt. */}
+      <AccountPrompt />
     </>
   );
 }

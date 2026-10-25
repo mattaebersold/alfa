@@ -40,9 +40,16 @@ export interface User {
   zip?: number | null;
   /**
    * Whether a zip is on file — what your own profile sends in place of the zip.
-   * False for Google and Apple sign-ins until they add one; see ZipPrompt.
+   * False for Google and Apple sign-ins until they add one; see AccountPrompt.
    */
   hasZip?: boolean;
+  /**
+   * Still the username Apple or Google sign-in made up (`hd6kktm2sc_404`) —
+   * your own profile only. See AccountPrompt.
+   */
+  hasTempUsername?: boolean;
+  /** Which sign-in made it, when `hasTempUsername`. */
+  tempUsernameFrom?: 'apple' | 'google' | null;
   /**
    * A rendered map of the general region this member is in, stored once on the
    * server. Their zip is never exposed — see horacio's userRegionMap.
@@ -94,8 +101,11 @@ export interface User {
 
 export type HideMode = 'none' | 'temporary' | 'permanent';
 
-/** The steps of "Finish setting up your profile". Mirrors horacio's SETUP_PROMPTS. */
-export type SetupPrompt = 'photo' | 'bio' | 'car' | 'post';
+/**
+ * The steps of "Finish setting up your profile", plus 'username' — the
+ * one-time rename offer to an Apple sign-in. Mirrors horacio's SETUP_PROMPTS.
+ */
+export type SetupPrompt = 'photo' | 'bio' | 'car' | 'post' | 'username';
 
 /** Per-user dismissals of the home feed's promotional modules. */
 export interface FeedPreferences {
