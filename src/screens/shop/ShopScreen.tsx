@@ -3,10 +3,11 @@ import {
   View, StyleSheet, FlatList, RefreshControl, TouchableOpacity,
 } from 'react-native';
 import { Text } from '@ors/kit';
+import { ShoppingCart } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppHeader from '../../components/ui/AppHeader';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
-import ProductSummaryModal, { PricePill, ProductGallery, priceRange, directBuyUrl, presentCheckout } from '../../components/shop/ProductSummaryModal';
+import ProductSummaryModal, { ProductGallery, priceRange, directBuyUrl, presentCheckout } from '../../components/shop/ProductSummaryModal';
 import { useShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';
 import { stripHtml } from '../../utils/text';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -14,10 +15,10 @@ import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import { useGetProductsQuery, useGetShopCollectionsQuery } from '../../api/apiService';
-import ChipRow from '../../components/ui/ChipRow';
+import MainTabs from '../../components/ui/MainTabs';
 import { ss } from '../../styles/shared';
 import type { ShopProduct } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_PRO } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_PRO, COLOR_GRAY_46, COLOR_GRAY_102 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -30,6 +31,10 @@ import { FONT_INTER } from '../../constants/fonts'
  * ProductDetailScreen for the App Store reasoning; it stays as the deep-link
  * destination.
  */
+
+/** The buy button's circle, on a full card and on a half one. */
+const BUY_SIZE = 44;
+const BUY_SIZE_COMPACT = 38;
 
 function ProductCard({ product, onPress, onBuy, compact }: {
   product: ShopProduct;
@@ -59,11 +64,7 @@ function ProductCard({ product, onPress, onBuy, compact }: {
         {/* No dots: the card takes the touch, so its photos can't be swiped here. */}
         <ProductGallery images={product.gallery ?? []} width={cardW} aspectRatio={compact ? 1 : 4 / 3} dots={false} />
       </View>
-      {/* The price on the photo's top-left corner, where a glance down the
-          grid finds it; sold out takes the other corner. */}
-      <View style={styles.priceOnPhoto} pointerEvents="none">
-        <PricePill label={priceRange(product)} size="sm" />
-      </View>
+      {/* Sold out on the photo's corner. */}
       {soldOut && (
         <View style={styles.badge}><Text style={styles.badgeText}>Sold out</Text></View>
       )}
@@ -72,20 +73,41 @@ function ProductCard({ product, onPress, onBuy, compact }: {
         {blurb && !compact ? (
           <Text style={[styles.cardBlurb, { color: colors.muted }]} numberOfLines={2}>{blurb}</Text>
         ) : null}
+        {/* The price, plain, at the left of the card's foot, and the buy
+            button at its right. */}
+        <View style={[styles.footRow, compact && styles.footRowCompact]}>
+        <View style={styles.pricePill}>
+          <Text style={[styles.price, compact && styles.priceCompact, { color: colors.fg }]} numberOfLines={1}>
+            {priceRange(product)}
+          </Text>
+        </View>
         {/* Straight to checkout when there's nothing to choose; otherwise the
             panel, where the options are. */}
-        {!soldOut && (
-          // Gold, full width: the one thing to do with a product, and the
-          // colour the app spends on paying for things.
+        {soldOut ? (
+          // Still there, in grey, so the row keeps its shape — and dead: it
+          // takes the touch so a tap on it doesn't open the card instead.
+          <View
+            style={[styles.buyBtn, compact && styles.buyBtnCompact, styles.buyBtnOff]}
+            onStartShouldSetResponder={() => true}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            accessibilityLabel={`${product.title} is sold out`}
+          >
+            <ShoppingCart size={compact ? 17 : 19} color={COLOR_GRAY_102} strokeWidth={2.3} />
+          </View>
+        ) : (
+          // A gold circle with a cart, at the card's right: the colour the
+          // app spends on paying for things.
           <SummaryTouchable
             style={[styles.buyBtn, compact && styles.buyBtnCompact]}
             onPress={onBuy}
             activeOpacity={0.85}
             accessibilityLabel={`Buy ${product.title}`}
           >
-            <Text style={styles.buyText}>Buy now</Text>
+            <ShoppingCart size={compact ? 17 : 19} color={COLOR_BLACK} strokeWidth={2.3} />
           </SummaryTouchable>
         )}
+        </View>
       </View>
     </SummaryTouchable>
   );
@@ -160,9 +182,10 @@ export default function ShopScreen() {
                 <Text style={[styles.introTitle, { color: colors.fg }]}>Shop</Text>
               </View>
               {options.length > 1 && (
-                // The chips run to the screen edges; the list pads 12.
+                // The app's main tabs, run to the screen edges — the list pads
+                // 12, so the first tab starts in line with the cards.
                 <View style={styles.filter}>
-                  <ChipRow options={options} value={collection} onChange={setCollection} />
+                  <MainTabs tabs={options} value={collection} onChange={setCollection} inset={12} />
                 </View>
               )}
             </View>
@@ -224,16 +247,27 @@ const styles = StyleSheet.create({
   cardBody:  { padding: 14, gap: 8 },
   // Fills the card, so the buy buttons line up along a row.
   cardBodyCompact: { flex: 1, padding: 10, gap: 6 },
-  priceOnPhoto: { position: 'absolute', top: 8, left: 8 },
   cardTitleCompact: { fontSize: 14, lineHeight: 18 },
   cardTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, lineHeight: 22 },
   cardBlurb: { fontSize: 13, lineHeight: 18 },
   cardImgWrap: { borderRadius: COMMON_RADIUS, overflow: 'hidden' },
+  // The price and the buy button, at the foot; on a half card, pinned there
+  // so the rows line up across the grid.
+  footRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
+  footRowCompact: { marginTop: 'auto' },
+  // Sunk into the card: a half-black pill, the price in white on it.
+  pricePill: {
+    flexShrink: 1, paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: PILL_RADIUS, backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  price:     { fontSize: 15, fontFamily: FONT_INTER.bold },
+  priceCompact: { fontSize: 13 },
   buyBtn:    {
-    marginTop: 4, height: 44, borderRadius: COMMON_RADIUS,
+    width: BUY_SIZE, height: BUY_SIZE, borderRadius: BUY_SIZE / 2,
     backgroundColor: COLOR_PRO, alignItems: 'center', justifyContent: 'center',
   },
-  buyBtnCompact: { height: 38, marginTop: 'auto' },
-  buyText:   { color: COLOR_BLACK, fontSize: 15, fontFamily: FONT_INTER.bold },
+  // At the card's foot, so the buttons line up along a row.
+  buyBtnOff: { backgroundColor: COLOR_GRAY_46 },
+  buyBtnCompact: { width: BUY_SIZE_COMPACT, height: BUY_SIZE_COMPACT, borderRadius: BUY_SIZE_COMPACT / 2 },
   emptyWrap: { paddingTop: 40 },
 });

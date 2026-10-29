@@ -1,22 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import OrsGradient from '../ui/OrsGradient';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useGetEventCalendarQuery, useGetRallysQuery } from '../../api/apiService';
 import RallyDetailSheet from './RallyDetailSheet';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { categoryFor, toDayKey, isOrsEvent } from '../../constants/eventTypes';
+import { toDayKey, isOrsEvent } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
 import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_214, COLOR_GRAY_79, COLOR_ORS_EVENT_GRADIENT_END, COLOR_ORS_EVENT_GRADIENT_START, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_11, COLOR_GRAY_79, COLOR_GRAY_102, COLOR_GRAY_141, GUTTER, ORS_GRADIENT } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
-/** Dots shown under a day before the rest become a "+n". */
-const MAX_DAY_DOTS = 3;
-const DAY_DOT = 13;
+/** The most a day's count shows before it becomes "99+". */
+const MAX_DAY_COUNT = 99;
+/** The count's line — 16 tall, so a cell's date and count still fit its 50. */
+const DAY_COUNT = 16;
 
 /**
  * How far the phone's text size may grow the grid's numbers. The days are
@@ -42,9 +43,9 @@ const RALLY_LIMIT = 50;
  *
  * Fixed, because unlike a rally these carry no colours of their own — and
  * deliberately nothing like any rally's, so the two kinds of painted day never
- * read as the same thing. Both are dark enough to take white.
+ * read as the same thing. Bright enough to take black — the date and the wheel both.
  */
-const ORS_EVENT_GRADIENT: [string, string] = [COLOR_ORS_EVENT_GRADIENT_START, COLOR_ORS_EVENT_GRADIENT_END];
+const ORS_EVENT_GRADIENT = ORS_GRADIENT;
 
 /**
  * A day given over to one thing.
@@ -60,6 +61,7 @@ function PaintedDay({
   dayNumber,
   ringColor,
   otherEvents,
+  markColor,
 }: {
   gradient: [string, string];
   dayNumber: number;
@@ -67,23 +69,20 @@ function PaintedDay({
   ringColor?: string;
   /** Anything else on this day the tile doesn't already stand for. */
   otherEvents: number;
+  /** The club's mark in this colour rather than the tile's ink. */
+  markColor?: string;
 }) {
   const [from, to] = gradient;
   const ink = contrastText(from);
 
   return (
     <View style={[styles.paintedTile, !!ringColor && { borderWidth: 2, borderColor: ringColor }]}>
-      <LinearGradient
-        colors={[from, to]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <OrsGradient colors={[from, to]} />
       <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={[styles.paintedDayText, { color: ink }]}>{dayNumber}</Text>
       <Image
         source={require('../../../assets/logo.png')}
         style={styles.paintedLogo}
-        tintColor={ink}
+        tintColor={markColor ?? ink}
       />
       {/* So a painted day never hides that something else is on. */}
       {otherEvents > 0 && (
@@ -225,8 +224,9 @@ export default function EventMonthCalendar({
             gradient={ORS_EVENT_GRADIENT}
             dayNumber={date.getDate()}
             ringColor={ring}
-            // The tile already stands for the sponsored one.
-            otherEvents={dayEvents.length - 1}
+            // Just the wheel, in black: no dots for whatever else is on.
+            otherEvents={0}
+            markColor={COLOR_BLACK}
           />
         </TouchableOpacity>
       );
@@ -242,7 +242,9 @@ export default function EventMonthCalendar({
       >
         {/* Today fills its whole cell — the same tile a painted day gets — in
             white, rather than a circle round the number. */}
-        {isToday && <View style={styles.todayTile} />}
+        {/* A day with something on gets the same tile in dark grey. */}
+        {isToday ? <View style={[styles.dayTile, styles.todayTile]} />
+          : hasEvents ? <View style={[styles.dayTile, styles.eventTile]} /> : null}
         <View style={styles.dayCircle}>
           <Text
             maxFontSizeMultiplier={MAX_TEXT_SCALE}
@@ -258,21 +260,18 @@ export default function EventMonthCalendar({
           </Text>
         </View>
 
-        {/* One dot per event, coloured by its category, overlapped like a
-            stack of faces and capped at three, with a count for the rest,
-            so a busy day doesn't grow the row. */}
-        <View style={styles.dots}>
-          {dayEvents.slice(0, MAX_DAY_DOTS).map((e, idx) => (
-            <View
-              key={`${e.internal_id}-${idx}`}
-              style={[styles.dot, idx > 0 && styles.dotStacked, { backgroundColor: categoryFor(e.category).color }]}
-            />
-          ))}
-          {dayEvents.length > MAX_DAY_DOTS ? (
-            <View style={[styles.dot, styles.dotStacked, styles.dotMore]}>
-              <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.dotsMore}>+{dayEvents.length - MAX_DAY_DOTS}</Text>
-            </View>
-          ) : null}
+        {/* How many are on, in grey under the date — the tile already says
+            there's something. Capped at "99+" so it never runs to three digits. */}
+        <View style={styles.countRow}>
+          {hasEvents ? (<>
+            <CalendarDays size={11} color={isToday ? COLOR_GRAY_102 : COLOR_GRAY_141} strokeWidth={2.2} style={styles.countIcon} />
+            <Text
+              maxFontSizeMultiplier={MAX_TEXT_SCALE}
+              style={[styles.countText, { color: isToday ? COLOR_GRAY_102 : COLOR_GRAY_141 }]}
+            >
+              {dayEvents.length > MAX_DAY_COUNT ? `${MAX_DAY_COUNT}+` : dayEvents.length}
+            </Text>
+          </>) : null}
         </View>
       </TouchableOpacity>
     );
@@ -345,23 +344,15 @@ const styles = StyleSheet.create({
   cell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   dayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontSize: 14 },
-  dots: { flexDirection: 'row', height: DAY_DOT + 1, alignItems: 'center' },
-  // Each one's shadow falls to the left, over the one it overlaps — so two
-  // of the same colour still read as two.
-  dot: {
-    width: DAY_DOT, height: DAY_DOT, borderRadius: DAY_DOT / 2,
-    boxShadow: '-1px 0px 3px rgba(0, 0, 0, 0.55)',
-  },
-  dotStacked: { marginLeft: -5 },
-  // The rest, as one more dot in the stack: light grey, the count in black.
-  // Stretches into a pill for a two-digit count.
-  dotMore: {
-    width: undefined, minWidth: DAY_DOT, paddingHorizontal: 1.5,
-    backgroundColor: COLOR_GRAY_214, alignItems: 'center', justifyContent: 'center',
-  },
-  dotsMore: { fontSize: 8, lineHeight: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: -0.3 },
+  // Tucked up under the date, a calendar mark before the number.
+  countRow: { height: DAY_COUNT, marginTop: -7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  // Lifted to sit level with the digits' height rather than the line's.
+  countIcon: { marginTop: -2 },
+  countText: { fontSize: 13, lineHeight: DAY_COUNT, fontFamily: FONT_INTER.medium },
 
-  todayTile: { position: 'absolute', top: 2, left: 3, right: 3, bottom: 2, borderRadius: 9, backgroundColor: COLOR_WHITE },
+  dayTile:   { position: 'absolute', top: 2, left: 3, right: 3, bottom: 2, borderRadius: 9 },
+  todayTile: { backgroundColor: COLOR_WHITE },
+  eventTile: { backgroundColor: COLOR_GRAY_11 },
 
   // A painted day fills its cell rather than sitting inside it — inset just
   // enough to stay a tile in a grid rather than a band across the week.

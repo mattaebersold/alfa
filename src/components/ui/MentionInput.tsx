@@ -42,6 +42,10 @@ interface MentionInputProps {
   onSuggestionsOpenChange?: (open: boolean) => void;
   /** Told as the text's height changes — a host shaping the field to it. */
   onContentSizeChange?: (e: { nativeEvent: { contentSize: { width: number; height: number } } }) => void;
+  /** Offer garage cars as well as members. On unless a host says otherwise — a post tags its cars in its tag picker. */
+  cars?: boolean;
+  /** A member picked from the list — a post tags them as well as naming them. */
+  onMentionUser?: (user: any) => void;
 }
 
 /** How many of each kind the dropdown shows before it stops. */
@@ -63,6 +67,8 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   maxLength,
   onSuggestionsOpenChange,
   onContentSizeChange,
+  cars: offerCars = true,
+  onMentionUser,
 }, ref) {
   const c = useColors();
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -78,9 +84,9 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   // though a title with spaces can't be typed out after an @.
   const { data: carData } = useGetCarsQuery(
     { search: mentionQuery ?? '', limit: MAX_CARS },
-    { skip },
+    { skip: skip || !offerCars },
   );
-  const cars = (carData?.entries ?? []) as GarageCar[];
+  const cars = offerCars ? ((carData?.entries ?? []) as GarageCar[]) : [];
 
   const hasResults = users.length > 0 || cars.length > 0;
 
@@ -104,7 +110,8 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
     const replaced = value.replace(/@(\w*)$/, `@${username} `);
     setMentionQuery(null);
     onChangeText(replaced, Array.from(mentionedIds.current));
-  }, [value, onChangeText]);
+    onMentionUser?.(user);
+  }, [value, onChangeText, onMentionUser]);
 
   /**
    * A car is stored as `@[Title](car:id)` — see utils/mentions. The id has to

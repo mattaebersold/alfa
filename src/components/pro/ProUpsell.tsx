@@ -31,7 +31,7 @@ import { FONT_INTER } from '../../constants/fonts'
 export const PRO_BENEFITS = [
   `${CAR_LIMIT_PRO} cars in your garage`,
   `${POST_LIMIT_PRO} posts a month`,
-  'Create events — no monthly cap',
+  'Create unlimited events',
   `${LISTING_LIMIT_PRO} marketplace listings a month`,
   '20 custom alerts — get told the moment a part for your car is listed',
   'Create groups',

@@ -194,12 +194,11 @@ export default function SocietyEventCreateScreen() {
       if (Platform.OS === 'ios') setTimeout(openDetail, 350);
       else openDetail();
     } catch (err: any) {
-      // The monthly limit is the one refusal worth wording: the server says
-      // when it resets and what Pro changes, where "try again" would just fail
-      // again. The Events button normally catches this first — this is for a
-      // count that went stale while the form was open.
+      // The event limit is the one refusal worth wording: the server says how
+      // to make room and what Pro changes, where "try again" would just fail
+      // again.
       if (err?.data?.code === 'event_limit_reached') {
-        Alert.alert('Monthly limit reached', err.data.error);
+        Alert.alert('Event limit reached', err.data.error);
         return;
       }
       Alert.alert('Error', `Could not ${editingId ? 'save' : 'create'} this event. Please try again.`);

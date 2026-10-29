@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Easing, Pressable, Dimensions, ActivityIndicator,
+  View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Easing, Pressable, Dimensions, ActivityIndicator, PanResponder,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
-import { formatDistanceToNow } from 'date-fns';
 import { Image } from '../../components/ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
@@ -85,8 +84,6 @@ import type { SummaryOrigin } from '../../components/ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { imageUrl } from '../../utils/image';
-import { postMediaList } from '../../utils/postMedia';
-import PostMediaCarousel from '../../components/media/PostMediaCarousel';
 import { useViewableIds } from '../../hooks/useViewableIds';
 import { stripHtml } from '../../utils/text';
 import type { AppStackParamList } from '../../navigation/types';
@@ -190,57 +187,6 @@ const BIO_MORE_ROOM = 8;
 
 const GARAGE_GUTTER = 12;
 const GARAGE_CARD_WIDTH = Dimensions.get('window').width * 0.9 - GARAGE_GUTTER;
-
-function PostRow({ post, onPress, visible }: {
-  post: Post;
-  onPress: () => void;
-  /** Whether the row is on screen, so its video stops when scrolled away. */
-  visible?: boolean;
-}) {
-  const colors = useColors();
-  // Photos and videos in the author's order — the same list the feed card
-  // draws, so a video post shows its video here rather than a blank card.
-  const media = postMediaList(post);
-  const hasMedia = media.length > 0;
-  const title = post.title ?? (post.body ? stripHtml(post.body) : null);
-  const timeAgo = post.created_at
-    ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
-    : '';
-  return (
-    // A card with the picture on top rather than a row with a stamp beside it:
-    // a post is mostly its photo, and at 58px it was a thumbnail of one.
-    //
-    // A View, not one card-wide touchable: the media is the feed's carousel,
-    // which swipes between photos and plays a video where it sits, and a
-    // touchable wrapped around it would take the first tap on a video and
-    // leave for the post instead. A photo still opens the post, as do the words.
-    <View style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      {hasMedia ? (
-        <PostMediaCarousel
-          media={media}
-          // The card's old fixed shape, so the pane's rows keep one rhythm
-          // rather than each taking its photo's height.
-          ratio={POST_CARD_RATIO}
-          visible={visible}
-          onPressItem={onPress}
-        />
-      ) : null}
-      <TouchableOpacity style={styles.postCardBody} onPress={onPress} activeOpacity={0.85}>
-        {title ? (
-          <Text
-            style={{ color: colors.fg, fontSize: hasMedia ? 15 : 17, fontFamily: FONT_INTER.bold, lineHeight: hasMedia ? 20 : 23 }}
-            numberOfLines={hasMedia ? 2 : 4}
-          >
-            {title}
-          </Text>
-        ) : null}
-        <Text style={{ color: colors.muted, fontSize: 12 }}>{timeAgo}</Text>
-        {/* Same link the feed card carries, sized for a list. */}
-        <GroupAttribution groupId={post.group_ids?.[0] ?? post.group_id} compact />
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => void; currentUserId?: string }) {
   const colors = useColors();
@@ -478,6 +424,18 @@ export default function ProfileScreen() {
   // A screen's height down, so the 85% sheet starts wholly below the edge.
   const sheetOffscreen = Dimensions.get('window').height;
   const sheetY = useRef(new Animated.Value(sheetOffscreen)).current;
+  // Dragged down by its grabber, it closes — far enough or fast enough — as
+  // SharedModal's panes do; short of that it settles back.
+  const sheetPan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => { if (g.dy > 0) sheetY.setValue(g.dy); },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 90 || g.vy > 0.8) setActiveSection(null);
+        else Animated.spring(sheetY, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }).start();
+      },
+    }),
+  ).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const sheetMounted = useRef(false);
 
@@ -496,7 +454,7 @@ export default function ProfileScreen() {
       ]).start();
     } else if (sheetMounted.current) {
       Animated.parallel([
-        Animated.timing(sheetY, { toValue: sheetOffscreen, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(sheetY, { toValue: sheetOffscreen, duration: 220, easing: Easing.bezier(0, 0, 0.58, 1), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
       ]).start(() => {
         sheetMounted.current = false;
@@ -1117,12 +1075,18 @@ export default function ProfileScreen() {
             contentContainerStyle={styles.modalList}
             showsVerticalScrollIndicator={false}
             {...postViewability}
+            // The home feed's card, in the feed's GUTTER. The post and its
+            // comments are a native-stack modal, which iOS won't present over
+            // this pane, so it closes on the way.
             renderItem={({ item }) => (
-              <PostRow
-                post={item}
-                visible={isPostVisible(item.internal_id)}
-                onPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
-              />
+              <View style={styles.postsPaneCard}>
+                <FeedItemCard
+                  post={item}
+                  visible={isPostVisible(item.internal_id)}
+                  onPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
+                  onCommentPress={() => openAndClose(() => (navigation as any).navigate('PostDetailModal', { postId: item.internal_id }))}
+                />
+              </View>
             )}
             onEndReachedThreshold={0.4}
             onEndReached={() => {
@@ -1434,13 +1398,20 @@ export default function ProfileScreen() {
           />
           {/* Sheet — slides up, a touch past its place and back */}
           <Animated.View style={[styles.sheet, { backgroundColor: PANE_BG, transform: [{ translateY: sheetY }] }]}>
-            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.fg }]}>{activeLabel}</Text>
-              <TouchableOpacity onPress={() => setActiveSection(null)} hitSlop={8}>
-                <X size={22} color={colors.grey} />
-              </TouchableOpacity>
+            {/* The panes' grabber (SharedModal's), large and light enough to find. */}
+            <View style={styles.sheetHandleHit} {...sheetPan.panHandlers}>
+              <View style={styles.sheetHandle} />
             </View>
+            {/* The posts pane has no header: the cards say what it is, and the
+                grabber and the backdrop close it. */}
+            {renderedSection === 'posts' ? null : (
+              <View style={styles.sheetHeader}>
+                <Text style={[styles.sheetTitle, { color: colors.fg }]}>{activeLabel}</Text>
+                <TouchableOpacity onPress={() => setActiveSection(null)} hitSlop={8}>
+                  <X size={22} color={colors.grey} />
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={ss.fill}>{renderSectionContent()}</View>
           </Animated.View>
         </View>
@@ -1601,7 +1572,10 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, justifyContent: 'flex-end' },
   sheetOvershootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 },
   sheet:         { height: '85%', borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden' },
-  sheetHandle:   { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 8, marginBottom: 4 },
+  // A band the width of the sheet to take the drag, not just the bar.
+  sheetHandleHit: { alignItems: 'center', paddingTop: 10, paddingBottom: 10 },
+  sheetHandle:   { width: 44, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.5)' },
+  postsPaneCard: { paddingHorizontal: GUTTER },
   sheetHeader:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
@@ -1617,11 +1591,6 @@ const styles = StyleSheet.create({
   userSearchInput: { ...INPUT_TEXT_STYLE, flex: 1 },
 
   pollRow:  { marginHorizontal: 12 },
-  postCard: {
-    marginHorizontal: 12, marginTop: 10,
-    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
-  },
-  postCardBody:  { padding: 12, gap: 4 },
 
   // Clear of the Activity row above it.
   garageSection: { marginTop: 32 },

@@ -58,16 +58,17 @@ const TRACK_PAD_DENSE = 1;
  * row can't scroll past its end, so the last few stop short of the mark but
  * are still all in view.
  *
- * `stretch` spreads a short row across the full width: the tabs grow to
- * share what's left over, like flex. A row too long to fit keeps the tabs at
- * their own widths and scrolls as usual.
+ * `stretch`, on by default, spreads a short row across the full width: the
+ * tabs grow to share what's left over, like flex, so the spare room falls
+ * evenly between them. A row too long to fit keeps the tabs at their own
+ * widths and scrolls as usual. Off, a short row hugs the left.
  *
  * The app header draws its tabs with this, and passes `itemsStyle` (the
  * shrink and indent as the header sticks) and `stuck` (the heavier weight
  * that goes with it). Anywhere else leaves both off.
  */
 export default function MainTabs<K extends string>({
-  tabs, value, onChange, inset = GUTTER, stretch = false, stuck = false, trackColor, countColor, iconOnly = false, dense = false, itemsStyle, contentContainerStyle, style,
+  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, countColor, iconOnly = false, dense = false, itemsStyle, contentContainerStyle, style,
 }: {
   tabs: MainTab<K>[];
   value?: K;

@@ -33,6 +33,15 @@ export interface TagItem {
   avatarUser?: AvatarUser;
 }
 
+/** A member as a tag — the picker's, and an @ picked in the post's words (MentionInput). */
+export const userTag = (u: any): TagItem => ({
+  id: u.user_id || u.internal_id,
+  label: u.username ? `@${u.username}` : ([u.firstName, u.lastName].filter(Boolean).join(' ') || 'User'),
+  kind: 'user',
+  image: u.gallery?.[0]?.filename ?? u.profilePicture ?? null,
+  avatarUser: u,
+});
+
 /** The most a row's suggestions take before they scroll — about five rows. */
 const SUGGEST_MAX_H = 220;
 
@@ -353,13 +362,6 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   const { data: eventSearch } = useSearchQuery(dEvent, { skip: dEvent.length < 2 });
   const { data: groupSearch } = useSearchQuery(dGroup, { skip: !groups || dGroup.length < 2 });
 
-  const toUser  = (u: any): TagItem => ({
-    id: u.user_id || u.internal_id,
-    label: u.username ? `@${u.username}` : ([u.firstName, u.lastName].filter(Boolean).join(' ') || 'User'),
-    kind: 'user',
-    image: u.gallery?.[0]?.filename ?? u.profilePicture ?? null,
-    avatarUser: u,
-  });
   const toCar   = (c: any): TagItem => ({
     id: c.internal_id,
     label: [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car',
@@ -377,7 +379,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
   // Never yourself: tagging yourself in your own post isn't a shortcut anyone needs.
   const userCards: TagCard[] = (recentUsers?.users ?? []).filter((u: any) => !myId || u.user_id !== myId).map((u: any) => ({
-    tag: toUser(u),
+    tag: userTag(u),
     image: imageUrl(u.gallery?.[0]?.filename ?? u.profilePicture),
     // No photo: the tile is their colour, their initials white on it — the
     // whole tile, rather than an avatar's disc sat in a black one.
@@ -392,7 +394,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
       <TagRow
         title="Tag People" placeholder="Search members…" Icon={UserIcon} accent={brand}
         query={userQ} onQuery={setUserQ} selected={users}
-        suggestions={(userSearch?.users ?? []).map(toUser)}
+        suggestions={(userSearch?.users ?? []).map(userTag)}
         onToggle={onToggle}
         above={<TagCardStrip cards={userCards} selectedIds={users.map((t) => t.id)} onToggle={onToggle} bleed={ROW_PAD} />}
       />

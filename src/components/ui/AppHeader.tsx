@@ -179,7 +179,7 @@ function HeaderGround({ height }: { height: number }) {
           scrolls up behind the buttons and tabs and darkens away under them,
           the page's ground at the top easing to nothing past the tab row. */}
       <LinearGradient
-        colors={['rgba(23,23,23,0.96)', 'rgba(23,23,23,0.88)', 'rgba(23,23,23,0)']}
+        colors={['rgba(21,21,21,0.96)', 'rgba(21,21,21,0.88)', 'rgba(21,21,21,0)']}
         locations={[0, 0.72, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -459,7 +459,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
           // The page's own ground (APP_BG) rather than black: over the
           // page it vanishes, so the header area and the screen read as one
           // surface, and over a photo it still darkens as before.
-          colors={['rgba(23,23,23,0.86)', 'rgba(23,23,23,0.62)', 'rgba(23,23,23,0)']}
+          colors={['rgba(21,21,21,0.86)', 'rgba(21,21,21,0.62)', 'rgba(21,21,21,0)']}
           locations={[0, 0.6, 1]}
           style={StyleSheet.absoluteFill}
         />

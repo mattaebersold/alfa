@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 /** Landscape and portrait: the only two shapes a poster card takes. */
 export const LANDSCAPE = 4 / 3;
@@ -53,13 +53,27 @@ export function usePosterRatio(
     return seen ? shapeOf(seen) : initial ?? shapes.landscape;
   });
 
+  // Settled once per photo. iOS decodes the picture to the size of its view
+  // (AppImage's enforceEarlyResizing), so reshaping the card can load it again
+  // — at a size whose ratio is off from the last by a pixel's rounding. Taking
+  // every load at its word, an exact card never stopped changing shape.
+  const settled = useRef<string | null>(null);
+
   const onLoad = useCallback((e: { source?: { width?: number; height?: number } | null }) => {
     const w = e.source?.width;
     const h = e.source?.height;
     if (!w || !h) return;
-    if (key) SEEN.set(key, w / h);
-    setRatio(exact ? w / h : h > w ? shapes.portrait : shapes.landscape);
-  }, [exact, shapes.landscape, shapes.portrait, key]);
+    // Only a keyed photo can be known as the same one; without a key (a
+    // panel reused from car to car) every load may be a new picture.
+    if (key) {
+      if (settled.current === key) return;
+      settled.current = key;
+      if (!SEEN.has(key)) SEEN.set(key, w / h);
+    }
+    const next = shapeOf(key ? SEEN.get(key)! : w / h);
+    // A hair's difference isn't a new shape: keep the card where it is.
+    setRatio((prev) => (Math.abs(prev - next) / next < 0.02 ? prev : next));
+  }, [exact, shapes.landscape, shapes.portrait, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { ratio, onLoad };
 }

@@ -23,10 +23,11 @@ const SEG_GAP = 3;
  * whichever is picked rather than one segment lighting and another going
  * out. The thumb is a view under the labels; the labels only change colour.
  *
- * By default each option is its own width and the track hugs them: a short
- * set doesn't stretch across the screen, and one too long to fit (the
- * categories run to five) scrolls sideways — the thumb follows the measured
- * segment, and the row scrolls to keep the lit one in view. `stretch` runs the
+ * By default the track runs the full width, and each option is its own width
+ * plus an even share of whatever room is left, so a short set spreads out
+ * across it; one too long to fit (the categories run to five) scrolls
+ * sideways instead — the thumb follows the measured segment, and the row
+ * scrolls to keep the lit one in view. `stretch` runs the
  * track the full width instead and shares it between the options, as
  * MainTabs' `stretch` does. Both animate on the JS driver, since the thumb's
  * width changes too.
@@ -47,8 +48,6 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   const colors = useColors();
   const brand = useBrandColor();
   const [trackW, setTrackW] = useState(0);
-  /** The options' width end to end, for a track that hugs them. */
-  const [contentW, setContentW] = useState(0);
   const [cells, setCells] = useState<Record<string, { x: number; w: number }>>({ });
   const scrollRef = useRef<ScrollView>(null);
   const n = Math.max(1, options.length);
@@ -103,7 +102,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
           <Reanimated.View
             key={o.key}
             layout={TAB_LAYOUT}
-            style={fit === 'equal' && styles.segmentShare}
+            style={fit === 'equal' ? styles.segmentShare : styles.segmentGrow}
             onLayout={fit === 'scroll'
               ? (e) => { const { x: lx, width } = e.nativeEvent.layout; setCells((c) => (c[o.key]?.x === lx && c[o.key]?.w === width ? c : { ...c, [o.key]: { x: lx, w: width } })); }
               : undefined}
@@ -130,28 +129,26 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
 
   if (fit === 'scroll') {
     return (
-      // A horizontal ScrollView takes all the width it's given, so the track
-      // can't simply shrink to it. The outer view measures the room; the
-      // track is sized to the options, up to that, and past it they scroll.
+      // Full width. The row is at least as wide as the track, and each option
+      // grows by an equal share of the room the labels leave; past the
+      // track's width there's no room left to share, and they scroll.
       <View style={[styles.segmentRoom, { marginHorizontal: inset }]} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
-      <Reanimated.View layout={TAB_LAYOUT} style={[
+      <View style={[
         styles.segmentTrack, styles.segmentTrackScroll,
         { backgroundColor: TRACK_BG },
-        // Hidden until both are known, so it doesn't flash full width first.
-        trackW > 0 && contentW > 0 ? { width: Math.min(contentW, trackW) } : styles.unmeasured,
+        trackW > 0 ? null : styles.unmeasured,
       ]}>
         <ScrollView
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          onContentSizeChange={(cw) => setContentW(cw)}
           contentContainerStyle={styles.segmentScrollRow}
           keyboardShouldPersistTaps="handled"
           accessibilityRole="radiogroup"
         >
           {segments}
         </ScrollView>
-      </Reanimated.View>
+      </View>
       </View>
     );
   }
@@ -169,13 +166,15 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
 const styles = StyleSheet.create({
   segmentTrack: { flexDirection: 'row', marginHorizontal: 12, padding: SEG_PAD, borderRadius: COMMON_RADIUS, gap: SEG_GAP },
   // The scrolling track: its padding moves onto the scroller's content, so
-  // the row can run under the track's rounded ends. Flush left and only as
-  // wide as its options, up to the full width, where it starts to scroll.
+  // the row can run under the track's rounded ends.
   segmentTrackScroll: { padding: 0, overflow: 'hidden', marginHorizontal: 0 },
-  // The full row the track may grow to — the track's own side margins, moved out here.
-  segmentRoom:  { marginHorizontal: 12, alignItems: 'flex-start' },
+  // The row the track fills — the track's own side margins, moved out here.
+  segmentRoom:  { marginHorizontal: 12 },
   unmeasured:   { opacity: 0 },
-  segmentScrollRow:   { flexDirection: 'row', gap: SEG_GAP, padding: SEG_PAD },
+  // At least the track's width, so the options have its spare room to share.
+  segmentScrollRow:   { flexDirection: 'row', gap: SEG_GAP, padding: SEG_PAD, flexGrow: 1 },
+  // Its own width, plus an even share of what's spare.
+  segmentGrow:  { flexGrow: 1 },
   segmentThumb: { position: 'absolute', top: SEG_PAD, bottom: SEG_PAD, left: 0, borderRadius: COMMON_RADIUS - SEG_PAD },
   // Sharing the track equally, in `stretch`.
   segmentShare: { flex: 1 },

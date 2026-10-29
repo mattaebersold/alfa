@@ -23,7 +23,7 @@ import {
   useGetCarWithUserQuery, useGetCarTasksQuery,
   useGetCarGalleriesQuery, useGetUserByIdQuery, useGetPostsQuery,
   useGetCarModsPageQuery, useGetCarGalleriesPageQuery,
-  useGetCarJournalQuery, useDeleteCarJournalEntryMutation,
+  useGetCarJournalQuery, useGetCarJournalEntryQuery, useDeleteCarJournalEntryMutation,
   useDeletePostMutation,
   useCreateModMutation, useUpdateModMutation, useDeleteModMutation,
   useDeleteCarGalleryMutation,
@@ -538,8 +538,8 @@ const modStyles = StyleSheet.create({
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 
-export default function CarDetailScreen({ route }: { route: { params: { carId: string; action?: CarDetailAction } } }) {
-  const { carId, action } = route.params;
+export default function CarDetailScreen({ route }: { route: { params: { carId: string; action?: CarDetailAction; journalId?: string } } }) {
+  const { carId, action, journalId } = route.params;
   const appNav = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const localNav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -627,6 +627,18 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
   const [deleteCarGallery] = useDeleteCarGalleryMutation();
 
   const { data: car, isLoading, refetch: refetchCar } = useGetCarWithUserQuery(carId);
+
+  // Arrived from a "new journal entry" notification: that entry, open over the
+  // page once the page is there to sit under it. Once per entry asked for, so
+  // closing it doesn't bring it back.
+  const { data: arrivedEntry } = useGetCarJournalEntryQuery(journalId!, { skip: !journalId });
+  const shownArrival = useRef<string | null>(null);
+  useEffect(() => {
+    if (!car || !arrivedEntry || arrivedEntry.car_id !== carId) return;
+    if (shownArrival.current === arrivedEntry.internal_id) return;
+    shownArrival.current = arrivedEntry.internal_id;
+    setJournalSummary(arrivedEntry);
+  }, [car, arrivedEntry, carId]);
   /**
    * The car's comment count, for the bubble beside the like. Asked for here
    * because the car's payload doesn't carry one; with the same argument

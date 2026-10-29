@@ -504,14 +504,18 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           "what's on your mind?" asks for — so it's set as a description: its
           size, its clamp, its "more". Only with both does the title stay a
           title, with the description beneath. */}
-      {!spotResult && post.title && !bodyText ? (
+      {/* A body with no title — what the form writes now it has no title
+          field — is the same thing, and set the same way. Either alone is
+          the whole post, so in white at full strength and a step larger than
+          a description under a title. */}
+      {!spotResult && !!post.title !== !!bodyText ? (
         <ClampedText
-          text={post.title}
+          text={post.title || bodyText}
           lines={BODY_LINES}
           expandable
           startExpanded={fullText}
           wrapStyle={styles.titleAsBodyWrap}
-          style={[styles.bodyPreview, { color: COLOR_WHITE }]}
+          style={[styles.wordsAlone, { color: COLOR_WHITE }]}
           moreColor={mutedColor}
           moreRoom={MORE_ROOM}
           onPress={onPress}
@@ -723,6 +727,8 @@ const styles = StyleSheet.create({
   titleAsBodyWrap:{ paddingHorizontal: 8, paddingTop: 2, paddingBottom: 10 },
   // Stepped back a touch from `muted`, so the title leads it more clearly.
   bodyPreview:    { fontSize: 13, lineHeight: 18, opacity: 0.85 },
+  // The post's words with nothing over or under them.
+  wordsAlone:     { fontSize: 15, lineHeight: 21 },
   /**
    * Same width as the real one, invisible, out of flow.
    *

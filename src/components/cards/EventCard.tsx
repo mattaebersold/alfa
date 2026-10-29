@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { MapPin } from 'lucide-react-native';
+import OrsGradient from '../ui/OrsGradient';
 import Avatar from '../ui/Avatar';
 import EventImage from '../society/EventImage';
 import EventPills from '../society/EventPills';
@@ -12,7 +13,9 @@ import {
 import { useColors } from '../../hooks/useColors';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';
 import type { SocietyEvent, User } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
+import {
+  COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS,
+} from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -139,6 +142,16 @@ export default function EventCard({
   // often cut off before it gets there.
   const cityState = side ? eventCityState(event) : null;
 
+  /**
+   * An ORS event in the day pane's list wears the calendar's ORS livery — the
+   * same gradient its day is painted in — with its words in black over it.
+   */
+  const ors = isOrsEvent(event);
+  const livery = side && ors;
+  const ink = livery ? COLOR_BLACK : colors.fg;
+  // The day and time pills: sunk into the card, or on the livery a shade of it.
+  const whenBg = livery ? 'rgba(0,0,0,0.12)' : colors.bg;
+
   const showMeta = !!event.location;
   const showPeople = (showInterested && !!event.interested_preview?.length) || !!accessory;
 
@@ -148,27 +161,33 @@ export default function EventCard({
       onPress={() => onPress?.(event)}
       activeOpacity={0.9}
     >
+      {livery ? (
+        <OrsGradient />
+      ) : null}
       {/* The card's own corners round the photo — nothing sits on top of it. */}
       {/* Beside the copy, a tall flyer is held to a square — at its own shape it
           made the card twice the copy's height, all of it empty space. */}
-      <View style={side ? [styles.photoSide, { minHeight: SIDE_PHOTO_W / Math.max(frameRatio, 1) }] : { aspectRatio: frameRatio }}>
-        <EventImage
-          uri={hero}
-          style={StyleSheet.absoluteFill}
-          onAspectRatio={ratio == null ? onAspectRatio : undefined}
-        />
-      </View>
+      {/* No photo, no stand-in: the details take the card's whole width. */}
+      {hero ? (
+        <View style={side ? [styles.photoSide, { minHeight: SIDE_PHOTO_W / Math.max(frameRatio, 1) }] : { aspectRatio: frameRatio }}>
+          <EventImage
+            uri={hero}
+            style={StyleSheet.absoluteFill}
+            onAspectRatio={ratio == null ? onAspectRatio : undefined}
+          />
+        </View>
+      ) : null}
 
       <View style={[styles.body, side && styles.bodySide]}>
-        <EventPills category={category} ors={isOrsEvent(event)} orsLabel={orsBadgeLabel(event)} typePill={typePill} />
+        <EventPills category={category} ors={ors} orsLabel={orsBadgeLabel(event)} typePill={typePill} orsBlack={livery} />
 
         {/* Beside a photo the title comes first, the day and time under it. */}
         {side ? (
           <>
-            <Text style={[styles.title, styles.titleSide]} numberOfLines={2}>{event.title}</Text>
+            <Text style={[styles.title, styles.titleSide, livery && { color: COLOR_BLACK }]} numberOfLines={2}>{event.title}</Text>
             {/* The town on its own line, between the title and the pills. */}
             {cityState ? (
-              <Text style={[styles.whenPlace, { color: colors.fg }]} numberOfLines={1}>{cityState}</Text>
+              <Text style={[styles.whenPlace, { color: ink }]} numberOfLines={1}>{cityState}</Text>
             ) : null}
           </>
         ) : null}
@@ -184,13 +203,13 @@ export default function EventCard({
             <View style={styles.whenRow}>
               {/* The day and the time each in a dark pill, sunk into the card. */}
               {day ? (
-                <View style={[styles.whenPill, styles.whenPillShrink, { backgroundColor: colors.bg }]}>
-                  <Text style={[styles.whenDay, { color: colors.fg }]} numberOfLines={1}>{day}</Text>
+                <View style={[styles.whenPill, styles.whenPillShrink, { backgroundColor: whenBg }]}>
+                  <Text style={[styles.whenDay, { color: ink }]} numberOfLines={1}>{day}</Text>
                 </View>
               ) : null}
               {time ? (
-                <View style={[styles.whenPill, { backgroundColor: colors.bg }]}>
-                  <Text style={[styles.whenTimeText, { color: colors.fg }]}>{time}</Text>
+                <View style={[styles.whenPill, { backgroundColor: whenBg }]}>
+                  <Text style={[styles.whenTimeText, { color: ink }]}>{time}</Text>
                 </View>
               ) : null}
             </View>
@@ -215,8 +234,8 @@ export default function EventCard({
                 hitSlop={6}
                 accessibilityRole={onPressLocation ? 'link' : undefined}
               >
-                {side ? null : <MapPin size={12} color={colors.fg} />}
-                <Text style={[styles.locationText, { color: colors.fg }]} numberOfLines={1}>
+                {side ? null : <MapPin size={12} color={ink} />}
+                <Text style={[styles.locationText, { color: ink }]} numberOfLines={1}>
                   {event.location}
                 </Text>
               </TouchableOpacity>

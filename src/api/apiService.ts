@@ -849,6 +849,12 @@ export const apiService = createApi({
       providesTags: (result, error, { carId }) => [{ type: 'CarJournal', id: carId }],
     }),
 
+    /** One entry — what a follower's "new journal entry" notification opens over the car. */
+    getCarJournalEntry: builder.query<CarJournalEntry, string>({
+      query: (id) => `api/car-journal/entry/${id}`,
+      providesTags: (result) => (result ? [{ type: 'CarJournal', id: result.car_id }] : []),
+    }),
+
     /** FormData: `car_id`, `title`, `body`, and `gallery` files. Owner or co-owner only. */
     createCarJournalEntry: builder.mutation<CarJournalEntry, FormData>({
       query: (body) => ({ url: 'api/car-journal/create', method: 'POST', body }),
@@ -2959,6 +2965,7 @@ export const {
   useGetCarModsQuery,
   useGetCarModsPageQuery,
   useGetCarJournalQuery,
+  useGetCarJournalEntryQuery,
   useCreateCarJournalEntryMutation,
   useUpdateCarJournalEntryMutation,
   useDeleteCarJournalEntryMutation,

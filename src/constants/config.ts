@@ -207,6 +207,7 @@ export const COLOR_GRAY_26  = '#1A1A1A';
 export const COLOR_GRAY_25  = '#191919';
 export const COLOR_GRAY_23  = '#171717';
 export const COLOR_GRAY_22  = '#161616';
+export const COLOR_GRAY_21  = '#151515';
 export const COLOR_GRAY_20  = '#141414';
 export const COLOR_GRAY_18  = '#121212';
 export const COLOR_GRAY_17  = '#111111';
@@ -217,7 +218,7 @@ export const COLOR_GRAY_10  = '#0A0A0A';
 
 /* Grounds — one each, so every screen, modal and pane agrees */
 /** Every screen's ground. Painted once, by the navigator's theme; screens don't set their own. */
-export const APP_BG   = COLOR_GRAY_23;
+export const APP_BG   = COLOR_GRAY_21;
 /** The summary modal's surface. */
 export const MODAL_BG = COLOR_BLACK;
 /** Every pane's surface — sheets, slide-ups and the panels that grow from a button. A shade over the app's ground. */
@@ -330,8 +331,15 @@ export const COLOR_EVENT_SHOW               = '#FF6FA5';
 export const COLOR_EVENT_TECH_SESSION       = '#FFB020';
 export const COLOR_EVENT_MOTORSPORTS        = '#FF5C39';
 export const COLOR_EVENT_MISC               = '#C9A2FF'; // lavender — was a grey that read as disabled
-export const COLOR_ORS_EVENT_GRADIENT_START = '#1E8E4E';
-export const COLOR_ORS_EVENT_GRADIENT_END   = '#6B3FA0';
+export const COLOR_ORS_EVENT_GRADIENT_START = '#34C46E';
+export const COLOR_ORS_EVENT_GRADIENT_END   = '#9A6BE0';
+/**
+ * The app's gradient: green into purple at 45° (draw it with OrsGradient). First an ORS
+ * event's livery on the calendar; now the default wherever something is
+ * painted in a gradient (What's New's version pills). Bright enough to take
+ * black.
+ */
+export const ORS_GRADIENT: [string, string] = [COLOR_ORS_EVENT_GRADIENT_START, COLOR_ORS_EVENT_GRADIENT_END];
 
 /* Alerts — the parts of an alert sentence. */
 export const COLOR_ALERT_ACTION    = '#7FD1F7';
@@ -415,10 +423,10 @@ export const POST_LIMIT_BASIC = 15;
 export const POST_LIMIT_PRO = 100;
 
 /**
- * Events a basic member may create per calendar month. Enforced by horacio
- * exactly like posts, and resets on the same 1st of the month.
+ * Events a basic member may have — a standing total, not a monthly allowance:
+ * deleting one frees its slot. Pro is uncapped. Enforced by horacio.
  */
-export const EVENT_LIMIT_BASIC = 3;
+export const EVENT_LIMIT_BASIC = 1;
 
 /**
  * Marketplace listings a basic member may post per calendar month. Counted and

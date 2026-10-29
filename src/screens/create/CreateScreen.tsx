@@ -22,7 +22,7 @@ import ActionSheet from '../../components/ui/ActionSheet';
 import MentionInput from '../../components/ui/MentionInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import CameraSheet, { type CameraCapture } from '../../components/media/CameraSheet';
-import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
+import PostTagPicker, { userTag, type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
 import SubTabs from '../../components/ui/SubTabs';
 import MainTabs from '../../components/ui/MainTabs';
@@ -427,6 +427,12 @@ export default function CreateScreen() {
     });
   }, []);
 
+  /** An @ picked in the words tags that member too, as the picker would — once. */
+  const tagMentioned = useCallback((user: any) => {
+    const tag = userTag(user);
+    setTaggedUsers((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]));
+  }, []);
+
   // ── Group toggle ─────────────────────────────────────────────────────────────
 
   const toggleGroup = useCallback((gid: string) => {
@@ -811,6 +817,9 @@ export default function CreateScreen() {
             onChangeText={(text, ids) => { setTitle(text); setMentionedUserIds(ids); }}
             placeholder="What's on your mind?"
             multiline
+            // Members only: a car is tagged in the picker below.
+            cars={false}
+            onMentionUser={tagMentioned}
           />
         </View>
         </>)}
@@ -831,6 +840,8 @@ export default function CreateScreen() {
             onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
             placeholder="Description"
             multiline
+            cars={false}
+            onMentionUser={tagMentioned}
           />
         </View>
         )}

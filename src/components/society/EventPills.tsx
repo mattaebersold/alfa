@@ -5,7 +5,7 @@ import { ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import CheckeredFlag from '../ui/CheckeredFlag';
 import { contrastText } from '../../hooks/useBrandColor';
 import { useColors } from '../../hooks/useColors';
-import { PILL_RADIUS } from '../../constants/config';
+import { COLOR_BLACK, COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -18,7 +18,7 @@ import { FONT_INTER } from '../../constants/fonts';
  * gold "ORS Event". A rally has no category and is always ORS-run, so its one
  * gold pill carries type and backing together.
  */
-export default function EventPills({ category, ors, orsLabel, typePill = true }: {
+export default function EventPills({ category, ors, orsLabel, typePill = true, orsBlack = false }: {
   /** The category's label and colour; absent for a rally. */
   category?: { label: string; color: string } | null;
   /** Backed by ORS — an event's gold badge, or a rally's whole pill. */
@@ -27,6 +27,11 @@ export default function EventPills({ category, ors, orsLabel, typePill = true }:
   orsLabel?: string;
   /** The plain "Event" pill — left off where everything listed is an event. */
   typePill?: boolean;
+  /**
+   * The ORS badge in black with white words and no flag — on a card painted
+   * in the ORS livery, where gold on the gradient was lost.
+   */
+  orsBlack?: boolean;
 }) {
   const colors = useColors();
 
@@ -42,7 +47,11 @@ export default function EventPills({ category, ors, orsLabel, typePill = true }:
     <View style={styles.row}>
       <Pill label={category.label} color={category.color} shrink />
       {typePill ? <Pill label="Event" color={colors.secondary} textColor={colors.fg} /> : null}
-      {ors ? <Pill label={orsLabel ?? 'ORS Event'} color={ORS_EVENT_COLOR} flag /> : null}
+      {ors ? (
+        orsBlack
+          ? <Pill label={orsLabel ?? 'ORS Event'} color={COLOR_BLACK} textColor={COLOR_WHITE} />
+          : <Pill label={orsLabel ?? 'ORS Event'} color={ORS_EVENT_COLOR} flag />
+      ) : null}
     </View>
   );
 }

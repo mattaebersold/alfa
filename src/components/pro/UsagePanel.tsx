@@ -118,7 +118,7 @@ export default function UsagePanel({
           <Text style={styles.footText}>Pro raises every limit.</Text>
           <ProUpsell
             title="No limits with Pro"
-            message={`A basic membership holds ${CAR_LIMIT_BASIC} garage cars, ${PHOTO_SPOT_LIMIT_BASIC} photography pins and ${ALERT_LIMIT_BASIC} custom alert, with ${POST_LIMIT_BASIC} posts, ${EVENT_LIMIT_BASIC} new events and ${LISTING_LIMIT_BASIC} marketplace listings a month. Pro raises them to ${CAR_LIMIT_PRO} cars, ${PHOTO_SPOT_LIMIT_PRO} pins, and ${POST_LIMIT_PRO} posts and ${LISTING_LIMIT_PRO} listings a month, and unlocks route recording and the rest of the garage tools.`}
+            message={`A basic membership holds ${CAR_LIMIT_BASIC} garage cars, ${PHOTO_SPOT_LIMIT_BASIC} photography pins and ${ALERT_LIMIT_BASIC} custom alert and ${EVENT_LIMIT_BASIC} event, with ${POST_LIMIT_BASIC} posts and ${LISTING_LIMIT_BASIC} marketplace listings a month. Pro raises them to ${CAR_LIMIT_PRO} cars, ${PHOTO_SPOT_LIMIT_PRO} pins, unlimited events, and ${POST_LIMIT_PRO} posts and ${LISTING_LIMIT_PRO} listings a month, and unlocks route recording and the rest of the garage tools.`}
             // Its own gold would vanish into a Pro card, but a Pro card never
             // shows it; on blue it needs a dark edge to stand off the fill.
             style={styles.upsellBtn}

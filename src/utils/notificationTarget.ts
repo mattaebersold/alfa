@@ -176,7 +176,20 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
 
     case 'garagecar':
     case 'car':
-      return id ? { name: 'CarDetail', params: { carId: id } } : null;
+      if (!id) return null;
+      // A new journal entry is filed against its car; the entry itself, in
+      // `item_id`, opens over the car's page.
+      if (meta.kind === 'journal' && meta.item_id) {
+        return { name: 'CarDetail', params: { carId: id, journalId: meta.item_id } };
+      }
+      return { name: 'CarDetail', params: { carId: id } };
+
+    // Something about an entry itself (a like, a comment): the same landing.
+    case 'carjournal': {
+      const carId = meta.car_id as string | undefined;
+      if (!carId) return null;
+      return { name: 'CarDetail', params: { carId, ...(id ? { journalId: id } : {}) } };
+    }
 
     case 'user':      return id ? { name: 'UserDetail', params: { userId: id } } : null;
     case 'group':     return id ? { name: 'GroupDetail', params: { groupId: id } } : null;

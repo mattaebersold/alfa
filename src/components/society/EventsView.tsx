@@ -3,8 +3,11 @@ import { skipToken } from '@reduxjs/toolkit/query';
 import { View, ScrollView, StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Plus } from 'lucide-react-native';
+import SharedButton from '../../components/ui/SharedButton';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import SharedModal from '../../components/ui/SharedModal';
+import SharedModal, { PANE_GRABBER_H, PANE_GUTTER } from '../../components/ui/SharedModal';
 import SubTabs from '../../components/ui/SubTabs';
 import EmptyState from '../../components/ui/EmptyState';
 import Spinner from '../../components/ui/Spinner';
@@ -18,7 +21,8 @@ import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFil
 import { NO_ZIP_NOTE } from '../../components/ui/LocationFilterRow';
 import EventFilters from '../../components/society/EventFilters';
 import EventSearchField from './EventSearchField';
-import { GUTTER } from '../../constants/config';
+import { COLOR_WHITE, GUTTER, PANE_BG } from '../../constants/config';
+import { LinearGradient } from 'expo-linear-gradient';
 import { collapseMultiDay } from '../../constants/eventTypes';
 import { useColors } from '../../hooks/useColors';
 import { categoryFor } from '../../constants/eventTypes';
@@ -31,6 +35,8 @@ import { FONT_INTER } from '../../constants/fonts'
 
 // Shared with the feed's row, so an event is one size in both places.
 const CARD_WIDTH = UPCOMING_CARD_WIDTH;
+/** How far the day pane's head fades out below it. */
+const DAY_HEAD_FADE = 20;
 import { SkeletonCard } from '../ui/Skeleton';
 /** How far ahead the Upcoming carousel looks. */
 const UPCOMING_DAYS = 30;
@@ -65,6 +71,7 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const scrollRef = givenRef ?? ownRef;
   useScrollTopOnBack(scrollRef);
   const colors = useColors();
+  const nav = useNavigation();
   const insets = useSafeAreaInsets();
 
   const { openEventSheet } = useEventSheet();
@@ -145,6 +152,9 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const dayShown = dayCategory
     ? dayEvents.filter((e) => categoryFor(e.category).key === dayCategory)
     : dayEvents;
+  const hasDayTabs = dayCategories.length > 1;
+  /** The floating head's height, for the list to start clear of it. */
+  const [dayHeadH, setDayHeadH] = useState(0);
 
   // Only categories with something coming up — a pill that filters to "Nothing
   // in the next 30 days" is a dead end. EventFilters keeps the selected one.
@@ -201,6 +211,17 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
             <RowEndSpacer />
           </ScrollView>
         )}
+
+        {/* Adding one of your own, between what's coming up and the tools
+            for narrowing it. The server holds the monthly allowance. */}
+        <View style={styles.createRow}>
+          <SharedButton
+            label="Create New Event"
+            Icon={Plus}
+            full
+            onPress={() => (nav as any).navigate('SocietyEventCreate')}
+          />
+        </View>
 
         {/* The filter, under the carousel rather than above it: the next few
             weeks lead the screen, and the filter follows for whoever wants to
@@ -304,28 +325,19 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
             openEvent(event);
           }
         }}
-        // The category tabs sit right under the title; a fade there washed over them.
-        headFade={false}
+        // Its own header, floating over the list (below), so the list
+        // scrolls the whole height of the pane, up under the title.
+        hideHeader
         // Always full height: filtering by category shouldn't make the pane jump.
         heightRatio={0.9}
-        title={
-          daySheet
-            ? daySheet.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-            : ''
-        }
       >
         {/* Scrolls: each card is as tall as its photo, so a busy Saturday runs
             past the sheet, and the sheet clips whatever it's handed. */}
-        {dayCategories.length > 1 && (
-          <View style={styles.dayTabs}>
-            <SubTabs
-              options={[{ key: 'all', label: 'All' }, ...dayCategories]}
-              value={dayCategory ?? 'all'}
-              onChange={(k) => setDayCategory(k === 'all' ? null : k)}
-            />
-          </View>
-        )}
-        <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+        <View style={ss.fill}>
+        <ScrollView
+          contentContainerStyle={[styles.sheetBody, { paddingTop: dayHeadH + 4 }]}
+          showsVerticalScrollIndicator={false}
+        >
           {dayShown.map((event, i) => {
             const key = `${event.internal_id}-${i}`;
             return (
@@ -339,6 +351,29 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
             );
           })}
         </ScrollView>
+        {/* The day and its category tabs float over the list on a ground
+            that fades from the pane's colour to clear, so the cards scroll
+            up under them, to the pane's top, rather than stopping at a hard
+            edge. Clear of the grabber, which floats over it all. */}
+        <View style={styles.dayHead} onLayout={(e) => setDayHeadH(e.nativeEvent.layout.height)}>
+          <LinearGradient
+            colors={[PANE_BG, PANE_BG, `${PANE_BG}00`]}
+            locations={[0, 0.6, 1]}
+            style={styles.dayHeadFade}
+            pointerEvents="none"
+          />
+          <Text style={styles.dayTitle} numberOfLines={1}>
+            {daySheet ? daySheet.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''}
+          </Text>
+          {hasDayTabs && (
+            <SubTabs
+              options={[{ key: 'all', label: 'All' }, ...dayCategories]}
+              value={dayCategory ?? 'all'}
+              onChange={(k) => setDayCategory(k === 'all' ? null : k)}
+            />
+          )}
+        </View>
+        </View>
       </SharedModal>
 
     </>
@@ -349,6 +384,7 @@ const styles = StyleSheet.create({
 
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: GUTTER, marginBottom: 6 },
 
+  createRow: { marginTop: 16, paddingHorizontal: GUTTER },
   filtersBelow: { marginTop: 12 },
   toolsRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
@@ -367,6 +403,10 @@ const styles = StyleSheet.create({
   carousel: { paddingLeft: GUTTER, gap: 12, alignItems: 'flex-start' },
 
   sheetBody: { padding: 12, gap: 12, paddingBottom: 32 },
-  dayTabs: { paddingTop: 4 },
+  dayHead: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: PANE_GRABBER_H, gap: 10 },
+  // Runs past the head's foot, so the fade happens below it, over the cards.
+  dayHeadFade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: -DAY_HEAD_FADE },
+  // The pane title's look (SharedModal's).
+  dayTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, paddingHorizontal: PANE_GUTTER },
   mapWindows: { marginTop: 8 },
 });

@@ -55,7 +55,7 @@ export type FeedStackParamList = {
   } | undefined;
   PostDetail: { postId: string; edit?: boolean };
   UserDetail: { userId: string; username?: string };
-  CarDetail: { carId: string; action?: CarDetailAction };
+  CarDetail: { carId: string; action?: CarDetailAction; journalId?: string };
   // Drawer-linked top-level screens (keep tab bar + AppHeader visible)
   Groups: undefined;
   // `region` preselects a US region filter — see constants/regions.
@@ -102,7 +102,7 @@ export type MarketStackParamList = {
 export type CarsStackParamList = {
   Cars: undefined;
   Garage: undefined;
-  CarDetail: { carId: string; action?: CarDetailAction };
+  CarDetail: { carId: string; action?: CarDetailAction; journalId?: string };
   UserDetail: { userId: string; username?: string };
   Brands: undefined;
   BrandDetail: { brand: string };
@@ -276,8 +276,8 @@ export type AppStackParamList = {
   RouteDetailModal: { routeId: string };
   ProjectDetail: { projectId: string };
   // Shared detail screens (accessible from any stack context)
-  CarDetail: { carId: string; action?: CarDetailAction };
-  CarDetailModal: { carId: string; action?: CarDetailAction };
+  CarDetail: { carId: string; action?: CarDetailAction; journalId?: string };
+  CarDetailModal: { carId: string; action?: CarDetailAction; journalId?: string };
   PostDetailModal: { postId: string; edit?: boolean };
   EventDetailModal: { eventId: string };
   RallyDetailModal: { rallyId: string };

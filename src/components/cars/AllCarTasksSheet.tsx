@@ -11,6 +11,7 @@ import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import TaskProgressPie from './TaskProgressPie';
+import { usePosterRatio } from '../../hooks/usePosterRatio';
 import CarTaskList, { taskTally } from './CarTaskList';
 import { apiService, useGetUserGarageQuery, useGetCarTasksQuery } from '../../api/apiService';
 import { useAppDispatch, useAppSelector } from '../../store/store';
@@ -42,8 +43,15 @@ const HOLD_UNTIL_CLOSED = () => {
   };
 };
 
-/** The header's photo: a square flush to the row closed, a circle set in from its corner open. */
+/** A car's row's corners — and the closed photo's right-hand ones, so the two curves match. */
+const ROW_RADIUS = 22;
+/**
+ * The header's photo: flush to the row closed, at the photo's own shape —
+ * PHOTO tall, as wide as that makes it, within PHOTO_SHAPES so a panorama
+ * doesn't take the name's room — and a circle set in from its corner open.
+ */
 const PHOTO = 76;
+const PHOTO_SHAPES = { min: 3 / 4, max: 16 / 9 };
 const PHOTO_OPEN = 40;
 const PHOTO_INSET = 12;
 /** The close button the count and pie step aside for, and the room they leave it. */
@@ -140,19 +148,23 @@ function CarTasksAccordion({ car, open, onToggle }: { car: GarageCar; open: bool
     progress.value = withTiming(open ? 1 : 0, { duration: OPEN_MS, easing: STEP_EASE });
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { ratio, onLoad } = usePosterRatio(undefined, undefined, true, photo);
+  const closedWidth = PHOTO * Math.min(PHOTO_SHAPES.max, Math.max(PHOTO_SHAPES.min, ratio));
+
   const photoStyle = useAnimatedStyle(() => {
+    const width = interpolate(progress.value, [0, 1], [closedWidth, PHOTO_OPEN]);
     const size = interpolate(progress.value, [0, 1], [PHOTO, PHOTO_OPEN]);
     const inset = interpolate(progress.value, [0, 1], [0, PHOTO_INSET]);
     // Closed, its left corners are the row's own; open, it's round all over.
     const near = interpolate(progress.value, [0, 1], [0, PHOTO_OPEN / 2]);
-    const far = interpolate(progress.value, [0, 1], [12, PHOTO_OPEN / 2]);
+    const far = interpolate(progress.value, [0, 1], [ROW_RADIUS, PHOTO_OPEN / 2]);
     return {
-      width: size, height: size, margin: inset,
+      width, height: size, margin: inset,
       marginRight: 0,
       borderTopLeftRadius: near, borderBottomLeftRadius: near,
       borderTopRightRadius: far, borderBottomRightRadius: far,
     };
-  });
+  }, [closedWidth]);
   const tallyStyle = useAnimatedStyle(() => ({ marginRight: progress.value * CLOSE_ROOM }));
   const closeStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -172,7 +184,7 @@ function CarTasksAccordion({ car, open, onToggle }: { car: GarageCar; open: bool
       >
         <Reanimated.View style={[styles.photo, { backgroundColor: colors.segment }, photoStyle]}>
           {photo ? (
-            <Image small source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+            <Image small source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onLoad={onLoad} />
           ) : null}
         </Reanimated.View>
         <View style={styles.headText}>
@@ -210,13 +222,13 @@ function CarTasksAccordion({ car, open, onToggle }: { car: GarageCar; open: bool
 
 const styles = StyleSheet.create({
   body:     { paddingHorizontal: 12, gap: 12 },
-  car:      { borderRadius: 22, overflow: 'hidden' },
+  car:      { borderRadius: ROW_RADIUS, overflow: 'hidden' },
   // The photo runs flush to the row's top, bottom and left edge, so only the
   // right side pads.
   head:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingRight: 14 },
-  // Closed: square, its left corners the row's own (the row clips them),
+  // Closed: at the photo's shape, its left corners the row's own (the row clips them),
   // rounded on the right where it meets the name. Open: see photoStyle.
-  photo:    { width: PHOTO, height: PHOTO, overflow: 'hidden', borderTopRightRadius: 12, borderBottomRightRadius: 12 },
+  photo:    { width: PHOTO, height: PHOTO, overflow: 'hidden', borderTopRightRadius: ROW_RADIUS, borderBottomRightRadius: ROW_RADIUS },
   tally:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
   closeWrap: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   close:    { width: CLOSE, height: CLOSE, borderRadius: CLOSE / 2, alignItems: 'center', justifyContent: 'center' },

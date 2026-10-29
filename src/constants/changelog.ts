@@ -25,6 +25,41 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.85': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Events',
+        items: [
+          'Restored the Create New Event button on the events screen.',
+          'Basic members can now create 1 event, and Pro members can create unlimited events.',
+          'Updated the styles of the events calendar.',
+          'Removed the image placeholders on events with no images.',
+        ],
+      },
+      {
+        title: 'Cars & garage',
+        items: [
+          'Followers of your car are notified when you add a journal entry for it.',
+        ],
+      },
+      {
+        title: 'Look & feel',
+        items: [
+          'Updated the styles of the shop cards.',
+          'Fixed the styles of the posts feed on member profiles.',
+        ],
+      },
+      {
+        title: 'Fixes',
+        items: [
+          'Fixed a redrawing problem in the all cars section that was making the screen render slowly.',
+          'Fixed an issue where garage car cards weren\'t getting likes and comments.',
+          'Fixed a few issues with tagging members in the body of a post.',
+        ],
+      },
+    ],
+  },
   '1.82': {
     date: 'October 2026',
     groups: [
