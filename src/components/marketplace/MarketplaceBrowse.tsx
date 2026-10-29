@@ -3,12 +3,13 @@ import SubTabs from '../ui/SubTabs';
 import {
   View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Search, X, Plus, Tag, Megaphone } from 'lucide-react-native';
+import { Text } from '@ors/kit';
+import { Plus, Tag, Megaphone } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
 import FilterSummaryRow, { type FilterPill, COMPACT_FILTER_HEIGHT } from '../ui/FilterSummaryRow';
+import SearchPill from '../ui/SearchPill';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../ui/LocationFilterRow';
 import ListingCard from './ListingCard';
 import ManageListingsEntry from './ManageListingsEntry';
@@ -21,8 +22,7 @@ import {
   LISTING_LIMIT_UPSELL,
   COMMON_RADIUS,
   PILL_RADIUS,
-  COLOR_BLACK, COLOR_GRAY_26, GUTTER,
-  SEARCH_EDGE } from '../../constants/config';
+  COLOR_BLACK, COLOR_GRAY_26, GUTTER } from '../../constants/config';
 import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
@@ -370,6 +370,8 @@ export default function MarketplaceBrowse({
             value={kind}
             onChange={switchKind}
             inset={GUTTER}
+            // The two share the full width, rather than hugging their labels.
+            stretch
           />
         </View>
         {/* Listing something, inside a group — the group comes with it
@@ -416,26 +418,14 @@ export default function MarketplaceBrowse({
       {/* Search on the left, the filter on the right — the pattern the
           photography map and the Events tab share. */}
       <View style={styles.toolsRow}>
-      {/* Edged like the filter beside it (SEARCH_EDGE), so the pair match. */}
-      <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: SEARCH_EDGE }]}>
-        <Search size={15} color={colors.grey} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.fg }]}
-          value={search}
-          onChangeText={setSearch}
-          onSubmitEditing={runSearch}
-          onBlur={runSearch}
-          returnKeyType="search"
-          placeholder={kind === 'want' ? 'Search want ads…' : 'Search listings…'}
-          placeholderTextColor={colors.grey}
-          autoCapitalize="none"
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={clearSearch} hitSlop={8}>
-            <X size={15} color={colors.grey} />
-          </TouchableOpacity>
-        )}
-      </View>
+      <SearchPill
+        value={search}
+        onChangeText={setSearch}
+        onSubmitEditing={runSearch}
+        onBlur={runSearch}
+        onClear={clearSearch}
+        placeholder={kind === 'want' ? 'Search want ads…' : 'Search listings…'}
+      />
 
       <FilterSummaryRow<MarketFilters>
         value={filterValue}
@@ -646,14 +636,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: GUTTER, marginBottom: 10,
   },
-  // A pill, the height of the filter beside it, taking the rest of the row.
-  searchBar: {
-    flex: 1, height: COMPACT_FILTER_HEIGHT,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14,
-    borderRadius: PILL_RADIUS, borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 14 },
 
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: GUTTER, marginBottom: 10 },
 

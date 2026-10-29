@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Images, Plus } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
@@ -26,6 +26,11 @@ export interface ShelfCard {
 
 const CARD_WIDTH = 168;
 const CARD_GAP = 10;
+
+/** Half the row, for a shelf of exactly two: the screen less its side padding and the gap between them. */
+export function pairCardWidth(sidePad: number): number {
+  return Math.floor((Dimensions.get('window').width - sidePad * 2 - CARD_GAP) / 2);
+}
 const MEDIA_RATIO = 4 / 3;
 /** A card with no picture: a well darker than the card around it. */
 const BLANK_BG = '#151515';
@@ -38,7 +43,7 @@ const BLANK_BG = '#151515';
  *
  * Presentational: the page fetches the handful and says what a tap does.
  */
-export default function CarShelf({ title, cards, total, onViewAll, onAdd, addLabel, ruled = false, ruleGap, cardWidth = CARD_WIDTH, spaceBelow = 0 }: {
+export default function CarShelf({ title, cards, total, onViewAll, onAdd, addLabel, ruled = false, ruleGap, cardWidth: givenWidth = CARD_WIDTH, spaceBelow = 0, splitPair = false }: {
   title: string;
   cards: ShelfCard[];
   /** The whole count, for the link's label. */
@@ -56,6 +61,8 @@ export default function CarShelf({ title, cards, total, onViewAll, onAdd, addLab
   cardWidth?: number;
   /** Room under the shelf — for the last of a set, before whatever follows. */
   spaceBelow?: number;
+  /** Exactly two: half the row each, side by side, nothing to scroll. */
+  splitPair?: boolean;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -64,6 +71,8 @@ export default function CarShelf({ title, cards, total, onViewAll, onAdd, addLab
   // the first one goes.
   const empty = cards.length === 0;
   if (empty && !onAdd) return null;
+  const split = splitPair && cards.length === 2;
+  const cardWidth = split ? pairCardWidth(16) : givenWidth;
 
   return (
     <View style={[styles.wrap, ruled && [styles.ruled, { borderTopColor: colors.border }, ruleGap != null && { marginTop: ruleGap }], spaceBelow > 0 && { paddingBottom: spaceBelow }]}>
@@ -101,6 +110,7 @@ export default function CarShelf({ title, cards, total, onViewAll, onAdd, addLab
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
+        scrollEnabled={!split}
         snapToInterval={cardWidth + CARD_GAP}
         snapToAlignment="start"
         decelerationRate="fast"

@@ -3,7 +3,7 @@ import {
   View, StyleSheet, Modal, Pressable, Animated, Easing, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLOR_BLACK } from '../../constants/config';
+import { COLOR_BLACK, PANE_BG, PANE_SCRIM } from '../../constants/config';
 
 /** A rectangle in window coordinates — where a button was when it was pressed. */
 export interface GrowOrigin { x: number; y: number; w: number; h: number }
@@ -46,14 +46,14 @@ const CONTENT_RISE = 10;
 // No blur any more: a blur can't fade (it is re-composited on every frame of
 // an opacity change), so it either popped in or cost the whole open. A dark
 // grey, translucent scrim fades in and out with the panel instead.
-const BACKDROP = 'rgba(40,40,40,0.82)';
+const BACKDROP = PANE_SCRIM;
 /**
  * SummaryModal's backdrop, for a panel that should read as one of those: a
  * lighter blur that stays put while a black tint fades over it (see there).
  */
 // Android has no blur to separate the panel from the screen behind, so a
 // lighter, heavier grey does it instead — against black the dark panels sank.
-const SUMMARY_BACKDROP = 'rgba(42,42,42,0.92)';
+const SUMMARY_BACKDROP = PANE_SCRIM;
 
 /**
  * A panel that grows out of the button that opened it.
@@ -88,7 +88,6 @@ export default function GrowPanel({
   origin,
   onClose,
   children,
-  surface = COLOR_BLACK,
   backdrop = 'grey',
   contentFade,
 }: {
@@ -107,8 +106,6 @@ export default function GrowPanel({
      */
     fitHeight: (h: number) => void;
   }) => React.ReactNode;
-  /** The panel's own colour — the box wears it while it grows. */
-  surface?: string;
   /** `summary` borrows SummaryModal's backdrop, so the two look alike side by side. */
   backdrop?: 'grey' | 'summary';
   /**
@@ -285,7 +282,7 @@ export default function GrowPanel({
           pointerEvents="none"
           style={[
             styles.morphBox,
-            { backgroundColor: surface, opacity: boxOpacity },
+            { backgroundColor: PANE_BG, opacity: boxOpacity },
             { left: panelX, top: panelY, width: panelW, height: panelH, borderRadius: GROW_PANEL_RADIUS },
           ]}
         />

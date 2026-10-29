@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ChevronRight, Images } from 'lucide-react-native';
 import type { PhotoSpot } from '@ors/kit';
 import { spotTypeLabel, spotTypeColor } from '@ors/kit/src/photography/constants';
@@ -87,7 +87,7 @@ export default function PhotoSpotShelf({ spots, total, onSpotPress, onViewAll }:
               accessibilityRole="button"
               accessibilityLabel={spot.title || spot.location || 'Photo spot'}
             >
-              <View>
+              <View style={styles.imageWrap}>
                 <Image
                   source={cover ? { uri: cover } : require('../../../assets/car-placeholder.jpg')}
                   style={styles.image}
@@ -136,6 +136,10 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH, borderRadius: COMMON_RADIUS, overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth, backgroundColor: CARD_BG,
   },
+  // Rounded along its foot as well, so the photo reads as its own piece over
+  // the name. On a frame, not the image: per-corner radii on an image can
+  // stretch it rather than crop it.
+  imageWrap: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: COLOR_GRAY_17 },
   typeBadge: {
     position: 'absolute', left: 8, bottom: 8, maxWidth: CARD_WIDTH - 60,

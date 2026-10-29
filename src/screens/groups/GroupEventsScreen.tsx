@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
@@ -46,7 +46,6 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
 export default function GroupEventsScreen({ route }: GroupsScreenProps<'GroupEvents'>) {
   const { groupId } = route.params;
   const navigation = useNavigation<AppNav>();
-  const colors = useColors();
   const { data, isLoading, refetch } = useGetEventsQuery({ group_id: groupId, limit: 20 });
   const refreshControl = useRefreshControl(refetch);
   const events = data?.entries ?? [];
@@ -54,7 +53,7 @@ export default function GroupEventsScreen({ route }: GroupsScreenProps<'GroupEve
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         refreshControl={refreshControl}
         data={events}

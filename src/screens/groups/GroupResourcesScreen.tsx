@@ -45,14 +45,13 @@ function ResourceRow({ resource }: { resource: GroupResource }) {
 
 export default function GroupResourcesScreen({ route }: GroupsScreenProps<'GroupResources'>) {
   const { groupId } = route.params;
-  const colors = useColors();
   const { data, isLoading, refetch } = useGetGroupResourcesQuery({ groupId });
   const resources = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         data={resources}
         keyExtractor={(r) => r.internal_id}

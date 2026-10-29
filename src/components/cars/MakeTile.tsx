@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';

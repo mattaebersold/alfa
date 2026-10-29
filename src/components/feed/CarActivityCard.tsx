@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import { useGetUserByIdQuery } from '../../api/apiService';
 import { firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import { CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { stripHtml } from '../../utils/text';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import ReportButton from '../ui/ReportButton';
 import { useSummary } from '../../providers/SummaryProvider';
 import { userPreview } from '../members/UserSummaryModal';
@@ -18,6 +18,7 @@ import CarItemSummaryModal from '../cars/CarItemSummaryModal';
 import type { SummaryOrigin } from '../ui/SummaryModal';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
+import { useSecondaryColor } from '../../hooks/useBrandColor';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
@@ -28,6 +29,7 @@ import {
   GUTTER,
   COLOR_BLACK,
   COLOR_GRAY_17,
+  COLOR_GRAY_187,
   COLOR_GRAY_20,
   COLOR_WHITE,
 } from '../../constants/config';
@@ -61,6 +63,7 @@ import { FONT_INTER } from '../../constants/fonts'
  */
 export default function CarActivityCard({ item }: { item: CarActivityItem }) {
   const colors = useColors();
+  const secondary = useSecondaryColor();
   const nav = useNavigation();
   const { userInfo } = useAppSelector((st) => st.auth);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -130,11 +133,11 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
   const isOwner = userInfo?.user_id === car.user_id;
 
   const openCar = () => (nav as any).navigate('CarDetail', { carId: car.internal_id });
-  const openOwner = () => owner && openUser(owner.user_id, null, userPreview(owner));
+  const openOwner = (origin: SummaryOrigin | null) => owner && openUser(owner.user_id, origin, userPreview(owner));
 
   const carChip = (
     <TouchableOpacity
-      style={[styles.carChip, bare && styles.carChipInline]}
+      style={[styles.carChip, bare && styles.carChipCorner]}
       onPress={openCar}
       activeOpacity={0.75}
       accessibilityRole="button"
@@ -159,22 +162,18 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           belongs beside the card, not inside it. Same arrangement a feed post
           uses — byline left, time and menu right. */}
       <View style={styles.byline}>
-        <TouchableOpacity
+        <UserByline
+          user={owner}
+          size={30}
+          fallback="Someone"
+          sub={`${verb} ${carName}`}
+          subColor={secondary}
+          gap={9}
+          fill
           style={styles.bylineWho}
           onPress={openOwner}
           disabled={!owner}
-          activeOpacity={0.7}
-        >
-          <Avatar user={owner} size={30} />
-          <View style={styles.bylineText}>
-            <Text style={[styles.bylineName, { color: colors.fg }]} numberOfLines={1}>
-              @{owner?.username ?? 'Someone'}
-            </Text>
-            <Text style={[styles.bylineSub, { color: colors.grey }]} numberOfLines={1}>
-              {verb} {carName}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        />
         {timeAgo ? <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text> : null}
         {!isOwner && (
           <ReportButton
@@ -194,7 +193,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
         style={[
           styles.card,
           // Bare, it's as tall as its words: there's no photo to give it a shape.
-          { aspectRatio: bare ? undefined : ratio, borderColor: colors.borderDark },
+          { aspectRatio: bare ? undefined : ratio, borderColor: COLOR_GRAY_187 },
           bare && styles.cardBare,
         ]}
         onPress={openDetail}
@@ -227,9 +226,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
 
         {/* Anchored to the foot and ranged left, so the badge, the name and the
             description read as one block down the same edge. */}
-        {/* box-none on the bare card, whose car chip sits inside the plate
-            and has to stay tappable; over a photo nothing in here is. */}
-        <View style={[styles.plate, bare && styles.plateBare]} pointerEvents={bare ? 'box-none' : 'none'}>
+        <View style={[styles.plate, bare && styles.plateBare]} pointerEvents="none">
           {/* The mark, at size, on its own — it's the one thing that says at a
               glance which of the two kinds this is, and shrunk into the badge
               it was competing with the word beside it. */}
@@ -239,21 +236,19 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           <View style={[styles.kindPill, isMod && { backgroundColor: CATEGORY_BADGE_COLORS.mod.bg }]}>
             <Text style={[styles.kindText, isMod && { color: CATEGORY_BADGE_COLORS.mod.fg }]}>{kindLabel}</Text>
           </View>
-          <View style={styles.titleRow} pointerEvents="box-none">
-            <Text style={[styles.title, bare && styles.titleBare]} numberOfLines={2}>
-              {item.title || (isMod ? 'New mod' : 'New photos')}
-            </Text>
-            {bare && carChip}
-          </View>
+          <Text style={styles.title} numberOfLines={2}>
+            {item.title || (isMod ? 'New mod' : 'New photos')}
+          </Text>
           {description ? (
             <Text style={styles.body} numberOfLines={2}>{description}</Text>
           ) : null}
         </View>
 
-        {/* Which car, top left over a photo — its own touchable, so this tap
-            goes to the car rather than to whatever the card is doing. The bare
-            card carries it beside the title instead. */}
-        {!bare && carChip}
+        {/* Which car — its own touchable, so this tap goes to the car rather
+            than to whatever the card is doing. Top left over a photo; on the
+            bare card, top right, across from the wrench, so the title has the
+            whole width. */}
+        {carChip}
       </TouchableOpacity>
 
       {/* Like and comment, under the card — the same footer a post has.
@@ -318,14 +313,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
   },
-  bylineWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  bylineText: { flex: 1, minWidth: 0 },
-  bylineName: { fontSize: 14, fontFamily: FONT_INTER.bold },
-  bylineSub:  { fontSize: 12, marginTop: 1 },
+  bylineWho:  { flex: 1 },
   time:       { fontSize: 11, fontStyle: 'italic' },
 
-  // A grey edge rather than the type-coloured one a car card wears: this is
-  // still an object on the page, but the colour would file it as a car.
+  // A light grey edge, as the feed's new-car card wears: this is an object on the
+  // page. Not a type colour, which would file it as a car.
   /**
    * The ratio lives on the card, not the image — and is supplied at render
    * time from the photo's own proportions.
@@ -351,10 +343,8 @@ const styles = StyleSheet.create({
   cardBare: { backgroundColor: COLOR_GRAY_20 },
   // In the flow rather than pinned to the foot, so the card sizes to it.
   plateBare: { position: 'relative', paddingTop: 16 },
-  titleRow:  { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10 },
-  titleBare: { flex: 1 },
-  // Beside the title rather than floating over a photo's corner.
-  carChipInline: { position: 'relative', top: 0, left: 0, maxWidth: '48%' },
+  // Across from the mark, at the bare card's top right.
+  carChipCorner: { left: undefined, right: 12, maxWidth: '60%' },
 
   scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '58%' },
 
@@ -404,7 +394,7 @@ const styles = StyleSheet.create({
   actionsPill: {
     alignSelf: 'flex-start',
     flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 6, borderRadius: 999,
+    backgroundColor: COLOR_BLACK,
+    paddingHorizontal: 6, paddingVertical: 4, borderRadius: 999,
   },
 });

@@ -2,17 +2,19 @@ import React, { useCallback, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Camera, ImagePlus, Check, Sparkles } from 'lucide-react-native';
+import { ImagePlus, Check, Sparkles } from 'lucide-react-native';
 import { useAnalyzeDiecastMutation, useCreateListingMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
+import FormInput from '../../components/ui/FormInput';
 import {
   DIECAST_BRANDS, DIECAST_CONDITIONS, DIECAST_CONDITION_LEVEL, DIECAST_RARITIES,
   DIECAST_BLUE, DIECAST_BLUE_DARK,
@@ -216,7 +218,7 @@ export default function DiecastCreateScreen() {
   if (step === 'photo' || step === 'analyzing') {
     const busy = step === 'analyzing' || analyzing;
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <SafeAreaView style={ss.fill} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.photoStep}>
           <View style={[styles.hero, { backgroundColor: DIECAST_BLUE }]}>
             <Sparkles size={26} color={COLOR_WHITE} />
@@ -224,21 +226,18 @@ export default function DiecastCreateScreen() {
             <Text style={styles.heroSub}>Snap a photo and we'll identify the brand, model, and suggest a price.</Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.photoDrop, { borderColor: colors.border, backgroundColor: colors.card }]}
-            onPress={pickImage}
-            activeOpacity={0.85}
-            disabled={busy}
-          >
-            {photo ? (
+          {photo ? (
+            <TouchableOpacity
+              style={[styles.photoDrop, { borderColor: colors.border, backgroundColor: colors.card }]}
+              onPress={pickImage}
+              activeOpacity={0.85}
+              disabled={busy}
+            >
               <Image source={{ uri: photo.uri }} style={styles.photoPreview} contentFit="cover" />
-            ) : (
-              <View style={styles.photoPlaceholder}>
-                <Camera size={30} color={colors.grey} />
-                <Text style={[styles.photoPlaceholderText, { color: colors.grey }]}>Tap to add a photo</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          ) : (
+            <PhotoPickerField onPress={pickImage} title="Add a photo" style={styles.photoField} />
+          )}
 
           {photo && !busy && (
             <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={pickImage}>
@@ -271,10 +270,9 @@ export default function DiecastCreateScreen() {
   // ── Confirm step ─────────────────────────────────────────────────────────
   const estLow = result?.estimatedValueLow;
   const estHigh = result?.estimatedValueHigh;
-  const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.border, backgroundColor: colors.card }];
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FormScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Analysis summary card */}
         <View style={[styles.summaryCard, { backgroundColor: DIECAST_BLUE }]}>
@@ -301,25 +299,22 @@ export default function DiecastCreateScreen() {
         <View style={styles.fields}>
           <View style={styles.field}>
             <Text style={[styles.fieldLabel, { color: colors.grey }]}>Title *</Text>
-            <TextInput style={inputStyle} value={form.title} onChangeText={(v) => setField('title', v)} placeholder="Listing title" placeholderTextColor={colors.grey} />
+            <FormInput value={form.title} onChangeText={(v) => setField('title', v)} placeholder="Listing title" />
           </View>
 
           <View style={styles.field}>
             <Text style={[styles.fieldLabel, { color: colors.grey }]}>Description</Text>
-            <TextInput
-              style={[inputStyle, styles.inputMulti]}
+            <FormInput
               value={form.body}
               onChangeText={(v) => setField('body', v)}
               placeholder="Describe the item…"
-              placeholderTextColor={colors.grey}
               multiline
-              textAlignVertical="top"
             />
           </View>
 
           <View style={styles.field}>
             <Text style={[styles.fieldLabel, { color: colors.grey }]}>Price ($) *</Text>
-            <TextInput style={inputStyle} value={form.price} onChangeText={(v) => setField('price', v)} placeholder="0" placeholderTextColor={colors.grey} keyboardType="numeric" />
+            <FormInput value={form.price} onChangeText={(v) => setField('price', v)} placeholder="0" keyboardType="numeric" />
           </View>
 
           <ChipSelect label="Brand" options={DIECAST_BRANDS} value={form.brand} onChange={(v) => setField('brand', v)} />
@@ -329,22 +324,22 @@ export default function DiecastCreateScreen() {
           <View style={styles.row}>
             <View style={[styles.field, styles.rowItem]}>
               <Text style={[styles.fieldLabel, { color: colors.grey }]}>Make</Text>
-              <TextInput style={inputStyle} value={form.make} onChangeText={(v) => setField('make', v)} placeholder="Ford" placeholderTextColor={colors.grey} />
+              <FormInput value={form.make} onChangeText={(v) => setField('make', v)} placeholder="Ford" />
             </View>
             <View style={[styles.field, styles.rowItem]}>
               <Text style={[styles.fieldLabel, { color: colors.grey }]}>Model</Text>
-              <TextInput style={inputStyle} value={form.model} onChangeText={(v) => setField('model', v)} placeholder="Mustang" placeholderTextColor={colors.grey} />
+              <FormInput value={form.model} onChangeText={(v) => setField('model', v)} placeholder="Mustang" />
             </View>
           </View>
 
           <View style={styles.row}>
             <View style={[styles.field, styles.rowItem]}>
               <Text style={[styles.fieldLabel, { color: colors.grey }]}>Series</Text>
-              <TextInput style={inputStyle} value={form.series} onChangeText={(v) => setField('series', v)} placeholder="Treasure Hunt" placeholderTextColor={colors.grey} />
+              <FormInput value={form.series} onChangeText={(v) => setField('series', v)} placeholder="Treasure Hunt" />
             </View>
             <View style={[styles.field, styles.rowItem]}>
               <Text style={[styles.fieldLabel, { color: colors.grey }]}>Year</Text>
-              <TextInput style={inputStyle} value={form.year} onChangeText={(v) => setField('year', v)} placeholder="2024" placeholderTextColor={colors.grey} keyboardType="numeric" />
+              <FormInput value={form.year} onChangeText={(v) => setField('year', v)} placeholder="2024" keyboardType="numeric" />
             </View>
           </View>
 
@@ -381,8 +376,7 @@ const styles = StyleSheet.create({
 
   photoDrop:   { height: 260, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', overflow: 'hidden' },
   photoPreview: { width: '100%', height: '100%' },
-  photoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  photoPlaceholderText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
+  photoField:  { marginTop: 0 },
 
   secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: COMMON_RADIUS, borderWidth: 1 },
   secondaryBtnText: { fontSize: 14, fontFamily: FONT_INTER.bold },
@@ -396,8 +390,6 @@ const styles = StyleSheet.create({
   fields:      { padding: 16, gap: 16 },
   field:       { gap: 7 },
   fieldLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4 },
-  input:       { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
-  inputMulti:  { minHeight: 90, paddingTop: 11 },
 
   row:         { flexDirection: 'row', gap: 12 },
   rowItem:     { flex: 1 },

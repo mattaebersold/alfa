@@ -1,7 +1,7 @@
 import React, { useEffect, useState , useRef} from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Users, Lock, MapPin, ChevronUp, Plus } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';

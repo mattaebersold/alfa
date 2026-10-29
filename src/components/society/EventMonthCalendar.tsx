@@ -11,12 +11,19 @@ import { categoryFor, toDayKey, isOrsEvent } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
 import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_214, COLOR_GRAY_79, COLOR_ORS_EVENT_GRADIENT_END, COLOR_ORS_EVENT_GRADIENT_START, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_214, COLOR_GRAY_79, COLOR_ORS_EVENT_GRADIENT_END, COLOR_ORS_EVENT_GRADIENT_START, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** Dots shown under a day before the rest become a "+n". */
 const MAX_DAY_DOTS = 3;
 const DAY_DOT = 13;
+
+/**
+ * How far the phone's text size may grow the grid's numbers. The days are
+ * fixed-size cells, a seventh of the card wide — past this, the largest text
+ * sizes crowd the circle and the "+n" pills into the next day.
+ */
+const MAX_TEXT_SCALE = 1.2;
 
 const WEEK_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -72,7 +79,7 @@ function PaintedDay({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Text style={[styles.paintedDayText, { color: ink }]}>{dayNumber}</Text>
+      <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={[styles.paintedDayText, { color: ink }]}>{dayNumber}</Text>
       <Image
         source={require('../../../assets/logo.png')}
         style={styles.paintedLogo}
@@ -160,8 +167,116 @@ export default function EventMonthCalendar({
     return out;
   }, [cursor]);
 
+  // A row per week, each day an equal share of it. Wrapping one flat run of
+  // cells at a seventh each let a day spill onto the next row on some phones —
+  // seven sevenths can come out a hair wider than the row — and every week
+  // after it slid a column.
+  const weeks = useMemo(() => {
+    const out: (Date | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) out.push(cells.slice(i, i + 7));
+    return out;
+  }, [cells]);
+
   const shiftMonth = (delta: number) =>
     setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
+
+  const renderDay = (date: Date | null, i: number) => {
+    if (!date) return <View key={`blank-${i}`} style={styles.cell} />;
+
+    const key = toDayKey(date);
+    const dayEvents = days[key] ?? [];
+    const isToday = key === todayKey;
+    const hasEvents = dayEvents.length > 0;
+    const ring = isToday ? colors.fg : undefined;
+
+    const rally = rallysByDay.get(key);
+    if (rally) {
+      return (
+        <TouchableOpacity
+          key={key}
+          style={styles.cell}
+          onPress={() => setSelectedRallyId(rally.internal_id)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — ${rally.title ?? 'Rally'}`}
+        >
+          <PaintedDay
+            gradient={rallyColors(rally, brand)}
+            dayNumber={date.getDate()}
+            ringColor={ring}
+            otherEvents={dayEvents.length}
+          />
+        </TouchableOpacity>
+      );
+    }
+
+    const orsEvent = dayEvents.find(isOrsEvent);
+    if (orsEvent) {
+      return (
+        <TouchableOpacity
+          key={key}
+          style={styles.cell}
+          onPress={() => onSelectDay(date, dayEvents)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — ${orsEvent.title ?? 'ORS event'}`}
+        >
+          <PaintedDay
+            gradient={ORS_EVENT_GRADIENT}
+            dayNumber={date.getDate()}
+            ringColor={ring}
+            // The tile already stands for the sponsored one.
+            otherEvents={dayEvents.length - 1}
+          />
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={key}
+        style={styles.cell}
+        disabled={!hasEvents}
+        onPress={() => onSelectDay(date, dayEvents)}
+        activeOpacity={0.7}
+      >
+        {/* Today fills its whole cell — the same tile a painted day gets — in
+            white, rather than a circle round the number. */}
+        {isToday && <View style={styles.todayTile} />}
+        <View style={styles.dayCircle}>
+          <Text
+            maxFontSizeMultiplier={MAX_TEXT_SCALE}
+            style={[
+              styles.dayText,
+              // An empty day steps well back, so the days with something
+              // on them are the ones the eye lands on.
+              { color: isToday ? COLOR_BLACK : hasEvents ? colors.fg : EMPTY_DAY },
+              (isToday || hasEvents) && { fontWeight: '800' },
+            ]}
+          >
+            {date.getDate()}
+          </Text>
+        </View>
+
+        {/* One dot per event, coloured by its category, overlapped like a
+            stack of faces and capped at three, with a count for the rest,
+            so a busy day doesn't grow the row. */}
+        <View style={styles.dots}>
+          {dayEvents.slice(0, MAX_DAY_DOTS).map((e, idx) => (
+            <View
+              key={`${e.internal_id}-${idx}`}
+              style={[styles.dot, idx > 0 && styles.dotStacked, { backgroundColor: categoryFor(e.category).color }]}
+            />
+          ))}
+          {dayEvents.length > MAX_DAY_DOTS ? (
+            <View style={[styles.dot, styles.dotStacked, styles.dotMore]}>
+              <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} style={styles.dotsMore}>+{dayEvents.length - MAX_DAY_DOTS}</Text>
+            </View>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.wrap, { backgroundColor: colors.card }]}>
@@ -189,104 +304,16 @@ export default function EventMonthCalendar({
 
       <View style={styles.weekHeader}>
         {WEEK_HEADERS.map((d) => (
-          <Text key={d} style={[styles.weekHeaderText, { color: colors.grey }]}>{d}</Text>
+          <Text maxFontSizeMultiplier={MAX_TEXT_SCALE} key={d} style={[styles.weekHeaderText, { color: colors.grey }]}>{d}</Text>
         ))}
       </View>
 
       <View style={[styles.grid, isFetching && { opacity: 0.5 }]}>
-        {cells.map((date, i) => {
-          if (!date) return <View key={`blank-${i}`} style={styles.cell} />;
-
-          const key = toDayKey(date);
-          const dayEvents = days[key] ?? [];
-          const isToday = key === todayKey;
-          const hasEvents = dayEvents.length > 0;
-          const ring = isToday ? colors.fg : undefined;
-
-          const rally = rallysByDay.get(key);
-          if (rally) {
-            return (
-              <TouchableOpacity
-                key={key}
-                style={styles.cell}
-                onPress={() => setSelectedRallyId(rally.internal_id)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={`${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — ${rally.title ?? 'Rally'}`}
-              >
-                <PaintedDay
-                  gradient={rallyColors(rally, brand)}
-                  dayNumber={date.getDate()}
-                  ringColor={ring}
-                  otherEvents={dayEvents.length}
-                />
-              </TouchableOpacity>
-            );
-          }
-
-          const orsEvent = dayEvents.find(isOrsEvent);
-          if (orsEvent) {
-            return (
-              <TouchableOpacity
-                key={key}
-                style={styles.cell}
-                onPress={() => onSelectDay(date, dayEvents)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={`${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} — ${orsEvent.title ?? 'ORS event'}`}
-              >
-                <PaintedDay
-                  gradient={ORS_EVENT_GRADIENT}
-                  dayNumber={date.getDate()}
-                  ringColor={ring}
-                  // The tile already stands for the sponsored one.
-                  otherEvents={dayEvents.length - 1}
-                />
-              </TouchableOpacity>
-            );
-          }
-
-          return (
-            <TouchableOpacity
-              key={key}
-              style={styles.cell}
-              disabled={!hasEvents}
-              onPress={() => onSelectDay(date, dayEvents)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.dayCircle, isToday && { backgroundColor: brand }]}>
-                <Text
-                  style={[
-                    styles.dayText,
-                    // An empty day steps well back, so the days with something
-                    // on them are the ones the eye lands on.
-                    { color: isToday ? COLOR_BLACK : hasEvents ? colors.fg : EMPTY_DAY },
-                    (isToday || hasEvents) && { fontWeight: '800' },
-                  ]}
-                >
-                  {date.getDate()}
-                </Text>
-              </View>
-
-              {/* One dot per event, coloured by its category, overlapped like a
-                  stack of faces and capped at three, with a count for the rest,
-                  so a busy day doesn't grow the row. */}
-              <View style={styles.dots}>
-                {dayEvents.slice(0, MAX_DAY_DOTS).map((e, idx) => (
-                  <View
-                    key={`${e.internal_id}-${idx}`}
-                    style={[styles.dot, idx > 0 && styles.dotStacked, { backgroundColor: categoryFor(e.category).color }]}
-                  />
-                ))}
-                {dayEvents.length > MAX_DAY_DOTS ? (
-                  <View style={[styles.dot, styles.dotStacked, styles.dotMore]}>
-                    <Text style={styles.dotsMore}>+{dayEvents.length - MAX_DAY_DOTS}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+        {weeks.map((week, w) => (
+          <View key={w} style={styles.week}>
+            {week.map((date, i) => renderDay(date, i))}
+          </View>
+        ))}
       </View>
 
       <RallyDetailSheet rallyId={selectedRallyId} onClose={() => setSelectedRallyId(null)} />
@@ -311,10 +338,11 @@ const styles = StyleSheet.create({
     fontSize: 10, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5,
   },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  grid: {},
+  week: { flexDirection: 'row' },
   // Seven per row; the fixed height keeps every week the same regardless of dots.
   // Circle and dots need 48 of it; the rest is only the gap between weeks.
-  cell: { width: `${100 / 7}%`, height: 50, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
+  cell: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
   dayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontSize: 14 },
   dots: { flexDirection: 'row', height: DAY_DOT + 1, alignItems: 'center' },
@@ -332,6 +360,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLOR_GRAY_214, alignItems: 'center', justifyContent: 'center',
   },
   dotsMore: { fontSize: 8, lineHeight: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: -0.3 },
+
+  todayTile: { position: 'absolute', top: 2, left: 3, right: 3, bottom: 2, borderRadius: 9, backgroundColor: COLOR_WHITE },
 
   // A painted day fills its cell rather than sitting inside it — inset just
   // enough to stay a tile in a grid rather than a band across the week.

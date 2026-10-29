@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, TouchableOpacity, Switch, StyleSheet } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { BarChart3, Plus, X } from 'lucide-react-native';
+import FormInput from '../ui/FormInput';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import type { PollInput, StoredPoll } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_46, COLOR_WHITE, FORM_RADIUS, INPUT_TEXT, INPUT_LINE_HEIGHT } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_46, COLOR_WHITE, INPUT_LINE_HEIGHT } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** What the server accepts — see horacio's helpers/polls. */
@@ -13,7 +14,7 @@ export const POLL_MIN_OPTIONS = 2;
 export const POLL_MAX_OPTIONS = 6;
 const MAX_LABEL = 80;
 const MAX_QUESTION = 200;
-/** The fields' vertical padding — the description's. */
+/** The fields' vertical padding — FormInput's. */
 const FIELD_PAD_V = 12;
 /** Room at the field's right end for its remove X. */
 const REMOVE_ROOM = 40;
@@ -132,9 +133,6 @@ export default function PollEditor({
     onChange({ ...draft, options: draft.options.filter((o) => o.key !== key) });
   };
 
-  // The description's field: a fill, no edge.
-  const fieldStyle = [styles.field, { color: colors.fg, backgroundColor: colors.inputBg }];
-
   return (
     // Fixed, the poll is the form: no card around it and no heading over it —
     // the Poll tab says what it is, and the fields sit in line with the
@@ -160,12 +158,11 @@ export default function PollEditor({
           {/* Two lines tall to start, so a question has room to be one, and
               growing to three. Return finishes it rather than adding a line —
               a question has no paragraphs. */}
-          <TextInput
-            style={[...fieldStyle, styles.question]}
+          <FormInput
+            style={styles.question}
             value={draft.question}
             onChangeText={(question) => onChange({ ...draft, question })}
             placeholder="Question"
-            placeholderTextColor={colors.grey}
             maxLength={MAX_QUESTION}
             multiline
             submitBehavior="blurAndSubmit"
@@ -179,12 +176,11 @@ export default function PollEditor({
             const removable = extra && !locked;
             return (
               <View key={o.key}>
-                <TextInput
-                  style={[...fieldStyle, extra && styles.optionWithRemove]}
+                <FormInput
+                  style={extra && styles.optionWithRemove}
                   value={o.label}
                   onChangeText={(label) => setOption(o.key, label)}
                   placeholder={`Option ${i + 1}`}
-                  placeholderTextColor={colors.grey}
                   maxLength={MAX_LABEL}
                   returnKeyType="next"
                 />
@@ -246,14 +242,8 @@ const styles = StyleSheet.create({
   // Clear of the tabs above: with the Poll tab's own 4, the 12 the form's
   // fields keep between them.
   bodyBare:  { paddingTop: 8 },
-  // The description's field, to the point: its padding, type and corners.
-  field: {
-    paddingHorizontal: 14, paddingVertical: FIELD_PAD_V,
-    ...INPUT_TEXT, borderRadius: FORM_RADIUS,
-  },
   // Two lines to start, three at most, then it scrolls.
   question: {
-    lineHeight: INPUT_LINE_HEIGHT, textAlignVertical: 'top',
     minHeight: INPUT_LINE_HEIGHT * 2 + FIELD_PAD_V * 2,
     maxHeight: INPUT_LINE_HEIGHT * 3 + FIELD_PAD_V * 2,
   },

@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert as RNAlert, Platform, Switch,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { Check, Mail, Smartphone } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
-import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../../components/ui/StepFormHeader';
+import FormInput from '../../components/ui/FormInput';
+import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import {
@@ -18,7 +19,6 @@ import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { handleize } from '../../utils/handleize';
-import { ss } from '../../styles/shared';
 import { PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import {
   ALERT_EVENTS, ALERT_SECTIONS, alertAllowance, alertCapCopy, alertSentence,
@@ -320,8 +320,7 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
 
   return (
     <SharedModal
-      headerSurface={STEP_FORM_HEADER_BG}
-      // No fade under the darker header: it reads as a smear on the body.
+      // No fade under the header: the step's caption sits right under it.
       headFade={false}
       visible={visible}
       onClose={() => setVisible(false)}
@@ -492,12 +491,10 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
                 <Label colors={colors}>
                   {event === 'want_created' ? 'Only if their budget is at least' : 'Only under'}
                 </Label>
-                <TextInput
-                  style={[ss.input, inputStyle(colors)]}
+                <FormInput
                   value={form.price_max}
                   onChangeText={(v) => set('price_max')(v.replace(/[^0-9]/g, ''))}
                   placeholder="No price limit"
-                  placeholderTextColor={colors.grey}
                   keyboardType="number-pad"
                   maxLength={9}
                 />
@@ -561,12 +558,10 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
 
                 {form.locationMode === 'near' && (
                   <View style={styles.spaced}>
-                    <TextInput
-                      style={[ss.input, inputStyle(colors)]}
+                    <FormInput
                       value={form.zip}
                       onChangeText={(v) => set('zip')(v.replace(/[^0-9-]/g, ''))}
                       placeholder="Zip code"
-                      placeholderTextColor={colors.grey}
                       keyboardType="number-pad"
                       maxLength={10}
                     />
@@ -592,12 +587,10 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
                   One word or phrase that has to appear in the title or
                   description — "transaxle", "OEM", "hardtop".
                 </Text>
-                <TextInput
-                  style={[ss.input, inputStyle(colors)]}
+                <FormInput
                   value={form.keyword}
                   onChangeText={set('keyword')}
                   placeholder="Anything"
-                  placeholderTextColor={colors.grey}
                   autoCapitalize="none"
                   maxLength={60}
                 />
@@ -635,12 +628,10 @@ export function AlertCreateSheet({ alertId, onDismissed }: {
             )}
 
             <Label colors={colors}>Name it</Label>
-            <TextInput
-              style={[ss.input, inputStyle(colors)]}
+            <FormInput
               value={form.label}
               onChangeText={set('label')}
               placeholder="911 parts hunt"
-              placeholderTextColor={colors.grey}
               maxLength={60}
             />
 
@@ -781,12 +772,6 @@ function Label({ children, colors, first }: {
     </Text>
   );
 }
-
-const inputStyle = (colors: ReturnType<typeof useColors>) => ({
-  borderColor: colors.inputBorder,
-  color: colors.fg,
-  backgroundColor: colors.card,
-});
 
 /** One choice from a wrapping row of pills. `''` is always "any". */
 function ChipRow({ options, value, onChange, colors, brand }: {

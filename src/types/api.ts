@@ -80,6 +80,8 @@ export interface User {
   modelBookmarks?: ModelBookmark[];
   /** internal_ids of the posts you've bookmarked, newest first — your own profile only. */
   postBookmarks?: string[];
+  /** internal_ids of other members' cars you've bookmarked, newest first — your own profile only. */
+  carBookmarks?: string[];
   allowEmail?: boolean;
   memberNumber?: number;
   created_at?: string;
@@ -105,7 +107,9 @@ export type HideMode = 'none' | 'temporary' | 'permanent';
  * The steps of "Finish setting up your profile", plus 'username' — the
  * one-time rename offer to an Apple sign-in. Mirrors horacio's SETUP_PROMPTS.
  */
-export type SetupPrompt = 'photo' | 'bio' | 'car' | 'post' | 'username';
+export type SetupPrompt = 'photo' | 'bio' | 'car' | 'post' | 'username'
+  /** A whole setup card, dismissed with its Dismiss — the profile's, the menu's, the car page's. */
+  | 'profileCard' | 'menuCard' | 'carCard';
 
 /** Per-user dismissals of the home feed's promotional modules. */
 export interface FeedPreferences {
@@ -1288,7 +1292,10 @@ export interface CarTask {
   completed?: boolean;
   position?: number;
   category?: string;
-  priority?: 'critical' | 'high' | 'medium' | 'low';
+  /** Optional — null when the task has none. */
+  priority?: 'critical' | 'high' | 'medium' | 'low' | null;
+  /** Photos of the job — shown when the task is opened out. */
+  gallery?: GalleryItem[] | null;
   created_at?: string;
 }
 
@@ -1308,6 +1315,22 @@ export interface Mod {
   like_count?: number;
   isLiked?: boolean;
   comment_count?: number;
+}
+
+/**
+ * An entry in a car's journal — a note, a memory, a bit of its history,
+ * written by its owner. Just a title, the words and photos. See horacio's
+ * models/CarJournal.
+ */
+export interface CarJournalEntry {
+  internal_id: string;
+  car_id: string;
+  user_id?: string;
+  title?: string;
+  body?: string;
+  gallery?: GalleryItem[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Message {

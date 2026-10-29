@@ -5,7 +5,8 @@ import {
 import { Text, TextInput } from '@ors/kit';
 import { Search, X, Check, UserPlus } from 'lucide-react-native';
 import { useSearchQuery } from '../../api/apiService';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import EmptyState from '../ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -40,6 +41,7 @@ export default function GroupInvitePicker({
   onChange: (next: User[]) => void;
 }) {
   const c = useColors();
+  const surface = useInputSurface();
   const brand = useBrandColor();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
   const [query, setQuery] = useState('');
@@ -66,26 +68,27 @@ export default function GroupInvitePicker({
       {selected.length > 0 && (
         <View style={styles.chips}>
           {selected.map((user) => (
-            <TouchableOpacity
+            <UserByline
               key={user.user_id}
+              user={user}
+              size={22}
+              gap={6}
+              nameStyle={styles.chipText}
               style={[styles.chip, { backgroundColor: c.segment, borderColor: c.borderDark }]}
               onPress={() => toggle(user)}
               activeOpacity={0.8}
-              accessibilityRole="button"
               accessibilityLabel={`Remove @${user.username}`}
             >
-              <Avatar user={user} size={22} />
-              <Text style={[styles.chipText, { color: c.fg }]} numberOfLines={1}>@{user.username}</Text>
               <X size={13} color={c.grey} strokeWidth={2.6} />
-            </TouchableOpacity>
+            </UserByline>
           ))}
         </View>
       )}
 
-      <View style={[styles.searchBar, { backgroundColor: c.card, borderColor: c.borderDark }]}>
+      <View style={[styles.searchBar, surface]}>
         <Search size={16} color={c.grey} />
         <TextInput
-          style={[styles.searchInput, { color: c.fg }]}
+          style={[styles.searchInput, INPUT_TEXT_STYLE, { color: c.fg }]}
           value={query}
           onChangeText={setQuery}
           placeholder="Search members by username…"
@@ -116,14 +119,16 @@ export default function GroupInvitePicker({
           const on = selectedIds.has(user.user_id);
           const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
           return (
-            <View key={user.user_id} style={[styles.row, { borderBottomColor: c.borderDark }]}>
-              <Avatar user={user} size={36} />
-              <View style={styles.rowText}>
-                <Text style={[styles.username, { color: c.fg }]} numberOfLines={1}>@{user.username}</Text>
-                {fullName ? (
-                  <Text style={[styles.fullName, { color: c.grey }]} numberOfLines={1}>{fullName}</Text>
-                ) : null}
-              </View>
+            <UserByline
+              key={user.user_id}
+              user={user}
+              size={36}
+              gap={12}
+              fill
+              sub={fullName}
+              nameStyle={styles.username}
+              style={[styles.row, { borderBottomColor: c.borderDark }]}
+            >
               {/* Stays a button once added — a second tap takes them back off,
                   the same as the chip above. */}
               <TouchableOpacity
@@ -149,7 +154,7 @@ export default function GroupInvitePicker({
                   </>
                 )}
               </TouchableOpacity>
-            </View>
+            </UserByline>
           );
         })
       )}
@@ -160,28 +165,22 @@ export default function GroupInvitePicker({
 const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%',
+    maxWidth: '100%',
     paddingLeft: 4, paddingRight: 10, paddingVertical: 4,
     borderRadius: PILL_RADIUS, borderWidth: 1,
   },
-  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  chipText: { fontSize: 13, fontFamily: FONT_INTER.bold },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
     paddingHorizontal: 12, paddingVertical: 11,
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  searchInput: { flex: 1, padding: 0 },
   hint:   { fontSize: 13, marginTop: 16, textAlign: 'center' },
   loader: { marginTop: 24 },
 
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowText:  { flex: 1, minWidth: 0 },
+  row: { paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth },
   username: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
-  fullName: { fontSize: 12, marginTop: 1 },
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,

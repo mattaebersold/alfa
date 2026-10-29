@@ -5,7 +5,7 @@ import {
 import { Text, TextInput } from '@ors/kit';
 import Reanimated from 'react-native-reanimated';
 import { useKeyboardPadding } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ImagePlus, X, Send, Camera, Images } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';
 import MentionInput from '../ui/MentionInput';

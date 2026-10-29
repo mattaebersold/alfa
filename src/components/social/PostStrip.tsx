@@ -4,10 +4,10 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Plus } from 'lucide-react-native';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -21,6 +21,7 @@ import { POST_TYPES } from '../../constants/postTypes';
 import { COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SpotDateBadge } from '../feed/SpotResultBody';
+import { pairCardWidth } from '../cars/CarShelf';
 
 /** As many as fit before "View all" is the better answer. */
 export const STRIP_PREVIEW_COUNT = 6;
@@ -60,7 +61,8 @@ export default function PostStrip({
   addLabel,
   ruled = false,
   ruleGap,
-  cardWidth = CARD_WIDTH,
+  cardWidth: givenWidth = CARD_WIDTH,
+  splitPair = false,
   captionLines = 2,
   captionOnImage = false,
   bylineOnImage = false,
@@ -98,6 +100,8 @@ export default function PostStrip({
   ruleGap?: number;
   /** The cards' width — wider for a shelf that's read more than scanned. */
   cardWidth?: number;
+  /** Exactly two: half the row each, side by side, nothing to scroll. */
+  splitPair?: boolean;
   /** Lines of caption before it trails off. */
   captionLines?: number;
   /**
@@ -114,6 +118,8 @@ export default function PostStrip({
    */
   kindBadge?: boolean;
 }) {
+  const split = splitPair && posts.length === 2;
+  const cardWidth = split ? pairCardWidth(ROW_PAD_LEFT) : givenWidth;
   const colors = useColors();
   const brand = useBrandColor();
 
@@ -197,6 +203,7 @@ export default function PostStrip({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
+        scrollEnabled={!split}
         snapToInterval={cardWidth + CARD_GAP}
         snapToAlignment="start"
         decelerationRate="fast"
@@ -259,8 +266,8 @@ export interface PostCardLook {
   /** The post's category (or type), colour-coded, on the picture's top-left. */
   kindBadge?: boolean;
   /**
-   * The picture at its own shape (clamped to 4:5–16:9) rather than the shelf's
-   * 4:3 — for a mosaic, where cards of different heights are the point.
+   * The picture at its exact shape rather than the shelf's 4:3 — for a
+   * mosaic, where cards of different heights are the point.
    */
   naturalRatio?: boolean;
 }
@@ -319,6 +326,9 @@ export function PostCard({
             // Fixed rather than taken from the photo, so every card in
             // the row stays the same height.
             ratio={naturalRatio ? undefined : MEDIA_RATIO}
+            // In a mosaic, the card is exactly the photo's shape — nothing cropped.
+            adaptiveHeight={naturalRatio}
+            exactShape={naturalRatio}
             showPageIndicator={false}
             visible={visible}
             onPressItem={onPress}
@@ -368,10 +378,7 @@ export function PostCard({
       ) : null}
       {/* The author, on the picture — whose story the car turned up in. */}
       {bylineOnImage && post.user ? (
-        <View style={styles.bylinePill} pointerEvents="none">
-          <Avatar user={post.user} size={20} />
-          <Text style={styles.bylinePillText} numberOfLines={1}>@{post.user.username}</Text>
-        </View>
+        <UserByline user={post.user} size={20} gap={6} color="#FFFFFF" nameStyle={styles.bylinePillText} style={styles.bylinePill} />
       ) : null}
       {(caption && lead && !captionOnImage) || spot || (showByline && !bylineOnImage) || (showTime && timeAgo) ? (
       <TouchableOpacity style={styles.body} onPress={onPress} activeOpacity={0.85}>
@@ -382,15 +389,16 @@ export function PostCard({
           <Text style={[styles.caption, largeCaption && styles.captionLarge, { color: colors.fg }]} numberOfLines={captionLines}>{caption}</Text>
         ) : null}
         {showByline && !bylineOnImage ? (
-          <View style={[styles.byline, styles.pinBottom]}>
-            <Avatar
-              user={post.user}
-              size={18}
-            />
-            <Text style={[styles.bylineText, { color: colors.grey }]} numberOfLines={1}>
-              {post.user?.username ? `@${post.user.username}` : ''}{showTime && timeAgo ? ` · ${timeAgo}` : ''}
-            </Text>
-          </View>
+          <UserByline
+            user={post.user}
+            size={18}
+            fallback=""
+            meta={showTime ? timeAgo : null}
+            gap={6}
+            color={colors.grey}
+            nameStyle={styles.bylineName}
+            style={styles.pinBottom}
+          />
         ) : showTime && timeAgo ? (
           <Text style={[styles.bylineText, styles.pinBottom, { color: colors.grey }]} numberOfLines={1}>{timeAgo}</Text>
         ) : null}
@@ -445,12 +453,13 @@ const styles = StyleSheet.create({
   },
   kindPillText: { fontSize: 11.5, fontFamily: FONT_INTER.bold },
   bylinePill: {
-    position: 'absolute', top: 8, left: 8, maxWidth: '85%',
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    // Passes taps through to the picture under it — style-level, as the
+    // byline takes no `pointerEvents` prop.
+    position: 'absolute', top: 8, left: 8, maxWidth: '85%', pointerEvents: 'none',
     paddingLeft: 3, paddingRight: 9, paddingVertical: 3, borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  bylinePillText: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.semibold, color: '#FFFFFF' },
+  bylinePillText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
   captionOver: {
     position: 'absolute', left: 10, right: 10, bottom: 9,
     fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 18, color: '#FFFFFF',
@@ -478,6 +487,6 @@ const styles = StyleSheet.create({
   pinBottom: { marginTop: 'auto' },
   caption: { fontSize: 13, fontFamily: FONT_INTER.semibold, lineHeight: 17 },
   captionLarge: { fontSize: 15, lineHeight: 20 },
-  byline:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bylineName: { fontSize: 11, fontFamily: FONT_INTER.regular },
   bylineText: { fontSize: 11, flexShrink: 1 },
 });

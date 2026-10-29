@@ -13,11 +13,15 @@ import { FONT_INTER } from '../../constants/fonts'
  * row looks its person up; RTK Query shares those lookups with every other
  * place that shows the same people.
  */
-function LikerRow({ userId, onOpen, last }: {
+export function LikerRow({ userId, onOpen, last, rule = true, dense = false }: {
   userId: string;
   onOpen: (userId: string, origin: SummaryOrigin | null) => void;
   /** The list's last row — no rule under it, the panel's edge is enough. */
   last: boolean;
+  /** The hairline under each row. Off where the list runs without them. */
+  rule?: boolean;
+  /** Closer together — for a list without the rules to separate its rows. */
+  dense?: boolean;
 }) {
   const colors = useColors();
   const { data: user } = useGetUserByIdQuery(userId, { skip: !userId });
@@ -32,7 +36,7 @@ function LikerRow({ userId, onOpen, last }: {
       at={false}
       edge={false}
       viewButton={false}
-      style={[styles.row, { borderBottomColor: colors.border }, last && styles.rowLast]}
+      style={[styles.row, { borderBottomColor: colors.border }, (last || !rule) && styles.rowLast, dense && styles.rowDense]}
     />
   );
 }
@@ -127,4 +131,5 @@ const styles = StyleSheet.create({
 
   row:    { gap: 8, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth },
   rowLast: { borderBottomWidth: 0 },
+  rowDense: { paddingVertical: 5 },
 });

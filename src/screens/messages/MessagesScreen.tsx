@@ -147,7 +147,6 @@ function ConversationRow({
 
 export default function MessagesScreen() {
   const navigation = useNavigation<NavProp>();
-  const colors = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
 
@@ -242,7 +241,7 @@ export default function MessagesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         data={conversations}
         keyExtractor={(item) => item.otherUserId}

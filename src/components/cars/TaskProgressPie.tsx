@@ -17,14 +17,17 @@ interface Props {
   size?: number;
   /** Colour of the filled wedge and the ring. */
   color: string;
+  /** The ring at full strength rather than dimmed — for a pie on a coloured button, where a dimmed ring tints toward the button. */
+  solid?: boolean;
 }
 
-export default function TaskProgressPie({ completed, total, size = 16, color }: Props) {
+export default function TaskProgressPie({ completed, total, size = 16, color, solid = false }: Props) {
   const fraction = total > 0 ? Math.min(1, Math.max(0, completed / total)) : 0;
 
   const c = size / 2;
   // Inset by the ring's stroke so the outline isn't clipped by the viewBox.
-  const stroke = 1.25;
+  // 2pt, so the ring holds its own beside the wedge at every size.
+  const stroke = 2;
   const r = c - stroke / 2;
 
   // A wedge of exactly 360° has its start and end points in the same place, so
@@ -38,7 +41,7 @@ export default function TaskProgressPie({ completed, total, size = 16, color }: 
 
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Circle cx={c} cy={c} r={r} stroke={color} strokeWidth={stroke} fill="none" opacity={0.55} />
+      <Circle cx={c} cy={c} r={r} stroke={color} strokeWidth={stroke} fill="none" opacity={solid ? 1 : 0.55} />
       {isFull ? (
         <Circle cx={c} cy={c} r={r} fill={color} />
       ) : fraction > 0 ? (

@@ -9,17 +9,18 @@ import { ProfilePhotoSheet, BioSheet } from './ProfileSetupSheets';
 import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { useGetLoggedInUserQuery, useGetUsersQuery, useGetFollowStatusesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import { colors as palette } from '../../constants/colors';
-import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type Step = 'photo' | 'bio' | 'car' | 'follow';
 
-const STEPS: { key: Step; title: string; sub: string }[] = [
-  { key: 'photo',  title: 'Add a profile photo',  sub: 'So members know who they’re talking to' },
-  { key: 'bio',    title: 'Add a bio',            sub: 'A line or two about you and what you drive' },
-  { key: 'car',    title: 'Add a car to your garage', sub: 'The first thing people look at on a profile' },
-  { key: 'follow', title: 'Follow some members',  sub: 'Fill your feed with people and their cars' },
+const STEPS: { key: Step; title: string }[] = [
+  { key: 'photo',  title: 'Add a profile photo' },
+  { key: 'bio',    title: 'Add a bio' },
+  { key: 'car',    title: 'Add a car to your garage' },
+  { key: 'follow', title: 'Follow some members' },
 ];
 
 /** How many members the follow panel suggests. */
@@ -44,6 +45,7 @@ export default function ProfileHelpCard({ carCount, followingCount }: {
   const { data: me } = useGetLoggedInUserQuery();
   const [sheet, setSheet] = useState<'photo' | 'bio' | 'car' | null>(null);
   const [follow, setFollow] = useState<{ origin: SummaryOrigin | null } | null>(null);
+  const { dismissedSetupPrompts, dismissSetupPrompt } = useFeedPreferences();
 
   if (!me) return null;
 
@@ -68,11 +70,19 @@ export default function ProfileHelpCard({ carCount, followingCount }: {
   );
 
   // Whatever finished the last step is still closing — it outlives the card.
-  if (!remaining.length) return panels;
+  // Dismissed: gone for good, whatever's left undone.
+  if (!remaining.length || dismissedSetupPrompts.includes('profileCard')) return panels;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Finish setting up your profile</Text>
+      {/* The heading, and a way to be done with the card for good — it's a
+          nudge, not a requirement. */}
+      <View style={styles.headRow}>
+        <Text style={[styles.heading, styles.headingInRow]}>Finish setting up your profile</Text>
+        <TouchableOpacity onPress={() => dismissSetupPrompt('profileCard')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss">
+          <Text style={styles.dismiss}>Dismiss</Text>
+        </TouchableOpacity>
+      </View>
       {remaining.map((step, i) => (
         <SummaryTouchable
           key={step.key}
@@ -86,7 +96,6 @@ export default function ProfileHelpCard({ carCount, followingCount }: {
           </View>
           <View style={styles.rowText}>
             <Text style={styles.rowTitle}>{step.title}</Text>
-            <Text style={styles.rowSub} numberOfLines={1}>{step.sub}</Text>
           </View>
         </SummaryTouchable>
       ))}
@@ -141,7 +150,8 @@ function FollowSuggestions({ myId }: { myId: string }) {
 }
 
 /** The help prompts' ground — shared look with CarSetupCard. */
-const HELP_BG = COLOR_GRAY_18;
+// Solid black, as every setup prompt is, so it reads as a card on the page.
+const HELP_BG = COLOR_BLACK;
 
 const styles = StyleSheet.create({
   // CarSetupCard's look, which is the menu checklist's.
@@ -151,6 +161,9 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS,
     backgroundColor: HELP_BG,
   },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
+  headingInRow: { flexShrink: 1, marginBottom: 0 },
+  dismiss: { fontSize: 12, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.55)' },
   heading: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, marginBottom: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 },
   rowDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
@@ -162,7 +175,6 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 13.5, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
-  rowSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
 
   follow: { paddingTop: 18, paddingBottom: 8 },
   followHead: { paddingHorizontal: 16, paddingBottom: 8, gap: 4 },

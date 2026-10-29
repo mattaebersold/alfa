@@ -62,7 +62,8 @@ export default function ScreenHeading({ title, subtitle, right, count, meta, den
             </View>
           )}
         </View>
-        {right}
+        {/* Never squeezed: the title gives way and trails off with an ellipsis instead. */}
+        {right ? <View style={styles.right}>{right}</View> : null}
       </View>
       {subtitle ? (
         <Text style={[styles.subtitle, { color: c.grey }]}>{subtitle}</Text>
@@ -76,7 +77,8 @@ const styles = StyleSheet.create({
   wrap:  { paddingHorizontal: 0, paddingTop: 12, paddingBottom: 10 },
   wrapDense: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
   row:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
+  right:      { flexShrink: 0 },
   title:      { fontSize: 30, fontFamily: FONT_INTER.bold, letterSpacing: -0.6, flexShrink: 1 },
   titleDense: { fontSize: 25, letterSpacing: -0.4 },
   titleInline: { fontSize: 24, fontFamily: FONT_INTER.semibold, letterSpacing: -0.3 },

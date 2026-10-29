@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Modal, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProposeModelDescriptionMutation } from '../../api/apiService';
+import FormInput from '../ui/FormInput';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COLOR_BLACK, COLOR_GRAY_26, COMMON_RADIUS, GUTTER, PILL_RADIUS } from '../../constants/config';
+import { COLOR_BLACK, GUTTER, PILL_RADIUS, PANE_BG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 const MIN_CHARS = 20;
@@ -61,7 +62,7 @@ export default function ModelDescriptionEditor({ visible, onClose, page, current
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.fill, { backgroundColor: PANE_BG }]} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.bar}>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
@@ -86,16 +87,14 @@ export default function ModelDescriptionEditor({ visible, onClose, page, current
             <Text style={[styles.hint, { color: colors.grey }]}>
               Straight facts: what it is, who made it, when, and what it's known for. An admin reviews every change.
             </Text>
-            <TextInput
-              style={[styles.input, { color: colors.fg, borderColor: colors.border }]}
+            <FormInput
+              style={styles.input}
               value={text}
               onChangeText={setText}
               multiline
               autoFocus
               placeholder={`Describe the ${page.title}…`}
-              placeholderTextColor={colors.grey}
               maxLength={MAX_CHARS}
-              textAlignVertical="top"
             />
             <Text style={[styles.counter, { color: colors.grey }]}>
               {unchanged ? 'No changes yet' : trimmed.length < MIN_CHARS ? `At least ${MIN_CHARS} characters` : `${trimmed.length} / ${MAX_CHARS}`}
@@ -121,11 +120,6 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: GUTTER + 8, paddingTop: 8, gap: 8 },
   page: { fontSize: 22, fontFamily: FONT_INTER.bold },
   hint: { fontSize: 13, lineHeight: 18 },
-  input: {
-    flex: 1, marginTop: 6,
-    padding: 14, borderRadius: COMMON_RADIUS, borderWidth: 1,
-    backgroundColor: COLOR_GRAY_26,
-    fontSize: 15, lineHeight: 22,
-  },
+  input: { flex: 1, marginTop: 6 },
   counter: { fontSize: 12, alignSelf: 'flex-end', paddingBottom: 8 },
 });

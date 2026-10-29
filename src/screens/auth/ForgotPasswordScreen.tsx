@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import Button from '../../components/ui/Button';
+import FormInput from '../../components/ui/FormInput';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { CONFIG } from '../../constants/config';
@@ -42,7 +43,7 @@ export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'Fo
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={ss.fill} edges={['top', 'bottom']}>
       <FormScrollView style={styles.flex} contentContainerStyle={styles.container}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.back}>← Back</Text>
@@ -55,12 +56,10 @@ export default function ForgotPasswordScreen({ navigation }: AuthScreenProps<'Fo
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.fg }]}>Email</Text>
-          <TextInput
-            style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+          <FormInput
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
-            placeholderTextColor={colors.grey}
             autoCapitalize="none"
             keyboardType="email-address"
             autoCorrect={false}

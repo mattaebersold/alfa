@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import Avatar, { type AvatarUser } from '../ui/Avatar';
+import type { AvatarUser } from '../ui/Avatar';
+import UserByline from './UserByline';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
-import { useColors } from '../../hooks/useColors';
 import { COMMON_RADIUS, COLOR_GRAY_42, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -26,8 +26,8 @@ export default function SummaryUserRow({
   avatarSize = 34,
   badge,
   style,
-  at = true,
-  edge = true,
+  at = false,
+  edge = false,
   viewButton = true,
 }: {
   userId: string;
@@ -38,14 +38,13 @@ export default function SummaryUserRow({
   badge?: React.ReactNode;
   /** Borders and spacing, which differ with the list the row is in. */
   style?: StyleProp<ViewStyle>;
-  /** The handle with its "@". Off where the list reads as names, not handles. */
+  /** The handle with its "@" — see UserByline. */
   at?: boolean;
-  /** The avatar's 1pt edge — see Avatar's `edge`. */
+  /** The avatar's 1pt edge — see UserByline. */
   edge?: boolean;
   /** The View button. Off where the row alone is enough of a target. */
   viewButton?: boolean;
 }) {
-  const colors = useColors();
   const rowRef = useRef<View>(null);
   const username = user?.username;
 
@@ -62,11 +61,9 @@ export default function SummaryUserRow({
       accessibilityRole="button"
       accessibilityLabel={username ? `View @${username}` : 'View member'}
     >
-      <Avatar user={user} size={avatarSize} edge={edge} />
-      <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>
-        {at ? '@' : ''}{username ?? 'member'}
-      </Text>
-      {badge}
+      <UserByline user={user} size={avatarSize} at={at} edge={edge} gap={10} fill nameStyle={styles.name} style={styles.who}>
+        {badge}
+      </UserByline>
       {viewButton && (
       <TouchableOpacity
         style={styles.viewBtn}
@@ -87,7 +84,8 @@ export default function SummaryUserRow({
 
 const styles = StyleSheet.create({
   row:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
-  name: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
+  who:  { flex: 1 },
+  name: { fontFamily: FONT_INTER.semibold },
   // The same grey as the summaries' other secondary buttons (Message, Follow):
   // it's something you can do to this row, not the panel's main action.
   viewBtn: {

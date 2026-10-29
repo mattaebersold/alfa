@@ -1,18 +1,20 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform, PanResponder, Animated,
+  Pressable, Dimensions, Easing,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import { FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus, MapPin } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus } from 'lucide-react-native';
 import { useGetUserGroupsQuery, apiService } from '../../api/apiService';
 import { useAppSelector, store } from '../../store/store';
 import { startPostUpload, takePostUploadDraft, type PostUploadJob } from '../../utils/postUpload';
@@ -39,7 +41,7 @@ import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 import type { PostPlace } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, COLOR_GRAY_14, FORM_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, FORM_CARD_BG, FORM_CARD_RADIUS, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -59,14 +61,14 @@ function Section({ label, children, defaultOpen = false }: { label: string; chil
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
       <TouchableOpacity
-        style={[styles.sectionHeader, { backgroundColor: colors.card }]}
+        style={styles.sectionHeader}
         onPress={() => setOpen(o => !o)}
         activeOpacity={0.7}
       >
         <Text style={[styles.sectionLabel, { color: colors.fg }]}>{label}</Text>
         {open ? <ChevronUp size={16} color={colors.grey} /> : <ChevronDown size={16} color={colors.grey} />}
       </TouchableOpacity>
-      {open && <View style={{ backgroundColor: colors.card }}>{children}</View>}
+      {open && <View>{children}</View>}
     </View>
   );
 }
@@ -504,9 +506,8 @@ export default function CreateScreen() {
       // One JSON field inside the multipart body — see PollInput.
       if (pollInput.poll) fd.append('poll', JSON.stringify(pollInput.poll));
 
-      // The place, the same way: one JSON field. A post's only — the Poll tab
-      // doesn't offer one, and a place picked on the Post tab stays there.
-      if (kind === 'post' && place) fd.append('place', JSON.stringify(place));
+      // The place, the same way: one JSON field — a post's or a poll's.
+      if (place) fd.append('place', JSON.stringify(place));
       return fd;
     };
 
@@ -609,7 +610,7 @@ export default function CreateScreen() {
       draft: formDraft,
       thumb: !lead ? null : lead.kind === 'image' ? (lead.uploadUri ?? lead.uri) : lead.poster,
     });
-    appNav.goBack();
+    close();
   }, [
     kind, postType, category, title, body, mentionedUserIds, optional, selectedGroupIds, isPublic, poll,
     taggedUsers, taggedCars, taggedEvents, media, place, appNav,
@@ -620,38 +621,80 @@ export default function CreateScreen() {
    * a downward pull, so a tap on the grabber (which also closes) and the
    * tabs under it keep theirs; lets go with a flick or past a hand's width.
    */
+  /**
+   * The sheet's own coming and going. The route is a transparent modal, so
+   * what's behind stays on screen under the panes' light grey wash (as every
+   * pane has); the sheet slides up over it, and back down before the route
+   * goes. 0 is down off the screen, 1 is up.
+   */
+  const shown = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    // Out, with a slight overshoot — the panes' opening (PANE_OPEN_OVERSHOOT).
+    Animated.timing(shown, { toValue: 1, duration: PANE_OPEN_MS, easing: Easing.out(Easing.back(PANE_OPEN_OVERSHOOT)), useNativeDriver: true }).start();
+  }, [shown]);
+  const closing = useRef(false);
+  const close = useCallback(() => {
+    if (closing.current) return;
+    closing.current = true;
+    Keyboard.dismiss();
+    Animated.timing(shown, { toValue: 0, duration: SHEET_CLOSE_MS, easing: Easing.in(Easing.cubic), useNativeDriver: true })
+      .start(() => appNav.goBack());
+  }, [shown, appNav]);
+  /** The floating head's height — the form's top padding, so it starts below it. */
+  const [headH, setHeadH] = useState(0);
+  const sheetY = shown.interpolate({ inputRange: [0, 1], outputRange: [Dimensions.get('window').height, 0] });
+
   const dismissPan = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_e, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
     onPanResponderRelease: (_e, g) => {
-      if (g.dy > 80 || g.vy > 0.6) appNav.goBack();
+      if (g.dy > 80 || g.vy > 0.6) close();
     },
   })).current;
-
-  const inputStyle = [styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }];
 
   // The Done footer is only there while the keyboard is — see below.
   const keyboardUp = useKeyboardState((st) => st.isVisible);
 
   return (
-    // One ground from top to bottom: the card colour the type row and photos
-    // sit on, so the sections below don't read as a second surface.
     // No bottom edge: the form runs to the foot of the screen, under the home
     // indicator, and its own end padding (below) is what clears it.
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.card }]} edges={[]}>
-      {/* iOS presents this as a page sheet, already clear of the status bar:
-          a top inset there only pushed the grabber down a notch's height.
-          Android's modal is full screen, so it still needs one. */}
-      <SafeAreaView edges={Platform.OS === 'ios' ? [] : ['top']} style={{ backgroundColor: colors.card }}>
+    // One ground for the whole pane — the panes' grey — and nothing in it
+    // painting its own: the tabs, the photos, the words and the tags all sit
+    // on the same surface.
+    <View style={ss.fill}>
+      {/* The panes' light grey wash over whatever this was opened from, and
+          a tap on it closes, as it does on every pane. */}
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: PANE_SCRIM, opacity: shown }]} pointerEvents="none" />
+      <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
+      {/* The sheet's colour under its foot, for the moment the opening
+          overshoots and lifts it past its place. Hidden once it's closing. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.overshootFill, { opacity: shown.interpolate({ inputRange: [0.99, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}
+      />
+    <Animated.View style={[styles.sheet, { marginTop: insets.top + SHEET_TOP_GAP, transform: [{ translateY: sheetY }] }]}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: PANE_BG }]} edges={[]}>
+      {/* The head — grabber, tabs, a listing's steps — floats over the form
+          with no ground of its own, and the form scrolls up under it to the
+          sheet's top edge. The form's top padding is the head's height. */}
+      <View style={styles.head} onLayout={(e) => setHeadH(e.nativeEvent.layout.height)} pointerEvents="box-none">
+        {/* The pane's grey, mostly opaque at the top and fading to nothing at
+            the head's foot, so what scrolls up under the tabs dims away
+            rather than running straight behind them. */}
+        <LinearGradient
+          colors={HEAD_FADE}
+          locations={[0, 0.7, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
         {/* A sheet's grabber in place of the X: tap it or drag it down to
-            close, as every other sheet in the app closes. The drag is read
-            here for Android; iOS's modal has the gesture natively. */}
+            close, as every other sheet in the app closes. */}
         {/* The drag takes the tabs as well as the grabber: a pull down
             anywhere across the top starts it, where the grabber's own strip
             was a thin target. A tap on a tab is still a tap — the pan only
             claims a move that's clearly downward. */}
         <View {...dismissPan.panHandlers}>
           <TouchableOpacity
-            onPress={() => appNav.goBack()}
+            onPress={close}
             style={styles.grabberHit}
             hitSlop={6}
             accessibilityRole="button"
@@ -673,7 +716,7 @@ export default function CreateScreen() {
         </View>
         {/* The listing's step row stays put while its steps scroll. */}
         {kind === 'listing' && listingNav ? <View style={styles.pinnedNav}>{listingNav}</View> : null}
-      </SafeAreaView>
+      </View>
 
       <FormScrollView
         style={styles.scroll}
@@ -684,7 +727,7 @@ export default function CreateScreen() {
         bottomOffset={KEYBOARD_GAP + DONE_FOOTER_H}
         extraKeyboardSpace={DONE_FOOTER_H}
         // Clear of the home indicator / navigation bar once scrolled to the end.
-        contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
+        contentContainerStyle={{ paddingTop: headH, paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
       >
         {kind === 'listing' ? (
           /* The marketplace's own flow, in the pane under its tab, with the
@@ -721,13 +764,11 @@ export default function CreateScreen() {
         )}
 
         {/* Photos / video */}
-        <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={styles.photosSection}>
           {media.length === 0 ? (
             <PhotoPickerField
               onPress={pickImage}
               title="Add Media"
-              hint=""
-              muted
               style={styles.photoField}
             />
           ) : (
@@ -759,15 +800,17 @@ export default function CreateScreen() {
         </View>
 
         {kind === 'post' && (<>
-        {/* Title */}
-        <View style={[styles.inputBlock, { backgroundColor: colors.card }]}>
-          <TextInput
-            style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
+        {/* The words — one field, as tall as the description used to be. A
+            post's title is what it says; with nothing beneath it, the feed
+            card sets it as a description (see FeedItemCard). An @ in it
+            tags someone, from a list that opens above the field as you type,
+            as the poll's description does. */}
+        <View style={[styles.inputBlock, { paddingBottom: 12 }]}>
+          <MentionInput
             value={title}
-            onChangeText={setTitle}
-            placeholder="Title"
-            placeholderTextColor={colors.grey}
-            returnKeyType="next"
+            onChangeText={(text, ids) => { setTitle(text); setMentionedUserIds(ids); }}
+            placeholder="What's on your mind?"
+            multiline
           />
         </View>
         </>)}
@@ -780,17 +823,17 @@ export default function CreateScreen() {
           </View>
         )}
 
-        {/* Body */}
-        <View style={[styles.inputBlock, { backgroundColor: colors.card, paddingBottom: 12 }]}>
+        {/* The poll's description. A post has none now — its title above is its words. */}
+        {kind === 'poll' && (
+        <View style={[styles.inputBlock, { paddingBottom: 12 }]}>
           <MentionInput
-            style={[ss.formInput, ss.formInputMulti, { backgroundColor: colors.inputBg, color: colors.fg }]}
             value={body}
             onChangeText={(text, ids) => { setBody(text); setMentionedUserIds(ids); }}
             placeholder="Description"
-            placeholderTextColor={colors.grey}
             multiline
           />
         </View>
+        )}
 
         {/* ── Optional fields — a post's; a poll has none. ── */}
         {kind === 'post' && (
@@ -810,11 +853,14 @@ export default function CreateScreen() {
             events={taggedEvents}
             onToggle={toggleTag}
           />
+          {/* Where it was made — a card of the same kind, under Tag Events,
+              on a post or a poll. */}
+          <PostLocationField value={place} onChange={setPlace} />
         </View>
 
         {/* ── Post to ── */}
         {/* Framed and headed like the tag cards and Optional Details above it. */}
-        <View style={[styles.postToCard, { backgroundColor: COLOR_GRAY_14 }]}>
+        <View style={styles.postToCard}>
           <View style={styles.postToHead}>
             <Send size={15} color={COLOR_WHITE} />
             <Text style={[styles.postToTitle, { color: colors.fg }]}>Post To</Text>
@@ -833,20 +879,6 @@ export default function CreateScreen() {
             </Text>
           )}
         </View>
-
-        {/* ── Add a location ──
-            Last of the cards, after Post To: where it was made is an extra,
-            and the tag cards' old "Tag Photo Spots" is gone in its favour.
-            A post's — the poll tab has none. */}
-        {kind === 'post' && (
-          <View style={[styles.postToCard, { backgroundColor: COLOR_GRAY_14 }]}>
-            <View style={styles.postToHead}>
-              <MapPin size={15} color={COLOR_WHITE} />
-              <Text style={[styles.postToTitle, { color: colors.fg }]}>Add a Location</Text>
-            </View>
-            <PostLocationField value={place} onChange={setPlace} />
-          </View>
-        )}
 
         {/* ── Post button ──
             Ends the form, full width, rather than floating over it: posting is
@@ -875,7 +907,7 @@ export default function CreateScreen() {
           keyboard is up — the Post button no longer lives down here. */}
       {keyboardUp && (
         <KeyboardStickyView style={styles.doneDock}>
-        <StickyFormFooter color={colors.card} bottomInset={10} style={styles.doneFooter}>
+        <StickyFormFooter color={PANE_BG} bottomInset={10} style={styles.doneFooter}>
           <View style={styles.footerRow}>
             <TouchableOpacity
               style={[styles.doneBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
@@ -900,6 +932,8 @@ export default function CreateScreen() {
         onPickLibrary={() => { setCameraOpen(false); setTimeout(() => { void addFromLibrary(); }, 400); }}
       />
     </SafeAreaView>
+    </Animated.View>
+    </View>
   );
 }
 
@@ -909,19 +943,34 @@ const DONE_FOOTER_H = 76;
 /** The Post To card's padding — its group cards bleed out past it. */
 const POST_TO_PAD = 14;
 
+/** The sheet's slide back down. */
+const SHEET_CLOSE_MS = 220;
+/** The head's fade: the pane's grey (PANE_BG, #121212) to nothing. */
+const HEAD_FADE = ['rgba(18,18,18,0.92)', 'rgba(18,18,18,0.75)', 'rgba(18,18,18,0)'] as const;
+/** Clear of the status bar above the sheet, so the wash shows along its top. */
+const SHEET_TOP_GAP = 10;
+
 const styles = StyleSheet.create({
+  // The form, as a sheet from the bottom: rounded along its top, over the wash.
+  head: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, elevation: 10 },
+  overshootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: PANE_BG },
+  sheet: {
+    flex: 1,
+    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS,
+    overflow: 'hidden',
+  },
   scroll:       { flex: 1 },
 
   // The sheet's grabber (SharedModal's measures), then the title under it.
   // The grabber alone leads the sheet; the tabs under it say what this is.
-  grabberHit:  { alignItems: 'center', paddingTop: 8, paddingBottom: 12 },
+  grabberHit:  { alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
   grabber:     { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
   // Under the header: the app header's tab row, three across, each taking
   // a third — its type, its gold, its underline.
   kindRow:       { paddingBottom: 10 },
   pollBlock: { paddingTop: 4 },
   // Under the tabs, on the header's ground, with a rule to the scroller.
-  pinnedNav: { paddingBottom: 10 },
+  pinnedNav: { paddingTop: 2, paddingBottom: 4 },
   // Tight to the header above — the header's own padding is the gap.
   // Small captions over the type and category, the group form's.
   // No top padding: the tab row's own 10 below it is the gap.
@@ -929,10 +978,9 @@ const styles = StyleSheet.create({
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
 
-  photosSection:{ borderBottomWidth: 1, paddingBottom: 2 },
-  // The width of the form, like the fields under it — the well's own default
-  // is a narrower box centred on the page.
-  photoField:   { alignSelf: 'stretch', maxWidth: '100%', marginHorizontal: 14, marginTop: 12, marginBottom: 0 },
+  photosSection:{ paddingBottom: 2 },
+  // In line with the fields under it.
+  photoField:   { marginHorizontal: 14, marginTop: 12, marginBottom: 0 },
   thumbRow:     { paddingHorizontal: 14 },
   thumbRowInner:{ paddingVertical: 12 },
   // The add tile: the preview's size and shape, outlined, the word under a plus.
@@ -962,12 +1010,13 @@ const styles = StyleSheet.create({
   fieldRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7 },
   fieldLabel:    { fontSize: 13, fontFamily: FONT_INTER.semibold, width: 90 },
   fieldValue:    { flex: 1 },
-  input:         { flex: 1, fontSize: 14, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 8 },
 
-  // Optional Details' block: a ground a step darker than the form, no edge.
+  // The Post To block: framed like Optional Details, on the form's own ground.
   postToCard: {
     marginHorizontal: 12, marginTop: 12,
-    padding: POST_TO_PAD, borderRadius: FORM_RADIUS,
+    padding: POST_TO_PAD, borderRadius: FORM_CARD_RADIUS,
+    // A step darker than the form, no edge — as Optional Details and the tag cards.
+    backgroundColor: FORM_CARD_BG,
   },
   // The tag cards' head: a white icon and a title.
   postToHead:  { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },

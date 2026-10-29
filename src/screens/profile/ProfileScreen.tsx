@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Pressable, Dimensions, ActivityIndicator,
+  View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Easing, Pressable, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { formatDistanceToNow } from 'date-fns';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { Settings, Warehouse, Plus, MoreVertical, X, Search, Camera } from 'lucide-react-native';
@@ -23,13 +23,18 @@ import {
   useUnblockUserMutation,
   useCreateReportMutation,
   useGetListingsQuery,
+  useGetFollowStatusQuery,
+  useFollowUserMutation,
+  useUnfollowUserMutation,
 } from '../../api/apiService';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
-import AppHeader from '../../components/ui/AppHeader';
+import UserByline from '../../components/members/UserByline';
+import AppHeader, { APP_HEADER_HEIGHT } from '../../components/ui/AppHeader';
+import { useSectionTabs } from '../../hooks/useSectionTabs';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import CarPosterCard from '../../components/cards/CarPosterCard';
+import GarageCarCard from '../../components/cars/GarageCarCard';
 import FollowButton from '../../components/social/FollowButton';
 import ProfileHelpCard from '../../components/members/ProfileHelpCard';
 import AskForPhotosButton from '../../components/cars/AskForPhotosButton';
@@ -54,9 +59,15 @@ import {
   COLOR_GRAY_30,
   COLOR_WHITE,
   COLOR_BORDER,
-  COLOR_PRO_DARK,
+  COLOR_PRO,
+  GUTTER,
+  PANE_BG,
+  PANE_OPEN_MS,
+  PANE_OPEN_OVERSHOOT,
+  PANE_SCRIM,
+  SHEET_RADIUS,
 } from '../../constants/config';
-import Spinner from '../../components/ui/Spinner';
+import { Skeleton, SkeletonLine, SkeletonCard } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
 import SteeringWheel from '../../components/ui/SteeringWheel';
@@ -72,6 +83,7 @@ import ListingCard, { LISTING_GRID_ROW } from '../../components/marketplace/List
 import ListingSummaryModal from '../../components/marketplace/ListingSummaryModal';
 import type { SummaryOrigin } from '../../components/ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { imageUrl } from '../../utils/image';
 import { postMediaList } from '../../utils/postMedia';
 import PostMediaCarousel from '../../components/media/PostMediaCarousel';
@@ -83,6 +95,7 @@ import { ss } from '../../styles/shared';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import GroupAttribution from '../../components/groups/GroupAttribution';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -94,14 +107,25 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 // Polls are a shelf as well — their posts are in the Posts count too, but the
 // shelf shows them with their choices, which the Posts cards don't.
 type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes'
-  | 'forSale' | 'wants' | 'soldListings' | 'polls' | 'photoSpots';
+  | 'forSale' | 'wants' | 'polls' | 'photoSpots';
+
+/** The page's sections, in order — each a sub tab that scrolls to it. */
+type SectionKey = 'activity' | 'garage' | 'polls' | 'routes' | 'lists' | 'photoSpots' | 'listings';
+const PAGE_SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'activity',   label: 'Activity' },
+  { key: 'garage',     label: 'Garage' },
+  { key: 'polls',      label: 'Polls' },
+  { key: 'routes',     label: 'Routes' },
+  { key: 'lists',      label: 'Lists' },
+  { key: 'photoSpots', label: 'Photo spots' },
+  { key: 'listings',   label: 'Listings' },
+];
 
 // No Posts: the posts carousel right under these is the way in, and its
 // "View all" opens the same section.
 const TABS: { key: Tab; label: string }[] = [
   { key: 'followers', label: 'Followers' },
   { key: 'following', label: 'Following' },
-  { key: 'lists',     label: 'Lists' },
 ];
 
 /**
@@ -118,7 +142,6 @@ const SECTION_LABELS: Record<Tab, string> = {
   polls:     'Polls',
   forSale:      'For sale',
   wants:        'Want ads',
-  soldListings: 'Sold',
   photoSpots:   'Photo spots',
 };
 
@@ -126,9 +149,9 @@ const SECTION_LABELS: Record<Tab, string> = {
 /**
  * Every card in the garage carousel takes this one shape, whatever its photo.
  * Each taking its photo's own (3:2 or 2:3) left a wide car's card short beside
- * a tall one, over a gap. 4:5 sits between the two, so neither loses much.
+ * a tall one, over a gap. Square: shorter, and neither shape loses much.
  */
-const GARAGE_CARD_RATIO = 4 / 5;
+const GARAGE_CARD_RATIO = 1;
 /**
  * Membership badge colours, read from the raw palette rather than useColors():
  * that hook remaps `primaryAlt` to gold for a pro *viewer*, which would put a
@@ -155,6 +178,10 @@ const PRO_RING = 5;
  * enough that they read as pinned to it rather than printed on it.
  */
 const BADGE_OFFSET = -5;
+/** Under the wheel and the member number, so they sit on the photo rather than in it. */
+const BADGE_SHADOW = '0px 3px 8px rgba(0, 0, 0, 0.55)';
+/** The banner's rounded foot. */
+const BANNER_RADIUS = 28;
 
 /** How much of a bio shows before "… more". */
 const BIO_LINES = 3;
@@ -222,6 +249,27 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
   const [unblockUser] = useUnblockUserMutation();
   const [createReport] = useCreateReportMutation();
   const isBlocked = useAppSelector((s) => s.moderation.blockedUserIds.includes(user.user_id));
+  const brand = useBrandColor();
+
+  // Following: no button in the row — the unfollow lives in the ⋯ menu, a
+  // step away from a stray tap. Not following: an outlined Follow.
+  const canFollow = !!user.username && user.user_id !== currentUserId && !isBlocked;
+  const { data: followStatus } = useGetFollowStatusQuery(user.username ?? '', { skip: !canFollow });
+  const [follow, { isLoading: followBusy }] = useFollowUserMutation();
+  const [unfollow] = useUnfollowUserMutation();
+  /** The tap's answer, until the status query catches up. */
+  const [pendingFollow, setPendingFollow] = useState<boolean | null>(null);
+  const isFollowing = pendingFollow ?? followStatus?.isFollowing;
+  const setFollow = async (next: boolean) => {
+    if (!user.username) return;
+    setPendingFollow(next);
+    try {
+      await (next ? follow(user.username) : unfollow(user.username)).unwrap();
+    } catch {
+      Alert.alert(next ? "Couldn't follow" : "Couldn't unfollow", 'Please try again.');
+    }
+    setPendingFollow(null);
+  };
 
   const handleUnblock = () => {
     Alert.alert(
@@ -249,6 +297,7 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
       `@${user.username}`,
       undefined,
       [
+        ...(canFollow && isFollowing ? [{ text: 'Unfollow', onPress: () => { void setFollow(false); } }] : []),
         {
           text: 'Block user',
           style: 'destructive',
@@ -311,13 +360,15 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
   };
 
   return (
-    <TouchableOpacity
-      style={[ss.listRow, { borderBottomColor: colors.border }]}
+    <UserByline
+      user={user}
+      size={44}
+      gap={12}
+      fill
+      nameStyle={styles.userRowName}
+      style={[ss.listRow, styles.userRow]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
-      <Avatar user={user} size={44} />
-      <Text style={[styles.userRowName, { color: colors.fg, flex: 1 }]}>@{user.username}</Text>
       {isBlocked ? (
         <>
           <View style={[styles.blockedPill, { backgroundColor: colors.red + '18' }]}>
@@ -333,8 +384,17 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
         </>
       ) : (
         <>
-          {user.username && user.user_id !== currentUserId && (
-            <FollowButton username={user.username} />
+          {canFollow && isFollowing === false && (
+            <TouchableOpacity
+              style={[styles.followOutline, { borderColor: brand }]}
+              onPress={() => { void setFollow(true); }}
+              disabled={followBusy}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Follow ${user.username}`}
+            >
+              <Text style={[styles.followOutlineText, { color: brand }]}>Follow</Text>
+            </TouchableOpacity>
           )}
           {user.user_id !== currentUserId && (
             <TouchableOpacity onPress={handleMorePress} hitSlop={10} style={styles.moreBtn}>
@@ -343,7 +403,7 @@ function UserRow({ user, onPress, currentUserId }: { user: User; onPress: () => 
           )}
         </>
       )}
-    </TouchableOpacity>
+    </UserByline>
   );
 }
 
@@ -357,6 +417,7 @@ export default function ProfileScreen() {
 
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const { userInfo } = useAppSelector((s) => s.auth);
   // The *viewer's* standing. It decides one thing on this page — whether "New
   // list" opens the form or the Pro pitch — and nothing about what they may see.
@@ -414,7 +475,9 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [blockProfileUser] = useBlockUserMutation();
   const [reportProfileUser] = useCreateReportMutation();
-  const sheetY = useRef(new Animated.Value(600)).current;
+  // A screen's height down, so the 85% sheet starts wholly below the edge.
+  const sheetOffscreen = Dimensions.get('window').height;
+  const sheetY = useRef(new Animated.Value(sheetOffscreen)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const sheetMounted = useRef(false);
 
@@ -424,15 +487,16 @@ export default function ProfileScreen() {
       if (activeSection === 'posts') { setPostsPage(0); setAllPosts([]); }
       setUserSearch('');
       sheetMounted.current = true;
-      sheetY.setValue(600);
+      sheetY.setValue(sheetOffscreen);
       overlayOpacity.setValue(0);
       Animated.parallel([
-        Animated.spring(sheetY, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
+        // Out, with a slight overshoot — the way every pane arrives (SlideSheet).
+        Animated.timing(sheetY, { toValue: 0, duration: PANE_OPEN_MS, easing: Easing.out(Easing.back(PANE_OPEN_OVERSHOOT)), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
     } else if (sheetMounted.current) {
       Animated.parallel([
-        Animated.timing(sheetY, { toValue: 600, duration: 220, useNativeDriver: true }),
+        Animated.timing(sheetY, { toValue: sheetOffscreen, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
       ]).start(() => {
         sheetMounted.current = false;
@@ -467,6 +531,17 @@ export default function ProfileScreen() {
   const closePaneThen = (fn: () => void) => { afterPane.current = fn; setActiveSection(null); };
 
   const isOwnProfile = !paramUserId || paramUserId === userInfo?.user_id;
+  /**
+   * Your own cars carry their owner's buttons — tasks and edit — as they do in
+   * the header's garage pane (GarageCarCard); anyone else's are the card alone.
+   */
+  const ownerControls = (car: GarageCar) => (isOwnProfile ? {
+    onTasksPress: () => (navigation as any).navigate('CarTasks', {
+      carId: car.internal_id,
+      carTitle: [car.year, car.make, car.model].filter(Boolean).join(' '),
+    }),
+    onEditPress: () => (navigation as any).navigate('CarCreate', { carId: car.internal_id }),
+  } : {});
 
   const { data: loggedInUser, isLoading: loadingOwn, refetch: refetchOwn } = useGetLoggedInUserQuery(undefined, { skip: !isOwnProfile });
   const { data: publicUser, isLoading: loadingOther, refetch: refetchOther } = useGetPublicUserByIdQuery(paramUserId!, { skip: isOwnProfile || !paramUserId });
@@ -480,7 +555,7 @@ export default function ProfileScreen() {
 
   // All sections fetched up front so the tiles can show counts and content is
   // ready the moment a tile opens its modal.
-  const { data: postsData, refetch: refetchPosts } = useGetPostsQuery({ user_id: userId, limit: 30 }, { skip: !userId });
+  const { data: postsData, isLoading: postsLoading, refetch: refetchPosts } = useGetPostsQuery({ user_id: userId, limit: 30 }, { skip: !userId });
 
   /**
    * The posts of theirs that carry a poll — the Polls shelf, and its pane.
@@ -516,7 +591,7 @@ export default function ProfileScreen() {
       return [...prev, ...postsPageData.entries.filter((x) => !seen.has(x.internal_id))];
     });
   }, [postsPageData, postsPage]);
-  const { data: carsData, refetch: refetchCars }  = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
+  const { data: carsData, isLoading: carsLoading, refetch: refetchCars }  = useGetCarsQuery({ user_id: userId, limit: 24 }, { skip: !userId });
   // Their photography pins, newest first. The whole set rather than a page:
   // the endpoint has no count to go with a short page, and it's the map's
   // query — a member has tens of these, not thousands.
@@ -554,8 +629,7 @@ export default function ProfileScreen() {
    * the shelves on the page fetch their own six-item preview (see
    * MemberListingsShelf), and RTK caches the two separately.
    *
-   * Sold is shown on anyone's profile, not just your own: on a marketplace
-   * with no ratings, what somebody has actually sold is the reputation.
+   * Sold listings aren't shown — the profile is what's on offer now.
    */
   const listingPaneParams = { user_id: userId, sort: 'recent' as const, limit: 24 };
   const { data: forSalePane } = useGetListingsQuery(
@@ -565,10 +639,6 @@ export default function ProfileScreen() {
   const { data: wantsPane } = useGetListingsQuery(
     { ...listingPaneParams, kind: 'want' },
     { skip: !userId || renderedSection !== 'wants' },
-  );
-  const { data: soldPane } = useGetListingsQuery(
-    { ...listingPaneParams, sold: 'true' },
-    { skip: !userId || renderedSection !== 'soldListings' },
   );
 
   // The profile is the person plus their posts, garage and routes — the things
@@ -594,10 +664,31 @@ export default function ProfileScreen() {
    * here would be the garage leaking into the profile.
    */
   const { data: listsData }     = useGetListsQuery({ user_id: userId, car_id: 'none', limit: 50 }, { skip: !userId });
-  const { data: followersData } = useGetUserFollowersQuery({ userId, limit: 50 }, { skip: !userId });
-  const { data: followingData } = useGetUserFollowingQuery({ userId, limit: 50 }, { skip: !userId });
+  const { data: followersData, isLoading: followersLoading } = useGetUserFollowersQuery({ userId, limit: 50 }, { skip: !userId });
+  const { data: followingData, isLoading: followingLoading } = useGetUserFollowingQuery({ userId, limit: 50 }, { skip: !userId });
 
-  if (isLoading || !user) return <Spinner fullScreen />;
+  // The page's shape in grey while the person loads — the banner, the photo,
+  // the name, the pills, a card — rather than a spinner in a void.
+  if (isLoading || !user) {
+    return (
+      <SafeAreaView style={ss.fill} edges={[]}>
+        <AppHeader />
+        <Skeleton style={styles.bannerContainer} radius={0} />
+        <View style={styles.skelHead}>
+          <Skeleton width={AVATAR_SIZE} height={AVATAR_SIZE} radius={AVATAR_SIZE / 2} />
+          <View style={styles.skelName}>
+            <SkeletonLine width="60%" height={18} />
+            <SkeletonLine width="35%" height={12} />
+          </View>
+        </View>
+        <View style={styles.tilesRow}>
+          <Skeleton height={32} radius={PILL_RADIUS} style={ss.fill} />
+          <Skeleton height={32} radius={PILL_RADIUS} style={ss.fill} />
+        </View>
+        <SkeletonCard ratio={1.25} style={styles.skelCard} />
+      </SafeAreaView>
+    );
+  }
 
   const handleProfileMenu = () => {
     Alert.alert(`@${user.username}`, undefined, [
@@ -671,7 +762,6 @@ export default function ProfileScreen() {
   // Clear the floating tab bar. Computed rather than read via
   // useBottomTabBarHeight, which throws when this renders outside the tabs.
   const tabBarClearance = 88 + insets.bottom;
-  const safeBg    = colors.cream;
 
   const countFor = (key: Tab): number => {
     switch (key) {
@@ -687,17 +777,13 @@ export default function ProfileScreen() {
       // than here — nothing on this page asks for these.
       case 'forSale':      return forSalePane?.total ?? 0;
       case 'wants':        return wantsPane?.total ?? 0;
-      case 'soldListings': return soldPane?.total ?? 0;
       case 'photoSpots':   return photoSpots.length;
     }
   };
 
-  // The Lists tile is for profiles that have lists, plus your own — where an
-  // empty one is the way in to making the first. On anyone else's profile a
-  // "0 Lists" tile is a door onto an empty room.
-  const visibleTabs = isOwnProfile || countFor('lists') > 0
-    ? TABS
-    : TABS.filter((t) => t.key !== 'lists');
+  // Followers and following. Lists has no tile: its shelf further down is the
+  // way in.
+  const visibleTabs = TABS;
 
   /** The form for a Pro member, the pitch for everyone else. Never both. */
   const startNewList = () => {
@@ -708,6 +794,9 @@ export default function ProfileScreen() {
   // ── Top chrome ─────────────────────────────────────────────────────────────
   // Identical chrome whether it's your profile or someone else's — the back
   // chevron is replaced by the header's own navigation (plus swipe-back).
+  // ── Section sub tabs — see useSectionTabs ──────────────────────────────
+  const sectionTabs = useSectionTabs({ sections: PAGE_SECTIONS, scrollRef, headerPad: insets.top + APP_HEADER_HEIGHT });
+
   const topBar = <AppHeader />;
 
   // ── Section tiles — tap to open a modal with that section's content ───────
@@ -725,7 +814,9 @@ export default function ProfileScreen() {
           accessibilityRole="button"
           accessibilityLabel={`${countFor(t.key)} ${t.label}`}
         >
-          <Text style={[styles.tileCount, { color: colors.fg }]}>{countFor(t.key)}</Text>
+          {(t.key === 'followers' ? followersLoading : followingLoading)
+            ? <Skeleton width={18} height={12} radius={4} />
+            : <Text style={[styles.tileCount, { color: colors.fg }]}>{countFor(t.key)}</Text>}
           <Text style={[styles.tileLabel, { color: colors.grey }]}>{t.label}</Text>
         </TouchableOpacity>
       ))}
@@ -742,21 +833,29 @@ export default function ProfileScreen() {
       <View style={styles.garageHeader}>
         <Text style={[styles.garageTitle, { color: colors.fg }]}>Garage</Text>
         {/* The count as a round badge, as the main tabs carry theirs. */}
-        <View style={styles.garageCountBadge}>
-          <Text style={[styles.garageCount, { color: colors.fg }]}>{carsData?.total ?? cars.length}</Text>
-        </View>
+        {carsLoading ? (
+          <Skeleton width={26} height={26} radius={13} />
+        ) : (
+          <View style={styles.garageCountBadge}>
+            <Text style={[styles.garageCount, { color: colors.fg }]}>{carsData?.total ?? cars.length}</Text>
+          </View>
+        )}
       </View>
 
-      {cars.length === 0 ? (
+      {/* A card's shape in grey until the cars land — not "No cars yet" for a
+          garage that simply hasn't loaded. */}
+      {carsLoading ? (
+        <SkeletonCard ratio={1} style={styles.skelCard} />
+      ) : cars.length === 0 ? (
         <EmptyState title="No cars yet" />
       ) : (
         <>
-          {featuredCar && <CarPosterCard car={featuredCar} featured />}
+          {featuredCar && <GarageCarCard car={featuredCar} featured style={styles.featuredCarFrame} summaryOnPress {...ownerControls(featuredCar)} />}
           {/* A lone card gets the full width. In the carousel it stopped short
               to hint at a next card that doesn't exist, and the row it sat in
               had nowhere to scroll to. Covers a featured car plus one other,
               too — that carousel would hold the same single card. */}
-          {restCars.length === 1 && <CarPosterCard car={restCars[0]} />}
+          {restCars.length === 1 && <GarageCarCard car={restCars[0]} ratio={GARAGE_CARD_RATIO} summaryOnPress {...ownerControls(restCars[0])} />}
           {restCars.length > 1 && (
             <ScrollView
               horizontal
@@ -772,7 +871,7 @@ export default function ProfileScreen() {
                   {/* Nearly full-screen width, so it takes the full plate and
                       just drops its margins — `compact` scales the name down
                       for half-width grids, which these aren't. */}
-                  <CarPosterCard car={car} ratio={GARAGE_CARD_RATIO} style={styles.garageCarouselCard} />
+                  <GarageCarCard car={car} ratio={GARAGE_CARD_RATIO} style={styles.garageCarouselCard} summaryOnPress {...ownerControls(car)} />
                 </View>
               ))}
               <RowEndSpacer width={GARAGE_GUTTER} />
@@ -790,11 +889,14 @@ export default function ProfileScreen() {
           photograph, and given over to the stand-in it was a large grey slab
           above every profile that hasn't set one. */}
       <View style={[styles.bannerContainer, !bannerUri && styles.bannerContainerBare]}>
-        {/* Same stand-in a car uses when it has no photo. */}
+        {/* No cover of their own: the profile's stand-in — a car on an open
+            road — dimmed under bannerDim. */}
         <Image
-          source={bannerUri ? { uri: bannerUri } : require('../../../assets/car-placeholder.jpg')}
+          source={bannerUri ? { uri: bannerUri } : require('../../../assets/profile-banner-placeholder.jpg')}
           style={styles.banner}
           contentFit="cover"
+          // The stand-in blurred, so it reads as a backdrop, not someone's car.
+          blurRadius={bannerUri ? 0 : 7}
         />
         {/* The stand-in, dimmed — it's a placeholder, and shouldn't be the
             brightest thing on a profile that hasn't chosen a cover. */}
@@ -858,23 +960,23 @@ export default function ProfileScreen() {
             itself clips to a circle, so a badge inside it would be cut in half.
             Same gold ring and wheel a pro member gets in the member list. */}
         <View style={styles.avatarBox}>
-          {/* A Pro member's ring: a flat band of the Pro red, a shade darker,
-              showing around the photo. No sheen, and no edge of the avatar's
+          {/* A Pro member's ring: a flat band of the Pro red, showing around
+              the photo. No sheen, and no edge of the avatar's
               own between the two. The badges stay outside it. */}
           {viewedIsPro ? (
-            <View style={[styles.proRing, { backgroundColor: COLOR_PRO_DARK }]}>
-              <View style={[styles.avatarWrap, { backgroundColor: COLOR_PRO_DARK }]}>
+            <View style={[styles.proRing, { backgroundColor: COLOR_PRO }]}>
+              <View style={[styles.avatarWrap, { backgroundColor: COLOR_PRO }]}>
                 <Avatar user={user} size={AVATAR_SIZE} edge={false} />
               </View>
             </View>
           ) : (
             <View style={styles.avatarWrap}>
-              <Avatar user={user} size={AVATAR_SIZE} />
+              <Avatar user={user} size={AVATAR_SIZE} edge={false} />
             </View>
           )}
           {viewedIsPro && (
             <View style={styles.proWheel}>
-              <SteeringWheel size={24} color={COLOR_BLACK} strokeWidth={2.5} />
+              <SteeringWheel size={29} color={COLOR_BLACK} strokeWidth={2.5} />
             </View>
           )}
           {/* Membership number, worn on the photo like the pro wheel — opposite
@@ -900,7 +1002,7 @@ export default function ProfileScreen() {
         {/* Beside the photo rather than under it — the two are one
             introduction, and the name had been sitting a block away from the
             face it belongs to. */}
-        <View style={styles.identity}>
+        <View style={[styles.identity, !viewedIsPro && styles.identityBasic]}>
           <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {user.username}
           </Text>
@@ -946,7 +1048,7 @@ export default function ProfileScreen() {
                 lines break, then the first three are kept, with the last one
                 shortened to leave room for the link. */}
             <Text
-              style={[styles.bio, { color: colors.muted }]}
+              style={[styles.bio, { color: COLOR_WHITE }]}
               onTextLayout={bioLines == null ? (e) => setBioLines(e.nativeEvent.lines.map((l) => l.text)) : undefined}
             >
               {bioLines && bioLines.length > BIO_LINES && !bioExpanded ? (
@@ -1089,11 +1191,8 @@ export default function ProfileScreen() {
           />
         );
       case 'forSale':
-      case 'wants':
-      case 'soldListings': {
-        const source = renderedSection === 'forSale' ? forSalePane
-          : renderedSection === 'wants' ? wantsPane
-            : soldPane;
+      case 'wants': {
+        const source = renderedSection === 'forSale' ? forSalePane : wantsPane;
         return (
           <FlatList
             data={source?.entries ?? []}
@@ -1112,11 +1211,7 @@ export default function ProfileScreen() {
               />
             )}
             ListEmptyComponent={
-              <EmptyState title={
-                renderedSection === 'forSale' ? 'Nothing for sale'
-                  : renderedSection === 'wants' ? 'No want ads'
-                    : 'Nothing sold yet'
-              } />
+              <EmptyState title={renderedSection === 'forSale' ? 'Nothing for sale' : 'No want ads'} />
             }
           />
         );
@@ -1134,7 +1229,7 @@ export default function ProfileScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
-              <View style={[styles.userSearchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.userSearchBar, inputSurface]}>
                 <Search size={15} color={colors.grey} />
                 <TextInput
                   style={[styles.userSearchInput, { color: colors.fg }]}
@@ -1196,19 +1291,35 @@ export default function ProfileScreen() {
   const activeLabel = renderedSection ? SECTION_LABELS[renderedSection] : '';
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: safeBg }]} edges={safeEdges}>
+    <SafeAreaView style={ss.fill} edges={safeEdges}>
       {topBar}
       <ScrollView
         ref={scrollRef}
+        onScroll={sectionTabs.onScroll}
+        scrollEventThrottle={16}
         refreshControl={refreshControl}
-        style={{ backgroundColor: colors.cream }}
         contentContainerStyle={[styles.list, { paddingBottom: tabBarClearance + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         {profileHeader}
         {tilesEl}
+        {/* The sections, as sub tabs: a tap scrolls to one, and the row pins
+            under the header once scrolled up to it. */}
+        {sectionTabs.row}
         {/* Their posts, ahead of the garage — what they've been saying
             first. "View all" opens the same pane the Posts tile does. */}
+        <View onLayout={sectionTabs.measure('activity')}>
+        {/* Their posts' shapes in grey until they land. */}
+        {postsLoading ? (
+          <View style={styles.skelStrip}>
+            <SkeletonLine width={90} height={16} />
+            <View style={styles.skelStripRow}>
+              <Skeleton width={150} height={190} />
+              <Skeleton width={150} height={190} />
+              <Skeleton width={150} height={190} />
+            </View>
+          </View>
+        ) : (
         <PostStrip
           title="Activity"
           // No "2 days ago" on these — the posts are theirs, and recent first.
@@ -1226,10 +1337,13 @@ export default function ProfileScreen() {
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
         />
-        {garageEl}
+        )}
+        </View>
+        <View onLayout={sectionTabs.measure('garage')}>{garageEl}</View>
         {/* The questions they've asked, drawn as the feed draws them so the
             choices show and can be picked. Nothing at all when there are
             none — see PollShelf. */}
+        <View onLayout={sectionTabs.measure('polls')}>
         <PollShelf
           title="Polls"
           posts={polls.slice(0, POLL_SHELF_PREVIEW_COUNT)}
@@ -1237,20 +1351,24 @@ export default function ProfileScreen() {
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('polls')}
         />
+        </View>
         {/* The drives they've recorded, the same shape as the posts shelf
             above it. Renders nothing at all when there are none — see
             RouteStrip. */}
+        <View onLayout={sectionTabs.measure('routes')}>
         <RouteStrip
           title="Routes"
           routes={routes}
           total={routesData?.total ?? routes.length}
           onViewAll={() => setActiveSection('routes')}
         />
+        </View>
         {/* What they've ranked and collected. Nothing at all when there are
             none — except on your own profile as a Pro member, where the empty
             shelf is the invitation. A basic member's way in is the Lists tile,
             which leads to the pitch; a standing "New list" here that only ever
             opened an advert would be the app nagging them on their own page. */}
+        <View onLayout={sectionTabs.measure('lists')}>
         <ListShelf
           title="Lists"
           lists={lists.slice(0, LIST_SHELF_PREVIEW_COUNT)}
@@ -1260,18 +1378,22 @@ export default function ProfileScreen() {
           onAdd={isOwnProfile && isPro ? startNewList : undefined}
           emptyHint="Your top five anything — designers, roads, the cars you'd own tomorrow."
         />
+        </View>
         {/* The places they've pinned for photographs. Nothing when there are
             none — see PhotoSpotShelf. */}
+        <View onLayout={sectionTabs.measure('photoSpots')}>
         <PhotoSpotShelf
           spots={photoSpots}
           total={photoSpots.length}
           onSpotPress={(s) => setSpotSummaryId(s.internal_id)}
           onViewAll={() => setActiveSection('photoSpots')}
         />
-        {/* Their marketplace, in the three piles it splits into. Each shelf
-            renders nothing when it's empty, so a member who has never sold
-            anything gets no marketplace section at all rather than three
-            headings over three blanks. */}
+        </View>
+        {/* Their marketplace, in the two piles it splits into. Each shelf
+            renders nothing when it's empty, so a member with nothing listed
+            gets no marketplace section at all rather than two headings over
+            two blanks. Sold listings aren't shown. */}
+        <View onLayout={sectionTabs.measure('listings')}>
         <MemberListingsShelf
           userId={userId}
           title="For sale"
@@ -1286,14 +1408,10 @@ export default function ProfileScreen() {
           onViewAll={() => setActiveSection('wants')}
           onListingPress={(l) => setListingSummary({ id: l.internal_id, origin: null })}
         />
-        <MemberListingsShelf
-          userId={userId}
-          title="Sold"
-          sold
-          onViewAll={() => setActiveSection('soldListings')}
-          onListingPress={(l) => setListingSummary({ id: l.internal_id, origin: null })}
-        />
+        </View>
       </ScrollView>
+      {/* The sub tabs, pinned under the header once the row scrolls up to it. */}
+      {sectionTabs.pinned}
 
       <Modal
         visible={!!renderedSection}
@@ -1304,14 +1422,20 @@ export default function ProfileScreen() {
         <View style={styles.modalBackdrop}>
           {/* Fixed overlay — fades in/out, never slides */}
           <Animated.View
-            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', opacity: overlayOpacity }]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: PANE_SCRIM, opacity: overlayOpacity }]}
             pointerEvents="none"
           />
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveSection(null)} />
-          {/* Sheet — slides up */}
-          <Animated.View style={[styles.sheet, { backgroundColor: colors.cream, transform: [{ translateY: sheetY }] }]}>
+          {/* The sheet's colour under its foot, shown only while the opening
+              overshoots — so the screen doesn't show through below it. */}
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.sheetOvershootFill, { backgroundColor: PANE_BG, opacity: sheetY.interpolate({ inputRange: [-1, 0, 1], outputRange: [1, 1, 0], extrapolate: 'clamp' }) }]}
+          />
+          {/* Sheet — slides up, a touch past its place and back */}
+          <Animated.View style={[styles.sheet, { backgroundColor: PANE_BG, transform: [{ translateY: sheetY }] }]}>
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.fg }]}>{activeLabel}</Text>
               <TouchableOpacity onPress={() => setActiveSection(null)} hitSlop={8}>
                 <X size={22} color={colors.grey} />
@@ -1374,7 +1498,8 @@ const styles = StyleSheet.create({
   // Taller than a classic cover strip because the floating header sits over its
   // top portion — this keeps a usable amount of image visible beneath it.
   // 10/9 is the old 5/3 with 50% more height.
-  bannerContainer: { width: '100%', aspectRatio: 10 / 8 },
+  // Rounded along its foot, so the cover ends as a card rather than a cut.
+  bannerContainer: { width: '100%', aspectRatio: 10 / 8, borderBottomLeftRadius: BANNER_RADIUS, borderBottomRightRadius: BANNER_RADIUS, overflow: 'hidden' },
   // Still deep enough for the floating header to sit over, and for the avatar
   // to overlap by half its height — just not a photo's worth of height. The old
   // 10/4 plus 100: at 10/4 the stand-in read as a strip, not a cover.
@@ -1382,15 +1507,18 @@ const styles = StyleSheet.create({
   banner:          { width: '100%', height: '100%' },
   // Written out: RN 0.86 removed `StyleSheet.absoluteFillObject`, and spreading
   // it yields {} — the dim would have no size and silently not show.
-  bannerDim:       { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' },
+  bannerDim:       { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)' },
   // Neutral, not brand-colored — at this height a solid accent block dominates
   // the screen for anyone without a cover image.
   bannerScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '60%' },
-  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 16, marginTop: -AVATAR_SIZE / 2 },
+  // In a little further than the page's edge, clear of the banner's rounded corner.
+  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingLeft: 26, paddingRight: 16, marginTop: -AVATAR_SIZE / 2 },
   // Sits on the avatar's baseline, with a little lift so it reads level with
   // the photo rather than hanging off its bottom edge.
   // Sits up from the row's foot, nearer the middle of the photo beside it.
   identity:        { flex: 1, minWidth: 0, paddingBottom: 21, paddingLeft: 3 },
+  // Without the Pro ring the photo is shorter, so the name sits a little lower to stay level with it.
+  identityBasic:   { paddingBottom: 15 },
   actionsRow:      { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 12 },
   // Clear of the avatar, which overlaps the banner's bottom-left by half its height.
   bannerActions:   { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', gap: 8 },
@@ -1412,6 +1540,7 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.pro,
     alignItems: 'center', justifyContent: 'center',
+    boxShadow: BADGE_SHADOW,
   },
   avatarWrap:      {
     width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
@@ -1441,10 +1570,11 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: BADGE_OFFSET, left: BADGE_OFFSET,
     width: 32, height: 32, borderRadius: PILL_RADIUS,
     alignItems: 'center', justifyContent: 'center',
+    boxShadow: BADGE_SHADOW,
   },
   memberBadgeText: {
-    fontSize: 12, fontFamily: FONT_INTER.extrabold,
-    textAlign: 'center', paddingHorizontal: 2,
+    fontSize: 15, fontFamily: FONT_INTER.extrabold,
+    textAlign: 'center', paddingHorizontal: 1,
   },
   username:   { fontSize: 14, marginTop: 2 },
   bioWrap:    { marginTop: 8, marginBottom: 14 },
@@ -1453,6 +1583,12 @@ const styles = StyleSheet.create({
   location:   { fontSize: 13, marginTop: 4 },
   // Across the screen, the pills sharing it — and up toward the header.
   tilesRow:   { flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginTop: -6 },
+  // The loading page's pieces — see the early return.
+  skelHead:     { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingLeft: 26, paddingRight: 16, marginTop: -AVATAR_SIZE / 2, marginBottom: 16 },
+  skelName:     { flex: 1, gap: 8, paddingBottom: 18 },
+  skelCard:     { marginHorizontal: 12, marginTop: 16 },
+  skelStrip:    { paddingTop: 20, paddingHorizontal: 16, gap: 10 },
+  skelStripRow: { flexDirection: 'row', gap: 10, overflow: 'hidden' },
   // A pill: the count and the word side by side, on the tiles' darker grey.
   tile:       {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
@@ -1463,21 +1599,22 @@ const styles = StyleSheet.create({
   tileLabel:  { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   modalBackdrop: { flex: 1, justifyContent: 'flex-end' },
-  sheet:         { height: '85%', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
+  sheetOvershootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 },
+  sheet:         { height: '85%', borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden' },
   sheetHandle:   { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 8, marginBottom: 4 },
   sheetHeader:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
+    paddingHorizontal: 16, paddingVertical: 12,
   },
   sheetTitle:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   listFooter:    { paddingVertical: 18 },
   modalList:     { paddingBottom: 32 },
   userSearchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    margin: 12, paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 10, borderWidth: 1,
+    // Straight under the header — its own padding is the gap.
+    marginHorizontal: 12, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 9,
   },
-  userSearchInput: { flex: 1, fontSize: 14 },
+  userSearchInput: { ...INPUT_TEXT_STYLE, flex: 1 },
 
   pollRow:  { marginHorizontal: 12 },
   postCard: {
@@ -1509,6 +1646,9 @@ const styles = StyleSheet.create({
   },
   garageCarouselItem: { width: GARAGE_CARD_WIDTH },
   garageCarouselCard: { marginHorizontal: 0, marginVertical: 0 },
+  // The featured car, edged in white; the edge's radius is the card's plus its
+  // width, so the two curves run parallel.
+  featuredCarFrame: { borderWidth: 2, borderColor: COLOR_WHITE, borderRadius: COMMON_RADIUS + 2 },
   newListBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12, marginTop: 12,
@@ -1518,7 +1658,11 @@ const styles = StyleSheet.create({
   userRowText:     { flex: 1 },
   userRowName:     { fontSize: 15, fontFamily: FONT_INTER.semibold },
   userRowUsername: { fontSize: 13, marginTop: 1 },
-  moreBtn:         { padding: 4, marginLeft: 4 },
+  moreBtn:         { padding: 4, marginLeft: -6 },
+  // No rule between rows, and less room in each.
+  userRow:         { borderBottomWidth: 0, paddingVertical: 7 },
+  followOutline:   { paddingHorizontal: 12, paddingVertical: 5, borderRadius: COMMON_RADIUS, borderWidth: 1.5 },
+  followOutlineText: { fontSize: 13, fontFamily: FONT_INTER.bold },
   blockedPill:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS },
   blockedPillText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   unblockBtn:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1, marginLeft: 8 },

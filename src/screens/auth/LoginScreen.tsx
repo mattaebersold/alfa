@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, Image, Dimensions,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { userLogin, clearError, type LoginRejection } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
+import FormInput from '../../components/ui/FormInput';
 import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
 import { SPLASH_IMAGES } from '../../constants/splash';
 import { colors } from '../../constants/colors';
@@ -101,12 +102,10 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
 
             <View style={styles.field}>
               <Text style={styles.label}>Email or Username</Text>
-              <TextInput
-                style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+              <FormInput
                 value={email}
                 onChangeText={setEmail}
                 placeholder=""
-                placeholderTextColor={colors.grey}
                 autoCapitalize="none"
                 keyboardType="default"
                 autoCorrect={false}
@@ -118,12 +117,11 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
             <View style={styles.field}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrap}>
-                <TextInput
-                  style={[ss.input, styles.inputWithEye, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.inputBg }]}
+                <FormInput
+                  style={styles.inputWithEye}
                   value={password}
                   onChangeText={setPassword}
                   placeholder=""
-                  placeholderTextColor={colors.grey}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   textContentType="password"

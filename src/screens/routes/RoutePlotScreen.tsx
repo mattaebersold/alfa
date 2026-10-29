@@ -242,7 +242,7 @@ export default function RoutePlotScreen() {
       : 'Not the road you took? Tap the road to pull the route through it';
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+    <View style={styles.root}>
       {center && (
         <RouteMap
           path={path}

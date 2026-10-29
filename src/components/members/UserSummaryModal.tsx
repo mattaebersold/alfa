@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User as UserIcon } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -24,7 +24,7 @@ import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { carDisplayName } from '../../utils/mentions';
 import SummaryMessageButton from './SummaryMessageButton';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_BLACK, COLOR_GRAY_38, COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GRAY_38, COLOR_GRAY_58, COLOR_WHITE } from '../../constants/config';
 
 /**
  * Enough of a member to decide whether you want their profile.
@@ -184,7 +184,7 @@ export default function UserSummaryModal({
                     a stranger on its own. */}
                 {user.cityState ? (
                   <View style={styles.placeRow}>
-                    <RegionBadge region={regionForCityState(user.cityState)?.key} size={34} />
+                    <RegionBadge region={regionForCityState(user.cityState)?.key} size={34} outline={COLOR_GRAY_58} />
                     <Text style={[styles.place, { color: colors.grey }]} numberOfLines={1}>
                       {user.cityState}
                     </Text>
@@ -412,7 +412,9 @@ const styles = StyleSheet.create({
   // Close over the panel's own "View Profile" footer: the body's foot padding
   // and the footer's top padding are given back here, down to the same 8 the
   // pair keep between them, so the two rows of buttons read as one group.
-  actions: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginBottom: -28 },
+  // No negative margin: pulled down, the row ran under the View Profile
+  // button and was cut off by it.
+  actions: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   actionSlot: { flex: 1 },
   actionGrow: { flex: 1, justifyContent: 'center' },
 });

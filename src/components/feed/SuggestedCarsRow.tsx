@@ -3,7 +3,7 @@ import {
   View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import {
   useGetCarsQuery, useGetUserGarageQuery, useGetFollowedCarsQuery,

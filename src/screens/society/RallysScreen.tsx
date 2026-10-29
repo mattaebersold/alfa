@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, Dimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { useGetRallysQuery } from '../../api/apiService';
@@ -99,7 +99,7 @@ export default function RallysScreen() {
   }, [isFetching, data, upcoming.length]);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {/* The app header floats over the content, so the heading below starts
           clear of it via useHeaderPad() — the same arrangement as Routes. */}
       <AppHeader />

@@ -14,7 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
 import type { User } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_BLACK, COLOR_GRAY_26, COLOR_PRO } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GRAY_32, COLOR_PRO, COLOR_WHITE } from '../../constants/config';
 
 /**
  * One member, in a list of them.
@@ -29,7 +29,7 @@ import { COLOR_BLACK, COLOR_GRAY_26, COLOR_PRO } from '../../constants/config';
  * handle, with no way to follow anyone back from the one screen where you are
  * literally looking at people who followed you.
  */
-export default function MemberRow({ user, onPress, isFollowing, showStats = true, plain = false }: {
+export default function MemberRow({ user, onPress, isFollowing, showStats = true, plain = false, showRegion = true }: {
   user: User;
   /**
    * Handed the row's position on screen, for callers that open a summary
@@ -52,6 +52,11 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
    * band per member was a column of grey slabs.
    */
   plain?: boolean;
+  /**
+   * The map of where they are. Off for a list already narrowed to near you,
+   * where every row's map would light the same patch.
+   */
+  showRegion?: boolean;
 }) {
   const colors = useColors();
   const { userInfo } = useAppSelector((s: any) => s.auth);
@@ -74,36 +79,45 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
       style={[
         ss.listRow,
         plain
-          ? { borderBottomColor: COLOR_GRAY_26, borderBottomWidth: StyleSheet.hairlineWidth }
+          ? { borderBottomColor: COLOR_GRAY_32, borderBottomWidth: StyleSheet.hairlineWidth }
           : { backgroundColor: colors.card, borderBottomColor: colors.border },
       ]}
       onPress={onPress}
     >
       <View style={[styles.avatarWrap, isPro && styles.proRing]}>
-        <Avatar user={user} size={44} />
+        {/* Larger, and without the 1pt edge — the photo alone. */}
+        <Avatar user={user} size={52} edge={false} />
         {isPro && (
           <View style={styles.proWheelBadge}>
-            <SteeringWheel size={12} color={COLOR_BLACK} strokeWidth={2.5} />
+            <SteeringWheel size={19} color={COLOR_BLACK} strokeWidth={2.5} />
           </View>
         )}
       </View>
 
       <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
+        <View style={styles.nameRow}>
+          <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>{user.username}</Text>
+          {/* Said in words beside the name, as well as by the ring and wheel. */}
+          {isPro && (
+            <View style={styles.proPill}>
+              <Text style={styles.proPillText}>PRO</Text>
+            </View>
+          )}
+        </View>
         {showStats && (
           <View style={styles.statsRow}>
             {/* Icon and number, no words — the glyphs say which is which, and
                 in a darker grey they sit under the name rather than beside it. */}
             {carCount > 0 && (
-              <View style={styles.statChip} accessibilityLabel={`${carCount} ${carCount === 1 ? 'car' : 'cars'}`}>
-                <Car size={13} color={colors.greyDark} />
-                <Text style={[styles.statText, { color: colors.greyDark }]}>{carCount}</Text>
+              <View style={[styles.statChip, { backgroundColor: colors.segment }]} accessibilityLabel={`${carCount} ${carCount === 1 ? 'car' : 'cars'}`}>
+                <Car size={15} color={COLOR_WHITE} />
+                <Text style={styles.statText}>{carCount}</Text>
               </View>
             )}
             {postCount > 0 && (
-              <View style={styles.statChip} accessibilityLabel={`${postCount} ${postCount === 1 ? 'post' : 'posts'}`}>
-                <FileText size={12} color={colors.greyDark} />
-                <Text style={[styles.statText, { color: colors.greyDark }]}>{postCount}</Text>
+              <View style={[styles.statChip, { backgroundColor: colors.segment }]} accessibilityLabel={`${postCount} ${postCount === 1 ? 'post' : 'posts'}`}>
+                <FileText size={14} color={COLOR_WHITE} />
+                <Text style={styles.statText}>{postCount}</Text>
               </View>
             )}
           </View>
@@ -115,13 +129,13 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
       {/* No backdrop: a row is a plain dark ground, not a photo the map has
           to stand out from, and the pad only boxed it in. Larger to make up
           for the room the pad took. */}
-      <RegionBadge
-        region={regionForCityState(user.cityState)?.key}
-        size={42}
-        backdrop={false}
-        // A soft outline, so the lit region is what reads, not the coastline.
-        outline="rgba(255,255,255,0.14)"
-      />
+      {showRegion && (
+        <RegionBadge
+          region={regionForCityState(user.cityState)?.key}
+          size={42}
+          backdrop={false}
+        />
+      )}
 
       {/* No follow button against your own row. An icon rather than a word:
           the same size either way, so a row doesn't jump when followed. */}
@@ -134,15 +148,22 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
 
 const styles = StyleSheet.create({
   info:      { flex: 1, minWidth: 0 },
-  name:      { fontSize: 15, fontFamily: FONT_INTER.bold },
-  statsRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
-  statChip:  { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  statText:  { fontSize: 11, fontFamily: FONT_INTER.semibold },
+  nameRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // Gives way to the PRO pill, which keeps its size.
+  name:      { flexShrink: 1, fontSize: 15, fontFamily: FONT_INTER.bold },
+  proPill:   { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: COLOR_PRO },
+  proPillText: { fontSize: 9.5, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: 0.4 },
+  statsRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5 },
+  // Each count in a small pill of its own, white on the segment grey.
+  statChip:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  statText:  { fontSize: 12, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
   avatarWrap:{ position: 'relative' },
-  proRing:   { borderWidth: 2.5, borderColor: COLOR_PRO, borderRadius: 26, padding: 2 },
+  // Tight to the photo — no dark gap between the ring and the picture.
+  proRing:   { borderWidth: 3.5, borderColor: COLOR_PRO, borderRadius: 999 },
+  // Larger, and a touch further out past the ring's lower right.
   proWheelBadge: {
-    position: 'absolute', bottom: -1, right: -1,
-    width: 20, height: 20, borderRadius: 10,
+    position: 'absolute', bottom: -4, right: -4,
+    width: 24, height: 24, borderRadius: 12,
     backgroundColor: COLOR_PRO,
     alignItems: 'center', justifyContent: 'center',
   },

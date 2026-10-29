@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, ActivityIndicator,
+  TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
+import FormInput from '../ui/FormInput';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
-import { ImagePlus, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
+import PhotoPickerField from '../ui/PhotoPickerField';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
 import { LINK_LABEL_MAX, listLinkLabel, normalizeListLink } from '../../utils/listLinks';
-import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -159,67 +160,54 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
     });
   };
 
-  const field = { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border };
-
   return (
     <SharedModal visible={visible} onClose={onClose} title={initial ? 'Edit item' : 'Add item'}>
       <FormScrollView contentContainerStyle={styles.scroll}>
-        <TouchableOpacity
-          style={[styles.photoPicker, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={pickPhoto}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={photoUrl ? 'Change photo' : 'Add a photo'}
-        >
-          {photoUrl ? (
-            <>
-              <Image source={{ uri: photoUrl }} style={styles.photo} contentFit="cover" />
-              <TouchableOpacity
-                style={styles.removePhoto}
-                onPress={clearPhoto}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Remove photo"
-              >
-                <X size={15} color={COLOR_WHITE} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.photoBlank}>
-              <ImagePlus size={22} color={colors.grey} />
-              <Text style={[styles.photoBlankText, { color: colors.grey }]}>Add a photo</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        {photoUrl ? (
+          <TouchableOpacity
+            style={[styles.photoPicker, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={pickPhoto}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Change photo"
+          >
+            <Image source={{ uri: photoUrl }} style={styles.photo} contentFit="cover" />
+            <TouchableOpacity
+              style={styles.removePhoto}
+              onPress={clearPhoto}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Remove photo"
+            >
+              <X size={15} color={COLOR_WHITE} />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        ) : (
+          <PhotoPickerField onPress={pickPhoto} title="Add a photo" style={styles.photoField} />
+        )}
 
         <Text style={[styles.label, { color: colors.muted }]}>Title *</Text>
-        <TextInput
-          style={[ss.input, field]}
+        <FormInput
           value={title}
           onChangeText={setTitle}
           placeholder="Marcello Gandini"
-          placeholderTextColor={colors.grey}
           maxLength={120}
         />
 
         <Text style={[styles.label, { color: colors.muted }]}>Description</Text>
-        <TextInput
-          style={[ss.input, styles.multi, field]}
+        <FormInput
           value={description}
           onChangeText={setDescription}
           placeholder="Why it's on the list (optional)"
-          placeholderTextColor={colors.grey}
           multiline
-          textAlignVertical="top"
         />
 
         <Text style={[styles.label, { color: colors.muted }]}>Link</Text>
-        <TextInput
-          style={[ss.input, field, linkError ? { borderColor: colors.red } : null]}
+        <FormInput
+          style={linkError ? { borderColor: colors.red } : undefined}
           value={link}
           onChangeText={(v) => { setLink(v); if (linkError) setLinkError(null); }}
           placeholder="https:// (optional)"
-          placeholderTextColor={colors.grey}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -232,12 +220,10 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
         {link.trim() ? (
           <>
             <Text style={[styles.label, { color: colors.muted }]}>Button label</Text>
-            <TextInput
-              style={[ss.input, field]}
+            <FormInput
               value={linkLabel}
               onChangeText={setLinkLabel}
               placeholder={normalizedLink ? listLinkLabel(normalizedLink) : 'Read more'}
-              placeholderTextColor={colors.grey}
               maxLength={LINK_LABEL_MAX}
             />
             <Text style={[styles.hint, { color: colors.grey }]}>
@@ -266,8 +252,8 @@ export default function ListItemSheet({ visible, initial, saving, onSubmit, onCl
 
 const styles = StyleSheet.create({
   scroll: { padding: PANE_GUTTER, paddingBottom: 28 },
-  // Square, because that's how the item is shown — a letterbox picker invites
-  // a crop the list then cuts the sides off.
+  // The picked photo, previewed square, because that's how the item is shown —
+  // a letterbox preview invites a crop the list then cuts the sides off.
   photoPicker: {
     width: 120, height: 120, borderRadius: COMMON_RADIUS, borderWidth: 1,
     overflow: 'hidden', alignSelf: 'center', marginBottom: 6,
@@ -277,14 +263,12 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 6, right: 6,
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 4,
   },
-  photoBlank:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  photoBlankText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
+  photoField: { marginTop: 0, marginBottom: 6 },
 
   label: {
     fontSize: 13, fontFamily: FONT_INTER.semibold, marginTop: 14, marginBottom: 6,
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  multi: { minHeight: 76 },
   hint:  { fontSize: 12.5, lineHeight: 18, marginTop: 6 },
   error: { fontSize: 12.5, lineHeight: 18, marginTop: 6, fontFamily: FONT_INTER.semibold },
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';

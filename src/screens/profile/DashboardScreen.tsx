@@ -4,7 +4,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert 
 import { Text, useGetPhotoSpotUsageQuery } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -36,7 +36,7 @@ import { useAppDispatch } from '../../store/store';
 import { logout } from '../../store/authSlice';
 import { removeBlockedUser } from '../../store/moderationSlice';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
@@ -63,6 +63,7 @@ import {
   COLOR_MUTED_PURPLE,
   COLOR_MUTED_RED,
   COLOR_WHITE,
+  PANE_BG,
 } from '../../constants/config';
 import { ProUpsellModal } from '../../components/pro/ProUpsell';
 import type { AppStackParamList } from '../../navigation/types';
@@ -94,7 +95,7 @@ function SheetModal({
 }) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={[{ flex: 1, backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={[{ flex: 1, backgroundColor: PANE_BG }]} edges={['top', 'bottom']}>
         <View style={[sheetStyles.header, { borderBottomColor: colors.border }]}>
           <Text style={[sheetStyles.title, { color: colors.fg }]}>{title}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={10}><X size={20} color={colors.fg} /></TouchableOpacity>
@@ -256,12 +257,15 @@ function FlaggedRow({
         )}
         <View style={flaggedStyles.body}>
           <Text style={[flaggedStyles.itemTitle, { color: colors.fg }]} numberOfLines={titleLines}>{title}</Text>
-          <View style={flaggedStyles.userRow}>
-            {user && <Avatar user={user} size={16} />}
-            <Text style={[flaggedStyles.itemMeta, { color: colors.muted }]} numberOfLines={1}>
-              @{user?.username ?? 'unknown'}{reportCount ? ` · ${reportCount} report${reportCount !== 1 ? 's' : ''}` : ''}
-            </Text>
-          </View>
+          <UserByline
+            user={user}
+            size={16}
+            gap={6}
+            fallback="unknown"
+            meta={reportCount ? `${reportCount} report${reportCount !== 1 ? 's' : ''}` : null}
+            color={colors.muted}
+            nameStyle={flaggedStyles.itemMeta}
+          />
         </View>
       </View>
       <View style={flaggedStyles.actions}>
@@ -427,7 +431,6 @@ export default function DashboardScreen() {
   if (isLoading) return <Spinner fullScreen />;
   if (!user) return null;
 
-  const displayName = user.username;
   const cars = garageData?.entries ?? [];
   const atCarLimit = garageFull(isPro, cars.length);
   const [upsell, setUpsell] = useState(false);
@@ -576,27 +579,27 @@ export default function DashboardScreen() {
   ];
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader spacer />
-      <ScrollView ref={scrollRef} refreshControl={refreshControl} style={{ backgroundColor: colors.cream }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} refreshControl={refreshControl} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile card */}
-        <TouchableOpacity
+        <UserByline
+          user={user}
+          size={56}
+          gap={14}
+          fill
+          nameStyle={styles.profileName}
+          sub={user.bio ? (
+            <Text style={[styles.profileBio, { color: colors.muted }]} numberOfLines={2}>{user.bio}</Text>
+          ) : (
+            <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
+              <Text style={[styles.profileBioAdd, { color: colors.primaryAlt }]}>+ Add a bio</Text>
+            </TouchableOpacity>
+          )}
           style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })}
           activeOpacity={0.8}
-        >
-          <Avatar user={user} size={56} />
-          <View style={styles.profileText}>
-            <Text style={[styles.profileName, { color: colors.fg }]}>@{displayName}</Text>
-            {user.bio ? (
-              <Text style={[styles.profileBio, { color: colors.muted }]} numberOfLines={2}>{user.bio}</Text>
-            ) : (
-              <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-                <Text style={[styles.profileBioAdd, { color: colors.primaryAlt }]}>+ Add a bio</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </TouchableOpacity>
+        />
 
         {/* Stat grid */}
         <View style={styles.grid}>
@@ -922,9 +925,14 @@ export default function DashboardScreen() {
           keyExtractor={(u) => u.user_id}
           contentContainerStyle={{ paddingBottom: 40 }}
           renderItem={({ item }) => (
-            <View style={[blockedStyles.row, { borderBottomColor: colors.border }]}>
-              <Avatar user={item} size={40} />
-              <Text style={[blockedStyles.name, { color: colors.fg, flex: 1 }]}>@{item.username}</Text>
+            <UserByline
+              user={item}
+              size={40}
+              gap={12}
+              fill
+              nameStyle={blockedStyles.name}
+              style={[blockedStyles.row, { borderBottomColor: colors.border }]}
+            >
               <TouchableOpacity
                 style={[blockedStyles.unblockBtn, { borderColor: colors.border }]}
                 onPress={() => handleUnblock(item.user_id, item.username)}
@@ -932,7 +940,7 @@ export default function DashboardScreen() {
               >
                 <Text style={[blockedStyles.unblockText, { color: colors.primaryAlt }]}>Unblock</Text>
               </TouchableOpacity>
-            </View>
+            </UserByline>
           )}
           ListEmptyComponent={<EmptyState title="No blocked users" message="Users you block will appear here." />}
           showsVerticalScrollIndicator={false}
@@ -1092,10 +1100,9 @@ const styles = StyleSheet.create({
   content:        { padding: 16, gap: 14, paddingBottom: 160 },
 
   profileCard:    {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
+    alignItems: 'flex-start',
     padding: 16, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
-  profileText:    { flex: 1 },
   profileName:    { fontSize: 18, fontFamily: FONT_INTER.bold },
   profileUsername: { fontSize: 14, marginTop: 2 },
   profileBio:     { fontSize: 13, marginTop: 6, lineHeight: 18 },
@@ -1132,10 +1139,7 @@ const styles = StyleSheet.create({
 });
 
 const blockedStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
-  },
+  row:         { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   name:        { fontSize: 15, fontFamily: FONT_INTER.semibold },
   unblockBtn:  { paddingHorizontal: 14, paddingVertical: 6, borderRadius: COMMON_RADIUS, borderWidth: 1 },
   unblockText: { fontSize: 13, fontFamily: FONT_INTER.bold },
@@ -1155,8 +1159,7 @@ const flaggedStyles = StyleSheet.create({
   thumbRound: { borderRadius: 26 },
   body:      { flex: 1, gap: 4 },
   itemTitle: { fontSize: 14, fontFamily: FONT_INTER.semibold },
-  userRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  itemMeta:  { fontSize: 12, flex: 1 },
+  itemMeta:  { fontSize: 12, fontFamily: FONT_INTER.regular },
   actions:   { flexDirection: 'row', gap: 8 },
   actionBtn: {
     flex: 1,

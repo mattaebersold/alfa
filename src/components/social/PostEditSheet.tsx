@@ -3,7 +3,7 @@ import {
   Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, PortalHost } from '@ors/kit';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTag
 import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalleryEditor';
 import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from './PostOptionalFields';
 import StickyFormFooter from '../ui/StickyFormFooter';
+import FormInput from '../ui/FormInput';
 import PostToSelector from './PostToSelector';
 import PostLocationField from './PostLocationField';
 import PollEditor, { pollDraftFrom, pollDraftToInput, type PollDraft } from './PollEditor';
@@ -25,7 +26,7 @@ import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import type { Post, PostPlace } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE, PANE_BG, PANE_SCRIM, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 const TYPES = [
@@ -354,7 +355,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
             the keyboard's height, and the sheet sits at its bottom capped to a
             share of it. `box-none` lets a tap above the sheet reach the backdrop. */}
         <KeyboardAvoidingView style={styles.sheetWrap} pointerEvents="box-none">
-          <View style={[styles.sheet, { backgroundColor: colors.cream }]}>
+          <View style={[styles.sheet, { backgroundColor: PANE_BG }]}>
             <View style={[styles.header, { borderBottomColor: colors.border }]}>
               <Text style={[styles.headerTitle, { color: colors.fg }]}>Edit Post</Text>
               <TouchableOpacity onPress={onClose} hitSlop={8}>
@@ -374,16 +375,10 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
               <PostGalleryEditor images={images} onChange={setImages} />
 
               <Text style={[styles.label, { color: colors.grey }]}>Title</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.fg, backgroundColor: colors.card }]}
-                value={title} onChangeText={setTitle} placeholder="Add a title..." placeholderTextColor={colors.grey}
-              />
+              <FormInput value={title} onChangeText={setTitle} placeholder="Add a title..." />
 
               <Text style={[styles.label, { color: colors.grey }]}>Body</Text>
-              <TextInput
-                style={[styles.input, styles.bodyInput, { borderColor: colors.border, color: colors.fg, backgroundColor: colors.card }]}
-                value={body} onChangeText={setBody} placeholder="What's on your mind?" placeholderTextColor={colors.grey} multiline
-              />
+              <FormInput value={body} onChangeText={setBody} placeholder="What's on your mind?" multiline />
 
               <Text style={[styles.label, { color: colors.grey }]}>Type</Text>
               <View style={styles.pills}>
@@ -457,7 +452,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 
               {/* ── Where it was made — the create form's "Add a Location", last here too ── */}
               <Text style={[styles.label, { color: colors.grey }]}>Location</Text>
-              <PostLocationField value={place} onChange={setPlace} />
+              <PostLocationField value={place} onChange={setPlace} framed={false} />
 
               {inlineSave && <View style={styles.inlineSave}>{saveButton}</View>}
             </FormScrollView>
@@ -480,7 +475,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
 const FOOTER_H = 70;
 
 const styles = StyleSheet.create({
-  overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(100,100,100,0.55)' },
+  overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: PANE_SCRIM },
   backdrop:    { ...StyleSheet.absoluteFill },
   sheetWrap:   { flex: 1, justifyContent: 'flex-end' },
   // The sheet has to shrink to its cap rather than overflow it. A
@@ -490,7 +485,7 @@ const styles = StyleSheet.create({
   // scroller keeps the laid-out bottom and the visible bottom the same edge.
   sheet:       {
     maxHeight: '90%', flexShrink: 1,
-    borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden',
+    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden',
   },
   scroll:      { flexShrink: 1 },
   header:      {
@@ -500,8 +495,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontFamily: FONT_INTER.bold },
   form:        { padding: 16, gap: 6, paddingBottom: 120 },
   label:       { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 4 },
-  input:       { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
-  bodyInput:   { minHeight: 100, textAlignVertical: 'top' },
   pills:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
   pillText:    { fontSize: 13, fontFamily: FONT_INTER.semibold },

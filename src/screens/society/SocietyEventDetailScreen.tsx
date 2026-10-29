@@ -31,7 +31,7 @@ export default function SocietyEventDetailScreen({
   const refreshControl = useRefreshControl(refetch);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       {/* A FormScrollView for the comment field at the foot of the event:
           focused, it's scrolled up to sit on the keyboard. */}

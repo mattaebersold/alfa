@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ListOrdered } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';

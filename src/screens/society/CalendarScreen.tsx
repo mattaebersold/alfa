@@ -121,7 +121,7 @@ export default function CalendarScreen() {
   }, [selectedDate, rallyData]);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {/* Month nav */}
       <View style={[styles.monthNav, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => setCurrentDate((d) => subMonths(d, 1))} style={styles.navBtn}>

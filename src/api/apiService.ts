@@ -2,7 +2,7 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQuery, UPLOAD_TIMEOUT_MS } from './baseQuery';
 import type {
   User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article, CrossPosts,
-  CarTask, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
+  CarTask, CarJournalEntry, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   CarSpotToday, CarSpotDay, CarSpotDifficulty, SpotFeedToday, ConciergeRow, SponsoredAuction,
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
@@ -96,7 +96,8 @@ export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
   tagTypes: [
-    'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment', 'PostBookmarks',
+    'CarJournal',
+    'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment', 'PostBookmarks', 'CarBookmarks',
     'ModelProfile', 'ModelProposals',
     'SocietyEvent', 'EventInterest',
     'Brands', 'Models', 'Articles', 'ArticleBlocks', 'Events', 'Projects',
@@ -840,6 +841,39 @@ export const apiService = createApi({
     getCarMods: builder.query<{ entries: Mod[] }, string>({
       query: (carId) => `api/car/mods/${carId}`,
       providesTags: (result, error, carId) => [{ type: 'CarGallery', id: `mods-${carId}` }],
+    }),
+
+    /** A page of a car's journal, newest first, with the whole count. */
+    getCarJournal: builder.query<{ entries: CarJournalEntry[]; total: number }, { carId: string; page: number; limit: number }>({
+      query: ({ carId, page, limit }) => ({ url: `api/car-journal/car/${carId}`, params: { page, limit } }),
+      providesTags: (result, error, { carId }) => [{ type: 'CarJournal', id: carId }],
+    }),
+
+    /** FormData: `car_id`, `title`, `body`, and `gallery` files. Owner or co-owner only. */
+    createCarJournalEntry: builder.mutation<CarJournalEntry, FormData>({
+      query: (body) => ({ url: 'api/car-journal/create', method: 'POST', body }),
+      invalidatesTags: (result, error, body) => {
+        const carId = (body as any).get?.('car_id');
+        return carId ? [{ type: 'CarJournal', id: carId }] : [];
+      },
+    }),
+
+    /**
+     * FormData: `internal_id`, `title`, `body`, new `gallery` files, and the
+     * gallery's `modifyImage:remove:<i>` / `modifyImage:order` as everywhere.
+     * `car_id` rides along only to say which journal to refetch.
+     */
+    updateCarJournalEntry: builder.mutation<CarJournalEntry, FormData>({
+      query: (body) => ({ url: 'api/car-journal/update', method: 'POST', body }),
+      invalidatesTags: (result, error, body) => {
+        const carId = result?.car_id ?? (body as any).get?.('car_id');
+        return carId ? [{ type: 'CarJournal', id: carId }] : [];
+      },
+    }),
+
+    deleteCarJournalEntry: builder.mutation<{ success: boolean }, { internal_id: string; car_id: string }>({
+      query: ({ internal_id }) => ({ url: 'api/car-journal/delete', method: 'POST', body: { internal_id } }),
+      invalidatesTags: (result, error, { car_id }) => [{ type: 'CarJournal', id: car_id }],
     }),
 
     /** A page of a car's mods, newest first, with the whole count. */
@@ -2136,6 +2170,41 @@ export const apiService = createApi({
       providesTags: ['PostBookmarks'],
     }),
 
+    /**
+     * Bookmark another member's car, or un-bookmark it — a toggle, like the
+     * post bookmarks: applied to the profile's list in the cache first, so the
+     * icon fills on the tap; undone if the server refuses.
+     */
+    toggleCarBookmark: builder.mutation<
+      { bookmarked: boolean; carBookmarks: string[] },
+      { car_id: string }
+    >({
+      query: (body) => ({ url: 'api/users/car-bookmarks', method: 'POST', body }),
+      invalidatesTags: ['CarBookmarks'],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        const patch = dispatch(apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+          const list = draft.carBookmarks ?? [];
+          draft.carBookmarks = list.includes(arg.car_id)
+            ? list.filter((id) => id !== arg.car_id)
+            : [arg.car_id, ...list];
+        }));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(apiService.util.updateQueryData('getLoggedInUser', undefined, (draft) => {
+            draft.carBookmarks = data.carBookmarks;
+          }));
+        } catch {
+          patch.undo();
+        }
+      },
+    }),
+
+    /** The cars you've bookmarked, newest bookmark first — the bookmarks panel's Cars. */
+    getCarBookmarks: builder.query<{ entries: GarageCar[] }, void>({
+      query: () => 'api/users/car-bookmarks',
+      providesTags: ['CarBookmarks'],
+    }),
+
     /** The same ask, of a member with no profile photo. Once per asker per member. */
     requestProfilePhoto: builder.mutation<{ success: boolean; already: boolean }, string>({
       query: (userId) => ({ url: `api/users/request-photo/${encodeURIComponent(userId)}`, method: 'POST' }),
@@ -2846,6 +2915,8 @@ export const {
   useToggleModelBookmarkMutation,
   useTogglePostBookmarkMutation,
   useGetPostBookmarksQuery,
+  useToggleCarBookmarkMutation,
+  useGetCarBookmarksQuery,
   useGetChannelVideosQuery,
   useCreateCommentMutation,
   useDeleteCommentMutation,
@@ -2887,6 +2958,10 @@ export const {
   useCreateCarGalleryMutation,
   useGetCarModsQuery,
   useGetCarModsPageQuery,
+  useGetCarJournalQuery,
+  useCreateCarJournalEntryMutation,
+  useUpdateCarJournalEntryMutation,
+  useDeleteCarJournalEntryMutation,
   useGetCarGalleriesPageQuery,
   useCreateModMutation,
   useUpdateModMutation,

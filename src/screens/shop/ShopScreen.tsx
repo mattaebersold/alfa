@@ -132,17 +132,17 @@ export default function ShopScreen() {
 
   if (isLoading && !data) {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <SafeAreaView style={ss.fill} edges={[]}>
         <AppHeader spacer />
-        <View style={[styles.content, { backgroundColor: colors.cream }]}><Spinner fullScreen /></View>
+        <View style={styles.content}><Spinner fullScreen /></View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader spacer />
-      <View style={[styles.content, { backgroundColor: colors.cream }]}>
+      <View style={styles.content}>
         <FlatList
           ref={scrollRef}
           // numColumns can't change on a mounted list; a new key remounts it.

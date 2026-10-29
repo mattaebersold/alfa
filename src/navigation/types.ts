@@ -143,6 +143,8 @@ export type AppStackParamList = {
   // Modals / full-screen flows
   CarCreate: { step?: number; carId?: string };
   ModCreate: { carId: string; carTitle?: string };
+  /** A journal entry for a car — a new one, or `entryId` to edit. Owner only. */
+  JournalCreate: { carId: string; carTitle?: string; entryId?: string };
   CarTasks: { carId: string; carTitle?: string };
   Notifications: undefined;
   Messages: undefined;

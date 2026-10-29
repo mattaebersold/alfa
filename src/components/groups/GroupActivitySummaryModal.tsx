@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ExternalLink } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import GroupItemActions from './GroupItemActions';
 import { GROUP_KIND } from '../feed/GroupActivityCard';
 import { useColors } from '../../hooks/useColors';
@@ -64,12 +64,15 @@ export default function GroupActivitySummaryModal({ item, origin, onClose, onVie
 
         <Text style={[styles.title, { color: colors.fg }]}>{item.title || 'Untitled'}</Text>
 
-        <View style={styles.meta}>
-          <Avatar user={item.user as any} size={24} />
-          <Text style={[styles.metaText, { color: colors.grey }]} numberOfLines={1}>
-            {item.user?.username ? `@${item.user.username}` : 'A member'}{timeAgo ? ` · ${timeAgo}` : ''}
-          </Text>
-        </View>
+        <UserByline
+          user={item.user as any}
+          size={24}
+          gap={8}
+          fallback="A member"
+          meta={timeAgo}
+          color={colors.grey}
+          nameStyle={styles.metaText}
+        />
 
         {body ? (
           <Text style={[styles.text, { color: colors.fg }]} numberOfLines={12}>{body}</Text>
@@ -105,8 +108,7 @@ const styles = StyleSheet.create({
   group:     { flex: 1, fontSize: 12, fontFamily: FONT_INTER.semibold },
 
   title:    { fontSize: 19, fontFamily: FONT_INTER.bold, lineHeight: 25 },
-  meta:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  metaText: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.medium },
+  metaText: { fontSize: 12, fontFamily: FONT_INTER.medium },
   text:     { fontSize: 14.5, lineHeight: 22 },
 
   link: {

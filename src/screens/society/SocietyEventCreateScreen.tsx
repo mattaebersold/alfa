@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +26,7 @@ import AddressField from '../../components/ui/AddressField';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import FormInput from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 const FREQUENCIES = [
@@ -206,17 +207,15 @@ export default function SocietyEventCreateScreen() {
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FormScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 40 + insets.bottom }}
       >
         <Text style={[styles.fieldLabel, { color: colors.grey }]}>Title *</Text>
-        <TextInput
-          style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+        <FormInput
           value={title}
           onChangeText={setTitle}
           placeholder="Saturday morning cars & coffee"
-          placeholderTextColor={colors.grey}
         />
 
         <Text style={[styles.fieldLabel, { color: colors.grey }]}>Category</Text>
@@ -233,12 +232,10 @@ export default function SocietyEventCreateScreen() {
         </View>
 
         <Text style={[styles.fieldLabel, { color: colors.grey }]}>Description</Text>
-        <TextInput
-          style={[styles.input, styles.multiline, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+        <FormInput
           value={body}
           onChangeText={setBody}
           placeholder="What happens, who it's for, what to bring..."
-          placeholderTextColor={colors.grey}
           multiline
         />
 
@@ -322,16 +319,13 @@ export default function SocietyEventCreateScreen() {
           onChangeText={(text) => { setLocation(text); setPlace(null); }}
           onPlacePicked={(p) => setPlace({ place_id: p.place_id, lat: p.lat ?? undefined, lng: p.lng ?? undefined })}
           placeholder="Cafe name, address, or meeting point"
-          inputStyle={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
         />
 
         <Text style={[styles.fieldLabel, { color: colors.grey }]}>City, state (optional)</Text>
-        <TextInput
-          style={[styles.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+        <FormInput
           value={cityState}
           onChangeText={setCityState}
           placeholder="Santa Monica, CA"
-          placeholderTextColor={colors.grey}
           autoCapitalize="words"
         />
         <Text style={[styles.hint, { color: colors.grey }]}>
@@ -350,11 +344,7 @@ export default function SocietyEventCreateScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <PhotoPickerField
-            onPress={pickImage}
-            title="Add a Photo"
-            hint="An event with a picture is the one people stop on"
-          />
+          <PhotoPickerField onPress={pickImage} title="Add a Photo" />
         )}
 
         <OrsSponsoredToggle value={orsSponsored} onChange={setOrsSponsored} />
@@ -377,12 +367,6 @@ export default function SocietyEventCreateScreen() {
 const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, marginBottom: 6, marginTop: 16 },
   hint: { fontSize: 12, lineHeight: 17, marginTop: 6 },
-  input: {
-    borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 12 : 9,
-    fontSize: 15,
-  },
-  multiline: { minHeight: 110, textAlignVertical: 'top' },
 
   sectionTitle: { fontSize: 19, fontFamily: FONT_INTER.bold, marginTop: 28 },
 

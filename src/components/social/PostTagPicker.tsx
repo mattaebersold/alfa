@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Text, TextInput, useRoomAbove, useGetPhotoSpotsQuery } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon, MapPin } from 'lucide-react-native';
 import { SpotPicker } from '@ors/kit/src/photography';
@@ -10,12 +10,14 @@ import {
 } from '../../api/apiService';
 import GarageCarStrip from './GarageCarStrip';
 import TagCardStrip, { type TagCard } from './TagCardStrip';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
-import { PILL_RADIUS, COLOR_WHITE, FORM_RADIUS, COLOR_GRAY_14 } from '../../constants/config';
+import { PILL_RADIUS, COLOR_WHITE, FORM_CARD_BG, FORM_CARD_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { avatarColorFor, initialsFor } from '../../utils/avatarColor';
 
 export type TagKind = 'user' | 'car' | 'event' | 'group' | 'spot';
 export interface TagItem {
@@ -59,6 +61,63 @@ interface RowProps {
 }
 
 /**
+ * A tag card's frame: its own darker ground (FORM_CARD_BG), the kind's icon
+ * and title, and how many are picked. Shared with the location card
+ * (PostLocationField), so the two read as one set.
+ */
+export function TagCardFrame({ title, Icon, count, accent, children }: {
+  title: string;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+  count: number;
+  accent: string;
+  children: React.ReactNode;
+}) {
+  const colors = useColors();
+  return (
+    // A card per kind rather than three bands divided by hairlines: tagging a
+    // person and tagging a car are separate jobs, and stacked rules made them
+    // read as one long form you scroll through by accident.
+    <View style={styles.row}>
+      <View style={styles.rowHeader}>
+        <Icon size={15} color={COLOR_WHITE} />
+        <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
+        {count > 0 && (
+          <View style={[styles.countPill, { backgroundColor: accent }]}>
+            <Text style={[styles.countText, { color: contrastText(accent) }]}>{count}</Text>
+          </View>
+        )}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** A picked tag: its picture, its name and an X, filled in the accent — tap to take it off. */
+export function TagChip({ tag: t, accent, onPress, Icon }: {
+  tag: TagItem;
+  accent: string;
+  onPress: () => void;
+  /** Drawn at the chip's left end when the tag has no picture — the location's pin. */
+  Icon?: React.ComponentType<{ size?: number; color?: string }>;
+}) {
+  const onAccent = contrastText(accent);
+  return (
+    <TouchableOpacity style={[styles.chip, { backgroundColor: accent }]} onPress={onPress} activeOpacity={0.8}>
+      {/* The picture from the suggestion, carried onto the chip. */}
+      {t.kind === 'user' ? (
+        <Avatar user={t.avatarUser ?? { username: t.label.replace(/^@/, '') }} size={22} />
+      ) : t.image ? (
+        <Image source={{ uri: t.image }} style={styles.chipThumb} contentFit="cover" />
+      ) : Icon ? (
+        <View style={styles.chipGlyph}><Icon size={13} color={onAccent} /></View>
+      ) : null}
+      <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
+      <X size={12} color={onAccent} />
+    </TouchableOpacity>
+  );
+}
+
+/**
  * One kind of tag: what's picked, and a search for more.
  *
  * Above the search, a row of photo tiles to tag with a tap (`above`): your
@@ -67,6 +126,7 @@ interface RowProps {
  */
 function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, suggestions, onToggle, above }: RowProps) {
   const colors = useColors();
+  const surface = useInputSurface();
   const selectedIds = new Set(selected.map((t) => t.id));
   const typing = query.trim().length >= 2;
   const list = suggestions.filter((i) => !selectedIds.has(i.id)).slice(0, 8);
@@ -74,39 +134,16 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
   // whatever's left above it, up to SUGGEST_MAX_H.
   const room = useRoomAbove(SUGGEST_MAX_H);
 
-  // Chips and count pills are filled with `accent`, so their text has to
-  // follow the fill's brightness — black on gold, white on teal.
-  const onAccent = contrastText(accent);
-
   return (
     // A card per kind rather than three bands divided by hairlines: tagging a
     // person and tagging a car are separate jobs, and stacked rules made them
     // read as one long form you scroll through by accident.
-    <View style={[styles.row, { backgroundColor: COLOR_GRAY_14 }]}>
-      <View style={styles.rowHeader}>
-        <Icon size={15} color={COLOR_WHITE} />
-        <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
-        {selected.length > 0 && (
-          <View style={[styles.countPill, { backgroundColor: accent }]}>
-            <Text style={[styles.countText, { color: onAccent }]}>{selected.length}</Text>
-          </View>
-        )}
-      </View>
-
+    <TagCardFrame title={title} Icon={Icon} count={selected.length} accent={accent}>
       {/* Selected chips */}
       {selected.length > 0 && (
         <View style={styles.chips}>
           {selected.map((t) => (
-            <TouchableOpacity key={t.id} style={[styles.chip, { backgroundColor: accent }]} onPress={() => onToggle(t)} activeOpacity={0.8}>
-              {/* The picture from the suggestion, carried onto the chip. */}
-              {t.kind === 'user' ? (
-                <Avatar user={t.avatarUser ?? { username: t.label.replace(/^@/, '') }} size={22} />
-              ) : t.image ? (
-                <Image source={{ uri: t.image }} style={styles.chipThumb} contentFit="cover" />
-              ) : null}
-              <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
-              <X size={12} color={onAccent} />
-            </TouchableOpacity>
+            <TagChip key={t.id} tag={t} accent={accent} onPress={() => onToggle(t)} />
           ))}
         </View>
       )}
@@ -154,7 +191,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
             )}
           </View>
         )}
-        <View style={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+        <View style={[styles.inputBox, surface]}>
           <Search size={15} color={colors.grey} />
           <TextInput
             style={[styles.input, { color: colors.fg }]}
@@ -175,7 +212,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
           )}
         </View>
       </View>
-    </View>
+    </TagCardFrame>
   );
 }
 
@@ -216,6 +253,7 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
   onCreate?: (name: string) => void;
 }) {
   const colors = useColors();
+  const surface = useInputSurface();
   const accent = useBrandColor();
   const onAccent = contrastText(accent);
   const { data: previous } = useGetPreviouslyTaggedPhotoSpotsQuery();
@@ -239,7 +277,7 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
   });
 
   return (
-    <View style={[styles.row, { backgroundColor: COLOR_GRAY_14 }]}>
+    <View style={styles.row}>
       <View style={styles.rowHeader}>
         <MapPin size={15} color={COLOR_WHITE} />
         <Text style={[styles.rowTitle, { color: colors.fg }]}>Tag Photo Spots</Text>
@@ -287,7 +325,7 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
         }}
         onCreateNew={(name) => onCreate?.(name)}
         // The same box and search glyph as the other tag searches.
-        boxStyle={[styles.inputBox, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+        boxStyle={[styles.inputBox, surface]}
         leading={<Search size={15} color={colors.grey} />}
         inputStyle={[styles.input, { color: colors.fg }]}
       />
@@ -341,8 +379,10 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   const userCards: TagCard[] = (recentUsers?.users ?? []).filter((u: any) => !myId || u.user_id !== myId).map((u: any) => ({
     tag: toUser(u),
     image: imageUrl(u.gallery?.[0]?.filename ?? u.profilePicture),
-    // No photo: their initials on their colour, as everywhere else.
-    fallback: <Avatar user={u} size={40} />,
+    // No photo: the tile is their colour, their initials white on it — the
+    // whole tile, rather than an avatar's disc sat in a black one.
+    fallback: <Text style={styles.tileInitials}>{initialsFor({ firstName: u.firstName, lastName: u.lastName, username: u.username })}</Text>,
+    fallbackBg: u.avatarColor || avatarColorFor(u.user_id ?? u.username),
   }));
 
   const toGroup = (g: any): TagItem => ({ id: g.internal_id, label: g.title || 'Group', kind: 'group' });
@@ -388,15 +428,14 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
 }
 
 /** A tag card's side padding — the garage strip bleeds out past it. */
-const ROW_PAD = 14;
+export const ROW_PAD = 14;
 
 const styles = StyleSheet.create({
   row: {
     marginHorizontal: 12, marginTop: 12,
     paddingHorizontal: ROW_PAD, paddingTop: 12, paddingBottom: 12,
-    // Optional Details' block: the form's radius on a ground a step darker
-    // than the form, and no edge of its own.
-    borderRadius: FORM_RADIUS,
+    // Optional Details' block: a step darker than the form, no edge.
+    borderRadius: FORM_CARD_RADIUS, backgroundColor: FORM_CARD_BG,
   },
   // Just the title, in white — the accent colour lives on the chips and count
   // now, where it marks what's been tagged rather than decorating the card.
@@ -414,12 +453,12 @@ const styles = StyleSheet.create({
   // side, so it sits near the chip's round end.
   chip:         { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 4, paddingRight: 10, height: 30, borderRadius: PILL_RADIUS },
   chipThumb:    { width: 22, height: 22, borderRadius: 11 },
+  chipGlyph:    { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   chipText:     { color: COLOR_WHITE, fontSize: 12, fontFamily: FONT_INTER.bold, maxWidth: 150 },
 
-  // No border: the field is its darker fill against the card.
-  // Outlined like the form's other fields, now the card around it has no edge.
-  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: FORM_RADIUS },
-  input:        { flex: 1, fontSize: 14, padding: 0 },
+  // Outlined like the form's other fields.
+  inputBox:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  input:        { ...INPUT_TEXT_STYLE, flex: 1, padding: 0 },
 
   // Raised for good, not only while the list shows — a zIndex that changes
   // re-orders the native views and the field loses focus mid-word.
@@ -438,4 +477,5 @@ const styles = StyleSheet.create({
   suggestThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
 
   hint:         { fontSize: 13, paddingVertical: 10, paddingHorizontal: 12 },
+  tileInitials: { fontSize: 24, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, letterSpacing: 0.5 },
 });

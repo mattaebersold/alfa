@@ -19,7 +19,7 @@ import { ConditionTags } from '../../components/routes/ConditionChips';
 import RouteOwnerMenu from '../../components/routes/RouteOwnerMenu';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import PostTagBadges from '../../components/social/PostTagBadges';
 import GroupAttribution from '../../components/groups/GroupAttribution';
 import { useGetRouteQuery } from '../../api/apiService';
@@ -97,7 +97,7 @@ export default function RouteDetailScreen() {
   // and a spinner that never ends is the wrong way to say so.
   if (isError || !data) {
     return (
-      <View style={[ss.fill, { backgroundColor: colors.bg, justifyContent: 'center' }]}>
+      <View style={[ss.fill, { justifyContent: 'center' }]}>
         <EmptyState title="Route not found" message="It may have been deleted, or made private." />
       </View>
     );
@@ -154,7 +154,7 @@ export default function RouteDetailScreen() {
      * height of the map, which is what lets the map show through underneath
      * before anything has been scrolled.
      */
-    <View style={[ss.fill, { backgroundColor: colors.bg }]}>
+    <View style={ss.fill}>
       {hasMap && (
         // Behind everything and taking no touches: the scroll view above owns
         // every gesture in this area, so a drag that starts on the map scrolls
@@ -328,13 +328,17 @@ export default function RouteDetailScreen() {
               const mine = uid === myId;
               return (
                 <View key={uid} style={styles.photoGroup}>
-                  <View style={styles.photoGroupHead}>
-                    <Avatar user={who as any} size={22} />
-                    <Text style={[styles.photoGroupName, { color: colors.fg }]} numberOfLines={1}>
-                      {mine ? 'Your photos' : who?.username ? `@${who.username}` : 'A driver'}
-                    </Text>
+                  <UserByline
+                    user={who as any}
+                    size={22}
+                    gap={8}
+                    name={mine ? 'Your photos' : undefined}
+                    fallback="A driver"
+                    nameStyle={styles.photoGroupName}
+                    style={styles.photoGroupHead}
+                  >
                     <Text style={[styles.photoGroupCount, { color: colors.grey }]}>{list.length}</Text>
-                  </View>
+                  </UserByline>
                   <RoutePhotoStrip
                     photos={list}
                     canAdd={mine && photos.canAdd}
@@ -695,8 +699,8 @@ const styles = StyleSheet.create({
   groupBanners: { marginHorizontal: -8, marginTop: -12 },
   sectionTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, marginBottom: 6 },
   photoGroup:      { marginBottom: 14 },
-  photoGroupHead:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  photoGroupName:  { flexShrink: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
+  photoGroupHead:  { marginBottom: 8 },
+  photoGroupName:  { fontSize: 14, fontFamily: FONT_INTER.semibold },
   photoGroupCount: { fontSize: 12, fontFamily: FONT_INTER.medium },
   step:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   stepRoad:     { fontSize: 14, lineHeight: 19 },

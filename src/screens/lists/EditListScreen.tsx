@@ -2,15 +2,15 @@ import React, { useMemo, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Switch, Alert,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
-import { ImagePlus, Trash2, X } from 'lucide-react-native';
+import { Trash2, X } from 'lucide-react-native';
 import {
   useGetListQuery, useUpdateListMutation, useDeleteListMutation,
   useCreateListItemMutation, useUpdateListItemMutation, useDeleteListItemMutation,
@@ -20,6 +20,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import Spinner from '../../components/ui/Spinner';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import ListCarPicker from '../../components/lists/ListCarPicker';
 import ListItemsEditor from '../../components/lists/ListItemsEditor';
 import { listCarLabel } from '../../components/lists/ListSummaryContent';
@@ -28,6 +29,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { ListItem } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import FormInput from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type RouteType = RouteProp<AppStackParamList, 'EditList'>;
@@ -224,10 +226,13 @@ export default function EditListScreen() {
   const existingCoverUri = firstGalleryUrl(list?.gallery);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FormScrollView style={ss.fill} contentContainerStyle={styles.scroll}>
 
         {/* Cover image */}
+        {!imageUri && !existingCoverUri ? (
+          <PhotoPickerField onPress={pickImage} title="Add cover image" style={styles.photoField} />
+        ) : (
         <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
           {imageUri ? (
             <>
@@ -239,45 +244,36 @@ export default function EditListScreen() {
                 <X size={16} color={COLOR_WHITE} />
               </TouchableOpacity>
             </>
-          ) : existingCoverUri ? (
+          ) : (
             <>
-              <Image source={{ uri: existingCoverUri }} style={styles.imagePreview} contentFit="cover" />
+              <Image source={{ uri: existingCoverUri! }} style={styles.imagePreview} contentFit="cover" />
               <View style={styles.changeOverlay}>
                 <Text style={styles.changeOverlayText}>Change Image</Text>
               </View>
             </>
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <ImagePlus size={24} color={colors.grey} />
-              <Text style={[styles.imagePlaceholderText, { color: colors.grey }]}>Add cover image</Text>
-            </View>
           )}
         </TouchableOpacity>
+        )}
 
         {/* Title */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.muted }]}>Title *</Text>
-          <TextInput
-            style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+          <FormInput
             value={title}
             onChangeText={setTitle}
             placeholder="List title..."
-            placeholderTextColor={colors.grey}
           />
         </View>
 
         {/* Description */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.muted }]}>Description</Text>
-          <TextInput
-            style={[ss.input, ss.inputMulti, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+          <FormInput
             value={description}
             onChangeText={setDescription}
             placeholder="What's this list about?"
-            placeholderTextColor={colors.grey}
             multiline
             numberOfLines={4}
-            textAlignVertical="top"
           />
         </View>
 
@@ -306,12 +302,10 @@ export default function EditListScreen() {
         {/* Category */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.muted }]}>Category</Text>
-          <TextInput
-            style={[ss.input, { backgroundColor: colors.card, color: colors.fg, borderColor: colors.border }]}
+          <FormInput
             value={category}
             onChangeText={setCategory}
             placeholder="e.g. Design, Wish list, Roads..."
-            placeholderTextColor={colors.grey}
           />
         </View>
 
@@ -387,8 +381,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   changeOverlayText: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
-  imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  imagePlaceholderText: { fontSize: 14 },
+  photoField: { marginTop: 0, marginBottom: 16 },
   field: { marginBottom: 14 },
   label: { fontSize: 13, fontFamily: FONT_INTER.semibold, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   toggleRow: {

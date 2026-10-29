@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View, StyleProp, ViewStyle, ImageSourcePropType } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from './AppImage';
 import { COLOR_BLACK } from '../../constants/config';
 
 // Fisher–Yates shuffle (returns a new array).

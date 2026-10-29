@@ -5,7 +5,8 @@ import {
 import { Text, TextInput } from '@ors/kit';
 import { Archive, ArrowRightLeft, Trash2, Search, ChevronLeft } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import EmptyState from '../ui/EmptyState';
 import {
   useArchiveCarMutation,
@@ -69,6 +70,7 @@ export default function CarDeleteOptionsModal({
   onDeleted?: () => void;
 }) {
   const colors = useColors();
+  const surface = useInputSurface();
   const brand = useBrandColor();
   /**
    * A co-owner can put the car away — it's theirs too — but giving it away or
@@ -248,11 +250,11 @@ export default function CarDeleteOptionsModal({
             </TouchableOpacity>
           )}
 
-          <View style={[styles.searchBar, { backgroundColor: colors.inputBgDark, borderColor: colors.borderDark }]}>
+          <View style={[styles.searchBar, surface]}>
             <Search size={15} color={colors.grey} />
             <TextInput
               ref={searchRef}
-              style={[styles.searchInput, { color: colors.fg }]}
+              style={[styles.searchInput, INPUT_TEXT_STYLE, { color: colors.fg }]}
               value={search}
               onChangeText={setSearch}
               placeholder="Search members by name or @handle"
@@ -270,24 +272,18 @@ export default function CarDeleteOptionsModal({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
-              <TouchableOpacity
+              <UserByline
+                user={item}
+                size={36}
+                sub={[item.firstName, item.lastName].filter(Boolean).join(' ')}
+                gap={10}
+                fill
                 style={[styles.row, { borderColor: colors.borderDark }]}
                 onPress={() => onTransfer(item)}
                 disabled={busy}
                 activeOpacity={0.75}
-              >
-                <Avatar user={item} size={36} />
-                <View style={styles.rowText}>
-                  <Text style={[styles.rowName, { color: colors.fg }]} numberOfLines={1}>
-                    @{item.username}
-                  </Text>
-                  {!!(item.firstName || item.lastName) && (
-                    <Text style={[styles.rowSub, { color: colors.grey }]} numberOfLines={1}>
-                      {[item.firstName, item.lastName].filter(Boolean).join(' ')}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
+                accessibilityLabel={`Transfer to ${item.username}`}
+              />
             )}
             ListEmptyComponent={
               debounced.length < 2 ? (
@@ -319,15 +315,9 @@ const styles = StyleSheet.create({
   backText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
   },
-  searchInput: { flex: 1, fontSize: 14, padding: 0 },
+  searchInput: { flex: 1, padding: 0 },
   list: { paddingBottom: 32, gap: 8 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1, borderRadius: 12, padding: 10,
-  },
-  rowText: { flex: 1 },
-  rowName: { fontSize: 14, fontFamily: FONT_INTER.bold },
-  rowSub: { fontSize: 12, marginTop: 1 },
+  row: { borderWidth: 1, borderRadius: 12, padding: 10 },
 });

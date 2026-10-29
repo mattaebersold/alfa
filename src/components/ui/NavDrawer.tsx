@@ -4,11 +4,11 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { BlurView } from 'expo-blur';
-import { Image } from 'expo-image';
+import { Image } from './AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGetPhotoSpotsQuery } from '@ors/kit';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, Mail, Package, LifeBuoy, Camera, UserPlus, Settings, MapPinned,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, Package, LifeBuoy, Camera, UserPlus, Settings, MapPinned,
 
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -21,6 +21,9 @@ import { useGetBadgesQuery, useGetMyEventsCountQuery } from '../../api/apiServic
 import { useMarketplaceUnread } from '../marketplace/MarketplaceUnreadBadge';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import MyEventsSheet from '../society/MyEventsSheet';
+import AllCarTasksSheet, { useAllCarTasksTally } from '../cars/AllCarTasksSheet';
+import { openNotificationsPanel } from './NotificationsBell';
+import TaskProgressPie from '../cars/TaskProgressPie';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
 import { InstagramIcon, DiscordIcon, YouTubeIcon } from './BrandIcons';
@@ -35,6 +38,7 @@ import {
   COLOR_LOGO_CREAM,
   COLOR_WHITE,
   COLOR_BORDER,
+  PANE_BG,
 } from '../../constants/config';
 import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
@@ -108,7 +112,7 @@ const SLAB_H = 48;
  * reading as a flat black box.
  */
 const PRO_GOLD  = colors.pro;
-const PANEL_BG  = COLOR_BLACK;
+const PANEL_BG  = PANE_BG;
 const TEXT_HI   = COLOR_WHITE;
 const TEXT_MID  = 'rgba(255,255,255,0.6)';
 const TEXT_FAINT= 'rgba(255,255,255,0.45)';
@@ -242,11 +246,13 @@ function PhotographyTile({ onPress }: { onPress: () => void }) {
  * rather than stacked, so the pair reads as a different kind of thing from the
  * grid of places underneath them.
  */
-function InboxPill({ label, Icon, count, onPress }: {
+function InboxPill({ label, Icon, count, trailing, onPress }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   /** Unread count — a red bubble after the label when above zero. */
   count?: number;
+  /** After the label, in place of a count bubble — the tasks pill's tally. */
+  trailing?: React.ReactNode;
   onPress: () => void;
 }) {
   return (
@@ -258,6 +264,7 @@ function InboxPill({ label, Icon, count, onPress }: {
           <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
         </View>
       )}
+      {trailing}
     </TouchableOpacity>
   );
 }
@@ -309,6 +316,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const { data: myEventsData } = useGetMyEventsCountQuery(undefined, { skip: !isLoggedIn });
   const myEventsCount = myEventsData?.count ?? 0;
   const [myEventsOpen, setMyEventsOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
+  // Every car's tasks, for the All Car Tasks pill — how many open, and the pie.
+  const taskTotals = useAllCarTasksTally(isLoggedIn);
   const [proOpen, setProOpen] = useState(false);
   /** Open when non-null; the origin is the row the panel grows out of. */
   const [invite, setInvite] = useState<{ origin: SummaryOrigin | null } | null>(null);
@@ -353,7 +363,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const displayName = userInfo?.username ?? '';
 
   return (
-    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={PANEL_BG} backdrop="summary">
+    <GrowPanel visible={visible} origin={origin} onClose={onClose} backdrop="summary">
       {({ closeThen: panelClose }) => {
         leave.current = panelClose;
         return (
@@ -467,7 +477,13 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   label="Notifications"
                   Icon={Bell}
                   count={notifCount}
-                  onPress={() => closeThen(() => navigation.navigate('Notifications'))}
+                  // The header's own panel, grown from its bell, as if it had
+                  // been tapped there — a couple of frames on, once the menu's
+                  // Modal has gone (iOS won't present one over another). The
+                  // screen is the fallback where no header bell is showing.
+                  onPress={() => closeThen(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+                    if (!openNotificationsPanel()) navigation.navigate('Notifications');
+                  })))}
                 />
               </View>
               <View style={styles.inboxRow}>
@@ -486,6 +502,20 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     onPress={() => setMyEventsOpen(true)}
                   />
                 )}
+              </View>
+              {/* Every car's tasks at once — yours, like the pills above. */}
+              <View style={styles.inboxRow}>
+                <InboxPill
+                  label="All Car Tasks"
+                  Icon={CheckSquare}
+                  onPress={() => setTasksOpen(true)}
+                  trailing={taskTotals.total > 0 ? (
+                    <View style={styles.tasksTally}>
+                      {taskTotals.open > 0 && <Text style={styles.tasksTallyText}>{taskTotals.open}</Text>}
+                      <TaskProgressPie completed={taskTotals.done} total={taskTotals.total} size={16} color={TEXT_HI} />
+                    </View>
+                  ) : undefined}
+                />
               </View>
 
               {/* Two-column grid — half the height of a stacked list, which is
@@ -830,6 +860,8 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
         onClose={() => setInvite(null)}
       />
 
+      <AllCarTasksSheet visible={tasksOpen} onClose={() => setTasksOpen(false)} />
+
       <MyEventsSheet
         visible={myEventsOpen}
         onClose={() => setMyEventsOpen(false)}
@@ -921,6 +953,9 @@ const styles = StyleSheet.create({
   // Lighter than a tile's label — these sit above the grid and shouldn't
   // outweigh it.
   inboxPillLabel: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: TEXT_HI, flexShrink: 1 },
+  // Open tasks, then the pie — after the label, as a count bubble would be.
+  tasksTally:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 2 },
+  tasksTallyText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: TEXT_HI },
 
   // `paddingTop` picks up the separation the removed section heading used to
   // provide between the inbox pills and the tiles.

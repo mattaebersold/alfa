@@ -5,7 +5,7 @@ import {
 import { Text, TextInput } from '@ors/kit';
 import { RESOURCE_CATEGORIES, DISCUSSION_CATEGORIES } from '../../constants/groupCategories';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,7 +28,7 @@ import {
 } from '../../api/apiService';
 import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import EmptyState from '../../components/ui/EmptyState';
 import GroupItemDetailModal from '../../components/groups/GroupItemDetailModal';
 import { useColors } from '../../hooks/useColors';
@@ -55,7 +55,8 @@ import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, GROUP_GROUND, GROUP_LISTING_CARD } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, GROUP_GROUND, GROUP_LISTING_CARD, PANE_BG } from '../../constants/config';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -152,6 +153,7 @@ export default function GroupSectionScreen() {
   const { groupId, groupTitle, initialTab } = route.params;
   const navigation = useNavigation<AppNav>();
   const c = useColors();
+  const inputSurface = useInputSurface();
   const insets = useSafeAreaInsets();
   const { width: screenW } = useWindowDimensions();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -482,6 +484,7 @@ export default function GroupSectionScreen() {
 
       {showSearch && (
         <View style={[styles.searchWrap, { borderTopColor: c.border }]}>
+          <View style={[styles.searchBox, inputSurface]}>
           <Search size={15} color={c.grey} />
           <TextInput
             style={[styles.searchInput, { color: c.fg }]}
@@ -494,6 +497,7 @@ export default function GroupSectionScreen() {
             autoCorrect={false}
             returnKeyType="search"
           />
+          </View>
         </View>
       )}
     </View>
@@ -599,12 +603,7 @@ export default function GroupSectionScreen() {
         >
           <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
           <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body ?? '')}</Text>
-          <View style={styles.discussionByline}>
-            <Avatar user={d.user} size={20} />
-            <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
-              @{d.user?.username} · {timeAgo}
-            </Text>
-          </View>
+          <UserByline user={d.user} size={20} gap={7} meta={timeAgo} color={c.grey} nameStyle={styles.metaText} style={styles.discussionByline} />
         </TouchableOpacity>
       );
     }
@@ -620,12 +619,7 @@ export default function GroupSectionScreen() {
           <View style={styles.newsPad}>
             <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
             {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
-            <View style={styles.discussionByline}>
-              <Avatar user={d.user} size={20} />
-              <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
-                {d.user?.username ? `@${d.user.username} · ` : ''}{timeAgo}
-              </Text>
-            </View>
+            <UserByline user={d.user} size={20} gap={7} meta={timeAgo} color={c.grey} nameStyle={styles.metaText} style={styles.discussionByline} />
           </View>
         </TouchableOpacity>
       );
@@ -651,12 +645,7 @@ export default function GroupSectionScreen() {
         >
           <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
           {d.body && <Text style={[styles.rowBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text>}
-          <View style={styles.discussionByline}>
-            <Avatar user={d.user} size={20} />
-            <Text style={[styles.metaText, { color: c.grey }]} numberOfLines={1}>
-              {d.user?.username ? `@${d.user.username} · ` : ''}{timeAgo}
-            </Text>
-          </View>
+          <UserByline user={d.user} size={20} gap={7} meta={timeAgo} color={c.grey} nameStyle={styles.metaText} style={styles.discussionByline} />
         </TouchableOpacity>
       );
     }
@@ -760,21 +749,23 @@ export default function GroupSectionScreen() {
       return (
         // The row opens the member's summary; the follow button stays as an
         // inline shortcut. Matches the roster pane on the group home.
-        <SummaryTouchable
+        <UserByline
+          user={d.user}
+          size={42}
+          gap={12}
+          fallback=""
+          fill
+          nameStyle={styles.rowTitle}
+          sub={d.member_type === 'admin' ? (
+            <View style={[styles.adminBadge, styles.memberBadge, { backgroundColor: c.primaryAlt }]}>
+              <Text style={styles.adminText}>Admin</Text>
+            </View>
+          ) : null}
           style={[styles.itemCard, { backgroundColor: c.card, borderColor: c.borderDark }]}
           onPress={(origin) => setUserSummary({ userId: d.user_id, origin })}
         >
-          <Avatar user={d.user} size={42} />
-          <View style={styles.memberNameWrap}>
-            <Text style={[styles.rowTitle, { color: c.fg }]} numberOfLines={1}>@{d.user?.username}</Text>
-            {d.member_type === 'admin' && (
-              <View style={[styles.adminBadge, { backgroundColor: c.primaryAlt }]}>
-                <Text style={styles.adminText}>Admin</Text>
-              </View>
-            )}
-          </View>
           {!isMe && d.user?.username ? <FollowButton username={d.user.username} /> : null}
-        </SummaryTouchable>
+        </UserByline>
       );
     }
 
@@ -896,7 +887,7 @@ export default function GroupSectionScreen() {
   // Content is gated to active members — pending/non-members see a prompt.
   if (!isMember) {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={['top', 'bottom']}>
+      <SafeAreaView style={ss.fill} edges={['top', 'bottom']}>
         {compactHeader}
         <View style={styles.gate}>
           <EmptyState
@@ -911,7 +902,7 @@ export default function GroupSectionScreen() {
   // Bottom edge only — the banner runs under the status bar, and the header
   // content pads itself past the top inset.
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {compactHeader}
       {/* The market tab is the marketplace itself, scoped to this group — the
           same component the Marketplace tab renders, so the two can't drift.
@@ -951,7 +942,7 @@ export default function GroupSectionScreen() {
 
       {/* Add cars to group modal */}
       <Modal visible={showCarModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCarModal(false)}>
-        <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={['top', 'bottom']}>
+        <SafeAreaView style={[ss.fill, { backgroundColor: PANE_BG }]} edges={['top', 'bottom']}>
           <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
             <Text style={[styles.modalTitle, { color: c.fg }]}>Your Cars</Text>
             <TouchableOpacity onPress={() => setShowCarModal(false)} hitSlop={10}>
@@ -1076,9 +1067,8 @@ const styles = StyleSheet.create({
   tabPill:        { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
   tabPillText:    { fontSize: 13, fontFamily: FONT_INTER.bold },
 
-  // The name column absorbs the squeeze so the follow button and menu keep
-  // their full width on a long username.
-  memberNameWrap: { flex: 1, minWidth: 0, gap: 3, alignItems: 'flex-start' },
+  // Under the name, at its own width rather than the column's.
+  memberBadge:    { alignSelf: 'flex-start', marginTop: 3 },
 
   // A card per category, the same shape a car's to-do list uses: lighter cap,
   // rows beneath, inset from both edges so the group reads as one object.
@@ -1103,18 +1093,19 @@ const styles = StyleSheet.create({
 
   groupedRow:     { paddingHorizontal: 14, paddingVertical: 12, gap: 5, marginHorizontal: GROUP_INSET },
   groupedRowLast: { borderBottomLeftRadius: GROUP_RADIUS, borderBottomRightRadius: GROUP_RADIUS },
-  discussionByline:    { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 2 },
+  discussionByline:    { marginTop: 2 },
 
 
-  searchWrap:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
-  searchInput:    { flex: 1, fontSize: 14, paddingVertical: 0 },
+  searchWrap:     { paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  searchBox:      { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9 },
+  searchInput:    { ...INPUT_TEXT_STYLE, flex: 1, paddingVertical: 0 },
 
   loader:         { marginVertical: 40 },
 
   rowTitle:       { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 3 },
   rowBody:        { fontSize: 13, lineHeight: 18, marginBottom: 3 },
   rowMeta:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  metaText:       { fontSize: 12 },
+  metaText:       { fontSize: 12, fontFamily: FONT_INTER.regular },
   rallyTag:       { fontSize: 10, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, marginBottom: 2 },
   rowThumb:       { width: 72, height: 52, borderRadius: 8 },
 

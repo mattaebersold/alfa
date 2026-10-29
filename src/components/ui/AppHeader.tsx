@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform } from 'react-native';
-import { Text } from '@ors/kit';
+import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
 import { goBackToTop } from '../../hooks/useScrollTopOnBack';
@@ -16,23 +14,51 @@ import NavDrawer from './NavDrawer';
 import NotificationsBell from './NotificationsBell';
 import GarageDoor from './GarageDoor';
 import GaragePanel from '../cars/GaragePanel';
-import GarageThumbs from '../cars/GarageThumbs';
+import GarageThumbs, { garageThumbsWidth } from '../cars/GarageThumbs';
 import { useAppSelector } from '../../store/store';
 import { useGetUserGarageQuery, useGetLoggedInUserQuery } from '../../api/apiService';
 import SummaryModal, { type SummaryOrigin } from './SummaryModal';
 import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import MainTabs, { type MainTab } from './MainTabs';
-import OilSheen, { useSheenTone, WARM_SHEEN_FILL, type SheenTone } from './OilSheen';
 import type { AppStackParamList } from '../../navigation/types';
 import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
-import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 const BTN = 42;          // floating button edge length
-// The app's shared corner — the sheen overlay reads this too, so the two
-// can't drift apart.
+/** How far the garage button runs in under the logo, so it reads as a tab pulled out from behind it. */
+const GARAGE_TUCK = 14;
+/** Each car photo on the garage tab — well inside the button's height. */
+const GARAGE_THUMB = 30;
+/** Around the photos: the same at the ends as above and below them. */
+const GARAGE_THUMB_PAD = (BTN - GARAGE_THUMB) / 2;
+/** The garage button's own chrome around its photos: padding either end, and the tucked-under length. */
+const GARAGE_CHROME = GARAGE_THUMB_PAD * 2 + GARAGE_TUCK;
+/** And how far each tucks under the last: a little, so the stack is spaced out but still one. */
+const GARAGE_THUMB_OVERLAP = 0.35;
+/** Shown before the room's been measured — what the button always showed. */
+const GARAGE_THUMBS_DEFAULT = 2;
+
+/**
+ * As many of your cars' photos as fit in `room`, all of them if they do; when
+ * they don't, the most that fit beside a "+N" for the rest.
+ */
+function fitGarageThumbs(count: number, room: number | null): number {
+  if (room == null) return GARAGE_THUMBS_DEFAULT;
+  const space = room - GARAGE_CHROME;
+  if (garageThumbsWidth(count, false, GARAGE_THUMB, GARAGE_THUMB_OVERLAP) <= space) return count;
+  for (let n = count - 1; n > 1; n--) {
+    if (garageThumbsWidth(n, true, GARAGE_THUMB, GARAGE_THUMB_OVERLAP) <= space) return n;
+  }
+  return 1;
+}
+
+/** A bare button's drawn width: narrower than BTN, so the glyphs in the right-hand row sit closer. */
+const BARE_W = 36;
+/** Its touch target, back out to BTN — neighbours' slop overlaps, and the one under the finger wins. */
+const BARE_SLOP = { left: (BTN - BARE_W) / 2, right: (BTN - BARE_W) / 2 };
+// The app's shared corner.
 const BTN_RADIUS = COMMON_RADIUS;
 const ROW_PAD_V = 8;     // vertical padding around the button row
 
@@ -71,11 +97,9 @@ const BAR_PAD_H = GUTTER;
  */
 const BACK_ENTER_FROM = -(BAR_PAD_H + BACK_W + 8);
 
-/** Length of the vertical PRO mark, along the word. */
-const PRO_LEN = 25;
 
 /** How far the scrim carries on past the buttons before it's gone. */
-const SCRIM_FADE = 28;
+const SCRIM_FADE = 18;
 
 /**
  * Height the header occupies below the safe-area inset.
@@ -94,10 +118,10 @@ export function useHeaderPad({ tabs = false }: { tabs?: boolean } = {}): number 
 
 /**
  * Height of the tab row under the buttons, on screens that have one: the
- * pills (34) and the room under them (tabsRow's paddingBottom, 10), and
- * nothing more — at 52 it carried 8 of dead space under that room too.
+ * tabs' track (MainTabs `dense`: 32 tabs inside 1 of padding either side, 34)
+ * and the room under it (tabsRow's paddingBottom, 4), and nothing more.
  */
-export const HEADER_TABS_HEIGHT = 44;
+export const HEADER_TABS_HEIGHT = 38;
 
 /** One entry in the header's tab row — see MainTabs. */
 export type HeaderTab = MainTab;
@@ -149,10 +173,16 @@ function HeaderGround({ height }: { height: number }) {
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.ground, { top: -TABS_STUCK_RISE, height: height + TABS_STUCK_RISE, transform: [{ translateY: lift }] }]}
+      style={[styles.ground, { top: -TABS_STUCK_RISE, height: height + TABS_STUCK_RISE + SCRIM_FADE, transform: [{ translateY: lift }] }]}
     >
-      <BlurView tint="dark" intensity={TABS_BLUR} style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, styles.groundTint]} />
+      {/* A fade rather than a band, as the profile's header has: the feed
+          scrolls up behind the buttons and tabs and darkens away under them,
+          the page's ground at the top easing to nothing past the tab row. */}
+      <LinearGradient
+        colors={['rgba(23,23,23,0.96)', 'rgba(23,23,23,0.88)', 'rgba(23,23,23,0)']}
+        locations={[0, 0.72, 1]}
+        style={StyleSheet.absoluteFill}
+      />
     </Animated.View>
   );
 }
@@ -209,6 +239,9 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
         onChange={onTabPress}
         inset={TABS_START_PAD}
         stuck={stuck}
+        // TEST: a faint black track (40%) behind the home tabs, not the solid one.
+        trackColor="rgba(0,0,0,0.4)"
+        dense
         itemsStyle={{ transform: [{ translateX: indent }, { scale: shrink }] }}
         contentContainerStyle={styles.tabsRow}
       />
@@ -217,7 +250,7 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
 }
 
 function FloatingButton({
-  onPress, children, label, tint, wide, bare, outlined, sheen, round,
+  onPress, children, label, tint, wide, bare, outlined, round, style,
 }: {
   onPress: () => void;
   children: React.ReactNode;
@@ -238,10 +271,10 @@ function FloatingButton({
    * a button, without claiming the brand colour.
    */
   outlined?: boolean;
-  /** An oil-slick film over the fill — the home button's. See OilSheen. */
-  sheen?: SheenTone;
   /** A full circle rather than the rounded square — the profile photo's. */
   round?: boolean;
+  /** Last word on the button's own box — the garage's tab shape. */
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <TouchableOpacity
@@ -249,6 +282,9 @@ function FloatingButton({
       activeOpacity={0.75}
       accessibilityRole="button"
       accessibilityLabel={label}
+      // Bare buttons are drawn narrower so their glyphs sit closer; the slop
+      // gives each its full width back to the touch.
+      hitSlop={bare ? BARE_SLOP : undefined}
       // The color lives on the shadowed view itself: iOS won't cast a shadow
       // from a view with no background, and it guarantees the tint fills the
       // button rather than relying on an absolutely-positioned sibling.
@@ -258,10 +294,10 @@ function FloatingButton({
         round && styles.btnRound,
         bare ? styles.btnBare
           : outlined ? styles.btnOutlined
-          : { backgroundColor: sheen === 'warm' ? WARM_SHEEN_FILL : tint },
+          : { backgroundColor: tint },
+        style,
       ]}
     >
-      {sheen && !bare && !outlined && <OilSheen tone={sheen} radius={BTN_RADIUS} />}
       <View style={[styles.btnIcon, wide && styles.btnIconWide, round && styles.btnRound]}>{children}</View>
     </TouchableOpacity>
   );
@@ -325,7 +361,6 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
   // Buttons carry the brand color; icons are black on top of it.
   const tint = useBrandColor();
   const isPro = useIsPro();
-  const sheenTone = useSheenTone();
 
   // `headerOffset` is shared across screens, so a screen left mid-scroll would
   // otherwise hand the next one a header that's still slid off-screen.
@@ -363,11 +398,19 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
 
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
+  /**
+   * The room the garage button has to grow into: everything between the logo
+   * and the right-hand row. Measured rather than worked out, since that row
+   * changes — the bell is only there with something in it, the bookmarks
+   * only once there's one — and the back button slides in on its own.
+   */
+  const [garageRoom, setGarageRoom] = useState<number | null>(null);
+  const garageThumbMax = fitGarageThumbs(garageCars.length, garageRoom);
 
   // Bookmarked models, from the live profile — the button appears with the first.
   const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !isLoggedIn });
   // Posts and car models together — the button's panel has a tab for each.
-  const bookmarkCount = (me?.modelBookmarks?.length ?? 0) + (me?.postBookmarks?.length ?? 0);
+  const bookmarkCount = (me?.modelBookmarks?.length ?? 0) + (me?.postBookmarks?.length ?? 0) + (me?.carBookmarks?.length ?? 0);
   const bookmarksRef = useRef<View>(null);
   const [bookmarks, setBookmarks] = useState<{ origin: SummaryOrigin | null } | null>(null);
   const openBookmarks = useCallback(() => {
@@ -413,10 +456,10 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
         pointerEvents="none"
       >
         <LinearGradient
-          // The page's own ground (COLOR_GRAY_10) rather than black: over the
+          // The page's own ground (APP_BG) rather than black: over the
           // page it vanishes, so the header area and the screen read as one
           // surface, and over a photo it still darkens as before.
-          colors={['rgba(10,10,10,0.72)', 'rgba(10,10,10,0.45)', 'rgba(10,10,10,0)']}
+          colors={['rgba(23,23,23,0.86)', 'rgba(23,23,23,0.62)', 'rgba(23,23,23,0)']}
           locations={[0, 0.6, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -465,14 +508,13 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
           </Animated.View>
         </Animated.View>
 
-        {/* Logo returns to the home feed — the Feed tab, at its top */}
+        {/* Logo returns to the home feed — the Feed tab, at its top. Over the
+            garage button, which tucks in behind it. */}
+        <View style={styles.logoOnTop}>
         <FloatingButton
           label={isPro ? 'Home feed, Pro member' : 'Home feed'}
+          // The brand colour: Pro red for a Pro account, blue otherwise.
           tint={tint}
-          // Only widened when there's a word to make room for; a basic account
-          // keeps the square button it has always had.
-          wide={isPro}
-          sheen={sheenTone}
           onPress={() => {
             // A tap you can feel — no permissions or native setup behind it,
             // and a no-op on a device without a haptic engine.
@@ -486,19 +528,42 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
             style={styles.logo}
             tintColor={ICON}
           />
-          {/* Turned on its side and set tight against the mark — it's a
-              qualifier on the logo rather than a second piece of branding, the
-              gold fill behind it is already doing most of the saying, and
-              upright it was the widest thing in the button. */}
-          {isPro && (
-            <View style={styles.proMark}>
-              <Text style={styles.proMarkText}>PRO</Text>
-            </View>
-          )}
         </FloatingButton>
         </View>
 
-        {/* Right — notifications unfilled, then profile, garage and menu.
+        {/* Garage, a tab pulled out from behind the logo: a garage-door icon
+            in place of the word, and as many of your cars as there's room
+            for. Opens in place rather than navigating to the garage tab. */}
+        <View style={styles.garageRoom} onLayout={(e) => setGarageRoom(e.nativeEvent.layout.width)}>
+        <View ref={garageRef} collapsable={false}>
+          <FloatingButton
+            label="Garage"
+            // A solid black fill, no border: the same box as the logo's, so
+            // the two read as one pair at the same height.
+            tint={COLOR_BLACK}
+            // Always laid out wide: the tab sizes to what's in it, door alone or not.
+            wide
+            style={[styles.garageTab, garageCars.length > 0 && styles.garageTabCars]}
+            onPress={openGarage}
+          >
+            {/* Your cars are the button; the door only stands in for an empty garage. */}
+            {garageCars.length > 0 ? (
+              <GarageThumbs
+                cars={garageCars}
+                max={garageThumbMax}
+                size={GARAGE_THUMB}
+                overlap={GARAGE_THUMB_OVERLAP}
+                shadow
+              />
+            ) : (
+              <GarageDoor size={21} color={COLOR_WHITE} strokeWidth={2.4} />
+            )}
+          </FloatingButton>
+        </View>
+        </View>
+        </View>
+
+        {/* Right — notifications unfilled, then bookmarks, search and menu.
             Search moved to the tab bar: it's something you do *while* looking
             at something, and the bar is on screen at all times where this row
             scrolls away with the header. */}
@@ -513,7 +578,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
               bell and the garage. */}
           {bookmarkCount > 0 && (
             <View ref={bookmarksRef} collapsable={false}>
-              <FloatingButton label="Bookmarks" tint={tint} outlined onPress={openBookmarks}>
+              <FloatingButton label="Bookmarks" tint={tint} bare round onPress={openBookmarks}>
                 <Bookmark size={19} color={COLOR_WHITE} strokeWidth={2.4} />
               </FloatingButton>
             </View>
@@ -524,29 +589,11 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
           <FloatingButton
             label="Search"
             tint={tint}
-            outlined
+            bare round
             onPress={openSearch}
           >
             <Search size={20} color={COLOR_WHITE} strokeWidth={2.4} />
           </FloatingButton>
-
-          {/* A garage-door icon in place of the word: the row has five buttons
-              to fit and the label was the widest thing in it. Only widened
-              when there are thumbs to sit beside the icon. */}
-          {/* Opens in place, like the bell and the menu beside it, rather
-              than navigating to the garage tab. */}
-          <View ref={garageRef} collapsable={false}>
-            <FloatingButton
-              label="Garage"
-              tint={tint}
-              outlined
-              wide={garageCars.length > 0}
-              onPress={openGarage}
-            >
-              <GarageDoor size={21} color={COLOR_WHITE} strokeWidth={2.4} />
-              <GarageThumbs cars={garageCars} />
-            </FloatingButton>
-          </View>
 
           {/* No badge. An unread message raises a notice in the bell next to
               this button — a red dot on the menu could only say that something
@@ -556,7 +603,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
             <FloatingButton
               label="Menu"
               tint={tint}
-              outlined
+              bare round
               onPress={openDrawer}
             >
               <MenuBars size={22} color={COLOR_WHITE} strokeWidth={2.2} />
@@ -575,7 +622,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
       ) : null}
 
       <NavDrawer visible={drawerOpen} origin={drawerOrigin} onClose={() => setDrawerOpen(false)} />
-      <GaragePanel visible={garageOpen} origin={garageOrigin} onClose={() => setGarageOpen(false)} />
+      <GaragePanel visible={garageOpen} origin={garageOrigin} onClose={() => setGarageOpen(false)} drop />
       <SummaryModal visible={!!bookmarks} origin={bookmarks?.origin} onClose={() => setBookmarks(null)}>
         <BookmarksPanel />
       </SummaryModal>
@@ -583,8 +630,6 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
   );
 }
 
-/** Blur strength behind the tab row. */
-const TABS_BLUR = 60;
 
 /**
  * Taken off the tab row's top padding once it sticks: under the status bar
@@ -631,12 +676,6 @@ const styles = StyleSheet.create({
   },
   // Under the scrim and the buttons, over the screen's content.
   ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
-  // Black over the blur — enough that labels read over any photo, not so
-  // much that the blur stops showing through.
-  // The page's own ground (COLOR_GRAY_10), so at rest the header and the
-  // content under it read as one surface; still a tint, so the blur shows
-  // as things scroll beneath.
-  groundTint: { backgroundColor: 'rgba(10,10,10,0.88)' },
   // MainTabs' row, with the header's own room at the end and below.
   tabsRow: {
     // Past the last tab: room for the stuck indent, so it can still scroll
@@ -646,7 +685,7 @@ const styles = StyleSheet.create({
     // Less above than below: the pills sit up near the buttons they belong
     // to, and the room under them parts the row from the page.
     paddingTop: 0,
-    paddingBottom: 10,
+    paddingBottom: 4,
   },
 
   // Behind the bar, and starting at the physical top of the screen rather than
@@ -668,8 +707,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: BAR_PAD_H,
   },
 
-  leftActions:  { flexDirection: 'row', alignItems: 'center' },
-  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  // Takes what the right-hand row leaves, so the garage button can grow into it.
+  leftActions:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  // The garage button's room: off the logo by 7, and kept 7 clear of the
+  // right-hand row. The button sits at its start, at its own width.
+  garageRoom:   { flex: 1, minWidth: 0, marginLeft: -GARAGE_TUCK, marginRight: 7, alignItems: 'flex-start' },
+  // Over the garage tab — zIndex for iOS, a higher elevation for Android,
+  // which stacks siblings by elevation.
+  logoOnTop:    { zIndex: 2, elevation: 8 },
+  // Square where it disappears under the logo, and padded past it so the door
+  // clears the logo's edge.
+  // The logo's height, set here so nothing inside can grow it.
+  garageTab: {
+    height: BTN,
+    paddingLeft: 11 + GARAGE_TUCK, paddingRight: 11,
+    borderTopLeftRadius: 0, borderBottomLeftRadius: 0,
+  },
+  // Holding photos rather than the door: padded evenly round them.
+  garageTabCars: { paddingLeft: GARAGE_THUMB_PAD + GARAGE_TUCK, paddingRight: GARAGE_THUMB_PAD },
+  // No gap: the buttons are unfilled, so the room around each glyph is its
+  // own hit area — the targets meet edge to edge rather than shrinking.
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 0 },
 
   btn: {
     width: BTN, height: BTN,
@@ -697,7 +755,7 @@ const styles = StyleSheet.create({
   // Labelled buttons size to their content instead of the fixed square.
   // Unfilled, and no rounded ground to fill — the radius would only show as a
   // pressed-state artefact on a button that has no surface.
-  btnBare: { backgroundColor: 'transparent' },
+  btnBare: { backgroundColor: 'transparent', width: BARE_W },
   btnOutlined: {
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderWidth: 1,
@@ -712,23 +770,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
 
-  logo: { width: 25, height: 25 },
-  // A box the size of the *rotated* word, so the row lays out around what you
-  // actually see. Pulled in tighter than the button's own gap: PRO belongs to
-  // the mark, not beside it.
-  proMark: {
-    width: 11, height: PRO_LEN,
-    alignItems: 'center', justifyContent: 'center',
-    marginLeft: -1,
-  },
-  proMarkText: {
-    fontSize: 9.5, fontFamily: FONT_INTER.black, color: ICON,
-    letterSpacing: 0.8,
-    // Reads top-to-bottom. The width is the word's own length, overflowing the
-    // box before the rotation swings it onto the short axis; both are centred
-    // on the same point, so it lands centred.
-    width: PRO_LEN, textAlign: 'center',
-    transform: [{ rotate: '90deg' }],
-  },
+  logo: { width: 29, height: 29 },
 
 });

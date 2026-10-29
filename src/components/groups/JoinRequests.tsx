@@ -1,12 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import * as Haptics from 'expo-haptics';
 import { formatDistanceToNow } from 'date-fns';
 import { MapPin } from 'lucide-react-native';
-import Avatar from '../ui/Avatar';
-import SummaryModal, { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
+import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
+import UserByline from '../members/UserByline';
 import { useApproveGroupMemberMutation, useRejectGroupMemberMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -34,7 +34,6 @@ function JoinRequestRow({ groupId, member, onOpenUser }: {
 }) {
   const colors = useColors();
   const brand = useBrandColor();
-  const rowRef = useRef<View>(null);
   const [approve] = useApproveGroupMemberMutation();
   const [reject] = useRejectGroupMemberMutation();
   // Which answer is mid-flight — the row holds its shape while it lands.
@@ -65,30 +64,32 @@ function JoinRequestRow({ groupId, member, onOpenUser }: {
     : '';
 
   return (
-    <View ref={rowRef} style={[styles.row, { borderTopColor: colors.borderDark }]}>
-      <TouchableOpacity
+    <View style={[styles.row, { borderTopColor: colors.borderDark }]}>
+      <UserByline
+        user={member.user}
+        size={40}
+        gap={10}
+        fill
+        nameStyle={styles.name}
         style={styles.who}
-        onPress={() => measureOrigin(rowRef.current, (origin) => onOpenUser(member.user_id, origin))}
-        activeOpacity={0.7}
-        accessibilityRole="button"
+        onPress={(origin) => onOpenUser(member.user_id, origin)}
         accessibilityLabel={username ? `View @${username}'s profile` : 'View profile'}
-      >
-        <Avatar user={member.user} size={40} />
-        <View style={styles.whoText}>
-          <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>@{username ?? 'member'}</Text>
-          {/* Where they are is half the question for a regional group, so it's
-              on the row and doesn't need the tap. */}
-          {place ? (
-            <View style={styles.placeRow}>
-              <MapPin size={11} color={colors.grey} />
-              <Text style={[styles.place, { color: colors.grey }]} numberOfLines={1}>{place}</Text>
-            </View>
-          ) : null}
-          <Text style={[styles.viewHint, { color: brand }]}>
-            View profile{asked ? ` · asked ${asked}` : ''}
-          </Text>
-        </View>
-      </TouchableOpacity>
+        sub={
+          <View style={styles.whoSub}>
+            {/* Where they are is half the question for a regional group, so it's
+                on the row and doesn't need the tap. */}
+            {place ? (
+              <View style={styles.placeRow}>
+                <MapPin size={11} color={colors.grey} />
+                <Text style={[styles.place, { color: colors.grey }]} numberOfLines={1}>{place}</Text>
+              </View>
+            ) : null}
+            <Text style={[styles.viewHint, { color: brand }]}>
+              View profile{asked ? ` · asked ${asked}` : ''}
+            </Text>
+          </View>
+        }
+      />
 
       <View style={styles.answers}>
         <TouchableOpacity
@@ -191,8 +192,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 11,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  who:     { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  whoText: { flex: 1, minWidth: 0, gap: 1 },
+  who:     { flex: 1 },
+  whoSub:  { gap: 1, marginTop: 1 },
   name:    { fontSize: 15, fontFamily: FONT_INTER.bold },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   place:   { fontSize: 12, flexShrink: 1 },

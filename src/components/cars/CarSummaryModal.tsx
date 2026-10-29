@@ -1,20 +1,17 @@
 import React, { useCallback, useState , useRef} from 'react';
-import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { Check, Plus, Users, Car as CarIcon } from 'lucide-react-native';
+import { Car as CarIcon } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import { Skeleton, SkeletonLine, FadeIn } from '../ui/Skeleton';
 import {
   useGetCarWithUserQuery,
   useGetUserByIdQuery,
-  useGetCarFollowStatusQuery,
   useGetCarFollowerCountQuery,
-  useFollowCarMutation,
-  useUnfollowCarMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import type { GarageCar } from '../../types/api';
@@ -22,9 +19,12 @@ import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { carHeroUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
+import { TYPE_COLORS, CATEGORY_COLORS, formatLabel } from '../../constants/carTypes';
 import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import CarBookmarkButton from './CarBookmarkButton';
+import CarCountBadges, { CAR_COUNTS_CLEARANCE } from './CarCountBadges';
+import CarActivitySummaryModal, { type CarActivityTab } from './CarActivitySummaryModal';
 
 /**
  * One person on the car — the owner, or the second name on a shared one.
@@ -41,21 +41,20 @@ function OwnerChip({ user, co, onOpen }: {
   const colors = useColors();
   if (!user) return null;
   return (
-    <TouchableOpacity
+    <UserByline
+      user={user as any}
+      size={26}
+      fallback="owner"
+      gap={6}
       style={styles.ownerChip}
       onPress={() => onOpen(user)}
-      activeOpacity={0.7}
     >
-      <Avatar user={user as any} size={26} />
-      <Text style={[styles.ownerName, { color: colors.fg }]} numberOfLines={1}>
-        @{user.username ?? 'owner'}
-      </Text>
       {co ? (
         <View style={[styles.coTag, { backgroundColor: colors.segment }]}>
           <Text style={[styles.coTagText, { color: colors.grey }]}>CO</Text>
         </View>
       ) : null}
-    </TouchableOpacity>
+    </UserByline>
   );
 }
 
@@ -116,22 +115,23 @@ export default function CarSummaryModal({
   const { data: car, isLoading } = useGetCarWithUserQuery(shownCarId ?? '', { skip: !shownCarId });
   const isOwner = !!car && (userInfo?.user_id === car.user_id || userInfo?.user_id === car.coowner_id);
 
-  // The summary payload carries both of these now; the queries are the
-  // fallback for a server that hasn't sent them.
-  const { data: followStatus } = useGetCarFollowStatusQuery(carId ?? '', {
-    skip: !carId || isOwner || car?.following !== undefined,
-  });
+  // The payload carries the follower count now; the query is the fallback
+  // for a server that hasn't sent it.
   const { data: fetchedFollowerCount } = useGetCarFollowerCountQuery(carId ?? '', { skip: !carId || car?.followersCount != null });
   const followerCount = car?.followersCount ?? fetchedFollowerCount;
   // A car can be shared. The payload carries the owner, but only an id for the
   // second person, so they need their own lookup — cached, and skipped
   // entirely on the cars that have nobody.
   const { data: coowner } = useGetUserByIdQuery(car?.coowner_id ?? '', { skip: !car?.coowner_id });
-  const [followCar, { isLoading: following }] = useFollowCarMutation();
-  const [unfollowCar, { isLoading: unfollowing }] = useUnfollowCarMutation();
-  const [localFollow, setLocalFollow] = useState<boolean | undefined>(undefined);
-  const isFollowing = localFollow ?? followStatus?.following ?? car?.following ?? false;
-  const busy = following || unfollowing;
+  // A count tapped on the photo: the car's activity, opened over this panel
+  // rather than after it — a second modal presented while the first is still
+  // fading out freezes iOS. Forgotten when this panel closes.
+  const [activity, setActivity] = useState<{ tab: CarActivityTab; origin: SummaryOrigin | null } | null>(null);
+  const [lastShownCarId, setLastShownCarId] = useState(carId);
+  if (carId !== lastShownCarId) {
+    setLastShownCarId(carId);
+    setActivity(null);
+  }
 
   /** Close first: iOS won't present a screen over a modal that's still going. */
   const openUser = useCallback((user: { user_id: string; username?: string }) => {
@@ -139,20 +139,6 @@ export default function CarSummaryModal({
     requestAnimationFrame(() =>
       nav.navigate('UserDetail', { userId: user.user_id, username: user.username }));
   }, [nav, onClose]);
-
-  const toggleFollow = useCallback(async () => {
-    if (!carId || busy) return;
-    try {
-      if (isFollowing) await unfollowCar({ car_id: carId }).unwrap();
-      else await followCar({ car_id: carId }).unwrap();
-      setLocalFollow(!isFollowing);
-    } catch {
-      Alert.alert(
-        isFollowing ? "Couldn't unfollow" : "Couldn't follow",
-        'Please try again.',
-      );
-    }
-  }, [carId, busy, isFollowing, followCar, unfollowCar]);
 
   const title = car
     ? car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car'
@@ -202,6 +188,9 @@ export default function CarSummaryModal({
       actionIcon={CarIcon}
       actionRounded
       onAction={carId ? () => nav.navigate('CarDetail', { carId }) : undefined}
+      stacked={car ? (
+        <CarActivitySummaryModal car={car} tab={activity?.tab ?? null} origin={activity?.origin} onClose={() => setActivity(null)} />
+      ) : null}
     >
       {isLoading || !car ? (
         // The card's own photo and name, with grey stand-ins where the rest
@@ -229,7 +218,7 @@ export default function CarSummaryModal({
               <Skeleton width={28} height={28} radius={14} />
               <SkeletonLine width={90} height={12} />
             </View>
-            <Skeleton width={96} height={34} radius={17} />
+            <Skeleton width={34} height={34} radius={17} />
           </View>
           <View style={styles.placeholderLines}>
             <SkeletonLine width="92%" />
@@ -277,13 +266,20 @@ export default function CarSummaryModal({
                     </View>
                   ) : null}
                   {categoryLabel ? (
-                    <View style={[styles.badge, styles.badgeDark]}>
-                      <Text style={[styles.badgeText, { color: COLOR_WHITE }]}>{categoryLabel}</Text>
+                    <View style={[styles.badge, styles.badgeDark, car.category && CATEGORY_COLORS[car.category] ? { backgroundColor: CATEGORY_COLORS[car.category].bg } : null]}>
+                      <Text style={[styles.badgeText, { color: (car.category && CATEGORY_COLORS[car.category]?.text) || COLOR_WHITE }]}>{categoryLabel}</Text>
                     </View>
                   ) : null}
                 </View>
               ) : null}
             </View>
+            {/* What's been logged against it, down the photo's right — the
+                garage card's column. Each opens the car's activity on its tab. */}
+            <CarCountBadges
+              car={car}
+              followers={followerCount ?? 0}
+              onOpen={(tab, origin) => setActivity({ tab, origin })}
+            />
           </View>
 
           <View style={styles.row}>
@@ -293,45 +289,11 @@ export default function CarSummaryModal({
             <View style={styles.owners}>
               <OwnerChip user={car.user} onOpen={openUser} />
               {coowner ? <OwnerChip user={coowner} co onOpen={openUser} /> : null}
-              {/* A count, not a sentence — the icon already says what is being
-                  counted. */}
-              {(followerCount ?? 0) > 0 && (
-                <View style={[styles.followerBadge, { backgroundColor: colors.segment }]}>
-                  <Users size={10} color={colors.grey} />
-                  <Text style={[styles.followerBadgeText, { color: colors.grey }]}>
-                    {followerCount}
-                  </Text>
-                </View>
-              )}
             </View>
 
-            {/* Your own car has nothing to follow. */}
-            {!isOwner && (
-              <TouchableOpacity
-                style={[
-                  styles.followBtn,
-                  // Outlined in the brand colour to follow; the "Following"
-                  // state sits on a dark segment with the foreground colour,
-                  // so the two read as off and on rather than as two buttons.
-                  isFollowing
-                    ? { backgroundColor: colors.segment, borderColor: colors.border }
-                    : { backgroundColor: 'transparent', borderColor: colors.primaryAlt },
-                  busy && styles.followBtnBusy,
-                ]}
-                onPress={toggleFollow}
-                disabled={busy}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isFollowing, busy }}
-              >
-                {isFollowing
-                  ? <Check size={14} color={colors.fg} strokeWidth={3} />
-                  : <Plus size={14} color={colors.primaryAlt} strokeWidth={3} />}
-                <Text style={[styles.followText, { color: isFollowing ? colors.fg : colors.primaryAlt }]}>
-                  {isFollowing ? 'Following' : 'Follow'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            {/* Your own car has nothing to bookmark. Following it is in the
+                followers count on the photo, at the head of that list. */}
+            {!isOwner && carId ? <CarBookmarkButton carId={carId} size={22} color={colors.fg} style={styles.bookmarkBtn} /> : null}
           </View>
 
           {/* One line that scrolls, rather than a block that wraps. Six specs
@@ -355,10 +317,11 @@ export default function CarSummaryModal({
             </ScrollView>
           )}
 
-          {/* Stored as HTML by the web editor — unstripped it arrives as a
+          {/* The first couple of lines of it — the rest is the car's page.
+              Stored as HTML by the web editor — unstripped it arrives as a
               paragraph of tags. */}
           {description ? (
-            <Text style={[styles.body, { color: colors.muted }]} numberOfLines={3}>
+            <Text style={[styles.body, { color: colors.muted }]} numberOfLines={2}>
               {description}
             </Text>
           ) : null}
@@ -379,7 +342,8 @@ const styles = StyleSheet.create({
   // a portrait shot down to a letterbox, which on a car is usually the car.
   hero:     { width: '100%', backgroundColor: COLOR_GRAY_22 },
   // A little further in from the left than the panel's inset.
-  heroText: { position: 'absolute', left: 12, right: 16, bottom: 12, alignItems: 'flex-start', gap: 4 },
+  // Clear of the counts down the photo's right.
+  heroText: { position: 'absolute', left: 12, right: CAR_COUNTS_CLEARANCE, bottom: 12, alignItems: 'flex-start', gap: 4 },
   heroTitle: {
     fontSize: 21, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, letterSpacing: -0.3,
     textShadowColor: 'rgba(0,0,0,0.8)',
@@ -410,25 +374,12 @@ const styles = StyleSheet.create({
     flex: 1, minWidth: 0,
     flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6,
   },
-  ownerChip: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
-  ownerName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  ownerChip: { maxWidth: '100%' },
   coTag:     { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3 },
   coTagText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.4 },
-  followerBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 999,
-  },
-  followerBadgeText: { fontSize: 11, fontFamily: FONT_INTER.semibold },
 
-  followBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    flexShrink: 0,
-    paddingHorizontal: 13, paddingVertical: 7,
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
-  },
-  followBtnBusy: { opacity: 0.6 },
-  followText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  // At the row's end, opposite the owners.
+  bookmarkBtn: { width: 34, height: 34 },
 
   specsScroll: { flexGrow: 0, flexShrink: 0 },
   specs: {

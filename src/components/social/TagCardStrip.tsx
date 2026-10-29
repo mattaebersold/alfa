@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Check } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { TagItem } from './PostTagPicker';
@@ -16,6 +16,8 @@ export interface TagCard {
   image?: string | null;
   /** Drawn in the tile when there's no photo — a glyph, initials. */
   fallback?: React.ReactNode;
+  /** The tile's fill behind `fallback`, in place of black — a member's own colour. */
+  fallbackBg?: string;
 }
 
 /**
@@ -58,7 +60,7 @@ export default function TagCardStrip({
         style={{ marginHorizontal: -bleed }}
         contentContainerStyle={[styles.row, { paddingHorizontal: bleed }]}
       >
-        {cards.map(({ tag, image, fallback }) => {
+        {cards.map(({ tag, image, fallback, fallbackBg }) => {
           const selected = selectedIds.includes(tag.id);
           return (
             <TouchableOpacity
@@ -78,7 +80,7 @@ export default function TagCardStrip({
               {image ? (
                 <Image source={{ uri: image }} style={styles.image} contentFit="cover" transition={150} />
               ) : (
-                <View style={[styles.image, styles.fallback]}>{fallback}</View>
+                <View style={[styles.image, styles.fallback, fallbackBg ? { backgroundColor: fallbackBg } : null]}>{fallback}</View>
               )}
               {selected && (
                 <View style={[styles.check, { backgroundColor: colors.teal }]}>

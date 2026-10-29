@@ -2,13 +2,13 @@ import React, { useState, useCallback } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';
-import { ImagePlus, X } from 'lucide-react-native';
+import { Plus, X } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCreateEventMutation } from '../../api/apiService';
@@ -18,8 +18,10 @@ import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import AddressField from '../../components/ui/AddressField';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import type { PlaceDetail } from '../../types/api';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import FormInput from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -134,7 +136,7 @@ export default function EventCreateScreen() {
   }, [title, type, category, body, eventDate, eventTime, location, place, images, createEvent, nav]);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FormScrollView
         style={styles.scroll}
         keyboardDismissMode="on-drag"
@@ -178,26 +180,22 @@ export default function EventCreateScreen() {
           </View>
         )}
 
-        {/* Title */}
-        <TextInput
-          style={[styles.titleInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Event title *"
-          placeholderTextColor={colors.grey}
-          returnKeyType="next"
-        />
-
-        {/* Description */}
-        <TextInput
-          style={[styles.bodyInput, { backgroundColor: colors.card, color: colors.fg, borderBottomColor: colors.border }]}
-          value={body}
-          onChangeText={setBody}
-          placeholder="Describe the event..."
-          placeholderTextColor={colors.grey}
-          multiline
-          textAlignVertical="top"
-        />
+        {/* Title and description */}
+        <View style={[styles.textSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <FormInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Event title *"
+            returnKeyType="next"
+          />
+          <FormInput
+            style={styles.bodyField}
+            value={body}
+            onChangeText={setBody}
+            placeholder="Describe the event..."
+            multiline
+          />
+        </View>
 
         {/* Date & Time */}
         <View style={[styles.fieldSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -220,18 +218,18 @@ export default function EventCreateScreen() {
             onChangeText={setLocation}
             onPlacePicked={setPlace}
             placeholder="Address or venue name"
-            inputStyle={[styles.locationInput, { color: colors.fg }]}
+            style={styles.locationField}
           />
         </View>
 
         {/* Photos */}
         <View style={[styles.photosSection, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImage}>
-            <ImagePlus size={18} color={colors.primaryAlt} />
-            <Text style={[styles.addPhotoText, { color: colors.primaryAlt }]}>Add Photos</Text>
-          </TouchableOpacity>
-          {images.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow}>
+          {/* Nothing added yet: the full photo well. After that, the row of
+              previews with an add tile at its end. */}
+          {images.length === 0 ? (
+            <PhotoPickerField onPress={pickImage} style={styles.photoField} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.thumbRow} contentContainerStyle={styles.thumbRowInner}>
               {images.map((img, idx) => (
                 <View key={idx} style={styles.thumbWrap}>
                   <Image source={{ uri: img.uri }} style={styles.thumb} contentFit="cover" />
@@ -240,6 +238,14 @@ export default function EventCreateScreen() {
                   </TouchableOpacity>
                 </View>
               ))}
+              <TouchableOpacity
+                style={[styles.thumb, styles.addTile, { borderColor: colors.border }]}
+                onPress={pickImage}
+                accessibilityRole="button"
+                accessibilityLabel="Add photos"
+              >
+                <Plus size={20} color={colors.grey} />
+              </TouchableOpacity>
             </ScrollView>
           )}
         </View>
@@ -280,14 +286,8 @@ const styles = StyleSheet.create({
   },
   catChipText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
 
-  titleInput: {
-    paddingHorizontal: 14, paddingVertical: 13,
-    fontSize: 17, fontFamily: FONT_INTER.bold, borderBottomWidth: 1,
-  },
-  bodyInput: {
-    paddingHorizontal: 14, paddingVertical: 13,
-    fontSize: 15, minHeight: 100, lineHeight: 22, borderBottomWidth: 1,
-  },
+  textSection: { padding: 14, borderBottomWidth: 1 },
+  bodyField: { marginTop: 10 },
 
   fieldSection: { borderBottomWidth: 1, paddingBottom: 4 },
   sectionLabel: {
@@ -296,19 +296,15 @@ const styles = StyleSheet.create({
   },
   // The picker fields carry their own border, so the row only spaces them.
   pickerRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingBottom: 12 },
-  locationInput: {
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
-  },
+  locationField: { marginHorizontal: 14, marginBottom: 10 },
 
   photosSection: { borderBottomWidth: 1, paddingBottom: 10 },
-  addPhotoBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14, paddingVertical: 12,
-  },
-  addPhotoText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
+  photoField: { marginHorizontal: 14, marginTop: 12 },
   thumbRow:  { paddingHorizontal: 14 },
+  thumbRowInner: { paddingTop: 12 },
   thumbWrap: { marginRight: 8 },
   thumb:     { width: 72, height: 72, borderRadius: 8 },
+  addTile:   { borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   thumbRemove: {
     position: 'absolute', top: 3, right: 3,
     backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 9,

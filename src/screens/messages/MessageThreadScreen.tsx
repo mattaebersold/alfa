@@ -1,8 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList,
 } from 'react-native';
-import { Text } from '@ors/kit';
 import {
   useGetMessageThreadQuery,
   useSendMessageMutation,
@@ -11,7 +10,7 @@ import {
   type SendMessageArgs,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import SharedModal from '../../components/ui/SharedModal';
 import ThreadBubble from '../../components/messages/ThreadBubble';
@@ -91,9 +90,13 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   // Header shows who you're talking to — their avatar and handle — rather than
   // the thread's subject line.
   const headerContent = (
-    <TouchableOpacity
-      style={styles.headerTitleRow}
-      activeOpacity={otherUser?.user_id ? 0.7 : 1}
+    <UserByline
+      user={otherUser}
+      size={30}
+      fallback=""
+      gap={8}
+      color={COLOR_WHITE}
+      nameStyle={styles.headerTitleText}
       disabled={!otherUser?.user_id}
       onPress={() => {
         // Close first: pushing while the RN Modal is mounted would render the
@@ -105,15 +108,7 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
           });
         setVisible(false);
       }}
-    >
-      <Avatar
-        user={otherUser}
-        size={30}
-      />
-      {otherUser?.username ? (
-        <Text style={styles.headerTitleText} numberOfLines={1}>@{otherUser.username}</Text>
-      ) : null}
-    </TouchableOpacity>
+    />
   );
 
   // Sort oldest first for display
@@ -236,6 +231,5 @@ const styles = StyleSheet.create({
   list:     { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
   replyBar: { borderTopWidth: 1 },
 
-  headerTitleRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitleText: { color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold, maxWidth: 180 },
+  headerTitleText: { fontSize: 16, fontFamily: FONT_INTER.bold, maxWidth: 180 },
 });

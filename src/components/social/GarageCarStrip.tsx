@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useGetUserGarageQuery } from '../../api/apiService';
 import { carHeroUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';

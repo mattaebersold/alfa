@@ -116,7 +116,7 @@ export default function SupportScreen() {
   const onScroll = useHeaderScroll(headerPad);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <AppHeader />
       <ScrollView
         ref={scrollRef}

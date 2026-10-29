@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { uploadFile } from '../../utils/upload';
@@ -19,6 +19,7 @@ import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_DANGER, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import FormInput from '../../components/ui/FormInput';
 
 type Props = AppScreenProps<'StoryDetails'>;
 
@@ -69,7 +70,7 @@ export default function StoryDetailsScreen({ route }: Props) {
   const [footerH, setFooterH] = useState(0);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {/* The column shrinks by the keyboard's height so Post Story sits on it;
           the focused field is kept clear of that footer as well. */}
       <KeyboardAvoidingView style={styles.flex}>
@@ -94,12 +95,10 @@ export default function StoryDetailsScreen({ route }: Props) {
               <Text style={[styles.label, { color: colors.muted }]}>
                 Title <Text style={styles.required}>*</Text>
               </Text>
-              <TextInput
+              <FormInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Give your story a title…"
-                placeholderTextColor={colors.grey}
-                style={[ss.input, { borderColor: colors.border, color: colors.fg }]}
                 maxLength={120}
                 returnKeyType="next"
               />
@@ -108,15 +107,12 @@ export default function StoryDetailsScreen({ route }: Props) {
             {/* Caption */}
             <View style={styles.field}>
               <Text style={[styles.label, { color: colors.muted }]}>Caption (optional)</Text>
-              <TextInput
+              <FormInput
                 value={body}
                 onChangeText={setBody}
                 placeholder="Add a caption…"
-                placeholderTextColor={colors.grey}
-                style={[ss.input, styles.textArea, { borderColor: colors.border, color: colors.fg }]}
                 multiline
                 numberOfLines={4}
-                textAlignVertical="top"
               />
             </View>
           </View>
@@ -159,7 +155,6 @@ const styles = StyleSheet.create({
   field:            { gap: 6 },
   label:            { fontSize: 13, fontFamily: FONT_INTER.medium },
   required:         { color: COLOR_DANGER },
-  textArea:         { minHeight: 90, paddingTop: 10 },
 
   footer:           {
     paddingHorizontal: 16, paddingVertical: 12,

@@ -11,7 +11,7 @@ import {
   useStartMarketplaceThreadMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import SharedModal from '../../components/ui/SharedModal';
 import ListingSnapshot from '../../components/marketplace/ListingSnapshot';
@@ -156,9 +156,12 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
         } : undefined}
       />
       {otherUser?.username ? (
-        <TouchableOpacity
-          style={styles.headerPerson}
-          activeOpacity={0.7}
+        <UserByline
+          user={otherUser}
+          size={20}
+          gap={6}
+          color={COLOR_WHITE}
+          nameStyle={styles.headerPersonText}
           onPress={() => {
             // Close first: pushing while the RN Modal is up would render the
             // profile behind it.
@@ -168,10 +171,7 @@ export default function MarketplaceThreadScreen({ route, navigation }: AppScreen
             });
             setVisible(false);
           }}
-        >
-          <Avatar user={otherUser} size={20} />
-          <Text style={styles.headerPersonText} numberOfLines={1}>@{otherUser.username}</Text>
-        </TouchableOpacity>
+        />
       ) : null}
     </View>
   );
@@ -317,8 +317,7 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
 
   header:           { gap: 6, flex: 1 },
-  headerPerson:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerPersonText: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.bold, maxWidth: 180 },
+  headerPersonText: { fontSize: 13, fontFamily: FONT_INTER.bold, maxWidth: 180 },
 
   earlier:     { alignItems: 'center', paddingVertical: 10 },
   earlierText: { fontSize: 13, fontFamily: FONT_INTER.bold },

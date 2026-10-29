@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, Linking, FlatList, type NativeSyntheticEvent, type NativeScrollEvent, type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapPin, Clock, Users, Navigation, Trash2 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import RallyRegistrationForm from '../../components/society/RallyRegistrationFor
 import RallyDays from '../../components/society/RallyDays';
 import RallyFaq from '../../components/society/RallyFaq';
 import RallySubNav, { type RallySection } from '../../components/society/RallySubNav';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import GroupAttribution from '../../components/groups/GroupAttribution';
 import ImageLightbox from '../../components/ui/ImageLightbox';
 import Spinner from '../../components/ui/Spinner';
@@ -133,7 +133,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
   const mapOffset = galleryOffset + galleryUrls.length;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: c.bg }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <ScrollView
         ref={scrollRef}
         refreshControl={refreshControl}
@@ -256,20 +256,19 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
             <Text style={[styles.heading, { color: c.fg }]}>Attending Members</Text>
             <View style={styles.memberWrap}>
               {attending.map((member) => (
-                <TouchableOpacity
+                <UserByline
                   key={member.user_id}
+                  user={member}
+                  size={26}
+                  gap={8}
+                  nameStyle={styles.memberName}
                   style={[styles.memberChip, { backgroundColor: c.card, borderColor: c.border }]}
                   activeOpacity={0.8}
                   onPress={() => navigation.navigate('UserDetail', {
                     userId: member.user_id,
                     username: member.username,
                   })}
-                >
-                  <Avatar user={member} size={26} />
-                  <Text style={[styles.memberName, { color: c.fg }]} numberOfLines={1}>
-                    {member.username}
-                  </Text>
-                </TouchableOpacity>
+                />
               ))}
             </View>
           </View>
@@ -359,11 +358,10 @@ const styles = StyleSheet.create({
 
   memberWrap:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   memberChip:      {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingLeft: 6, paddingRight: 12, paddingVertical: 6,
     borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, maxWidth: '100%',
   },
-  memberName:      { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
+  memberName:      { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   registerSection: { paddingTop: 28 },
   registerHeading: { paddingHorizontal: 16 },

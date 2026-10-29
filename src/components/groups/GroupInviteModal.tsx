@@ -10,7 +10,8 @@ import {
   useInviteGroupMemberMutation,
 } from '../../api/apiService';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import EmptyState from '../ui/EmptyState';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
@@ -67,6 +68,7 @@ export default function GroupInviteModal({
   onClose: () => void;
 }) {
   const c = useColors();
+  const surface = useInputSurface();
   const { userInfo } = useAppSelector((s) => s.auth);
 
   const [query, setQuery] = useState('');
@@ -175,16 +177,15 @@ export default function GroupInviteModal({
           : null;
 
     return (
-      <View style={[styles.row, { borderBottomColor: c.borderDark }]}>
-        <Avatar user={user} size={38} />
-        <View style={styles.rowText}>
-          <Text style={[styles.username, { color: c.fg }]} numberOfLines={1}>
-            @{user.username}
-          </Text>
-          {!!name && (
-            <Text style={[styles.fullName, { color: c.grey }]} numberOfLines={1}>{name}</Text>
-          )}
-        </View>
+      <UserByline
+        user={user}
+        size={38}
+        gap={12}
+        fill
+        sub={name}
+        nameStyle={styles.username}
+        style={[styles.row, { borderBottomColor: c.borderDark }]}
+      >
 
         {state ? (
           <View style={[styles.statusPill, { backgroundColor: c.segment }]}>
@@ -210,7 +211,7 @@ export default function GroupInviteModal({
               )}
           </TouchableOpacity>
         )}
-      </View>
+      </UserByline>
     );
   };
 
@@ -223,10 +224,10 @@ export default function GroupInviteModal({
     >
       {/* Outside the list, so it stays put while the names scroll under it. */}
       <View style={styles.searchWrap}>
-        <View style={[styles.searchBar, { backgroundColor: c.card, borderColor: c.borderDark }]}>
+        <View style={[styles.searchBar, surface]}>
           <Search size={16} color={c.grey} />
           <TextInput
-            style={[styles.searchInput, { color: c.fg }]}
+            style={[styles.searchInput, INPUT_TEXT_STYLE, { color: c.fg }]}
             value={query}
             onChangeText={setQuery}
             placeholder="Search users…"
@@ -275,21 +276,15 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
     paddingHorizontal: 12, paddingVertical: 11,
-    borderRadius: 12, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  searchInput: { flex: 1, padding: 0 },
 
   list:        { flex: 1 },
   listContent: { paddingHorizontal: PANE_GUTTER, paddingBottom: 32 },
   loader:      { marginTop: 20, marginBottom: 12 },
 
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowText:  { flex: 1, minWidth: 0 },
+  row: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   username: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
-  fullName: { fontSize: 12, marginTop: 1 },
 
   inviteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,

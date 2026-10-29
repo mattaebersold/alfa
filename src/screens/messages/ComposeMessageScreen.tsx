@@ -15,7 +15,7 @@ import {
   type SendMessageArgs,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import { ComposerAttach, ComposerPhotoStrip } from '../../components/social/Composer';
 import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
 import { colors } from '../../constants/colors';
@@ -23,6 +23,7 @@ import { useColors } from '../../hooks/useColors';
 import type { AppStackParamList } from '../../navigation/types';
 import type { User } from '../../types/api';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import FormInput, { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -30,16 +31,21 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 function UserResult({ user, onSelect }: { user: User; onSelect: () => void }) {
   const colors = useColors();
   return (
-    <TouchableOpacity style={[styles.userRow, { borderBottomColor: colors.border }]} onPress={onSelect} activeOpacity={0.7}>
-      <Avatar user={user} size={36} />
-      <Text style={[styles.userName, { color: colors.fg }]}>@{user.username}</Text>
-    </TouchableOpacity>
+    <UserByline
+      user={user}
+      size={36}
+      gap={10}
+      nameStyle={styles.userName}
+      style={[styles.userRow, { borderBottomColor: colors.border }]}
+      onPress={onSelect}
+    />
   );
 }
 
 export default function ComposeMessageScreen({ route }: { route: any }) {
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const insets = useSafeAreaInsets();
   const { userInfo } = useAppSelector((s) => s.auth);
   const myId = userInfo?.user_id ?? '';
@@ -124,7 +130,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
     // Fields above, Send pinned under them: the column shrinks by the keyboard's
     // height so Send sits on the keyboard (kit's KeyboardAvoidingView), and the
     // focused field is kept clear of Send as well.
-    <KeyboardAvoidingView style={[styles.root, { backgroundColor: colors.cream }]}>
+    <KeyboardAvoidingView style={styles.root}>
       <FormScrollView
         style={styles.scroll}
         bottomOffset={KEYBOARD_GAP + footerH}
@@ -142,10 +148,10 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.searchRow}>
+            <View style={[styles.searchRow, inputSurface]}>
               <Search size={15} color={colors.grey} />
               <TextInput
-                style={[styles.textInput, { color: colors.fg }]}
+                style={[styles.searchInput, { color: colors.fg }]}
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Search members..."
@@ -169,12 +175,10 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
         {/* Subject */}
         <View style={[styles.field, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <Text style={[styles.label, { color: colors.grey }]}>Subject</Text>
-          <TextInput
-            style={[styles.textInput, { color: colors.fg }]}
+          <FormInput
             value={subject}
             onChangeText={setSubject}
             placeholder="Optional subject"
-            placeholderTextColor={colors.grey}
             returnKeyType="next"
           />
         </View>
@@ -186,15 +190,12 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
             <Text style={[styles.label, { color: colors.grey }]}>Message</Text>
             <ComposerAttach photos={photos} tint={colors.grey} />
           </View>
-          <TextInput
-            style={[styles.textInput, styles.bodyInput, { color: colors.fg }]}
+          <FormInput
             value={body}
             onChangeText={setBody}
             placeholder="Write your message..."
-            placeholderTextColor={colors.grey}
             multiline
             maxLength={2000}
-            textAlignVertical="top"
             autoCorrect
             spellCheck
             autoCapitalize="sentences"
@@ -248,16 +249,11 @@ const styles = StyleSheet.create({
   // The label with the attach button across from it.
   bodyHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label:         { fontSize: 11, fontFamily: FONT_INTER.bold, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  textInput:     { fontSize: 15, padding: 0 },
-  bodyInput:     { minHeight: 120, textAlignVertical: 'top' },
-
-  searchRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
+  searchInput:   { ...INPUT_TEXT_STYLE, flex: 1, padding: 0 },
 
   results:       { borderBottomWidth: 1 },
-  userRow:       {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1,
-  },
+  userRow:       { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   userName:      { fontSize: 14, fontFamily: FONT_INTER.semibold },
 
   recipientPill: {

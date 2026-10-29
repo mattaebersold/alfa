@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import { useGetUserByIdQuery } from '../../api/apiService';
 import { carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
@@ -14,9 +15,9 @@ import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_23, COLOR_WHITE } from '../../co
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
- * The overlay card's two shapes, from its photo: a little wider or a little
- * taller than square (6:5 and 5:6). The poster's 3:2 / 2:3 made the mosaic's
- * columns lurch between slabs and slivers.
+ * The overlay card takes its photo's exact shape — the mosaic's columns are
+ * built for cards of any height, and a rounded shape only cropped the car.
+ * It starts a little wider than square (6:5) until the photo says otherwise.
  */
 const OVERLAY_SHAPES = { landscape: 3 / 2.5, portrait: 2.5 / 3 };
 
@@ -43,9 +44,9 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
    */
   overlay?: boolean;
 }) {
-  const { ratio, onLoad } = usePosterRatio(undefined, OVERLAY_SHAPES);
-  const colors = useColors();
   const hero = carHeroUrl(item);
+  const { ratio, onLoad } = usePosterRatio(undefined, OVERLAY_SHAPES, true, hero);
+  const colors = useColors();
   const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });
   const ymm = [item.year, item.make, item.model].filter(Boolean).join(' ');
   // The owner's name for it leads, with what it is underneath. A car with no
@@ -71,10 +72,7 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
         <Text style={[styles.carSubtitle, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text>
       ) : null}
       {owner && (
-        <View style={styles.ownerRow}>
-          <Avatar user={owner} size={20} />
-          <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
-        </View>
+        <UserByline user={owner} size={20} gap={4} fill color={colors.grey} nameStyle={styles.ownerName} style={styles.ownerRow} />
       )}
     </View>
   );
@@ -140,6 +138,6 @@ const styles = StyleSheet.create({
   // The car's own name leads, a clear step above the year/make/model under it.
   carTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, letterSpacing: -0.2 },
   carSubtitle: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, marginTop: 1 },
-  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-  ownerName: { fontSize: 11, flex: 1 },
+  ownerRow: { marginTop: 6 },
+  ownerName: { fontSize: 11, fontFamily: FONT_INTER.regular },
 });

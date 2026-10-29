@@ -2,25 +2,26 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Bookmark, Car, FileText } from 'lucide-react-native';
 import { useSummaryPanel } from '../ui/SummaryModal';
 import SubTabs from '../ui/SubTabs';
 import {
   useGetCarsQuery, useGetLoggedInUserQuery, useGetPostBookmarksQuery, useGetUserByIdQuery,
   useToggleModelBookmarkMutation, useTogglePostBookmarkMutation,
+  useGetCarBookmarksQuery, useToggleCarBookmarkMutation,
 } from '../../api/apiService';
-import { imageUrl } from '../../utils/image';
+import { imageUrl, carHeroUrl } from '../../utils/image';
 import { postThumb } from '../../utils/postMedia';
 import { stripHtml } from '../../utils/text';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { useColors } from '../../hooks/useColors';
 import { bookmarkTitle, bookmarkRoute } from '../../utils/modelBookmark';
-import type { ModelBookmark, Post } from '../../types/api';
+import type { GarageCar, ModelBookmark, Post } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 import { COLOR_GRAY_17, COLOR_GRAY_26 } from '../../constants/config';
 
-type Tab = 'posts' | 'cars';
+type Tab = 'posts' | 'cars' | 'models';
 
 /**
  * The filled bookmark at a row's end — and the way to take the bookmark off.
@@ -129,9 +130,43 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
   );
 }
 
+/** A bookmarked member's car: its photo, its name and whose it is. */
+function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
+  const colors = useColors();
+  const [toggle] = useToggleCarBookmarkMutation();
+  const photo = carHeroUrl(car);
+  const { data: owner } = useGetUserByIdQuery(car.user_id ?? '', { skip: !car.user_id });
+  const title = car.title?.trim() || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car';
+
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
+      {photo ? (
+        <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" transition={150} />
+      ) : (
+        <View style={[styles.thumb, styles.thumbBlank]}>
+          <Car size={18} color={colors.grey} />
+        </View>
+      )}
+      <View style={styles.rowText}>
+        <Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={1}>{title}</Text>
+        {owner?.username ? (
+          <Text style={[styles.rowSub, { color: colors.grey }]} numberOfLines={1}>@{owner.username}</Text>
+        ) : null}
+      </View>
+      <Unbookmark label={title} onPress={() => toggle({ car_id: car.internal_id })} />
+    </TouchableOpacity>
+  );
+}
+
 /**
  * Your bookmarks, inside the summary panel the header's bookmark button opens:
- * posts and car models, a tab each. A row opens its post or model page once
+ * posts, members' cars and car models, a tab each. A row opens its post or model page once
  * the panel has closed; the bookmark at its end takes it off the list.
  */
 export default function BookmarksPanel() {
@@ -145,9 +180,14 @@ export default function BookmarksPanel() {
   // The profile's list is updated on the tap; the fetched posts catch up on
   // the refetch. Filtering by the list is what makes a removed row go at once.
   const posts = (postData?.entries ?? []).filter((p) => postIds.includes(p.internal_id));
+  const carIds = me?.carBookmarks ?? [];
+  const { data: carData, isLoading: carsLoading } = useGetCarBookmarksQuery(undefined, { skip: carIds.length === 0 });
+  const cars = (carData?.entries ?? []).filter((c) => carIds.includes(c.internal_id));
 
-  // Posts first, unless there are only car bookmarks.
-  const [tab, setTab] = useState<Tab>(() => (postIds.length === 0 && models.length > 0 ? 'cars' : 'posts'));
+  // The first tab with anything in it — posts when there's nothing at all.
+  const [tab, setTab] = useState<Tab>(() => (
+    postIds.length ? 'posts' : carIds.length ? 'cars' : models.length ? 'models' : 'posts'
+  ));
 
   const leaveTo = (go: () => void) => (panel ? panel.closeThen(go) : go());
   const openModel = (b: ModelBookmark) => leaveTo(() => nav.navigate('MainTabs', {
@@ -155,16 +195,18 @@ export default function BookmarksPanel() {
     params: { screen: 'ModelDetail', params: bookmarkRoute(b) },
   }));
   const openPost = (p: Post) => leaveTo(() => nav.navigate('PostDetailModal', { postId: p.internal_id }));
+  const openCar = (c: GarageCar) => leaveTo(() => nav.navigate('CarDetail', { carId: c.internal_id }));
 
   const tabs: { key: Tab; label: string; count: number }[] = [
     { key: 'posts', label: 'Posts', count: postIds.length },
-    { key: 'cars', label: 'Cars', count: models.length },
+    { key: 'cars', label: 'Cars', count: carIds.length },
+    { key: 'models', label: 'Models', count: models.length },
   ];
 
   return (
     <View style={styles.body}>
       {/* No heading — the panel opened from the bookmark button, so it's
-          already clear what this is. Posts or cars, as sub tabs. */}
+          already clear what this is. Posts, cars or models, as sub tabs. */}
       <View style={styles.tabs}>
         <SubTabs
           options={tabs.map((t) => ({ key: t.key, label: t.count > 0 ? `${t.label} · ${t.count}` : t.label }))}
@@ -183,8 +225,18 @@ export default function BookmarksPanel() {
             {posts.map((p) => <PostRow key={p.internal_id} post={p} onPress={() => openPost(p)} />)}
           </View>
         )
+      ) : tab === 'cars' ? (
+        carIds.length === 0 ? (
+          <Text style={[styles.empty, { color: colors.grey }]}>No cars bookmarked yet — tap the bookmark on anyone's car.</Text>
+        ) : carsLoading ? (
+          <Text style={[styles.empty, { color: colors.grey }]}>Loading…</Text>
+        ) : (
+          <View style={styles.list}>
+            {cars.map((c) => <CarRow key={c.internal_id} car={c} onPress={() => openCar(c)} />)}
+          </View>
+        )
       ) : models.length === 0 ? (
-        <Text style={[styles.empty, { color: colors.grey }]}>No cars bookmarked yet — bookmark a make or model from its page.</Text>
+        <Text style={[styles.empty, { color: colors.grey }]}>No models bookmarked yet — bookmark a make or model from its page.</Text>
       ) : (
         <View style={styles.list}>
           {models.map((b) => (

@@ -1,4 +1,10 @@
-import { COLOR_BADGE_DEFAULT, COLOR_BADGE_GARAGE, COLOR_BADGE_LISTING, COLOR_BADGE_RECORD, COLOR_BADGE_SPOT, COLOR_BADGE_UPDATE, COLOR_BLACK } from './config';
+import {
+  COLOR_BADGE_DEFAULT, COLOR_BADGE_EVENT, COLOR_BADGE_GARAGE, COLOR_BADGE_LISTING, COLOR_BADGE_RECORD, COLOR_BADGE_SPOT,
+  COLOR_BADGE_UPDATE, COLOR_BADGE_WANT, COLOR_BLACK,
+  COLOR_CATEGORY_ACCESSORIES, COLOR_CATEGORY_DETAILING, COLOR_CATEGORY_MAINTENANCE, COLOR_CATEGORY_MUSEUM,
+  COLOR_CATEGORY_NEW, COLOR_CATEGORY_PART, COLOR_CATEGORY_RESTORATION, COLOR_CATEGORY_SHOW, COLOR_CATEGORY_WILD,
+  COLOR_EVENT_CARS_AND_COFFEE, COLOR_EVENT_MOTORSPORTS, COLOR_EVENT_SHOW, COLOR_EVENT_TECH_SESSION,
+} from './config';
 export const CAR_TYPES = [
   { key: 'daily',        label: 'Daily Driver' },
   { key: 'weekend',      label: 'Weekend Warrior' },
@@ -77,6 +83,33 @@ export const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   'overland':     { bg: COLOR_BADGE_UPDATE, text: COLOR_BLACK },
   'part-out':     { bg: COLOR_BADGE_LISTING, text: COLOR_BLACK },
   'other':        { bg: COLOR_BADGE_DEFAULT, text: COLOR_BLACK },
+};
+
+/**
+ * Each car category's badge — its own colour, black lettering, as the type
+ * badges are. They used to share one plain dark badge, which beside a
+ * coloured type badge read as greyed out. A category kept under more than one
+ * type (Race Car, Historical, Shitbox) is the same colour under each. Cars &
+ * Coffee takes the events' Cars & Coffee lime, so the car and the meet read as
+ * the same thing.
+ */
+export const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  groceryGetter:      { bg: COLOR_CATEGORY_NEW,         text: COLOR_BLACK },
+  beater:             { bg: COLOR_CATEGORY_RESTORATION, text: COLOR_BLACK },
+  shibox:             { bg: COLOR_BADGE_GARAGE,         text: COLOR_BLACK },
+  carsAndCoffee:      { bg: COLOR_EVENT_CARS_AND_COFFEE, text: COLOR_BLACK },
+  canyonCarver:       { bg: COLOR_CATEGORY_MAINTENANCE, text: COLOR_BLACK },
+  race:               { bg: COLOR_EVENT_MOTORSPORTS,    text: COLOR_BLACK },
+  historical:         { bg: COLOR_CATEGORY_MUSEUM,      text: COLOR_BLACK },
+  hopefulRestoration: { bg: COLOR_CATEGORY_DETAILING,   text: COLOR_BLACK },
+  lostCause:          { bg: COLOR_BADGE_WANT,           text: COLOR_BLACK },
+  concours:           { bg: COLOR_CATEGORY_SHOW,        text: COLOR_BLACK },
+  specialOccasion:    { bg: COLOR_EVENT_SHOW,           text: COLOR_BLACK },
+  overlander:         { bg: COLOR_CATEGORY_WILD,        text: COLOR_BLACK },
+  desertRunner:       { bg: COLOR_BADGE_EVENT,          text: COLOR_BLACK },
+  rockCrawler:        { bg: COLOR_CATEGORY_PART,        text: COLOR_BLACK },
+  trailRig:           { bg: COLOR_CATEGORY_ACCESSORIES, text: COLOR_BLACK },
+  other:              { bg: COLOR_EVENT_TECH_SESSION,   text: COLOR_BLACK },
 };
 
 /** Every car type and category label, keyed the way they're stored. */

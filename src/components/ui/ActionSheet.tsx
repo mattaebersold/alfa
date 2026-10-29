@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, StyleSheet, Modal, Pressable, TouchableOpacity } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts'
+import SlideSheet from './SlideSheet';
+import { COLOR_WHITE, PANE_BG, SHEET_RADIUS } from '../../constants/config';
 
 export interface ActionSheetOption {
   label: string;
@@ -20,6 +22,8 @@ interface Props {
   /** Sits under the title in smaller type — context, not another choice. */
   message?: string;
   options: ActionSheetOption[];
+  /** The Cancel at the foot. Off where a tap outside or the grabber is enough. */
+  showCancel?: boolean;
 }
 
 /**
@@ -38,85 +42,87 @@ interface Props {
  * A plain `Alert.alert` is still the right thing for a *question* — one or two
  * buttons, "are you sure" — and those work fine as they are.
  */
-export default function ActionSheet({ visible, onClose, title, message, options }: Props) {
+export default function ActionSheet({ visible, onClose, title, message, options, showCancel = true }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
-  // The choice runs after the sheet is closed: on iOS a screen or another modal
-  // can't be presented while this one is still up.
+  // The choice runs once the sheet has slid away and unmounted: on iOS a
+  // screen or another modal can't be presented while this one is still up,
+  // and a frame's wait wasn't long enough — a dialog opened from here (Rename,
+  // Edit) never appeared.
+  const chosen = useRef<(() => void) | null>(null);
   const choose = (option: ActionSheetOption) => {
+    chosen.current = option.onPress;
     onClose();
-    requestAnimationFrame(option.onPress);
+  };
+  const runChosen = () => {
+    const run = chosen.current;
+    chosen.current = null;
+    // A frame on, once the sheet's Modal has actually gone.
+    if (run) requestAnimationFrame(run);
   };
 
   return (
-    <Modal
+    // Slides up over the panes' fading wash, as every pane does (SlideSheet).
+    <SlideSheet
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent
+      onClose={onClose}
+      onDismissed={runChosen}
+      sheetStyle={[
+        styles.sheet,
+        // Clear of the home indicator, or Android's navigation bar — which
+        // can report no inset inside a Modal, so it gets a floor of its own.
+        { backgroundColor: PANE_BG, paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 12) + 8 },
+      ]}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close menu">
-        {/* Swallows taps on the sheet itself so they don't reach the backdrop. */}
-        <Pressable
+      <View style={styles.grabber} />
+
+      {(title || message) && (
+        <View style={styles.head}>
+          {title ? <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{title}</Text> : null}
+          {message ? <Text style={[styles.message, { color: colors.grey }]}>{message}</Text> : null}
+        </View>
+      )}
+
+      {options.map((option, i) => (
+        <TouchableOpacity
+          key={option.label}
           style={[
-            styles.sheet,
-            { backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 12) + 8 },
+            styles.option,
+            { borderTopColor: colors.border },
+            i === 0 && !title && !message && styles.optionFirst,
           ]}
-          onPress={() => {}}
+          onPress={() => choose(option)}
+          activeOpacity={0.75}
+          accessibilityRole="button"
         >
-          <View style={styles.grabber} />
-
-          {(title || message) && (
-            <View style={styles.head}>
-              {title ? <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{title}</Text> : null}
-              {message ? <Text style={[styles.message, { color: colors.grey }]}>{message}</Text> : null}
-            </View>
+          {option.Icon && (
+            // White, beside white words; only a destructive option keeps its red.
+            <option.Icon size={17} color={option.destructive ? colors.red : COLOR_WHITE} />
           )}
+          <Text style={[styles.optionText, { color: option.destructive ? colors.red : colors.fg }]}>
+            {option.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
 
-          {options.map((option, i) => (
-            <TouchableOpacity
-              key={option.label}
-              style={[
-                styles.option,
-                { borderTopColor: colors.border },
-                i === 0 && !title && !message && styles.optionFirst,
-              ]}
-              onPress={() => choose(option)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-            >
-              {option.Icon && (
-                <option.Icon size={17} color={option.destructive ? colors.red : colors.primaryAlt} />
-              )}
-              <Text style={[styles.optionText, { color: option.destructive ? colors.red : colors.fg }]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity
-            style={[styles.cancel, { backgroundColor: colors.inputBg }]}
-            onPress={onClose}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      {showCancel && (
+        <TouchableOpacity
+          style={[styles.cancel, { backgroundColor: colors.inputBg }]}
+          onPress={onClose}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
+        </TouchableOpacity>
+      )}
+    </SlideSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
   sheet: {
-    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS,
     paddingHorizontal: 12, paddingTop: 8,
   },
   grabber: {

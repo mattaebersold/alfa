@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
 import { format } from 'date-fns';

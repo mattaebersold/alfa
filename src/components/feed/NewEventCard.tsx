@@ -28,9 +28,9 @@ export default function NewEventCard({ event }: { event: SocietyEvent }) {
         activeOpacity={0.7}
         disabled={!owner}
       >
-        <Avatar user={owner} size={30} />
+        <Avatar user={owner} size={30} edge={false} />
         <Text style={[styles.line, { color: colors.fg }]} numberOfLines={2}>
-          <Text style={styles.name}>@{owner?.username ?? 'Someone'}</Text>
+          <Text style={styles.name}>{owner?.username ?? 'Someone'}</Text>
           <Text style={{ color: colors.muted }}> added a new event</Text>
         </Text>
       </TouchableOpacity>

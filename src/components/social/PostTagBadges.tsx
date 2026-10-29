@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Calendar, MapPin, User as UserIcon, Car as CarIcon } from 'lucide-react-native';
 import {
   useGetPostTagsQuery, useGetUserByIdQuery, useGetCarQuery, useGetEventQuery,
 } from '../../api/apiService';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import BottomSheet from '../ui/SharedModal';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
@@ -75,7 +75,7 @@ function CarTagRow({ id, go, stacked, marked }: { id: string; go: Go; stacked?: 
     >
       {marked ? <CarIcon size={15} color={colors.grey} /> : null}
       {img
-        ? <Image source={{ uri: img }} style={styles.badgeThumb} contentFit="cover" />
+        ? <Image small source={{ uri: img }} style={styles.badgeThumb} contentFit="cover" />
         : <View style={[styles.badgeThumb, { backgroundColor: colors.segment }]} />}
       <Text style={[styles.badgeName, { color: colors.fg }]} numberOfLines={1}>{name}</Text>
     </TouchableOpacity>
@@ -94,8 +94,7 @@ function UserTagRow({ id, go, stacked, marked }: { id: string; go: Go; stacked?:
       activeOpacity={0.75}
     >
       {marked ? <UserIcon size={15} color={colors.grey} /> : null}
-      <Avatar user={user} size={28} />
-      <Text style={[styles.badgeName, { color: colors.fg }]} numberOfLines={1}>@{user.username}</Text>
+      <UserByline user={user} size={28} gap={8} fill nameStyle={styles.byName} style={styles.by} />
     </TouchableOpacity>
   );
 }
@@ -112,7 +111,7 @@ function EventTagRow({ id, onOpen, stacked }: { id: string; onOpen: (e: Event) =
       activeOpacity={0.75}
     >
       {img
-        ? <Image source={{ uri: img }} style={styles.badgeThumb} contentFit="cover" />
+        ? <Image small source={{ uri: img }} style={styles.badgeThumb} contentFit="cover" />
         : <View style={[styles.badgeThumb, styles.badgeThumbFallback, { backgroundColor: colors.segment }]}>
             <Calendar size={14} color={colors.grey} />
           </View>}
@@ -343,6 +342,10 @@ const styles = StyleSheet.create({
   badgeThumb:   { width: 28, height: 28, borderRadius: PILL_RADIUS },
   badgeThumbFallback: { alignItems: 'center', justifyContent: 'center' },
   badgeName:    { flex: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
+  // The badge already carries the tap and, when marked, the leading icon —
+  // the byline is just the photo and name filling the rest of it.
+  by:           { flex: 1 },
+  byName:       { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   eventHero:    { width: '100%', height: 160, borderRadius: 12, marginBottom: 14 },
   eventRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },

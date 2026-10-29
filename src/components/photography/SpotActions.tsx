@@ -3,9 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useGetPhotoSpotQuery, orsApi } from '@ors/kit';
 import { useAppDispatch } from '../../store/store';
 import PostActionRail from '../social/PostActionRail';
-import LikersSheet from '../social/LikersSheet';
 import { usePostLike } from '../../hooks/usePostLike';
-import type { SummaryOrigin } from '../ui/SummaryModal';
 import type { Post } from '../../types/api';
 
 /**
@@ -45,8 +43,6 @@ export default function SpotActions({ spotId }: { spotId: string }) {
       dispatch(orsApi.util.invalidateTags([{ type: 'PhotoSpot', id: spotId }]));
     },
   });
-  /** Non-null while the likers panel is open — and the rect it grows from. */
-  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
   if (!spot) return null;
 
@@ -58,15 +54,8 @@ export default function SpotActions({ spotId }: { spotId: string }) {
         entryType={ENTRY_TYPE}
         like={like}
         likers={s.likers ?? []}
-        onOpenLikers={(origin) => setLikersOrigin(origin)}
         vertical={false}
         bookmark={false}
-      />
-      <LikersSheet
-        entryId={spotId}
-        visible={likersOrigin !== undefined}
-        origin={likersOrigin}
-        onClose={() => setLikersOrigin(undefined)}
       />
     </View>
   );

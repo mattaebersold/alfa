@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetPodcastQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
@@ -126,7 +126,7 @@ export default function PodcastDetailScreen({ route }: Props) {
   );
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         refreshControl={refreshControl}
         data={episodes}

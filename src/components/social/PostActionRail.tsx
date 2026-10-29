@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { Tag } from 'lucide-react-native';
 import CommentButton from './CommentButton';
 import PostBookmarkButton from './PostBookmarkButton';
-import PostCommentsModal from './PostCommentsModal';
+import PostReactionsSummaryModal, { type PostReactionsTab } from './PostReactionsSummaryModal';
 import LikerFaces from './LikerFaces';
 import AnimatedHeart from './AnimatedHeart';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
@@ -25,15 +25,17 @@ import type { Post } from '../../types/api';
  *
  * Each does its own thing:
  *  - like: fills red on the tap and likes it. The state is the card's
- *    (usePostLike), shared with the likes row's heart. Not on your own post —
- *    there the heart opens who liked it instead;
- *  - comment: opens the thread in a panel, with a box to write in;
+ *    (usePostLike). Once liked — or on your own post — the heart opens the
+ *    likes instead, where an unlike is a button that asks first;
+ *  - comment: opens the thread, with a box to write in.
+ *  Likes and comments are one panel, a tab each (PostReactionsSummaryModal),
+ *  opened on whichever was tapped;
  *  - tagged (only when someone is): a tag, with the tagged members' faces
  *    beside it as the likes have theirs; either opens who's tagged;
  *  - bookmark: saves it to the header's Bookmarks (PostBookmarkButton).
  */
 export default function PostActionRail({
-  post, entryType, like, likers, onOpenLikers, tagged = [], onOpenTagged, vertical = true, bookmark = true,
+  post, entryType, like, likers, tagged = [], onOpenTagged, vertical = true, bookmark = true,
 }: {
   post: Post;
   entryType: string;
@@ -41,8 +43,6 @@ export default function PostActionRail({
   like: PostLike;
   /** Who liked it, most recent first — the faces beside the heart. */
   likers: string[];
-  /** Open the likers panel from this rect — the faces, or your own post's heart. */
-  onOpenLikers: (origin: SummaryOrigin | null) => void;
   /** Members tagged in the post — user_ids. Under the comments, over the like. */
   tagged?: string[];
   /** Open the list of who's tagged, from this rect. */
@@ -55,7 +55,9 @@ export default function PostActionRail({
   const heartRef = useRef<View>(null);
   const tagRef = useRef<View>(null);
   const iconSize = vertical ? RAIL_ICON : 20;
-  const [commentsOrigin, setCommentsOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
+  /** The likes / comments panel, on the tab that was tapped. */
+  const [reactions, setReactions] = useState<{ tab: PostReactionsTab; origin: SummaryOrigin | null } | null>(null);
+  const openOn = (tab: PostReactionsTab) => (origin: SummaryOrigin | null) => setReactions({ tab, origin });
 
   return (
     <>
@@ -72,7 +74,7 @@ export default function PostActionRail({
           <CommentButton
             count={post.comment_count ?? post.commentCount ?? 0}
             documentId={post.internal_id}
-            onPress={() => measureOrigin(commentRef.current, setCommentsOrigin)}
+            onPress={() => measureOrigin(commentRef.current, openOn('comments'))}
             color={COLOR_WHITE}
             vertical={vertical}
           />
@@ -102,7 +104,7 @@ export default function PostActionRail({
           {/* Read leftward from the heart: how many, then who — the last
               three faces, and a "+x" circle for the rest. */}
           <View style={[styles.likeInfo, vertical ? styles.facesOut : styles.facesIn]} pointerEvents="box-none">
-            <LikerFaces likers={likers} total={like.count} onOpen={onOpenLikers} />
+            <LikerFaces likers={likers} total={like.count} onOpen={openOn('likes')} />
             {/* On the photo, the number too. In a footer row the faces carry
                 it alone — a face beside a "2" read as one thing, not as who
                 and how many. */}
@@ -113,11 +115,13 @@ export default function PostActionRail({
           </View>
           <TouchableOpacity
             ref={heartRef}
-            onPress={() => (like.mine ? measureOrigin(heartRef.current, onOpenLikers) : like.toggle())}
+            // Not yet liked: likes, on the spot. Liked (or yours): the likes
+            // tab, which is where an unlike lives.
+            onPress={() => (like.mine || like.liked ? measureOrigin(heartRef.current, openOn('likes')) : like.toggle())}
             style={vertical ? styles.itemV : styles.itemH}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={like.mine ? 'See who liked this' : like.liked ? 'Unlike' : 'Like'}
+            accessibilityLabel={like.mine || like.liked ? 'See who liked this' : 'Like'}
           >
             <AnimatedHeart
               liked={like.liked}
@@ -130,11 +134,13 @@ export default function PostActionRail({
         </View>
       </View>
 
-      <PostCommentsModal
+      <PostReactionsSummaryModal
         postId={post.internal_id}
         entryType={entryType}
-        origin={commentsOrigin}
-        onClose={() => setCommentsOrigin(undefined)}
+        like={like}
+        tab={reactions?.tab ?? null}
+        origin={reactions?.origin}
+        onClose={() => setReactions(null)}
       />
     </>
   );

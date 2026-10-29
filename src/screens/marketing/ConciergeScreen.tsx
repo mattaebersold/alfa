@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { ArrowUpRight, MessageCircle, Images } from 'lucide-react-native';
 import { PageDots } from '../../components/media/PostMediaCarousel';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -230,7 +230,7 @@ export default function ConciergeScreen() {
   });
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <ScrollView
         ref={scrollRef}

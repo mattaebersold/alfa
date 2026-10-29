@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, Dimensions, TouchableOpacity,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images } from 'lucide-react-native';
 import SummaryModal, { SUMMARY_WIDTH_RATIO, type SummaryOrigin } from '../ui/SummaryModal';

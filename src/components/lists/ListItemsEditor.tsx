@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Check, ChevronDown, ChevronUp, Link2, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { listLinkLabel } from '../../utils/listLinks';

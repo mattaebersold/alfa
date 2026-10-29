@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';

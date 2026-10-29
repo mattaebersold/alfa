@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ImagePlus } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import ImageLightbox from '../ui/ImageLightbox';

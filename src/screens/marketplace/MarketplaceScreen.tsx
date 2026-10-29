@@ -9,7 +9,7 @@ import { useHeaderScroll, headerBottom } from '../../hooks/useHeaderScroll';
 import { ss } from '../../styles/shared';
 import type { Listing } from '../../types/api';
 
-/** The marketplace's ground — see the screen's note. */
+/** The ground MarketplaceBrowse draws its own surfaces against. */
 const MARKET_GROUND = COLOR_GRAY_26;
 
 /**
@@ -33,11 +33,9 @@ export default function MarketplaceScreen() {
   const stickyTop = useMemo(() => headerBottom(headerPad, insets.top), [headerPad, insets.top]);
 
   return (
-    // A step lighter than the app's black, so the sub tabs' dark tracks have
-    // an edge against it — the listing cards are lighter still.
-    <SafeAreaView style={[ss.fill, { backgroundColor: MARKET_GROUND }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
-      <View style={[ss.fill, { backgroundColor: MARKET_GROUND }]}>
+      <View style={ss.fill}>
         <MarketplaceBrowse
           ground={MARKET_GROUND}
           heading="Marketplace"

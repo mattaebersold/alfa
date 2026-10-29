@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
@@ -77,7 +77,7 @@ export default function RegionTile({
     // a plain rectangle — clipping is the wrapper's job, and an Image carrying
     // its own radius fights the parent's on Android.
     <View style={styles.row}>
-    <View style={[styles.wrap, region ? styles.wrapBeside : styles.wrapFull]}>
+    <View style={[styles.wrap, region ? styles.wrapBeside : styles.wrapFull, { borderColor: colors.border }]}>
       <TouchableOpacity
         style={styles.tile}
         onPress={onPress}
@@ -109,14 +109,12 @@ export default function RegionTile({
       </TouchableOpacity>
     </View>
       {region ? (
-        <View style={[styles.wrap, styles.usTile]}>
+        <View style={[styles.wrap, styles.usTile, { borderColor: colors.border }]}>
           <RegionBadge
             region={region}
             size={US_MAP_SIZE}
             color={regionColor}
             backdrop={false}
-            // A soft coastline, as in the member rows: the lit region is the point.
-            outline="rgba(255,255,255,0.14)"
           />
         </View>
       ) : null}
@@ -141,7 +139,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: TILE_GAP,
     marginTop: 4, marginBottom: 18, marginHorizontal: PAGE_INSET,
   },
-  wrap: { borderRadius: 14, overflow: 'hidden', height: TILE_HEIGHT },
+  // Edged like the profile's Followers / Following pills.
+  wrap: { borderRadius: 14, overflow: 'hidden', height: TILE_HEIGHT, borderWidth: 1 },
   wrapFull:   { flex: 1 },
   wrapBeside: { flex: 3 },
   usTile: {

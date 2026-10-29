@@ -6,7 +6,6 @@ import type { RouteProp } from '@react-navigation/native';
 import { Pencil } from 'lucide-react-native';
 import { useGetListQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { useColors } from '../../hooks/useColors';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ListSummaryContent from '../../components/lists/ListSummaryContent';
@@ -38,7 +37,6 @@ export default function ListDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteType>();
   const { listId } = route.params;
-  const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
 
   const { data: list, isLoading, error, refetch } = useGetListQuery(listId);
@@ -77,7 +75,7 @@ export default function ListDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <ScrollView refreshControl={refreshControl} contentContainerStyle={styles.scroll}>
         <ListSummaryContent
           list={list}

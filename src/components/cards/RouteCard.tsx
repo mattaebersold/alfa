@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
 import { Lock, PenLine, Route as RouteIcon } from 'lucide-react-native';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import { useSummary } from '../../providers/SummaryProvider';
 import { userPreview } from '../members/UserSummaryModal';
 import RouteTrace from '../routes/RouteTrace';
@@ -13,8 +13,6 @@ import PostActionRail from '../social/PostActionRail';
 import PostOptionsButton from '../social/PostOptionsButton';
 import RouteOwnerMenu from '../routes/RouteOwnerMenu';
 import { useAppSelector } from '../../store/store';
-import LikersSheet from '../social/LikersSheet';
-import { type SummaryOrigin } from '../ui/SummaryModal';
 import { usePostLike } from '../../hooks/usePostLike';
 import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
@@ -80,8 +78,6 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
     initialCount: likeData?.total ?? route.like_count ?? 0,
     onToggle: () => setLikeTouched(true),
   });
-  /** Non-null while the likers panel is open — and the rect it grows from. */
-  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
   const timeAgo = route.created_at
     ? formatDistanceToNow(new Date(route.created_at), { addSuffix: true })
@@ -114,20 +110,16 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
         {/* The byline opens a summary rather than the card's own destination —
             same as every other feed card. Its own touchable, so tapping the
             person doesn't also open the route. */}
-        <TouchableOpacity
-          style={styles.headerWho}
-          onPress={() => user?.user_id && openUser(user.user_id, null, userPreview(user))}
-          disabled={!user?.user_id}
-          activeOpacity={0.7}
-        >
-        <Avatar
+        <UserByline
           user={user}
           size={34}
+          fallback="Unknown"
+          gap={10}
+          fill
+          style={styles.headerWho}
+          onPress={(o) => user?.user_id && openUser(user.user_id, o, userPreview(user))}
+          disabled={!user?.user_id}
         />
-        <View style={styles.headerText}>
-          <Text style={[styles.author, { color: colors.fg }]}>@{user?.username ?? 'Unknown'}</Text>
-        </View>
-        </TouchableOpacity>
         {/* Takes the byline's right-hand slot in place of the timestamp: in
             that much space a card can say when the drive was or who can see
             it, and "who can see it" is the one that matters. */}
@@ -172,7 +164,14 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
               <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
               <View style={[StyleSheet.absoluteFill, styles.traceScrim]} />
             </>
-          ) : null}
+          ) : (
+            // No photo: a stand-in map, dimmed under a black layer so it reads
+            // as a backdrop for the line rather than as the route itself.
+            <>
+              <Image source={require('../../../assets/route-map-placeholder.png')} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <View style={[StyleSheet.absoluteFill, styles.placeholderDim]} />
+            </>
+          )}
           <RouteTrace
             polyline={route.polyline}
             speeds={route.speed_profile}
@@ -220,7 +219,6 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
             entryType="route"
             like={like}
             likers={likeData?.users ?? []}
-            onOpenLikers={(origin) => setLikersOrigin(origin)}
             vertical={false}
             bookmark={false}
           />
@@ -230,12 +228,6 @@ export default function RouteCard({ route, compact = false, style, onPress }: {
 
       {upsell}
 
-      <LikersSheet
-        entryId={route.internal_id}
-        visible={likersOrigin !== undefined}
-        origin={likersOrigin}
-        onClose={() => setLikersOrigin(undefined)}
-      />
 
     </>
   );
@@ -256,9 +248,7 @@ const styles = StyleSheet.create({
   card: { marginVertical: 6, paddingBottom: 4, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
 
   header:     { flexDirection: 'row', alignItems: 'center', padding: 12, paddingBottom: 8, gap: 10 },
-  headerWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerText: { flex: 1 },
-  author:     { fontSize: 14, fontFamily: FONT_INTER.bold },
+  headerWho:  { flex: 1 },
   kicker:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
   kickerText: { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.2 },
   time:       { fontSize: 11, fontStyle: 'italic' },
@@ -282,6 +272,7 @@ const styles = StyleSheet.create({
   // shelf card, which is narrower than the feed.
   traceWellCompact: { width: 96, height: 96, borderRadius: 10 },
   // Between the photo and the line.
+  placeholderDim: { backgroundColor: 'rgba(0,0,0,0.55)' },
   traceScrim: { backgroundColor: 'rgba(0,0,0,0.5)' },
   trace:        { width: 104, height: 104 },
   traceCompact: { width: 90, height: 90 },

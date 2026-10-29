@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity,
+  View, StyleSheet, FlatList,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search } from 'lucide-react-native';
 import { useGetGroupMembersQuery } from '../../api/apiService';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -16,9 +16,10 @@ import type { GroupMember } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
-import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
+import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 
 function MemberRow({ member, onPress }: {
   member: GroupMember;
@@ -27,30 +28,29 @@ function MemberRow({ member, onPress }: {
   const colors = useColors();
   const isAdmin = member.member_type === 'admin';
   return (
-    <SummaryTouchable
+    <UserByline
+      user={member.user}
+      size={42}
+      gap={12}
+      fallback=""
+      fill
+      nameStyle={styles.name}
       style={[ss.listRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
-      <Avatar
-        user={member.user}
-        size={42}
-      />
-      <View style={styles.info}>
-        <Text style={[styles.name, { color: colors.fg }]}>@{member.user?.username}</Text>
-      </View>
       {isAdmin && (
         <View style={styles.adminBadge}>
           <Text style={styles.adminText}>Admin</Text>
         </View>
       )}
-    </SummaryTouchable>
+    </UserByline>
   );
 }
 
 export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMembers'>) {
   const { groupId } = route.params;
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const [query, setQuery] = useState('');
   // Tapping a member summarises them here rather than pushing their profile —
   // see UserSummaryModal. The full page is one button away inside it.
@@ -66,7 +66,7 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         refreshControl={refreshControl}
         data={active}
@@ -79,7 +79,7 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
         )}
         ListHeaderComponent={
           <View>
-            <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.searchBar, inputSurface]}>
               <Search size={15} color={colors.grey} />
               <TextInput
                 style={[styles.searchInput, { color: colors.fg }]}
@@ -114,12 +114,10 @@ const styles = StyleSheet.create({
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     margin: 12, paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 14 },
+  searchInput: { ...INPUT_TEXT_STYLE, flex: 1 },
   listHeader:  { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   listHeaderText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  info:        { flex: 1 },
   name:        { fontSize: 15, fontFamily: FONT_INTER.semibold },
   username:    { fontSize: 13, marginTop: 1 },
   adminBadge:  { backgroundColor: colors.primaryAlt, borderRadius: PILL_RADIUS, paddingHorizontal: 8, paddingVertical: 3 },

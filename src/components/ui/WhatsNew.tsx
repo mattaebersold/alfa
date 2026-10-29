@@ -9,7 +9,6 @@ import { latestChangelog, changelogBefore, EARLIEST_SHOWN, type ChangelogEntry }
 import {
   COMMON_RADIUS,
   PILL_RADIUS,
-  COLOR_BLACK,
   COLOR_GRAY_10,
   COLOR_GRAY_42,
   COLOR_GRAY_60,
@@ -26,12 +25,11 @@ const BTN_BG = COLOR_WHITE;
 const BTN_FG = COLOR_GRAY_10;
 const BTN_FG_MID = 'rgba(0,0,0,0.55)';
 
-/** Sheet colours, matched to SharedModal's near-black ground. */
+/** Sheet colours, on SharedModal's pane ground. */
 const TEXT_HI = COLOR_WHITE;
 const TEXT_MID = 'rgba(255,255,255,0.72)';
 const TEXT_FAINT = 'rgba(255,255,255,0.45)';
-/** The sheet is true black, so its rules are solid greys rather than white at low alpha. */
-const SHEET_BG = COLOR_BLACK;
+/** Rules in solid greys rather than white at low alpha. */
 const DIVIDER = COLOR_GRAY_42;
 const DIVIDER_STRONG = COLOR_GRAY_60;
 
@@ -144,7 +142,6 @@ function WhatsNewSheet({ visible, onClose, version, entry }: {
       visible={visible}
       onClose={onClose}
       showClose
-      surface={SHEET_BG}
       // The sheet's own header holds only the close button: the title scrolls
       // with the notes below, so it's read once and then gets out of the way.
       titleContent={<View style={styles.headerSpacer} />}

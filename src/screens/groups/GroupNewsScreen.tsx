@@ -5,9 +5,9 @@ import {
 import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { useGetGroupNewsQuery } from '../../api/apiService';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
@@ -34,15 +34,7 @@ function NewsCard({ post }: { post: GroupNewsPost }) {
         {post.body && (
           <Text style={[styles.cardText, { color: colors.muted }]} numberOfLines={3}>{stripHtml(post.body)}</Text>
         )}
-        <View style={styles.cardMeta}>
-          <Avatar
-            user={post.user}
-            size={20}
-          />
-          <Text style={[styles.metaText, { color: colors.grey }]}>
-            @{post.user?.username} · {timeAgo}
-          </Text>
-        </View>
+        <UserByline user={post.user} size={20} gap={6} meta={timeAgo} color={colors.grey} nameStyle={styles.metaText} />
       </View>
     </View>
   );
@@ -50,14 +42,13 @@ function NewsCard({ post }: { post: GroupNewsPost }) {
 
 export default function GroupNewsScreen({ route }: GroupsScreenProps<'GroupNews'>) {
   const { groupId } = route.params;
-  const colors = useColors();
   const { data, isLoading, refetch } = useGetGroupNewsQuery({ groupId });
   const posts = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}
@@ -83,6 +74,5 @@ const styles = StyleSheet.create({
   cardBody:  { padding: 12 },
   cardTitle: { fontSize: 16, fontFamily: FONT_INTER.bold, marginBottom: 6, lineHeight: 22 },
   cardText:  { fontSize: 14, lineHeight: 20, marginBottom: 10 },
-  cardMeta:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText:  { fontSize: 12 },
+  metaText:  { fontSize: 12, fontFamily: FONT_INTER.regular },
 });

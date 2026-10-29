@@ -25,6 +25,78 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.82': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Cars & garage',
+        items: [
+          'Added journal entries to cars: notes, history and memories from the owner, with a title, words and photos.',
+        ],
+      },
+      {
+        title: 'Fixes',
+        items: [
+          'Performance improvements to reduce the chances of the app crashing.',
+          'Fixed an issue where the calendar wrapped poorly when the OS text size was increased.',
+        ],
+      },
+    ],
+  },
+  '1.81': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Look & feel',
+        items: [
+          'Updated the UI of the header for better readability.',
+          'Updates to the styles of the cards, tabs and more, to make things cleaner and more consistent.',
+          'Updated the style and functionality of tabs.',
+        ],
+      },
+      {
+        title: 'Cars & garage',
+        items: [
+          'Updated the garage modal that opens from the header.',
+          'Updated the layout and functionality of the garage car cards.',
+          'Bookmark cars, for quick access to your favorite members\' cars.',
+          'UI and layout updates to the car detail screen.',
+          'Cars in a member\'s garage show a preview first, before taking you to the car.',
+          'Tapping a car\'s owner shows a preview of them first.',
+          'Cleaned up the Add Mod screen.',
+        ],
+      },
+      {
+        title: 'Tasks',
+        items: [
+          'UI, layout and visual updates to the car tasks screen.',
+          'An easy way to manage your car tasks from the main menu.',
+        ],
+      },
+      {
+        title: 'Posting & the feed',
+        items: [
+          'Posts now have one text box to describe them, in place of a separate title and description.',
+          '@ a member in your post\'s text to tag them.',
+          'Mod and garage cards on the home feed show more stats.',
+        ],
+      },
+      {
+        title: 'Profiles & groups',
+        items: [
+          'Visual and content updates to the profile screen.',
+          'Updated the look of the group pages.',
+        ],
+      },
+      {
+        title: 'Fixes',
+        items: [
+          'Working on fixes for a few crashes: voting on a poll, adding a price to a listing, and tapping a member in a group\'s members list.',
+          'Many other small UI fixes and updates.',
+        ],
+      },
+    ],
+  },
   '1.75': {
     date: 'October 2026',
     groups: [

@@ -12,6 +12,7 @@ import {
   type VerifyRejection,
 } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
+import FormInput from '../../components/ui/FormInput';
 import { colors } from '../../constants/colors';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -275,12 +276,10 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
             {password && (
               changing ? (
                 <View style={styles.changeBox}>
-                  <TextInput
-                    style={styles.changeInput}
+                  <FormInput
                     value={newEmail}
                     onChangeText={setNewEmail}
                     placeholder="New email address"
-                    placeholderTextColor="rgba(255,255,255,0.5)"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -391,14 +390,4 @@ const styles = StyleSheet.create({
   helpLink: { color: '#FFFFFF', textDecorationLine: 'underline' },
   linkText: { fontSize: 13, color: colors.cream, fontFamily: FONT_INTER.medium, textDecorationLine: 'underline' },
   changeBox: { marginTop: 16, gap: 10 },
-  changeInput: {
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    color: COLOR_WHITE,
-    fontSize: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
 });

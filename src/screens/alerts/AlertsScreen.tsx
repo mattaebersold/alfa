@@ -125,7 +125,7 @@ export default function AlertsScreen({ navigation }: AppScreenProps<'Alerts'>) {
 
   return (
     // Bottom only — the stack header already clears the status bar.
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {isLoading ? (
         <Spinner fullScreen />
       ) : (

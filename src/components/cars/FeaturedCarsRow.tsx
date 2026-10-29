@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import CarPosterCard from '../cards/CarPosterCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import { shuffle } from '../../utils/array';
+import { useShuffled } from '../../hooks/useShuffled';
 import { GUTTER } from '../../constants/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -26,18 +26,20 @@ interface Props {
  * than as the best examples of the same one. It's the shared poster now, at the
  * full plate size and with the type-coloured glow underneath.
  *
+ * Laid out as the garage's cards are (`plain`): the same plate, the same
+ * counts down the bottom right, with the Featured pill and the owner up top.
+ *
  * The row sizes its own cards, so the poster takes a width and drops its
  * margins rather than using `compact` — that variant scales the name down for
  * half-width grids, and these are the widest cards on the screen.
  */
 function FeaturedCarsRow({ onCarPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
-  // Shuffled per mount: the featured list is longer than the row shows at a
-  // glance, so a fixed order means the same two or three cars are the only ones
-  // anyone ever sees. Memoised on the data — an unmemoised shuffle reorders on
-  // every re-render, which turns a scroll into a slot machine.
-  const featured = data?.featured_cars;
-  const cars = useMemo(() => shuffle(featured ?? []), [featured]);
+  // A fresh order on every visit: the featured list is longer than the row
+  // shows at a glance, so a fixed order means the same two or three cars are
+  // the only ones anyone ever sees. Held still while you're on the screen —
+  // see useShuffled.
+  const cars = useShuffled(data?.featured_cars);
 
   if (!cars.length) return null;
 
@@ -58,6 +60,9 @@ function FeaturedCarsRow({ onCarPress }: Props) {
             // you meet it without having come from their profile.
             showOwner
             featured
+            // Dressed as a garage card: its plate — name, then year/make/model —
+            // and what's been logged against it down the bottom right.
+            plain
             // Squares, so the row lines up; and a preview first, like the
             // members row — the summary has its own View Car.
             square

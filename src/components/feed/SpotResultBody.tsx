@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { View, TouchableOpacity, StyleSheet, Platform, type LayoutChangeEvent } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ChevronRight, Plus, Minus, Lightbulb } from 'lucide-react-native';
 import Svg, { G, Path } from 'react-native-svg';
 import { useColors } from '../../hooks/useColors';
@@ -195,6 +195,7 @@ function ZoomedPuzzleImage({ carspot }: { carspot: PuzzleCrop }) {
           // size of its view, and the zoom is a transform on top of that — it
           // would be magnifying a thumbnail, not the photo.
           allowDownscaling={false}
+          enforceEarlyResizing={false}
           // Softened: the card says a game was played, not what the car was —
           // the crop already hides most of it, and the blur takes the rest, so
           // a feed full of results spoils nothing for anyone yet to play.

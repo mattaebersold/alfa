@@ -28,7 +28,7 @@ import { useColors } from '../../hooks/useColors';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Listing } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_BLACK, COLOR_GRAY_14, COLOR_GRAY_30, COLOR_WHITE, SEARCH_EDGE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_GRAY_14, COLOR_GRAY_30, COLOR_WHITE, SEARCH_EDGE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -451,8 +451,6 @@ export default function ManageListingsEntry({
         // Its scroller pads its own foot clear of the home indicator.
         edgeToEdge
         heightRatio={0.85}
-        // Black, so the rows on it read as cards.
-        surface={COLOR_BLACK}
       >
         <ManageListingsPane navigate={navigate} />
       </SharedModal>

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, ScrollView, BackHandler, Animated } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { BrandsView } from './BrandsScreen';
 import { BrandDetailView, type ModelPageParams } from './BrandDetailScreen';
@@ -15,21 +15,21 @@ type Crumb =
   | { kind: 'brands' }
   | { kind: 'brand'; brand: string }
   | { kind: 'model'; params: ModelPageParams };
-import { Search, Car, ChevronRight, Plus, ChevronLeft } from 'lucide-react-native';
+import { Car, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import AppHeader, { useHeaderPad, TABS_STUCK_RISE } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useSummary } from '../../providers/SummaryProvider';
 import { carPreview } from '../../components/cars/CarSummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
+import SearchPill from '../../components/ui/SearchPill';
 import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
 import { useHeaderScroll, headerOffset } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
-import { useGetCarsQuery, useGetUserGarageQuery } from '../../api/apiService';
-import { ProUpsellModal } from '../../components/pro/ProUpsell';
+import { useGetCarsQuery } from '../../api/apiService';
+import { useScrollWindow, WindowGate } from '../../components/ui/ScrollWindow';
 import CarGridItem from '../../components/cars/CarGridItem';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -37,18 +37,17 @@ import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, GUTTER, PILL_RADIUS, garageFull, showProGarageFull, GARAGE_UPSELL, SEARCH_EDGE } from '../../constants/config';
+import { useBrandColor } from '../../hooks/useBrandColor';
+import { COMMON_RADIUS, COLOR_BLACK, GUTTER, PILL_RADIUS, MAIN_SCREEN_TOP_GAP } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid } from '../../components/ui/Skeleton';
 
 
 export default function CarsScreen(_: CarsScreenProps<'Cars'>) {
-  const colors = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <CarsView headerPad={headerPad} onScroll={onScroll} />
     </SafeAreaView>
@@ -70,6 +69,13 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const ownRef = useRef<FlatList<any>>(null);
   const scrollRef = givenRef ?? ownRef;
   useScrollTopOnBack(scrollRef);
+  // The mosaic is one row, so the list can't drop the cars far off screen;
+  // each card does that itself against this (see WindowGate).
+  const { scrollWindow, onScroll: onWindowScroll } = useScrollWindow();
+  const onListScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    onScroll?.(e);
+    onWindowScroll(e);
+  }, [onScroll, onWindowScroll]);
   const navigation = useNavigation<any>();
   /**
    * Browsing happens here, in place of the cars — the brands, a make, a
@@ -96,14 +102,6 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const [search, setSearch] = useState('');
   const { openCar } = useSummary();
 
-  // Add a car — or, at a basic account's limit, the upsell, as the garage's
-  // own add button does rather than opening a form the server will refuse.
-  const isPro = useIsPro();
-  const { data: garage } = useGetUserGarageQuery();
-  const [upsell, setUpsell] = useState(false);
-  const atLimit = garageFull(isPro, garage?.entries?.length ?? 0);
-  const addCar = () =>
-    atLimit ? (isPro ? showProGarageFull() : setUpsell(true)) : (navigation as any).navigate('CarCreate', {});
 
   // A car is where its owner is, so this filters on the member behind it —
   // near me by default, measured from the zip on your profile.
@@ -213,7 +211,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
       <Animated.View
         style={[
           styles.content,
-          { backgroundColor: colors.cream, paddingTop: headerPad, marginBottom: -TABS_STUCK_RISE },
+          { paddingTop: headerPad, marginBottom: -TABS_STUCK_RISE },
           { transform: [{ translateY: headerOffset.interpolate({ inputRange: [-TABS_STUCK_RISE, 0], outputRange: [-TABS_STUCK_RISE, 0], extrapolate: 'clamp' }) }] },
         ]}
       >
@@ -252,7 +250,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
 
   return (
     <>
-      <View style={[styles.content, { backgroundColor: colors.cream }]}>
+      <View style={styles.content}>
       <FlatList
         ref={scrollRef}
         // One item, the whole mosaic: its cards take their photos' shapes
@@ -262,30 +260,17 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
         // is only known once its photo loads.
         data={filteredCars.length ? ['mosaic'] : []}
         keyExtractor={(item) => item}
-        contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }]}
-        onScroll={onScroll}
+        // A little clear of the header, with no title to hold it off.
+        contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP, paddingBottom: tabBarHeight + 32 }]}
+        onScroll={onListScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            {/* Heading rides in the list so it scrolls away with the content. */}
-            <View style={styles.heading}>
-              <ScreenHeading
-                title="Cars"
-                right={
-                  <TouchableOpacity
-                    style={[styles.addBtn, { borderColor: colors.border }]}
-                    onPress={addCar}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Add a car"
-                  >
-                    <Plus size={15} color={colors.fg} strokeWidth={2.4} />
-                    <Text style={[styles.addBtnText, { color: colors.fg }]}>Add car</Text>
-                  </TouchableOpacity>
-                }
-              />
-            </View>
+            {/* No title or Add car: the tab says where you are, and a car is
+                added from your garage. The featured cars lead; browsing by
+                make is under them. */}
+            <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
             <View style={styles.brandsRow}>
               {/* The way into the site by make — a real button now, not a
                   strip: the car, the words, how many makes there are to browse. */}
@@ -301,28 +286,11 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
                 <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.4} style={styles.brandsChevron} />
               </TouchableOpacity>
             </View>
-            <FeaturedCarsRow onCarPress={(id) => (navigation as any).navigate('CarDetail', { carId: id })} />
             <View style={styles.searchRow}>
               {/* Search on the left, the filter on the right — the pattern
                   events, the marketplace and groups share. */}
               <View style={styles.toolsRow}>
-              <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: SEARCH_EDGE }]}>
-                <Search size={15} color={colors.grey} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.fg }]}
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Search cars..."
-                  placeholderTextColor={colors.grey}
-                  autoCapitalize="none"
-                  returnKeyType="search"
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-                    <Text style={{ color: colors.grey, fontSize: 14 }}>✕</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <SearchPill value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search cars..." />
               <FilterSummaryRow<string>
                 value={location.choice}
                 onApply={applyLocation}
@@ -347,15 +315,16 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
             {[0, 1].map((col) => (
               <View key={col} style={styles.column}>
                 {filteredCars.filter((_, i) => i % 2 === col).map((item) => (
-                  <CarGridItem
-                    key={item.internal_id}
-                    item={item}
-                    overlay
-                    // A summary first, as the home feed's suggestions do: a
-                    // grid of cars is a list of things to decide about, and
-                    // the full page is one button inside the panel.
-                    onPress={(origin) => openCar(item.internal_id, origin, carPreview(item))}
-                  />
+                  <WindowGate key={item.internal_id} window={scrollWindow}>
+                    <CarGridItem
+                      item={item}
+                      overlay
+                      // A summary first, as the home feed's suggestions do: a
+                      // grid of cars is a list of things to decide about, and
+                      // the full page is one button inside the panel.
+                      onPress={(origin) => openCar(item.internal_id, origin, carPreview(item))}
+                    />
+                  </WindowGate>
                 ))}
               </View>
             ))}
@@ -381,13 +350,6 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
       />
       </View>
 
-
-      <ProUpsellModal
-        visible={upsell}
-        onClose={() => setUpsell(false)}
-        title={GARAGE_UPSELL.title}
-        message={GARAGE_UPSELL.message}
-      />
     </>
   );
 }
@@ -407,13 +369,6 @@ const styles = StyleSheet.create({
   // Shadowed — with no pill's dark ground, it still has to read over a photo.
   crumbHereText: { textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   content: { flex: 1 },
-  heading: { paddingHorizontal: GUTTER },
-  // Outlined, beside the title — the Videos screen's "View channel" pill.
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1,
-  },
-  addBtnText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
   // Browse by Brand, first under the heading — the same inset as the search row.
   brandsRow: { paddingHorizontal: 6, paddingBottom: 12 },
   searchRow: {
@@ -425,14 +380,6 @@ const styles = StyleSheet.create({
   },
   // The search and the filter pill, side by side.
   toolsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  // A pill, the filter's height, taking the rest of the row.
-  searchBar: {
-    flex: 1, minWidth: 0, height: 38,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999, borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 14 },
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 8, marginBottom: 10 },
   brandsBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

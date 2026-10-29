@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
+import FormInput from '../ui/FormInput';
 import { useColors } from '../../hooks/useColors';
-import { COLOR_GRAY_14, FORM_RADIUS } from '../../constants/config';
+import { FORM_CARD_BG, FORM_CARD_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** Every optional field a post can carry. */
@@ -53,10 +54,6 @@ export default function PostOptionalFields({
   const [open, setOpen] = useState(defaultOpen);
 
   const filled = Object.values(values).filter((v) => v.trim().length > 0).length;
-  const inputStyle = [
-    styles.input,
-    { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg },
-  ];
 
   // No placeholders: the label over each says what it is, and an example
   // under it read as a value already there.
@@ -69,8 +66,7 @@ export default function PostOptionalFields({
   ) => (
     <View style={[styles.field, half && styles.fieldHalf]}>
       <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
-      <TextInput
-        style={inputStyle}
+      <FormInput
         value={values[key]}
         onChangeText={(v) => onChange({ [key]: v } as Partial<OptionalFieldValues>)}
         {...extra}
@@ -79,9 +75,8 @@ export default function PostOptionalFields({
   );
 
   return (
-    // A step darker than the form, and no edge of its own: the drop in tone
-    // is what marks it off.
-    <View style={[styles.card, { backgroundColor: COLOR_GRAY_14 }]}>
+    // A step darker than the form, no edge — as the tag cards below it.
+    <View style={[styles.card, { backgroundColor: FORM_CARD_BG }]}>
       <TouchableOpacity
         style={styles.header}
         onPress={() => setOpen((v) => !v)}
@@ -113,7 +108,6 @@ export default function PostOptionalFields({
             onMakeChange={(v) => onChange({ make: v })}
             onModelChange={(v) => onChange({ model: v })}
             style={styles.field}
-            inputStyle={inputStyle}
           />
 
           {field('Trim', 'trim')}
@@ -137,7 +131,7 @@ export default function PostOptionalFields({
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 12, marginTop: 6,
-    borderRadius: FORM_RADIUS, overflow: 'hidden',
+    borderRadius: FORM_CARD_RADIUS, overflow: 'hidden',
   },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -157,5 +151,4 @@ const styles = StyleSheet.create({
   // The make and model labels' type (the kit's AutocompleteField): bold,
   // sentence case, in the foreground.
   label:     { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
-  input: { height: 44, borderWidth: 1, borderRadius: FORM_RADIUS, paddingHorizontal: 12, fontSize: 15 },
 });

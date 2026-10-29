@@ -24,10 +24,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 
-/**
- * The make page's ground — a step lighter than the app's black, so the sub
- * tabs' dark tracks have an edge against it, as on the marketplace.
- */
+/** The colour the make page's banner fades into. */
 const MAKE_GROUND = COLOR_GRAY_26;
 
 /** The "All" sub tab's key — no filter. */
@@ -51,7 +48,7 @@ export type ModelPageParams = {
 
 export default function BrandDetailScreen({ route, navigation }: CarsScreenProps<'BrandDetail'>) {
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: MAKE_GROUND }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <BrandDetailView brand={route.params.brand} onOpenModel={(p) => navigation.navigate('ModelDetail', p)} />
     </SafeAreaView>
   );
@@ -226,7 +223,7 @@ export function BrandDetailView({ brand, onOpenModel, headerPad = 0, bannerOverl
   );
 
   return (
-    <View style={[ss.fill, { paddingTop: headerPad, backgroundColor: MAKE_GROUND }]}>
+    <View style={[ss.fill, { paddingTop: headerPad }]}>
       <CarMosaic
         make={brand}
         model={filter?.model}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { AlertCircle, RotateCcw, Pencil, Trash2 } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';

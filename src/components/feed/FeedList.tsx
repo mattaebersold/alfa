@@ -111,6 +111,12 @@ export default function FeedList({
   const contentFilterEnabled = useAppSelector((s) => (s as any).moderation?.contentFilterEnabled ?? false);
   const [page, setPage] = useState(0);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
+  /**
+   * Whether the first page has been taken into `allPosts`. Until then the list
+   * shows the grey stand-ins — not `isLoading`, which goes false a render
+   * before the effect below copies the page in, and flashed "No posts yet".
+   */
+  const [firstPageIn, setFirstPageIn] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<any>();
   const [commentPost, setCommentPost] = useState<Post | null>(null);
@@ -156,7 +162,7 @@ export default function FeedList({
   );
   const groupActivity = useMemo(() => groupActivityData?.entries ?? [], [groupActivityData]);
 
-  const { data, isFetching, isLoading, refetch } = useGetPostsQuery({
+  const { data, isFetching, isError, refetch } = useGetPostsQuery({
     page,
     limit: PAGE_SIZE,
     filter: activeFilter,
@@ -176,6 +182,7 @@ export default function FeedList({
         : data.entries;
       if (page === 0) {
         setAllPosts(entries);
+        setFirstPageIn(true);
         if (refreshingRef.current) {
           refreshingRef.current = false;
           setRefreshing(false);
@@ -311,20 +318,24 @@ export default function FeedList({
       .sort((a, b) => b.time - a.time);
   }, [allPosts, garageCars, newRoutes, carActivity, groupActivity, includeGarageAdditions, hasMorePosts]);
 
-  if (isLoading && page === 0) {
-    // The shape of the feed, in grey, until the first page lands.
-    return (
-      <View style={{ paddingTop, paddingHorizontal: GUTTER }}>
-        <SkeletonList count={3} ratio={1.25} />
-      </View>
-    );
-  }
-
   return (
     <>
       <FlatList
         ref={listRef}
-        data={rows}
+        // Nothing but the stand-ins until the posts are in: the garage and
+        // group rows can land first, and would otherwise show alone, then be
+        // shuffled down by the posts arriving around them.
+        data={firstPageIn || isError ? rows : []}
+        // About two screens of cards either side of the one in view, rather
+        // than the default ten. Each card is a photo or a carousel of them,
+        // and at the default the feed kept ~470 images decoded (~370 MB) —
+        // enough for the OS to close the app after a few minutes of scrolling.
+        windowSize={5}
+        initialNumToRender={4}
+        maxToRenderPerBatch={3}
+        // Android only: detaches off-screen cards' native views too. On iOS it
+        // has a history of blanking rows, and the window above does the work.
+        removeClippedSubviews={Platform.OS === 'android'}
         viewabilityConfig={VIEWABILITY}
         onViewableItemsChanged={onViewableItemsChanged.current}
         keyExtractor={(row) =>
@@ -361,9 +372,16 @@ export default function FeedList({
           )
         )}
         ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={
+        // The shape of the feed, in grey, until the first page lands — inside
+        // the list, under its header, so the header's rows (the live auction
+        // among them) don't wait on the posts.
+        ListEmptyComponent={firstPageIn || isError ? (
           <EmptyState title="No posts yet" message="Be the first to share something!" />
-        }
+        ) : (
+          <View style={styles.gutter}>
+            <SkeletonList count={3} ratio={1.25} />
+          </View>
+        )}
         ListFooterComponent={
           isFetching && page > 0 ? (
             <View style={styles.footer}>

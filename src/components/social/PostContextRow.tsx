@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, Dimensions, type DimensionValue,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import UserSummaryModal from '../members/UserSummaryModal';
 import Avatar from '../ui/Avatar';
 import CarSummaryModal from '../cars/CarSummaryModal';
@@ -21,7 +21,7 @@ import { useColors } from '../../hooks/useColors';
 import { colors } from '../../constants/colors';
 import { firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import type { Post } from '../../types/api';
-import { PILL_RADIUS, COLOR_BLACK, COLOR_GRAY_11 } from '../../constants/config';
+import { PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import SpotActions from '../photography/SpotActions';
 
@@ -124,7 +124,7 @@ function Tile({ kind, name, image, picture, width, compact, solo, onPress }: {
         <View style={[styles.badge, { backgroundColor: badge.bg }]}>
           <Text style={styles.badgeText}>{badge.label}</Text>
         </View>
-        <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={1}>{name}</Text>
+        <Text style={[styles.name, { color: c.grey }, compact && styles.nameCompact]} numberOfLines={1}>{name}</Text>
       </View>
     </SummaryTouchable>
   );
@@ -205,6 +205,9 @@ function CarTile({ id, width, compact, solo, onOpen }: TileProps) {
   );
 }
 
+/** The stand-in for an event with no photo — the same one EventImage uses. */
+const EVENT_FALLBACK = require('../../../assets/event-image.jpg');
+
 function EventTile({ id, width, compact, solo, onOpen }: TileProps) {
   /**
    * A society event, not the legacy `Event`.
@@ -221,11 +224,18 @@ function EventTile({ id, width, compact, solo, onOpen }: TileProps) {
    */
   const { data: event } = useGetSocietyEventQuery(id, { skip: !id });
   if (!event) return null;
+  const photo = firstGalleryUrl(event.gallery);
   return (
     <Tile
       kind="event"
       name={event.title ?? 'Event'}
-      image={firstGalleryUrl(event.gallery)}
+      image={photo}
+      // No photo: the events' shared stand-in, blurred like EventImage's so it
+      // reads as a stand-in — but without its dark scrim, which at this size
+      // left a black square.
+      picture={photo ? undefined : (
+        <Image source={EVENT_FALLBACK} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={12} />
+      )}
       width={width}
       compact={compact}
       solo={solo}
@@ -270,36 +280,12 @@ function kindFromEntryType(t?: string): Exclude<Kind, 'group'> | null {
 export type ContextSubject = Pick<Post, 'internal_id'> &
   Partial<Pick<Post, 'group_ids' | 'group_id' | 'tags'>>;
 
-export default function PostContextRow({ post, omitGroupId, omitUsers = false, tight = false }: {
-  post: ContextSubject;
-  /**
-   * A group not to show — the one whose page this row is on. A post seen
-   * from inside its group doesn't need to be told which group it's in.
-   */
-  omitGroupId?: string;
-  /**
-   * No tiles for tagged members — the feed card shows them on its action
-   * rail instead (the tag and faces, see PostActionRail).
-   */
-  omitUsers?: boolean;
-  /**
-   * Less room under the tiles — for a card where the place line follows, so
-   * the location reads as part of the same footnote rather than a stray line.
-   */
-  tight?: boolean;
-}) {
-  const { openEventSheet } = useEventSheet();
-
-  /**
-   * Which panel is open, and where it should grow from.
-   *
-   * One piece of state rather than one per kind: only one panel is ever open,
-   * and tracking them separately is how you end up with two on screen.
-   */
-  const [open, setOpen] = React.useState<
-    { kind: Kind; id: string; origin: SummaryOrigin | null } | null
-  >(null);
-
+/**
+ * The tiles PostContextRow would draw for this post — its groups, then its
+ * tags. Exported so a card can tell whether the row is there before laying
+ * out what follows it; the tags query is shared, so asking twice costs nothing.
+ */
+export function usePostContextItems(post: ContextSubject, omitGroupId?: string, omitUsers = false) {
   const groupIds = React.useMemo(() => {
     const ids = post.group_ids?.length ? post.group_ids : [post.group_id];
     return [...new Set(ids.filter((id) => id && id !== omitGroupId) as string[])];
@@ -330,6 +316,41 @@ export default function PostContextRow({ post, omitGroupId, omitUsers = false, t
 
     return out;
   }, [groupIds, tags, omitUsers]);
+
+  return items;
+}
+
+export default function PostContextRow({ post, omitGroupId, omitUsers = false, tight = false }: {
+  post: ContextSubject;
+  /**
+   * A group not to show — the one whose page this row is on. A post seen
+   * from inside its group doesn't need to be told which group it's in.
+   */
+  omitGroupId?: string;
+  /**
+   * No tiles for tagged members — the feed card shows them on its action
+   * rail instead (the tag and faces, see PostActionRail).
+   */
+  omitUsers?: boolean;
+  /**
+   * Less room under the tiles — for a card where the place line follows, so
+   * the location reads as part of the same footnote rather than a stray line.
+   */
+  tight?: boolean;
+}) {
+  const { openEventSheet } = useEventSheet();
+
+  /**
+   * Which panel is open, and where it should grow from.
+   *
+   * One piece of state rather than one per kind: only one panel is ever open,
+   * and tracking them separately is how you end up with two on screen.
+   */
+  const [open, setOpen] = React.useState<
+    { kind: Kind; id: string; origin: SummaryOrigin | null } | null
+  >(null);
+
+  const items = usePostContextItems(post, omitGroupId, omitUsers);
 
   if (items.length === 0) return null;
 
@@ -421,12 +442,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 8,
   },
   stripTight: { paddingBottom: 2 },
-  // A near-black ground, no edge of its own: the picture at the left end
-  // and the drop from the card's grey are what give it a shape.
+  // A translucent black ground, no edge of its own: the picture at the left end
+  // and the dip below the card's grey are what give it a shape.
   tile: {
     height: TILE_H,
     borderRadius: 12, overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_11,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     flexDirection: 'row', alignItems: 'center',
   },
   tileShare: { flex: 1 },
@@ -463,7 +484,7 @@ const styles = StyleSheet.create({
   // bold things stacked read as one loud block.
   name: {
     maxWidth: '100%',
-    fontSize: 13, fontFamily: FONT_INTER.medium, color: 'rgba(255,255,255,0.95)',
+    fontSize: 13, fontFamily: FONT_INTER.medium,
   },
   // Two or more across: less room per name, so smaller — and bolder, so the
   // smaller size still carries.

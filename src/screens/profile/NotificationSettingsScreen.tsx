@@ -141,7 +141,7 @@ export default function NotificationSettingsScreen() {
   return (
     // Bottom only: the stack's own header already clears the status bar, and
     // taking the top inset as well opened an empty band beneath it.
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {loadingTypes ? (
         <Spinner fullScreen />
       ) : (

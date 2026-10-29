@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { blockProfanity } from '../../utils/profanity';
@@ -20,22 +20,25 @@ import {
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Button from '../../components/ui/Button';
+import FormInput, { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro, useBrandColor } from '../../hooks/useBrandColor';
 import { CAR_TYPES, CAR_CATEGORIES, MOD_TYPES, CONDITIONS, TYPE_COLORS } from '../../constants/carTypes';
 import { categoryColor } from '../../utils/categoryColor';
 import type { AppScreenProps } from '../../navigation/types';
-import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import GenerationField from '../../components/cars/GenerationField';
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import SharedModal from '../../components/ui/SharedModal';
-import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../../components/ui/StepFormHeader';
+import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
 import { groupCarsLine } from '../../utils/groupCars';
 import { FONT_INTER } from '../../constants/fonts'
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
+import { imageUrl } from '../../utils/image';
+import { stripHtml } from '../../utils/text';
 
 /**
  * The step names, which head the nav row rather than the scrolling content.
@@ -166,12 +169,10 @@ function Field({
           {label} {optional && <Text style={[f.opt, { color: colors.grey }]}>(optional)</Text>}
         </Text>
       )}
-      <TextInput
-        style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }, multiline && ss.inputMulti]}
+      <FormInput
         value={value}
         onChangeText={onChange}
         placeholder={bare ? (placeholder ? `${spoken} — ${placeholder}` : spoken) : placeholder ?? ''}
-        placeholderTextColor={colors.grey}
         keyboardType={numeric ? 'numeric' : 'default'}
         autoCapitalize="none"
         multiline={multiline}
@@ -203,7 +204,11 @@ type FormData = {
   horsepower: string; torque: string; vin: string; condition: string; body: string;
   group_id: string;
   mods: { title: string; type: string; body: string; images: { uri: string; name: string; type: string }[] }[];
-  images: { uri: string; name: string; type: string }[];
+  /**
+   * The car's photos, in order. A photo already on the car carries its stored
+   * `existing` filename; one picked in this form has none and is uploaded.
+   */
+  images: { uri: string; name: string; type: string; existing?: string }[];
 };
 
 const EMPTY_FORM: FormData = {
@@ -315,6 +320,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
   onDismissed: () => void;
 }) {
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const isPro = useIsPro();
   const brand = useBrandColor();
   // Already cached by the garage screen, so this is free on the common path in.
@@ -395,10 +401,16 @@ export function CarCreateSheet({ carId, onDismissed }: {
         torque: existingCar.torque ?? '',
         vin: existingCar.vin ?? '',
         condition: existingCar.condition || CONDITIONS[0]?.key || '',
-        body: existingCar.body ?? '',
+        // Plain text: bodies written on the web arrive as HTML (`<p>…</p>`),
+        // and the field would show the tags. Saving writes it back plain.
+        body: stripHtml(existingCar.body ?? '').trim(),
         group_id: existingCar.group_id ?? '',
         mods: [],
-        images: [],
+        // What's on the car already, as previews to remove or reorder.
+        images: [...(existingCar.gallery ?? [])]
+          .filter((g) => g.filename && g.type !== 'video')
+          .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+          .map((g) => ({ uri: imageUrl(g.filename) ?? '', name: g.filename!, type: 'image/jpeg', existing: g.filename! })),
       });
     }
   }, [existingCar, isEditMode]);
@@ -609,9 +621,20 @@ export function CarCreateSheet({ carId, onDismissed }: {
     fd.append('group_id', form.group_id ?? '');
     if (!isEditMode)     fd.append('entry_type', 'garagecar');
 
-    form.images.forEach((img) => {
+    // New photos as files, in the order they sit among the rest.
+    form.images.filter((img) => !img.existing).forEach((img) => {
       fd.append('gallery', uploadFile(img.uri));
     });
+    if (isEditMode) {
+      // What came off the car, and the order of what's left — a kept photo
+      // by its filename, a new one by its place among the uploads.
+      const kept = new Set(form.images.map((img) => img.existing).filter(Boolean));
+      (existingCar?.gallery ?? []).forEach((g, i) => {
+        if (g.filename && !kept.has(g.filename)) fd.append(`modifyImage:remove:${i}`, g.filename);
+      });
+      let n = 0;
+      fd.append('modifyImage:order', JSON.stringify(form.images.map((img) => img.existing ?? `new:${n++}`)));
+    }
 
     try {
       if (isEditMode) {
@@ -699,8 +722,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
      * The header X is gone — it was a third control for the same job.
      */
     <SharedModal
-      headerSurface={STEP_FORM_HEADER_BG}
-      // No fade under the darker header: it reads as a smear on the body.
+      // No fade under the header: the step's caption sits right under it.
       headFade={false}
       visible={visible}
       onClose={() => setVisible(false)}
@@ -875,7 +897,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
           {/* ── STEP 2: Photos ─────────────────────────────────────────── */}
           {step === 2 && (
             <View>
-              <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. First photo will be the cover image.</Text>
+              <Text style={[styles.stepSub, { color: colors.grey }]}>Add up to 10 photos. The first is the cover — long-press one to move it.</Text>
 
               <PhotoPickerField
                 onPress={pickImage}
@@ -883,34 +905,49 @@ export function CarCreateSheet({ carId, onDismissed }: {
                 compact={form.images.length > 0}
               />
 
+              {/* Long-press a photo to drag it: the first is the cover. */}
               {form.images.length > 0 && (
-                <FlatList
+                <DraggableFlatList
                   data={form.images}
-                  keyExtractor={(item) => item.uri}
+                  keyExtractor={(item) => item.existing ?? item.uri}
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.photoList}
-                  renderItem={({ item, index }) => (
-                    <View style={styles.photoThumb}>
-                      <Image source={{ uri: item.uri }} style={styles.photoImg} contentFit="cover" />
-                      {index === 0 && (
-                        <View style={styles.coverBadge}>
-                          <Text style={styles.coverText}>Cover</Text>
-                        </View>
-                      )}
-                      <TouchableOpacity
-                        style={styles.photoRemove}
-                        onPress={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            images: prev.images.filter((_, i) => i !== index),
-                          }))
-                        }
-                      >
-                        <X size={12} color={COLOR_WHITE} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  onDragEnd={({ data }) => setForm((prev) => ({ ...prev, images: data }))}
+                  renderItem={({ item, getIndex, drag, isActive }) => {
+                    const index = getIndex() ?? 0;
+                    return (
+                      <ScaleDecorator>
+                        <TouchableOpacity
+                          style={[styles.photoThumb, isActive && styles.photoThumbActive]}
+                          onLongPress={drag}
+                          delayLongPress={180}
+                          activeOpacity={0.9}
+                          accessibilityLabel={`Photo ${index + 1}${index === 0 ? ', cover' : ''}. Long-press to move.`}
+                        >
+                          <Image source={{ uri: item.uri }} style={styles.photoImg} contentFit="cover" />
+                          {index === 0 && (
+                            <View style={styles.coverBadge}>
+                              <Text style={styles.coverText}>Cover</Text>
+                            </View>
+                          )}
+                          <TouchableOpacity
+                            style={styles.photoRemove}
+                            onPress={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                images: prev.images.filter((img) => (img.existing ?? img.uri) !== (item.existing ?? item.uri)),
+                              }))
+                            }
+                            hitSlop={6}
+                            accessibilityLabel="Remove photo"
+                          >
+                            <X size={12} color={COLOR_WHITE} />
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      </ScaleDecorator>
+                    );
+                  }}
                 />
               )}
             </View>
@@ -919,7 +956,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
           {/* ── STEP 3: Optional specs ─────────────────────────────────── */}
           {step === 3 && (
             <View>
-              <Field label="Description" value={form.body} onChange={set('body')} optional multiline />
+              {/* No label over it — the placeholder says what it is. */}
+              <Field label="Description" value={form.body} onChange={set('body')} optional multiline bare />
 
               {/* Two up. These are all short values — a trim, a colour, a
                   number — and a column of full-width boxes made the step look
@@ -988,10 +1026,10 @@ export function CarCreateSheet({ carId, onDismissed }: {
                 {userGroups.length ? 'Join more groups' : 'Find groups for this car'}
               </Text>
 
-              <View style={[styles.joinSearch, { backgroundColor: colors.card, borderColor: colors.inputBorder }]}>
+              <View style={[styles.joinSearch, inputSurface]}>
                 <Search size={15} color={colors.grey} />
                 <TextInput
-                  style={[styles.joinSearchInput, { color: colors.fg }]}
+                  style={[INPUT_TEXT_STYLE, styles.joinSearchInput, { color: colors.fg }]}
                   value={groupQuery}
                   onChangeText={setGroupQuery}
                   placeholder={form.make ? `Search groups` : 'Search groups'}
@@ -1100,7 +1138,6 @@ export function CarCreateSheet({ carId, onDismissed }: {
                     <PhotoPickerField
                       onPress={() => pickModImage(i)}
                       title={mod.images?.length ? 'Add More Photos' : 'Add Photos'}
-                      hint="Photos of this mod"
                       compact
                       style={styles.modPicker}
                     />
@@ -1268,11 +1305,10 @@ const styles = StyleSheet.create({
   joinHeading: { fontSize: 16, fontFamily: FONT_INTER.bold, marginTop: 26, marginBottom: 12 },
   joinSearch: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderWidth: 1, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 10,
     marginBottom: 14,
   },
-  joinSearchInput: { flex: 1, fontSize: 15, padding: 0 },
+  joinSearchInput: { flex: 1, padding: 0 },
   joinGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   joinCard: {
     width: '48%', marginBottom: 10,
@@ -1290,6 +1326,8 @@ const styles = StyleSheet.create({
   // Last in the grid, so it carries the gap down to Condition itself.
   specFull: { width: '100%', marginBottom: 10 },
   photoList: { marginTop: 18, marginBottom: 16 },
+  // Lifted while it's dragged.
+  photoThumbActive: { opacity: 0.9 },
   photoThumb: {
     width: 100, height: 100, borderRadius: 8, marginRight: 8,
     overflow: 'hidden', position: 'relative',

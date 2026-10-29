@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MessageSquare, Newspaper, BookMarked } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
@@ -77,7 +77,7 @@ export default function GroupActivityCard({ item, onPress }: {
         </View>
 
         <View style={styles.who}>
-          <Avatar user={item.user as any} size={30} />
+          <Avatar user={item.user as any} size={30} edge={false} />
           <View style={styles.whoText}>
             <Text style={[styles.byline, { color: colors.grey }]} numberOfLines={1}>
               {who} posted to the group

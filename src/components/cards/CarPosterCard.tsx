@@ -1,35 +1,37 @@
 import React, { useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Car as CarIcon, Wrench, Settings, Users, Plus, PenSquare, Trash2, MessageSquarePlus, Images, ArrowRightLeft, Check } from 'lucide-react-native';
 import {
-  useGetUserByIdQuery, useGetCarFollowerCountQuery, useGetCarFollowStatusQuery, useFollowCarMutation, useUnfollowCarMutation } from '../../api/apiService';
+  useGetUserByIdQuery, useGetCarFollowerCountQuery } from '../../api/apiService';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
+import { useSecondaryColor } from '../../hooks/useBrandColor';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { carHeroUrl } from '../../utils/image';
 import ActionSheet from '../ui/ActionSheet';
 import CarDeleteOptionsModal from '../cars/CarDeleteOptionsModal';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import { useSummary } from '../../providers/SummaryProvider';
 import { carPreview } from '../cars/CarSummaryModal';
+import TaskProgressPie from '../cars/TaskProgressPie';
+import CarActivitySummaryModal, { type CarActivityTab } from '../cars/CarActivitySummaryModal';
+import { type SummaryOrigin } from '../ui/SummaryModal';
 import { userPreview } from '../members/UserSummaryModal';
 import RegionBadge from '../ui/RegionBadge';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import { regionForCityState } from '../../constants/regions';
 import ReportButton from '../ui/ReportButton';
-import LikeButton from '../social/LikeButton';
-import CommentButton from '../social/CommentButton';
-import CommentsSheet from '../social/CommentsSheet';
-import { TYPE_COLORS, formatLabel } from '../../constants/carTypes';
+import CarCountBadges, { CAR_COUNTS_CLEARANCE } from '../cars/CarCountBadges';
+import { TYPE_COLORS, CATEGORY_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
 import {
-  COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_BLACK, COLOR_GRAY_17, COLOR_WHITE, COLOR_GRAY_58,
+  COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_BLACK, COLOR_GRAY_17, COLOR_GRAY_180, COLOR_GRAY_187, COLOR_WHITE,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -44,7 +46,11 @@ interface CarPosterCardProps {
    */
   onPress?: () => void;
   onTasksPress?: () => void;
+  /** Open tasks — the badge's count, and the garage card's Tasks button's. */
   taskCount?: number;
+  /** Done and all, for the garage card's Tasks button's pie. */
+  taskDone?: number;
+  taskTotal?: number;
   onEditPress?: () => void;
   /**
    * The feed's framing: "@someone added a car to their garage", with a
@@ -130,6 +136,8 @@ export default function CarPosterCard({
   onPress,
   onTasksPress,
   taskCount = 0,
+  taskDone = 0,
+  taskTotal = 0,
   onEditPress,
   attribution = false,
   showOwner = false,
@@ -142,6 +150,7 @@ export default function CarPosterCard({
   style,
 }: CarPosterCardProps) {
   const c = useColors();
+  const secondary = useSecondaryColor();
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
@@ -150,6 +159,8 @@ export default function CarPosterCard({
   // administering it are different errands, and the + is the one people reach
   // for often.
   const [addSheet, setAddSheet] = useState(false);
+  /** The activity summary a count opened, and where from. */
+  const [activity, setActivity] = useState<{ tab: CarActivityTab; origin: SummaryOrigin | null } | null>(null);
   const [manageSheet, setManageSheet] = useState(false);
   /**
    * Which step of the remove sheet is open, or null for closed.
@@ -167,8 +178,7 @@ export default function CarPosterCard({
    * question and the same answer wherever a byline appears.
    */
   const { openCar, openUser } = useSummary();
-  /** The car's own summary panel, and the card it grows from. */
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  /** The card the car's summary panel grows from. */
   const cardRef = useRef<View>(null);
   // Feed cards take their shape from the photo. Everywhere else the card is
   // square, because those surfaces are grids and carousels that need one shape.
@@ -183,31 +193,6 @@ export default function CarPosterCard({
   // Lists now carry the owner; the lookup is only for a car that arrived without one.
   const { data: fetchedOwner } = useGetUserByIdQuery(car.user_id, { skip: !car.user_id || !needOwner || !!car.user?.username });
   const owner = car.user?.username ? car.user : fetchedOwner;
-  /**
-   * Following, for the feed's card: the same follow the car's summary and
-   * page offer, here where the car goes by. Not asked for outside the feed,
-   * and not for your own car — there's nothing to follow.
-   */
-  const { data: followStatus } = useGetCarFollowStatusQuery(car.internal_id, {
-    skip: !attribution || !car.internal_id || car.following !== undefined || userInfo?.user_id === car.user_id || userInfo?.user_id === (car as any).coowner_id,
-  });
-  const [followCar, { isLoading: followingNow }] = useFollowCarMutation();
-  const [unfollowCar, { isLoading: unfollowingNow }] = useUnfollowCarMutation();
-  // What the payload said, until this card changes it; the list catches up on its next fetch.
-  const [localFollow, setLocalFollow] = useState<boolean | undefined>(undefined);
-  const isFollowing = localFollow ?? followStatus?.following ?? car.following ?? false;
-  const followBusy = followingNow || unfollowingNow;
-  const toggleFollow = async () => {
-    if (followBusy) return;
-    try {
-      if (isFollowing) await unfollowCar({ car_id: car.internal_id }).unwrap();
-      else await followCar({ car_id: car.internal_id }).unwrap();
-      setLocalFollow(!isFollowing);
-    } catch {
-      Alert.alert(isFollowing ? "Couldn't unfollow" : "Couldn't follow", 'Please try again.');
-    }
-  };
-
   // Follower count — prefer a value already on the payload, else fetch a lightweight count.
   const inlineFollowerCount = (car as any).followersCount as number | undefined;
   const { data: fetchedFollowerCount } = useGetCarFollowerCountQuery(car.internal_id, {
@@ -249,14 +234,15 @@ export default function CarPosterCard({
   // The chip form: enough to say whose car this is, without the sentence the
   // feed needs.
   const ownerChip = showOwner && !attribution && owner ? (
-    <TouchableOpacity
+    <UserByline
+      user={owner}
+      size={20}
+      gap={6}
+      color={COLOR_WHITE}
+      nameStyle={styles.ownerName}
       style={styles.ownerChip}
-      onPress={() => openUser(owner.user_id, null, userPreview(owner))}
-      activeOpacity={0.7}
-    >
-      <Avatar user={owner} size={20} />
-      <Text style={styles.ownerName} numberOfLines={1}>@{owner.username}</Text>
-    </TouchableOpacity>
+      onPress={(o) => openUser(owner.user_id, o, userPreview(owner))}
+    />
   ) : null;
   // The top right is the owner's controls' when there are any.
   const ownerTopRight = !showControls && !(onTasksPress && taskCount > 0);
@@ -272,8 +258,8 @@ export default function CarPosterCard({
    * In the feed, a tap summarises rather than travels.
    *
    * Measured off the card first, so the panel grows out of what was pressed.
-   * Everywhere else the card still goes straight to the car — a garage or a
-   * profile is already the place you'd summarise from.
+   * A profile's garage does the same (`summaryOnPress`); elsewhere the card
+   * still goes straight to the car.
    */
   const openSummary = () => {
     const node = cardRef.current;
@@ -303,22 +289,18 @@ export default function CarPosterCard({
           that belongs beside the card. */}
       {attribution && (
         <View style={styles.byline}>
-          <TouchableOpacity
+          <UserByline
+            user={owner}
+            size={30}
+            fallback="Someone"
+            sub="added a car to their garage"
+            subColor={secondary}
+            gap={9}
+            fill
             style={styles.bylineWho}
-            onPress={() => owner && openUser(owner.user_id, null, userPreview(owner))}
-            activeOpacity={0.7}
+            onPress={(o) => owner && openUser(owner.user_id, o, userPreview(owner))}
             disabled={!owner}
-          >
-            <Avatar user={owner} size={30} />
-            <View style={styles.bylineText}>
-              <Text style={[styles.bylineName, { color: c.fg }]} numberOfLines={1}>
-                {owner?.username ?? 'Someone'}
-              </Text>
-              <Text style={[styles.bylineSub, { color: c.grey }]} numberOfLines={1}>
-                added a car to their garage
-              </Text>
-            </View>
-          </TouchableOpacity>
+          />
           {/* Grouped tighter than the byline's gap, as on a post: the time is
               short now ("3h") and at the full gap it floated off on its own. */}
           <View style={styles.bylineMeta}>
@@ -339,10 +321,9 @@ export default function CarPosterCard({
         style,
       ]}
     >
-      {/* In the feed, a car added to a garage wears an angled frame — white
-          at the top left to grey at the bottom right — so a new car stands
-          out in a column of posts. Elsewhere the card is borderless: the
-          photo is the card. */}
+      {/* In the feed, a car added to a garage wears a light grey frame, so a
+          new car stands out in a column of posts. Elsewhere the card is
+          borderless: the photo is the card. */}
       <FeedFrame on={attribution}>
       <TouchableOpacity
         ref={cardRef}
@@ -432,6 +413,22 @@ export default function CarPosterCard({
             )}
             {showControls && (
               <>
+                {/* On the garage's cards, the car's tasks — how much is done
+                    and how many are still open — first in the row, drawn as
+                    the add and manage beside it. */}
+                {plain && onTasksPress && (
+                  <TouchableOpacity
+                    onPress={onTasksPress}
+                    hitSlop={4}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${displayName} tasks, ${taskCount} open`}
+                  >
+                    <View style={[styles.circleBtn, styles.circleBtnPlain, styles.tasksBtn]}>
+                      <TaskProgressPie completed={taskDone} total={taskTotal} size={18} color={COLOR_WHITE} />
+                      {taskCount > 0 && <Text style={styles.tasksBtnText}>{taskCount}</Text>}
+                    </View>
+                  </TouchableOpacity>
+                )}
                 {/* Post about it, mod it, add photos — the three things owners
                     actually do to a car, from wherever the car is shown. */}
                 <TouchableOpacity
@@ -444,6 +441,7 @@ export default function CarPosterCard({
                     <Plus size={plain ? 20 : 16} color={COLOR_WHITE} strokeWidth={2.6} />
                   </View>
                 </TouchableOpacity>
+                {/* Manage last, in the corner, with the add to its left. */}
                 <TouchableOpacity
                   onPress={() => setManageSheet(true)}
                   hitSlop={4}
@@ -459,6 +457,30 @@ export default function CarPosterCard({
           </View>
         )}
 
+        {/* On the garage's cards and the feed's, what's been logged against
+            it — down the bottom right, as a feed post's actions are. */}
+        {(plain || attribution) && (
+          <>
+            {/* The feed card's wash from the bottom-right corner, black fading
+                to nothing along the diagonal, so the white counts read over a
+                bright photo. */}
+            <LinearGradient
+              colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)']}
+              locations={[0, 0.45, 1]}
+              start={{ x: 1, y: 1 }}
+              end={{ x: 0.2, y: 0.2 }}
+              style={styles.countsWash}
+              pointerEvents="none"
+            />
+            <CarCountBadges
+              car={car}
+              followers={followerCount}
+              onOpen={(tab, origin) => setActivity({ tab, origin })}
+            />
+            <CarActivitySummaryModal car={car} tab={activity?.tab ?? null} origin={activity?.origin} onClose={() => setActivity(null)} />
+          </>
+        )}
+
         {/* ── The plate ── */}
         <View
           style={[
@@ -469,7 +491,7 @@ export default function CarPosterCard({
           ]}
           pointerEvents="none"
         >
-          {!compact && <CarIcon size={plain ? 26 : attribution ? 30 : 38} color={COLOR_WHITE} strokeWidth={1.6} />}
+          {!compact && <CarIcon size={plain ? 34 : attribution ? 30 : 38} color={COLOR_WHITE} strokeWidth={1.6} />}
           <Text
             style={[
               styles.title,
@@ -495,7 +517,7 @@ export default function CarPosterCard({
               {subtitle}
             </Text>
           ) : null}
-          {!plain && (typeLabel || categoryLabel || followerCount > 0) && (
+          {!plain && (typeLabel || categoryLabel || (!attribution && followerCount > 0)) && (
             <View style={styles.badges}>
               {typeLabel && typeBadge && (
                 <View style={[styles.badge, { backgroundColor: typeBadge.bg }]}>
@@ -503,13 +525,14 @@ export default function CarPosterCard({
                 </View>
               )}
               {categoryLabel && (
-                <View style={[styles.badge, styles.badgeDark]}>
-                  <Text style={[styles.badgeText, { color: COLOR_WHITE }]}>{categoryLabel}</Text>
+                <View style={[styles.badge, styles.badgeDark, car.category && CATEGORY_COLORS[car.category] ? { backgroundColor: CATEGORY_COLORS[car.category].bg } : null]}>
+                  <Text style={[styles.badgeText, { color: (car.category && CATEGORY_COLORS[car.category]?.text) || COLOR_WHITE }]}>{categoryLabel}</Text>
                 </View>
               )}
               {/* Followers ride with the other badges rather than floating in a
                   corner of their own — it's another fact about the car. */}
-              {followerCount > 0 && (
+              {/* In the feed they're in the counts down the right instead. */}
+              {!attribution && followerCount > 0 && (
                 <View style={[styles.badge, styles.badgeDark, styles.followerBadge]}>
                   <Users size={10} color={COLOR_WHITE} />
                   <Text style={[styles.badgeText, { color: COLOR_WHITE }]}>{followerCount}</Text>
@@ -606,83 +629,18 @@ export default function CarPosterCard({
       </FeedFrame>
     </View>
 
-      {/* Like and comment on the car itself — the same document the car's own
-          page counts, so a like here shows there and vice versa. */}
-      {attribution && (
-        <View style={styles.footer}>
-          <View style={styles.actionsPill}>
-            <LikeButton
-              documentId={car.internal_id}
-              entryType="garagecar"
-              ownerId={car.user_id}
-              initialCount={car.like_count ?? 0}
-              initialLiked={car.isLiked ?? false}
-              color={COLOR_WHITE}
-            />
-            <CommentButton
-              count={car.comment_count ?? 0}
-              documentId={car.internal_id}
-              onPress={() => setCommentsOpen(true)}
-              color={COLOR_WHITE}
-            />
-          </View>
-          {/* Follow, at the right — your own car has nothing to follow. */}
-          {!isOwner && (
-            <TouchableOpacity
-              style={[
-                styles.followBtn,
-                isFollowing
-                  ? { backgroundColor: colors.segment, borderColor: colors.border }
-                  : styles.followBtnOutline,
-                followBusy && styles.followBtnBusy,
-              ]}
-              onPress={toggleFollow}
-              disabled={followBusy}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isFollowing, busy: followBusy }}
-              accessibilityLabel={isFollowing ? 'Following this car' : 'Follow this car'}
-            >
-              {isFollowing
-                ? <Check size={13} color={colors.fg} strokeWidth={3} />
-                : <Plus size={11} color={COLOR_WHITE} strokeWidth={3} />}
-              <Text style={[styles.followText, isFollowing ? { color: colors.fg } : styles.followTextOutline]}>
-                {isFollowing ? 'Following' : 'Follow'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {attribution && (
-        <CommentsSheet
-          postId={car.internal_id}
-          entryType="garagecar"
-          visible={commentsOpen}
-          onClose={() => setCommentsOpen(false)}
-        />
-      )}
 
     </View>
   );
 }
 
 /** The feed frame's width. */
-const FRAME_W = 1.5;
+const FRAME_W = 1;
 
-/** The feed's angled white-to-grey frame, around the card — or nothing. */
+/** The feed's light grey frame, around the card — or nothing. */
 function FeedFrame({ on, children }: { on: boolean; children: React.ReactNode }) {
   if (!on) return <>{children}</>;
-  return (
-    <LinearGradient
-      colors={['rgba(255,255,255,0.9)', COLOR_GRAY_58]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.feedFrame}
-    >
-      {children}
-    </LinearGradient>
-  );
+  return <View style={styles.feedFrame}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -702,19 +660,17 @@ const styles = StyleSheet.create({
   feedWrap: { marginBottom: 6 },
   // Inside the feed's frame: the frame's radius less its width.
   cardInFrame: { borderRadius: COMMON_RADIUS - FRAME_W },
-  feedFrame: { padding: FRAME_W, borderRadius: COMMON_RADIUS },
+  feedFrame: { padding: FRAME_W, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_187 },
   // In the feed: the icon closer to the name, and the name in the body face,
   // a size down — a line about the car, not a headline over it.
-  plateFeed: { gap: 3 },
+  // Clear of the counts down the right, as the garage's plate is.
+  plateFeed: { gap: 3, paddingRight: CAR_COUNTS_CLEARANCE },
   titleFeed: { fontSize: 18, fontFamily: FONT_INTER.bold, letterSpacing: 0 },
   byline: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
   },
-  bylineWho:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  bylineText: { flex: 1, minWidth: 0 },
-  bylineName: { fontSize: 14, fontFamily: FONT_INTER.bold },
-  bylineSub:  { fontSize: 12, marginTop: 1 },
+  bylineWho:  { flex: 1 },
   bylineTime: { fontSize: 11, fontStyle: 'italic' },
   bylineMeta: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
@@ -728,28 +684,6 @@ const styles = StyleSheet.create({
    */
   imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   frameInFeed: { marginHorizontal: GUTTER, marginVertical: 0 },
-
-  footer: { paddingHorizontal: 12, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  // The summary's follow button, at the card's scale.
-  followBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, height: 32, borderRadius: PILL_RADIUS, borderWidth: 1,
-  },
-  // Not yet followed: a lighter ask — smaller, and only outlined, so it
-  // doesn't outweigh the card it sits under.
-  followBtnOutline: {
-    backgroundColor: 'transparent', borderColor: COLOR_WHITE,
-    paddingHorizontal: 10, height: 26, gap: 4,
-  },
-  followBtnBusy: { opacity: 0.6 },
-  followText: { fontSize: 12.5, fontFamily: FONT_INTER.bold },
-  followTextOutline: { fontSize: 11.5, color: COLOR_WHITE },
-  actionsPill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 6, borderRadius: 999,
-  },
 
   scrimTop:    { position: 'absolute', left: 0, right: 0, top: 0, height: '34%' },
   // One point past the bottom edge: flush, the card's height and the scrim's
@@ -771,7 +705,7 @@ const styles = StyleSheet.create({
     paddingLeft: 3, paddingRight: 9, paddingVertical: 3,
     borderRadius: 999,
   },
-  ownerName: { flexShrink: 1, fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  ownerName: { fontSize: 12 },
 
   featuredBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -798,8 +732,13 @@ const styles = StyleSheet.create({
   // only chrome left on those, so they can carry a real touch target, and
   // tucked in they read as the card's corner rather than as things laid on
   // the photo.
-  circleBtnPlain: { width: 36, height: 36 },
+  // Darker, too, so they hold up over a bright photo. Side by side along the
+  // top: the counts have the right-hand side below them.
+  circleBtnPlain: { width: 36, height: 36, backgroundColor: 'rgba(0,0,0,0.75)' },
   topRightPlain:  { top: 8, right: 8, gap: 8 },
+  // The plain circle button, widened for its pie and count.
+  tasksBtn:       { width: undefined, flexDirection: 'row', gap: 6, paddingHorizontal: 9 },
+  tasksBtnText:   { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   taskBadge: {
     backgroundColor: colors.pro, borderRadius: PILL_RADIUS,
     flexDirection: 'row', alignItems: 'center',
@@ -826,8 +765,10 @@ const styles = StyleSheet.create({
   // A caption, not a headline: the garage panel's cards are yours, stacked,
   // and each name only has to be findable.
   titlePlain:    { fontSize: 16, letterSpacing: -0.3 },
-  subtitlePlain: { fontSize: 11.5, marginTop: 0 },
-  platePlain:    { gap: 3, paddingHorizontal: 14, paddingBottom: 14 },
+  // A step quieter than the name on the garage's cards: smaller, and grey.
+  subtitlePlain: { fontSize: 10.5, marginTop: 0, color: COLOR_GRAY_180 },
+  // Clear of the counts' column on the right.
+  platePlain:    { gap: 3, paddingLeft: 14, paddingRight: CAR_COUNTS_CLEARANCE, paddingBottom: 14 },
   subtitle: {
     fontSize: 12, fontFamily: FONT_INTER.bold, textAlign: 'left',
     color: 'rgba(255,255,255,0.82)',
@@ -836,10 +777,8 @@ const styles = StyleSheet.create({
   subtitleCompact: { fontSize: 10.5, marginTop: 0 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 5, marginTop: 6 },
   badge:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  badgeDark: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.3)',
-  },
+  badgeDark: { backgroundColor: COLOR_BLACK },
+  countsWash: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   followerBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   badgeText: { fontSize: 10, fontFamily: FONT_INTER.extrabold },
 });

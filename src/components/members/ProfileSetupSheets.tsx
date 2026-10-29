@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Text } from '@ors/kit';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ImageIcon } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import Avatar from '../ui/Avatar';
+import FormInput from '../ui/FormInput';
 import {
   useGetLoggedInUserQuery,
   useUpdateUserSettingImageMutation,
@@ -282,18 +283,13 @@ export function BioSheet({ visible, onClose }: {
         <Text style={[styles.hint, { color: colors.grey }]}>
           A line or two about you and what you drive. It shows at the top of your profile.
         </Text>
-        <TextInput
-          style={[
-            styles.textarea,
-            { color: colors.fg, backgroundColor: colors.inputBgDark, borderColor: colors.borderDark },
-          ]}
+        <FormInput
+          style={styles.textarea}
           value={bio}
           onChangeText={setBio}
           placeholder="Weekend canyon driver, E30 owner, always up for coffee…"
-          placeholderTextColor={colors.grey}
           multiline
           autoFocus
-          textAlignVertical="top"
         />
         <TouchableOpacity
           style={[styles.save, { backgroundColor: brand }, !bio.trim() && styles.saveDisabled]}
@@ -325,11 +321,7 @@ const styles = StyleSheet.create({
   pickText: { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   hint: { fontSize: 13, lineHeight: 18 },
-  textarea: {
-    minHeight: 120, borderRadius: 10, borderWidth: 1,
-    paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12,
-    fontSize: 15, lineHeight: 21,
-  },
+  textarea: { minHeight: 120 },
 
   save: {
     paddingVertical: 14, borderRadius: COMMON_RADIUS,

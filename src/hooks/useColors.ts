@@ -2,7 +2,7 @@
 import { colors } from '../constants/colors';
 import { useAppSelector } from '../store/store';
 import {
-  COLOR_GRAY_10,
+  APP_BG,
   COLOR_GRAY_13,
   COLOR_GRAY_160,
   COLOR_GRAY_180,
@@ -21,8 +21,8 @@ export const DarkColors = {
   // Darker than the cards that sit on it (#1e1e1e) by a wider margin than
   // before: at #121212 the two were close enough that a card read as a slightly
   // different patch of background rather than as an object on it.
-  cream:    COLOR_GRAY_10,
-  bg:       COLOR_GRAY_10,
+  cream:    APP_BG,
+  bg:       APP_BG,
   segment:  COLOR_GRAY_30,
   secondary:COLOR_GRAY_40,
   inputBg:  COLOR_GRAY_13,

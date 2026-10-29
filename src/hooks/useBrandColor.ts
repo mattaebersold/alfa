@@ -1,7 +1,7 @@
 import { useAppSelector } from '../store/store';
 import { colors } from '../constants/colors';
 import { useColors } from './useColors';
-import { COLOR_BLACK, COLOR_WHITE } from '../constants/config';
+import { COLOR_BLACK, COLOR_WHITE, COLOR_SECONDARY_PRO, COLOR_SECONDARY_BASIC } from '../constants/config';
 
 export function useIsPro(): boolean {
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -43,6 +43,11 @@ export function useBrandColor(): string {
   const c = useColors();
   const isPro = useIsPro();
   return isPro ? c.pro : c.primaryAlt;
+}
+
+/** The account's secondary colour — light blue for pro/admin users, teal otherwise. */
+export function useSecondaryColor(): string {
+  return useIsPro() ? COLOR_SECONDARY_PRO : COLOR_SECONDARY_BASIC;
 }
 
 /** Returns white or black depending on perceived brightness of the brand color. */

@@ -2,11 +2,12 @@ import React, { useState, useRef, useCallback, forwardRef, useEffect } from 'rea
 import {
   View, TouchableOpacity, StyleSheet,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Text, type TextInput } from '@ors/kit';
+import { Image } from './AppImage';
 import { Car as CarIcon } from 'lucide-react-native';
 import { useSearchUsersQuery, useGetCarsQuery } from '../../api/apiService';
 import Avatar from './Avatar';
+import FormInput from './FormInput';
 import { useColors } from '../../hooks/useColors';
 import { buildCarMention, carDisplayName } from '../../utils/mentions';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -164,7 +165,7 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
                 activeOpacity={0.7}
               >
                 {thumb ? (
-                  <Image source={{ uri: thumb }} style={styles.carThumb} contentFit="cover" />
+                  <Image small source={{ uri: thumb }} style={styles.carThumb} contentFit="cover" />
                 ) : (
                   <View style={[styles.carThumb, styles.carThumbEmpty, { backgroundColor: c.segment }]}>
                     <CarIcon size={14} color={c.grey} />
@@ -178,7 +179,8 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
           })}
         </View>
       )}
-      <TextInput
+      {/* The app's one field look; a caller's `style` is laid over it. */}
+      <FormInput
         ref={ref}
         value={value}
         onChangeText={handleChangeText}

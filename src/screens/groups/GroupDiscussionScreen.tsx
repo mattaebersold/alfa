@@ -43,14 +43,13 @@ function DiscussionRow({ post }: { post: GroupDiscussionPost }) {
 
 export default function GroupDiscussionScreen({ route }: GroupsScreenProps<'GroupDiscussion'>) {
   const { groupId } = route.params;
-  const colors = useColors();
   const { data, isLoading, refetch } = useGetGroupDiscussionQuery({ groupId });
   const posts = data?.entries ?? [];
 
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         data={posts}
         keyExtractor={(p) => p.internal_id}

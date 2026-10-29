@@ -2,13 +2,13 @@ import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 're
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Switch, Keyboard,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
-import { ImagePlus, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { uploadFile } from '../../utils/upload';
 import { routeOwnerPhoto } from '../../utils/routePhoto';
 import { imageUrl } from '../../utils/image';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,6 +18,7 @@ import PostTagPicker, { type TagItem } from '../../components/social/PostTagPick
 import PostToSelector from '../../components/social/PostToSelector';
 import { ConditionPicker } from '../../components/routes/ConditionChips';
 import Spinner from '../../components/ui/Spinner';
+import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import { DateField } from '../../components/ui/DateTimeField';
 import { readDraft, clearDraft } from '../../hooks/useRouteRecorder';
 import {
@@ -42,6 +43,7 @@ import { isPlottedRoute, type RouteCondition } from '../../types/api';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
 import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import FormInput from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -524,7 +526,7 @@ export default function RouteSaveScreen() {
 
   if (isEdit ? !existing : !(draft || plot)) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.bg }]}>
+      <View style={styles.center}>
         <Text style={[styles.emptyTitle, { color: colors.fg }]}>
           {isEdit ? 'Route not found' : 'No recording found'}
         </Text>
@@ -547,7 +549,7 @@ export default function RouteSaveScreen() {
     // Form above, actions pinned under it: the column shrinks by the keyboard's
     // height so the actions sit on it, and the focused field is kept clear of
     // them as well.
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <KeyboardAvoidingView style={{ flex: 1 }}>
       <FormScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
         bottomOffset={KEYBOARD_GAP + actionsH}
@@ -584,25 +586,20 @@ export default function RouteSaveScreen() {
 
         <View style={styles.form}>
           <Field label="Route name">
-            <TextInput
-              style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+            <FormInput
               value={title}
               onChangeText={setTitle}
               placeholder="Skyline Drive, north to south"
-              placeholderTextColor={colors.grey}
               maxLength={120}
             />
           </Field>
 
           <Field label="Description">
-            <TextInput
-              style={[styles.input, styles.textarea, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+            <FormInput
               value={body}
               onChangeText={setBody}
               placeholder="What makes this road worth driving?"
-              placeholderTextColor={colors.grey}
               multiline
-              textAlignVertical="top"
             />
           </Field>
 
@@ -624,15 +621,7 @@ export default function RouteSaveScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[styles.photoAdd, { borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
-                onPress={pickPhoto}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-              >
-                <ImagePlus size={18} color={colors.grey} />
-                <Text style={[styles.photoAddText, { color: colors.grey }]}>Add a photo</Text>
-              </TouchableOpacity>
+              <PhotoPickerField onPress={pickPhoto} title="Add a photo" style={styles.photoField} />
             )}
             <Text style={[styles.helper, { color: colors.grey }]}>
               Shown behind the route's line on its card.
@@ -643,23 +632,19 @@ export default function RouteSaveScreen() {
               these are what the route's itinerary is built from, and they read
               better as "Iron Springs" than as a pair of coordinates. */}
           <Field label="Start">
-            <TextInput
-              style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+            <FormInput
               value={startPlace}
               onChangeText={setStartPlace}
               placeholder="Where the drive began"
-              placeholderTextColor={colors.grey}
               maxLength={80}
             />
           </Field>
 
           <Field label="End">
-            <TextInput
-              style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+            <FormInput
               value={endPlace}
               onChangeText={setEndPlace}
               placeholder="Where it finished"
-              placeholderTextColor={colors.grey}
               maxLength={80}
             />
           </Field>
@@ -818,11 +803,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
   },
-  photoAdd:     {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 56, borderWidth: 1, borderStyle: 'dashed', borderRadius: COMMON_RADIUS / 2,
-  },
-  photoAddText: { fontSize: 14, fontFamily: FONT_INTER.semibold },
+  photoField:   { marginTop: 0 },
   center:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
   emptyTitle: { fontSize: 18, fontFamily: FONT_INTER.bold },
   emptyBody:  { fontSize: 14, textAlign: 'center', marginTop: 8 },
@@ -838,8 +819,6 @@ const styles = StyleSheet.create({
   form:       { padding: 16, gap: 20 },
   field:      { gap: 8 },
   fieldLabel: { fontSize: 14, fontFamily: FONT_INTER.bold },
-  input:      { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
-  textarea:   { minHeight: 96 },
   helper:     { fontSize: 12, lineHeight: 16 },
 
   pillRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },

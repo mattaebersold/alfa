@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Plus } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { imageUrl } from '../../utils/image';
 import { normalizePickedAssets } from '../../utils/upload';
+import PhotoPickerField from '../ui/PhotoPickerField';
 import { useColors } from '../../hooks/useColors';
 import type { GalleryItem } from '../../types/api';
 import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
@@ -117,30 +118,26 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
         </Text>
       </View>
 
+      {/* No photos: the full photo well. With some, the reorderable row and
+          the slim add bar under it. */}
       {images.length > 0 ? (
-        <DraggableFlatList
-          data={images}
-          keyExtractor={(item) => item.key}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          onDragEnd={({ data }) => onChange(data)}
-          activationDistance={12}
-          renderItem={renderItem}
-          containerStyle={styles.listContainer}
-          contentContainerStyle={styles.listContent}
-        />
+        <>
+          <DraggableFlatList
+            data={images}
+            keyExtractor={(item) => item.key}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onDragEnd={({ data }) => onChange(data)}
+            activationDistance={12}
+            renderItem={renderItem}
+            containerStyle={styles.listContainer}
+            contentContainerStyle={styles.listContent}
+          />
+          <PhotoPickerField onPress={addImages} title="Add Photos" compact style={styles.addBar} />
+        </>
       ) : (
-        <Text style={[styles.empty, { color: c.greyDark }]}>No photos on this post.</Text>
+        <PhotoPickerField onPress={addImages} title="Add Photos" style={styles.photoField} />
       )}
-
-      <TouchableOpacity
-        style={[styles.addBtn, { borderColor: c.border }]}
-        onPress={addImages}
-        activeOpacity={0.8}
-      >
-        <Plus size={15} color={c.primaryAlt} />
-        <Text style={[styles.addBtnText, { color: c.primaryAlt }]}>Add Photos</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -171,11 +168,6 @@ const styles = StyleSheet.create({
   },
   newTagText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: 0.4 },
 
-  empty: { fontSize: 13, fontStyle: 'italic', paddingVertical: 12 },
-
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingVertical: 11, borderRadius: COMMON_RADIUS, borderWidth: 1, marginTop: 10,
-  },
-  addBtnText: { fontSize: 14, fontFamily: FONT_INTER.bold },
+  photoField: { marginTop: 0 },
+  addBar:     { marginTop: 10 },
 });

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable, FlatList, Alert, Animated,
+  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert, Animated,
   ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, Platform, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -34,9 +34,10 @@ import type { GarageCar } from '../../types/api';
 import { GroupSettingsBody } from '../../components/groups/GroupSettingsSheet';
 import FollowButton from '../../components/social/FollowButton';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import AvatarStack from '../../components/ui/AvatarStack';
 import AppHeader, { useHeaderPad, APP_HEADER_HEIGHT } from '../../components/ui/AppHeader';
+import MainTabs from '../../components/ui/MainTabs';
 import { headerOffset, hideHeader, holdHeader, useHeaderScroll } from '../../hooks/useHeaderScroll';
 import CarGridItem from '../../components/cars/CarGridItem';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -50,6 +51,7 @@ import GroupItemDetailModal from '../../components/groups/GroupItemDetailModal';
 import GroupItemActions from '../../components/groups/GroupItemActions';
 import GroupCreateSheet, { type CreateKind } from '../../components/groups/GroupCreateSheet';
 import ActionSheet from '../../components/ui/ActionSheet';
+import SlideSheet from '../../components/ui/SlideSheet';
 import { withAlpha } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -64,7 +66,6 @@ import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { useStackedUserSummary } from '../../components/members/useStackedUserSummary';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
-import UserSummaryModal from '../../components/members/UserSummaryModal';
 import GroupInviteModal from '../../components/groups/GroupInviteModal';
 import JoinRequestsPanel from '../../components/groups/JoinRequests';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
@@ -76,11 +77,12 @@ import {
   COLOR_GRAY_102,
   COLOR_COUNT_BADGE,
   COLOR_WHITE,
-  COLOR_BORDER,
-  COLOR_PRO,
+  APP_BG,
   GROUP_GROUND,
   GROUP_LISTING_CARD,
   COLOR_GRAY_34,
+  PANE_BG,
+  SHEET_RADIUS,
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
@@ -94,8 +96,11 @@ type AppNav = NativeStackNavigationProp<AppStackParamList>;
  * than as three stacked cards, and dropping them below `card` (#1e1e1e) sets
  * that whole block back from the content beneath it. The banner's bottom fade
  * has to land on exactly this value or the seam it exists to hide comes back.
+ *
+ * The app's own ground, so the banner fades into the same black as every
+ * other screen rather than the group pages' lighter grey.
  */
-const HERO_SURFACE = GROUP_GROUND;
+const HERO_SURFACE = APP_BG;
 /** Controls sitting on the banner — one step up, so they read as raised. */
 const HERO_CONTROL = COLOR_GRAY_31;
 /**
@@ -120,13 +125,7 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 /** The back and cog squares on the banner. */
 const HEADER_BTN = 34;
 
-/** Where the lit tab is scrolled to sit, leaving the one before it peeking in. */
-const TAB_ACTIVE_LEFT = 44;
-
 type TabKey = 'discussion' | 'posts' | 'news' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
-
-/** The header tabs' unlit white — see AppHeader's TAB_IDLE. */
-const HEADER_TAB_IDLE = COLOR_WHITE;
 
 const TABS: {
   key: TabKey;
@@ -180,7 +179,6 @@ export default function GroupDetailScreen() {
   const [carModalOpen, setCarModalOpen] = useState(false);
   // A car opens as a summary rather than a page push — see CarSummaryModal.
   const [carSummary, setCarSummary] = useState<{ carId: string; origin: SummaryOrigin | null } | null>(null);
-  const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
   const [listingSummary, setListingSummary] = useState<{ listingId: string; origin: SummaryOrigin | null } | null>(null);
   const [rosterOrigin, setRosterOrigin] = useState<SummaryOrigin | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -192,6 +190,9 @@ export default function GroupDetailScreen() {
   const [settingsOrigin, setSettingsOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   const settingsOpen = settingsOrigin !== undefined;
   const { openUser: openSettingsUser, stacked: settingsStackedUser } = useStackedUserSummary(settingsOpen);
+  // A member's summary opens over the roster rather than after it closes: a
+  // second modal presented while the first is still fading out froze iOS.
+  const { openUser: openRosterUser, stacked: rosterStackedUser } = useStackedUserSummary(membersOpen);
   // The roster arrives in one response, so paging is done here: render a page
   // at a time and grow as you reach the end, rather than mounting hundreds of
   // rows at once.
@@ -341,25 +342,9 @@ export default function GroupDetailScreen() {
   const myCars = garageData?.entries ?? [];
 
   // ── Tab row ─────────────────────────────────────────────────────────────
-  // Brings the lit tab toward the front of the row, the way the app header's
-  // tabs do. Positions come from each tab's own onLayout — they size to their
-  // labels, so measuring is the only way to know.
-  // Two rows — the one in the page and the fixed copy — kept in step.
-  const tabScrollRef = useRef<ScrollView>(null);
-  const overlayTabScrollRef = useRef<ScrollView>(null);
-  const tabX = useRef<Record<string, number>>({});
-  const scrollTabIntoView = useCallback((key: TabKey) => {
-    const x = tabX.current[key];
-    if (x == null) return;
-    const first = key === TABS[0].key;
-    const to = { x: first ? 0 : Math.max(0, x - TAB_ACTIVE_LEFT), animated: true };
-    tabScrollRef.current?.scrollTo(to);
-    overlayTabScrollRef.current?.scrollTo(to);
-  }, []);
   const pendingTabScroll = useRef(false);
   const switchTab = (key: TabKey) => {
     setTab(key);
-    scrollTabIntoView(key);
     pendingTabScroll.current = true;
   };
   // Every switch rests the tab row docked at the top, with the new section
@@ -525,37 +510,17 @@ export default function GroupDetailScreen() {
   );
 
   // ── Tab bar ─────────────────────────────────────────────────────────────
-  // The app header's tab row, in the page: outlined pills, the lit one in the
-  // Pro red, the rest white on the header buttons' grey edge.
-  const renderTabBar = (ref: React.RefObject<ScrollView | null>) => (
-    <View style={[styles.tabBar, { backgroundColor: GROUP_GROUND }]}>
-      <ScrollView
-        ref={ref}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabRow}
-      >
-        {TABS.map(({ key, label, Icon }) => {
-          const on = key === tab;
-          const color = on ? COLOR_PRO : HEADER_TAB_IDLE;
-          return (
-            <TouchableOpacity
-              key={key}
-              onLayout={(e) => { tabX.current[key] = e.nativeEvent.layout.x; }}
-              onPress={() => switchTab(key)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8 }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-            >
-              <View style={[styles.tabInner, { borderColor: on ? COLOR_PRO : COLOR_BORDER }]}>
-                <Icon size={15} color={color} strokeWidth={on ? 2.4 : 2} />
-                <Text style={[styles.tabLabel, { color }, !on && styles.tabLabelIdle]}>{label}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+  // The main tabs every other screen has (MainTabs): the black track, the Pro
+  // red thumb that slides to the picked tab, which it also keeps in view.
+  // Two of them — the one in the page and the docked copy — on the same value.
+  const tabBar = (
+    <View style={[styles.tabBar, { backgroundColor: HERO_SURFACE }]}>
+      <MainTabs
+        tabs={TABS.map(({ key, label, Icon }) => ({ key, label, Icon }))}
+        value={tab}
+        onChange={switchTab}
+        inset={GUTTER}
+      />
     </View>
   );
 
@@ -596,13 +561,9 @@ export default function GroupDetailScreen() {
       <Text style={[styles.rowTitle, styles.cardTitle, { color: c.fg }]} numberOfLines={2}>{d.title}</Text>
       {d.body ? <Text style={[styles.rowBody, styles.cardBody, { color: c.muted }]} numberOfLines={2}>{stripHtml(d.body)}</Text> : null}
       <View style={styles.cardFoot}>
-        <View style={styles.cardAuthor}>
-          <Avatar user={d.user} size={22} />
-          <Text style={[styles.cardAuthorName, { color: c.fg }]} numberOfLines={1}>
-            {d.user?.username ?? 'member'}
-            {d.created_at ? <Text style={styles.cardWhen}>{`  ${shortTimeAgo(d.created_at)}`}</Text> : null}
-          </Text>
-        </View>
+        <UserByline user={d.user} size={22} gap={7} nameStyle={styles.cardAuthorName} style={styles.cardAuthor}>
+          {d.created_at ? <Text style={[styles.cardAuthorName, styles.cardWhen]}>{shortTimeAgo(d.created_at)}</Text> : null}
+        </UserByline>
         <GroupItemActions kind={kind} item={d} />
       </View>
     </TouchableOpacity>
@@ -805,10 +766,25 @@ export default function GroupDetailScreen() {
     </SummaryTouchable>
   ) });
 
-  // Members strip — opens the full roster.
+  // Description — on the hero surface the banner fades to, so it runs
+  // seamlessly out of the masthead rather than starting a new card.
+  if (group.body || group.subtitle) rows.push({ key: 'body', node: (
+    <View style={[styles.bodyBlock, { backgroundColor: HERO_SURFACE }]}>
+      {/* The tagline leads the description rather than sitting on the banner. */}
+      {group.subtitle ? (
+        <View style={[styles.taglinePill, { backgroundColor: HERO_CONTROL, borderColor: c.borderDark }]}>
+          <Text style={[styles.taglineText, { color: c.fg }]} numberOfLines={1}>{group.subtitle}</Text>
+        </View>
+      ) : null}
+      {group.body ? <Text style={[styles.bodyText, { color: c.fg }]}>{stripHtml(group.body)}</Text> : null}
+    </View>
+  ) });
+
+  // Members strip — opens the full roster. Under the description, right
+  // over the tabs.
   if (activeMembers.length > 0) rows.push({ key: 'members', node: (
     <SummaryTouchable
-      // No rule under it: the description below shares this surface, and
+      // No rule over it: the description above shares this surface, and
       // the two are meant to read as one block.
       style={[styles.membersStrip, { backgroundColor: HERO_SURFACE }]}
       onPress={(origin) => {
@@ -820,33 +796,20 @@ export default function GroupDetailScreen() {
       accessibilityLabel={`View all ${activeMembers.length} members`}
     >
       <View style={styles.avatarRow}>
-        <AvatarStack users={activeMembers.map((m) => m.user)} ringColor={HERO_SURFACE} />
+        {/* Bare faces — no ring, no edge — and the "+N" in white. */}
+        <AvatarStack users={activeMembers.map((m) => m.user)} size={38} edge={false} moreColor={COLOR_WHITE} moreTextColor={COLOR_BLACK} />
       </View>
     </SummaryTouchable>
   ) });
 
-  // Description — on the hero surface the banner fades to, so it runs
-  // seamlessly out of the masthead rather than starting a new card.
-  if (group.body || group.subtitle) rows.push({ key: 'body', node: (
-    <View style={[styles.bodyBlock, { backgroundColor: HERO_SURFACE, borderBottomColor: c.border }]}>
-      {/* The tagline leads the description rather than sitting on the banner. */}
-      {group.subtitle ? (
-        <View style={[styles.taglinePill, { backgroundColor: HERO_CONTROL, borderColor: c.borderDark }]}>
-          <Text style={[styles.taglineText, { color: c.fg }]} numberOfLines={1}>{group.subtitle}</Text>
-        </View>
-      ) : null}
-      {group.body ? <Text style={[styles.bodyText, { color: c.fg }]}>{stripHtml(group.body)}</Text> : null}
-    </View>
-  ) });
-
   if (isMember || isAdmin) {
-    rows.push({ key: 'tabs', node: renderTabBar(tabScrollRef) });
+    rows.push({ key: 'tabs', node: tabBar });
     rows.push({ key: 'content', node: tabContent });
   }
   rowOrder.current = rows.map((r) => r.key);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: GROUP_GROUND }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       {/* The header floats so the banner starts at the very top of the
           viewport, the way the profile screen's cover does. */}
       <AppHeader />
@@ -860,7 +823,7 @@ export default function GroupDetailScreen() {
             {item.node}
           </View>
         )}
-        style={[ss.fill, { backgroundColor: GROUP_GROUND }]}
+        style={ss.fill}
         // At least a screen past the tab row, so any section — a short one
         // included — can be scrolled up under the docked tabs.
         contentContainerStyle={[styles.scroll, tabsTop ? { minHeight: tabsTop - insets.top + SCREEN_HEIGHT } : null]}
@@ -873,59 +836,54 @@ export default function GroupDetailScreen() {
           layer, so its buttons stay on top and take their taps. */}
       {tabsStuck && (
         <Animated.View
-          style={[styles.tabsOverlay, { paddingTop: headerPad, backgroundColor: GROUP_GROUND, transform: [{ translateY: overlayLift }] }]}
+          style={[styles.tabsOverlay, { paddingTop: headerPad, backgroundColor: HERO_SURFACE, transform: [{ translateY: overlayLift }] }]}
           pointerEvents="box-none"
         >
           <Text style={[styles.dockTitle, { color: c.fg }]} numberOfLines={1}>{group.title}</Text>
-          {renderTabBar(overlayTabScrollRef)}
+          {tabBar}
         </Animated.View>
       )}
 
-      {/* Add car modal. Fades rather than slides — the sheet is nearly
-          full-height, so a slide reads as a page transition. */}
-      <Modal visible={carModalOpen} transparent animationType="fade" onRequestClose={() => setCarModalOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCarModalOpen(false)} />
-          <View style={[styles.sheet, { backgroundColor: c.cream }]}>
-            <View style={[styles.sheetHeader, { borderBottomColor: c.border }]}>
-              <Text style={[styles.sheetTitle, { color: c.fg }]}>Add car</Text>
-              <TouchableOpacity onPress={() => setCarModalOpen(false)} hitSlop={8}>
-                <X size={22} color={c.grey} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.sheetHint, { color: c.grey }]}>Tap a car to add or remove it from this group.</Text>
-            <FlatList
-              data={myCars}
-              keyExtractor={(car: GarageCar) => car.internal_id}
-              contentContainerStyle={{ paddingBottom: 32 }}
-              renderItem={({ item }) => {
-                const associated = item.group_id === groupId;
-                const img = carHeroUrl(item);
-                return (
-                  <TouchableOpacity
-                    style={[styles.carPickRow, { borderBottomColor: c.border }]}
-                    onPress={() => updateCarGroup({ carId: item.internal_id, groupId: associated ? null : groupId })}
-                    activeOpacity={0.7}
-                  >
-                    {img
-                      ? <Image source={{ uri: img }} style={styles.carPickThumb} contentFit="cover" />
-                      : <View style={[styles.carPickThumb, { backgroundColor: c.segment }]} />}
-                    <Text style={[styles.carPickTitle, { color: c.fg }]} numberOfLines={1}>
-                      {[item.year, item.make, item.model].filter(Boolean).join(' ') || item.title || 'Car'}
-                    </Text>
-                    <View style={[styles.carCheck, { borderColor: associated ? c.primaryAlt : c.border }, associated && { backgroundColor: c.primaryAlt }]}>
-                      {associated && <Check size={14} color={COLOR_BLACK} strokeWidth={3} />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                <Text style={[styles.carsEmpty, { color: c.grey }]}>You have no cars in your garage yet.</Text>
-              }
-            />
-          </View>
+      {/* Add car modal. Slides up over the panes' fading wash, as every
+          pane does (SlideSheet). */}
+      <SlideSheet visible={carModalOpen} onClose={() => setCarModalOpen(false)} sheetStyle={[styles.sheet, { backgroundColor: PANE_BG }]}>
+        <View style={[styles.sheetHeader, { borderBottomColor: c.border }]}>
+          <Text style={[styles.sheetTitle, { color: c.fg }]}>Add car</Text>
+          <TouchableOpacity onPress={() => setCarModalOpen(false)} hitSlop={8}>
+            <X size={22} color={c.grey} />
+          </TouchableOpacity>
         </View>
-      </Modal>
+        <Text style={[styles.sheetHint, { color: c.grey }]}>Tap a car to add or remove it from this group.</Text>
+        <FlatList
+          data={myCars}
+          keyExtractor={(car: GarageCar) => car.internal_id}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          renderItem={({ item }) => {
+            const associated = item.group_id === groupId;
+            const img = carHeroUrl(item);
+            return (
+              <TouchableOpacity
+                style={[styles.carPickRow, { borderBottomColor: c.border }]}
+                onPress={() => updateCarGroup({ carId: item.internal_id, groupId: associated ? null : groupId })}
+                activeOpacity={0.7}
+              >
+                {img
+                  ? <Image source={{ uri: img }} style={styles.carPickThumb} contentFit="cover" />
+                  : <View style={[styles.carPickThumb, { backgroundColor: c.segment }]} />}
+                <Text style={[styles.carPickTitle, { color: c.fg }]} numberOfLines={1}>
+                  {[item.year, item.make, item.model].filter(Boolean).join(' ') || item.title || 'Car'}
+                </Text>
+                <View style={[styles.carCheck, { borderColor: associated ? c.primaryAlt : c.border }, associated && { backgroundColor: c.primaryAlt }]}>
+                  {associated && <Check size={14} color={COLOR_BLACK} strokeWidth={3} />}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            <Text style={[styles.carsEmpty, { color: c.grey }]}>You have no cars in your garage yet.</Text>
+          }
+        />
+      </SlideSheet>
 
       {/* ── Members roster ──
           A summary of the group's people, in the same panel the cars and the
@@ -938,6 +896,7 @@ export default function GroupDetailScreen() {
         origin={rosterOrigin}
         actionLabel="View All Members"
         onAction={() => (navigation as any).navigate('GroupMembers', { groupId })}
+        stacked={rosterStackedUser}
       >
         <View style={styles.panelHead}>
           <Text style={[styles.panelTitle, { color: c.fg }]}>
@@ -970,32 +929,26 @@ export default function GroupDetailScreen() {
             return (
               // The row opens the member's summary; the follow button stays as
               // an inline shortcut.
-              <SummaryTouchable
+              <UserByline
                 key={item.user_id}
+                user={item.user}
+                size={40}
+                gap={10}
+                fill
+                nameStyle={styles.memberName}
+                sub={item.member_type === 'admin' ? (
+                  <View style={[styles.adminPill, { backgroundColor: c.secondary }]}>
+                    <Text style={[styles.adminPillText, { color: c.fg }]}>Admin</Text>
+                  </View>
+                ) : null}
                 style={[styles.memberRow, { borderBottomColor: c.borderDark }]}
-                onPress={(origin) => {
-                  // The roster is itself a modal; a second one over it fights
-                  // for the screen, so close this first.
-                  setMembersOpen(false);
-                  requestAnimationFrame(() => setUserSummary({ userId: item.user_id, origin }));
-                }}
+                onPress={(origin) => openRosterUser(item.user_id, origin)}
               >
-                <Avatar user={item.user} size={40} />
-                <View style={styles.memberNameWrap}>
-                  <Text style={[styles.memberName, { color: c.fg }]} numberOfLines={1}>
-                    @{item.user?.username ?? 'member'}
-                  </Text>
-                  {item.member_type === 'admin' && (
-                    <View style={[styles.adminPill, { backgroundColor: c.secondary }]}>
-                      <Text style={[styles.adminPillText, { color: c.fg }]}>Admin</Text>
-                    </View>
-                  )}
-                </View>
                 {/* No point offering to follow yourself. */}
                 {!isMe && item.user?.username ? (
                   <FollowButton username={item.user.username} />
                 ) : null}
-              </SummaryTouchable>
+              </UserByline>
             );
         })}
 
@@ -1091,12 +1044,6 @@ export default function GroupDetailScreen() {
         onClose={() => setListingSummary(null)}
       />
 
-      <UserSummaryModal
-        userId={userSummary?.userId ?? null}
-        origin={userSummary?.origin}
-        onClose={() => setUserSummary(null)}
-      />
-
       <JoinRequestsPanel
         groupId={groupId}
         pending={pendingRequests}
@@ -1170,7 +1117,8 @@ const styles = StyleSheet.create({
   requestsText:   { flex: 1, fontSize: 14, fontFamily: FONT_INTER.bold },
   requestsAction: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
 
-  membersStrip: { padding: 14, paddingTop: 0 },
+  // Close to the tabs under it, as the description used to be.
+  membersStrip: { padding: 14, paddingTop: 0, paddingBottom: 6 },
   avatarRow:    { flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' },
   stripInvite:  {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -1179,18 +1127,16 @@ const styles = StyleSheet.create({
   stripInviteText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
 
   memberRow:    {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  // The name column absorbs the squeeze so the follow button keeps its full
-  // width on a long username.
-  memberNameWrap: { flex: 1, minWidth: 0, gap: 3, alignItems: 'flex-start' },
   memberName:   { fontSize: 15, fontFamily: FONT_INTER.semibold },
-  adminPill:    { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  // Under the name, at its own width rather than the column's.
+  adminPill:    { alignSelf: 'flex-start', marginTop: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   adminPillText:{ fontSize: 10, fontFamily: FONT_INTER.extrabold },
 
-  bodyBlock:    { padding: 16, paddingTop: 0, borderBottomWidth: 1, gap: 10, alignItems: 'flex-start' },
+  // No rule under it: the tabs follow straight on.
+  bodyBlock:    { padding: 16, paddingTop: 0, paddingBottom: 12, gap: 10, alignItems: 'flex-start' },
   // Beside the back and cog squares, at their height.
   postToBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -1203,19 +1149,15 @@ const styles = StyleSheet.create({
 
   // The app header's tab row, brought into the page. Opaque, since it sticks
   // over whatever scrolls under it.
-  tabBar:       { paddingBottom: 0 },
+  tabBar:       { paddingTop: 4, paddingBottom: 10 },
   // Between the page and the app header (zIndex 20), so the header's
   // buttons stay on top of it.
   // The group's name over the docked tabs, so you know whose they are.
   dockTitle:    { height: DOCK_TITLE_H, lineHeight: DOCK_TITLE_H, paddingHorizontal: GUTTER + 2, fontSize: 13, fontFamily: FONT_INTER.bold },
   tabsOverlay:  { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 15, elevation: 15 },
   // The header's measures: its pill gap, the gutter at the start.
-  tabRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: GUTTER, paddingVertical: 10 },
   // The header's pill: 1pt edge, as its buttons'.
-  tabInner:     { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
-  tabLabel:     { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   // The unlit tabs a weight lighter, so the lit one leads.
-  tabLabelIdle: { fontFamily: FONT_INTER.medium },
 
   loader:       { marginVertical: 40 },
   rowTitle:     { fontSize: 15, fontFamily: FONT_INTER.bold, marginBottom: 3 },
@@ -1253,16 +1195,15 @@ const styles = StyleSheet.create({
   cardTitle:    { marginBottom: 0 },
   // A step back from the name: darker and lighter-weight, so it reads as a note.
   cardWhen:     { color: COLOR_GRAY_102, fontFamily: FONT_INTER.regular },
-  cardAuthor:   { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
-  cardAuthorName: { fontSize: 12, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
+  cardAuthor:   { flexShrink: 1 },
+  cardAuthorName: { fontSize: 12, fontFamily: FONT_INTER.semibold },
   cardFoot:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 2 },
   mediaRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
   // The Cars screen's mosaic: two columns, each card its photo's shape.
   mosaic:       { flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingTop: 10 },
   column:       { flex: 1 },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet:         { maxHeight: '80%', borderTopLeftRadius: 18, borderTopRightRadius: 18, overflow: 'hidden' },
+  sheet:         { maxHeight: '80%', borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden' },
   sheetHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
   sheetTitle:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   sheetHint:     { fontSize: 13, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },

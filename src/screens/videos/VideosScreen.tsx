@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Linking } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { WebView } from 'react-native-webview';
 import { Eye, Play } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
@@ -112,7 +112,7 @@ export default function VideosScreen() {
   const videos = data?.entries ?? [];
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       {isLoading ? (
         <Spinner fullScreen />

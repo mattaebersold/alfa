@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Modal, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { KeyboardAvoidingView } from '@ors/kit';
 import { BlurView } from 'expo-blur';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Camera, Check, ImageIcon } from 'lucide-react-native';
 import {
   useGetLoggedInUserQuery, useCheckUsernameMutation, useUpdateUserSettingMutation,
@@ -13,10 +13,9 @@ import {
 import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import { pickProfilePhoto, useSaveProfilePhoto } from '../members/ProfileSetupSheets';
 import Avatar from '../ui/Avatar';
+import FormInput from '../ui/FormInput';
 import { validateZip, sanitizeZip } from '../../utils/zip';
 import { validateUsername, sanitizeUsername } from '../../utils/username';
-import { useColors } from '../../hooks/useColors';
-import { ss } from '../../styles/shared';
 import type { User } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
 import {
@@ -189,7 +188,6 @@ function PhotoSection({ user, done, onDone }: { user: User; done: boolean; onDon
 }
 
 function UsernameSection({ user, done, onDone }: { user: User; done: boolean; onDone: () => void }) {
-  const c = useColors();
   const [checkUsername] = useCheckUsernameMutation();
   const [updateSetting, { isLoading }] = useUpdateUserSettingMutation();
   const [username, setUsername] = useState('');
@@ -238,12 +236,11 @@ function UsernameSection({ user, done, onDone }: { user: User; done: boolean; on
             {user.tempUsernameFrom === 'google' ? 'Signing in with Google' : 'Logging in with Apple'} generates a temporary username. If you want to change it, you can do that here.
           </Text>
           <View style={styles.inline}>
-            <TextInput
-              style={[ss.input, styles.inlineInput, { borderColor: c.inputBorder, color: c.fg, backgroundColor: c.inputBg }]}
+            <FormInput
+              style={styles.inlineInput}
               value={username}
               onChangeText={(v) => { setUsername(sanitizeUsername(v)); setError(null); }}
               placeholder={user.username}
-              placeholderTextColor={c.grey}
               autoCapitalize="none"
               autoCorrect={false}
               textContentType="username"
@@ -264,7 +261,6 @@ function UsernameSection({ user, done, onDone }: { user: User; done: boolean; on
 }
 
 function ZipSection({ done, onDone }: { done: boolean; onDone: () => void }) {
-  const c = useColors();
   const [updateSetting, { isLoading }] = useUpdateUserSettingMutation();
   const [zip, setZip] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -291,8 +287,8 @@ function ZipSection({ done, onDone }: { done: boolean; onDone: () => void }) {
             Used to find members, events, and marketplace items near you. Never shown to anyone.
           </Text>
           <View style={styles.inline}>
-            <TextInput
-              style={[ss.input, styles.inlineInput, { borderColor: c.inputBorder, color: c.fg, backgroundColor: c.inputBg }]}
+            <FormInput
+              style={styles.inlineInput}
               value={zip}
               onChangeText={(v) => { setZip(sanitizeZip(v)); setError(null); }}
               keyboardType="number-pad"
@@ -358,7 +354,7 @@ const styles = StyleSheet.create({
   available: { fontSize: 11, marginTop: 5, lineHeight: 15, color: 'rgba(255,255,255,0.7)', fontFamily: FONT_INTER.semibold },
 
   inline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inlineInput: { flex: 1, borderWidth: 1.5 },
+  inlineInput: { flex: 1 },
   setBtn: {
     minWidth: 64, height: 44, paddingHorizontal: 14, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_WHITE,

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Pressable, Alert, ActivityIndicator, Keyboard,
+  View, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Easing, Pressable, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { X } from 'lucide-react-native';
@@ -9,7 +9,7 @@ import { Dimensions } from 'react-native';
 import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
-import CommentRow, { COMMENT_SURFACE } from './CommentRow';
+import CommentRow from './CommentRow';
 import Composer, { type ComposerHandle } from './Composer';
 import { KeyboardAvoidingView } from '@ors/kit';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
@@ -25,6 +25,11 @@ import {
   COLOR_GRAY_30,
   COLOR_GRAY_42,
   COLOR_WHITE,
+  PANE_BG,
+  PANE_OPEN_MS,
+  PANE_OPEN_OVERSHOOT,
+  PANE_SCRIM,
+  SHEET_RADIUS,
 } from '../../constants/config';
 
 /**
@@ -32,9 +37,10 @@ import {
  *
  * It used to be three: a black header, a #161616 body and a #0B0B0B composer,
  * which read as three panels stacked rather than as one surface with comments
- * on it. The comment cards supply the only other tone.
+ * on it. The comment cards supply the only other tone. It's the pane surface
+ * every sheet shares.
  */
-const SHEET_BG = COMMENT_SURFACE;
+const SHEET_BG = PANE_BG;
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -70,7 +76,9 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
   const topGap = Math.max(SCREEN_HEIGHT * 0.12, insets.top + 8);
   const composerRef = useRef<ComposerHandle>(null);
 
-  const slideY = useRef(new Animated.Value(600)).current;
+  // Starts a screen's height down, so even this near-full-height sheet comes
+  // up from below the edge rather than appearing part-way up.
+  const slideY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
   const [rendered, setRendered] = useState(false);
@@ -79,15 +87,16 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     if (visible) {
       mountedRef.current = true;
       setRendered(true);
-      slideY.setValue(600);
+      slideY.setValue(SCREEN_HEIGHT);
       overlayOpacity.setValue(0);
       Animated.parallel([
-        Animated.spring(slideY, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
+        // Out, with a slight overshoot — the way every pane arrives (SlideSheet).
+        Animated.timing(slideY, { toValue: 0, duration: PANE_OPEN_MS, easing: Easing.out(Easing.back(PANE_OPEN_OVERSHOOT)), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
       ]).start();
     } else if (mountedRef.current) {
       Animated.parallel([
-        Animated.timing(slideY, { toValue: 600, duration: 240, useNativeDriver: true }),
+        Animated.timing(slideY, { toValue: SCREEN_HEIGHT, duration: 240, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => {
         mountedRef.current = false;
@@ -132,10 +141,17 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
         pointerEvents="none"
       >
         <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: PANE_SCRIM }]} />
       </Animated.View>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <KeyboardAvoidingView style={[styles.stack, { paddingTop: topGap }]} pointerEvents="box-none">
+        {/* The sheet's own colour under its foot, shown only while the opening
+            overshoots — so the screen doesn't show through below a sheet that
+            has risen a little past its place. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.overshootFill, { opacity: slideY.interpolate({ inputRange: [-1, 0, 1], outputRange: [1, 1, 0], extrapolate: 'clamp' }) }]}
+        />
         <Animated.View
           style={[
             styles.sheet,
@@ -240,7 +256,8 @@ const styles = StyleSheet.create({
   // Comments are a place you settle into, not a peek — it opens near
   // full-height rather than growing into it as the thread gets long.
   stack:       { flex: 1, justifyContent: 'flex-end' },
-  sheet:       { flex: 1, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
+  overshootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: SHEET_BG },
+  sheet:       { flex: 1, borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden' },
   // No rules against the list: header, comments and composer are one surface,
   // and a line across it made them read as separate panels again.
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },

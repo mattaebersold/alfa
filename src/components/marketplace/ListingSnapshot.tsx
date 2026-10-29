@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem, ListingPriceMode } from '../../types/api';

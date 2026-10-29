@@ -3,11 +3,11 @@ import {
   View, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, Dimensions,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Text } from '@ors/kit';
+import { Image } from '../../components/ui/AppImage';
 import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Users } from 'lucide-react-native';
+import { Users } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,7 +18,6 @@ import { firstGalleryUrl } from '../../utils/image';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import ScreenHeading from '../../components/ui/ScreenHeading';
 import HeadingActionButton from '../../components/ui/HeadingActionButton';
 import NewGroupSheet from '../../components/groups/NewGroupSheet';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
@@ -29,6 +28,7 @@ import type { Group } from '../../types/api';
 import { REGIONS, regionKey, regionLabel } from '../../constants/regions';
 import { GROUP_TYPES } from '../../constants/groupTypes';
 import FilterSummaryRow, { FilterChoiceRow, FilterDivider } from '../../components/ui/FilterSummaryRow';
+import SearchPill from '../../components/ui/SearchPill';
 import GroupSummaryModal from '../../components/groups/GroupSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { ss } from '../../styles/shared';
@@ -39,9 +39,7 @@ import {
   COLOR_MEMBER_BLUE,
   COLOR_WHITE,
   GUTTER,
-  COLOR_GRAY_40,
-  SEARCH_EDGE,
-} from '../../constants/config';
+  COLOR_GRAY_40, MAIN_SCREEN_TOP_GAP} from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
 import GroupCard, { CARD_RADIUS } from '../../components/groups/GroupCard';
@@ -155,11 +153,10 @@ function MyGroupCard({ group, onPress, solo = false }: { group: Group; onPress: 
  * The home screen shows the same view under its "Groups" tab, in place.
  */
 export default function GroupsScreen() {
-  const colors = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <GroupsView headerPad={headerPad} onScroll={onScroll} />
     </SafeAreaView>
@@ -211,6 +208,15 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const isPro = useIsPro();
   const brand = useBrandColor();
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+  const newGroupBtn = (
+    <HeadingActionButton
+      label="New Group"
+      compact
+      color={COLOR_WHITE}
+      onPress={() => setNewGroupOpen(true)}
+      accessibilityLabel="Create a new group"
+    />
+  );
 
   const { data: rawUserGroups, isLoading: userGroupsLoading, refetch: refetchUserGroups } = useGetUserGroupsQuery(
     userInfo?.user_id ?? '',
@@ -285,7 +291,7 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
 
   if (userGroupsLoading || allGroupsLoading) {
     return (
-      <View style={[styles.content, { backgroundColor: colors.cream, paddingTop: headerPad, paddingHorizontal: GUTTER }]}>
+      <View style={[styles.content, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP, paddingHorizontal: GUTTER }]}>
         <SkeletonRow count={3} size={88} radius={COMMON_RADIUS} style={{ marginBottom: 20 }} />
         <SkeletonGrid count={6} ratio={1.1} />
       </View>
@@ -294,14 +300,15 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
 
   return (
     <>
-      <View style={[styles.content, { backgroundColor: colors.cream }]}>
+      <View style={styles.content}>
         <FlatList
           ref={scrollRef}
           data={publicGroups}
           keyExtractor={(g) => g.internal_id}
           numColumns={2}
           columnWrapperStyle={styles.cardRow}
-          contentContainerStyle={[styles.list, { paddingTop: headerPad, paddingBottom: tabBarHeight + 32 }]}
+          // A little clear of the header, with no title to hold it off.
+          contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP, paddingBottom: tabBarHeight + 32 }]}
           onScroll={onScroll}
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={colors.primaryAlt} />}
@@ -310,27 +317,13 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              {/* Heading rides in the list so it scrolls away with the content. */}
-              {/* The action sits with the title rather than in a band of its
-                  own below the shelf of groups you're already in — it's the
-                  first thing you'd reach for, so it shouldn't be the last
-                  thing you scroll past. */}
-              {/* ScreenHeading sits at zero — it's shared with eight other
-                  screens that supply their own gutter — so the padding is
-                  here, on the same 12 as everything below it. */}
-              <View style={styles.headingWrap}>
-                <ScreenHeading
-                  title="Groups"
-                  inline
-                  right={isPro ? (
-                    <HeadingActionButton
-                      label="New Group"
-                      onPress={() => setNewGroupOpen(true)}
-                      accessibilityLabel="Create a new group"
-                    />
-                  ) : undefined}
-                />
-              </View>
+              {/* No screen title — the tab says where you are. A new group is
+                  made from beside the groups you're already in, small and
+                  white, a section's action rather than the screen's. With
+                  none yet, it holds that corner on its own. */}
+              {isPro && userGroups.length === 0 && (
+                <View style={[styles.myGroupsHeadingRow, styles.newGroupAlone]}>{newGroupBtn}</View>
+              )}
               {userGroups.length > 0 && (
                 <View style={styles.myGroupsSection}>
                   {/* The count rides in the heading rather than under it —
@@ -343,6 +336,8 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                         {userGroups.length}
                       </Text>
                     </View>
+                    {isPro && <View style={styles.myGroupsSpacer} />}
+                    {isPro && newGroupBtn}
                   </View>
                   <ScrollView
                     horizontal
@@ -364,23 +359,7 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
               )}
 
               <View style={styles.searchRow}>
-                <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: SEARCH_EDGE }]}>
-                  <Search size={15} color={colors.grey} />
-                  <TextInput
-                    style={[styles.searchInput, { color: colors.fg }]}
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Search groups..."
-                    placeholderTextColor={colors.grey}
-                    autoCapitalize="none"
-                    returnKeyType="search"
-                  />
-                  {search.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-                      <Text style={{ color: colors.grey, fontSize: 14 }}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                <SearchPill value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search groups..." />
                 {/* The filter beside the search, as a pill naming what's
                     applied — the pattern events and the marketplace share.
                     Region and type, together: both run over what's already
@@ -497,14 +476,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: GUTTER, marginTop: 10, marginBottom: 10,
   },
-  // A pill, the filter's height, taking the rest of the row.
-  searchBar: {
-    flex: 1, minWidth: 0, height: 38,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14,
-    borderRadius: PILL_RADIUS, borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
 
   // The same 12 gutter as My Groups and the search row above.
   cardRow:  { gap: 8, marginBottom: 8, paddingHorizontal: MY_SECTION_MARGIN },
@@ -529,5 +500,7 @@ const styles = StyleSheet.create({
 
   emptyWrap: { paddingTop: 20 },
 
-  headingWrap: { paddingHorizontal: GUTTER, marginBottom: 4 },
+  myGroupsSpacer: { flex: 1 },
+  // No groups yet: the button alone, at the row's right.
+  newGroupAlone: { justifyContent: 'flex-end', paddingTop: 4 },
 });

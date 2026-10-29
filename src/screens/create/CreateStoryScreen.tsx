@@ -15,7 +15,6 @@ import {
   COMMON_RADIUS,
   COLOR_BLACK,
   COLOR_DANGER,
-  COLOR_GRAY_10,
   COLOR_WHITE,
   COLOR_BORDER,
 } from '../../constants/config';
@@ -304,7 +303,7 @@ export default function CreateStoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLOR_BLACK },
+  container: { flex: 1 },
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: COLOR_BLACK,
@@ -313,7 +312,7 @@ const styles = StyleSheet.create({
 
   // Permission gate
   permGate: {
-    flex: 1, backgroundColor: COLOR_GRAY_10,
+    flex: 1,
     alignItems: 'center', justifyContent: 'center', padding: 36,
   },
   permTitle: { color: COLOR_WHITE, fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 12, textAlign: 'center' },

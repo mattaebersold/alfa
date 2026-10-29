@@ -3,7 +3,6 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLOR_GRAY_17 } from '../../constants/config';
 import FeedItemCard from '../cards/FeedItemCard';
 import InlineComments, { CommentsHeading } from './InlineComments';
 import { useGetPostQuery } from '../../api/apiService';
@@ -110,9 +109,9 @@ export function PostSheet({ post, onClose }: { post: Post | null; onClose: () =>
   const full = useFullPost(shown);
   const insets = useSafeAreaInsets();
   return (
-    // A shade under the feed card's grey, no title row — the grabber closes it — and the post running to the
+    // No title row — the grabber closes it — and the post running to the
     // device's bottom edge, padded clear of the home indicator.
-    <SharedModal visible={!!post} onClose={onClose} heightRatio={0.9} surface={COLOR_GRAY_17} hideHeader edgeToEdge>
+    <SharedModal visible={!!post} onClose={onClose} heightRatio={0.9} hideHeader edgeToEdge>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.sheetScroll, { paddingBottom: insets.bottom + 24 }]}

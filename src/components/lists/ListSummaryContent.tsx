@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Car, ExternalLink, Lock, Settings, PenSquare, Trash2 } from 'lucide-react-native';
-import Avatar from '../ui/Avatar';
 import ActionSheet from '../ui/ActionSheet';
-import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
+import UserByline from '../members/UserByline';
+import type { SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
@@ -120,7 +120,6 @@ export default function ListSummaryContent({
   hideCar?: boolean;
 }) {
   const colors = useColors();
-  const authorRef = useRef<View>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const hasMenu = !!(onEdit || onDelete);
 
@@ -183,18 +182,15 @@ export default function ListSummaryContent({
             the same panel opens from a car's page and from a notification,
             where it's the first thing you'd ask. */}
         {author ? (
-          <TouchableOpacity
-            ref={authorRef}
+          <UserByline
+            user={author}
+            size={26}
+            gap={8}
             style={styles.authorRow}
-            onPress={() => measureOrigin(authorRef.current, (origin) => onOpenUser?.(author.user_id, origin))}
+            onPress={(origin) => onOpenUser?.(author.user_id, origin)}
             disabled={!onOpenUser}
             activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel={`View @${author.username}`}
-          >
-            <Avatar user={author} size={26} />
-            <Text style={[styles.authorName, { color: colors.fg }]} numberOfLines={1}>@{author.username}</Text>
-          </TouchableOpacity>
+          />
         ) : null}
 
         {/* The car it's about — the same row a listing uses for the car it
@@ -260,8 +256,7 @@ const styles = StyleSheet.create({
 
   about: { fontSize: 13.5, lineHeight: 19, marginTop: 2 },
 
-  authorRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 2 },
-  authorName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  authorRow:  { alignSelf: 'flex-start', marginTop: 2 },
 
   carRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

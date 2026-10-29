@@ -211,7 +211,7 @@ export default function MarketplaceMessagesScreen({ route }: AppScreenProps<'Mar
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       {/* When the screen was opened from one listing, say so — otherwise a
           short list looks like an empty marketplace rather than a filter. */}
       {listingId && (

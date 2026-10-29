@@ -3,13 +3,13 @@ import {
   View, StyleSheet, FlatList, TouchableOpacity, RefreshControl,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetCarsQuery } from '../../api/apiService';
 import { carHeroUrl } from '../../utils/image';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import CarSummaryModal from '../../components/cars/CarSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { colors } from '../../constants/colors';
@@ -34,12 +34,14 @@ function CarRow({ car, onPress }: { car: GarageCar; onPress: (origin: SummaryOri
           {car.year} {car.make} {car.model}
         </Text>
         {car.user && (
-          <View style={styles.ownerRow}>
-            <Avatar user={car.user} size={18} />
-            <Text style={[styles.ownerName, { color: colors.grey }]} numberOfLines={1}>
-              @{car.user.username}
-            </Text>
-          </View>
+          <UserByline
+            user={car.user}
+            size={18}
+            gap={5}
+            color={colors.grey}
+            nameStyle={styles.ownerName}
+            style={styles.ownerRow}
+          />
         )}
       </View>
     </SummaryTouchable>
@@ -76,7 +78,7 @@ export default function GroupCarsScreen({ route }: GroupsScreenProps<'GroupCars'
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FlatList
         data={allCars}
         keyExtractor={(c) => c.internal_id}
@@ -108,6 +110,6 @@ const styles = StyleSheet.create({
   thumb:            { width: 72, height: 54, borderRadius: 8 },
   info:             { flex: 1 },
   carName:          { fontSize: 14, fontFamily: FONT_INTER.bold },
-  ownerRow:         { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
-  ownerName:        { fontSize: 12, flex: 1 },
+  ownerRow:         { marginTop: 4 },
+  ownerName:        { fontSize: 12, fontFamily: FONT_INTER.regular },
 });

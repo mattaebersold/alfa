@@ -23,7 +23,7 @@ export default function SettingsPanel({ visible, origin, onClose }: {
   const colors = useColors();
 
   return (
-    <GrowPanel visible={visible} origin={origin} onClose={onClose} surface={colors.cream}>
+    <GrowPanel visible={visible} origin={origin} onClose={onClose}>
       {({ closeThen }) => (
         <View style={styles.fill}>
           <View style={styles.head}>

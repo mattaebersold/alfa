@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
+import FormInput from '../ui/FormInput';
 import GroupCarsField from './GroupCarsField';
 import { groupCarsOf } from '../../utils/groupCars';
 import type { GroupCar } from '../../types/api';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { UserMinus, ShieldCheck, ShieldOff, Camera, X, MessageCircle, LogOut, ChevronRight } from 'lucide-react-native';
 import {
@@ -19,7 +20,7 @@ import {
   useDeleteGroupMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import Spinner from '../ui/Spinner';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import PhotoPickerField from '../ui/PhotoPickerField';
@@ -64,19 +65,18 @@ type PickedImage = { uri: string; name: string; type: string };
  * while an admin typed.
  */
 function ImageSlot({
-  uri, onPick, onClear, label, hint, tall,
+  uri, onPick, onClear, label, tall,
 }: {
   uri: string | null;
   onPick: () => void;
   onClear?: () => void;
   label: string;
-  hint: string;
   tall?: boolean;
 }) {
   if (!uri) {
     return (
       <View style={styles.imageSlot}>
-        <PhotoPickerField onPress={onPick} title={label} hint={hint} />
+        <PhotoPickerField onPress={onPick} title={label} />
       </View>
     );
   }
@@ -393,27 +393,23 @@ export function GroupSettingsBody({
   return (
     <>
           {/* ── Group info ─────────────────────────────────────────── */}
-          <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+          <View style={[styles.section, { borderBottomColor: c.borderDark }]}>
             <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Group Info</Text>
 
             {isAdmin ? (
               <View style={styles.editBlock}>
                 <Text style={[styles.fieldLabel, { color: c.grey }]}>Name</Text>
-                <TextInput
-                  style={[styles.input, { color: c.fg, backgroundColor: c.inputBg, borderColor: c.inputBorder }]}
+                <FormInput
                   value={title}
                   onChangeText={setTitle}
                   placeholder="Group name"
-                  placeholderTextColor={c.grey}
                 />
 
                 <Text style={[styles.fieldLabel, { color: c.grey, marginTop: 14 }]}>Tagline</Text>
-                <TextInput
-                  style={[styles.input, { color: c.fg, backgroundColor: c.inputBg, borderColor: c.inputBorder }]}
+                <FormInput
                   value={subtitle}
                   onChangeText={setSubtitle}
                   placeholder="A short line under the name"
-                  placeholderTextColor={c.grey}
                 />
 
                 {/* The cars it's about — each puts it on that make's page, and
@@ -442,7 +438,7 @@ export function GroupSettingsBody({
 
           {/* ── Images ─────────────────────────────────────────────── */}
           {isAdmin && (
-            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+            <View style={[styles.section, { borderBottomColor: c.borderDark }]}>
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Images</Text>
 
               <Text style={[styles.fieldLabel, { color: c.grey, paddingHorizontal: PANE_GUTTER, paddingTop: 12 }]}>
@@ -453,7 +449,6 @@ export function GroupSettingsBody({
                 onPick={() => pick(setNewImage, 'Group Photo')}
                 onClear={newImage ? () => setNewImage(null) : undefined}
                 label="Add a group photo"
-                hint="Shown on group cards and listings"
               />
 
               <Text style={[styles.fieldLabel, { color: c.grey, paddingHorizontal: PANE_GUTTER }]}>
@@ -464,7 +459,6 @@ export function GroupSettingsBody({
                 onPick={() => pick(setNewBanner, 'Banner')}
                 onClear={newBanner ? () => setNewBanner(null) : undefined}
                 label="Add a banner"
-                hint="The wide image across the top of the group"
                 tall
               />
             </View>
@@ -473,7 +467,7 @@ export function GroupSettingsBody({
           {/* One save for the name and both images — they go up as one
               request, and separate buttons would imply they don't. */}
           {isAdmin && (
-            <View style={[styles.saveWrap, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+            <View style={[styles.saveWrap, { borderBottomColor: c.borderDark }]}>
               <TouchableOpacity
                 style={[
                   styles.saveBtn,
@@ -493,7 +487,7 @@ export function GroupSettingsBody({
 
           {/* ── Pending requests ───────────────────────────────────── */}
           {pending.length > 0 && (
-            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+            <View style={[styles.section, { borderBottomColor: c.borderDark }]}>
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>
                 Pending Requests ({pending.length})
               </Text>
@@ -509,7 +503,7 @@ export function GroupSettingsBody({
               it's where the roles and removals belong; the roster elsewhere
               is for reading. ────────────────────────────────────────── */}
           {isAdmin && active.length > 0 && (
-            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+            <View style={[styles.section, { borderBottomColor: c.borderDark }]}>
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>
                 Members ({active.length})
               </Text>
@@ -517,15 +511,17 @@ export function GroupSettingsBody({
                 const isMe = m.user_id === userInfo?.user_id;
                 const memberIsAdmin = m.member_type === 'admin';
                 return (
-                  <View key={m.user_id} style={[styles.memberRow, { borderTopColor: c.borderDark }]}>
-                    <Avatar user={m.user} size={36} />
-                    <View style={styles.memberInfo}>
-                      <Text style={[styles.memberName, { color: c.fg }]}>@{m.user?.username}</Text>
-                      {memberIsAdmin && (
-                        <Text style={[styles.memberRole, { color: c.grey }]}>Admin</Text>
-                      )}
-                    </View>
-
+                  <UserByline
+                    key={m.user_id}
+                    user={m.user}
+                    size={36}
+                    gap={8}
+                    fill
+                    sub={memberIsAdmin ? 'Admin' : null}
+                    nameStyle={styles.memberName}
+                    subStyle={styles.memberRole}
+                    style={[styles.memberRow, { borderTopColor: c.borderDark }]}
+                  >
                     <TouchableOpacity
                       style={[styles.roleBtn, { borderColor: c.borderDark }]}
                       onPress={() => handleRole(m.user_id, m.user?.username, m.member_type)}
@@ -560,7 +556,7 @@ export function GroupSettingsBody({
                         <UserMinus size={13} color={colors.red} />
                       </TouchableOpacity>
                     )}
-                  </View>
+                  </UserByline>
                 );
               })}
             </View>
@@ -570,7 +566,7 @@ export function GroupSettingsBody({
               Only when the host supplies them; the section screen's sheet
               leaves them to its own chrome. ─────────────────────────── */}
           {(onMessageAdmin || onLeave) && (
-            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+            <View style={[styles.section, { borderBottomColor: c.borderDark }]}>
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Membership</Text>
               {onMessageAdmin && (
                 <TouchableOpacity
@@ -604,7 +600,7 @@ export function GroupSettingsBody({
               invites the wrong tap. This section is for the one action that
               can't be taken back. */}
           {isAdmin && (
-            <View style={[styles.section, { backgroundColor: c.card, borderBottomColor: c.borderDark }]}>
+            <View style={[styles.section, { borderBottomColor: c.borderDark }]}>
               <Text style={[styles.sectionTitle, { backgroundColor: c.secondary, color: c.grey }]}>Danger Zone</Text>
               <View style={[styles.dangerBlock, { borderTopColor: c.borderDark }]}>
                 <Text style={[styles.dangerHeading, { color: colors.red }]}>Delete this group</Text>
@@ -617,12 +613,11 @@ export function GroupSettingsBody({
                 <Text style={[styles.dangerBody, { color: c.grey, marginTop: 12 }]}>
                   Type <Text style={{ color: c.fg, fontWeight: '700' }}>{group?.title}</Text> to confirm.
                 </Text>
-                <TextInput
-                  style={[styles.input, { color: c.fg, backgroundColor: c.inputBg, borderColor: c.inputBorder, marginTop: 8 }]}
+                <FormInput
+                  style={{ marginTop: 8 }}
                   value={deleteConfirm}
                   onChangeText={setDeleteConfirm}
                   placeholder={group?.title}
-                  placeholderTextColor={c.grey}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
@@ -657,7 +652,6 @@ const styles = StyleSheet.create({
 
   editBlock:   { paddingHorizontal: PANE_GUTTER, paddingTop: 12, paddingBottom: 14 },
   fieldLabel:  { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
-  input:       { paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderRadius: 10 },
 
   imageSlot:   { paddingHorizontal: PANE_GUTTER, paddingBottom: 14, position: 'relative' },
   imagePreview:{ width: '100%', height: 150, borderRadius: 10, backgroundColor: COLOR_BLACK },
@@ -684,10 +678,9 @@ const styles = StyleSheet.create({
   actionRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: PANE_GUTTER, paddingVertical: 13, borderTopWidth: StyleSheet.hairlineWidth },
   actionText:  { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
 
-  memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: PANE_GUTTER, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  memberInfo:  { flex: 1 },
+  memberRow:   { paddingHorizontal: PANE_GUTTER, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   memberName:  { fontSize: 14, fontFamily: FONT_INTER.semibold },
-  memberRole:  { fontSize: 11, marginTop: 1 },
+  memberRole:  { fontSize: 11 },
   roleBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingVertical: 6,

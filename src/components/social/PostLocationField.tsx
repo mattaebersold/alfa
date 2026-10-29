@@ -1,14 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
-import { MapPin, Search, X } from 'lucide-react-native';
+import { View, StyleSheet } from 'react-native';
+import { MapPin, Search } from 'lucide-react-native';
 import AddressField from '../ui/AddressField';
+import { ChoiceCardRow, type ChoiceCardItem } from './PostToSelector';
+import { TagCardFrame, ROW_PAD } from './PostTagPicker';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { useGetRecentPostPlacesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import type { PlaceDetail, PostPlace } from '../../types/api';
-import { PILL_RADIUS, FORM_RADIUS } from '../../constants/config';
-import { FONT_INTER } from '../../constants/fonts';
 
 /** How many recent places are offered before the search is the better route. */
 const RECENT_MAX = 6;
@@ -41,25 +41,28 @@ export function postPlaceFrom(detail: PlaceDetail, typed?: string): PostPlace | 
  * post the way its words do. The posts made at one place are then one list (see
  * PlacePostsModal), grouped by Google's `place_id`.
  *
- * Three states, one at a time:
- *   - Picked: the place as a row, with an X to take it off. No field — a post
- *     has one place, and a field under a picked one would read as "add another".
- *   - Not picked: the places you've posted at before, as pills to tap, then the
- *     search. Recents first because they're the likely answer, and a tap beats
- *     typing the name of the café you post from every weekend.
- *   - Typing: AddressField's own suggestions, in flow under the field.
- *
- * Only the card's body: the host draws the card and its "Add a Location" head,
- * so the create form and the edit pane can frame it their own way.
+ * Drawn as one of the tag cards (TagCardFrame): the places you've posted at
+ * before as Post To's cards, dragged sideways — recents first, because a tap
+ * beats typing the name of the café you post from every weekend — then the
+ * search, with AddressField's own suggestions in flow under it. A card's
+ * check is the pick. A post has one place: picked, the search goes, and
+ * tapping the checked card again takes it off.
  */
-export default function PostLocationField({ value, onChange }: {
+export default function PostLocationField({ value, onChange, framed = true }: {
   value: PostPlace | null;
   onChange: (place: PostPlace | null) => void;
+  /**
+   * Drawn as a tag card — the frame, the pin and "Add a Location" — as the
+   * create form shows it, under Tag Events. Off for a host that heads it
+   * itself (the edit pane).
+   */
+  framed?: boolean;
 }) {
   const colors = useColors();
+  const brand = useBrandColor();
   const signedIn = useAppSelector((s) => !!s.auth.userInfo?.user_id);
   // Signed-in only on the server; asking without a session is a 401 for nothing.
-  const { data: recentData } = useGetRecentPostPlacesQuery(undefined, { skip: !signedIn || !!value });
+  const { data: recentData } = useGetRecentPostPlacesQuery(undefined, { skip: !signedIn });
   const recents = (recentData?.places ?? []).slice(0, RECENT_MAX);
 
   const [query, setQuery] = useState('');
@@ -77,108 +80,73 @@ export default function PostLocationField({ value, onChange }: {
     onChange(place);
   };
 
-  if (value) {
-    return (
-      <View style={[styles.picked, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-        <MapPin size={16} color={colors.fg} />
-        <View style={styles.pickedText}>
-          <Text style={[styles.pickedName, { color: colors.fg }]} numberOfLines={1}>{value.name}</Text>
-          {value.address ? (
-            <Text style={[styles.pickedAddress, { color: colors.grey }]} numberOfLines={1}>{value.address}</Text>
-          ) : null}
-        </View>
-        <TouchableOpacity
-          onPress={() => onChange(null)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Remove location"
-        >
-          <X size={16} color={colors.grey} />
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // Recent places as Post To's cards — a pin, a check, the place's name — and
+  // the check is the pick: one at a time, tapped again to take it off. A place
+  // found by search joins the row at its front, checked, so it has a card too.
+  const place = (p: { place_id: string; name: string; address?: string | null; lat: number; lng: number }): PostPlace =>
+    ({ place_id: p.place_id, name: p.name, address: p.address ?? null, lat: p.lat, lng: p.lng });
+  const shown = value && !recents.some((r) => r.place_id === value.place_id) ? [value, ...recents] : recents;
+  const cards: ChoiceCardItem[] = shown.map((p) => {
+    const on = value?.place_id === p.place_id;
+    return {
+      key: p.place_id,
+      label: p.name,
+      Icon: MapPin,
+      active: on,
+      onPress: () => (on ? onChange(null) : pick(place(p))),
+    };
+  });
 
-  return (
-    <View>
-      {recents.length > 0 && (
-        <View style={styles.recentWrap}>
-          {/* The tag cards' "Recently tagged" caption, over pills rather than
-              photo tiles — a place has no picture of its own to show. */}
-          <Text style={[styles.recentTitle, { color: colors.grey }]}>Recent places</Text>
-          <View style={styles.recentPills}>
-            {recents.map((p) => (
-              <TouchableOpacity
-                key={p.place_id}
-                style={[styles.pill, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
-                onPress={() => pick({ place_id: p.place_id, name: p.name, address: p.address ?? null, lat: p.lat, lng: p.lng })}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={`Add location ${p.name}`}
-              >
-                <MapPin size={12} color={colors.grey} />
-                <Text style={[styles.pillText, { color: colors.fg }]} numberOfLines={1}>{p.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+  const body = (
+    <>
+      {cards.length > 0 && (
+        <View style={[styles.recents, value && styles.recentsPicked]}>
+          <ChoiceCardRow items={cards} bleed={framed ? ROW_PAD : 0} />
         </View>
       )}
 
-      {/* The same box and search glyph as the tag searches above it. The glyph
-          sits over the field's left padding rather than beside it in a row:
-          AddressField's suggestions drop down under its own input, and inside
-          a row they'd be squeezed in beside the glyph. */}
-      <View>
-        <AddressField
-          value={query}
-          onChangeText={onQuery}
-          onPlacePicked={(detail) => {
-            const place = postPlaceFrom(detail, latest.current);
-            if (place) pick(place);
-          }}
-          placeholder="Search for a place…"
-          inputStyle={[styles.input, { color: colors.fg, backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
-        />
-        <View style={styles.searchIcon} pointerEvents="none">
-          <Search size={15} color={colors.grey} />
+      {/* The search, until a place is picked — one place per post. The same
+          box and search glyph as the tag searches above it; the glyph sits
+          over the field's left padding rather than beside it in a row, since
+          AddressField's suggestions drop down under its own input. */}
+      {!value && (
+        <View>
+          <AddressField
+            value={query}
+            onChangeText={onQuery}
+            onPlacePicked={(detail) => {
+              const found = postPlaceFrom(detail, latest.current);
+              if (found) pick(found);
+            }}
+            placeholder="Search for a place…"
+            inputStyle={styles.input}
+          />
+          <View style={styles.searchIcon} pointerEvents="none">
+            <Search size={15} color={colors.grey} />
+          </View>
         </View>
-      </View>
-    </View>
+      )}
+    </>
   );
+
+  return framed ? (
+    <TagCardFrame title="Add a Location" Icon={MapPin} count={value ? 1 : 0} accent={brand}>{body}</TagCardFrame>
+  ) : body;
 }
 
 /** The search box's height — the glyph is centred against it. */
 const INPUT_H = 42;
 
 const styles = StyleSheet.create({
-  recentWrap:  { marginBottom: 12 },
-  // TagCardStrip's caption.
-  recentTitle: { fontSize: 11, fontFamily: FONT_INTER.bold, letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 6 },
-  recentPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  pill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 10, height: 30, borderRadius: PILL_RADIUS, borderWidth: 1,
-    maxWidth: '100%',
-  },
-  pillText: { fontSize: 12, fontFamily: FONT_INTER.semibold, maxWidth: 200 },
+  recents: { marginBottom: 12 },
+  // Nothing under the row once a place is picked.
+  recentsPicked: { marginBottom: 0 },
 
-  // PostTagPicker's inputBox, with room on the left for the glyph laid over it.
-  input: {
-    height: INPUT_H, fontSize: 14,
-    paddingLeft: 35, paddingRight: 12, paddingVertical: 0,
-    borderWidth: 1, borderRadius: FORM_RADIUS,
-  },
+  // AddressField's FormInput at PostTagPicker's inputBox height, with room on
+  // the left for the glyph laid over it.
+  input: { height: INPUT_H, paddingLeft: 35, paddingRight: 12, paddingVertical: 0 },
   searchIcon: {
     position: 'absolute', left: 12, top: 0, height: INPUT_H,
     justifyContent: 'center',
   },
-
-  picked: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderRadius: FORM_RADIUS,
-  },
-  pickedText:    { flex: 1, minWidth: 0 },
-  pickedName:    { fontSize: 14, fontFamily: FONT_INTER.semibold },
-  pickedAddress: { fontSize: 12, marginTop: 1 },
 });

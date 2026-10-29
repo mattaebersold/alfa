@@ -12,14 +12,13 @@ export interface PostToGroup { internal_id: string; title?: string }
 
 const CARD_GAP = 8;
 /**
- * A card's share of the row it sits in — the same proportion the "My Groups"
- * shelf on GroupsScreen uses: a little over two fit, and the part of the
- * third that shows is what says the row goes on. Measured off the row's own
+ * A card's share of the row it sits in: two fit, and the part of the third
+ * that shows is what says the row goes on. Measured off the row's own
  * width rather than the screen's, because the hosts wrap this in cards with
  * different paddings, and a fixed fraction of the screen inside the narrowest
  * of them left the third card with nothing to peek with.
  */
-const CARD_FRACTION = 0.27;
+const CARD_FRACTION = 0.34;
 /** Before the first layout has reported a width. */
 const FALLBACK_WIDTH = Math.round(Dimensions.get('window').width * CARD_FRACTION);
 /** One height for every card, so a long group name doesn't make its card taller. */
@@ -40,31 +39,25 @@ const ROW_CARD_HEIGHT = 84;
  * for or against. Selection is carried by the whole card — tinted ground and
  * a filled check — with no border on either state.
  */
-export default function PostToSelector({
-  isPublic,
-  onTogglePublic,
-  groups,
-  selectedGroupIds,
-  onToggleGroup,
-  bleed = 0,
-  layout = 'row',
-}: {
-  isPublic: boolean;
-  onTogglePublic: () => void;
-  groups: PostToGroup[];
-  selectedGroupIds: string[];
-  onToggleGroup: (groupId: string) => void;
-  /**
-   * The padding of whatever it sits in. The row reaches out past it to that
-   * container's edges, so the cards scroll edge to edge, and the first one
-   * still starts on the padding line — like the garage strip.
-   */
+/** One choice card: an icon, a check, and its name under them. */
+export interface ChoiceCardItem {
+  key: string;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+  active: boolean;
+  onPress: () => void;
+}
+
+/**
+ * The cards this picker is made of, on their own — a sideways row (or a
+ * two-across grid) of choices you tick, the next one peeking in from the right.
+ * Post To is one; the location card's recent places are another, so the two
+ * read as the same kind of choice.
+ */
+export function ChoiceCardRow({ items, bleed = 0, layout = 'row' }: {
+  items: ChoiceCardItem[];
+  /** See PostToSelector's `bleed`. */
   bleed?: number;
-  /**
-   * `row` scrolls sideways, one line however many groups (the post form).
-   * `grid` lays the cards two across and wraps, every one in view at once —
-   * the listing flow's last step, where the choice ends the form.
-   */
   layout?: 'row' | 'grid';
 }) {
   const colors = useColors();
@@ -76,13 +69,7 @@ export default function PostToSelector({
   // Sized against the space inside the padding, as before the row bled out.
   const onLayout = (e: LayoutChangeEvent) => setRowWidth(e.nativeEvent.layout.width - bleed * 2);
 
-  const card = (
-    key: string,
-    label: string,
-    Icon: typeof Globe,
-    active: boolean,
-    onPress: () => void,
-  ) => (
+  const cards = items.map(({ key, label, Icon, active, onPress }) => (
     <TouchableOpacity
       key={key}
       style={[
@@ -115,21 +102,7 @@ export default function PostToSelector({
         {label}
       </Text>
     </TouchableOpacity>
-  );
-
-  const cards = (
-    <>
-      {card('__public', 'Post publicly', Globe, isPublic, onTogglePublic)}
-      {groups.map((g) =>
-        card(
-          g.internal_id,
-          g.title ?? 'Group',
-          Users,
-          selectedGroupIds.includes(g.internal_id),
-          () => onToggleGroup(g.internal_id),
-        ))}
-    </>
-  );
+  ));
 
   if (layout === 'grid') {
     return (
@@ -156,6 +129,46 @@ export default function PostToSelector({
       <RowEndSpacer width={CARD_GAP} />
     </ScrollView>
   );
+}
+
+export default function PostToSelector({
+  isPublic,
+  onTogglePublic,
+  groups,
+  selectedGroupIds,
+  onToggleGroup,
+  bleed = 0,
+  layout = 'row',
+}: {
+  isPublic: boolean;
+  onTogglePublic: () => void;
+  groups: PostToGroup[];
+  selectedGroupIds: string[];
+  onToggleGroup: (groupId: string) => void;
+  /**
+   * The padding of whatever it sits in. The row reaches out past it to that
+   * container's edges, so the cards scroll edge to edge, and the first one
+   * still starts on the padding line — like the garage strip.
+   */
+  bleed?: number;
+  /**
+   * `row` scrolls sideways, one line however many groups (the post form).
+   * `grid` lays the cards two across and wraps, every one in view at once —
+   * the listing flow's last step, where the choice ends the form.
+   */
+  layout?: 'row' | 'grid';
+}) {
+  const items: ChoiceCardItem[] = [
+    { key: '__public', label: 'Post publicly', Icon: Globe, active: isPublic, onPress: onTogglePublic },
+    ...groups.map((g) => ({
+      key: g.internal_id,
+      label: g.title ?? 'Group',
+      Icon: Users,
+      active: selectedGroupIds.includes(g.internal_id),
+      onPress: () => onToggleGroup(g.internal_id),
+    })),
+  ];
+  return <ChoiceCardRow items={items} bleed={bleed} layout={layout} />;
 }
 
 const styles = StyleSheet.create({

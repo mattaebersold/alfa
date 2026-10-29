@@ -70,6 +70,7 @@ import RallyDetailScreen from '../screens/society/RallyDetailScreen';
 import CarTasksScreen from '../screens/garage/CarTasksScreen';
 import CarCreateScreen from '../screens/garage/CarCreateScreen';
 import ModCreateScreen from '../screens/cars/ModCreateScreen';
+import JournalCreateScreen from '../screens/cars/JournalCreateScreen';
 import PodcastDetailScreen from '../screens/podcasts/PodcastDetailScreen';
 import ListDetailScreen from '../screens/lists/ListDetailScreen';
 import CreateListScreen from '../screens/lists/CreateListScreen';
@@ -139,9 +140,10 @@ export default function AppNavigator() {
         // CreateScreen). Turned off here, where the header is decided, rather
         // than from inside the screen — a setOptions from the screen lost to
         // these options after a cold start, and the form showed both.
-        // Swipe down to close, like a sheet — the screen draws a grabber for
-        // it. iOS's modal carries the gesture; Android reads the drag itself.
-        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: true, gestureDirection: 'vertical' }}
+        // A transparent modal: the screen draws its own sheet over the panes'
+        // light grey wash and slides it in and out itself, with a grabber and
+        // a drag down to close (see CreateScreen).
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none', gestureEnabled: false }}
       />
       {/* Recording takes the whole screen — a live map with no chrome competing
           with it — and the save step follows as a normal modal. */}
@@ -194,7 +196,14 @@ export default function AppNavigator() {
       <Stack.Screen
         name="ModCreate"
         component={ModCreateScreen}
-        options={({ navigation }) => ({ headerShown: true, title: 'Add Mod', presentation: 'modal', animation: 'slide_from_bottom', headerStyle: { backgroundColor: MODAL_HEADER_BG }, headerTintColor: COLOR_WHITE, headerTitleStyle: { fontFamily: FONT_INTER.bold }, headerBackTitle: '', ...closeButtonOptions(navigation) })}
+        // Draws its own heading — see ModCreateScreen.
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="JournalCreate"
+        component={JournalCreateScreen}
+        // Draws its own heading, as the mod form does.
+        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
         name="CreateList"

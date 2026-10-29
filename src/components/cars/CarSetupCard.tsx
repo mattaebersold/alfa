@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Text } from '@ors/kit';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import PhotoPickerField from '../ui/PhotoPickerField';
+import FormInput from '../ui/FormInput';
 import { useUpdateCarMutation, useCreateModMutation } from '../../api/apiService';
 import { uploadFile } from '../../utils/upload';
 import { useColors } from '../../hooks/useColors';
@@ -22,13 +23,14 @@ import {
 } from '../../constants/config';
 import type { GarageCar } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
+import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 
 type Step = 'photo' | 'specs' | 'mod';
 
-const STEPS: { key: Step; title: string; sub: string }[] = [
-  { key: 'photo', title: 'Add a photo',  sub: 'The first thing anyone sees of it' },
-  { key: 'specs', title: 'Add the specs', sub: 'Engine, power, colour, miles' },
-  { key: 'mod',   title: 'Add a mod',    sub: 'What you’ve changed, and why' },
+const STEPS: { key: Step; title: string }[] = [
+  { key: 'photo', title: 'Add a photo' },
+  { key: 'specs', title: 'Add the specs' },
+  { key: 'mod',   title: 'Add a mod' },
 ];
 
 /** The spec fields worth asking for here — the rest live in the full edit form. */
@@ -57,6 +59,7 @@ export default function CarSetupCard({ car, modCount }: {
   modCount: number;
 }) {
   const [open, setOpen] = useState<{ step: Step; origin: SummaryOrigin | null } | null>(null);
+  const { dismissedSetupPrompts, dismissSetupPrompt } = useFeedPreferences();
 
   const done: Record<Step, boolean> = {
     photo: !!car.gallery?.length || !!car.profile_image,
@@ -75,11 +78,19 @@ export default function CarSetupCard({ car, modCount }: {
   );
 
   // The panel that finished the last step is still closing — it outlives the card.
-  if (!remaining.length) return panels;
+  // Dismissed: gone for good, on every car.
+  if (!remaining.length || dismissedSetupPrompts.includes('carCard')) return panels;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Finish setting up this car</Text>
+      {/* The heading, and a way to be done with the card for good — it's a
+          nudge, not a requirement. */}
+      <View style={styles.headRow}>
+        <Text style={[styles.heading, styles.headingInRow]}>Finish setting up this car</Text>
+        <TouchableOpacity onPress={() => dismissSetupPrompt('carCard')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss">
+          <Text style={styles.dismiss}>Dismiss</Text>
+        </TouchableOpacity>
+      </View>
       {remaining.map((step, i) => (
         <SummaryTouchable
           key={step.key}
@@ -93,7 +104,6 @@ export default function CarSetupCard({ car, modCount }: {
           </View>
           <View style={styles.rowText}>
             <Text style={styles.rowTitle}>{step.title}</Text>
-            <Text style={styles.rowSub} numberOfLines={1}>{step.sub}</Text>
           </View>
         </SummaryTouchable>
       ))}
@@ -227,8 +237,7 @@ function SpecsPanel({ car, visible, origin, onClose }: PanelProps) {
           {SPEC_FIELDS.map((f) => (
             <View key={String(f.key)} style={styles.field}>
               <Text style={[styles.label, { color: colors.grey }]}>{f.label}</Text>
-              <TextInput
-                style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+              <FormInput
                 value={values[f.key as string] ?? ''}
                 onChangeText={(v) => setValues((prev) => ({ ...prev, [f.key as string]: v }))}
                 keyboardType={f.keyboard ?? 'default'}
@@ -274,8 +283,7 @@ function ModPanel({ car, visible, origin, onClose }: PanelProps) {
         <PanelHead title="Add a mod" hint="The first thing you've changed on it. A photo is optional." />
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.grey }]}>What did you do?</Text>
-          <TextInput
-            style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+          <FormInput
             value={title}
             onChangeText={setTitle}
             placeholder="Coilovers, a new exhaust…"
@@ -284,8 +292,7 @@ function ModPanel({ car, visible, origin, onClose }: PanelProps) {
         </View>
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.grey }]}>Notes</Text>
-          <TextInput
-            style={[styles.input, styles.multiline, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+          <FormInput
             value={body}
             onChangeText={setBody}
             multiline
@@ -302,18 +309,22 @@ function ModPanel({ car, visible, origin, onClose }: PanelProps) {
 }
 
 /** The help prompts' ground — shared look with ProfileHelpCard. */
-const HELP_BG = COLOR_GRAY_18;
+// Solid black, as every setup prompt is, so it reads as a card on the page.
+const HELP_BG = COLOR_BLACK;
 
 const styles = StyleSheet.create({
   // The menu checklist's look (ProfileSetupCard), on the page's dark ground.
   // No side margin: it sits in the car page's padded column, under Add Content.
   card: {
-    marginVertical: 20,
+    marginTop: 10, marginBottom: 4,
     paddingHorizontal: 13, paddingTop: 12, paddingBottom: 4,
     borderRadius: COMMON_RADIUS,
     // Darker than the menu's tile grey: on the page it's a note, not a panel.
     backgroundColor: HELP_BG,
   },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
+  headingInRow: { flexShrink: 1, marginBottom: 0 },
+  dismiss: { fontSize: 12, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.55)' },
   heading: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, marginBottom: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 },
   rowDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
@@ -325,7 +336,6 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 13.5, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
-  rowSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
 
   panelBody: { padding: 18, gap: 14 },
   panelHead: { gap: 4 },
@@ -334,11 +344,6 @@ const styles = StyleSheet.create({
   fields: { gap: 10 },
   field: { gap: 4 },
   label: { fontSize: 12, fontFamily: FONT_INTER.semibold },
-  input: {
-    borderWidth: 1.5, borderRadius: COMMON_RADIUS,
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 15,
-  },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
   strip: { gap: 8 },
   thumb: { width: 72, height: 72, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
   thumbX: {

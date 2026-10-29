@@ -3,7 +3,7 @@ import {
   View, StyleSheet, TouchableOpacity, Dimensions, Modal, StatusBar, SafeAreaView as RNSafeAreaView, Platform,
 } from 'react-native';
 import { Text, PortalHost } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { X, MoreHorizontal } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView, FlatList as GHFlatList } from 'react-native-gesture-handler';
@@ -41,7 +41,7 @@ function LightboxPage({
   return (
     <View style={{ width: SCREEN_WIDTH, height }}>
       <PinchZoom style={StyleSheet.absoluteFill} simultaneousWith={listRef} onActiveChange={onPinchChange}>
-        <Image source={{ uri: imageUrl(item.filename)! }} style={StyleSheet.absoluteFill} contentFit="contain" />
+        <Image source={{ uri: imageUrl(item.filename)! }} style={StyleSheet.absoluteFill} contentFit="contain" enforceEarlyResizing={false} />
       </PinchZoom>
     </View>
   );

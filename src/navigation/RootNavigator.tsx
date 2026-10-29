@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, AppState } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '../store/store';
@@ -18,7 +18,14 @@ import { GroupSummaryProvider } from '../providers/GroupSummaryProvider';
 import { SummaryProvider } from '../providers/SummaryProvider';
 import { SearchProvider } from '../providers/SearchProvider';
 import { navigationRef, navigateFromOutside } from './navigationRef';
-import { readNavState, writeNavState, clearNavState } from './navPersistence';
+import { APP_BG } from '../constants/config';
+
+/**
+ * The app's one ground. Every stack and tab scene paints the theme's
+ * background, so screens leave theirs unset and this is the only place it lives.
+ */
+const NAV_THEME = { ...DarkTheme, colors: { ...DarkTheme.colors, background: APP_BG } };
+import { readNavState, writeNavState, clearNavState, confirmNavState } from './navPersistence';
 import { startScreenViews, recordScreen } from '../utils/screenViews';
 import { notificationTarget } from '../utils/notificationTarget';
 
@@ -283,10 +290,13 @@ export default function RootNavigator() {
   return (
     <NavigationContainer
       ref={navigationRef}
+      theme={NAV_THEME}
       linking={linking as any}
       initialState={initialNavState}
       // Where the app opened, for the dashboard's Screens tab — see utils/screenViews.
       onReady={() => {
+        // Long enough for the restored screen to have drawn and fetched.
+        setTimeout(confirmNavState, 5000);
         startScreenViews();
         recordScreen(navigationRef.getCurrentRoute()?.name);
       }}

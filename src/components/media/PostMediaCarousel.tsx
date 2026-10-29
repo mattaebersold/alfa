@@ -1,15 +1,15 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, Pressable, Animated, Easing, Platform, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
+  View, TouchableOpacity, StyleSheet, Pressable, Animated, Easing, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 // Gesture-handler's list, not RN's: the photos' pinch has to be told about the
 // list's scroll (see PinchZoom), and only this one can be named to it.
 import { FlatList } from 'react-native-gesture-handler';
 import { NavigationContext } from '@react-navigation/native';
 import Reanimated, {
-  useSharedValue, useAnimatedStyle, interpolate, Extrapolation, withTiming, Easing as REasing,
+  useSharedValue, useAnimatedStyle, withTiming, Easing as REasing,
 } from 'react-native-reanimated';
 import Svg, { Polygon } from 'react-native-svg';
 import VideoLightbox from '../ui/VideoLightbox';
@@ -17,6 +17,9 @@ import PinchZoom from './PinchZoom';
 import { clampMediaRatio, mediaShape, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config';
+
+/** How long the adaptive height takes to ease to the next slide's shape. */
+const SETTLE_MS = 260;
 
 /**
  * A post's photos and videos in one swipeable strip.
@@ -153,11 +156,6 @@ export default function PostMediaCarousel({
     const shape = exactShape && w && h ? w / h : mediaShape(w, h);
     setShapes((prev) => (prev[index] === shape ? prev : { ...prev, [index]: shape }));
   }, [adaptive, exactShape, lockRatio]);
-  /**
-   * Where the swipe is, for the height to follow — a Reanimated value, so the
-   * height is worked out and laid out on the UI thread (see adaptiveStyle).
-   */
-  const scrollX = useSharedValue(0);
 
   const closeViewer = useCallback(() => setWatchingId(null), []);
 
@@ -215,6 +213,9 @@ export default function PostMediaCarousel({
             <Image
               source={{ uri: item.url }}
               style={StyleSheet.absoluteFill}
+              // Pinched into, and its box changes height as you swipe: decoded
+              // at the photo's own size, not the box's first one.
+              enforceEarlyResizing={false}
               contentFit="cover"
               transition={200}
               onLoad={(e) => noteSize(index, e.source.width, e.source.height)}
@@ -279,49 +280,54 @@ export default function PostMediaCarousel({
   const dots = useMemo(() => media.map((m) => m.key), [media]);
 
   /**
-   * The strip's height, adaptive: each page's shape as a height, and the swipe
-   * between them interpolated — so the box eases from one to the next under
-   * the thumb. A slide not yet loaded borrows the lead's shape.
+   * The strip's height, adaptive: each page's shape as a height, and one ease
+   * from the old to the new as a swipe heads to the next slide. A slide not
+   * yet loaded borrows the lead's shape.
    *
-   * On the UI thread. It was React's Animated, JS-driven (height is layout,
-   * which its native driver can't touch), and every scroll frame then crossed
-   * to JS and back before the card below could move — whenever JS was busy,
-   * the height stuttered behind the photo. Here the list only hands its offset
-   * over; the interpolation and the layout both happen without JS.
+   * Not following the thumb frame by frame. That handed every scroll frame to
+   * JS (this list is gesture-handler's, for the pinch, so its scroll can't be
+   * read on the UI thread), and laid out the card — and every card under it
+   * in the feed — on every one of them: a stutter whenever JS was busy, and
+   * on Android it was switched off and waited for the swipe to stop dead,
+   * which read as slow. Now the swipe only says which slide it's going to —
+   * once, as it passes halfway or as it's flung — and a 260ms ease on the UI
+   * thread does the rest, on both platforms.
    */
   const lead = shapes[0] ?? DEFAULT_MEDIA_RATIO;
   const heights = useMemo(
     () => (adaptive && width ? media.map((_, i) => width / (shapes[i] ?? lead)) : []),
     [adaptive, width, media, shapes, lead],
   );
-  const pages = useMemo(() => heights.map((_, i) => i * width), [heights, width]);
-  /**
-   * Android doesn't follow the swipe. A height that changes every frame lays
-   * out the card and every card under it in the feed, every frame — smooth on
-   * iOS, a stutter on most Android phones. There the strip holds its height
-   * through the swipe and eases to the new slide's shape once it settles: a
-   * fifth of a second of layout instead of the whole drag, and no scroll
-   * events crossing to JS at all.
-   */
-  const followSwipe = Platform.OS === 'ios';
   const settledH = useSharedValue(0);
+  /** The slide the height is on, or easing to. */
+  const heading = useRef(0);
   // A slide's photo arriving changes its height: take it, without easing.
   useEffect(() => {
-    if (!followSwipe && heights.length) settledH.value = heights[Math.min(active, heights.length - 1)];
+    if (heights.length) settledH.value = heights[Math.min(heading.current, heights.length - 1)];
   }, [heights]); // eslint-disable-line react-hooks/exhaustive-deps
   settleTo.current = (index: number) => {
-    if (followSwipe || !heights[index]) return;
-    settledH.value = withTiming(heights[index], { duration: 220, easing: REasing.out(REasing.cubic) });
+    const to = heights[index];
+    if (!to || index === heading.current && settledH.value === to) return;
+    heading.current = index;
+    settledH.value = withTiming(to, { duration: SETTLE_MS, easing: REasing.out(REasing.cubic) });
   };
   const adaptiveStyle = useAnimatedStyle(() => {
     if (heights.length === 0) return {};
     if (heights.length === 1) return { height: heights[0] };
-    if (!followSwipe) return { height: settledH.value || heights[0] };
-    return { height: interpolate(scrollX.value, pages, heights, Extrapolation.CLAMP) };
-  }, [heights, pages, followSwipe]);
+    return { height: settledH.value || heights[0] };
+  }, [heights]);
+  /** Which slide the swipe is nearer — told once, as it crosses halfway. */
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollX.value = e.nativeEvent.contentOffset.x;
-  }, [scrollX]);
+    if (!width) return;
+    const index = Math.max(0, Math.min(media.length - 1, Math.round(e.nativeEvent.contentOffset.x / width)));
+    if (index !== heading.current) settleTo.current(index);
+  }, [width, media.length]);
+  /** A flick: iOS says where it'll land, so the height can start on release. */
+  const onScrollEndDrag = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const target = (e.nativeEvent as any).targetContentOffset?.x;
+    if (!width || target == null) return;
+    settleTo.current(Math.max(0, Math.min(media.length - 1, Math.round(target / width))));
+  }, [width, media.length]);
 
   if (media.length === 0) return null;
 
@@ -351,10 +357,17 @@ export default function PostMediaCarousel({
             showsHorizontalScrollIndicator={false}
             style={StyleSheet.absoluteFill}
             getItemLayout={getItemLayout}
+            // The slide in view and one either side, not all of them: a feed
+            // of ten-photo posts held every photo of every post on screen
+            // decoded at once, and that was most of the app's memory.
+            initialNumToRender={2}
+            maxToRenderPerBatch={1}
+            windowSize={3}
             onMomentumScrollEnd={onMomentumEnd}
-            // iOS only — Android settles instead (see followSwipe).
-            onScroll={adaptive && followSwipe ? onScroll : undefined}
-            scrollEventThrottle={16}
+            // Only to learn which slide it's heading for — see adaptiveStyle.
+            onScroll={adaptive ? onScroll : undefined}
+            onScrollEndDrag={adaptive ? onScrollEndDrag : undefined}
+            scrollEventThrottle={32}
           />
         )
       )}

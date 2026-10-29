@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import PageBanner, { PAGE_BANNER_OVERLAP } from '../../components/cars/PageBanner';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { Car, ChevronRight, Pencil, Check, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';
@@ -11,7 +11,7 @@ import type { ModelPageParams } from './BrandDetailScreen';
 import ModelPostsSection from '../../components/cars/ModelPostsSection';
 import CarGroupsRow from '../../components/cars/CarGroupsRow';
 import ModelDescriptionEditor from '../../components/cars/ModelDescriptionEditor';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import {
   useGetCarsQuery, useGetModelDiscussionQuery, useGetModelResourcesQuery, useGetModelProfileQuery,
   useGetModelProposalsQuery, useReviewModelProposalMutation, useGetGroupsForCarQuery, type ModelProposal,
@@ -68,9 +68,8 @@ export function modelShortTitle(p: { model: string; generation?: string; standal
  * scrolls away with whichever section is showing.
  */
 export default function ModelDetailScreen({ route, navigation }: CarsScreenProps<'ModelDetail'>) {
-  const colors = useColors();
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <ModelDetailView
         params={route.params}
         navigation={navigation}
@@ -389,12 +388,13 @@ function ProposalReview({ proposal }: { proposal: ModelProposal }) {
   };
   return (
     <View style={[styles.review, { borderColor: colors.border }]}>
-      <View style={styles.reviewHead}>
-        <Avatar user={proposal.proposer as any} size={22} />
-        <Text style={[styles.reviewWho, { color: colors.fg }]} numberOfLines={1}>
-          @{proposal.proposer.username ?? 'member'} {proposal.current_description ? 'suggested an edit' : 'wrote a description'}
-        </Text>
-      </View>
+      <UserByline
+        user={proposal.proposer as any}
+        size={22}
+        gap={8}
+        name={`${proposal.proposer.username ?? 'member'} ${proposal.current_description ? 'suggested an edit' : 'wrote a description'}`}
+        nameStyle={styles.reviewWho}
+      />
       <Text style={[styles.reviewText, { color: colors.fg }]}>{proposal.proposed_description}</Text>
       <View style={styles.reviewBtns}>
         <TouchableOpacity
@@ -471,8 +471,7 @@ const styles = StyleSheet.create({
     marginHorizontal: GUTTER + 8, marginTop: 12, padding: 12, gap: 10,
     borderRadius: 14, borderWidth: 1, borderStyle: 'dashed',
   },
-  reviewHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  reviewWho: { flexShrink: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
+  reviewWho: { fontSize: 13, fontFamily: FONT_INTER.semibold },
   reviewText: { fontSize: 14, lineHeight: 20 },
   reviewBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   reviewBtn: {

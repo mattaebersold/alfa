@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, ScrollView, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {Search, MapPin, Users} from 'lucide-react-native';
+import {MapPin, Users} from 'lucide-react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {useGetUsersQuery, useGetFollowStatusesQuery} from '../../api/apiService';
@@ -11,7 +11,6 @@ import FeaturedMembersRow from '../../components/members/FeaturedMembersRow';
 import Avatar from '../../components/ui/Avatar';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import ScreenHeading from '../../components/ui/ScreenHeading';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -20,6 +19,7 @@ import { REGIONS } from '../../constants/regions';
 import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
+import SearchPill from '../../components/ui/SearchPill';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
@@ -30,7 +30,7 @@ import MemberRow from '../../components/members/MemberRow';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_17, GUTTER, SEARCH_EDGE } from '../../constants/config';
+import { GUTTER, MAIN_SCREEN_TOP_GAP } from '../../constants/config';
 import { SkeletonPeople } from '../../components/ui/Skeleton';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -38,12 +38,11 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 const LIMIT = 20;
 
 export default function MembersScreen() {
-  const colors = useColors();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
   const route = useRoute<RouteProp<{ Members: { region?: string } }, 'Members'>>();
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <MembersView headerPad={headerPad} onScroll={onScroll} region={route?.params?.region} />
     </SafeAreaView>
@@ -151,10 +150,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
 
   const ListHeader = (
     <>
-      {/* Heading rides in the list so it scrolls away with the content. */}
-      <View style={styles.heading}>
-        <ScreenHeading title="Members" />
-      </View>
+      {/* No title — the active tab already says where you are. */}
       <FeaturedMembersRow
         // The same summary a row opens — a preview first, with the profile
         // one button inside it.
@@ -163,17 +159,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
       {/* Search on the left, the filter on the right — the pattern events,
           the marketplace, groups and cars share. */}
       <View style={styles.toolsRow}>
-        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: SEARCH_EDGE }]}>
-          <Search size={16} color={colors.grey} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.fg }]}
-            value={query}
-            onChangeText={handleQueryChange}
-            placeholder="Search members..."
-            placeholderTextColor={colors.grey}
-            autoCapitalize="none"
-          />
-        </View>
+        <SearchPill value={query} onChangeText={handleQueryChange} placeholder="Search members..." />
         <FilterSummaryRow<string>
           value={location.choice}
           onApply={applyLocation}
@@ -195,7 +181,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
 
   return (
     <>
-      <View style={[styles.content, { backgroundColor: colors.cream }]}>
+      <View style={styles.content}>
       <FlatList
         ref={scrollRef}
         data={allUsers}
@@ -205,6 +191,8 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
           <MemberRow
             user={item}
             plain
+            // Near you, everyone's map would light the same patch.
+            showRegion={!(isNear(location.choice) && !location.fellBack)}
             isFollowing={item.username ? followStatuses?.[item.username] : undefined}
             // A summary first, as the home feed's suggestions do — the
             // profile is one button inside the panel.
@@ -223,7 +211,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingTop: headerPad }]}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP }]}
         onScroll={onScroll}
         scrollEventThrottle={16}
         onRefresh={handleRefresh}
@@ -240,27 +228,11 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
   );
 }
 
-/**
- * The search box and the filter row, a shade under the card colour — with the
- * member rows now unfilled, the full-brightness controls were the loudest
- * thing on the screen.
- */
-const CONTROL_BG = COLOR_GRAY_17;
-
 const styles = StyleSheet.create({
   content:     { flex: 1 },
   // The search and the filter pill, side by side.
   // On the gutter, and nudged up a little under the header.
-  heading:     { paddingHorizontal: GUTTER, marginTop: -6 },
   toolsRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, margin: GUTTER },
-  // A pill, the filter's height, taking the rest of the row.
-  searchBar:   {
-    flex: 1, minWidth: 0, height: 38,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999, borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 15 },
   note:        { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginBottom: 10 },
 
   regionRow:  { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },

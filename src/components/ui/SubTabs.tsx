@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import Reanimated from 'react-native-reanimated';
+import { TAB_EASING, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
 import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+
+/** The track behind the options: solid black, under any ground. */
+const TRACK_BG = COLOR_BLACK;
 
 /** The track's inner padding, and the gap between segments. */
 const SEG_PAD = 3;
@@ -26,7 +31,7 @@ const SEG_GAP = 3;
  * MainTabs' `stretch` does. Both animate on the JS driver, since the thumb's
  * width changes too.
  */
-export default function SubTabs<T extends string>({ options, value, onChange, stretch = false, inset = 12 }: {
+export default function SubTabs<T extends string>({ options, value, onChange, stretch = false, inset = 12, padX }: {
   /** `Icon`, optionally, before the label in the label's colour. */
   options: { key: T; label: string; Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[];
   value: T;
@@ -35,6 +40,8 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   stretch?: boolean;
   /** The track's side margin — 12 by default; a host lines it up with its own edge. */
   inset?: number;
+  /** Each option's side padding when they keep their own widths — wider than the default 14 for a roomier row. */
+  padX?: number;
 }) {
   const fit = stretch ? 'equal' : 'scroll';
   const colors = useColors();
@@ -56,18 +63,23 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   const x = useRef(new Animated.Value(0)).current;
   const w = useRef(new Animated.Value(0)).current;
   const placed = useRef(false);
+  /** Where the thumb was last sent — for how far its next move is. */
+  const lastX = useRef(0);
   useEffect(() => {
     if (!target) return;
     if (!placed.current) {
       // First layout: land, don't slide in from the left edge.
       placed.current = true;
       x.setValue(target.x); w.setValue(target.w);
+      lastX.current = target.x;
       return;
     }
-    // Quick and settled: a thumb that overshoots reads as loose.
+    // Out, with a slight overshoot, and longer the further it goes — see tabMotion.
+    const duration = thumbMoveMs(target.x - lastX.current);
+    lastX.current = target.x;
     Animated.parallel([
-      Animated.spring(x, { toValue: target.x, tension: 170, friction: 22, useNativeDriver: false }),
-      Animated.spring(w, { toValue: target.w, tension: 170, friction: 22, useNativeDriver: false }),
+      Animated.timing(x, { toValue: target.x, duration, easing: TAB_EASING, useNativeDriver: false }),
+      Animated.timing(w, { toValue: target.w, duration, easing: TAB_EASING, useNativeDriver: false }),
     ]).start();
     if (fit === 'scroll' && trackW > 0) {
       // The lit one in view, with the one before it peeking.
@@ -86,12 +98,18 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
       {options.map((o) => {
         const active = o.key === value;
         return (
-          <TouchableOpacity
+          // Eases to its new place and width when a label changes; measured
+          // here, where its place in the row is.
+          <Reanimated.View
             key={o.key}
-            style={[styles.segment, fit === 'scroll' && styles.segmentOwn]}
+            layout={TAB_LAYOUT}
+            style={fit === 'equal' && styles.segmentShare}
             onLayout={fit === 'scroll'
               ? (e) => { const { x: lx, width } = e.nativeEvent.layout; setCells((c) => (c[o.key]?.x === lx && c[o.key]?.w === width ? c : { ...c, [o.key]: { x: lx, w: width } })); }
               : undefined}
+          >
+          <TouchableOpacity
+            style={[styles.segment, fit === 'scroll' && styles.segmentOwn, fit === 'scroll' && padX != null && { paddingHorizontal: padX }]}
             onPress={() => onChange(o.key)}
             activeOpacity={0.8}
             accessibilityRole="radio"
@@ -104,6 +122,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
               </Text>
             </View>
           </TouchableOpacity>
+          </Reanimated.View>
         );
       })}
     </>
@@ -115,9 +134,9 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
       // can't simply shrink to it. The outer view measures the room; the
       // track is sized to the options, up to that, and past it they scroll.
       <View style={[styles.segmentRoom, { marginHorizontal: inset }]} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
-      <View style={[
+      <Reanimated.View layout={TAB_LAYOUT} style={[
         styles.segmentTrack, styles.segmentTrackScroll,
-        { backgroundColor: colors.inputBg },
+        { backgroundColor: TRACK_BG },
         // Hidden until both are known, so it doesn't flash full width first.
         trackW > 0 && contentW > 0 ? { width: Math.min(contentW, trackW) } : styles.unmeasured,
       ]}>
@@ -132,13 +151,13 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
         >
           {segments}
         </ScrollView>
-      </View>
+      </Reanimated.View>
       </View>
     );
   }
   return (
     <View
-      style={[styles.segmentTrack, { backgroundColor: colors.inputBg, marginHorizontal: inset }]}
+      style={[styles.segmentTrack, { backgroundColor: TRACK_BG, marginHorizontal: inset }]}
       onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
       accessibilityRole="radiogroup"
     >
@@ -158,9 +177,13 @@ const styles = StyleSheet.create({
   unmeasured:   { opacity: 0 },
   segmentScrollRow:   { flexDirection: 'row', gap: SEG_GAP, padding: SEG_PAD },
   segmentThumb: { position: 'absolute', top: SEG_PAD, bottom: SEG_PAD, left: 0, borderRadius: COMMON_RADIUS - SEG_PAD },
-  segment:      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 4 },
+  // Sharing the track equally, in `stretch`.
+  segmentShare: { flex: 1 },
+  // No flex of its own: its wrapper (segmentShare) takes the share of the
+  // track; flex here, in that column, collapsed it to nothing.
+  segment:      { alignItems: 'center', justifyContent: 'center', paddingVertical: 7, paddingHorizontal: 4 },
   // Its own width, at full size — the row scrolls instead.
-  segmentOwn:   { flex: 0, paddingHorizontal: 14 },
+  segmentOwn:   { paddingHorizontal: 14 },
   segmentInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   segmentLabel: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

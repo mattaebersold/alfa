@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Users } from 'lucide-react-native';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import GroupSummaryModal from '../groups/GroupSummaryModal';
@@ -84,7 +84,7 @@ function GroupCard({ group, line, style, onPress }: {
     <SummaryTouchable style={[styles.card, style]} onPress={onPress} accessibilityLabel={group.title ?? 'Group'}>
       <View style={styles.coverWrap}>
         {cover
-          ? <Image source={{ uri: cover }} style={styles.cover} contentFit="cover" />
+          ? <Image small source={{ uri: cover }} style={styles.cover} contentFit="cover" />
           : <View style={[styles.cover, styles.coverBlank]}><Users size={22} color={colors.grey} /></View>}
         {members != null && (
           <View style={styles.members} accessibilityLabel={`${members} ${members === 1 ? 'member' : 'members'}`}>

@@ -47,6 +47,19 @@ interface LikeButtonProps {
    */
   ownerId?: string;
   /**
+   * Yours, said outright — for content with more than one owner (a car's
+   * co-owner), which `ownerId` alone can't. Either makes the heart the likers
+   * panel rather than a switch.
+   */
+  isOwn?: boolean;
+  /**
+   * The owner's heart hands its "who liked this" to the host — a panel of the
+   * host's own (the car page's tabbed reactions) — instead of opening its own.
+   */
+  onShowLikers?: (origin: SummaryOrigin | null) => void;
+  /** The count's colour, liked or not — for a host that keeps it white and lets the heart carry the red. */
+  countColor?: string;
+  /**
    * Stacked — the heart over its count, bigger and with a shadow — for the
    * action rail over a post's photo (PostActionRail).
    */
@@ -65,12 +78,15 @@ export default function LikeButton({
   color,
   onToggle,
   ownerId,
+  isOwn = false,
+  onShowLikers,
+  countColor,
   vertical = false,
   style,
 }: LikeButtonProps) {
   const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
-  const isMine = !!ownerId && !!myId && ownerId === myId;
+  const isMine = isOwn || (!!ownerId && !!myId && ownerId === myId);
   // Non-null while the likers panel is open, and the rect it grows out of.
   const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   const btnRef = useRef<View>(null);
@@ -87,7 +103,7 @@ export default function LikeButton({
   const handlePress = async () => {
     // Your own content: show who liked it instead of pretending to add one.
     if (isMine) {
-      measureOrigin(btnRef.current, setLikersOrigin);
+      measureOrigin(btnRef.current, onShowLikers ?? setLikersOrigin);
       return;
     }
 
@@ -136,14 +152,14 @@ export default function LikeButton({
           strokeWidth={vertical ? 1.8 : 2}
         />
         {showCount && count > 0 && (
-          <Text style={[vertical ? styles.railCount : styles.count, liked ? styles.likedCount : { color: resting }]}>
+          <Text style={[vertical ? styles.railCount : styles.count, countColor ? { color: countColor } : liked ? styles.likedCount : { color: resting }]}>
             {formatActionCount(count)}
           </Text>
         )}
       </TouchableOpacity>
 
       {/* Only mounted for the owner — nobody else's heart opens this. */}
-      {isMine && (
+      {isMine && !onShowLikers && (
         <LikersSheet
           entryId={documentId}
           visible={likersOrigin !== undefined}

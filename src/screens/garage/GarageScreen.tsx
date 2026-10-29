@@ -85,11 +85,10 @@ export default function GarageScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <FlatList
         ref={scrollRef}
-        style={{ backgroundColor: colors.cream }}
         data={cars}
         keyExtractor={(item) => item.internal_id}
         renderItem={({ item }) => (

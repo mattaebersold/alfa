@@ -48,7 +48,7 @@ export default function RouteDrivers({ routeId, drivers, myId, canJoin }: {
             <Avatar user={d.user as any} size={34} />
             <View style={styles.who}>
               <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>
-                {d.user?.username ? `@${d.user.username}` : 'A member'}
+                {d.user?.username ?? 'A member'}
                 {d.user_id === myId ? <Text style={{ color: colors.grey }}> (you)</Text> : null}
               </Text>
               <Text style={[styles.meta, { color: colors.grey }]} numberOfLines={1}>

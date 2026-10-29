@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Car, Check } from 'lucide-react-native';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
@@ -20,7 +20,7 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
- * A member as a photo card: their picture, @handle and car count, the Pro
+ * A member as a photo card: their picture, handle and car count, the Pro
  * wheel when they have it. The featured row's card, and search's.
  */
 export default function MemberCard({ member, onPress, featured = false, style }: {
@@ -37,7 +37,7 @@ export default function MemberCard({ member, onPress, featured = false, style }:
   const isPro = member.accountType === 'pro' || member.accountType === 'admin';
 
   return (
-    <SummaryTouchable style={[styles.card, style]} onPress={onPress} activeOpacity={0.88} accessibilityLabel={`@${member.username}`}>
+    <SummaryTouchable style={[styles.card, style]} onPress={onPress} activeOpacity={0.88} accessibilityLabel={isPro ? `${member.username}, Pro` : member.username}>
       {photo ? (
         <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : (
@@ -63,15 +63,18 @@ export default function MemberCard({ member, onPress, featured = false, style }:
       <View style={styles.info}>
         {/* The one pro marker on the card: a thick gold frame around the photo
             read as a selection state. */}
+        {/* The red pill: PRO, then the wheel. */}
         {isPro && (
-          <View style={styles.proWheelBadge}>
+          <View style={styles.proPill}>
+            <Text style={styles.proText}>PRO</Text>
             <SteeringWheel size={12} color={COLOR_BLACK} strokeWidth={2.5} />
           </View>
         )}
-        <Text style={styles.username} numberOfLines={1}>@{member.username}</Text>
+        <Text style={styles.username} numberOfLines={1}>{member.username}</Text>
+        {/* Their cars, in a dark see-through pill so it reads over any photo. */}
         {carCount > 0 && (
           <View style={styles.carRow}>
-            <Car size={14} color="rgba(255,255,255,0.9)" />
+            <Car size={14} color={COLOR_WHITE} />
             <Text style={styles.carCount}>{carCount}</Text>
           </View>
         )}
@@ -100,8 +103,12 @@ const styles = StyleSheet.create({
   // A point past the foot, so no hairline of photo shows under it.
   scrim: { position: 'absolute', left: 0, right: 0, bottom: -1, height: '60%' },
   username:   { flex: 1, fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
-  carRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  carCount:   { fontSize: 14, color: 'rgba(255,255,255,0.9)', fontFamily: FONT_INTER.bold },
+  carRow:     {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  carCount:   { fontSize: 13, color: COLOR_WHITE, fontFamily: FONT_INTER.bold },
   featuredBadge: {
     position: 'absolute', top: 8, left: 8,
     flexDirection: 'row', alignItems: 'center', gap: 3,
@@ -109,9 +116,10 @@ const styles = StyleSheet.create({
     backgroundColor: WARM_SHEEN_FILL, overflow: 'hidden',
   },
   featuredBadgeText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
-  proWheelBadge: {
-    width: 22, height: 22, borderRadius: 11,
+  proPill: {
+    height: 22, flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingLeft: 7, paddingRight: 5, borderRadius: 11,
     backgroundColor: COLOR_PRO,
-    alignItems: 'center', justifyContent: 'center',
   },
+  proText: { fontSize: 9.5, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: 0.4 },
 });

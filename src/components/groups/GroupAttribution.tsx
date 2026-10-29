@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ChevronRight, Users } from 'lucide-react-native';
 import { useGetGroupQuery } from '../../api/apiService';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';

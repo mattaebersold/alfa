@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from './AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { imageUrl } from '../../utils/image';
 import { avatarColorFor, initialsFor } from '../../utils/avatarColor';
@@ -104,6 +104,7 @@ export default function Avatar({ user, filename, name, size = 40, radius, edge =
         {showImage ? (
           <Image
             source={{ uri }}
+            small
             style={{ width: inner, height: inner, borderRadius: innerCorner }}
             contentFit="cover"
             transition={200}

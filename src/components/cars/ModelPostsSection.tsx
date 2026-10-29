@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-nat
 import { Text } from '@ors/kit';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { Plus, ArrowUp, Link2 } from 'lucide-react-native';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import EmptyState from '../ui/EmptyState';
 import GroupItemDetailModal from '../groups/GroupItemDetailModal';
 import GroupCreateSheet from '../groups/GroupCreateSheet';
@@ -97,13 +97,11 @@ export default function ModelPostsSection({ kind, make, model }: {
               </View>
               <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{item.title}</Text>
               {preview ? <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{preview}</Text> : null}
-              <View style={styles.meta}>
-                <Avatar user={item.user} size={22} />
-                <Text style={[styles.metaText, { color: colors.fg }]} numberOfLines={1}>
-                  {item.user?.username ?? 'member'}
-                  {item.created_at ? <Text style={styles.when}>{`  ${shortTimeAgo(item.created_at)}`}</Text> : null}
-                </Text>
-              </View>
+              {/* The time in its own grey rather than the byline's " · " meta,
+                  so it stays the quieter of the two. */}
+              <UserByline user={item.user} size={22} gap={6} nameStyle={styles.metaText} style={styles.meta}>
+                {item.created_at ? <Text style={[styles.metaText, styles.when]}>{shortTimeAgo(item.created_at)}</Text> : null}
+              </UserByline>
             </TouchableOpacity>
           );
         })
@@ -150,7 +148,7 @@ const styles = StyleSheet.create({
   scoreText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   title: { fontSize: 15, fontFamily: FONT_INTER.bold },
   preview: { fontSize: 13, lineHeight: 18 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -2 },
-  when: { color: COLOR_GRAY_102, fontFamily: FONT_INTER.regular },
-  metaText: { fontSize: 12, flexShrink: 1 },
+  meta: { marginTop: -2 },
+  when: { color: COLOR_GRAY_102 },
+  metaText: { fontSize: 12, fontFamily: FONT_INTER.regular },
 });

@@ -3,7 +3,7 @@ import {
   View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, Alert,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Repeat, MapPin, UserPlus, UserCheck, CalendarPlus, Settings, Pencil, Trash2 } from 'lucide-react-native';
 import { useEventInterest } from './ExpandableEventCard';

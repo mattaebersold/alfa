@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { MapPin } from 'lucide-react-native';
+import SolidMapPin from '../ui/SolidMapPin';
 import PlacePostsModal from './PlacePostsModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
@@ -44,7 +44,7 @@ export default function PostPlaceLine({ place, color, style }: {
 
   const line = (
     <>
-      <MapPin size={12} color={ink} />
+      <SolidMapPin size={12} color={ink} />
       <Text style={[styles.name, { color: ink }]} numberOfLines={1}>{place.name}</Text>
     </>
   );

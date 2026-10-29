@@ -10,7 +10,7 @@ import {
   useLeaveGroupMutation,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
@@ -51,7 +51,7 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Group info */}
         <View style={[styles.section, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -77,12 +77,15 @@ export default function GroupSettingsScreen({ route }: GroupsScreenProps<'GroupS
           <View style={[styles.section, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { backgroundColor: colors.segment, color: colors.grey }]}>Pending Requests ({pending.length})</Text>
             {pending.map((m) => (
-              <View key={m.user_id} style={[styles.memberRow, { borderTopColor: colors.border }]}>
-                <Avatar user={m.user} size={36} />
-                <View style={styles.memberInfo}>
-                  <Text style={[styles.memberName, { color: colors.fg }]}>@{m.user?.username}</Text>
-                </View>
-              </View>
+              <UserByline
+                key={m.user_id}
+                user={m.user}
+                size={36}
+                gap={10}
+                fallback=""
+                nameStyle={styles.memberName}
+                style={[styles.memberRow, { borderTopColor: colors.border }]}
+              />
             ))}
           </View>
         )}
@@ -106,8 +109,7 @@ const styles = StyleSheet.create({
   infoRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1 },
   infoLabel:   { fontSize: 14 },
   infoValue:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
-  memberRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
-  memberInfo:  { flex: 1 },
+  memberRow:   { paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
   memberName:  { fontSize: 14, fontFamily: FONT_INTER.semibold },
   memberHandle:{ fontSize: 12 },
   dangerBtn:   { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1 },

@@ -9,7 +9,8 @@ import {
   useGetGroupMembersQuery,
   useInviteGroupMemberMutation,
 } from '../../api/apiService';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import EmptyState from '../ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import type { User } from '../../types/api';
@@ -48,6 +49,7 @@ export default function GroupInviteSearch({
   compact?: boolean;
 }) {
   const c = useColors();
+  const surface = useInputSurface();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   /** Who's been invited in this sitting, so their row can say so. */
@@ -107,10 +109,10 @@ export default function GroupInviteSearch({
 
   return (
     <View style={compact ? styles.bodyCompact : styles.body}>
-      <View style={[styles.searchBar, { backgroundColor: c.card, borderColor: c.borderDark }]}>
+      <View style={[styles.searchBar, surface]}>
         <Search size={16} color={c.grey} />
         <TextInput
-          style={[styles.searchInput, { color: c.fg }]}
+          style={[styles.searchInput, INPUT_TEXT_STYLE, { color: c.fg }]}
           value={query}
           onChangeText={setQuery}
           placeholder="Search members by username…"
@@ -143,19 +145,16 @@ export default function GroupInviteSearch({
           const status = statusFor(user);
           const busy = pending === user.user_id;
           return (
-            <View key={user.user_id} style={[styles.row, { borderBottomColor: c.borderDark }]}>
-              <Avatar user={user} size={compact ? 32 : 38} />
-              <View style={styles.rowText}>
-                <Text style={[styles.username, { color: c.fg }]} numberOfLines={1}>
-                  @{user.username}
-                </Text>
-                {[user.firstName, user.lastName].filter(Boolean).length > 0 && (
-                  <Text style={[styles.fullName, { color: c.grey }]} numberOfLines={1}>
-                    {[user.firstName, user.lastName].filter(Boolean).join(' ')}
-                  </Text>
-                )}
-              </View>
-
+            <UserByline
+              key={user.user_id}
+              user={user}
+              size={compact ? 32 : 38}
+              gap={12}
+              fill
+              sub={[user.firstName, user.lastName].filter(Boolean).join(' ')}
+              nameStyle={styles.username}
+              style={[styles.row, { borderBottomColor: c.borderDark }]}
+            >
               {status ? (
                 <View style={[styles.statusPill, { backgroundColor: c.segment }]}>
                   <Check size={12} color={c.grey} strokeWidth={3} />
@@ -185,7 +184,7 @@ export default function GroupInviteSearch({
                     )}
                 </TouchableOpacity>
               )}
-            </View>
+            </UserByline>
           );
         })
       )}
@@ -199,19 +198,13 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
     paddingHorizontal: 12, paddingVertical: 11,
-    borderRadius: 12, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  searchInput: { flex: 1, padding: 0 },
   hint:   { fontSize: 13, marginTop: 16, textAlign: 'center' },
   loader: { marginTop: 24 },
 
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowText:  { flex: 1, minWidth: 0 },
+  row: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   username: { fontSize: 15, fontFamily: FONT_INTER.extrabold },
-  fullName: { fontSize: 12, marginTop: 1 },
 
   inviteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,

@@ -28,7 +28,7 @@ export default function MoreScreen() {
   const colors = useColors();
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {items.map(({ label, icon: Icon, screen, description }) => (
           <TouchableOpacity

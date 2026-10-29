@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import Animated, { runOnJS, useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import MentionText from '../ui/MentionText';
 import Badge, { TYPE_LABELS, CATEGORY_LABELS } from '../ui/Badge';
 import PostActionRail from '../social/PostActionRail';
@@ -36,14 +36,14 @@ import { DIECAST_BLUE } from '../../constants/diecast';
 /**
  * The feed card's ground — a step below `colors.card` (#1e1e1e).
  *
- * The feed is a column of these against the page's #0A0A0A, and at card grey
+ * The feed is a column of these against the page's APP_BG, and at card grey
  * they ran together as one continuous slab. Staying under it gives each card an
  * edge without needing a rule to draw one. Lifted a shade from #161616, which
  * was close enough to the page to lose its edge on a dim screen; still under
  * #202020, which sat above `card` and made the posts the brightest things on
  * the page, when the photos in them should be.
  */
-const FEED_CARD_BG = COLOR_GRAY_26;
+const FEED_CARD_BG = COLOR_GRAY_29;
 
 /** Lines of description a card shows before it offers "more". */
 const BODY_LINES = 2;
@@ -82,6 +82,9 @@ function clipForMore(lines: string[], room = MORE_ROOM): string {
  * has the same text, style and width (absolute, both edges pinned), sits out
  * of flow, and unmounts once it has answered.
  */
+/** How long the "more" opening takes. */
+const EXPAND_MS = 260;
+
 function ClampedText({
   text, lines, expandable, startExpanded, wrapStyle, style, moreColor, moreRoom, onPress,
 }: {
@@ -105,26 +108,58 @@ function ClampedText({
   // Only when there's something to cut and the clip is known; otherwise the
   // native clamp does what it always did.
   const inlineMore = truncated && clip !== null;
-  const handlePress = truncated ? () => setExpanded(true) : onPress;
+
+  // The opening animates: the box is held at the clamped height, the full text
+  // is laid in under it, and the box grows to the full height (from the twin)
+  // with the card below following. -1 is "not animating" — the box sizes
+  // itself, as it always did.
+  const collapsedH = useRef<number | null>(null);
+  const fullH = useRef<number | null>(null);
+  const boxH = useSharedValue(-1);
+  const boxStyle = useAnimatedStyle(() => (boxH.value < 0 ? {} : { height: boxH.value, overflow: 'hidden' }));
+  const expand = () => {
+    const from = collapsedH.current;
+    const to = fullH.current;
+    if (from != null && to != null && to > from) {
+      boxH.value = withSequence(
+        withTiming(from, { duration: 0 }),
+        withTiming(to, { duration: EXPAND_MS, easing: Easing.out(Easing.cubic) }, (done) => {
+          if (done) boxH.value = -1;
+        }),
+      );
+    }
+    setExpanded(true);
+  };
+  const handlePress = truncated ? expand : onPress;
 
   return (
     <TouchableOpacity style={wrapStyle} onPress={handlePress} activeOpacity={0.95} disabled={!handlePress}>
-      <MentionText
-        text={inlineMore ? `${clipForMore([clip!], moreRoom)}… ` : text}
-        style={style}
-        numberOfLines={expanded ? undefined : lines}
-        trailing={inlineMore ? (
-          <Text
-            style={[styles.moreLink, { color: moreColor }]}
-            onPress={() => setExpanded(true)}
-            accessibilityRole="button"
-          >
-            more
-          </Text>
-        ) : null}
-      />
+      <Animated.View
+        style={boxStyle}
+        onLayout={expanded ? undefined : (e) => { collapsedH.current = e.nativeEvent.layout.height; }}
+      >
+        <MentionText
+          text={inlineMore ? `${clipForMore([clip!], moreRoom)}… ` : text}
+          style={style}
+          numberOfLines={expanded ? undefined : lines}
+          trailing={inlineMore ? (
+            <Text
+              style={[styles.moreLink, { color: moreColor }]}
+              onPress={expand}
+              accessibilityRole="button"
+            >
+              more
+            </Text>
+          ) : null}
+        />
+      </Animated.View>
       {expandable && !expanded && lineCount === null && (
-        <View style={styles.bodyMeasure} pointerEvents="none" aria-hidden>
+        <View
+          style={styles.bodyMeasure}
+          pointerEvents="none"
+          aria-hidden
+          onLayout={(e) => { fullH.current = e.nativeEvent.layout.height; }}
+        >
           <MentionText
             text={text}
             style={style}
@@ -144,7 +179,7 @@ import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
-import PostContextRow from '../social/PostContextRow';
+import PostContextRow, { usePostContextItems } from '../social/PostContextRow';
 import PostPlaceLine from '../social/PostPlaceLine';
 import LikersSheet from '../social/LikersSheet';
 import PostPoll from '../social/PostPoll';
@@ -154,7 +189,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_FOREST,
-  COLOR_GRAY_26,
+  COLOR_GRAY_29,
   COLOR_WHITE,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
@@ -212,9 +247,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
   const blockedUserIds = useAppSelector((s) => (s as any).moderation?.blockedUserIds ?? []);
-  // Non-null while the likers panel is open — it doubles as the rect the panel
-  // grows out of.
-  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   /** The same, for the tagged members' panel. */
   const [taggedOrigin, setTaggedOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
   /** A spot result starts folded to its header row — see SpotExpandButton. */
@@ -333,6 +365,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
     )],
     [inlineTags, fetchedTags],
   );
+  /** Whether the context row under the post draws any tiles — the place line closes up under them. */
+  const hasContextTiles = usePostContextItems(post, omitGroupId, true).length > 0;
 
   const rail = (vertical: boolean) => (
     <PostActionRail
@@ -340,7 +374,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       entryType={entryType}
       like={like}
       likers={likers}
-      onOpenLikers={(origin) => setLikersOrigin(origin)}
       tagged={taggedIds}
       onOpenTagged={(origin) => setTaggedOrigin(origin)}
       vertical={vertical}
@@ -398,30 +431,27 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       <View style={[styles.header, bare && styles.headerBare]}>
         {/* The author half is the link; the menu is not. Its own touchable, so
             tapping ⋯ doesn't also navigate to whoever posted. */}
-        <TouchableOpacity
+        {/* 30, not 36: the avatar is the tallest thing in the row, so it
+            sets the header's height. */}
+        <UserByline
+          user={user}
+          size={30}
+          name={displayName}
+          gap={7}
+          color={fgColor}
+          // Folded to one row for a game result; a post's name may wrap.
+          numberOfLines={spotResult ? 1 : 0}
           style={styles.headerAuthor}
           // A summary over the feed, not a push to the profile. "Who is that"
           // is a glance, and answering it with a whole screen cost you the
           // scroll position you were reading from. The panel carries its own
           // View Profile for when the glance isn't enough.
-          onPress={() => user?.user_id && openUser(user.user_id, null, userPreview(user))}
-          activeOpacity={0.7}
+          onPress={(o) => user?.user_id && openUser(user.user_id, o, userPreview(user))}
         >
-          {/* Squared to the app's corner rather than a circle — it sits in a
-              card built from the same radius, and a lone circle in that row
-              read as a different kind of object. */}
-          {/* 30, not 36: the avatar is the tallest thing in the row, so it
-              sets the header's height. */}
-          <Avatar user={user} size={30} />
-          <View style={styles.headerText}>
-            <Text style={[styles.author, { color: fgColor }]} numberOfLines={spotResult ? 1 : undefined}>
-              {displayName}
-              {/* A game result says what it is in the header, so folded
-                  down to this one row it still reads as something. */}
-              {spotResult ? <Text style={[styles.played, { color: mutedColor }]}> played Guess the car</Text> : null}
-            </Text>
-          </View>
-        </TouchableOpacity>
+          {/* A game result says what it is in the header, so folded
+              down to this one row it still reads as something. */}
+          {spotResult ? <Text style={[styles.played, { color: mutedColor }]} numberOfLines={1}>played Guess the car</Text> : null}
+        </UserByline>
         {spotResult ? (
           <>
             <SpotDateBadge carspot={spotResult} />
@@ -470,7 +500,23 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           description clamps with a "more" — tapping the words opens them in
           place when they were cut off, and goes on to the post when there's
           nothing more to show. */}
-      {!spotResult && (post.title || bodyText) && (
+      {/* A title with no description under it is the post's words — what
+          "what's on your mind?" asks for — so it's set as a description: its
+          size, its clamp, its "more". Only with both does the title stay a
+          title, with the description beneath. */}
+      {!spotResult && post.title && !bodyText ? (
+        <ClampedText
+          text={post.title}
+          lines={BODY_LINES}
+          expandable
+          startExpanded={fullText}
+          wrapStyle={styles.titleAsBodyWrap}
+          style={[styles.bodyPreview, { color: COLOR_WHITE }]}
+          moreColor={mutedColor}
+          moreRoom={MORE_ROOM}
+          onPress={onPress}
+        />
+      ) : !spotResult && (post.title || bodyText) && (
         <ClampedText
           text={post.title || bodyText}
           lines={hasMedia ? 2 : 5}
@@ -478,7 +524,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           expandable={!post.title}
           startExpanded={fullText}
           wrapStyle={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
-          style={[hasMedia ? styles.title : styles.titleAlone, { color: fgColor }]}
+          style={[hasMedia ? styles.title : styles.titleAlone, { color: COLOR_WHITE }]}
           moreColor={fgColor}
           moreRoom={hasMedia ? 12 : 16}
           onPress={onPress}
@@ -619,7 +665,8 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* Where it was made, under the post and whatever's tagged in it — a
           footnote, so small and in the muted ink. A tap opens the place, with
           every post made there; the line owns that panel. */}
-      {spotResult ? null : <PostPlaceLine place={post.place} color={mutedColor} style={styles.placeLine} />}
+      {/* Closer under the tiles when there are any — they already leave room. */}
+      {spotResult ? null : <PostPlaceLine place={post.place} color={mutedColor} style={[styles.placeLine, hasContextTiles && styles.placeLineUnderTiles]} />}
 
       {/* No photo to carry the actions: they end the card in a row of their
           own instead, right-aligned. */}
@@ -630,12 +677,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       )}
 
 
-      <LikersSheet
-        entryId={post.internal_id}
-        visible={likersOrigin !== undefined}
-        origin={likersOrigin}
-        onClose={() => setLikersOrigin(undefined)}
-      />
       <LikersSheet
         entryId={post.internal_id}
         userIds={taggedIds}
@@ -667,10 +708,8 @@ const styles = StyleSheet.create({
   // and in from the side far enough that the avatar clears its rounded corner.
   headerBare:  { paddingTop: 8, paddingHorizontal: 16 },
   // Takes the row, so the timestamp and the menu stay pinned right.
-  headerAuthor: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  headerText:  { flex: 1, minWidth: 0 },
-  author:      { fontSize: 14, fontFamily: FONT_INTER.bold },
-  played:      { fontFamily: FONT_INTER.medium },
+  headerAuthor: { flex: 1 },
+  played:      { fontSize: 14, fontFamily: FONT_INTER.medium },
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
   meta:        { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -679,6 +718,9 @@ const styles = StyleSheet.create({
   titleAloneWrap: { paddingHorizontal: 8, paddingTop: 2, paddingBottom: 12 },
   titleAlone:     { fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24 },
   bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -6 },
+  // A title set as a description: the description's own wrap, without the
+  // tuck up under a title that isn't there.
+  titleAsBodyWrap:{ paddingHorizontal: 8, paddingTop: 2, paddingBottom: 10 },
   // Stepped back a touch from `muted`, so the title leads it more clearly.
   bodyPreview:    { fontSize: 13, lineHeight: 18, opacity: 0.85 },
   /**
@@ -709,11 +751,10 @@ const styles = StyleSheet.create({
   imageBadgesLeft: {
     position: 'absolute', top: 10, left: 10, flexDirection: 'row', gap: 5, flexWrap: 'wrap',
   },
-  // At 80%, so the photo shows a little through the type and category.
+  // Solid: the type and category in their own colours, not the photo's.
   imgBadge:   {
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: COLOR_BLACK,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,
-    opacity: 0.8,
   },
   imgBadgeText: { color: COLOR_WHITE, fontSize: 10, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
 
@@ -750,6 +791,7 @@ const styles = StyleSheet.create({
   // The card's own inset; under the photo or the tags, and room under it in
   // case the card ends here.
   placeLine:   { marginLeft: 12, marginRight: 8, marginTop: 10, marginBottom: 8 },
+  placeLineUnderTiles: { marginTop: 4 },
   footerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,

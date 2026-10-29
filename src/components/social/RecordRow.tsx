@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { MoreVertical, Play } from 'lucide-react-native';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { CATEGORY_LABELS } from '../ui/Badge';

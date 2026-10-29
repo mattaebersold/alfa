@@ -68,6 +68,8 @@ export const imageUrl = (filename: string | null | undefined): string | null => 
  * figure read as cramped against the side.
  */
 export const GUTTER = Platform.OS === 'android' ? 14 : 6;
+/** Room between the header and a main screen's first row, now those screens carry no title. */
+export const MAIN_SCREEN_TOP_GAP = 12;
 
 /**
  * The app's corner radius.
@@ -141,9 +143,17 @@ export const COLOR_ON_GOLD    = '#14110B'; // text sitting on a gold fill
 export const COLOR_TANGERINE  = '#FA7921';
 export const COLOR_GREEN      = '#85C27D';
 export const COLOR_RED        = '#EC4632';
+/**
+ * The account's second colour, beside the brand — light blue for Pro, teal
+ * otherwise. Read it through useSecondaryColor, which picks for the account.
+ */
+export const COLOR_SECONDARY_PRO   = '#7FD1F7';
+export const COLOR_SECONDARY_BASIC = '#2EC4B6';
+/** Something wants your attention now — the live auction's LIVE pill, every count badge. */
+export const COLOR_ALERT      = COLOR_RED;
 // Every count bubble and unread dot — the bell, the drawer, messages — for every
-// account, Pro or not. The Pro red, so "waiting on you" matches the brand.
-export const COLOR_COUNT_BADGE = COLOR_PRO;
+// account, Pro or not. The alert red, so "waiting on you" reads like "live".
+export const COLOR_COUNT_BADGE = COLOR_ALERT;
 export const COLOR_GUARDS_RED = '#D00000';
 export const COLOR_TEAL       = '#01777A';
 export const COLOR_SLATE      = '#2F3A4C'; // a surface, not a text colour
@@ -205,6 +215,30 @@ export const COLOR_GRAY_13  = '#0D0D0D';
 export const COLOR_GRAY_11  = '#0B0B0B';
 export const COLOR_GRAY_10  = '#0A0A0A';
 
+/* Grounds — one each, so every screen, modal and pane agrees */
+/** Every screen's ground. Painted once, by the navigator's theme; screens don't set their own. */
+export const APP_BG   = COLOR_GRAY_23;
+/** The summary modal's surface. */
+export const MODAL_BG = COLOR_BLACK;
+/** Every pane's surface — sheets, slide-ups and the panels that grow from a button. A shade over the app's ground. */
+export const PANE_BG  = COLOR_GRAY_18;
+/** How far a pane's opening runs past its place before settling — Easing.back's overshoot. */
+export const PANE_OPEN_OVERSHOOT = 1.2;
+/** How long a pane takes to open. */
+export const PANE_OPEN_MS = 380;
+/** The top corners of every pane that slides up — as round as the panels that grow from a button. */
+export const SHEET_RADIUS = 32;
+/**
+ * A card within a form — Optional Details, the tag cards, Post To, the
+ * location: a step darker than the pane it sits on, no edge. Only the text
+ * fields inside are edged.
+ */
+export const FORM_CARD_BG = '#060606';
+/** Its corners — rounder than the fields inside it, so a card reads as holding them. */
+export const FORM_CARD_RADIUS = 18;
+/** The light grey wash behind every pane and summary while it's open — one for all of them. */
+export const PANE_SCRIM = 'rgba(100,100,100,0.55)';
+
 /**
  * The group pages' ground — the marketplace's, a step up from the app's black,
  * so the sub tabs' dark tracks have an edge against it.
@@ -245,26 +279,29 @@ export const COLOR_BADGE_GARAGE  = '#FF479C';
 export const COLOR_BADGE_EVENT   = '#FFFB38';
 /** Group news — a muted amber; the event yellow was too loud for a notice. */
 export const COLOR_BADGE_NEWS    = '#E2B347';
-export const COLOR_BADGE_GROUP   = '#F89CFA';
+export const COLOR_BADGE_GROUP   = '#E93CEC';
 export const COLOR_BADGE_RECORD  = '#35B5FF';
-export const COLOR_BADGE_DEFAULT = '#F0D689';
+export const COLOR_BADGE_DEFAULT = '#F0C330';
 export const COLOR_BADGE_SPOT    = '#F36943';
 export const COLOR_BADGE_UPDATE  = '#2E9599';
 
-/* Category badges — the softer pastels for the secondary category badge. */
-export const COLOR_CATEGORY_SHOW        = '#B39DFF';
-export const COLOR_CATEGORY_MISC        = '#CFD3D6';
-export const COLOR_CATEGORY_MOD         = '#7FD4FF';
-export const COLOR_CATEGORY_RESTORATION = '#FFB59B';
-export const COLOR_CATEGORY_MAINTENANCE = '#8FD9DC';
-export const COLOR_CATEGORY_DETAILING   = '#8FE6D8';
-export const COLOR_CATEGORY_NEW         = '#7CFF9E';
-export const COLOR_CATEGORY_USED        = '#F6E4AE';
-export const COLOR_CATEGORY_ACCESSORIES = '#FBC8FC';
-export const COLOR_CATEGORY_CAR         = '#FFFD9E';
-export const COLOR_CATEGORY_PART        = '#9FDCFF';
-export const COLOR_CATEGORY_MUSEUM      = '#E6C860';
-export const COLOR_CATEGORY_WILD        = '#B6DFA0';
+/*
+ * Category badges — saturated rather than pastel, but each still light enough
+ * that the badge's black lettering reads on it.
+ */
+export const COLOR_CATEGORY_SHOW        = '#A47BFF';
+export const COLOR_CATEGORY_MISC        = '#FFC9A3'; // peach — was a grey that read as disabled
+export const COLOR_CATEGORY_MOD         = '#1FB6FF';
+export const COLOR_CATEGORY_RESTORATION = '#FF7A45';
+export const COLOR_CATEGORY_MAINTENANCE = '#1FC8CF';
+export const COLOR_CATEGORY_DETAILING   = '#19D3B0';
+export const COLOR_CATEGORY_NEW         = '#22E06B';
+export const COLOR_CATEGORY_USED        = '#F2C230';
+export const COLOR_CATEGORY_ACCESSORIES = '#F25CF5';
+export const COLOR_CATEGORY_CAR         = '#FFE600';
+export const COLOR_CATEGORY_PART        = '#3FA9FF';
+export const COLOR_CATEGORY_MUSEUM      = '#D9A400';
+export const COLOR_CATEGORY_WILD        = '#7CC74A';
 
 /* Group categories — group resource/discussion categories, and the hues unknown ones cycle through. */
 export const COLOR_HUE_ORCHID     = '#B57EDC';
@@ -292,7 +329,7 @@ export const COLOR_EVENT_CARS_AND_COFFEE    = '#C6F24E';
 export const COLOR_EVENT_SHOW               = '#FF6FA5';
 export const COLOR_EVENT_TECH_SESSION       = '#FFB020';
 export const COLOR_EVENT_MOTORSPORTS        = '#FF5C39';
-export const COLOR_EVENT_MISC               = '#B8C0C8';
+export const COLOR_EVENT_MISC               = '#C9A2FF'; // lavender — was a grey that read as disabled
 export const COLOR_ORS_EVENT_GRADIENT_START = '#1E8E4E';
 export const COLOR_ORS_EVENT_GRADIENT_END   = '#6B3FA0';
 

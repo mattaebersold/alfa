@@ -8,6 +8,7 @@ import MakeTile from '../../components/cars/MakeTile';
 import GarageMatchBadge from '../../components/cars/GarageMatchBadge';
 import { useGetCarBrandSummariesQuery } from '../../api/apiService';
 import Spinner from '../../components/ui/Spinner';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import EmptyState from '../../components/ui/EmptyState';
 import { useColors } from '../../hooks/useColors';
 import type { CarsScreenProps } from '../../navigation/types';
@@ -17,9 +18,8 @@ import { useGarageMatch } from '../../hooks/useGarageMatch';
 import { FONT_INTER } from '../../constants/fonts';
 
 export default function BrandsScreen({ navigation }: CarsScreenProps<'Brands'>) {
-  const colors = useColors();
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <BrandsView onPickBrand={(brand) => navigation.navigate('BrandDetail', { brand })} />
     </SafeAreaView>
   );
@@ -36,6 +36,7 @@ export function BrandsView({ onPickBrand, headerPad = 0, onScroll }: {
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const [query, setQuery] = useState('');
   const { data: brands = [], isLoading, refetch } = useGetCarBrandSummariesQuery();
   const refreshControl = useRefreshControl(refetch);
@@ -57,10 +58,10 @@ export function BrandsView({ onPickBrand, headerPad = 0, onScroll }: {
   return (
     <View style={[ss.fill, { paddingTop: headerPad }]}>
       {/* Filter by make */}
-      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.searchBar, inputSurface]}>
         <Search size={16} color={colors.grey} />
         <TextInput
-          style={[styles.searchInput, { color: colors.fg }]}
+          style={[INPUT_TEXT_STYLE, styles.searchInput, { color: colors.fg }]}
           value={query}
           onChangeText={setQuery}
           placeholder="Filter by make..."
@@ -111,9 +112,8 @@ const styles = StyleSheet.create({
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15 },
+  searchInput: { flex: 1 },
   grid:        { paddingHorizontal: 8, paddingBottom: 120 },
   rowWrap:     { gap: 10, paddingHorizontal: 4 },
   // `minWidth: 0` so a long name wraps inside its column rather than widening

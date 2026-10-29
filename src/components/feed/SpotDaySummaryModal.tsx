@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Car, ChevronRight, CircleQuestionMark, Gavel, Target } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar, { type AvatarUser } from '../ui/Avatar';

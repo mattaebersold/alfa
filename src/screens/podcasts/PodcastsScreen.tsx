@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -65,7 +65,6 @@ export default function PodcastsScreen() {
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const scrollRef = useRef<FlatList<any>>(null);
   useScrollTopOnBack(scrollRef);
-  const colors = useColors();
   const appNav = useNavigation<AppNav>();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
@@ -75,12 +74,12 @@ export default function PodcastsScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <FlatList
         ref={scrollRef}
         refreshControl={refreshControl}
-        style={{ flex: 1, backgroundColor: colors.cream }}
+        style={{ flex: 1 }}
         data={podcasts}
         keyExtractor={(p) => p.internal_id}
         numColumns={2}

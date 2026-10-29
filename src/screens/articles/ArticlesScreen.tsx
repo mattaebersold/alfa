@@ -12,7 +12,6 @@ import ScreenHeading from '../../components/ui/ScreenHeading';
 import ChipRow from '../../components/ui/ChipRow';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
-import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
@@ -25,7 +24,6 @@ export default function ArticlesScreen() {
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const scrollRef = useRef<FlatList<any>>(null);
   useScrollTopOnBack(scrollRef);
-  const colors = useColors();
   const appNav = useNavigation<AppNav>();
   const headerPad = useHeaderPad();
   const onScroll = useHeaderScroll(headerPad);
@@ -55,12 +53,12 @@ export default function ArticlesScreen() {
   if (isLoading) return <Spinner fullScreen />;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <FlatList
         ref={scrollRef}
         refreshControl={refreshControl}
-        style={{ flex: 1, backgroundColor: colors.cream }}
+        style={{ flex: 1 }}
         data={articles}
         keyExtractor={(a) => a.internal_id}
         // Heading and filter ride in the list so they scroll away with the content.

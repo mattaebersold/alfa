@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { formatDistanceToNow } from 'date-fns';
 import Avatar from '../ui/Avatar';
 import ImageLightbox from '../ui/ImageLightbox';

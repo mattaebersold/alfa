@@ -20,7 +20,7 @@ import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import GroupItemActions from './GroupItemActions';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import MentionInput from '../ui/MentionInput';
 import ActionSheet from '../ui/ActionSheet';
 import PostMediaCarousel, { PageDots } from '../media/PostMediaCarousel';
@@ -31,7 +31,6 @@ import SharedButton from '../ui/SharedButton';
 import GroupCreateSheet from './GroupCreateSheet';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
-import { ss } from '../../styles/shared';
 import {
   COMMON_RADIUS,
   PILL_RADIUS,
@@ -236,15 +235,11 @@ export default function GroupItemDetailModal({
             </View>
           ) : null}
           {/* The author as the list row shows them — see GroupDetailScreen. */}
-          <View style={styles.meta}>
-            <Avatar user={d.user} size={22} />
-            <Text style={styles.metaText} numberOfLines={1}>
-              {d.user?.username ?? 'member'}
-              {d.created_at ? <Text style={styles.metaWhen}>{`  ${shortTimeAgo(d.created_at)}`}</Text> : null}
-            </Text>
+          <UserByline user={d.user} size={22} gap={7} color={COLOR_WHITE} nameStyle={styles.metaText} style={styles.meta}>
+            {d.created_at ? <Text style={styles.metaWhen}>{shortTimeAgo(d.created_at)}</Text> : null}
             {/* Like and comment at the row's end, as on the list row. */}
             <GroupItemActions kind={kind} item={d} style={styles.metaActions} />
-          </View>
+          </UserByline>
           {d.body ? <Text style={styles.text}>{stripHtml(d.body)}</Text> : null}
 
 
@@ -270,11 +265,10 @@ export default function GroupItemDetailModal({
           <View style={styles.inputRow}>
             <MentionInput
               containerStyle={{ flex: 1 }}
-              style={[ss.chatInput, { borderColor: COLOR_GRAY_42, backgroundColor: COLOR_GRAY_13, color: COLOR_GRAY_236, maxHeight: 120 }]}
+              style={styles.commentInput}
               value={commentText}
               onChangeText={(t, ids) => { setCommentText(t); setMentionedIds(ids); }}
               placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
-              placeholderTextColor={COLOR_GRAY_141}
               multiline
             />
             <TouchableOpacity
@@ -391,9 +385,9 @@ const styles = StyleSheet.create({
   title:   { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, lineHeight: 26 },
   // Centred on the title's first line.
   cog:     { paddingTop: 4 },
-  meta:    { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 16 },
-  metaText:{ fontSize: 12, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE, flexShrink: 1 },
-  metaWhen:{ color: COLOR_GRAY_102, fontFamily: FONT_INTER.regular },
+  meta:    { marginBottom: 16 },
+  metaText:{ fontSize: 12, fontFamily: FONT_INTER.semibold },
+  metaWhen:{ fontSize: 12, color: COLOR_GRAY_102, fontFamily: FONT_INTER.regular },
   metaActions: { marginLeft: 'auto' },
   text:    { fontSize: 15, lineHeight: 24, color: COLOR_GRAY_236 },
   // A full point of faint white: a hairline in the theme's border vanished on the pane.
@@ -403,6 +397,8 @@ const styles = StyleSheet.create({
   replyBannerText: { color: COLOR_GRAY_141, fontSize: 13 },
   replyCancel: { color: 'rgb(54, 178, 226)', fontSize: 13, fontFamily: FONT_INTER.bold },
   inputRow:{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12 },
+  // One line tall to start, growing to a few — not a paragraph field's height.
+  commentInput: { minHeight: 0, maxHeight: 120 },
   postBtn: { borderRadius: COMMON_RADIUS, paddingHorizontal: 16, paddingVertical: 9 },
   postBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 14 },
   empty:   { color: COLOR_GRAY_141, fontSize: 14, textAlign: 'center', paddingVertical: 20 },

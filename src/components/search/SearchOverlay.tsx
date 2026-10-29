@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Search as SearchIcon, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MainTabs from '../ui/MainTabs';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import { useSearchQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { KeyboardAvoidingView } from '@ors/kit';
@@ -210,6 +211,7 @@ export default function SearchOverlay({
   onClose: () => void;
 }) {
   const c = useColors();
+  const surface = useInputSurface();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
   const { openGroup } = useGroupSummary();
@@ -338,7 +340,7 @@ export default function SearchOverlay({
         </View>
 
         {/* ── The field ── */}
-        <View style={[styles.field, { backgroundColor: c.card, borderColor: c.borderDark }]}>
+        <View style={[styles.field, surface]}>
           <SearchIcon size={17} color={c.grey} />
           <TextInput
             style={[styles.input, { color: c.fg }]}
@@ -451,9 +453,8 @@ const styles = StyleSheet.create({
   field: {
     flexDirection: 'row', alignItems: 'center', gap: 9,
     paddingHorizontal: 13, height: 46,
-    borderRadius: 12, borderWidth: 1,
   },
-  input: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.semibold, padding: 0 },
+  input: { ...INPUT_TEXT_STYLE, flex: 1, padding: 0 },
 
   listFlex: { flex: 1 },
   list: { paddingTop: 12, gap: 12 },

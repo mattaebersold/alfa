@@ -21,6 +21,14 @@ export const PORTRAIT = 3 / 4;
  * never moves. A card that does change shape does it on the frame the image
  * appears, which reads as the picture arriving rather than as a reflow.
  */
+/**
+ * Each photo's own width over height, once it's been seen — so a card that
+ * leaves the screen and comes back (a grid drops the far-off ones; see
+ * MasonryGrid) returns at its shape, not the default it starts at, and the
+ * cards below don't jump while you scroll up.
+ */
+const SEEN = new Map<string, number>();
+
 export function usePosterRatio(
   initial?: number,
   /**
@@ -28,17 +36,30 @@ export function usePosterRatio(
    * wants the taller pair (3:2 and 2:3), since it's more picture than card.
    */
   shapes: { landscape: number; portrait: number } = { landscape: LANDSCAPE, portrait: PORTRAIT },
+  /**
+   * The photo's own ratio, not the nearer of the two — for a two-column
+   * mosaic, where cards of different heights are the point and a rounded
+   * shape only crops the picture. `shapes.landscape` is still the start.
+   */
+  exact = false,
+  /** The photo's URL, to start at the shape it was last seen at. */
+  key?: string | null,
 ) {
-  const [ratio, setRatio] = useState(initial ?? shapes.landscape);
+  // Square counts as wide: a wide card crops a square photo less than a
+  // tall one does, and reads as the common case.
+  const shapeOf = (aspect: number) => (exact ? aspect : aspect < 1 ? shapes.portrait : shapes.landscape);
+  const [ratio, setRatio] = useState(() => {
+    const seen = key ? SEEN.get(key) : undefined;
+    return seen ? shapeOf(seen) : initial ?? shapes.landscape;
+  });
 
   const onLoad = useCallback((e: { source?: { width?: number; height?: number } | null }) => {
     const w = e.source?.width;
     const h = e.source?.height;
     if (!w || !h) return;
-    // Square counts as wide: a wide card crops a square photo less than a
-    // tall one does, and reads as the common case.
-    setRatio(h > w ? shapes.portrait : shapes.landscape);
-  }, [shapes.landscape, shapes.portrait]);
+    if (key) SEEN.set(key, w / h);
+    setRatio(exact ? w / h : h > w ? shapes.portrait : shapes.landscape);
+  }, [exact, shapes.landscape, shapes.portrait, key]);
 
   return { ratio, onLoad };
 }

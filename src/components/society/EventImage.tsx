@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, type StyleProp, type ImageStyle } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 
 /**
  * An event's photo, with a shared stand-in for events that don't have one.

@@ -9,7 +9,7 @@ import { useGetPostQuery, useCreateCommentMutation } from '../../api/apiService'
 import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../../components/ui/Avatar';
-import CommentRow, { COMMENT_SURFACE } from '../../components/social/CommentRow';
+import CommentRow from '../../components/social/CommentRow';
 import Composer, { type ComposerHandle } from '../../components/social/Composer';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import PostEditSheet from '../../components/social/PostEditSheet';
@@ -25,7 +25,7 @@ import { useRefreshControl } from '../../hooks/useRefreshControl';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import Odometer from '../../components/ui/Odometer';
-import { COMMON_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PANE_BG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -70,7 +70,8 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
     close(() => go(tabNavProxy(navigation)));
   };
 
-  const surfaceBg = COMMENT_SURFACE;
+  // The pane's own ground — the rows, cards and composer on it share it.
+  const surfaceBg = PANE_BG;
 
   const { data: postData, isLoading, refetch } = useGetPostQuery(postId);
   const refreshControl = useRefreshControl(refetch);
@@ -136,7 +137,6 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
       // and the title.
       hideHeader
       fullHeight
-      surface={surfaceBg}
     >
       {isLoading || !post ? (
         <View style={styles.loading}><Spinner /></View>

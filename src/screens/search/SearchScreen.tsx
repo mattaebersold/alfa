@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search as SearchIcon } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { useSearchQuery } from '../../api/apiService';
-import Avatar from '../../components/ui/Avatar';
+import UserByline from '../../components/members/UserByline';
 import Spinner from '../../components/ui/Spinner';
 import AppHeader from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -21,6 +21,7 @@ import type { User, Post, GarageCar } from '../../types/api';
 import { stripHtml } from '../../utils/text';
 import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -28,10 +29,14 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 function UserRow({ user, onPress }: { user: User; onPress: () => void }) {
   const colors = useColors();
   return (
-    <TouchableOpacity style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]} onPress={onPress} activeOpacity={0.7}>
-      <Avatar user={user} size={36} />
-      <Text style={[styles.resultTitle, { color: colors.fg }]}>@{user.username}</Text>
-    </TouchableOpacity>
+    <UserByline
+      user={user}
+      size={36}
+      gap={12}
+      nameStyle={styles.resultTitle}
+      style={[styles.resultRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+      onPress={onPress}
+    />
   );
 }
 
@@ -70,6 +75,7 @@ export default function SearchScreen() {
   useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const [query, setQuery] = useState('');
   const debouncedQuery = query.trim();
 
@@ -87,11 +93,11 @@ export default function SearchScreen() {
   const hasResults = users.length > 0 || cars.length > 0 || posts.length > 0;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader spacer />
-      <View style={[styles.searchContent, { backgroundColor: colors.cream }]}>
+      <View style={styles.searchContent}>
       {/* Search bar */}
-      <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.searchBar, inputSurface]}>
         <SearchIcon size={16} color={colors.grey} />
         <TextInput
           style={[styles.searchInput, { color: colors.fg }]}
@@ -178,9 +184,8 @@ const styles = StyleSheet.create({
   searchBar:   {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     margin: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 10, borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15 },
+  searchInput: { ...INPUT_TEXT_STYLE, flex: 1 },
   clearBtn:    { fontSize: 14, padding: 4 },
   hint:        { flex: 1, alignItems: 'center', paddingTop: 60 },
   hintText:    { fontSize: 15 },

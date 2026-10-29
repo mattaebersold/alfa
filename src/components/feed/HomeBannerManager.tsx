@@ -2,23 +2,24 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
+import FormInput from '../ui/FormInput';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
-import { ImagePlus, Trash2, Check } from 'lucide-react-native';
+import { Trash2, Check } from 'lucide-react-native';
 import {
   useGetSiteSettingsQuery,
   useUpdateHomeBannerMutation,
   useDeleteHomeBannerMutation,
 } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
+import PhotoPickerField from '../ui/PhotoPickerField';
 import { imageUrl } from '../../utils/image';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
 import {
   BANNER_DESTINATIONS, bannerDestination,
 } from '../../constants/bannerDestinations';
-import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -160,26 +161,25 @@ export default function HomeBannerManager() {
         uploading a new image brings it back for everyone.
       </Text>
 
-      <TouchableOpacity
-        style={[styles.preview, { borderColor: colors.border, backgroundColor: colors.segment }]}
-        onPress={pickImage}
-        activeOpacity={0.85}
-      >
-        {preview ? (
-          <Image source={{ uri: preview }} style={StyleSheet.absoluteFill} contentFit="cover" />
-        ) : (
-          <View style={styles.previewEmpty}>
-            <ImagePlus size={22} color={colors.grey} />
-            <Text style={[styles.previewText, { color: colors.grey }]}>Choose a banner image</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+      {/* No image yet: the photo well. Once there is one, its preview, with
+          a link under it to change it. */}
+      {preview ? (
+        <>
+          <TouchableOpacity
+            style={[styles.preview, { borderColor: colors.border, backgroundColor: colors.segment }]}
+            onPress={pickImage}
+            activeOpacity={0.85}
+          >
+            <Image source={{ uri: preview }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          </TouchableOpacity>
 
-      <TouchableOpacity onPress={pickImage} style={styles.changeRow} activeOpacity={0.7}>
-        <Text style={[styles.changeText, { color: colors.primaryAlt }]}>
-          {preview ? 'Change image' : 'Choose image'}
-        </Text>
-      </TouchableOpacity>
+          <TouchableOpacity onPress={pickImage} style={styles.changeRow} activeOpacity={0.7}>
+            <Text style={[styles.changeText, { color: colors.primaryAlt }]}>Change image</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <PhotoPickerField onPress={pickImage} title="Choose a banner image" style={styles.photoField} />
+      )}
 
       <Text style={[styles.label, { color: colors.fg }]}>In the app, opens</Text>
       <Text style={[styles.hint, { color: colors.grey }]}>
@@ -213,12 +213,10 @@ export default function HomeBannerManager() {
       {selected?.needsId && (
         <>
           <Text style={[styles.label, { color: colors.fg }]}>{selected.idLabel}</Text>
-          <TextInput
-            style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+          <FormInput
             value={destinationId}
             onChangeText={setDestinationId}
             placeholder="Paste the id from its URL"
-            placeholderTextColor={colors.grey}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -231,12 +229,10 @@ export default function HomeBannerManager() {
       <Text style={[styles.hint, { color: colors.grey }]}>
         Used by openroadsociety.co, and by the app when no screen is set above.
       </Text>
-      <TextInput
-        style={[ss.input, { borderColor: colors.inputBorder, color: colors.fg, backgroundColor: colors.card }]}
+      <FormInput
         value={url}
         onChangeText={setUrl}
         placeholder="https://openroadsociety.co/rallys"
-        placeholderTextColor={colors.grey}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
@@ -270,8 +266,7 @@ const styles = StyleSheet.create({
   content:      { padding: 16, paddingBottom: 60, gap: 12 },
   blurb:        { fontSize: 13, lineHeight: 18 },
   preview:      { width: '100%', aspectRatio: 2.2, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
-  previewEmpty: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  previewText:  { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  photoField:   { marginTop: 0 },
   changeRow:    { alignSelf: 'flex-start' },
   changeText:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   label:        { fontSize: 13, fontFamily: FONT_INTER.bold, marginTop: 4 },

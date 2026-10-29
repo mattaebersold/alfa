@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { MoreVertical, Trash2, Reply } from 'lucide-react-native';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import MentionText from '../ui/MentionText';
 import ReportButton from '../ui/ReportButton';
 import ActionSheet from '../ui/ActionSheet';
@@ -14,21 +14,12 @@ import LikeButton from './LikeButton';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
-import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import type { SummaryOrigin } from '../ui/SummaryModal';
 import ImageLightbox from '../ui/ImageLightbox';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_11, COLOR_GRAY_42, COLOR_GRAY_208, COLOR_WHITE } from '../../constants/config';
-
-/**
- * The ground comments sit on, wherever they appear.
- *
- * Exported so the sheet and the post detail can't drift apart: the two used
- * different greys (#161616 and #101010) for the same thing, alongside a third
- * for the composer and a fourth for the header.
- */
-export const COMMENT_SURFACE = COLOR_GRAY_11;
+import { COLOR_GRAY_42, COLOR_GRAY_208, COLOR_WHITE } from '../../constants/config';
 
 /** Between photos in a comment's strip. */
 const PHOTO_GAP = 8;
@@ -253,23 +244,22 @@ export default function CommentRow({
           rather than in a column beside the avatar.
 
           Initials come from the username, not the first name: the label beside
-          it says "@username", and two people whose first names start with the
+          it is the username, and two people whose first names start with the
           same letter produced identical circles — which reads as one person's
           photo repeated rather than as two people. */}
       <View style={styles.byline}>
-        <SummaryTouchable
+        <UserByline
+          user={user}
+          size={isReply ? 20 : 22}
+          name={displayName}
+          gap={7}
+          color={compact ? COLOR_WHITE : colors.fg}
+          nameStyle={styles.name}
+          style={styles.bylineInner}
           onPress={(origin) => onOpenUser?.(comment.user_id, origin)}
           disabled={!onOpenUser || !comment.user_id}
-          accessibilityLabel={`View @${displayName}`}
-        >
-          <View style={styles.bylineInner}>
-            <Avatar
-              user={user}
-              size={isReply ? 20 : 22}
-            />
-            <Text style={[styles.name, { color: compact ? COLOR_WHITE : colors.fg }]}>{compact ? displayName : `@${displayName}`}</Text>
-          </View>
-        </SummaryTouchable>
+          accessibilityLabel={`View ${displayName}`}
+        />
         <View style={styles.bylineRight}>
           <Text style={[styles.time, { color: colors.greyDark }]}>{timeAgo}</Text>
           {/* Yours to delete, anyone else's to report — one dim ⋮ either way. */}
@@ -433,7 +423,7 @@ const styles = StyleSheet.create({
   // Name on the left, when and ⋮ on the right — the row's two ends. The ⋮ is
   // nudged out so its glyph, not its padding, sits on the card's edge.
   byline:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
-  bylineInner: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
+  bylineInner: { flexShrink: 1 },
   bylineRight: { flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: -6, flexShrink: 0 },
   // Words on the left, reply button on the right, bottom-aligned so the
   // button sits on the comment's last line however many lines it runs to.

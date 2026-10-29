@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, Image, Dimensions,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -13,6 +13,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
+import FormInput from '../../components/ui/FormInput';
 import TermsModal from '../../components/auth/TermsModal';
 import CrossfadeBackground from '../../components/ui/CrossfadeBackground';
 import { SPLASH_IMAGES } from '../../constants/splash';
@@ -255,12 +256,11 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                   <View key={key} style={styles.field}>
                     <Text style={styles.label}>{label}</Text>
                     <View style={secure ? styles.inputWrap : undefined}>
-                      <TextInput
-                        style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg, backgroundColor: colors.inputBg }]}
+                      <FormInput
+                        style={secure && styles.inputWithEye}
                         value={form[key]}
                         onChangeText={handleChange(key)}
                         placeholder=""
-                        placeholderTextColor={colors.grey}
                         secureTextEntry={secure && !showPasswords[key]}
                         autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
                         keyboardType={keyboard ?? 'default'}

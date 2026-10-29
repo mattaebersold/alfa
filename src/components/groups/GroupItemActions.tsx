@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import PostActionRail from '../social/PostActionRail';
-import LikersSheet from '../social/LikersSheet';
 import { usePostLike } from '../../hooks/usePostLike';
-import type { SummaryOrigin } from '../ui/SummaryModal';
 import type { Post } from '../../types/api';
 
 export type GroupItemKind = 'news' | 'discussion' | 'resource';
@@ -36,8 +34,6 @@ export default function GroupItemActions({ kind, item, style }: {
     initialLiked: item.isLiked ?? false,
     initialCount: item.like_count ?? 0,
   });
-  /** Non-null while the likers panel is open — and the rect it grows from. */
-  const [likersOrigin, setLikersOrigin] = useState<SummaryOrigin | null | undefined>(undefined);
 
   return (
     <View style={[styles.row, style]}>
@@ -47,15 +43,8 @@ export default function GroupItemActions({ kind, item, style }: {
         entryType={ENTRY_TYPE[kind]}
         like={like}
         likers={item.likers ?? []}
-        onOpenLikers={(origin) => setLikersOrigin(origin)}
         vertical={false}
         bookmark={false}
-      />
-      <LikersSheet
-        entryId={item.internal_id}
-        visible={likersOrigin !== undefined}
-        origin={likersOrigin}
-        onClose={() => setLikersOrigin(undefined)}
       />
     </View>
   );

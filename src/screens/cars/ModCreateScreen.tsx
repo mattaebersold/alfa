@@ -2,66 +2,38 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';
-import { X, Plus } from 'lucide-react-native';
-import { useCreateModMutation } from '../../api/apiService';
-import Button from '../../components/ui/Button';
+import { X, Plus, Car as CarIcon } from 'lucide-react-native';
+import { useCreateModMutation, useGetCarQuery } from '../../api/apiService';
 import SharedButton from '../../components/ui/SharedButton';
+import FormInput from '../../components/ui/FormInput';
+import SubTabs from '../../components/ui/SubTabs';
 import { useColors } from '../../hooks/useColors';
 import { MOD_TYPES } from '../../constants/carTypes';
-import { colors } from '../../constants/colors';
+import { carHeroUrl } from '../../utils/image';
 import type { AppScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_WHITE } from '../../constants/config';
+import { COLOR_WHITE, PANE_BG } from '../../constants/config';
 
 type ImageAsset = { uri: string; name: string; type: string };
-
-function ChipSelect({ items, value, onChange, label }: {
-  items: { key: string; label: string }[];
-  value: string;
-  onChange: (k: string) => void;
-  label: string;
-}) {
-  const c = useColors();
-  return (
-    <View style={chip.wrapper}>
-      <Text style={[chip.label, { color: c.fg }]}>{label}</Text>
-      <View style={chip.chips}>
-        {items.map((item) => (
-          <TouchableOpacity
-            key={item.key}
-            style={[chip.chip, { borderColor: c.border, backgroundColor: c.card }, value === item.key && chip.active]}
-            onPress={() => onChange(item.key)}
-          >
-            <Text style={[chip.text, { color: c.fg }, value === item.key && chip.activeText]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-}
-const chip = StyleSheet.create({
-  wrapper:    { marginBottom: 20 },
-  label:      { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 8 },
-  chips:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1.5 },
-  active:     { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-  text:       { fontSize: 13, fontFamily: FONT_INTER.semibold },
-  activeText: { color: COLOR_WHITE },
-});
 
 export default function ModCreateScreen({ navigation, route }: AppScreenProps<'ModCreate'>) {
   const { carId, carTitle } = route.params;
   const c = useColors();
+  // For the heading's "for" line: the car's photo, and its name when the
+  // caller didn't pass one.
+  const { data: car } = useGetCarQuery(carId, { skip: !carId });
+  const carPhoto = car ? carHeroUrl(car) : null;
+  const carName = carTitle
+    || car?.title
+    || [car?.year, car?.make, car?.model].filter(Boolean).join(' ');
 
   const [title, setTitle] = useState('');
   const [type, setType] = useState('general');
@@ -132,57 +104,77 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: c.cream }]} edges={['bottom']}>
+    // Its own heading rather than the navigator's bar — which centres its
+    // title, paints a band of colour, and has no room for which car this is.
+    // The panes' grey, a step up from the app's ground: a form laid over it.
+    <SafeAreaView style={[ss.fill, { backgroundColor: PANE_BG }]} edges={['top', 'bottom']}>
+      <View style={styles.head}>
+        <View style={styles.headText}>
+          <Text style={[styles.heading, { color: c.fg }]}>Add Mod</Text>
+          {carName ? (
+            <View style={styles.forRow}>
+              <Text style={[styles.forWord, { color: c.grey }]}>for</Text>
+              {carPhoto ? (
+                <Image source={{ uri: carPhoto }} style={styles.carThumb} contentFit="cover" />
+              ) : (
+                <View style={[styles.carThumb, styles.carThumbBlank, { backgroundColor: c.segment }]}>
+                  <CarIcon size={12} color={c.grey} />
+                </View>
+              )}
+              <Text style={[styles.carName, { color: c.fg }]} numberOfLines={1}>{carName}</Text>
+            </View>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <X size={24} color={c.fg} />
+        </TouchableOpacity>
+      </View>
+
+      {/* The kind of mod, as sub tabs — no label: the options say what they are. */}
+      <View style={styles.typeTabs}>
+        <SubTabs options={MOD_TYPES} value={type} onChange={setType} inset={GUTTER_FORM} />
+      </View>
+
       <FormScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {carTitle ? (
-          <Text style={[styles.carLabel, { color: c.grey }]}>{carTitle}</Text>
-        ) : null}
-
-        {/* Title */}
+        {/* Title — the placeholder is its label. */}
         <View style={styles.fieldWrap}>
-          <Text style={[styles.fieldLabel, { color: c.fg }]}>Title *</Text>
-          <TextInput
-            style={[ss.input, { borderColor: c.inputBorder, color: c.fg, backgroundColor: c.card }]}
+          <FormInput
             value={title}
             onChangeText={setTitle}
-            placeholder="e.g. Coilover upgrade"
-            placeholderTextColor={c.grey}
+            placeholder="Example: Coilovers"
             autoCapitalize="sentences"
+            accessibilityLabel="Title"
           />
         </View>
 
-        {/* Type */}
-        <ChipSelect items={MOD_TYPES} value={type} onChange={setType} label="Type" />
-
-        {/* Description */}
+        {/* Description — likewise, the placeholder says what it is. */}
         <View style={styles.fieldWrap}>
-          <Text style={[styles.fieldLabel, { color: c.fg }]}>
-            Description <Text style={[styles.optional, { color: c.grey }]}>(optional)</Text>
-          </Text>
-          <TextInput
-            style={[ss.input, ss.inputMulti, { borderColor: c.inputBorder, color: c.fg, backgroundColor: c.card }]}
+          <FormInput
             value={body}
             onChangeText={setBody}
-            placeholder="What did you install, and why?"
-            placeholderTextColor={c.grey}
+            placeholder="Description"
             multiline
             numberOfLines={4}
             autoCapitalize="sentences"
+            accessibilityLabel="Description"
           />
         </View>
 
         {/* Photos */}
         <View style={styles.fieldWrap}>
-          <Text style={[styles.fieldLabel, { color: c.fg }]}>
-            Photos <Text style={[styles.optional, { color: c.grey }]}>(optional)</Text>
-          </Text>
-          {/* Nothing added yet: the full well, so the option is visible at all.
-              Once there are photos the grid's + tile is enough. */}
+          {/* Nothing added yet: the full well, the width of the form, the
+              camera alone in it. Once there are photos the grid's + tile is
+              enough. */}
           {images.length === 0 ? (
-            <PhotoPickerField onPress={pickImage} />
+            <PhotoPickerField onPress={pickImage} style={styles.photoWell} />
           ) : (
           <View style={styles.imageGrid}>
             {images.map((img, i) => (
@@ -220,12 +212,27 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
   );
 }
 
+/** The form's side margin — the heading, the tabs and the fields share it. */
+const GUTTER_FORM = 16;
+
 const styles = StyleSheet.create({
-  scroll:         { padding: 16 },
-  carLabel:       { fontSize: 13, fontFamily: FONT_INTER.semibold, marginBottom: 16 },
+  // Left-aligned, on the screen's own ground, the close at its right.
+  head: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+    paddingHorizontal: GUTTER_FORM, paddingTop: 12, paddingBottom: 10,
+  },
+  headText:       { flex: 1, minWidth: 0 },
+  heading:        { fontSize: 22, fontFamily: FONT_INTER.bold },
+  forRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  forWord:        { fontSize: 13, fontFamily: FONT_INTER.medium },
+  carThumb:       { width: 20, height: 20, borderRadius: 10 },
+  carThumbBlank:  { alignItems: 'center', justifyContent: 'center' },
+  carName:        { flexShrink: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
+  typeTabs:       { paddingBottom: 4 },
+  scroll:         { padding: GUTTER_FORM },
   fieldWrap:      { marginBottom: 20 },
-  fieldLabel:     { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
-  optional:       { fontSize: 12 },
+  // The well across the whole form, not the narrow centred box it is elsewhere.
+  photoWell:      { marginTop: 0 },
   imageGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   imageThumbWrap: { position: 'relative' },
   imageThumb:     { width: 80, height: 80, borderRadius: 8 },

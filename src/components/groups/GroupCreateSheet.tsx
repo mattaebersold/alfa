@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
+import FormInput from '../ui/FormInput';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X, AlertCircle } from 'lucide-react-native';
 import {
@@ -415,13 +416,11 @@ export default function GroupCreateSheet({
         )}
 
         <Text style={[styles.label, { color: c.grey }]}>Title</Text>
-        <TextInput
-          style={[styles.input, { borderColor: c.borderDark, color: c.fg, backgroundColor: c.card }]}
+        <FormInput
           value={title}
           onChangeText={setTitle}
           editable={!busy}
           placeholder="Title"
-          placeholderTextColor={c.grey}
           // Not on an edit: what's there is the point, and the keyboard rising
           // as the pane slides in over the item made the two fight for room.
           autoFocus={!editing}
@@ -430,26 +429,22 @@ export default function GroupCreateSheet({
         <Text style={[styles.label, { color: c.grey }]}>
           {kind === 'posts' ? 'Body' : 'Details'}
         </Text>
-        <TextInput
-          style={[styles.input, styles.inputMulti, { borderColor: c.borderDark, color: c.fg, backgroundColor: c.card }]}
+        <FormInput
           value={body}
           onChangeText={setBody}
           editable={!busy}
           placeholder={kind === 'posts' ? "What's on your mind…" : 'Add some detail…'}
-          placeholderTextColor={c.grey}
           multiline
         />
 
         {showUrl && (
           <>
             <Text style={[styles.label, { color: c.grey }]}>Link (optional)</Text>
-            <TextInput
-              style={[styles.input, { borderColor: c.borderDark, color: c.fg, backgroundColor: c.card }]}
+            <FormInput
               value={url}
               onChangeText={setUrl}
               editable={!busy}
               placeholder="https://…"
-              placeholderTextColor={c.grey}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
@@ -659,8 +654,6 @@ const styles = StyleSheet.create({
   groupChipLabel: { fontSize: 12, fontFamily: FONT_INTER.semibold },
   groupChipName: { fontSize: 12, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   label:       { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 6 },
-  input:       { height: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
-  inputMulti:  { height: 96, paddingTop: 12, textAlignVertical: 'top' },
   chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chipScroller:{ marginHorizontal: -PANE_GUTTER },
   chipRow:     { flexDirection: 'row', gap: 8, paddingHorizontal: PANE_GUTTER },

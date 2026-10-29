@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, ActivityIndicator, Keyboard,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { MailCheck, UserPlus } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
+import FormInput from '../ui/FormInput';
 import { useInviteFriendMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { colors as palette } from '../../constants/colors';
-import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -109,20 +109,11 @@ export default function InviteFriendModal({
               the first cars they see.
             </Text>
 
-            <TextInput
-              style={[
-                ss.input,
-                styles.input,
-                {
-                  color: colors.fg,
-                  backgroundColor: colors.inputBg,
-                  borderColor: error ? palette.red : colors.inputBorder,
-                },
-              ]}
+            <FormInput
+              style={[styles.input, error && { borderColor: palette.red }]}
               value={email}
               onChangeText={(text) => { setEmail(text); if (error) setError(null); }}
               placeholder="friend@example.com"
-              placeholderTextColor={colors.grey}
               keyboardType="email-address"
               textContentType="emailAddress"
               autoComplete="email"

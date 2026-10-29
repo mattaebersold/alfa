@@ -9,8 +9,8 @@ import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList from '../notifications/NotificationsList';
 import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE } from '../../constants/config';
-import { useNavigation } from '@react-navigation/native';
+import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE, PANE_BG, PANE_SCRIM } from '../../constants/config';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -67,6 +67,21 @@ const BADGE_MAX = 10;
  * notifications route renders, so nothing about a notification behaves
  * differently depending on which way you opened it.
  */
+/**
+ * The bell in the header on screen, while there is one — so the menu's
+ * Notifications can open this same panel, grown from the bell, rather than a
+ * pane of its own. Each header's bell registers itself while its screen is
+ * focused; a screen behind (frozen, see freezeOnBlur) never answers.
+ */
+let openFocusedBell: (() => void) | null = null;
+
+/** Opens the on-screen header's notifications panel. False if no bell is showing to open it. */
+export function openNotificationsPanel(): boolean {
+  if (!openFocusedBell) return false;
+  openFocusedBell();
+  return true;
+}
+
 export default function NotificationsBell() {
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
   const { width: screenW, height: screenH } = useWindowDimensions();
@@ -213,6 +228,15 @@ export default function NotificationsBell() {
     });
   }, [box, reveal, badgeScale, ghost, panelH, maxPanelH]);
 
+  // The menu's way in — see openNotificationsPanel.
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (!isFocused || !isLoggedIn) return;
+    const open = () => openPanel();
+    openFocusedBell = open;
+    return () => { if (openFocusedBell === open) openFocusedBell = null; };
+  }, [isFocused, isLoggedIn, openPanel]);
+
   /**
    * Shrink back into the button, then run whatever was waiting on the panel
    * being gone — opening a notification's target, usually. iOS refuses to
@@ -353,13 +377,13 @@ export default function NotificationsBell() {
           ]}
           pointerEvents="none"
         >
-          {/* Black the whole way.
+          {/* The pane surface the whole way.
               This used to open on the brand fill and fade to black, so the
               growing box matched the brand-filled button it came out of. The
               button is a bare white glyph now, so there is nothing for a tint
               to match — starting on it would be a flash of colour that appears
               for no reason and leaves. */}
-          <View style={[StyleSheet.absoluteFill, styles.morphBlack]} />
+          <View style={[StyleSheet.absoluteFill, styles.morphFill]} />
         </Animated.View>
 
         {/* The button's own face, redrawn inside the modal.
@@ -552,7 +576,7 @@ const styles = StyleSheet.create({
   // Lighter than it was: the panel itself is near-black, and against a
   // heavy black scrim its edges disappeared into the dim. Grey gives the sheet
   // something to sit on rather than dissolve into.
-  scrim: { backgroundColor: 'rgba(64,64,64,0.55)' },
+  scrim: { backgroundColor: PANE_SCRIM },
 
   /**
    * Stacking inside the modal, bottom to top: scrim, backdrop, this box, the
@@ -582,8 +606,8 @@ const styles = StyleSheet.create({
     width: '100%', height: '100%',
     alignItems: 'center', justifyContent: 'center',
   },
-  morphBlack: { backgroundColor: COLOR_BLACK },
-  // Fades off the black beneath it — colour can't be interpolated natively, and
+  morphFill: { backgroundColor: PANE_BG },
+  // Fades off the fill beneath it — colour can't be interpolated natively, and
   // two layers cross-fading is the same picture without the bridge traffic. The
   // fill itself is passed in, so the box leaves as whatever the button was.
 

@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Users, RotateCcw } from 'lucide-react-native';
 import {
   useGetDeclinedInvitesQuery,

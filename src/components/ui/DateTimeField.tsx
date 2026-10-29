@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, Modal, Pressable, Platform,
+  View, StyleSheet, TouchableOpacity, Platform,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -9,6 +9,8 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { parseDayKey, toDayKey, formatTime } from '../../constants/eventTypes';
 import { FONT_INTER } from '../../constants/fonts'
+import SlideSheet from './SlideSheet';
+import { PANE_BG, SHEET_RADIUS } from '../../constants/config';
 
 /**
  * Native date and time fields for the event forms.
@@ -122,23 +124,19 @@ function IOSPickerSheet({
   const brand = useBrandColor();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <View style={styles.sheetWrap}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
-        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          <View style={[styles.sheetBar, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={onCancel} hitSlop={8}>
-              <Text style={[styles.sheetAction, { color: colors.grey }]}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={[styles.sheetTitle, { color: colors.fg }]}>{title}</Text>
-            <TouchableOpacity onPress={onDone} hitSlop={8}>
-              <Text style={[styles.sheetAction, { color: brand }]}>Done</Text>
-            </TouchableOpacity>
-          </View>
-          {children}
-        </View>
+    // Slides up over the panes' fading wash, as every pane does (SlideSheet).
+    <SlideSheet visible={visible} onClose={onCancel} sheetStyle={[styles.sheet, { backgroundColor: PANE_BG }]}>
+      <View style={[styles.sheetBar, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={onCancel} hitSlop={8}>
+          <Text style={[styles.sheetAction, { color: colors.grey }]}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={[styles.sheetTitle, { color: colors.fg }]}>{title}</Text>
+        <TouchableOpacity onPress={onDone} hitSlop={8}>
+          <Text style={[styles.sheetAction, { color: brand }]}>Done</Text>
+        </TouchableOpacity>
       </View>
-    </Modal>
+      {children}
+    </SlideSheet>
   );
 }
 
@@ -258,8 +256,7 @@ const styles = StyleSheet.create({
   },
   faceText: { flex: 1, fontSize: 15 },
 
-  sheetWrap: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
-  sheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 24 },
+  sheet: { borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, paddingBottom: 24 },
   sheetBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

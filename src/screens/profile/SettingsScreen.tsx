@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Switch, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { Plus, Trash2 } from 'lucide-react-native';
 import {
   useGetLoggedInUserQuery,
@@ -30,6 +30,7 @@ import type { ProfileLink } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import FormInput from '../../components/ui/FormInput';
 
 function SectionHeader({ title }: { title: string }) {
   const colors = useColors();
@@ -53,12 +54,12 @@ function Field({
   return (
     <View style={styles.fieldWrap}>
       <Text style={[styles.fieldLabel, { color: colors.fg }]}>{label}</Text>
-      <TextInput
-        style={[ss.input, multiline && ss.inputMulti, { borderColor: error ? colors.red : colors.inputBorder, color: colors.fg, backgroundColor: colors.bgDark }]}
+      <FormInput
+        // An error edges the field in red.
+        style={error ? { borderColor: colors.red } : undefined}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.grey}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize ?? 'sentences'}
         keyboardType={keyboardType}
@@ -274,7 +275,7 @@ export default function SettingsScreen() {
   const bannerUri = user?.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FormScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── Photos ──────────────────────────────────────────────── */}

@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, Platform, Switch, ScrollView } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Plus } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
-import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../../components/ui/StepFormHeader';
+import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import SubTabs from '../../components/ui/SubTabs';
 import PostToSelector from '../../components/social/PostToSelector';
@@ -38,9 +38,9 @@ import { blockProfanity } from '../../utils/profanity';
 import {
   categoryLabel, isDiecastCategory, isVehicleCategory, LISTING_CONDITIONS,
 } from '../../components/marketplace/listingFormat';
-import { ss } from '../../styles/shared';
 import type { AppScreenProps } from '../../navigation/types';
 import type { ListingKind, ListingPriceMode, ListingShipping } from '../../types/api';
+import FormInput from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -596,20 +596,18 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
 
             {/* The post form's title and description: the placeholder is the
                 label. */}
-            <TextInput
-              style={[ss.formInput, styles.formField, { backgroundColor: colors.inputBg, color: colors.fg }]}
+            <FormInput
+              style={styles.formField}
               value={form.title}
               onChangeText={set('title')}
               placeholder="Title"
-              placeholderTextColor={colors.grey}
               maxLength={120}
             />
-            <TextInput
-              style={[ss.formInput, ss.formInputMulti, styles.formField, { backgroundColor: colors.inputBg, color: colors.fg }]}
+            <FormInput
+              style={styles.formField}
               value={form.body}
               onChangeText={set('body')}
               placeholder="Description"
-              placeholderTextColor={colors.grey}
               multiline
               numberOfLines={5}
             />
@@ -619,13 +617,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                 lead it — removing one of those is done from the listing. */}
             <View style={styles.photos}>
             {existingPhotos.length === 0 && form.images.length === 0 ? (
-              <PhotoPickerField
-                onPress={pickImages}
-                title="Add Media"
-                hint=""
-                muted
-                style={styles.photoField}
-              />
+              <PhotoPickerField onPress={pickImages} title="Add Media" style={styles.photoField} />
             ) : (
               /* The previews, then an add tile the same size at the end —
                  the post form's row. The photos already on the listing lead
@@ -700,12 +692,11 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                     one left in the form, so the form only asks for it when a
                     price is the choice. */}
                 {form.price_mode === 'amount' && (
-                  <TextInput
-                    style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }, styles.spaced]}
+                  <FormInput
+                    style={styles.spaced}
                     value={form.price}
                     onChangeText={set('price')}
                     placeholder="Price ($)"
-                    placeholderTextColor={colors.grey}
                     keyboardType="numeric"
                   />
                 )}
@@ -716,12 +707,10 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                 <Text style={[styles.hint, { color: colors.grey }]}>
                   Optional. A number here is what the card shows as "Will pay $400".
                 </Text>
-                <TextInput
-                  style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
+                <FormInput
                   value={form.willing_to_pay}
                   onChangeText={set('willing_to_pay')}
                   placeholder="$"
-                  placeholderTextColor={colors.grey}
                   keyboardType="numeric"
                 />
               </>
@@ -762,16 +751,16 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
                   />
                 </View>
                 <View style={styles.pairRow}>
-                  <SmallField colors={colors} label="Year" value={form.year} onChange={set('year')} numeric />
-                  <SmallField colors={colors} label="Trim" value={form.trim} onChange={set('trim')} />
+                  <SmallField label="Year" value={form.year} onChange={set('year')} numeric />
+                  <SmallField label="Trim" value={form.trim} onChange={set('trim')} />
                 </View>
                 <View style={styles.pairRow}>
-                  <SmallField colors={colors} label="Color" value={form.color} onChange={set('color')} />
-                  <SmallField colors={colors} label="Mileage" value={form.mileage} onChange={set('mileage')} numeric />
+                  <SmallField label="Color" value={form.color} onChange={set('color')} />
+                  <SmallField label="Mileage" value={form.mileage} onChange={set('mileage')} numeric />
                 </View>
                 <View style={styles.pairRow}>
-                  <SmallField colors={colors} label="VIN" value={form.vin} onChange={set('vin')} />
-                  <SmallField colors={colors} label="Part number" value={form.part_number} onChange={set('part_number')} />
+                  <SmallField label="VIN" value={form.vin} onChange={set('vin')} />
+                  <SmallField label="Part number" value={form.part_number} onChange={set('part_number')} />
                 </View>
               </>
             )}
@@ -782,12 +771,12 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
               <>
                 <Label colors={colors}>Diecast</Label>
                 <View style={styles.pairRow}>
-                  <SmallField colors={colors} label="Brand" value={form.diecast_brand} onChange={set('diecast_brand')} />
-                  <SmallField colors={colors} label="Rarity" value={form.diecast_rarity} onChange={set('diecast_rarity')} />
+                  <SmallField label="Brand" value={form.diecast_brand} onChange={set('diecast_brand')} />
+                  <SmallField label="Rarity" value={form.diecast_rarity} onChange={set('diecast_rarity')} />
                 </View>
                 <View style={styles.pairRow}>
-                  <SmallField colors={colors} label="Est. value low" value={form.estimated_value_low} onChange={set('estimated_value_low')} numeric />
-                  <SmallField colors={colors} label="Est. value high" value={form.estimated_value_high} onChange={set('estimated_value_high')} numeric />
+                  <SmallField label="Est. value low" value={form.estimated_value_low} onChange={set('estimated_value_low')} numeric />
+                  <SmallField label="Est. value high" value={form.estimated_value_high} onChange={set('estimated_value_high')} numeric />
                 </View>
                 <ToggleRow colors={colors} brand={brand} label="Still in the packaging" value={form.in_packaging} onChange={set('in_packaging')} />
                 <ToggleRow colors={colors} brand={brand} label="Limited edition" value={form.is_limited_edition} onChange={set('is_limited_edition')} />
@@ -802,12 +791,11 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
             {/* Defaulted from your profile, so nobody retypes their zip for
                 every part they list — which is how a marketplace ends up
                 unable to answer "near me". */}
-            <TextInput
-              style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }, styles.spaced]}
+            <FormInput
+              style={styles.spaced}
               value={form.zip}
               onChangeText={set('zip')}
               placeholder="Zip code"
-              placeholderTextColor={colors.grey}
               keyboardType="number-pad"
               maxLength={10}
             />
@@ -861,8 +849,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
   }
   return (
     <SharedModal
-      headerSurface={STEP_FORM_HEADER_BG}
-      // No fade under the darker header: it reads as a smear on the body.
+      // No fade under the header: the step's caption sits right under it.
       headFade={false}
       visible={visible}
       onClose={() => setVisible(false)}
@@ -893,8 +880,7 @@ function Label({ children, colors, first }: {
   );
 }
 
-function SmallField({ colors, label, value, onChange, numeric }: {
-  colors: ReturnType<typeof useColors>;
+function SmallField({ label, value, onChange, numeric }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
@@ -903,12 +889,10 @@ function SmallField({ colors, label, value, onChange, numeric }: {
   return (
     // The form's field, the label as its placeholder.
     <View style={styles.pairHalf}>
-      <TextInput
-        style={[ss.formInput, { backgroundColor: colors.inputBg, color: colors.fg }]}
+      <FormInput
         value={value}
         onChangeText={onChange}
         placeholder={label}
-        placeholderTextColor={colors.grey}
         accessibilityLabel={label}
         keyboardType={numeric ? 'numeric' : 'default'}
         autoCapitalize="none"
@@ -943,7 +927,7 @@ const styles = StyleSheet.create({
   // Inline: the host's inset, and the nav row's clearance above it.
   inlineWrap: { paddingTop: 4 },
   // The Back / Next / Post row, in from the screen's edge.
-  inlineNav:  { paddingHorizontal: 12, paddingTop: 18, paddingBottom: 14 },
+  inlineNav:  { paddingHorizontal: 12, paddingTop: 6, paddingBottom: 6 },
   // The title's place, empty: keeps the buttons over at the right.
   inlineSpacer: { flex: 1 },
   inlineBody: { paddingHorizontal: 12, paddingBottom: 8 },
@@ -974,7 +958,7 @@ const styles = StyleSheet.create({
   makeModelFirst:{ marginTop: 20 },
   // The post form's photo well and thumbnail row.
   // No top margin of its own — the well's 18 on top of `photos`' 12 left a gap under the description.
-  photoField: { alignSelf: 'stretch', maxWidth: '100%', marginTop: 0, marginBottom: 6 },
+  photoField: { marginTop: 0, marginBottom: 6 },
   thumbRow:   { marginBottom: 4 },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

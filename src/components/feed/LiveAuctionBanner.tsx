@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking, Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiService, useGetLiveSponsoredAuctionsQuery } from '../../api/apiService';
@@ -9,7 +9,7 @@ import { useAppDispatch } from '../../store/store';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { imageUrl } from '../../utils/image';
 import {
-  COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_26, COLOR_PRO, COLOR_RED, COLOR_WHITE, GUTTER,
+  COMMON_RADIUS, COLOR_ALERT, COLOR_BLACK, COLOR_GRAY_26, COLOR_RED, COLOR_WHITE, GUTTER,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type { SponsoredAuction, SponsoredAuctionSource } from '../../types/api';
@@ -202,9 +202,63 @@ export default function LiveAuctionBanner() {
 
   if (!live.length) return null;
   return (
-    <View style={styles.wrap}>
-      {live.map((a) => <BannerCard key={a.internal_id} auction={a} now={now} />)}
-    </View>
+    <Reveal>
+      <View style={styles.wrap}>
+        {live.map((a) => <BannerCard key={a.internal_id} auction={a} now={now} />)}
+      </View>
+    </Reveal>
+  );
+}
+
+/** How long the auction takes to open into the feed. */
+const REVEAL_MS = 420;
+/** How far the card drops in from as it fades up. */
+const REVEAL_DROP = 14;
+
+/**
+ * Opens the feed up to make room for what's inside, rather than shoving the
+ * posts down in one frame: the space grows from nothing to the content's
+ * height while the content fades and drops into it.
+ *
+ * Until it's open the content is laid out out of flow (absolute, both edges
+ * pinned), so it can be measured at its natural height while the box around
+ * it is still zero. Once open, both go back to sizing themselves — the same
+ * views, restyled, so nothing inside remounts — and a second auction joining
+ * later just takes its room.
+ */
+function Reveal({ children }: { children: React.ReactNode }) {
+  const height = useRef(new Animated.Value(0)).current;
+  const shown = useRef(new Animated.Value(0)).current;
+  const started = useRef(false);
+  const [open, setOpen] = useState(false);
+
+  const onLayout = (h: number) => {
+    if (started.current || h <= 0) return;
+    started.current = true;
+    const easing = Easing.out(Easing.cubic);
+    Animated.parallel([
+      // Height can't run on the native driver; the fade and drop can, on the
+      // inner view, so only the one value crosses the bridge each frame.
+      Animated.timing(height, { toValue: h, duration: REVEAL_MS, easing, useNativeDriver: false }),
+      Animated.timing(shown, { toValue: 1, duration: REVEAL_MS, delay: 80, easing, useNativeDriver: true }),
+    ]).start(() => setOpen(true));
+  };
+
+  return (
+    <Animated.View style={open ? undefined : { height, overflow: 'hidden' }}>
+      <Animated.View
+        onLayout={(e) => onLayout(e.nativeEvent.layout.height)}
+        style={[
+          !open && styles.revealMeasure,
+          {
+            opacity: shown,
+            transform: [{ translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [-REVEAL_DROP, 0] }) }],
+          },
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -219,8 +273,11 @@ const COVER_FADE = {
 };
 
 const styles = StyleSheet.create({
-  // A little clear of the header's tabs above, as the row under it is.
-  wrap: { paddingTop: 12, paddingHorizontal: GUTTER, gap: 10 },
+  // Out of flow while the reveal measures it — see Reveal.
+  revealMeasure: { position: 'absolute', top: 0, left: 0, right: 0 },
+  // A little clear of the header's tabs above, and more room below, so the
+  // auction stands apart from the row under it.
+  wrap: { paddingTop: 8, paddingBottom: 4, paddingHorizontal: GUTTER, gap: 10 },
   card: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     minHeight: CARD_MIN_H, padding: CARD_PAD,
@@ -232,7 +289,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     alignSelf: 'flex-end', maxWidth: '100%',
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
-    backgroundColor: COLOR_PRO,
+    backgroundColor: COLOR_WHITE,
   },
   eyebrowText: { fontSize: 10, lineHeight: 14, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
   title: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, textAlign: 'right' },
@@ -251,7 +308,7 @@ const styles = StyleSheet.create({
 
   livePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    height: 18, paddingHorizontal: 6, borderRadius: 999, backgroundColor: COLOR_RED,
+    height: 18, paddingHorizontal: 6, borderRadius: 999, backgroundColor: COLOR_ALERT,
   },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLOR_WHITE },
   liveText: { fontSize: 10, lineHeight: 12, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, color: COLOR_WHITE },

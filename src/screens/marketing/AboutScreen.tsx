@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, FlatList, StatusBar, SafeAreaView as RNSafeAreaView, type ImageSourcePropType,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -198,7 +198,7 @@ export default function AboutScreen() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader />
       <ScrollView
         ref={scrollRef}

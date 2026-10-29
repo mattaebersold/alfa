@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { X, Images, SwitchCamera } from 'lucide-react-native';
-import { COLOR_WHITE, COLOR_BLACK, COLOR_RED, PILL_RADIUS } from '../../constants/config';
+import { COLOR_WHITE, COLOR_BLACK, COLOR_RED, PILL_RADIUS, PANE_BG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** What the camera hands back — the shape the create form's drafts take. */
@@ -215,7 +215,7 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
 }
 
 const styles = StyleSheet.create({
-  fill:   { flex: 1, backgroundColor: COLOR_BLACK },
+  fill:   { flex: 1, backgroundColor: PANE_BG },
   center: { alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
   note:    { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold, textAlign: 'center' },
   noteSub: { color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center' },

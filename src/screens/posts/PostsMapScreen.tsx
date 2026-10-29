@@ -12,12 +12,13 @@ import { ChevronLeft, Plus, Minus, LocateFixed, MapPin } from 'lucide-react-nati
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import PostSummaryModal from '../../components/social/PostSummaryModal';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { PlacePostRow } from '../../components/social/PlacePostsModal';
 import { useGetPostMapPlacesQuery, useGetPostsQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, FORM_RADIUS, GUTTER } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type { Post, PostMapPlace, PostMapParams } from '../../types/api';
 
@@ -86,6 +87,7 @@ const postsLabel = (n: number) => `${n} ${n === 1 ? 'post' : 'posts'}`;
 export default function PostsMapScreen() {
   const navigation = useNavigation<any>();
   const colors = useColors();
+  const inputSurface = useInputSurface();
   const brand = useBrandColor();
   const insets = useSafeAreaInsets();
   const headerPad = useHeaderPad();
@@ -375,7 +377,7 @@ export default function PostsMapScreen() {
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+    <View style={styles.root}>
       {/* The app header floats over the screen, so the heading starts clear
           of it via useHeaderPad() — as Routes does. Its own back stays off
           (see AppHeader), so the heading brings one. */}
@@ -427,7 +429,7 @@ export default function PostsMapScreen() {
               onPlacePicked={goToAddress}
               floating
               style={styles.mapSearch}
-              inputStyle={[styles.searchInput, { color: colors.fg, borderColor: colors.borderDark, backgroundColor: colors.card }]}
+              inputStyle={[inputSurface, styles.searchInput, { color: colors.fg }]}
             />
             <FilterSummaryRow<PostMapFilters>
               value={{ since: filters.since, who }}
@@ -575,11 +577,9 @@ const styles = StyleSheet.create({
   // Constant, like AddressField's own — a zIndex that changes drops focus.
   toolsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, zIndex: 2, elevation: 2 },
   mapShadow: { borderRadius: 22, boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.35)' },
-  mapSearch: { flex: 1, borderRadius: 22, boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.35)' },
-  searchInput: {
-    height: 44, borderWidth: 1, borderRadius: 22,
-    paddingHorizontal: 16, fontSize: 14,
-  },
+  // The shadow's corners follow the field's (the shared input surface).
+  mapSearch: { flex: 1, borderRadius: FORM_RADIUS, boxShadow: '0px 4px 14px rgba(0, 0, 0, 0.35)' },
+  searchInput: { ...INPUT_TEXT_STYLE, height: 44, paddingHorizontal: 16 },
   note: {
     alignSelf: 'center', marginTop: 8,
     paddingHorizontal: 12, paddingVertical: 6,

@@ -1,21 +1,19 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, PanResponder, useWindowDimensions,
+  Easing,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost, KeyboardHandledAbove } from '@ors/kit';
-import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE, PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
-// Near-black surfaces — matches the car-detail pane look.
-const SHEET_BG = COLOR_GRAY_22;
-// The header used to be pure black against the body's #161616, which read as a
-// separate bar stuck on top of the sheet rather than part of it. One ground,
-// with a hairline to mark the edge.
-const SHEET_HEADER_BG = SHEET_BG;
+// Every pane's one surface, header and grabber included — no per-sheet
+// override, so all of them agree.
+const SHEET_BG = PANE_BG;
 /** A pane's side padding — the header's, and what its content should use. */
 export const PANE_GUTTER = 12;
 /**
@@ -91,18 +89,6 @@ interface SharedModalProps {
    * the extra affordance.
    */
   showClose?: boolean;
-  /**
-   * The sheet's own colour, header and grabber included, in place of the
-   * near-black default — true black for a sheet that wants to be a void
-   * behind its content, like What's new.
-   */
-  surface?: string;
-  /**
-   * The grabber strip and title row alone, in their own colour — the step
-   * forms' darker header (see STEP_FORM_HEADER_BG). The fade under it starts
-   * from this colour too.
-   */
-  headerSurface?: string;
   /** No title row — the grabber alone, for a sheet whose content heads itself. */
   hideHeader?: boolean;
   /**
@@ -123,12 +109,12 @@ interface SharedModalProps {
 }
 
 /**
- * Shared bottom-sheet modal — near-black, blurred overlay, grows with content
+ * Shared bottom-sheet modal — the pane surface (PANE_BG), dark scrim, grows with content
  * between 50% and 90% of screen height, or fills the screen with `fullHeight`.
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, surface, headerSurface, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, children }: SharedModalProps) {
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -144,12 +130,16 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
       slideY.setValue(600);
       overlayOpacity.setValue(0);
       Animated.parallel([
-        Animated.spring(slideY, { toValue: 0, tension: 60, friction: 12, useNativeDriver: true }),
+        // Out, with a slight overshoot: up a touch past its place, then settled.
+        Animated.timing(slideY, { toValue: 0, duration: PANE_OPEN_MS, easing: Easing.out(Easing.back(PANE_OPEN_OVERSHOOT)), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
       ]).start();
     } else if (mountedRef.current) {
       Animated.parallel([
-        Animated.timing(slideY, { toValue: 600, duration: 240, useNativeDriver: true }),
+        // Plain ease-out, and the whole way off: it used to stop 600 down —
+        // short of the bottom for a tall pane, which then vanished mid-slide —
+        // on the default ease-in-out.
+        Animated.timing(slideY, { toValue: windowHeight, duration: 240, easing: Easing.bezier(0, 0, 0.58, 1), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => {
         mountedRef.current = false;
@@ -204,7 +194,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
         {/* A near-black scrim that fades with the sheet — dark enough that the
             sheet stands off the screen behind it. No blur: a blur can't fade
             and either popped in or cost the whole open. */}
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.85)', opacity: overlayOpacity }]} pointerEvents="none" />
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: PANE_SCRIM, opacity: overlayOpacity }]} pointerEvents="none" />
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         {/* The sheet rides on the keyboard: this fills the screen below the
             status bar and shrinks by the keyboard's height (kit's
@@ -217,10 +207,16 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           pointerEvents="box-none"
           enabled={!keyboardInert}
         >
+        {/* The sheet's own colour under its foot, shown only while the opening
+            overshoots — so the screen doesn't show through below a sheet that
+            has risen a little past its place. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.overshootFill, { opacity: slideY.interpolate({ inputRange: [-1, 0, 1], outputRange: [1, 1, 0], extrapolate: 'clamp' }) }]}
+        />
         <Animated.View
           style={[
             styles.sheet,
-            surface != null && { backgroundColor: surface },
             heightRatio
               // A flex basis that can shrink, not a fixed height: the stack
               // pads itself by the keyboard, and a fixed height ignored that
@@ -240,7 +236,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           <View {...panResponder.panHandlers} style={hideHeader ? styles.grabberFloat : undefined}>
             {hideHeader ? (
               <LinearGradient
-                colors={fadeColors(surface ?? SHEET_BG)}
+                colors={fadeColors(SHEET_BG)}
                 locations={FADE_LOCATIONS}
                 style={styles.floatFade}
                 pointerEvents="none"
@@ -249,13 +245,13 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             {/* Tap it or drag it down — both close. */}
             <Pressable
               onPress={onClose}
-              style={[styles.grabberHit, hideHeader ? styles.grabberClear : (headerSurface ?? surface) != null && { backgroundColor: headerSurface ?? surface }]}
+              style={[styles.grabberHit, hideHeader && styles.grabberClear]}
               hitSlop={6}
             >
               <View style={[styles.grabber, hideHeader && styles.grabberOver]} />
             </Pressable>
             {hideHeader ? null : (
-            <View style={[styles.header, (headerSurface ?? surface) != null && { backgroundColor: headerSurface ?? surface }]}>
+            <View style={styles.header}>
               {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
               <View style={styles.headerRight}>
                 {headerRight}
@@ -276,7 +272,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           {hideHeader || !headFade ? null : (
             <View style={styles.headSeam} pointerEvents="none">
               <LinearGradient
-                colors={fadeColors(headerSurface ?? surface ?? SHEET_BG)}
+                colors={fadeColors(SHEET_BG)}
                 locations={FADE_LOCATIONS}
                 style={styles.headFade}
               />
@@ -299,6 +295,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
 const styles = StyleSheet.create({
   fill:  { flex: 1 },
   stack: { flex: 1, justifyContent: 'flex-end' },
+  overshootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: SHEET_BG },
   sheet: {
     backgroundColor: SHEET_BG,
     overflow: 'hidden',
@@ -310,31 +307,31 @@ const styles = StyleSheet.create({
   sheetSized: {
     minHeight: '50%',
     flexShrink: 1,
-    borderTopLeftRadius: COMMON_RADIUS,
-    borderTopRightRadius: COMMON_RADIUS,
+    borderTopLeftRadius: SHEET_RADIUS,
+    borderTopRightRadius: SHEET_RADIUS,
   },
   // Fills whatever the keyboard leaves, so the sheet shrinks rather than slides
   // and its own bottom bar stays on screen. It still stops below the status
   // bar, so it has a top edge to round like every other sheet.
   sheetFull: {
     flex: 1,
-    borderTopLeftRadius: COMMON_RADIUS,
-    borderTopRightRadius: COMMON_RADIUS,
+    borderTopLeftRadius: SHEET_RADIUS,
+    borderTopRightRadius: SHEET_RADIUS,
   },
   // A fraction of the screen to start from: keeps the sized sheet's rounded
   // cap, drops its minimum, and shrinks for the keyboard — see the basis above.
   sheetRatio: {
     flexShrink: 1, flexGrow: 0,
-    borderTopLeftRadius: COMMON_RADIUS,
-    borderTopRightRadius: COMMON_RADIUS,
+    borderTopLeftRadius: SHEET_RADIUS,
+    borderTopRightRadius: SHEET_RADIUS,
   },
   // The strip you drag by — 24 tall rather than 16, full width, so the drag
   // starts on the first try. The header below gives back the extra, so the
   // title barely moves. (The header drags the sheet too; a sheet without one
   // has only this strip.)
   grabberHit: {
-    alignItems: 'center', paddingTop: 10, paddingBottom: 10,
-    backgroundColor: SHEET_HEADER_BG,
+    alignItems: 'center', paddingTop: 10, paddingBottom: 6,
+    backgroundColor: SHEET_BG,
   },
   grabberFloat: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, elevation: 3 },
   // Past the grabber's own strip, so it diffuses well into the content.
@@ -355,7 +352,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: PANE_GUTTER, paddingTop: 0, paddingBottom: 10,
-    backgroundColor: SHEET_HEADER_BG,
+    backgroundColor: SHEET_BG,
     // No rule under it: the header shares the sheet's ground now, so a line
     // only redraws a seam the colour change already removed.
   },

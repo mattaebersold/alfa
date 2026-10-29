@@ -3,7 +3,7 @@ import {
   View, StyleSheet, Modal, ScrollView, TouchableOpacity, useWindowDimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from './AppImage';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle, useSharedValue, withTiming, withSpring, runOnJS,
@@ -320,6 +320,8 @@ export function ZoomableImage({
         <Image
           source={{ uri }}
           style={StyleSheet.absoluteFill}
+          // Zoomed into: the photo's own pixels, not the screen's.
+          enforceEarlyResizing={false}
           // The whole point of the viewer: the photo at its own proportions,
           // not cropped to the shape of the card it was tapped from.
           contentFit="contain"

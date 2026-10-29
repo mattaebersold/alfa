@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
+import FormInput from '../ui/FormInput';
 import GroupCarsField from './GroupCarsField';
 import { FormScrollView } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
-import { StepFormNav, StepFormProgress, STEP_FORM_HEADER_BG } from '../ui/StepFormHeader';
+import { StepFormNav, StepFormProgress } from '../ui/StepFormHeader';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import GroupInvitePicker from './GroupInvitePicker';
 import { useCreateGroupMutation } from '../../api/apiService';
@@ -199,8 +200,7 @@ export default function NewGroupSheet({
 
   return (
     <SharedModal
-      headerSurface={STEP_FORM_HEADER_BG}
-      // No fade under the darker header: it reads as a smear on the body.
+      // No fade under the header: the step's caption sits right under it.
       headFade={false}
       visible={visible}
       onClose={close}
@@ -231,12 +231,10 @@ export default function NewGroupSheet({
         {step === 1 && (
           <>
             <Label colors={colors} first>Name</Label>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.fg }]}
+            <FormInput
               value={title}
               onChangeText={setTitle}
               placeholder="e.g. Pacific Northwest Air-cooled"
-              placeholderTextColor={colors.grey}
               maxLength={80}
               // Only while empty: coming back from the invite step shouldn't
               // throw the keyboard up over a name that's already there.
@@ -244,12 +242,10 @@ export default function NewGroupSheet({
             />
 
             <Label colors={colors}>Tagline</Label>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.fg }]}
+            <FormInput
               value={subtitle}
               onChangeText={setSubtitle}
               placeholder="One line about the group"
-              placeholderTextColor={colors.grey}
               maxLength={120}
             />
 
@@ -317,12 +313,10 @@ export default function NewGroupSheet({
                     definition what the five didn't cover, so the only way to say
                     what it is, is to say it. Written to the same `category` the
                     Car Type chips set, which the server stores as free text. */}
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.fg }]}
+                <FormInput
                   value={category}
                   onChangeText={setCategory}
                   placeholder="e.g. Autocross, Track days, Photography"
-                  placeholderTextColor={colors.grey}
                   maxLength={40}
                 />
               </>
@@ -384,17 +378,11 @@ export default function NewGroupSheet({
             <GroupCarsField value={groupCars} onChange={setGroupCars} />
 
             <Label colors={colors}>About</Label>
-            <TextInput
-              style={[
-                styles.input, styles.textarea,
-                { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.fg },
-              ]}
+            <FormInput
               value={body}
               onChangeText={setBody}
               placeholder="What the group is for, who it's for, how you run it."
-              placeholderTextColor={colors.grey}
               multiline
-              textAlignVertical="top"
             />
 
             <Label colors={colors}>Cover photo</Label>
@@ -411,11 +399,7 @@ export default function NewGroupSheet({
                 </TouchableOpacity>
               </View>
             ) : (
-              <PhotoPickerField
-                onPress={pickImage}
-                title="Add a cover photo"
-                hint="Optional — you can add one later"
-              />
+              <PhotoPickerField onPress={pickImage} title="Add a cover photo" />
             )}
 
             <View style={[styles.privateRow, { borderColor: colors.border }]}>
@@ -495,11 +479,6 @@ const styles = StyleSheet.create({
   labelFirst: { marginTop: 0 },
   stepSub: { fontSize: 14, lineHeight: 20, marginBottom: 16 },
 
-  input: {
-    minHeight: 46, borderWidth: 1, borderRadius: 10,
-    paddingHorizontal: 12, fontSize: 15,
-  },
-  textarea: { height: 110, paddingTop: 12, paddingBottom: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     paddingHorizontal: 13, paddingVertical: 8,

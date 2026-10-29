@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking, Dimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { MapPin, Clock, Check, X } from 'lucide-react-native';
@@ -170,7 +170,7 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
 
   if (tab === 'posts') {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+      <SafeAreaView style={ss.fill} edges={['bottom']}>
         <FlatList
           data={posts}
           keyExtractor={(p) => p.internal_id}
@@ -192,7 +192,7 @@ export default function EventDetailScreen({ route }: { route: { params: { eventI
   }
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={['bottom']}>
+    <SafeAreaView style={ss.fill} edges={['bottom']}>
       <ScrollView refreshControl={refreshControl} showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
         {header}
       </ScrollView>

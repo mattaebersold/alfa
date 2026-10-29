@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Linking, useWindowDimensions } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';
 import { ShoppingBag } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';

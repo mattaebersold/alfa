@@ -185,7 +185,7 @@ export default function RouteRecordScreen() {
   const lastPoint = path[path.length - 1];
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+    <View style={styles.root}>
       <RouteMap
         path={path}
         speeds={path.map((p) => p.speed)}

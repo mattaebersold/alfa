@@ -29,6 +29,9 @@ export default function AvatarStack({
   ringColor,
   /** How much of each face the next one covers, as a share of its size. */
   overlap: overlapRatio = 0.22,
+  edge = true,
+  moreColor,
+  moreTextColor,
 }: {
   users: (AvatarUser | undefined)[];
   max?: number;
@@ -36,6 +39,11 @@ export default function AvatarStack({
   total?: number;
   ringColor?: string;
   overlap?: number;
+  /** Each face's 1pt edge (Avatar's `edge`). */
+  edge?: boolean;
+  /** The "+N" circle's fill and number, in place of the segment grey and the text colour. */
+  moreColor?: string;
+  moreTextColor?: string;
 }) {
   const colors = useColors();
   const shown = users.slice(0, max);
@@ -47,7 +55,7 @@ export default function AvatarStack({
     <View style={styles.row}>
       {shown.map((user, i) => (
         <View key={user?.user_id ?? i} style={[overlap, ring]}>
-          <Avatar user={user} size={size} />
+          <Avatar user={user} size={size} edge={edge} />
         </View>
       ))}
       {rest > 0 && (
@@ -56,12 +64,12 @@ export default function AvatarStack({
             overlap,
             ring,
             styles.more,
-            { width: size, height: size, backgroundColor: colors.segment },
+            { width: size, height: size, backgroundColor: moreColor ?? colors.segment },
             // The ring adds to the box, so the circle grows to match a ringed face.
             ringColor ? { width: size + 4, height: size + 4 } : null,
           ]}
         >
-          <Text style={[styles.moreText, { color: colors.fg, fontSize: Math.round(size * 0.36) }]}>
+          <Text style={[styles.moreText, { color: moreTextColor ?? colors.fg, fontSize: Math.round(size * 0.36) }]}>
             +{rest}
           </Text>
         </View>

@@ -54,8 +54,12 @@ type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography' | 'cars' 
 /** How far below its place an arriving tab's content starts, in points. */
 const TAB_ENTER_RISE = 16;
 
-/** Taken off the header's clearance on the Feed tab, to tuck its first item up under the tabs. */
-const FEED_TOP_TRIM = 8;
+/**
+ * Added to the header's clearance on the Feed tab. It used to be taken off, to
+ * tuck the first item up under the tabs — but the tab row is tighter now, and
+ * tucked, the first card touched them.
+ */
+const FEED_TOP_GAP = 8;
 
 /**
  * The panes, memoised: a tab switch re-renders this screen, and without
@@ -109,7 +113,6 @@ export default function FeedScreen() {
   const scrollRef = useRef<FlatList<any>>(null);
   useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
-  const colors = useColors();
   const headerPad = useHeaderPad({ tabs: true });
   // One per pane: each tracks its own last position, so switching tabs doesn't
   // read the jump between two lists' offsets as a scroll.
@@ -170,10 +173,9 @@ export default function FeedScreen() {
       return acc;
     }, {} as Record<FeedTab, { opacity: Animated.Value; transform: { translateY: Animated.AnimatedInterpolation<number> }[] }>),
   ).current;
-  const paneBg = useMemo(() => ({ backgroundColor: colors.cream }), [colors.cream]);
   /** The showing pane's wrapper, and a hidden one's. */
-  const paneShown = useMemo(() => [styles.pane, paneBg], [paneBg]);
-  const paneHidden = useMemo(() => [styles.pane, paneBg, styles.hidden], [paneBg]);
+  const paneShown = styles.pane;
+  const paneHidden = useMemo(() => [styles.pane, styles.hidden], []);
   /** Which tab is showing, readable from a handler without re-creating it. */
   const tabRef = useRef(tab);
   tabRef.current = tab;
@@ -330,7 +332,7 @@ export default function FeedScreen() {
   }, [blockedData, dispatch]);
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader
         tabs={FEED_TABS}
         activeTab={tab}
@@ -353,7 +355,7 @@ export default function FeedScreen() {
           excludeTypes={FEED_EXCLUDE_TYPES}
           includeGarageAdditions
           ListHeaderComponent={FeedHeader}
-          paddingTop={headerPad - FEED_TOP_TRIM}
+          paddingTop={headerPad + FEED_TOP_GAP}
           onScroll={gated.feed}
           refreshSignal={feedRefresh}
         />

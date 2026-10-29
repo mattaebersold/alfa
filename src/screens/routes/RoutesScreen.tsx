@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Search, Car } from 'lucide-react-native';
+import { Text } from '@ors/kit';
+import { Car } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetRoutesQuery } from '../../api/apiService';
 import RouteCard from '../../components/cards/RouteCard';
@@ -9,6 +9,7 @@ import {
   DEFAULT_FILTERS, SORTS, buildRouteQuery,
 } from '../../components/routes/RouteFilters';
 import FilterSummaryRow, { FilterChoiceRow, FilterDivider } from '../../components/ui/FilterSummaryRow';
+import SearchPill from '../../components/ui/SearchPill';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import { REGIONS } from '../../constants/regions';
@@ -22,7 +23,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import ScreenHeading from '../../components/ui/ScreenHeading';
 import HeadingActionButton from '../../components/ui/HeadingActionButton';
-import { COLOR_GRAY_17, GUTTER, SEARCH_EDGE } from '../../constants/config';
+import { GUTTER } from '../../constants/config';
 
 export default function RoutesScreen() {
   // The header's back button lands here at the top — see useScrollTopOnBack.
@@ -79,7 +80,7 @@ export default function RoutesScreen() {
   const onRefresh = useCallback(() => { refetch(); }, [refetch]);
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.bg }]} edges={[]}>
+    <SafeAreaView style={styles.root} edges={[]}>
       {/* The app header floats over the content, so the section heading below
           starts clear of it via useHeaderPad(). */}
       <AppHeader />
@@ -102,18 +103,7 @@ export default function RoutesScreen() {
       </View>
 
       <View style={styles.toolsRow}>
-        <View style={[styles.searchBar, { backgroundColor: CONTROL_BG, borderColor: SEARCH_EDGE }]}>
-          <Search size={16} color={colors.grey} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.fg }]}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search routes..."
-            placeholderTextColor={colors.grey}
-            autoCapitalize="none"
-            returnKeyType="search"
-          />
-        </View>
+        <SearchPill value={query} onChangeText={setQuery} placeholder="Search routes..." />
         <FilterSummaryRow<{ location: string; sort: RouteSort }>
           value={{ location: location.choice, sort }}
           onApply={applyFilters}
@@ -188,22 +178,12 @@ export default function RoutesScreen() {
   );
 }
 
-/** The search box's ground, a shade under the card colour — as on members and cars. */
-const CONTROL_BG = COLOR_GRAY_17;
-
 const styles = StyleSheet.create({
   sortGap: { paddingTop: 14 },
   root: { flex: 1 },
 
   // The search and the filter pill, side by side — MembersScreen's measures.
   toolsRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: GUTTER, marginTop: 6, marginBottom: 4 },
-  searchBar:   {
-    flex: 1, minWidth: 0, height: 38,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999, borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 15 },
   note:        { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginBottom: 6 },
 
   // ScreenHeading sits at zero; the gutter is here, on the same 12 as the

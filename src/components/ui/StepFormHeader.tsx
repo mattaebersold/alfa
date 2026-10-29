@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, ActivityIndicator, type StyleProp, 
 import { Text } from '@ors/kit';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_14 } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import Tachometer from './Tachometer';
 import CheckeredFlag from './CheckeredFlag';
@@ -25,12 +25,6 @@ import CheckeredFlag from './CheckeredFlag';
  * Create means. Pass `titleContent={<StepFormNav … />}` to a SharedModal and
  * render `<StepFormProgress … />` as the first thing inside it.
  */
-
-/**
- * The step forms' header, a shade darker than the sheet — pass it to the
- * SharedModal as `headerSurface`, so the steps' chrome reads as one band.
- */
-export const STEP_FORM_HEADER_BG = COLOR_GRAY_14;
 
 // ── The header row ───────────────────────────────────────────────────────────
 export function StepFormNav({
@@ -147,8 +141,8 @@ export function StepFormProgress({ caption, style }: {
 }) {
   const colors = useColors();
   if (!caption) return null;
-  // On the header's darker ground, so the header and the step's name read as one band.
-  return <Text style={[styles.stepCaption, { color: colors.fg, backgroundColor: STEP_FORM_HEADER_BG }, style]}>{caption}</Text>;
+  // On the pane's own ground, like the header above it.
+  return <Text style={[styles.stepCaption, { color: colors.fg }, style]}>{caption}</Text>;
 }
 
 const styles = StyleSheet.create({

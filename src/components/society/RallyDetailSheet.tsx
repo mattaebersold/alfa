@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { MapPin, Clock, Navigation, Users, Trash2 } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
@@ -12,7 +12,7 @@ import RouteMap from '../routes/RouteMap';
 import RallyRegistrationForm from './RallyRegistrationForm';
 import RallyDays from './RallyDays';
 import RallyFaq from './RallyFaq';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import ImageLightbox from '../ui/ImageLightbox';
 import Spinner from '../ui/Spinner';
 import { useColors } from '../../hooks/useColors';
@@ -189,17 +189,16 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
               <Text style={[styles.heading, { color: colors.fg }]}>Attending Members</Text>
               <View style={styles.memberWrap}>
                 {attending.map((member) => (
-                  <TouchableOpacity
+                  <UserByline
                     key={member.user_id}
+                    user={member}
+                    size={26}
+                    gap={8}
+                    nameStyle={styles.memberName}
                     style={[styles.memberChip, { backgroundColor: colors.card, borderColor: colors.border }]}
                     activeOpacity={0.8}
                     onPress={() => goToUser(member.user_id, member.username)}
-                  >
-                    <Avatar user={member} size={26} />
-                    <Text style={[styles.memberName, { color: colors.fg }]} numberOfLines={1}>
-                      {member.username}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 ))}
               </View>
             </View>
@@ -280,11 +279,10 @@ const styles = StyleSheet.create({
 
   memberWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   memberChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingLeft: 6, paddingRight: 12, paddingVertical: 6,
     borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, maxWidth: '100%',
   },
-  memberName: { fontSize: 13, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
+  memberName: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   mapSection: { paddingHorizontal: PANE_GUTTER, gap: 10 },
   // The map is a picture of where this is, not something to pan around inside a

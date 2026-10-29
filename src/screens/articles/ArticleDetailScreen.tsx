@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { format } from 'date-fns';
 import { Car } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';

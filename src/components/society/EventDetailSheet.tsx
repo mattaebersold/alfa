@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking, Dimensions, Modal,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { MapPin, Clock, Check, X } from 'lucide-react-native';
@@ -17,7 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { calendarDate } from '../../utils/calendarDate';
-import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, PANE_BG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { openInMaps } from '../../utils/openInMaps';
 
@@ -56,8 +56,8 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.fill, { backgroundColor: colors.cream }]} edges={['top', 'bottom']}>
-        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+      <SafeAreaView style={[styles.fill, { backgroundColor: PANE_BG }]} edges={['top', 'bottom']}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.fg }]} numberOfLines={1}>
             {event?.title ?? 'Event'}
           </Text>
@@ -101,7 +101,7 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
             )}
 
             {/* Title + meta */}
-            <View style={[styles.infoBlock, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <View style={[styles.infoBlock, { borderBottomColor: colors.border }]}>
               <Text style={[styles.title, { color: colors.fg }]}>{event.title}</Text>
 
               {date && (
@@ -142,7 +142,7 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
             </View>
 
             {/* Description */}
-            <View style={[styles.bodyBlock, { backgroundColor: colors.card }]}>
+            <View style={styles.bodyBlock}>
               {event.body ? (
                 <Text style={[styles.body, { color: colors.fg }]}>{stripHtml(event.body)}</Text>
               ) : (

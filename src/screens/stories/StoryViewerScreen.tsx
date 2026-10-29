@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useNavigation } from '@react-navigation/native';
 import { useMarkStoriesSeenMutation } from '../../api/apiService';
@@ -12,7 +12,7 @@ import { imageUrl } from '../../utils/image';
 import LikeButton from '../../components/social/LikeButton';
 import type { AppScreenProps } from '../../navigation/types';
 import type { StoryGroup, Post } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type Props = AppScreenProps<'StoryViewer'>;
@@ -260,7 +260,7 @@ export default function StoryViewerScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: COLOR_BLACK },
+  container:       { flex: 1 },
   noVideo:         { alignItems: 'center', justifyContent: 'center' },
   noVideoText:     { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
   bufferingOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },

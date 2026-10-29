@@ -7,18 +7,18 @@ import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import { ProfilePhotoSheet, BioSheet } from './ProfileSetupSheets';
 import { colors } from '../../constants/colors';
 import type { SetupPrompt } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** The card's own steps — 'username' is AccountPrompt's alone. */
-type SetupStep = Exclude<SetupPrompt, 'username'>;
+type SetupStep = Exclude<SetupPrompt, 'username' | 'profileCard' | 'menuCard' | 'carCard'>;
 
 /** In the order they're asked: a face, a line about you, your car, then a first post. */
-const STEPS: { key: SetupStep; title: string; sub: string }[] = [
-  { key: 'photo', title: 'Add a profile photo', sub: 'So members know who they’re talking to' },
-  { key: 'bio',   title: 'Add a bio',           sub: 'A line or two about you and what you drive' },
-  { key: 'car',   title: 'Add a car to your garage', sub: 'The first thing people look at on a profile' },
-  { key: 'post',  title: 'Create your first post',   sub: 'Say hello, or show off what you’ve been working on' },
+const STEPS: { key: SetupStep; title: string }[] = [
+  { key: 'photo', title: 'Add a profile photo' },
+  { key: 'bio',   title: 'Add a bio' },
+  { key: 'car',   title: 'Add a car to your garage' },
+  { key: 'post',  title: 'Create your first post' },
 ];
 
 /**
@@ -80,11 +80,18 @@ export default function ProfileSetupCard({ onGo }: {
   // The card goes when the last step does — but a sheet that just finished
   // that step is still animating away, so it outlives the card rather than
   // vanishing mid-slide.
-  if (!remaining.length) return sheets;
+  if (!remaining.length || dismissedSetupPrompts.includes('menuCard')) return sheets;
 
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Finish setting up your profile</Text>
+      {/* The heading, and a way to be done with the card for good — it's a
+          nudge, not a requirement. */}
+      <View style={styles.headRow}>
+        <Text style={[styles.heading, styles.headingInRow]}>Finish setting up your profile</Text>
+        <TouchableOpacity onPress={() => dismissSetupPrompt('menuCard')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss">
+          <Text style={styles.dismissText}>Dismiss</Text>
+        </TouchableOpacity>
+      </View>
 
       {remaining.map((step, i) => (
         <View key={step.key} style={[styles.row, i > 0 && styles.rowDivided]}>
@@ -104,7 +111,6 @@ export default function ProfileSetupCard({ onGo }: {
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>{step.title}</Text>
-              <Text style={styles.rowSub} numberOfLines={1}>{step.sub}</Text>
             </View>
           </TouchableOpacity>
 
@@ -133,8 +139,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13, paddingTop: 12, paddingBottom: 4,
     borderRadius: COMMON_RADIUS,
     // Darker, matching the page prompts (CarSetupCard, ProfileHelpCard).
-    backgroundColor: COLOR_GRAY_18,
+    // Solid black, as every setup prompt is.
+    backgroundColor: COLOR_BLACK,
   },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
+  headingInRow: { flexShrink: 1, marginBottom: 0 },
+  dismissText: { fontSize: 12, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.55)' },
   heading: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE, marginBottom: 4 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -148,7 +158,6 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 13.5, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
-  rowSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
   dismiss: {
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.1)',

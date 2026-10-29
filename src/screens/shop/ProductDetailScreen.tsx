@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, Linking, useWindowDimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';
 import AppHeader from '../../components/ui/AppHeader';
@@ -130,7 +130,7 @@ export default function ProductDetailScreen({ navigation, route }: AppScreenProp
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <SafeAreaView style={ss.fill} edges={[]}>
         <AppHeader spacer />
         <Spinner fullScreen />
       </SafeAreaView>
@@ -139,7 +139,7 @@ export default function ProductDetailScreen({ navigation, route }: AppScreenProp
 
   if (isError || !product) {
     return (
-      <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+      <SafeAreaView style={ss.fill} edges={[]}>
         <AppHeader spacer />
         <View style={styles.emptyWrap}>
           <EmptyState title="That product isn't available" message="It may have been removed from the shop." />
@@ -152,7 +152,7 @@ export default function ProductDetailScreen({ navigation, route }: AppScreenProp
   const footerLabel = !inStock ? 'Sold out' : needsVariant ? `Pick ${product.options?.[0]?.name?.toLowerCase() || 'an option'}` : `Buy now · ${money(price, product.currency)}`;
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: colors.cream }]} edges={[]}>
+    <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader spacer />
       <ScrollView
         showsVerticalScrollIndicator={false}

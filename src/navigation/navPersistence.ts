@@ -56,15 +56,38 @@ function navFile() {
   return new File(Paths.document, FILENAME);
 }
 
+/**
+ * Left on disk while a restored state is on trial, and removed once the app
+ * has stood on it for a few seconds (`confirmNavState`).
+ *
+ * Without it a screen that throws when it draws was a trap: the crash took
+ * the app down on that screen, the next launch reopened it, and the app
+ * never opened again until it was reinstalled. Finding the marker at launch
+ * means the last restore never made it, so this one starts on the feed.
+ */
+const PENDING = 'nav-state.pending';
+
+function pendingFile() {
+  return new File(Paths.document, PENDING);
+}
+
 export function readNavState(): NavigationState | undefined {
   try {
     const file = navFile();
     if (!file.exists) return undefined;
+    const pending = pendingFile();
+    if (pending.exists) {
+      // The last launch that restored this didn't live to confirm it.
+      clearNavState();
+      return undefined;
+    }
     // Marked stale so the navigator that receives it checks it against its
     // own screens instead of trusting it — if the session expired, that's the
     // sign-in stack, and routes it doesn't have are dropped, not rendered.
     const kept = withoutTabRequests(JSON.parse(file.textSync()));
-    return kept ? { ...kept, stale: true } : undefined;
+    if (!kept) return undefined;
+    pending.create({ intermediates: true, overwrite: true });
+    return { ...kept, stale: true };
   } catch {
     return undefined;
   }
@@ -83,12 +106,26 @@ export function writeNavState(state: NavigationState | undefined) {
   }
 }
 
-/** On sign-out, so the next account doesn't open on the last one's screens. */
-export function clearNavState() {
+/** The restored screen drew and held: it's safe to reopen on next time. */
+export function confirmNavState() {
   try {
-    const file = navFile();
-    if (file.exists) file.delete();
+    const pending = pendingFile();
+    if (pending.exists) pending.delete();
   } catch {
-    // Nothing to do — a stale file is only a starting screen.
+    // Worst case the next launch opens on the feed.
+  }
+}
+
+/**
+ * On sign-out, so the next account doesn't open on the last one's screens —
+ * and after a crash, so the app doesn't reopen onto whatever crashed it.
+ */
+export function clearNavState() {
+  for (const file of [navFile(), pendingFile()]) {
+    try {
+      if (file.exists) file.delete();
+    } catch {
+      // Nothing to do — a stale file is only a starting screen.
+    }
   }
 }

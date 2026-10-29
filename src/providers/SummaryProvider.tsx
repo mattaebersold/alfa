@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { Image } from 'expo-image';
+import { ExpoImage } from '../components/ui/AppImage';
 import CarSummaryModal, { type CarPreview } from '../components/cars/CarSummaryModal';
 import UserSummaryModal, { type UserPreview } from '../components/members/UserSummaryModal';
 import type { SummaryOrigin } from '../components/ui/SummaryModal';
@@ -35,7 +35,7 @@ export function SummaryProvider({ children }: { children: React.ReactNode }) {
 
   const openCar = useCallback<OpenCar>((id, origin, preview) => {
     dispatch(apiService.util.prefetch('getCarWithUser', id, { ifOlderThan: 300 }));
-    if (preview?.hero) Image.prefetch(preview.hero);
+    if (preview?.hero) ExpoImage.prefetch(preview.hero);
     setCar({ id, origin, preview });
   }, [dispatch]);
   const openUser = useCallback<OpenUser>((id, origin, preview) => {

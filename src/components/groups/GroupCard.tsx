@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Users, MapPin } from 'lucide-react-native';
 import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';

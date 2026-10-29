@@ -2,15 +2,16 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Modal,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { FormScrollView, KeyboardAvoidingView } from '@ors/kit';
 import { ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin } from 'lucide-react-native';
+import FormInput from '../ui/FormInput';
 import { useGetNearbyPlacesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, PANE_BG, PANE_SCRIM, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -67,7 +68,7 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
       {/* The sheet rides on the keyboard: the backdrop shrinks by its height
           and the sheet sits at the bottom, scrolling if it no longer fits. */}
       <KeyboardAvoidingView style={[styles.backdrop, { paddingTop: insets.top }]}>
-        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+        <View style={[styles.sheet, { backgroundColor: PANE_BG }]}>
           <FormScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={[styles.title, { color: colors.fg }]}>Add pit stop</Text>
             <Text style={[styles.subtitle, { color: colors.grey }]}>
@@ -125,23 +126,19 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
               ))}
             </View>
 
-            <TextInput
-              style={[styles.input, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+            <FormInput
               value={label}
               onChangeText={(t) => { setLabel(t); setPlaceId(undefined); }}
               placeholder="Name this stop"
-              placeholderTextColor={colors.grey}
               maxLength={80}
               autoFocus
             />
-            <TextInput
-              style={[styles.input, styles.note, { color: colors.fg, borderColor: colors.inputBorder, backgroundColor: colors.inputBg }]}
+            <FormInput
+              style={styles.note}
               value={note}
               onChangeText={setNote}
               placeholder="Anything worth knowing? (optional)"
-              placeholderTextColor={colors.grey}
               multiline
-              textAlignVertical="top"
               maxLength={500}
             />
 
@@ -161,10 +158,10 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: PANE_SCRIM, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '100%',
-    borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden',
+    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden',
   },
   body:  { padding: 20, gap: 10 },
   title:    { fontSize: 18, fontFamily: FONT_INTER.bold },
@@ -180,7 +177,6 @@ const styles = StyleSheet.create({
   placeName:   { fontSize: 14, fontFamily: FONT_INTER.bold },
   placeMeta:   { fontSize: 11, marginTop: 1 },
 
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15 },
   note:  { minHeight: 70 },
 
   actions:    { flexDirection: 'row', gap: 10, marginTop: 6 },

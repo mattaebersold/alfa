@@ -4,7 +4,7 @@ import {
   type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { MapPin, Navigation, Play, Image as ImageIcon } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { PostSheet } from './PostSummaryModal';

@@ -3,9 +3,10 @@ import {
   View, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Text, TextInput } from '@ors/kit';
+import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { Search, X, GripVertical, Plus, Check } from 'lucide-react-native';
 import {
   useGetSiteSettingsQuery,
@@ -14,7 +15,7 @@ import {
   useUpdateFeaturedUsersMutation,
   useUpdateFeaturedCarsMutation,
 } from '../../api/apiService';
-import Avatar from '../ui/Avatar';
+import UserByline from '../members/UserByline';
 import { useColors } from '../../hooks/useColors';
 import { colors as palette } from '../../constants/colors';
 import { carHeroUrl } from '../../utils/image';
@@ -51,6 +52,7 @@ const personName = (u: User) => [u.firstName, u.lastName].filter(Boolean).join('
 
 export default function FeaturedManager() {
   const colors = useColors();
+  const surface = useInputSurface();
   const [tab, setTab] = useState<Tab>('members');
 
   const { data: settings, isLoading } = useGetSiteSettingsQuery();
@@ -141,20 +143,43 @@ export default function FeaturedManager() {
   };
 
   // ── Rendering ────────────────────────────────────────────────────────────
-  const renderThumb = (item: User | GarageCar) => {
-    if (tab === 'members') return <Avatar user={item as User} size={40} />;
-    const uri = carThumb(item as GarageCar);
-    return (
-      <View style={[styles.carThumb, { backgroundColor: colors.segment }]}>
-        {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
-      </View>
-    );
-  };
-
   const titleOf = (item: User | GarageCar) =>
     tab === 'members' ? `@${(item as User).username}` : carName(item as GarageCar);
   const subtitleOf = (item: User | GarageCar) =>
     tab === 'members' ? personName(item as User) : ((item as GarageCar).title ?? '');
+
+  // The photo and name, which take the row's spare width either side of its
+  // controls.
+  const renderIdentity = (item: User | GarageCar) => {
+    const subtitle = subtitleOf(item);
+    if (tab === 'members') {
+      return (
+        <UserByline
+          user={item as User}
+          size={40}
+          gap={12}
+          fill
+          sub={subtitle}
+          nameStyle={styles.name}
+          style={ss.fill}
+        />
+      );
+    }
+    const uri = carThumb(item as GarageCar);
+    return (
+      <>
+        <View style={[styles.carThumb, { backgroundColor: colors.segment }]}>
+          {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+        </View>
+        <View style={ss.fill}>
+          <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>{titleOf(item)}</Text>
+          {subtitle ? (
+            <Text style={[styles.sub, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text>
+          ) : null}
+        </View>
+      </>
+    );
+  };
 
   const renderFeatured = ({ item, drag, isActive, getIndex }: RenderItemParams<User | GarageCar>) => {
     const index = getIndex() ?? 0;
@@ -162,7 +187,6 @@ export default function FeaturedManager() {
       if (tab === 'members') updateMembers(members.filter((u) => u.user_id !== (item as User).user_id));
       else updateCars(cars.filter((c) => c.internal_id !== (item as GarageCar).internal_id));
     };
-    const subtitle = subtitleOf(item);
     return (
       <ScaleDecorator>
         <TouchableOpacity
@@ -185,13 +209,7 @@ export default function FeaturedManager() {
             <GripVertical size={18} color={colors.grey} />
           </TouchableOpacity>
           <Text style={[styles.position, { color: colors.grey }]}>{index + 1}</Text>
-          {renderThumb(item)}
-          <View style={ss.fill}>
-            <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>{titleOf(item)}</Text>
-            {subtitle ? (
-              <Text style={[styles.sub, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text>
-            ) : null}
-          </View>
+          {renderIdentity(item)}
           <TouchableOpacity
             style={[styles.iconBtn, { borderColor: colors.border }]}
             onPress={remove}
@@ -209,16 +227,9 @@ export default function FeaturedManager() {
   const renderResult = ({ item }: { item: User | GarageCar }) => {
     const id = tab === 'members' ? (item as User).user_id : (item as GarageCar).internal_id;
     const already = featuredIds.has(id);
-    const subtitle = subtitleOf(item);
     return (
       <View style={[styles.row, { borderBottomColor: colors.border }]}>
-        {renderThumb(item)}
-        <View style={ss.fill}>
-          <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>{titleOf(item)}</Text>
-          {subtitle ? (
-            <Text style={[styles.sub, { color: colors.grey }]} numberOfLines={1}>{subtitle}</Text>
-          ) : null}
-        </View>
+        {renderIdentity(item)}
         {already ? (
           <View style={[styles.addBtn, { borderColor: colors.border }]}>
             <Check size={14} color={colors.grey} />
@@ -271,10 +282,10 @@ export default function FeaturedManager() {
           })}
         </View>
 
-        <View style={[styles.search, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+        <View style={[styles.search, surface]}>
           <Search size={15} color={colors.grey} />
           <TextInput
-            style={[styles.searchInput, { color: colors.fg }]}
+            style={[styles.searchInput, INPUT_TEXT_STYLE, { color: colors.fg }]}
             value={query}
             onChangeText={setQuery}
             placeholder={tab === 'members' ? 'Search members to feature…' : 'Search cars to feature…'}
@@ -353,9 +364,9 @@ const styles = StyleSheet.create({
   tabText:    { fontSize: 14, fontFamily: FONT_INTER.bold },
   search:     {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 12, height: 42, borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, height: 42,
   },
-  searchInput: { flex: 1, fontSize: 15, padding: 0 },
+  searchInput: { flex: 1, padding: 0 },
   statusRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20, paddingBottom: 6 },
   hint:       { flex: 1, fontSize: 12 },
   status:     { fontSize: 12, fontFamily: FONT_INTER.bold },

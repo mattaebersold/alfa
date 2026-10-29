@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import GalleryLightbox from '../media/GalleryLightbox';
 import { useNavigation } from '@react-navigation/native';
@@ -11,12 +11,12 @@ import { MapPin, Truck, Settings, MessageCircle, Check, Pencil, Trash2, Tag, Rot
 import ActionSheet from '../ui/ActionSheet';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
-import Avatar from '../ui/Avatar';
 import LikeButton from '../social/LikeButton';
 import CommentRow from '../social/CommentRow';
 import Composer from '../social/Composer';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
+import UserByline from '../members/UserByline';
 import { useStartListingThread } from '../../screens/marketplace/useStartListingThread';
 import {
   useGetListingQuery, useGetListingMetaQuery, useCreateCommentMutation,
@@ -332,24 +332,21 @@ export default function ListingSummaryModal({ listingId, origin, onClose }: {
                 its own further down. */}
             <View style={styles.sellerLine}>
               {seller ? (
-                <TouchableOpacity
+                <UserByline
+                  user={seller}
+                  size={30}
+                  gap={8}
                   style={styles.sellerRow}
-                  onPress={() => openUser(seller.user_id, null)}
+                  onPress={(origin) => openUser(seller.user_id, origin)}
                   activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${seller.username}`}
                 >
-                  <Avatar user={seller} size={30} />
-                  <Text style={[styles.sellerName, { color: colors.fg }]} numberOfLines={1}>
-                    {seller.username}
-                  </Text>
                   {distance ? (
                     <View style={[styles.badge, { backgroundColor: colors.segment }]}>
                       <MapPin size={10} color={colors.grey} />
                       <Text style={[styles.badgeText, { color: colors.grey }]}>{distance}</Text>
                     </View>
                   ) : null}
-                </TouchableOpacity>
+                </UserByline>
               ) : <View style={styles.sellerRow} />}
               {/* Likes and comments, on the listing's own record — the generic
                   collections keyed by entry type 'listing'. */}
@@ -604,7 +601,6 @@ const styles = StyleSheet.create({
 
   sellerLine: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
   sellerRow:  { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sellerName: { fontSize: 14, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS,

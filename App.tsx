@@ -16,6 +16,8 @@ import { FONT_FILES } from './src/constants/fonts';
 import { store } from './src/store/store';
 import RootNavigator from './src/navigation/RootNavigator';
 import OfflineOverlay from './src/components/ui/OfflineOverlay';
+import AppErrorBoundary from './src/components/ui/AppErrorBoundary';
+import { configureImageMemory } from './src/components/ui/AppImage';
 // Registers the route background-location task. Imported for its side
 // effect: defineTask must run before React mounts, because the OS can
 // relaunch the app directly into the task with no UI.
@@ -26,6 +28,8 @@ import './src/utils/alertDefaults';
 // Held until the fonts are in (see App), so the first screen draws in them
 // rather than flashing the system font first.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// A cap on the image cache, and a purge when the OS is short of memory.
+configureImageMemory();
 
 export default function App() {
   /**
@@ -55,7 +59,9 @@ export default function App() {
           {/* Floating lists (autocompletes) draw here, over the screens; each
               Modal has a host of its own. */}
           <PortalHost>
+          <AppErrorBoundary>
           <RootNavigator />
+          </AppErrorBoundary>
           </PortalHost>
           {/* Last child, so it covers the navigator rather than being covered
               by it — an outage has to be answerable from whatever screen the

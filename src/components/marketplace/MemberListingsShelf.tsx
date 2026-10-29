@@ -3,7 +3,7 @@ import {
   View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { ChevronRight } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { priceLabel } from './listingFormat';
@@ -55,18 +55,19 @@ function ListingTile({ listing, onPress }: { listing: Listing; onPress: () => vo
             <View style={styles.soldPill}><Text style={styles.soldText}>SOLD</Text></View>
           </View>
         )}
+        {/* The price on the photo's bottom-left corner, so the words under it
+            are only the title. A green tag: money reads as money, and it
+            doesn't change colour with the viewer's account. */}
+        {!!price && (
+          <View style={[styles.pricePill, { backgroundColor: colors.green }]}>
+            <Text style={styles.price} numberOfLines={1}>{price}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.info}>
         <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>
           {listing.title || 'Listing'}
         </Text>
-        {!!price && (
-          // A green tag rather than brand-coloured text: money reads as
-          // money, and it no longer changes colour with the viewer's account.
-          <View style={[styles.pricePill, { backgroundColor: colors.green }]}>
-            <Text style={styles.price} numberOfLines={1}>{price}</Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -179,7 +180,9 @@ const styles = StyleSheet.create({
   tile: {
     borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
-  thumbWrap: { width: '100%', aspectRatio: 1 },
+  // Rounded along its foot as well as at the tile's top, so the photo reads
+  // as its own piece over the title.
+  thumbWrap: { width: '100%', aspectRatio: 1, borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   thumb:     { width: '100%', height: '100%', backgroundColor: COLOR_GRAY_22 },
   soldScrim: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
   info:  { padding: 10, gap: 3 },
   title: { fontSize: 13, fontFamily: FONT_INTER.bold, lineHeight: 17 },
   pricePill: {
-    alignSelf: 'flex-start', marginTop: 3,
+    position: 'absolute', left: 8, bottom: 8, maxWidth: CARD_WIDTH - 16,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
   },
   price: { fontSize: 13, fontFamily: FONT_INTER.extrabold, letterSpacing: -0.2, color: COLOR_BLACK },

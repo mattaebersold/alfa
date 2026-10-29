@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text } from '@ors/kit';
 import { MapPin } from 'lucide-react-native';
+import FormInput from './FormInput';
 import { useColors } from '../../hooks/useColors';
 import {
   useLazySearchPlacesQuery, useLazyGetPlaceDetailsQuery,
@@ -58,6 +59,7 @@ export interface AddressFieldProps {
   /** Biases ranking towards where the member is. Never filters. */
   near?: { lat: number; lng: number } | null;
   style?: any;
+  /** Laid over the field's FormInput look — size and margins only. */
   inputStyle?: any;
 }
 
@@ -141,12 +143,11 @@ export default function AddressField({
 
   return (
     <View style={style}>
-      <TextInput
+      <FormInput
         value={value}
         onChangeText={onChangeText}
         onFocus={() => setOpen(predictions.length > 0)}
         placeholder={placeholder}
-        placeholderTextColor={colors.grey}
         autoCorrect={false}
         style={inputStyle}
       />

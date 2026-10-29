@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
 import {
   View, ScrollView, StyleSheet, Dimensions,
 } from 'react-native';
-import { shuffle } from '../../utils/array';
+import { useShuffled } from '../../hooks/useShuffled';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { GUTTER } from '../../constants/config';
@@ -22,10 +21,9 @@ interface Props {
 
 export default function FeaturedMembersRow({ onMemberPress }: Props) {
   const { data } = useGetSiteSettingsQuery();
-  // Shuffled per mount, for the same reason as the featured cars row — see
-  // FeaturedCarsRow. Memoised on the data so it holds still while you scroll.
-  const featured = data?.featured_users;
-  const members = useMemo(() => shuffle(featured ?? []), [featured]);
+  // A fresh order on every visit, for the same reason as the featured cars
+  // row — see FeaturedCarsRow and useShuffled.
+  const members = useShuffled(data?.featured_users);
 
   if (!members.length) return null;
 

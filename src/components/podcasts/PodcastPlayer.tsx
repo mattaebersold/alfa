@@ -3,7 +3,7 @@ import {
   View, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';

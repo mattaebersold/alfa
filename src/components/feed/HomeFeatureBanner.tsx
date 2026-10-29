@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Linking } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { useGetSiteSettingsQuery } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';

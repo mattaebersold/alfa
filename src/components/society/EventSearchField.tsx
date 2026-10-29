@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { Search, X, Calendar } from 'lucide-react-native';
+import { Text } from '@ors/kit';
+import { Calendar } from 'lucide-react-native';
 import { useSearchQuery } from '../../api/apiService';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useColors } from '../../hooks/useColors';
+import SearchPill from '../ui/SearchPill';
 import { FONT_INTER } from '../../constants/fonts';
-import { PILL_RADIUS } from '../../constants/config';
 
 /** Before this, a search matches too much to be worth sending. */
 const MIN_CHARS = 2;
@@ -39,26 +39,18 @@ export default function EventSearchField({ onPick, style }: {
 
   return (
     <View style={[styles.wrap, style]}>
-      <View style={[styles.field, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Search size={16} color={colors.grey} />
-        <TextInput
-          style={[styles.input, { color: colors.fg }]}
-          value={q}
-          onChangeText={setQ}
-          onFocus={() => setFocused(true)}
-          // Deferred, so a tap on a result lands before the list closes.
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="Search events…"
-          placeholderTextColor={colors.grey}
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        {q.length > 0 && (
-          <TouchableOpacity onPress={() => setQ('')} hitSlop={8} accessibilityLabel="Clear search">
-            <X size={15} color={colors.grey} />
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* The search pill every filter row shares (SearchPill). */}
+      <SearchPill
+        style={styles.field}
+        value={q}
+        onChangeText={setQ}
+        onClear={() => setQ('')}
+        onFocus={() => setFocused(true)}
+        // Deferred, so a tap on a result lands before the list closes.
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder="Search events…"
+        autoCorrect={false}
+      />
 
       {open && (
         <View style={[styles.list, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -90,11 +82,8 @@ export default function EventSearchField({ onPick, style }: {
 const styles = StyleSheet.create({
   // Raised whatever state it's in — see the note above.
   wrap:   { zIndex: 20, elevation: 20 },
-  field: {
-    height: 38, flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14, borderRadius: PILL_RADIUS, borderWidth: 1,
-  },
-  input:  { flex: 1, fontSize: 14, padding: 0 },
+  // Its own height in this column, not a share of it.
+  field:  { flex: 0 },
   list: {
     position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 6,
     borderRadius: 14, borderWidth: 1, overflow: 'hidden',

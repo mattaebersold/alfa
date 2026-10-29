@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, ScrollView, type StyleProp, type ViewStyle } from 'react-native';
+import Reanimated from 'react-native-reanimated';
+import { TAB_EASING, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
 import { Text } from '@ors/kit';
-import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { GUTTER, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
+import { GUTTER, COMMON_RADIUS, COLOR_PRO, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_32 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** One entry in a main tab row. */
@@ -23,13 +24,30 @@ export interface MainTab<K extends string = string> {
 const ACTIVE_LEFT = 50;
 /** Clear space after the last tab, at the end of the row's scroll. */
 const END_SPACE = 24;
-/** An unlit tab's label and icon — full white; the grey outline and lighter weight keep the lit one leading. */
-const TAB_IDLE = COLOR_WHITE;
+/** The lit tab: a Pro-red thumb under black lettering — for every account. */
+const TAB_ON_BG = COLOR_PRO;
+const TAB_ON_FG = COLOR_BLACK;
+/** The unlit tabs: white lettering on the black track. */
+const TAB_IDLE_FG = COLOR_WHITE;
+/** The track behind the row — solid black, as SubTabs' is. */
+const TRACK_BG = COLOR_BLACK;
+/** A quieter track, for the tabs in a summary panel — the reactions panels (`trackColor`). */
+export const PANEL_TRACK_BG = COLOR_GRAY_32;
+/** The track's inner padding, and the room between tabs. */
+const TRACK_PAD = 4;
+const TRACK_GAP = 4;
+/** Each tab's height — a step over SubTabs', which this is the larger of. */
+export const TAB_H = 40;
+/** `dense`: the tab's height, and the track's padding above and below it. */
+const TAB_H_DENSE = 32;
+const TRACK_PAD_DENSE = 1;
 
 /**
- * Main tabs: the home screen's row of outlined pills — the lit one lettered
- * and outlined in the account's colour (red for Pro, blue otherwise), the
- * rest white on a grey outline, a weight lighter.
+ * Main tabs: SubTabs, a size up — the same black track, and the same thumb
+ * that springs to whichever tab is picked rather than one tab lighting and
+ * another going out. Pro red under black lettering for the lit one; white,
+ * a weight lighter, for the rest. Larger, and with room for an icon and a
+ * count beside each label.
  *
  * For a choice between whole views or kinds of thing — the feed's sections,
  * a post's type. A choice *within* one (a category, a filter) is SubTabs.
@@ -49,7 +67,7 @@ const TAB_IDLE = COLOR_WHITE;
  * that goes with it). Anywhere else leaves both off.
  */
 export default function MainTabs<K extends string>({
-  tabs, value, onChange, inset = GUTTER, stretch = false, stuck = false, itemsStyle, contentContainerStyle, style,
+  tabs, value, onChange, inset = GUTTER, stretch = false, stuck = false, trackColor, countColor, iconOnly = false, dense = false, itemsStyle, contentContainerStyle, style,
 }: {
   tabs: MainTab<K>[];
   value?: K;
@@ -60,24 +78,73 @@ export default function MainTabs<K extends string>({
   stretch?: boolean;
   /** Scaled down under the status bar: a step heavier, so it reads as the same weight. */
   stuck?: boolean;
+  /** The track's ground, in place of the black — for a panel that wants it quieter. */
+  trackColor?: string;
+  /** Every count's lettering, lit tab or not, in place of the red-on-black / white pair. */
+  countColor?: string;
+  /**
+   * Icons and counts, no words — for a summary panel's tabs, where six labels
+   * ran past the panel's edge and had to scroll. The label is still what a
+   * screen reader says. Every tab needs an Icon.
+   */
+  iconOnly?: boolean;
+  /** Shorter tabs and a thinner track around them — the home header's row. */
+  dense?: boolean;
   itemsStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
 }) {
-  const brand = useBrandColor();
 
   // Positions are each tab's own x within the row, measured as they lay out;
   // the row's inset is outside that, so it's added back to find where the tab
   // sits against the row's edge.
   const scrollRef = useRef<ScrollView>(null);
   const tabX = useRef<Record<string, number>>({});
+
+  // The thumb: each tab's measured place in the track, and a spring to the
+  // picked one's. On the JS driver, since its width changes too.
+  const [cells, setCells] = useState<Record<string, { x: number; w: number }>>({});
+  const target = value ? cells[value] : undefined;
+  const thumbX = useRef(new Animated.Value(0)).current;
+  const thumbW = useRef(new Animated.Value(0)).current;
+  const placed = useRef(false);
+  /** Where the thumb was last sent — for how far its next move is. */
+  const lastX = useRef(0);
+  useEffect(() => {
+    if (!target) return;
+    if (!placed.current) {
+      // First layout: land, don't slide in from the left edge.
+      placed.current = true;
+      thumbX.setValue(target.x); thumbW.setValue(target.w);
+      lastX.current = target.x;
+      return;
+    }
+    // Out, with a slight overshoot, and longer the further it goes — see tabMotion.
+    const duration = thumbMoveMs(target.x - lastX.current);
+    lastX.current = target.x;
+    Animated.parallel([
+      Animated.timing(thumbX, { toValue: target.x, duration, easing: TAB_EASING, useNativeDriver: false }),
+      Animated.timing(thumbW, { toValue: target.w, duration, easing: TAB_EASING, useNativeDriver: false }),
+    ]).start();
+  }, [target?.x, target?.w]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** Brings the picked tab toward the front — see ACTIVE_LEFT. */
+  const scrollToTab = (key: K, animated: boolean) => {
+    const x = tabX.current[key];
+    if (x == null) return false;
+    const first = key === tabs[0]?.key;
+    const to = first ? 0 : Math.max(0, inset + x - ACTIVE_LEFT);
+    scrollRef.current?.scrollTo({ x: to, animated });
+    return true;
+  };
+  /**
+   * A row that mounts on a tab other than the first — a panel opened on the
+   * count that was tapped — has nothing measured when the effect below first
+   * runs, so the picked tab's own layout does it, once, without the slide.
+   */
+  const scrolledOnMount = useRef(false);
   useEffect(() => {
     if (!value) return;
-    const x = tabX.current[value];
-    if (x == null) return;
-    const first = value === tabs[0]?.key;
-    const to = first ? 0 : Math.max(0, inset + x - ACTIVE_LEFT);
-    scrollRef.current?.scrollTo({ x: to, animated: true });
+    if (scrollToTab(value, true)) scrolledOnMount.current = true;
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -97,24 +164,49 @@ export default function MainTabs<K extends string>({
       ]}
       accessibilityRole="tablist"
     >
-      <Animated.View style={[styles.items, stretch && styles.grow, itemsStyle]}>
+      {/* The header's shrink and indent on the outside (RN Animated); inside
+          it, the track, which eases to its new width when a tab's does. */}
+      <Animated.View style={[styles.itemsOuter, stretch && styles.grow, itemsStyle]}>
+      <Reanimated.View layout={TAB_LAYOUT} style={[styles.items, dense && styles.itemsDense, stretch && styles.grow, trackColor ? { backgroundColor: trackColor } : null]}>
+        {target && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.thumb, dense && styles.thumbDense, { width: thumbW, transform: [{ translateX: thumbX }] }]}
+          />
+        )}
         {tabs.map((t) => {
           const on = t.key === value;
-          const color = on ? brand : TAB_IDLE;
+          const color = on ? TAB_ON_FG : TAB_IDLE_FG;
           return (
-            <TouchableOpacity
+            // Eases to its new place and width when a label or count changes.
+            // Measured here, where its place in the track is.
+            <Reanimated.View
               key={t.key}
-              onLayout={(e) => { tabX.current[t.key] = e.nativeEvent.layout.x; }}
+              layout={TAB_LAYOUT}
+              style={stretch && styles.grow}
+              onLayout={(e) => {
+                const { x: lx, width } = e.nativeEvent.layout;
+                tabX.current[t.key] = lx;
+                if (t.key === value && !scrolledOnMount.current) {
+                  scrolledOnMount.current = true;
+                  // After the row's content has its width, or the scroll clamps short.
+                  requestAnimationFrame(() => scrollToTab(t.key, false));
+                }
+                setCells((c) => (c[t.key]?.x === lx && c[t.key]?.w === width ? c : { ...c, [t.key]: { x: lx, w: width } }));
+              }}
+            >
+            <TouchableOpacity
               onPress={() => onChange?.(t.key)}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8 }}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
+              accessibilityLabel={iconOnly ? (t.count ? `${t.label}, ${t.count}` : t.label) : undefined}
               style={stretch && styles.grow}
             >
-              <View style={[styles.pill, stretch && styles.pillStretch, { borderColor: on ? brand : COLOR_BORDER }]}>
-                {t.Icon ? <t.Icon size={15} color={color} strokeWidth={on ? 2.4 : 2} /> : null}
-                <Text
+              <View style={[styles.pill, dense && styles.pillDense, stretch && styles.pillStretch, iconOnly && styles.pillIconOnly]}>
+                {t.Icon ? <t.Icon size={iconOnly ? 17 : 15} color={color} strokeWidth={on ? 2.4 : 2} /> : null}
+                {!iconOnly && <Text
                   style={[
                     styles.label,
                     { color },
@@ -123,17 +215,19 @@ export default function MainTabs<K extends string>({
                   ]}
                 >
                   {t.label}
-                </Text>
+                </Text>}
                 {t.count ? (
-                  // The lit tab's count filled in its colour; the rest a quiet grey.
-                  <View style={[styles.count, on && { backgroundColor: brand }]}>
-                    <Text style={[styles.countText, { color: on ? contrastText(brand) : COLOR_WHITE }]}>{t.count}</Text>
+                  // The lit tab's count black on its red; the rest a quiet grey.
+                  <View style={[styles.count, on && { backgroundColor: TAB_ON_FG }]}>
+                    <Text style={[styles.countText, { color: countColor ?? (on ? TAB_ON_BG : TAB_IDLE_FG) }]}>{t.count}</Text>
                   </View>
                 ) : null}
               </View>
             </TouchableOpacity>
+            </Reanimated.View>
           );
         })}
+      </Reanimated.View>
       </Animated.View>
     </ScrollView>
   );
@@ -151,14 +245,27 @@ const styles = StyleSheet.create({
   // that doesn't fit still scrolls rather than squeezing its labels.
   grow:  { flexGrow: 1 },
   // Scales from its left edge (the header's shrink), so the first tab stays put.
-  items: { flexDirection: 'row', alignItems: 'center', gap: 8, transformOrigin: 'left center' },
+  itemsOuter: { flexDirection: 'row', transformOrigin: 'left center' },
+  // The track.
+  items: {
+    flexDirection: 'row', alignItems: 'center', gap: TRACK_GAP,
+    padding: TRACK_PAD, borderRadius: COMMON_RADIUS, backgroundColor: TRACK_BG,
+  },
+  // Under the labels, sliding between them — SubTabs' thumb, a size up.
+  thumb: {
+    position: 'absolute', top: TRACK_PAD, bottom: TRACK_PAD, left: 0,
+    borderRadius: COMMON_RADIUS - TRACK_PAD, backgroundColor: TAB_ON_BG,
+  },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    height: 34, paddingHorizontal: 14, borderRadius: 999,
-    // The header buttons' outline: the same width, and unlit, the same colour.
-    borderWidth: 1,
+    height: TAB_H, paddingHorizontal: 15,
   },
   pillStretch: { justifyContent: 'center' },
+  // `dense`: a shorter tab in a track padded only at its ends.
+  pillDense:   { height: TAB_H_DENSE },
+  itemsDense:  { paddingVertical: TRACK_PAD_DENSE },
+  thumbDense:  { top: TRACK_PAD_DENSE, bottom: TRACK_PAD_DENSE },
+  pillIconOnly: { paddingHorizontal: 8, gap: 5 },
   // Semibold at rest.
   label: { fontSize: 15, fontFamily: FONT_INTER.semibold, letterSpacing: 0.2 },
   labelStuck: { fontFamily: FONT_INTER.bold },
