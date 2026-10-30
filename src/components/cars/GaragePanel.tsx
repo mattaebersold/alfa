@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { View, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, FlatList, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
+import { X, Plus } from 'lucide-react-native';
 import GrowPanel, { type GrowOrigin } from '../ui/GrowPanel';
 import DropPane from '../ui/DropPane';
 import GarageCarCard from './GarageCarCard';
 import HeadingActionButton from '../ui/HeadingActionButton';
+import SharedButton from '../ui/SharedButton';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import { GetProButton, ProUpsellModal } from '../pro/ProUpsell';
@@ -64,6 +65,9 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
   // The head's and the list's heights, which together size the panel.
   const headH = useRef(0);
   const listH = useRef(0);
+  // The head's height again, as state, for placing the empty garage's button.
+  const [headHeight, setHeadHeight] = useState(0);
+  const { height: screenH } = useWindowDimensions();
   const atLimit = garageFull(isPro, cars.length);
 
   const body = ({ closeThen, fitHeight }: { closeThen: (run?: () => void) => void; fitHeight: (h: number) => void }) => {
@@ -84,7 +88,7 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
               is full of cars; a word saying "Garage" would be doing no
               work. The count says what's left as well as what's there on
               a basic account; Pro has no cap to count against. */}
-          <View style={styles.head} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; measure(); }}>
+          <View style={styles.head} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; setHeadHeight(headH.current); measure(); }}>
             <View style={styles.headText}>
               {/* Someone else's garage does get a title: here the button
                   was theirs, and the panel should say whose cars these are. */}
@@ -140,9 +144,26 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
                   onEditPress={() => go('CarCreate', { carId: item.internal_id })}
                 />
               )}
-              // Just the line: the Add Car button sits in the head above it,
-              // so a second one here would be the same control twice.
-              ListEmptyComponent={<EmptyState title="No cars yet" />}
+              // Your own empty garage gets the one big thing to do, centred
+              // half way down the screen in the full-height pane. Someone
+              // else's just says so.
+              ListEmptyComponent={visiting ? <EmptyState title="No cars yet" /> : (
+                <View style={[
+                  styles.firstCar,
+                  // The pane's top is the screen's; the list starts under the
+                  // status bar, the head, and the list's own top padding.
+                  drop && { paddingTop: Math.max(24, screenH / 2 - insets.top - headHeight - LIST_TOP - FIRST_CAR_H / 2) },
+                ]}>
+                  <SharedButton
+                    label="Create your first car"
+                    Icon={Plus}
+                    full
+                    onPress={addCar}
+                    style={styles.firstCarBtn}
+                    textStyle={styles.firstCarText}
+                  />
+                </View>
+              )}
               // Full height, the list runs to the screen's foot: clear of the
               // system's navigation bar (Android) or home indicator (iOS).
               contentContainerStyle={[styles.list, drop && { paddingBottom: LIST_FOOT + insets.bottom }]}
@@ -172,6 +193,10 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
 
 /** Clear space under the last car. */
 const LIST_FOOT = 24;
+/** Space over the first car. */
+const LIST_TOP = 8;
+/** The empty garage's button height. */
+const FIRST_CAR_H = 60;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
@@ -190,5 +215,8 @@ const styles = StyleSheet.create({
   loading:     { paddingVertical: 60, alignItems: 'center' },
   // No flexGrow: the list's content height is what sizes the panel, and
   // stretched to fill it, it would only ever report the panel back.
-  list:        { paddingTop: 8, paddingBottom: LIST_FOOT },
+  list:        { paddingTop: LIST_TOP, paddingBottom: LIST_FOOT },
+  firstCar:    { paddingHorizontal: 16, paddingVertical: 24 },
+  firstCarBtn: { height: FIRST_CAR_H },
+  firstCarText:{ fontSize: 17 },
 });

@@ -235,6 +235,24 @@ export interface List {
   updated_at?: string;
 }
 
+/**
+ * One handover to or from the signed-in member (api/car/transfers): an offer
+ * still out, or one accepted. `car` is the car as it is now — null once it's
+ * been deleted, when `car_name` still says what it was.
+ */
+export interface CarTransferEntry {
+  internal_id: string;
+  car_id: string;
+  car_name?: string;
+  status: 'pending' | 'accepted';
+  /** outgoing: I offered it. incoming: it was offered to me. */
+  direction: 'outgoing' | 'incoming';
+  requested_at?: string;
+  resolved_at?: string;
+  car: GarageCar | null;
+  other_user: User | null;
+}
+
 export interface GarageCar {
   _id?: string;
   internal_id: string;

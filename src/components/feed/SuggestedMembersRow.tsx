@@ -4,7 +4,6 @@ import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
 import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { useColors } from '../../hooks/useColors';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
@@ -13,6 +12,7 @@ import { useSummary } from '../../providers/SummaryProvider';
 import { userPreview } from '../members/UserSummaryModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts';
+import { COLOR_WHITE } from '../../constants/config';
 
 /**
  * "Suggested Members" — recent joiners you don't already follow.
@@ -40,13 +40,12 @@ function MemberCard({ member, onPress }: {
   member: any;
   onPress: (origin: SummaryOrigin | null) => void;
 }) {
-  const colors = useColors();
   return (
     <SummaryTouchable style={styles.card} onPress={onPress}>
-      {/* A circle, like every other face in the app — Avatar's default. */}
-      <Avatar user={member} size={AVATAR_SIZE} />
-      <Text style={[styles.username, { color: colors.grey }]} numberOfLines={1}>
-        @{member.username}
+      {/* A plain circle — no gradient edge. */}
+      <Avatar user={member} size={AVATAR_SIZE} edge={false} />
+      <Text style={styles.username} numberOfLines={1}>
+        {member.username}
       </Text>
     </SummaryTouchable>
   );
@@ -126,5 +125,5 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
 const styles = StyleSheet.create({
   scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
   card:      { width: CARD_WIDTH, alignItems: 'center', gap: 4 },
-  username:  { fontSize: 9.5, fontFamily: FONT_INTER.semibold, maxWidth: CARD_WIDTH },
+  username:  { fontSize: 9.5, fontFamily: FONT_INTER.semibold, maxWidth: CARD_WIDTH, color: COLOR_WHITE },
 });

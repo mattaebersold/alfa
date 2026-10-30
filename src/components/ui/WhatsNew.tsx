@@ -14,7 +14,7 @@ import {
   COLOR_GRAY_60,
   COLOR_WHITE,
 } from '../../constants/config';
-import { FONT_MONO, monoWeight } from '../../constants/fonts';
+import { FONT_INTER, FONT_MONO, monoWeight } from '../../constants/fonts';
 
 /**
  * The white surface, and the ink on it. Deliberately not from `useColors`: the
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   btnText:  { flex: 1, minWidth: 0 },
-  btnLabel: { fontSize: 14, fontFamily: FONT_MONO, fontWeight: monoWeight('600'), color: BTN_FG },
+  btnLabel: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: BTN_FG },
 
   // At the top of the scroll, ahead of the latest release's date and notes.
   headerRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },

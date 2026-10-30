@@ -56,6 +56,7 @@ import {
   COLOR_BLACK,
   COLOR_GRAY_23,
   COLOR_GRAY_30,
+  PROFILE_BG,
   COLOR_WHITE,
   COLOR_BORDER,
   COLOR_PRO,
@@ -629,7 +630,7 @@ export default function ProfileScreen() {
   // the name, the pills, a card — rather than a spinner in a void.
   if (isLoading || !user) {
     return (
-      <SafeAreaView style={ss.fill} edges={[]}>
+      <SafeAreaView style={[ss.fill, styles.ground]} edges={[]}>
         <AppHeader />
         <Skeleton style={styles.bannerContainer} radius={0} />
         <View style={styles.skelHead}>
@@ -941,14 +942,17 @@ export default function ProfileScreen() {
               corner so the two never sit on top of each other. */}
           {user.memberNumber ? (
             // Gold is the pro mark — the wheel beside it says the same thing.
+            // Three digits or more and the circle becomes a pill, wide
+            // enough for the number at full size rather than shrinking it.
             <View style={[
               styles.memberBadge,
+              String(user.memberNumber).length >= 3 && styles.memberBadgeWide,
               { backgroundColor: viewedIsPro ? BADGE_PRO : BADGE_MEMBER },
             ]}>
               <Text
                 style={[styles.memberBadgeText, { color: COLOR_BLACK }]}
                 numberOfLines={1}
-                adjustsFontSizeToFit
+                adjustsFontSizeToFit={String(user.memberNumber).length < 3}
                 minimumFontScale={0.6}
               >
                 {user.memberNumber}
@@ -1255,7 +1259,7 @@ export default function ProfileScreen() {
   const activeLabel = renderedSection ? SECTION_LABELS[renderedSection] : '';
 
   return (
-    <SafeAreaView style={ss.fill} edges={safeEdges}>
+    <SafeAreaView style={[ss.fill, styles.ground]} edges={safeEdges}>
       {topBar}
       <ScrollView
         ref={scrollRef}
@@ -1465,6 +1469,8 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Darker than the rest of the app — see PROFILE_BG.
+  ground: { backgroundColor: PROFILE_BG },
   list:            { paddingBottom: 24 },
   // Taller than a classic cover strip because the floating header sits over its
   // top portion — this keeps a usable amount of image visible beneath it.
@@ -1543,6 +1549,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     boxShadow: BADGE_SHADOW,
   },
+  memberBadgeWide: { width: 'auto', minWidth: 32, paddingHorizontal: 8 },
   memberBadgeText: {
     fontSize: 15, fontFamily: FONT_INTER.extrabold,
     textAlign: 'center', paddingHorizontal: 1,

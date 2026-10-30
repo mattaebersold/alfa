@@ -34,7 +34,7 @@ export const PRO_BENEFITS = [
   'Create unlimited events',
   `${LISTING_LIMIT_PRO} marketplace listings a month`,
   '20 custom alerts — get told the moment a part for your car is listed',
-  'Create groups',
+  'Create unlimited groups',
   'Create driving routes',
   'Task lists on every car',
   `${PHOTO_SPOT_LIMIT_PRO} photography pins`,
@@ -122,9 +122,12 @@ export function ProUpsellModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        {/* The backdrop is the dismiss target; the card is not. */}
-        <Pressable style={styles.card} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* The dismiss target sits behind the card rather than around it. A
+            Pressable card (to swallow taps) also claimed every drag, so the
+            benefits list inside it never scrolled. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.card}>
           <TouchableOpacity
             style={styles.close}
             onPress={onClose}
@@ -197,8 +200,8 @@ export function ProUpsellModal({
           <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.dismiss}>
             <Text style={styles.dismissText}>{onTheList ? 'Close' : 'Not now'}</Text>
           </TouchableOpacity>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

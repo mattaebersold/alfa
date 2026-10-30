@@ -9,7 +9,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import type { CarJournalEntry } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
-import { COMMON_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
 
 /**
  * A journal entry, read in full: its photos as a post's are — swiped,
@@ -35,7 +35,7 @@ export default function JournalEntrySummaryModal({ entry, onClose, onEdit, onDel
   const afterClose = useRef<(() => void) | null>(null);
 
   const photos = (shown?.gallery ?? []).filter((g) => g.filename && g.type !== 'video');
-  const when = shown?.created_at ? format(new Date(shown.created_at), 'MMMM d, yyyy') : '';
+  const when = shown?.created_at ? format(new Date(shown.created_at), 'MMM d, yyyy') : '';
 
   const confirmDelete = (e: CarJournalEntry) => {
     Alert.alert('Delete this entry?', `"${e.title ?? 'Untitled'}" and its photos will be gone for good.`, [
@@ -61,15 +61,25 @@ export default function JournalEntrySummaryModal({ entry, onClose, onEdit, onDel
       {shown ? (
         <View>
           {photos.length > 0 && (
-            <PostMediaCarousel
-              media={photos.map((g) => ({ kind: 'image' as const, key: g.internal_id ?? g.filename!, url: imageUrl(g.filename)! }))}
-              adaptiveHeight
-              pinchZoom
-            />
+            // Rounded off at the foot, where the text starts.
+            <View style={styles.photos}>
+              <PostMediaCarousel
+                media={photos.map((g) => ({ kind: 'image' as const, key: g.internal_id ?? g.filename!, url: imageUrl(g.filename)! }))}
+                adaptiveHeight
+                pinchZoom
+              />
+            </View>
           )}
           <View style={styles.text}>
-            <Text style={[styles.title, { color: colors.fg }]}>{shown.title}</Text>
-            {when ? <Text style={[styles.when, { color: colors.grey }]}>{when}</Text> : null}
+            {/* The title, and when it was written in a pill on its right. */}
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: colors.fg }]}>{shown.title}</Text>
+              {when ? (
+                <View style={[styles.whenPill, { backgroundColor: colors.inputBg }]}>
+                  <Text style={[styles.when, { color: colors.grey }]}>{when}</Text>
+                </View>
+              ) : null}
+            </View>
             {shown.body ? <Text style={[styles.body, { color: colors.fgDark }]}>{shown.body}</Text> : null}
           </View>
           {(onEdit || onDelete) && (
@@ -105,9 +115,12 @@ export default function JournalEntrySummaryModal({ entry, onClose, onEdit, onDel
 }
 
 const styles = StyleSheet.create({
-  text:       { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
-  title:      { fontSize: 19, fontFamily: FONT_INTER.bold },
-  when:       { fontSize: 12, fontFamily: FONT_INTER.medium, marginTop: 4 },
+  photos:     { overflow: 'hidden', borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS },
+  text:       { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 20 },
+  titleRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  title:      { flex: 1, fontSize: 19, fontFamily: FONT_INTER.bold },
+  whenPill:   { paddingHorizontal: 10, paddingVertical: 4, borderRadius: PILL_RADIUS, marginTop: 1 },
+  when:       { fontSize: 12, fontFamily: FONT_INTER.semibold },
   body:       { fontSize: 15, lineHeight: 22, marginTop: 12 },
   actions:    { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   action:     {

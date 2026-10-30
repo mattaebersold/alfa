@@ -22,7 +22,7 @@ import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import MainTabs, { type MainTab } from './MainTabs';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
+import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE } from '../../constants/config';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -100,6 +100,11 @@ const BACK_ENTER_FROM = -(BAR_PAD_H + BACK_W + 8);
 
 /** How far the scrim carries on past the buttons before it's gone. */
 const SCRIM_FADE = 18;
+/**
+ * Where the bar's own scrim is gone by: short of the button row's foot, so
+ * its tail doesn't shade the top of a photo starting just below the bar.
+ */
+const BAR_SCRIM_SHORT = 12;
 
 /**
  * Height the header occupies below the safe-area inset.
@@ -398,6 +403,8 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
 
   const { data: garageData } = useGetUserGarageQuery(undefined, { skip: !isLoggedIn });
   const garageCars = garageData?.entries ?? [];
+  // Only once the garage has loaded — not a dot that flashes on every launch.
+  const garageEmpty = !!garageData && garageCars.length === 0;
   /**
    * The room the garage button has to grow into: everything between the logo
    * and the right-hand row. Measured rather than worked out, since that row
@@ -449,7 +456,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
         style={[
           styles.scrim,
           {
-            height: insets.top + APP_HEADER_HEIGHT + SCRIM_FADE,
+            height: insets.top + APP_HEADER_HEIGHT - BAR_SCRIM_SHORT,
             transform: [{ translateY: headerOffset }],
           },
         ]}
@@ -543,7 +550,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
             tint={COLOR_BLACK}
             // Always laid out wide: the tab sizes to what's in it, door alone or not.
             wide
-            style={[styles.garageTab, garageCars.length > 0 && styles.garageTabCars]}
+            style={[styles.garageTab, garageCars.length > 0 && styles.garageTabCars, garageEmpty && styles.garageTabEmpty]}
             onPress={openGarage}
           >
             {/* Your cars are the button; the door only stands in for an empty garage. */}
@@ -556,7 +563,11 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
                 shadow
               />
             ) : (
-              <GarageDoor size={21} color={COLOR_WHITE} strokeWidth={2.4} />
+              <View>
+                <GarageDoor size={21} color={COLOR_WHITE} strokeWidth={2.4} />
+                {/* No cars yet: a notice dot, the nudge to add the first. */}
+                {garageEmpty && <View style={styles.garageDot} />}
+              </View>
             )}
           </FloatingButton>
         </View>
@@ -725,6 +736,15 @@ const styles = StyleSheet.create({
   },
   // Holding photos rather than the door: padded evenly round them.
   garageTabCars: { paddingLeft: GARAGE_THUMB_PAD + GARAGE_TUCK, paddingRight: GARAGE_THUMB_PAD },
+  // An empty garage: more room on the right, for the door and its dot.
+  garageTabEmpty: { paddingRight: 18 },
+  // The notice dot, on the door's top-right corner, ringed in the tab's black.
+  garageDot: {
+    position: 'absolute', top: -4, right: -6,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: COLOR_COUNT_BADGE,
+    borderWidth: 1.5, borderColor: COLOR_BLACK,
+  },
   // No gap: the buttons are unfilled, so the room around each glyph is its
   // own hit area — the targets meet edge to edge rather than shrinking.
   rightActions: { flexDirection: 'row', alignItems: 'center', gap: 0 },

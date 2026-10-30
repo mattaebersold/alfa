@@ -3,7 +3,7 @@ import DeclinedInvitesSheet from '../../components/groups/DeclinedInvitesSheet';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { Text, useGetPhotoSpotUsageQuery } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered } from 'lucide-react-native';
+import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered, ChevronRight, Settings, Ban } from 'lucide-react-native';
 import { Image } from '../../components/ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +19,7 @@ import {
   useGetFollowedCarsQuery,
   useGetArchivedGarageQuery,
   useGetPendingCarTransfersQuery,
+  useGetCarTransfersQuery,
   useRestoreCarMutation,
   useAcceptCarTransferMutation,
   useDeclineCarTransferMutation,
@@ -37,6 +38,7 @@ import { logout } from '../../store/authSlice';
 import { removeBlockedUser } from '../../store/moderationSlice';
 import { useAppSelector } from '../../store/store';
 import UserByline from '../../components/members/UserByline';
+import DashboardProfileCard from '../../components/profile/DashboardProfileCard';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader from '../../components/ui/AppHeader';
@@ -51,17 +53,13 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
 import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
-import type { GarageCar } from '../../types/api';
+import type { CarTransferEntry, GarageCar } from '../../types/api';
 import {
   garageFull, showProGarageFull, GARAGE_UPSELL,
   COMMON_RADIUS,
   PILL_RADIUS,
   COLOR_BLACK,
-  COLOR_MUTED_BLUE,
-  COLOR_MUTED_GREEN,
   COLOR_MUTED_ORANGE,
-  COLOR_MUTED_PURPLE,
-  COLOR_MUTED_RED,
   COLOR_WHITE,
   PANE_BG,
 } from '../../constants/config';
@@ -77,7 +75,9 @@ import MarketplaceUnreadBadge, { useMarketplaceUnread } from '../../components/m
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | 'marketplace' | null;
+/** The rule between rows — the profile card's matches it. */
+const DIVIDER = 'rgba(255,255,255,0.1)';
+type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | 'marketplace' | 'transfers' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -206,6 +206,109 @@ function ArchivedCarRow({ car, incoming, colors, onOpen }: {
   );
 }
 
+/**
+ * One handover in Transferred Cars.
+ *
+ *   offered by you, pending   — Revoke calls it off; the car stays archived with you
+ *   offered to you, pending   — Accept or Decline
+ *   accepted, either way      — nothing to answer; Message the other owner
+ */
+function TransferRow({ transfer, colors, onOpenCar, onMessage }: {
+  transfer: CarTransferEntry;
+  colors: ReturnType<typeof useColors>;
+  onOpenCar?: () => void;
+  onMessage?: () => void;
+}) {
+  const [acceptTransfer, { isLoading: accepting }] = useAcceptCarTransferMutation();
+  const [declineTransfer, { isLoading: declining }] = useDeclineCarTransferMutation();
+  const busy = accepting || declining;
+
+  const { car, other_user: other, status, direction } = transfer;
+  const name = (car && ([car.year, car.make, car.model].filter(Boolean).join(' ') || car.title)) || transfer.car_name || 'Car';
+  const thumb = carHeroUrl(car);
+  const who = other?.username ?? 'a member';
+  const when = transfer.resolved_at ?? transfer.requested_at;
+  const date = when ? new Date(when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const line = status === 'pending'
+    ? (direction === 'outgoing' ? `Offered to ${who}` : `${who} is offering it to you`)
+    : (direction === 'outgoing' ? `Transferred to ${who}` : `Transferred from ${who}`);
+
+  const run = async (fn: () => Promise<unknown>, failure: string) => {
+    try { await fn(); } catch (err: any) { Alert.alert('Error', err?.data?.error || failure); }
+  };
+  const revoke = () => Alert.alert('Revoke this transfer?', `${name} stays archived with you.`, [
+    { text: 'Keep it', style: 'cancel' },
+    {
+      text: 'Revoke', style: 'destructive',
+      onPress: () => run(() => declineTransfer({ internal_id: transfer.car_id }).unwrap(), "Couldn't revoke that transfer."),
+    },
+  ]);
+
+  return (
+    <View style={[archivedStyles.row, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      <TouchableOpacity style={archivedStyles.main} onPress={onOpenCar} disabled={!onOpenCar} activeOpacity={0.75}>
+        <Image
+          source={thumb ? { uri: thumb } : require('../../../assets/car-placeholder.jpg')}
+          style={archivedStyles.thumb}
+          contentFit="cover"
+        />
+        <View style={archivedStyles.text}>
+          <Text style={[archivedStyles.name, { color: colors.fg }]} numberOfLines={1}>{name}</Text>
+          <View style={archivedStyles.pendingRow}>
+            <ArrowRightLeft size={11} color={status === 'pending' ? colors.primaryAlt : colors.grey} />
+            <Text style={[archivedStyles.pending, { color: status === 'pending' ? colors.primaryAlt : colors.grey }]} numberOfLines={1}>
+              {line}{status === 'accepted' && date ? ` · ${date}` : ''}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <View style={archivedStyles.actions}>
+        {status === 'pending' && direction === 'incoming' ? (
+          <>
+            <TouchableOpacity
+              style={[archivedStyles.btn, { backgroundColor: colors.primaryAlt }]}
+              onPress={() => run(() => acceptTransfer({ internal_id: transfer.car_id }).unwrap(), "Couldn't accept that car.")}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Text style={archivedStyles.btnText}>Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[archivedStyles.btnGhost, { borderColor: colors.borderDark }]}
+              onPress={() => run(() => declineTransfer({ internal_id: transfer.car_id }).unwrap(), "Couldn't decline that car.")}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Text style={[archivedStyles.btnGhostText, { color: colors.grey }]}>Decline</Text>
+            </TouchableOpacity>
+          </>
+        ) : status === 'pending' ? (
+          <TouchableOpacity
+            style={[archivedStyles.btnGhost, { borderColor: colors.borderDark }]}
+            onPress={revoke}
+            disabled={busy}
+            activeOpacity={0.8}
+          >
+            <Text style={[archivedStyles.btnGhostText, { color: colors.grey }]}>Revoke</Text>
+          </TouchableOpacity>
+        ) : onMessage ? (
+          <TouchableOpacity
+            style={[archivedStyles.btnGhost, { borderColor: colors.borderDark }]}
+            onPress={onMessage}
+            activeOpacity={0.8}
+          >
+            <MessageSquare size={13} color={colors.fg} />
+            <Text style={[archivedStyles.btnGhostText, { color: colors.fg }]}>
+              {direction === 'outgoing' ? 'Message new owner' : 'Message previous owner'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 const archivedStyles = StyleSheet.create({
   row: { borderWidth: 1, borderRadius: 12, padding: 10, gap: 10 },
   main: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -221,7 +324,7 @@ const archivedStyles = StyleSheet.create({
   },
   btnText: { fontSize: 13, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   btnGhost: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     paddingVertical: 9, borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   btnGhostText: { fontSize: 13, fontFamily: FONT_INTER.bold },
@@ -335,6 +438,11 @@ export default function DashboardScreen() {
   );
   const listUsers = (listModal === 'followers' ? followersData?.entries : followingData?.entries) ?? [];
 
+  const confirmLogout = () => Alert.alert('Log Out', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
+  ]);
+
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
@@ -438,6 +546,10 @@ export default function DashboardScreen() {
   const blockedUsers = blockedData?.entries ?? [];
   const followedCars = followedCarsData?.entries ?? [];
   const archivedCars = archivedData?.entries ?? [];
+  const { data: transfersData } = useGetCarTransfersQuery();
+  const transfers = transfersData?.entries ?? [];
+  /** Offers made to you and still waiting on your answer. */
+  const transfersWaiting = transfers.filter((t) => t.status === 'pending' && t.direction === 'incoming').length;
   /**
    * The archived list, with cars other people have offered you at the top.
    *
@@ -518,111 +630,215 @@ export default function DashboardScreen() {
     );
   };
 
-  const statCards = [
-    {
-      label: 'Cars',
-      count: stats?.garageCarsCount ?? cars.length,
-      Icon: Car,
-      bg: colors.primaryAlt + '22',
-      color: colors.primaryAlt,
-      onPress: () => setSheet('cars'),
-    },
+  type DashRow = { label: string; Icon: typeof Car; count?: number; badge?: number; danger?: boolean; onPress: () => void };
+  /** Your account's settings, then what you've made and where it lives. */
+  const contentRows: DashRow[] = [
+    { label: 'Account Settings', Icon: Settings, onPress: () => navigation.navigate('Settings') },
     {
       label: 'Posts',
-      count: stats?.postsCount ?? posts.length,
       Icon: FileText,
-      bg: COLOR_MUTED_ORANGE + '22',
-      color: COLOR_MUTED_ORANGE,
+      count: stats?.postsCount ?? posts.length,
       onPress: () => setSheet('posts'),
     },
     {
-      label: 'Listings',
-      count: myListings?.counts.total,
-      Icon: ShoppingBag,
-      bg: COLOR_MUTED_GREEN + '22',
-      color: COLOR_MUTED_GREEN,
-      badge: marketplaceUnread,
-      onPress: () => setSheet('marketplace'),
+      label: 'Events',
+      Icon: Flag,
+      count: stats?.eventsCount,
+      onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } } } as any),
     },
     {
+      // The profile's own Lists pane rather than a second place to manage
+      // them. Basic members too: its "New list" is where they meet the Pro
+      // pitch, and a lapsed Pro still has lists there to tend.
+      label: 'Lists',
+      Icon: ListOrdered,
+      count: listCount,
+      onPress: () => (navigation as any).navigate('MainTabs', {
+        screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'lists' } },
+      }),
+    },
+  ];
+  /** Your cars, the ones you follow, the ones put away, and the ones that changed hands. */
+  const carRows: DashRow[] = [
+    {
+      label: 'Cars',
+      Icon: Car,
+      count: stats?.garageCarsCount ?? cars.length,
+      onPress: () => setSheet('cars'),
+    },
+    {
+      label: 'Followed Cars',
+      Icon: CarFront,
+      count: followedCars.length || undefined,
+      onPress: () => setSheet('followedCars'),
+    },
+    {
+      label: 'Archived Cars',
+      Icon: Archive,
+      count: archivedCars.length || undefined,
+      onPress: () => setSheet('archivedCars'),
+    },
+    {
+      label: 'Transferred Cars',
+      Icon: ArrowRightLeft,
+      count: transfers.length || undefined,
+      badge: transfersWaiting,
+      onPress: () => setSheet('transfers'),
+    },
+  ];
+  /** Who follows you, who you follow, and who you've blocked. */
+  const peopleRows: DashRow[] = [
+    {
       label: 'Followers',
+      Icon: UserCheck,
       count: stats?.followersCount,
-      Icon: Users,
-      bg: COLOR_MUTED_BLUE + '22',
-      color: COLOR_MUTED_BLUE,
       onPress: () => setListModal('followers'),
     },
     {
       label: 'Following',
-      count: stats?.followingCount,
       Icon: UserPlus,
-      bg: COLOR_MUTED_PURPLE + '22',
-      color: COLOR_MUTED_PURPLE,
+      count: stats?.followingCount,
       onPress: () => setListModal('following'),
     },
     {
-      label: 'Events',
-      count: stats?.eventsCount,
-      Icon: Flag,
-      bg: COLOR_MUTED_RED + '22',
-      color: COLOR_MUTED_RED,
-      onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } } } as any),
-    },
-    {
-      label: 'Groups',
-      count: stats?.groupsCount,
-      Icon: UserCheck,
-      bg: COLOR_MUTED_GREEN + '22',
-      color: COLOR_MUTED_GREEN,
-      onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Groups' } } as any),
+      label: 'Blocked Users',
+      Icon: Ban,
+      count: blockedUsers.length || undefined,
+      onPress: () => setSheet('blocked'),
     },
   ];
+  /** Your groups, and the ones you turned down — each can be lifted, so the group can ask again (DeclinedInvitesSheet). */
+  const groupRows: DashRow[] = [
+    {
+      label: 'Groups',
+      Icon: Users,
+      count: stats?.groupsCount,
+      onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Groups' } } as any),
+    },
+    {
+      label: 'Declined Group Invites',
+      Icon: UserX,
+      count: declinedCount || undefined,
+      onPress: () => setDeclinedOpen(true),
+    },
+  ];
+  /**
+   * Selling, in the two halves it splits into: the people asking about your
+   * things, and the things themselves. Both are the marketplace's own —
+   * neither appears in Messages.
+   */
+  const marketRows: DashRow[] = [
+    {
+      label: 'Messages',
+      Icon: MessageSquare,
+      badge: marketplaceUnread,
+      onPress: () => navigation.navigate('MarketplaceMessages'),
+    },
+    {
+      label: 'Manage your listings',
+      Icon: ShoppingBag,
+      count: myListings?.counts.total || undefined,
+      onPress: () => setSheet('marketplace'),
+    },
+  ];
+  /** How you're told about things, and what else is worth telling you about. */
+  const notifRows: DashRow[] = [
+    {
+      // Its own row rather than a section inside Account Settings: what
+      // reaches your phone is the one people come back to change.
+      label: 'Notification Settings',
+      Icon: Bell,
+      onPress: () => navigation.navigate('NotificationSettings'),
+    },
+    {
+      label: 'Custom Alerts',
+      Icon: BellRing,
+      count: alertCount,
+      onPress: () => navigation.navigate('Alerts'),
+    },
+  ];
+  /** Admins only. */
+  const adminRows: DashRow[] = [
+    { label: 'Flagged Content', Icon: ShieldAlert, count: totalFlagged || undefined, onPress: () => setSheet('flagged') },
+    { label: 'Home Feature Banner', Icon: ImageIcon, onPress: () => setSheet('homeBanner') },
+    { label: 'Featured Members & Cars', Icon: Star, onPress: () => setSheet('featured') },
+  ];
+  const dangerRows: DashRow[] = [
+    { label: 'Delete Account', Icon: Trash2, danger: true, onPress: handleDeleteAccount },
+  ];
+
+  /**
+   * A group of rows: the icon and title, how many, and the way in. `tint`
+   * washes the box and its rows in one colour — the admin box's orange.
+   */
+  const renderRows = (rows: DashRow[], tint?: string) => (
+    <View style={[
+      styles.actions,
+      tint
+        ? { backgroundColor: tint + '10', borderColor: tint + '40' }
+        : { backgroundColor: colors.card, borderColor: colors.border },
+    ]}>
+      {rows.map((row, i) => (
+        <React.Fragment key={row.label}>
+          {i > 0 && <View style={[styles.actionDivider, tint ? { backgroundColor: tint + '30' } : null]} />}
+          {renderRow(row, tint)}
+        </React.Fragment>
+      ))}
+    </View>
+  );
+  function renderRow(row: DashRow, tint?: string) {
+    const ink = tint ?? (row.danger ? colors.red : undefined);
+    return (
+      <TouchableOpacity style={styles.actionRow} onPress={row.onPress} activeOpacity={0.7}>
+        <row.Icon size={19} color={ink ?? COLOR_WHITE} />
+        <Text style={[styles.actionLabel, { color: ink ?? colors.fg }]}>{row.label}</Text>
+        <MarketplaceUnreadBadge count={row.badge ?? 0} variant="inline" />
+        {row.count != null && (
+          <View style={styles.countPill}>
+            <Text style={[styles.countPillText, { color: colors.fg }]}>{row.count}</Text>
+          </View>
+        )}
+        <View style={styles.rowFill} />
+        <ChevronRight size={18} color={tint ?? colors.grey} />
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader spacer />
       <ScrollView ref={scrollRef} refreshControl={refreshControl} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Profile card */}
-        <UserByline
-          user={user}
-          size={56}
-          gap={14}
-          fill
-          nameStyle={styles.profileName}
-          sub={user.bio ? (
-            <Text style={[styles.profileBio, { color: colors.muted }]} numberOfLines={2}>{user.bio}</Text>
-          ) : (
-            <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-              <Text style={[styles.profileBioAdd, { color: colors.primaryAlt }]}>+ Add a bio</Text>
-            </TouchableOpacity>
-          )}
-          style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })}
-          activeOpacity={0.8}
-        />
-
-        {/* Stat grid */}
-        <View style={styles.grid}>
-          {statCards.map((card) => (
-            <TouchableOpacity
-              key={card.label}
-              style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={card.onPress}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.statIcon, { backgroundColor: card.bg }]}>
-                <card.Icon size={18} color={card.color} />
-                {/* Only the marketplace tile carries one today — a count of
-                    things waiting, over a count of things you have. */}
-                <MarketplaceUnreadBadge count={(card as { badge?: number }).badge ?? 0} />
-              </View>
-              <Text style={[styles.statCount, { color: colors.fg }]}>
-                {card.count ?? '–'}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.grey }]}>{card.label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.headingRow}>
+          <Text style={[styles.heading, { color: colors.fg }]}>Dashboard & Settings</Text>
+          <TouchableOpacity
+            style={[styles.logoutBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={confirmLogout}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+          >
+            <LogOut size={17} color={colors.red} />
+          </TouchableOpacity>
         </View>
+
+        {/* You: photo, username and bio, each edited in place. */}
+        <DashboardProfileCard user={user} />
+
+        {/* Groups of rows: the title, then how many and the way in. */}
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>My Content & Settings</Text>
+        {renderRows(contentRows)}
+
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Cars</Text>
+        {renderRows(carRows)}
+
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Members</Text>
+        {renderRows(peopleRows)}
+
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Groups</Text>
+        {renderRows(groupRows)}
+
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Marketplace</Text>
+        {renderRows(marketRows)}
 
         {/* What the membership allows and how much is spent — full width, in
             the member's own colour. Basic accounts only: Pro has no limits, so
@@ -638,176 +854,18 @@ export default function DashboardScreen() {
           />
         )}
 
-        {/* Quick actions */}
-        <View style={[styles.actions, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')} activeOpacity={0.7}>
-            <UserCheck size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Account Settings</Text>
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Its own row rather than a section inside Account Settings. What
-              reaches your phone is a different question from your password and
-              your handle, and it's the one people come back to change. */}
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('NotificationSettings')} activeOpacity={0.7}>
-            <Bell size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Notification Settings</Text>
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Next to Notification Settings on purpose: that row decides how
-              you're told about things that already involve you, and this one
-              decides what else is worth telling you about. Same question, two
-              halves. */}
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Alerts')} activeOpacity={0.7}>
-            <BellRing size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Custom Alerts</Text>
-            {!!alertCount && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{alertCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Opens the profile's own Lists pane rather than a second place to
-              manage them. Shown to basic members too: the pane's "New list" is
-              where they meet the Pro pitch, and a lapsed Pro still has lists
-              here to tend. */}
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => (navigation as any).navigate('MainTabs', {
-              screen: 'FeedTab', params: { screen: 'Profile', params: { initialTab: 'lists' } },
-            })}
-            activeOpacity={0.7}
-          >
-            <ListOrdered size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>My lists</Text>
-            {!!listCount && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{listCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Selling, in the two halves it actually splits into: the things
-              you've listed, and the people asking about them. Both are the
-              marketplace's own — neither appears in Messages. */}
-          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('marketplace')} activeOpacity={0.7}>
-            <ShoppingBag size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Manage your listings</Text>
-            {!!myListings?.counts.total && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{myListings.counts.total}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity
-            style={styles.actionRow}
-            onPress={() => navigation.navigate('MarketplaceMessages')}
-            activeOpacity={0.7}
-          >
-            <MessageSquare size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Marketplace messages</Text>
-            {/* Inline rather than floating: there's a line to sit at the end
-                of here, and the row has no icon corner to hang off. */}
-            <MarketplaceUnreadBadge count={marketplaceUnread} variant="inline" />
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('followedCars')} activeOpacity={0.7}>
-            <Car size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Followed Cars</Text>
-            {followedCars.length > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{followedCars.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('archivedCars')} activeOpacity={0.7}>
-            <Archive size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Archived Cars</Text>
-            {archivedCars.length > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{archivedCars.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => setSheet('blocked')} activeOpacity={0.7}>
-            <Users size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Blocked Users</Text>
-            {blockedUsers.length > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{blockedUsers.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          {/* Groups you turned down — beside Blocked Users, the other "no"
-              you keep here. Each can be lifted, so the group can ask again;
-              see DeclinedInvitesSheet. */}
-          <TouchableOpacity style={styles.actionRow} onPress={() => setDeclinedOpen(true)} activeOpacity={0.7}>
-            <UserX size={16} color={colors.primaryAlt} />
-            <Text style={[styles.actionLabel, { color: colors.fg }]}>Declined Group Invites</Text>
-            {declinedCount > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countBadgeText, { color: colors.grey }]}>{declinedCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => dispatch(logout())} activeOpacity={0.7}>
-            <LogOut size={16} color={colors.red} />
-            <Text style={[styles.actionLabel, { color: colors.red }]}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Notifications</Text>
+        {renderRows(notifRows)}
 
-        {/* Admin */}
         {isAdmin && (
           <>
-            <TouchableOpacity
-              style={[styles.flaggedRow, { borderColor: COLOR_MUTED_ORANGE + '40', backgroundColor: COLOR_MUTED_ORANGE + '10' }]}
-              onPress={() => setSheet('flagged')}
-              activeOpacity={0.75}
-            >
-              <ShieldAlert size={15} color={COLOR_MUTED_ORANGE} />
-              <Text style={[styles.flaggedLabel, { color: COLOR_MUTED_ORANGE }]}>
-                ADMIN: View Flagged Content
-                {totalFlagged > 0 ? ` (${totalFlagged})` : ''}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.flaggedRow, { borderColor: COLOR_MUTED_ORANGE + '40', backgroundColor: COLOR_MUTED_ORANGE + '10' }]}
-              onPress={() => setSheet('homeBanner')}
-              activeOpacity={0.75}
-            >
-              <ImageIcon size={15} color={COLOR_MUTED_ORANGE} />
-              <Text style={[styles.flaggedLabel, { color: COLOR_MUTED_ORANGE }]}>
-                ADMIN: Home Feature Banner
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.flaggedRow, { borderColor: COLOR_MUTED_ORANGE + '40', backgroundColor: COLOR_MUTED_ORANGE + '10' }]}
-              onPress={() => setSheet('featured')}
-              activeOpacity={0.75}
-            >
-              <Star size={15} color={COLOR_MUTED_ORANGE} />
-              <Text style={[styles.flaggedLabel, { color: COLOR_MUTED_ORANGE }]}>
-                ADMIN: Featured Members & Cars
-              </Text>
-            </TouchableOpacity>
+            <Text style={[styles.bucketTitle, { color: COLOR_MUTED_ORANGE }]}>Admin</Text>
+            {renderRows(adminRows, COLOR_MUTED_ORANGE)}
           </>
         )}
 
-        {/* Danger zone */}
-        <TouchableOpacity
-          style={[styles.deleteRow, { borderColor: colors.red + '40', backgroundColor: colors.red + '10' }]}
-          onPress={handleDeleteAccount}
-          activeOpacity={0.75}
-        >
-          <Trash2 size={15} color={colors.red} />
-          <Text style={[styles.deleteLabel, { color: colors.red }]}>Delete Account</Text>
-        </TouchableOpacity>
+        <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Danger Zone</Text>
+        {renderRows(dangerRows)}
       </ScrollView>
 
       {/* Cars sheet */}
@@ -910,6 +968,34 @@ export default function DashboardScreen() {
             <EmptyState
               title="Nothing archived"
               message="Cars you archive instead of deleting show up here, and you can restore them any time."
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      </SheetModal>
+
+      {/* Cars that changed hands, or are offered to change them, either way. */}
+      <SheetModal visible={sheet === 'transfers'} title="Transferred Cars" onClose={() => setSheet(null)} colors={colors}>
+        <FlatList
+          data={transfers}
+          keyExtractor={(t) => t.internal_id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}
+          renderItem={({ item }) => (
+            <TransferRow
+              transfer={item}
+              colors={colors}
+              onOpenCar={item.car ? () => { setSheet(null); navigation.navigate('CarDetail', { carId: item.car_id }); } : undefined}
+              onMessage={item.other_user ? () => {
+                const other = item.other_user!;
+                setSheet(null);
+                navigation.navigate('ComposeMessage', { userId: other.user_id, username: other.username });
+              } : undefined}
+            />
+          )}
+          ListEmptyComponent={(
+            <EmptyState
+              title="No transfers"
+              message="Cars you hand over to another member, or that are handed to you, show up here."
             />
           )}
           showsVerticalScrollIndicator={false}
@@ -1098,44 +1184,24 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   content:        { padding: 16, gap: 14, paddingBottom: 160 },
+  headingRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  heading:        { fontSize: 22, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  logoutBtn:      { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  // Over each group of rows; the screen's gap would hold it too far off its own.
+  bucketTitle:    { fontSize: 16, fontFamily: FONT_INTER.medium, marginTop: 6, marginBottom: -6 },
 
-  profileCard:    {
-    alignItems: 'flex-start',
-    padding: 16, borderRadius: COMMON_RADIUS, borderWidth: 1,
-  },
-  profileName:    { fontSize: 18, fontFamily: FONT_INTER.bold },
-  profileUsername: { fontSize: 14, marginTop: 2 },
-  profileBio:     { fontSize: 13, marginTop: 6, lineHeight: 18 },
-  profileBioAdd:  { fontSize: 13, marginTop: 6 },
 
-  grid:           { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  statCard:       {
-    width: '48%', padding: 16, borderRadius: COMMON_RADIUS, borderWidth: 1, gap: 8,
-    flexGrow: 0,
-  },
-  statIcon:       {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  statCount:      { fontSize: 28, fontFamily: FONT_INTER.bold, lineHeight: 32 },
-  statLabel:      { fontSize: 14, fontFamily: FONT_INTER.bold },
 
   actions:        { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-  actionRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
-  actionLabel:    { fontSize: 15, fontFamily: FONT_INTER.semibold, flex: 1 },
-  actionDivider:  { height: 1, marginHorizontal: 16 },
-  deleteRow:      {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 14, borderRadius: 12, borderWidth: 1,
-  },
-  deleteLabel:    { fontSize: 14, fontFamily: FONT_INTER.semibold },
-  flaggedRow:     {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 14, borderRadius: 12, borderWidth: 1,
-  },
-  flaggedLabel:   { fontSize: 14, fontFamily: FONT_INTER.semibold },
-  countBadge:     { paddingHorizontal: 8, paddingVertical: 2, borderRadius: PILL_RADIUS },
-  countBadgeText: { fontSize: 12, fontFamily: FONT_INTER.bold },
+  actionRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
+  actionLabel:    { fontSize: 15, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
+  // Pushes the chevron to the row's end, the count staying by its title.
+  rowFill:        { flex: 1 },
+  countPill:      { paddingHorizontal: 8, paddingVertical: 2, borderRadius: PILL_RADIUS, backgroundColor: 'rgba(0,0,0,0.4)' },
+  countPillText:  { fontSize: 12, fontFamily: FONT_INTER.bold },
+  // Lighter than the card's edge, so the rows read as separate.
+  // Across the whole container, not inset with the text.
+  actionDivider:  { height: 1, backgroundColor: DIVIDER },
 });
 
 const blockedStyles = StyleSheet.create({

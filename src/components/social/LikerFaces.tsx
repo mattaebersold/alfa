@@ -15,7 +15,7 @@ function Face({ userId, first }: { userId: string; first: boolean }) {
   const { data: user } = useGetUserByIdQuery(userId, { skip: !userId });
   return (
     <View style={[styles.face, !first && styles.overlap]}>
-      <Avatar user={user} size={FACE} />
+      <Avatar user={user} size={FACE} edge={false} />
     </View>
   );
 }
@@ -62,12 +62,12 @@ export default function LikerFaces({ likers, total, max = 3, onOpen, label = 'Se
 
 const styles = StyleSheet.create({
   row:     { flexDirection: 'row', alignItems: 'center' },
-  // A dark ring so each face stands off the next, and off any photo.
-  face:    { borderRadius: FACE / 2 + 2, borderWidth: 2, borderColor: 'rgba(0,0,0,0.55)' },
+  // No ring: the faces sit bare, overlapping.
+  face:    { borderRadius: FACE / 2 },
   overlap: { marginLeft: -8 },
   // A face-sized circle, so it reads as one more in the stack.
   more: {
-    minWidth: FACE + 4, height: FACE + 4, paddingHorizontal: 4,
+    minWidth: FACE, height: FACE, paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: COLOR_GRAY_42,
   },

@@ -15,7 +15,7 @@ import type {
   ListingDetailResponse, MyListingsResponse,
   MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
   MarketplaceRoleFilter, MarketplaceUnreadCount, Badges,
-  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration } from '../types/api';
+  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry } from '../types/api';
 import { carScopeKey } from '../utils/carScope';
 
 /**
@@ -162,6 +162,8 @@ export const apiService = createApi({
       posts: MonthlyUsage;
       /** Absent from servers older than the event limit. */
       events?: MonthlyUsage;
+      /** Groups started — a standing total, 1 on basic. Absent from servers older than the group limit. */
+      groups?: MonthlyUsage;
       /**
        * Marketplace listings this month. Absent from servers older than the
        * listing limit — everything that reads it treats missing as "ungated".
@@ -185,7 +187,7 @@ export const apiService = createApi({
       isPro: boolean;
     }, void>({
       query: () => 'api/users/usage',
-      providesTags: ['User', 'Post', 'SocietyEvent', 'Listing', 'Alert'],
+      providesTags: ['User', 'Post', 'SocietyEvent', 'Listing', 'Alert', 'Group'],
     }),
 
     getUserStats: builder.query<{
@@ -245,7 +247,10 @@ export const apiService = createApi({
       providesTags: ['Post'],
     }),
 
-    getPosts: builder.query<PaginatedResponse<Post>, {
+    getPosts: builder.query<PaginatedResponse<Post> & {
+      /** Set when the server ranked this feed (`feed: 'home'`) rather than ordering it by date. */
+      ranked?: boolean;
+    }, {
       page?: number; limit?: number; type?: string; category?: string;
       username?: string; user_id?: string; make?: string; model?: string;
       car_id?: string; event_id?: string; group_id?: string; search?: string;
@@ -255,6 +260,12 @@ export const apiService = createApi({
        * you're a member of. The server answers per-viewer when this is set.
        */
       include_groups?: boolean;
+      /**
+       * The home feed. For a member who follows only a few people the server
+       * ranks it — people you follow, your cars, near you, your groups,
+       * engagement — rather than newest-first. See horacio's helpers/homeFeedRank.
+       */
+      feed?: 'home';
       /** Only posts carrying a poll — the profile's Polls shelf, with `user_id`. */
       has_poll?: boolean;
       /** Only posts made at this place — a place's own list. See PostPlace. */
@@ -638,6 +649,12 @@ export const apiService = createApi({
 
     getPendingCarTransfers: builder.query<{ entries: GarageCar[] }, void>({
       query: () => 'api/car/transfers/pending',
+      providesTags: ['ArchivedCars'],
+    }),
+
+    /** Every handover to or from me — offers still out, and ones accepted. */
+    getCarTransfers: builder.query<{ entries: CarTransferEntry[] }, void>({
+      query: () => 'api/car/transfers',
       providesTags: ['ArchivedCars'],
     }),
 
@@ -2942,6 +2959,7 @@ export const {
   useAcceptCarTransferMutation,
   useDeclineCarTransferMutation,
   useGetPendingCarTransfersQuery,
+  useGetCarTransfersQuery,
   useGetCarBrandsQuery,
   useGetCarBrandSummariesQuery,
   useGetCarGenerationsQuery,

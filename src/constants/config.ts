@@ -217,8 +217,10 @@ export const COLOR_GRAY_11  = '#0B0B0B';
 export const COLOR_GRAY_10  = '#0A0A0A';
 
 /* Grounds — one each, so every screen, modal and pane agrees */
-/** Every screen's ground. Painted once, by the navigator's theme; screens don't set their own. */
-export const APP_BG   = COLOR_GRAY_21;
+/** Every screen's ground. Painted once, by the navigator's theme; screens don't set their own — the profile excepted (PROFILE_BG). */
+export const APP_BG   = COLOR_GRAY_17;
+/** The profile's ground: a step darker than the app's, so the page reads as somebody's own. */
+export const PROFILE_BG = COLOR_GRAY_11;
 /** The summary modal's surface. */
 export const MODAL_BG = COLOR_BLACK;
 /** Every pane's surface — sheets, slide-ups and the panels that grow from a button. A shade over the app's ground. */

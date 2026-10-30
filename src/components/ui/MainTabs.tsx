@@ -3,7 +3,8 @@ import { View, TouchableOpacity, StyleSheet, Animated, ScrollView, type StylePro
 import Reanimated from 'react-native-reanimated';
 import { TAB_EASING, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
 import { Text } from '@ors/kit';
-import { GUTTER, COMMON_RADIUS, COLOR_PRO, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_32 } from '../../constants/config';
+import { GUTTER, COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_32 } from '../../constants/config';
+import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** One entry in a main tab row. */
@@ -24,9 +25,6 @@ export interface MainTab<K extends string = string> {
 const ACTIVE_LEFT = 50;
 /** Clear space after the last tab, at the end of the row's scroll. */
 const END_SPACE = 24;
-/** The lit tab: a Pro-red thumb under black lettering — for every account. */
-const TAB_ON_BG = COLOR_PRO;
-const TAB_ON_FG = COLOR_BLACK;
 /** The unlit tabs: white lettering on the black track. */
 const TAB_IDLE_FG = COLOR_WHITE;
 /** The track behind the row — solid black, as SubTabs' is. */
@@ -45,7 +43,8 @@ const TRACK_PAD_DENSE = 1;
 /**
  * Main tabs: SubTabs, a size up — the same black track, and the same thumb
  * that springs to whichever tab is picked rather than one tab lighting and
- * another going out. Pro red under black lettering for the lit one; white,
+ * another going out. The brand colour — Pro red, or blue on a basic
+ * membership — under readable lettering for the lit one; white,
  * a weight lighter, for the rest. Larger, and with room for an icon and a
  * count beside each label.
  *
@@ -95,6 +94,9 @@ export default function MainTabs<K extends string>({
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
 }) {
+  // The lit tab: the member's brand colour, under whichever of black or white reads on it.
+  const TAB_ON_BG = useBrandColor();
+  const TAB_ON_FG = contrastText(TAB_ON_BG);
 
   // Positions are each tab's own x within the row, measured as they lay out;
   // the row's inset is outside that, so it's added back to find where the tab
@@ -172,7 +174,7 @@ export default function MainTabs<K extends string>({
         {target && (
           <Animated.View
             pointerEvents="none"
-            style={[styles.thumb, dense && styles.thumbDense, { width: thumbW, transform: [{ translateX: thumbX }] }]}
+            style={[styles.thumb, dense && styles.thumbDense, { width: thumbW, backgroundColor: TAB_ON_BG, transform: [{ translateX: thumbX }] }]}
           />
         )}
         {tabs.map((t) => {
@@ -255,7 +257,7 @@ const styles = StyleSheet.create({
   // Under the labels, sliding between them — SubTabs' thumb, a size up.
   thumb: {
     position: 'absolute', top: TRACK_PAD, bottom: TRACK_PAD, left: 0,
-    borderRadius: COMMON_RADIUS - TRACK_PAD, backgroundColor: TAB_ON_BG,
+    borderRadius: COMMON_RADIUS - TRACK_PAD,
   },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

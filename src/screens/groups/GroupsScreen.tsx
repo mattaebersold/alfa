@@ -7,18 +7,18 @@ import { Text } from '@ors/kit';
 import { Image } from '../../components/ui/AppImage';
 import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Users } from 'lucide-react-native';
+import { Users, Plus } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useGetGroupsQuery, useGetUserGroupsQuery } from '../../api/apiService';
+import { useGetGroupsQuery, useGetUserGroupsQuery, useGetUsageQuery } from '../../api/apiService';
 import { useBrandTextColor, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import EmptyState from '../../components/ui/EmptyState';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
-import HeadingActionButton from '../../components/ui/HeadingActionButton';
+import SharedButton from '../../components/ui/SharedButton';
 import NewGroupSheet from '../../components/groups/NewGroupSheet';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import { colors } from '../../constants/colors';
@@ -202,21 +202,12 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const [page, setPage] = useState(0);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
 
-  // Starting a group is a Pro feature — it used to be admin-only, which meant
-  // nobody but the team could make one. The server only asks that you're signed
-  // in, so this is the whole gate.
   const isPro = useIsPro();
   const brand = useBrandColor();
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  const newGroupBtn = (
-    <HeadingActionButton
-      label="New Group"
-      compact
-      color={COLOR_WHITE}
-      onPress={() => setNewGroupOpen(true)}
-      accessibilityLabel="Create a new group"
-    />
-  );
+  // Pro starts as many groups as they like; basic, one — the server holds
+  // both (horacio's helpers/limits), and `usage.groups` says where you stand.
+  const { data: usage } = useGetUsageQuery(undefined, { skip: isPro || !userInfo?.user_id });
 
   const { data: rawUserGroups, isLoading: userGroupsLoading, refetch: refetchUserGroups } = useGetUserGroupsQuery(
     userInfo?.user_id ?? '',
@@ -255,6 +246,15 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   }, [data, page]);
 
   const userGroupIds = new Set(userGroups.map((g) => g.internal_id));
+
+  /**
+   * Whether the New Group button shows. A server older than the group cap
+   * sends no `groups`, so a basic member falls back to "have you started one
+   * of the groups you're in".
+   */
+  const canCreateGroup = isPro || (usage?.groups
+    ? !usage.groups.reached
+    : !userGroups.some((g) => g.user_id === userInfo?.user_id));
 
   const searchLower = search.trim().toLowerCase();
   const publicGroups = allGroups
@@ -317,13 +317,7 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View>
-              {/* No screen title — the tab says where you are. A new group is
-                  made from beside the groups you're already in, small and
-                  white, a section's action rather than the screen's. With
-                  none yet, it holds that corner on its own. */}
-              {isPro && userGroups.length === 0 && (
-                <View style={[styles.myGroupsHeadingRow, styles.newGroupAlone]}>{newGroupBtn}</View>
-              )}
+              {/* No screen title — the tab says where you are. */}
               {userGroups.length > 0 && (
                 <View style={styles.myGroupsSection}>
                   {/* The count rides in the heading rather than under it —
@@ -336,8 +330,6 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                         {userGroups.length}
                       </Text>
                     </View>
-                    {isPro && <View style={styles.myGroupsSpacer} />}
-                    {isPro && newGroupBtn}
                   </View>
                   <ScrollView
                     horizontal
@@ -356,6 +348,18 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                     ))}
                   </ScrollView>
                 </View>
+              )}
+
+              {/* Full width, between your groups and the search — the one
+                  thing on the screen that makes something. */}
+              {canCreateGroup && (
+                <SharedButton
+                  label="New Group"
+                  Icon={Plus}
+                  full
+                  onPress={() => setNewGroupOpen(true)}
+                  style={[styles.newGroupBtn, userGroups.length === 0 && styles.newGroupBtnFirst]}
+                />
               )}
 
               <View style={styles.searchRow}>
@@ -500,7 +504,8 @@ const styles = StyleSheet.create({
 
   emptyWrap: { paddingTop: 20 },
 
-  myGroupsSpacer: { flex: 1 },
-  // No groups yet: the button alone, at the row's right.
-  newGroupAlone: { justifyContent: 'flex-end', paddingTop: 4 },
+  // On the page gutter, like the search row beneath it.
+  newGroupBtn: { marginHorizontal: GUTTER, marginBottom: 6 },
+  // No shelf above it: a little clear of the header instead.
+  newGroupBtnFirst: { marginTop: 4 },
 });

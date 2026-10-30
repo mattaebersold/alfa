@@ -25,6 +25,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.86': {
+    date: 'October 2026',
+    groups: [
+      {
+        title: 'Look & feel',
+        items: [
+          'Fully redesigned the menu.',
+          'Fully redesigned the account dashboard and settings.',
+        ],
+      },
+    ],
+  },
   '1.85': {
     date: 'October 2026',
     groups: [

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Reanimated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import {
   View, StyleSheet, TouchableOpacity, Switch, Alert, ActivityIndicator,
 } from 'react-native';
@@ -8,7 +9,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';
 import { Image } from '../../components/ui/AppImage';
-import { Plus, Trash2 } from 'lucide-react-native';
+import {
+  Plus, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon, UserRound, Link as LinkIcon,
+  AtSign, Mail, Lock, ShieldCheck, LogOut,
+} from 'lucide-react-native';
 import {
   useGetLoggedInUserQuery,
   useUpdateUserSettingMutation,
@@ -32,14 +36,8 @@ import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import FormInput from '../../components/ui/FormInput';
 
-function SectionHeader({ title }: { title: string }) {
-  const colors = useColors();
-  return (
-    <View style={[ss.sectionHeader, { backgroundColor: colors.segment, borderColor: colors.border }]}>
-      <Text style={[ss.sectionTitle, { color: colors.grey }]}>{title}</Text>
-    </View>
-  );
-}
+type SectionKey = 'photos' | 'profile' | 'links' | 'username' | 'email' | 'password';
+type LucideIcon = React.ComponentType<{ size?: number; color?: string }>;
 
 function Field({
   label, value, onChangeText, placeholder, secureTextEntry, autoCapitalize, keyboardType, error, hint, multiline,
@@ -78,6 +76,10 @@ export default function SettingsScreen() {
   const contentFilterEnabled = useAppSelector((s) => (s as any).moderation?.contentFilterEnabled ?? false);
 
   const { data: user, isLoading } = useGetLoggedInUserQuery();
+  /** The section opened from the list; null is the list itself. */
+  const [section, setSection] = useState<SectionKey | null>(null);
+  // The list slides back in only on the way back, not when the panel opens.
+  const opened = useRef(false);
   const [updateSetting] = useUpdateUserSettingMutation();
   const [updateImage, { isLoading: uploadingImage }] = useUpdateUserSettingImageMutation();
   const [checkUsername] = useCheckUsernameMutation();
@@ -274,212 +276,273 @@ export default function SettingsScreen() {
 
   const bannerUri = user?.banners?.[0]?.filename ? imageUrl(user.banners[0].filename) : null;
 
+  const confirmLogout = () => Alert.alert('Log Out', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
+  ]);
+
+  const linkCount = (user?.links ?? []).filter((l) => l.url).length;
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+
+  /** Each row's section, opened in place of the list. */
+  const SECTIONS: Record<SectionKey, { title: string; Icon: LucideIcon; hint: string; body: () => React.ReactNode }> = {
+    photos: {
+      title: 'Photos', Icon: ImageIcon, hint: 'Avatar and banner',
+      body: () => (
+            <View style={[styles.photoRow, { backgroundColor: colors.bgDark }]}>
+              <TouchableOpacity style={styles.photoItem} onPress={() => pickAndUpload('gallery', [1, 1])} disabled={uploadingImage}>
+                <Avatar user={user} size={64} />
+                <Text style={[styles.photoLabel, { color: colors.grey }]}>Avatar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.photoBanner} onPress={() => pickAndUpload('banners', [3, 1])} disabled={uploadingImage}>
+                {bannerUri
+                  ? <Image source={{ uri: bannerUri }} style={styles.bannerPreview} contentFit="cover" />
+                  : <View style={[styles.bannerPreview, { backgroundColor: colors.primaryAlt }]} />
+                }
+                <Text style={[styles.photoLabel, { color: colors.grey }]}>Banner</Text>
+              </TouchableOpacity>
+              {uploadingImage && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="large" color={colors.primaryAlt} />
+                </View>
+              )}
+            </View>
+      ),
+    },
+    profile: {
+      title: 'Profile', Icon: UserRound, hint: [fullName, cityState].filter(Boolean).join(' · ') || 'Name, bio and location',
+      body: () => (
+            <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.cardPad}>
+                <Field label="First Name" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
+                <Field label="Last Name" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" />
+                <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Tell us about yourself" multiline />
+                {/* A zip rather than a typed city: it's what the region, the map
+                    and "near me" are all worked out from, and it can't be
+                    half-right the way free text can. The city it resolves to is
+                    shown back, since that's the part other members see. */}
+                <Field
+                  label="Zip code"
+                  value={zip}
+                  onChangeText={(text) => setZip(text.replace(/[^0-9]/g, '').slice(0, 5))}
+                  placeholder="98021"
+                  keyboardType="number-pad"
+                  hint={cityState
+                    ? `Shown on your profile as ${cityState}. Your zip stays private.`
+                    : 'Sets your region, your map tile and what "near me" measures from. Your zip stays private.'}
+                />
+
+              </View>
+              <SaveButton label="Save Profile" onPress={handleSaveProfile} loading={savingProfile} />
+            </View>
+      ),
+    },
+    links: {
+      title: 'Links', Icon: LinkIcon, hint: linkCount ? `${linkCount} link${linkCount === 1 ? '' : 's'}` : 'None yet',
+      body: () => (
+            <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.cardPad}>
+                <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
+                  These show as buttons under your bio. Drop the https:// if you like — we'll add it.
+                </Text>
+
+                {links.length === 0 ? (
+                  <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
+                    No links yet.
+                  </Text>
+                ) : (
+                  links.map((link, i) => (
+                    <View key={i} style={[styles.linkRow, { borderColor: colors.borderDark }]}>
+                      <View style={styles.linkFields}>
+                        <Field
+                          label="Title"
+                          value={link.title}
+                          onChangeText={setLinkField(i, 'title')}
+                          placeholder="e.g. My Shop"
+                          autoCapitalize="words"
+                        />
+                        <Field
+                          label="URL"
+                          value={link.url}
+                          onChangeText={setLinkField(i, 'url')}
+                          placeholder="e.g. instagram.com/yourhandle"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => removeLink(i)}
+                        hitSlop={8}
+                        style={styles.linkRemove}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove link ${i + 1}`}
+                      >
+                        <Trash2 size={16} color={colors.red} />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+
+                {links.length < MAX_PROFILE_LINKS && (
+                  <TouchableOpacity
+                    onPress={addLink}
+                    style={[styles.addLinkBtn, { borderColor: colors.primaryAlt }]}
+                    activeOpacity={0.8}
+                  >
+                    <Plus size={15} color={colors.primaryAlt} />
+                    <Text style={[styles.addLinkText, { color: colors.primaryAlt }]}>Add Link</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <SaveButton label="Save Links" onPress={handleSaveLinks} loading={savingLinks} />
+            </View>
+      ),
+    },
+    username: {
+      title: 'Username', Icon: AtSign, hint: user?.username ?? '',
+      body: () => (
+            <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.cardPad}>
+                <Field
+                  label="Username"
+                  value={username}
+                  // Spaces are dropped as they're typed — they can never be part
+                  // of a handle, so there's nothing to tell someone about later.
+                  onChangeText={(v) => { setUsername(v.replace(/\s+/g, '')); setUsernameError(''); }}
+                  placeholder="username"
+                  autoCapitalize="none"
+                  error={usernameError}
+                  hint="Must be unique. Changing your username will update your public profile URL."
+                />
+              </View>
+              <SaveButton label="Save Username" onPress={handleSaveUsername} loading={savingUsername} />
+            </View>
+      ),
+    },
+    email: {
+      title: 'Email', Icon: Mail, hint: user?.email ?? '',
+      body: () => (
+            <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.cardPad}>
+                <Field
+                  label="Email"
+                  value={email}
+                  onChangeText={(v) => { setEmail(v); setEmailError(''); }}
+                  placeholder="email@example.com"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  error={emailError}
+                />
+              </View>
+              <SaveButton label="Save Email" onPress={handleSaveEmail} loading={savingEmail} />
+            </View>
+      ),
+    },
+    password: {
+      title: 'Password', Icon: Lock, hint: 'Change your password',
+      body: () => (
+            <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.cardPad}>
+                <Field
+                  label="New Password"
+                  value={newPassword}
+                  onChangeText={(v) => { setNewPassword(v); setPasswordError(''); }}
+                  placeholder="At least 6 characters"
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+                <Field
+                  label="Confirm Password"
+                  value={confirmPassword}
+                  onChangeText={(v) => { setConfirmPassword(v); setPasswordError(''); }}
+                  placeholder="Repeat new password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  error={passwordError}
+                />
+              </View>
+              <SaveButton label="Change Password" onPress={handleSavePassword} loading={savingPassword} />
+            </View>
+      ),
+    },
+  };
+  const open = section ? SECTIONS[section] : null;
+
   return (
     <SafeAreaView style={ss.fill} edges={['bottom']}>
       <FormScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* ── Photos ──────────────────────────────────────────────── */}
-        <SectionHeader title="Photos" />
-        <View style={[styles.photoRow, { backgroundColor: colors.bgDark, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={styles.photoItem} onPress={() => pickAndUpload('gallery', [1, 1])} disabled={uploadingImage}>
-            <Avatar user={user} size={64} />
-            <Text style={[styles.photoLabel, { color: colors.grey }]}>Avatar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.photoBanner} onPress={() => pickAndUpload('banners', [3, 1])} disabled={uploadingImage}>
-            {bannerUri
-              ? <Image source={{ uri: bannerUri }} style={styles.bannerPreview} contentFit="cover" />
-              : <View style={[styles.bannerPreview, { backgroundColor: colors.primaryAlt }]} />
-            }
-            <Text style={[styles.photoLabel, { color: colors.grey }]}>Banner</Text>
-          </TouchableOpacity>
-          {uploadingImage && (
-            <View style={styles.uploadingOverlay}>
-              <ActivityIndicator size="large" color={colors.primaryAlt} />
-            </View>
-          )}
-        </View>
-
-        {/* ── Profile ─────────────────────────────────────────────── */}
-        <SectionHeader title="Profile" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <View style={styles.cardPad}>
-            <Field label="First Name" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
-            <Field label="Last Name" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" />
-            <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Tell us about yourself" multiline />
-            {/* A zip rather than a typed city: it's what the region, the map
-                and "near me" are all worked out from, and it can't be
-                half-right the way free text can. The city it resolves to is
-                shown back, since that's the part other members see. */}
-            <Field
-              label="Zip code"
-              value={zip}
-              onChangeText={(text) => setZip(text.replace(/[^0-9]/g, '').slice(0, 5))}
-              placeholder="98021"
-              keyboardType="number-pad"
-              hint={cityState
-                ? `Shown on your profile as ${cityState}. Your zip stays private.`
-                : 'Sets your region, your map tile and what "near me" measures from. Your zip stays private.'}
-            />
-
-          </View>
-          <SaveButton label="Save Profile" onPress={handleSaveProfile} loading={savingProfile} />
-        </View>
-
-        {/* ── Links ────────────────────────────────────────────────── */}
-        <SectionHeader title="Links" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <View style={styles.cardPad}>
-            <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
-              These show as buttons under your bio. Drop the https:// if you like — we'll add it.
-            </Text>
-
-            {links.length === 0 ? (
-              <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
-                No links yet.
-              </Text>
-            ) : (
-              links.map((link, i) => (
-                <View key={i} style={[styles.linkRow, { borderColor: colors.borderDark }]}>
-                  <View style={styles.linkFields}>
-                    <Field
-                      label="Title"
-                      value={link.title}
-                      onChangeText={setLinkField(i, 'title')}
-                      placeholder="e.g. My Shop"
-                      autoCapitalize="words"
-                    />
-                    <Field
-                      label="URL"
-                      value={link.url}
-                      onChangeText={setLinkField(i, 'url')}
-                      placeholder="e.g. instagram.com/yourhandle"
-                      autoCapitalize="none"
-                    />
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => removeLink(i)}
-                    hitSlop={8}
-                    style={styles.linkRemove}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove link ${i + 1}`}
-                  >
-                    <Trash2 size={16} color={colors.red} />
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-
-            {links.length < MAX_PROFILE_LINKS && (
-              <TouchableOpacity
-                onPress={addLink}
-                style={[styles.addLinkBtn, { borderColor: colors.primaryAlt }]}
-                activeOpacity={0.8}
-              >
-                <Plus size={15} color={colors.primaryAlt} />
-                <Text style={[styles.addLinkText, { color: colors.primaryAlt }]}>Add Link</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <SaveButton label="Save Links" onPress={handleSaveLinks} loading={savingLinks} />
-        </View>
-
-        {/* ── Username ─────────────────────────────────────────────── */}
-        <SectionHeader title="Username" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <View style={styles.cardPad}>
-            <Field
-              label="Username"
-              value={username}
-              // Spaces are dropped as they're typed — they can never be part
-              // of a handle, so there's nothing to tell someone about later.
-              onChangeText={(v) => { setUsername(v.replace(/\s+/g, '')); setUsernameError(''); }}
-              placeholder="username"
-              autoCapitalize="none"
-              error={usernameError}
-              hint="Must be unique. Changing your username will update your public profile URL."
-            />
-          </View>
-          <SaveButton label="Save Username" onPress={handleSaveUsername} loading={savingUsername} />
-        </View>
-
-        {/* ── Email ────────────────────────────────────────────────── */}
-        <SectionHeader title="Email" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <View style={styles.cardPad}>
-            <Field
-              label="Email"
-              value={email}
-              onChangeText={(v) => { setEmail(v); setEmailError(''); }}
-              placeholder="email@example.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              error={emailError}
-            />
-          </View>
-          <SaveButton label="Save Email" onPress={handleSaveEmail} loading={savingEmail} />
-        </View>
-
-        {/* ── Password ─────────────────────────────────────────────── */}
-        <SectionHeader title="Change Password" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <View style={styles.cardPad}>
-            <Field
-              label="New Password"
-              value={newPassword}
-              onChangeText={(v) => { setNewPassword(v); setPasswordError(''); }}
-              placeholder="At least 6 characters"
-              secureTextEntry
-              autoCapitalize="none"
-            />
-            <Field
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={(v) => { setConfirmPassword(v); setPasswordError(''); }}
-              placeholder="Repeat new password"
-              secureTextEntry
-              autoCapitalize="none"
-              error={passwordError}
-            />
-          </View>
-          <SaveButton label="Change Password" onPress={handleSavePassword} loading={savingPassword} />
-        </View>
-
-        {/* ── Content & Safety ─────────────────────────────────────── */}
-        <SectionHeader title="Content & Safety" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <View style={[styles.switchRow, { borderTopWidth: 0 }]}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text style={[styles.switchLabel, { color: colors.fg }]}>Filter objectionable content</Text>
-              <Text style={[styles.switchHint, { color: colors.grey }]}>
-                Hide potentially offensive or inappropriate content from your feed.
-              </Text>
-            </View>
-            <Switch
-              value={contentFilterEnabled}
-              onValueChange={(v) => { dispatch(setContentFilter(v)); }}
-              trackColor={{ false: colors.greyLight, true: colors.primaryAlt }}
-              thumbColor={COLOR_WHITE}
-            />
-          </View>
-        </View>
-
-        {/* ── Account ──────────────────────────────────────────────── */}
-        <SectionHeader title="Account" />
-        <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
-          <TouchableOpacity style={styles.dangerRow} onPress={() => Alert.alert('Log Out', 'Are you sure?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
-          ])}>
-            <Text style={[styles.dangerText, { color: colors.fg }]}>Log Out</Text>
-          </TouchableOpacity>
-          <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-            <TouchableOpacity style={[styles.dangerRow, { borderTopWidth: 0 }]} onPress={handleDeleteAccount}>
-              <Text style={[styles.dangerText, { color: colors.red }]}>Delete Account</Text>
+        {open ? (
+          // One section, in place of the list, with the way back above it.
+          <Reanimated.View key={section} entering={FadeInRight.duration(200)}>
+            <TouchableOpacity
+              style={styles.backRow}
+              onPress={() => setSection(null)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Back to settings"
+            >
+              <ChevronLeft size={22} color={colors.fg} />
+              <Text style={[styles.backTitle, { color: colors.fg }]}>{open.title}</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+            {open.body()}
+          </Reanimated.View>
+        ) : (
+          <Reanimated.View key="list" entering={section === null && opened.current ? FadeInLeft.duration(200) : undefined}>
+            <View style={[styles.group, { backgroundColor: colors.bgDark }]}>
+              {(Object.keys(SECTIONS) as SectionKey[]).map((key, i) => {
+                const { title, Icon, hint } = SECTIONS[key];
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                    onPress={() => { opened.current = true; setSection(key); }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                  >
+                    <Icon size={19} color={colors.fg} />
+                    <View style={styles.rowText}>
+                      <Text style={[styles.rowTitle, { color: colors.fg }]}>{title}</Text>
+                      {hint ? <Text style={[styles.rowHint, { color: colors.grey }]} numberOfLines={1}>{hint}</Text> : null}
+                    </View>
+                    <ChevronRight size={18} color={colors.grey} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-        <View style={{ height: 40 }} />
+            {/* A switch needs no page of its own. */}
+            <View style={[styles.group, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.row}>
+                <ShieldCheck size={19} color={colors.fg} />
+                <View style={styles.rowText}>
+                  <Text style={[styles.rowTitle, { color: colors.fg }]}>Filter objectionable content</Text>
+                  <Text style={[styles.rowHint, { color: colors.grey }]}>Hide potentially offensive content from your feed.</Text>
+                </View>
+                <Switch
+                  value={contentFilterEnabled}
+                  onValueChange={(v) => { dispatch(setContentFilter(v)); }}
+                  trackColor={{ false: colors.greyLight, true: colors.primaryAlt }}
+                  thumbColor={COLOR_WHITE}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.group, { backgroundColor: colors.bgDark }]}>
+              <TouchableOpacity style={styles.row} onPress={confirmLogout} activeOpacity={0.7} accessibilityRole="button">
+                <LogOut size={19} color={colors.fg} />
+                <Text style={[styles.rowTitle, styles.rowText, { color: colors.fg }]}>Log Out</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.row, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                onPress={handleDeleteAccount}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <Trash2 size={19} color={colors.red} />
+                <Text style={[styles.rowTitle, styles.rowText, { color: colors.red }]}>Delete Account</Text>
+              </TouchableOpacity>
+            </View>
+          </Reanimated.View>
+        )}
       </FormScrollView>
     </SafeAreaView>
   );
@@ -505,7 +568,14 @@ function SaveButton({ label, onPress, loading, secondary }: { label: string; onP
 const MAX_PROFILE_LINKS = 10;
 
 const styles = StyleSheet.create({
-  scroll:       { paddingBottom: 40 },
+  scroll:       { paddingTop: 8, paddingBottom: 40 },
+  group:        { marginHorizontal: 16, marginBottom: 16, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
+  row:          { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  rowText:      { flex: 1, minWidth: 0 },
+  rowTitle:     { fontSize: 15, fontFamily: FONT_INTER.semibold },
+  rowHint:      { fontSize: 12, marginTop: 2 },
+  backRow:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingBottom: 12 },
+  backTitle:    { fontSize: 17, fontFamily: FONT_INTER.bold },
   linkRow:      {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     paddingTop: 12, marginBottom: 4,
@@ -518,7 +588,8 @@ const styles = StyleSheet.create({
     paddingVertical: 11, borderRadius: COMMON_RADIUS, borderWidth: 1.5, marginTop: 8,
   },
   addLinkText:  { fontSize: 14, fontFamily: FONT_INTER.bold },
-  card:         { marginBottom: 0 },
+  // A section's form, opened from its row — the list's rounded group shape.
+  card:         { marginHorizontal: 16, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
   cardPad:      { padding: 16, gap: 4 },
 
   fieldWrap:    { marginBottom: 12 },
@@ -526,7 +597,7 @@ const styles = StyleSheet.create({
   fieldError:   { fontSize: 12, marginTop: 4 },
   fieldHint:    { fontSize: 12, marginTop: 4, lineHeight: 16 },
 
-  photoRow:     { flexDirection: 'row', gap: 16, padding: 16, borderBottomWidth: 1, position: 'relative' },
+  photoRow:     { flexDirection: 'row', gap: 16, padding: 16, marginHorizontal: 16, borderRadius: COMMON_RADIUS, overflow: 'hidden', position: 'relative' },
   photoItem:    { alignItems: 'center', gap: 6 },
   photoBanner:  { flex: 1, alignItems: 'center', gap: 6 },
   photoLabel:   { fontSize: 12, fontFamily: FONT_INTER.semibold },
@@ -541,9 +612,4 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText:  { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 
-  switchRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  switchLabel:  { fontSize: 14, fontFamily: FONT_INTER.semibold, marginBottom: 2 },
-  switchHint:   { fontSize: 12, lineHeight: 16 },
-  dangerRow:    { paddingHorizontal: 16, paddingVertical: 14 },
-  dangerText:   { fontSize: 15, fontFamily: FONT_INTER.semibold },
 });

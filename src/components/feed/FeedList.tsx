@@ -52,6 +52,8 @@ interface FeedListProps {
 }
 
 const PAGE_SIZE = 12;
+/** In a ranked feed, one garage/route/group row after every this many posts. */
+const RANKED_EXTRA_EVERY = 3;
 /** How far back the garage additions reach — they interleave, so a chunk is plenty. */
 const GARAGE_ADDITIONS_LIMIT = 20;
 /** Same idea for mods/galleries on cars you follow. */
@@ -172,7 +174,9 @@ export default function FeedList({
     // Listings and want ads shared only to your groups belong in your home
     // feed too — otherwise they're only seen by whoever opens the group. The
     // card's context row already names the group they came from.
-    ...(includeGarageAdditions ? { include_groups: true } : {}),
+    // …and it's the home feed, which the server ranks for someone who
+    // follows only a few people.
+    ...(includeGarageAdditions ? { include_groups: true, feed: 'home' as const } : {}),
   });
 
   useEffect(() => {
@@ -265,6 +269,8 @@ export default function FeedList({
   }, [isFetching, data, allPosts.length]);
 
   const hasMorePosts = !!data && allPosts.length < data.total;
+  /** The server ranked this feed (see apiService's `feed`), so its order is kept. */
+  const ranked = !!data?.ranked;
 
   // Merge garage additions into the post stream by date. Cars older than the
   // oldest loaded post are held back until the posts around them arrive —
@@ -314,9 +320,21 @@ export default function FeedList({
       .filter((item) => inWindow(item.created_at))
       .map((item) => ({ kind: 'groupActivity', item, time: timeOf(item.created_at) }));
 
-    return [...postRows, ...carRows, ...routeRows, ...activityRows, ...groupRows]
-      .sort((a, b) => b.time - a.time);
-  }, [allPosts, garageCars, newRoutes, carActivity, groupActivity, includeGarageAdditions, hasMorePosts]);
+    const extras = [...carRows, ...routeRows, ...activityRows, ...groupRows];
+    if (!ranked) return [...postRows, ...extras].sort((a, b) => b.time - a.time);
+
+    // A ranked feed keeps the server's order: sorting it by date would undo
+    // the ranking. The other rows, newest first, are spaced out between the
+    // posts instead.
+    extras.sort((a, b) => b.time - a.time);
+    const out: FeedRow[] = [];
+    postRows.forEach((row, i) => {
+      out.push(row);
+      if ((i + 1) % RANKED_EXTRA_EVERY === 0 && extras.length) out.push(extras.shift()!);
+    });
+    // Whatever's left goes at the end once there are no more posts to come.
+    return hasMorePosts ? out : [...out, ...extras];
+  }, [allPosts, garageCars, newRoutes, carActivity, groupActivity, includeGarageAdditions, hasMorePosts, ranked]);
 
   return (
     <>

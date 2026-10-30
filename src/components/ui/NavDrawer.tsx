@@ -1,20 +1,17 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Dimensions, Platform, Alert,
+  View, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Dimensions, Alert,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { BlurView } from 'expo-blur';
 import { Image } from './AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGetPhotoSpotsQuery } from '@ors/kit';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, Package, LifeBuoy, Camera, UserPlus, Settings, MapPinned,
+  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, Package, LifeBuoy, Camera, UserPlus, Settings, MapPinned, Waypoints, Shield,
 
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LogOut } from 'lucide-react-native';
-import Avatar from './Avatar';
 import GrowPanel, { type GrowOrigin } from './GrowPanel';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { useGetBadgesQuery, useGetMyEventsCountQuery } from '../../api/apiService';
@@ -23,7 +20,6 @@ import { useIsAppActive } from '../../hooks/useIsAppActive';
 import MyEventsSheet from '../society/MyEventsSheet';
 import AllCarTasksSheet, { useAllCarTasksTally } from '../cars/AllCarTasksSheet';
 import { openNotificationsPanel } from './NotificationsBell';
-import TaskProgressPie from '../cars/TaskProgressPie';
 import { useEventSheet } from '../../providers/EventSheetProvider';
 import { colors } from '../../constants/colors';
 import { InstagramIcon, DiscordIcon, YouTubeIcon } from './BrandIcons';
@@ -32,22 +28,16 @@ import {
   COMMON_RADIUS,
   PILL_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_18,
-  COLOR_GRAY_38,
-  COLOR_GRAY_90,
   COLOR_LOGO_CREAM,
   COLOR_WHITE,
-  COLOR_BORDER,
-  PANE_BG,
+  COLOR_GRAY_10,
 } from '../../constants/config';
-import { APP_VERSION } from '../../utils/appVersion';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import InviteFriendModal from '../members/InviteFriendModal';
 import ProfileSetupCard from '../members/ProfileSetupCard';
 import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
 import SteeringWheel from './SteeringWheel';
-import { imageUrl } from '../../utils/image';
 import WhatsNewButton from './WhatsNew';
 import OilSheen, { WARM_SHEEN_FILL } from './OilSheen';
 import { logout } from '../../store/authSlice';
@@ -80,6 +70,12 @@ const PANEL_WIDTH = Dimensions.get('window').width * PANEL_RATIO;
  * error can't overflow the row and wrap the tiles to one per line.
  */
 const TILE_WIDTH = Math.floor((PANEL_WIDTH - 32 - 8) / 2) - 1;
+/** How far the header's fade runs below its logo row. */
+const HEADER_FADE_H = 10;
+/** The header's fade: the panel's colour (PANE_BG, #121212) to clear. */
+const HEADER_FADE = ['rgba(18,18,18,0.96)', 'rgba(18,18,18,0.8)', 'rgba(18,18,18,0)'] as const;
+/** The inbox circles' diameter. */
+const CIRCLE = 52;
 
 /**
  * My Events — the events you've said you're interested in. Home went for good:
@@ -95,8 +91,6 @@ const SHOW_YOUR_EVENTS = true;
  * horacio's /api/product and hands the buyer to the web to pay.
  */
 const SHOW_SHOP = true;
-/** The slabs' height — What's New, under them, matches it (see WhatsNew). */
-const SLAB_H = 48;
 
 /**
  * Dark palette, matched to the web drawer: white-on-dark rather than derived
@@ -112,13 +106,15 @@ const SLAB_H = 48;
  * reading as a flat black box.
  */
 const PRO_GOLD  = colors.pro;
-const PANEL_BG  = PANE_BG;
 const TEXT_HI   = COLOR_WHITE;
 const TEXT_MID  = 'rgba(255,255,255,0.6)';
 const TEXT_FAINT= 'rgba(255,255,255,0.45)';
-const DIVIDER   = 'rgba(255,255,255,0.1)';
 const TILE_BG   = 'rgba(255,255,255,0.07)';
 const CHIP_BG   = 'rgba(255,255,255,0.1)';
+/** The dashboard button — a light grey, a step down from What's New's white. */
+const USER_CARD_BG = '#C9C9C9';
+/** The inbox circles and the main buttons — a well in the panel, darker than it. */
+const CIRCLE_BG = 'rgba(0,0,0,0.6)';
 /**
  * The wheel's own off-white, sampled from assets/logo.png.
  *
@@ -128,7 +124,7 @@ const CHIP_BG   = 'rgba(255,255,255,0.1)';
 const LOGO_CREAM = COLOR_LOGO_CREAM;
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, count, wide, flex }: {
+function NavTile({ label, Icon, onPress, count, wide, flex, row }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
@@ -142,11 +138,14 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
    * in the row needs one.
    */
   flex?: number;
+  /** A tile in one of the sideways rows (NavSection): a fixed width. */
+  row?: boolean;
 }) {
   return (
     <TouchableOpacity
       style={[
         styles.navTile,
+        row && styles.navTileRow,
         wide && styles.navTileWide,
         flex != null && { width: undefined, flex },
       ]}
@@ -155,12 +154,12 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
     >
       {/* Larger and white: the mark is how a tile is found at a glance, and at
           mid grey it sat behind its own label. */}
-      <Icon size={24} color={COLOR_WHITE} />
-      <Text style={styles.navTileLabel} numberOfLines={1}>{label}</Text>
-      {/* Pinned to the corner rather than trailing the label — stacked, there
-          is no end of the line for it to sit at. */}
+      <Icon size={row ? 22 : 24} color={COLOR_WHITE} />
+      <Text style={[styles.navTileLabel, row && styles.navTileLabelRow]} numberOfLines={1}>{label}</Text>
+      {/* Stacked, pinned to the corner — there's no end of the line for it.
+          Inline in a row tile, after the label. */}
       {count != null && count > 0 && (
-        <View style={[styles.unreadPill, styles.unreadPillCorner]}>
+        <View style={[styles.unreadPill, !row && styles.unreadPillCorner]}>
           <Text style={styles.unreadPillText}>
             {count > 99 ? '99+' : count}
           </Text>
@@ -170,101 +169,51 @@ function NavTile({ label, Icon, onPress, count, wide, flex }: {
   );
 }
 
-/** How many pin photos the Photography tile lays side by side behind its label. */
-const PHOTOGRAPHY_TILE_SHOTS = 3;
-
-/**
- * The Photography tile: full width, taller than the grid's, and wearing a few
- * photos from recent pins behind its label — a glimpse of the map's point
- * rather than an icon standing in for it. The photos fade to the tile's own
- * black along the bottom and the left, where the label sits, so it reads on
- * any picture. With no pinned photos yet it's a plain tile, still full width.
- */
-function PhotographyTile({ onPress }: { onPress: () => void }) {
-  // The most recent spots, as the map lists them with no viewport; the first
-  // photo of each of the first few that have one.
-  const { data } = useGetPhotoSpotsQuery({ limit: 12 });
-  const shots = (data?.entries ?? [])
-    .map((spot) => imageUrl(spot.gallery?.[0]?.filename))
-    .filter((url): url is string => !!url)
-    .slice(0, PHOTOGRAPHY_TILE_SHOTS);
-
+/** A titled group of tiles, in a row that scrolls sideways out to the panel's edges. */
+function NavSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    // A hairline of grey gradient around the tile, lit from the bottom-right: the
-    // gradient is the frame, and the tile is inset by the frame's width.
-    <LinearGradient
-      colors={[COLOR_GRAY_38, COLOR_GRAY_90]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.photoTileFrame}
-    >
-    <TouchableOpacity
-      style={styles.photoTile}
-      onPress={onPress}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityLabel="Photography"
-    >
-      {shots.length > 0 && (
-        <View style={[StyleSheet.absoluteFill, styles.photoTileShots]}>
-          {shots.map((url) => (
-            <Image key={url} source={{ uri: url }} style={styles.photoTileShot} contentFit="cover" transition={200} />
-          ))}
-        </View>
-      )}
-      {/* Two fades: up from the bottom for the label, and in from the left so
-          the icon and the first word don't sit on the brightest part of a photo. */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.85)']}
-        locations={[0.35, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0)']}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 0.7, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <View style={styles.photoTileText}>
-        <View style={styles.photoTileTitleRow}>
-          <Camera size={20} color={TEXT_HI} />
-          <Text style={styles.photoTileTitle}>Photography</Text>
-        </View>
-        <Text style={styles.photoTileSub} numberOfLines={1}>Members' favorite places to shoot their cars</Text>
-      </View>
-    </TouchableOpacity>
-    </LinearGradient>
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.sectionScroll}
+        contentContainerStyle={styles.sectionRow}
+      >
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
 /**
- * One inbox shortcut.
- *
- * Deliberately not a `NavTile`: outlined rather than filled, and horizontal
- * rather than stacked, so the pair reads as a different kind of thing from the
- * grid of places underneath them.
+ * One inbox shortcut: a circle with its label under it. Five share a row, so
+ * the inbox costs one row's height rather than three.
  */
-function InboxPill({ label, Icon, count, trailing, onPress }: {
+function InboxCircle({ label, Icon, count, onPress }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
-  /** Unread count — a red bubble after the label when above zero. */
+  /** Unread count — a red bubble on the circle's corner when above zero. */
   count?: number;
-  /** After the label, in place of a count bubble — the tasks pill's tally. */
-  trailing?: React.ReactNode;
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.inboxPill} onPress={onPress} activeOpacity={0.75}>
-      <Icon size={15} color={TEXT_MID} />
-      <Text style={styles.inboxPillLabel} numberOfLines={1}>{label}</Text>
-      {count != null && count > 0 && (
-        <View style={styles.unreadPill}>
-          <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
-        </View>
-      )}
-      {trailing}
+    <TouchableOpacity
+      style={styles.circleBtn}
+      onPress={onPress}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={count ? `${label}, ${count}` : label}
+    >
+      <View style={styles.circle}>
+        <Icon size={21} color={COLOR_WHITE} />
+        {count != null && count > 0 && (
+          <View style={[styles.unreadPill, styles.circleCount]}>
+            <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.circleLabel} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -286,12 +235,13 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   // Measured rather than assumed: the header carries the status-bar inset on
   // top of its own row, and the list has to start below whatever that adds up
   // to on this device.
-  const [headerH, setHeaderH] = useState(72);
   const { userInfo } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
   const isPro = useIsPro();
-  /** About and Support take the account's colour — gold for Pro, else blue. */
-  const slabFill = isPro ? colors.pro : colors.primaryAlt;
+  // Measured: the list starts under the floating header's logo row.
+  const [headerH, setHeaderH] = useState(72);
+  /** The header's mark and wordmark — Pro red, or the blue on a basic account. */
+  const brandMark = isPro ? colors.pro : colors.primaryAlt;
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
   // The bell's own count, so the drawer and the header always agree.
@@ -318,7 +268,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const [myEventsOpen, setMyEventsOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
   // Every car's tasks, for the All Car Tasks pill — how many open, and the pie.
-  const taskTotals = useAllCarTasksTally(isLoggedIn);
+  const taskTotals = useAllCarTasksTally(isLoggedIn && isPro);
   const [proOpen, setProOpen] = useState(false);
   /** Open when non-null; the origin is the row the panel grows out of. */
   const [invite, setInvite] = useState<{ origin: SummaryOrigin | null } | null>(null);
@@ -353,14 +303,13 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
     ]);
   }, [closeThen, dispatch]);
 
-  const goFeed = useCallback((screen: 'Feed' | 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace') => {
+  const goFeed = useCallback((screen: 'Feed' | 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace' | 'Brands') => {
     closeThen(() => navigation.navigate('MainTabs', {
       screen: 'FeedTab',
       params: { screen },
     } as any));
   }, [closeThen, navigation]);
 
-  const displayName = userInfo?.username ?? '';
 
   return (
     <GrowPanel visible={visible} origin={origin} onClose={onClose} backdrop="summary">
@@ -373,10 +322,31 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
               style={styles.scroll}
               contentContainerStyle={[
                 styles.scrollContent,
-                { paddingTop: headerH + 10, paddingBottom: 24 },
+                // Below the whole header, fade included, so at rest nothing
+                // sits under the gradient — only what's scrolled up does.
+                { paddingTop: headerH, paddingBottom: 24 },
               ]}
               showsVerticalScrollIndicator={false}
             >
+              {/* What's left of setting up a profile, at the very top —
+                  renders nothing once every step is done or dismissed. Pro members too: an account
+                  can be paid for and still have no photo. */}
+              {userInfo && (
+                <ProfileSetupCard
+                  // Photo and bio are done in sheets inside the card, and the
+                  // car form now opens over the menu too: closing everything
+                  // to push CarCreate dropped you back on whatever screen was
+                  // under the drawer once the car was saved, with the rest of
+                  // the checklist gone. Only a post still leaves — Create is a
+                  // full-screen composer, not a sheet.
+                  onGo={(step) => (
+                    step === 'car'
+                      ? setCarFormOpen(true)
+                      : closeThen(() => navigation.navigate('Create'))
+                  )}
+                />
+              )}
+
               {/* The head of the list, above your own account row. It's the
                   only gold in a white-on-dark drawer, so it reads as the one
                   offer rather than another destination — and it's gone entirely
@@ -403,7 +373,122 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 </TouchableOpacity>
               )}
 
-              {/* Your own account. Dashboard and Settings are where you go to
+              {/* Your inbox — a row of circles rather than pills: the things
+                  that might be waiting for you, ahead of the places you browse
+                  to, in a single row's height. Car Tasks is a Pro tool, so
+                  it's only here for Pro. */}
+              <View style={styles.circleRow}>
+                <InboxCircle
+                  label="Messages"
+                  Icon={Mail}
+                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
+                />
+                <InboxCircle
+                  label="Notices"
+                  Icon={Bell}
+                  count={notifCount}
+                  // The header's own panel, grown from its bell, as if it had
+                  // been tapped there — a couple of frames on, once the menu's
+                  // Modal has gone (iOS won't present one over another). The
+                  // screen is the fallback where no header bell is showing.
+                  onPress={() => closeThen(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+                    if (!openNotificationsPanel()) navigation.navigate('Notifications');
+                  })))}
+                />
+                <InboxCircle
+                  label="Alerts"
+                  Icon={BellRing}
+                  onPress={() => closeThen(() => navigation.navigate('Alerts'))}
+                />
+                {SHOW_YOUR_EVENTS && (
+                  <InboxCircle
+                    label="My Events"
+                    Icon={CalendarCheck}
+                    count={myEventsCount}
+                    onPress={() => setMyEventsOpen(true)}
+                  />
+                )}
+                {isPro && (
+                  <InboxCircle
+                    label="Car Tasks"
+                    Icon={CheckSquare}
+                    count={taskTotals.open}
+                    onPress={() => setTasksOpen(true)}
+                  />
+                )}
+              </View>
+
+              {/* The places you browse to, grouped, each group a row that
+                  scrolls sideways. */}
+              <NavSection title="Events & Drives">
+                {/* Home, on its Events tab — where events live now. */}
+                <NavTile row label="Events" Icon={Flag} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } },
+                  } as any))} />
+                <NavTile row label="ORS Rallys" Icon={Route}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
+                <NavTile row label="Routes" Icon={Waypoints}
+                  onPress={() => closeThen(() => navigation.navigate('Routes'))} />
+              </NavSection>
+
+              <NavSection title="Community">
+                <NavTile row label="Groups" Icon={Users} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'groups', at: Date.now() } },
+                  } as any))} />
+                <NavTile row label="Members" Icon={UserRound} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'members', at: Date.now() } },
+                  } as any))} />
+                {/* Where posts were made, as pins — the other map you browse. */}
+                <NavTile row label="Posts Map" Icon={MapPinned}
+                  onPress={() => closeThen(() => navigation.navigate('PostsMap'))} />
+                {/* Home, on its Photography tab — the map lives there now. */}
+                <NavTile row label="Photography" Icon={Camera}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'photography', at: Date.now() } },
+                  } as any))} />
+                <NavTile row label="Marketplace" Icon={ShoppingBag} count={marketplaceUnread} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'market', at: Date.now() } },
+                  } as any))} />
+                {/* Pro-only, beside the marketplace it lists into. */}
+                {isPro && (
+                  <NavTile row label="List a Diecast" Icon={Package}
+                    onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
+                )}
+              </NavSection>
+
+              <NavSection title="Cars">
+                <NavTile row label="Member Cars" Icon={Car} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Feed', params: { tab: 'cars', at: Date.now() } },
+                  } as any))} />
+                <NavTile row label="All Brands" Icon={Shield} onPress={() => goFeed('Brands')} />
+              </NavSection>
+
+
+              <NavSection title="The Society">
+                <NavTile row label="About" Icon={Info}
+                  onPress={() => closeThen(() => navigation.navigate('About'))} />
+                <NavTile row label="Concierge" Icon={Car}
+                  onPress={() => closeThen(() => navigation.navigate('Concierge'))} />
+                <NavTile row label="Articles" Icon={BookOpen} onPress={() => goFeed('Articles')} />
+                {/* The society's YouTube channel, watched in the app. */}
+                <NavTile row label="ORS Videos" Icon={YouTubeIcon}
+                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
+                    screen: 'FeedTab',
+                    params: { screen: 'Videos' },
+                  } as any))} />
+                {SHOW_SHOP && (
+                  <NavTile row label="Shop" Icon={Store}
+                    onPress={() => closeThen(() => navigation.navigate('Shop'))} />
+                )}
+              </NavSection>
+
+              {/* At the foot of the menu, above the small print. Your own account. Dashboard and Settings are where you go to
                   change anything about yourself, and as a grey tile a third of
                   the way down it read as one more row among the destinations.
                   Cream, the wheel's own colour, is the one light surface in a
@@ -419,248 +504,17 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   onPress={() => goFeed('Dashboard')}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel="My Dashboard & Settings"
+                  accessibilityLabel="Dashboard & Settings"
                 >
-                  <Avatar
-                    user={userInfo}
-                    size={44}
-                  />
+                  {/* What's New's button, under it, without the gradient: the
+                      same slab and chevron. */}
+                  <Settings size={17} color={COLOR_GRAY_10} strokeWidth={2.2} />
                   <View style={styles.userCardText}>
-                    <Text style={styles.userCardName} numberOfLines={1}>My Dashboard & Settings</Text>
-                    <Text style={styles.userCardSub} numberOfLines={1}>@{displayName}</Text>
+                    <Text style={styles.userCardName} numberOfLines={1}>Dashboard & Settings</Text>
                   </View>
-                  <View style={styles.userCardCog}>
-                    <Settings size={19} color={LOGO_CREAM} strokeWidth={2.2} />
-                  </View>
+                  <ChevronRight size={16} color="rgba(0,0,0,0.55)" strokeWidth={2.5} />
                 </TouchableOpacity>
               )}
-
-              {/* What's left of setting up a profile — renders nothing once
-                  every step is done or dismissed. Pro members too: an account
-                  can be paid for and still have no photo. */}
-              {userInfo && (
-                <ProfileSetupCard
-                  // Photo and bio are done in sheets inside the card, and the
-                  // car form now opens over the menu too: closing everything
-                  // to push CarCreate dropped you back on whatever screen was
-                  // under the drawer once the car was saved, with the rest of
-                  // the checklist gone. Only a post still leaves — Create is a
-                  // full-screen composer, not a sheet.
-                  onGo={(step) => (
-                    step === 'car'
-                      ? setCarFormOpen(true)
-                      : closeThen(() => navigation.navigate('Create'))
-                  )}
-                />
-              )}
-
-              {/* Your inbox — pills, not tiles, and ahead of the grid. These
-                  are the things that might be waiting for you, so they come
-                  before the places you browse to; the grid below is where you
-                  go when nothing is.
-
-                  Alerts sits with them on its own row rather than squeezed
-                  into theirs: it's the rules behind some of those
-                  notifications, so it belongs beside them — but it's a full
-                  width of label, and a third of a row would truncate it.
-
-                  Outlined and inline rather than filled and stacked: drawn
-                  like the tiles they read as two more destinations in the same
-                  list, when they're a different kind of thing. */}
-              <View style={styles.inboxRow}>
-                <InboxPill
-                  label="Messages"
-                  Icon={Mail}
-                  onPress={() => closeThen(() => navigation.navigate('Messages'))}
-                />
-                <InboxPill
-                  label="Notifications"
-                  Icon={Bell}
-                  count={notifCount}
-                  // The header's own panel, grown from its bell, as if it had
-                  // been tapped there — a couple of frames on, once the menu's
-                  // Modal has gone (iOS won't present one over another). The
-                  // screen is the fallback where no header bell is showing.
-                  onPress={() => closeThen(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-                    if (!openNotificationsPanel()) navigation.navigate('Notifications');
-                  })))}
-                />
-              </View>
-              <View style={styles.inboxRow}>
-                <InboxPill
-                  label="Custom Alerts"
-                  Icon={BellRing}
-                  onPress={() => closeThen(() => navigation.navigate('Alerts'))}
-                />
-                {/* Beside the alerts as a pill, not a tile of its own: it's
-                    yours, like the inbox, rather than a place to go. */}
-                {SHOW_YOUR_EVENTS && (
-                  <InboxPill
-                    label="My Events"
-                    Icon={CalendarCheck}
-                    count={myEventsCount}
-                    onPress={() => setMyEventsOpen(true)}
-                  />
-                )}
-              </View>
-              {/* Every car's tasks at once — yours, like the pills above. */}
-              <View style={styles.inboxRow}>
-                <InboxPill
-                  label="All Car Tasks"
-                  Icon={CheckSquare}
-                  onPress={() => setTasksOpen(true)}
-                  trailing={taskTotals.total > 0 ? (
-                    <View style={styles.tasksTally}>
-                      {taskTotals.open > 0 && <Text style={styles.tasksTallyText}>{taskTotals.open}</Text>}
-                      <TaskProgressPie completed={taskTotals.done} total={taskTotals.total} size={16} color={TEXT_HI} />
-                    </View>
-                  ) : undefined}
-                />
-              </View>
-
-              {/* Two-column grid — half the height of a stacked list, which is
-                  what kept the log-out button pushed below the fold.
-
-                  No heading over it: with the inbox pills above reading as
-                  their own kind of thing and the slabs below as theirs, the
-                  grid is already the only run of tiles in the menu, and a
-                  label naming it was saying what the shapes had said. */}
-              <View style={styles.grid}>
-                {/* Home, on its Events tab — where events live now — rather
-                    than the stand-alone Events screen. */}
-                <NavTile label="Events" Icon={Flag}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } },
-                  } as any))} />
-                <NavTile label="ORS Rallys" Icon={Route}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
-                {/* Home, on its Cars tab — a pane there now, like Events. */}
-                <NavTile label="Cars" Icon={Car}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'cars', at: Date.now() } },
-                  } as any))} />
-                {/* Home, on its Groups tab — like Events and Marketplace. */}
-                <NavTile label="Groups" Icon={Users}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'groups', at: Date.now() } },
-                  } as any))} />
-                {/* Home, on its Members tab — a pane there now, like Events. */}
-                <NavTile label="Members" Icon={UserRound}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'members', at: Date.now() } },
-                  } as any))} />
-                <NavTile label="Articles" Icon={BookOpen}
-                  onPress={() => goFeed('Articles')} />
-                {/* Routes came out of the tab bar when the marketplace took
-                    that lane. */}
-                <NavTile label="Routes" Icon={Route}
-                  onPress={() => closeThen(() => navigation.navigate('Routes'))} />
-                {/* Where posts were made, as pins — beside Routes, the other
-                    map you browse. "Posts Map" rather than anything longer:
-                    the tiles are half the row and a label stays on one line. */}
-                <NavTile label="Posts Map" Icon={MapPinned}
-                  onPress={() => closeThen(() => navigation.navigate('PostsMap'))} />
-                {/* Marketplace is somewhere you browse, so it browses with
-                    everything else. It had a SHOP heading of its own next to
-                    the merch shop; with that parked, the heading was left
-                    naming a section that no longer had two things in it. */}
-                {/* Home, on its Marketplace tab — where the marketplace
-                    lives now — rather than a screen of its own. */}
-                <NavTile label="Marketplace" Icon={ShoppingBag}
-                  count={marketplaceUnread}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'market', at: Date.now() } },
-                  } as any))} />
-                {/* The header's + used to be the only way to list a diecast; it
-                    goes straight to a new post now, so the entry point lives
-                    here beside the marketplace it lists into. Pro-only, as
-                    before — and conditional, which is the other reason it can't
-                    carry a section heading of its own: a basic account would
-                    get the label and an empty grid under it. */}
-                {isPro && (
-                  <NavTile label="List a Diecast" Icon={Package}
-                    onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
-                )}
-                {/* The society's YouTube channel, watched in the app. */}
-                <NavTile label="ORS Videos" Icon={YouTubeIcon}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Videos' },
-                  } as any))} />
-              </View>
-
-              {/* Photography closes the grid on a full-width tile of its own —
-                  the map is a place you go, and a few of its photos say so
-                  better than a camera glyph did. */}
-              <PhotographyTile
-                // Home, on its Photography tab — the map lives there now.
-                onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                  screen: 'FeedTab',
-                  params: { screen: 'Feed', params: { tab: 'photography', at: Date.now() } },
-                } as any))}
-              />
-
-              {/* The shop leads the three slabs at the foot of the menu.
-                  It sits out of the tile grid for the same reason About and
-                  Support do — none of them is somewhere you browse to — and
-                  now wears the same size and fill as the two below it. Its own
-                  brass and larger type made it the loudest thing in the drawer,
-                  which is a lot of emphasis for a shop with a few shirts. */}
-              {/* Shop and About side by side, half the width each. */}
-              <View style={styles.slabPair}>
-              {SHOW_SHOP && (
-                <TouchableOpacity
-                  style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
-                  onPress={() => closeThen(() => navigation.navigate('Shop'))}
-                  activeOpacity={0.85}
-                >
-                  <Store size={20} color={COLOR_BLACK} />
-                  <Text style={styles.aboutBtnText} numberOfLines={1}>Shop</Text>
-                  <ChevronRight size={18} color={COLOR_BLACK} />
-                </TouchableOpacity>
-              )}
-
-              {/* Two slabs rather than tiles — neither is somewhere you browse
-                  to. One is the story of the place, the other is how you reach
-                  a person in it, and they're the last two things in the menu
-                  for the same reason. The MORE heading went with them: a
-                  section label over a single row was naming a section of one.
-
-                  Both the same fill, rather than one filled and one dark:
-                  they're a pair of ways to reach the society, and colouring
-                  them differently implied a hierarchy that isn't there. Gold
-                  for a pro member, blue otherwise — black text reads on both,
-                  so only the ground changes. */}
-              <TouchableOpacity
-                style={[styles.aboutBtn, styles.slabHalf, { backgroundColor: slabFill }]}
-                onPress={() => closeThen(() => navigation.navigate('About'))}
-                activeOpacity={0.85}
-                accessibilityLabel="About Open Road Society"
-              >
-                <Info size={20} color={COLOR_BLACK} />
-                {/* Just "About" at half width — the full name ran out of room. */}
-                <Text style={styles.aboutBtnText} numberOfLines={1}>About</Text>
-                <ChevronRight size={18} color={COLOR_BLACK} />
-              </TouchableOpacity>
-              </View>
-
-              {/* Concierge, full width under the pair: the one slab that is
-                  a service the society offers rather than a page about it. */}
-              <TouchableOpacity
-                style={[styles.aboutBtn, styles.slabWide, { backgroundColor: slabFill }]}
-                onPress={() => closeThen(() => navigation.navigate('Concierge'))}
-                activeOpacity={0.85}
-                accessibilityLabel="Concierge services"
-              >
-                <Car size={20} color={COLOR_BLACK} />
-                <Text style={styles.aboutBtnText} numberOfLines={1}>Concierge Services</Text>
-                <ChevronRight size={18} color={COLOR_BLACK} />
-              </TouchableOpacity>
 
               <View style={styles.footer}>
                 {/* Leads the small print, above the version pill it's about.
@@ -674,18 +528,21 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                     sit with the small print rather than among the slabs. */}
                 <View style={styles.footLinks}>
                   <TouchableOpacity
+                    style={styles.footBtn}
                     onPress={() => closeThen(() => navigation.navigate('Support'))}
-                    hitSlop={8}
-                    accessibilityRole="link"
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
                   >
-                    <Text style={styles.footLink}>Support</Text>
+                    <LifeBuoy size={16} color={TEXT_HI} />
+                    <Text style={styles.footBtnText} numberOfLines={1}>Support</Text>
                   </TouchableOpacity>
-                  <Text style={styles.footDot}>·</Text>
                   <SummaryTouchable
+                    style={styles.footBtn}
                     onPress={(origin) => setInvite({ origin })}
                     accessibilityLabel="Invite a friend"
                   >
-                    <Text style={styles.footLink}>Invite a friend</Text>
+                    <UserPlus size={16} color={TEXT_HI} />
+                    <Text style={styles.footBtnText} numberOfLines={1}>Invite a friend</Text>
                   </SummaryTouchable>
                 </View>
 
@@ -736,22 +593,20 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                       piece of small print anyone goes looking for, usually to
                       read it out when something's wrong; it tracks app.json,
                       which `npm run bump` rewrites. */}
-                  <View style={styles.footerChips}>
-                    {APP_VERSION ? (
-                      <Text style={styles.footerVersion}>v{APP_VERSION}</Text>
-                    ) : null}
-                    <TouchableOpacity
-                      style={styles.logoutBtn}
-                      onPress={handleLogout}
-                      activeOpacity={0.7}
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Log out"
-                    >
-                      <LogOut size={11} color={TEXT_MID} />
-                      <Text style={styles.logoutText}>Log out</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* The word, then the circle — one control, so either takes the tap. */}
+                  <TouchableOpacity
+                    style={styles.footerChips}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Log out"
+                  >
+                    <Text style={styles.logoutLabel}>Log out</Text>
+                    <View style={styles.logoutBtn}>
+                      <LogOut size={17} color={TEXT_HI} />
+                    </View>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.footerBottom}>
@@ -768,29 +623,22 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
               </View>
             </ScrollView>
 
-            {/* Header. Rendered after the list so it paints on top of it: an
-                iOS blur samples whatever is beneath it in the hierarchy, which
-                is what lets the tiles show through as they pass under. */}
-            {/* Inside an inset panel now, so no status-bar inset of its own —
-                the panel's top edge already clears it. */}
+            {/* Header, floating over the list, which runs to the panel's top
+                beneath it. No solid bar: a fade from the panel's colour to
+                clear, so the tiles dim as they pass under the logo. After the
+                list so it paints on top; box-none so only its buttons take
+                touches. */}
             <View
-              style={[styles.panelHeader, { paddingTop: 14 }]}
+              style={styles.panelHeader}
+              pointerEvents="box-none"
               onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
             >
-              {/* iOS only. Android's blur needs a `blurTarget` this bar
-                  can't sensibly give it, and without one expo-blur logs a
-                  warning on every render and draws nothing — the tint below
-                  does the job there on its own. */}
-              {Platform.OS === 'ios' && (
-                <BlurView tint="dark" intensity={55} style={StyleSheet.absoluteFill} />
-              )}
-              {/* Enough tint to keep the logo and icons legible over whatever
-                  tile happens to be sliding under them, and no more. */}
-              <View style={[StyleSheet.absoluteFill, styles.panelHeaderTint]} />
-              {/* Who this is, and the way out — the whole header. Messages,
-                  notifications and log out used to sit under it as three
-                  unlabelled discs; they're rows in the list now, where they
-                  can say what they are. */}
+              <LinearGradient
+                colors={HEADER_FADE}
+                locations={[0, 0.55, 1]}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
               <View style={styles.titleRow}>
                 <Image
                   source={require('../../../assets/logo.png')}
@@ -798,10 +646,10 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   contentFit="contain"
                   // The mark is a flat cream wheel, so a tint recolours it
                   // cleanly — no second asset to keep in step with the palette.
-                  tintColor={isPro ? colors.pro : undefined}
+                  tintColor={brandMark}
                 />
                 <Text
-                  style={[styles.panelLogo, isPro && { color: colors.pro }]}
+                  style={[styles.panelLogo, { color: brandMark }]}
                   numberOfLines={1}
                 >
                   Open Road Society
@@ -820,12 +668,13 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 )}
                 <View style={styles.titleSpacer} />
                 <TouchableOpacity
+                  style={styles.closeBtn}
                   onPress={handleClose}
-                  hitSlop={12}
+                  hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel="Close menu"
                 >
-                  <X size={22} color={TEXT_HI} strokeWidth={2} />
+                  <X size={20} color={TEXT_HI} strokeWidth={2.2} />
                 </TouchableOpacity>
               </View>
 
@@ -882,17 +731,19 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
 const styles = StyleSheet.create({
   // The panel's box, backdrop and fade are GrowPanel's; only what's drawn
   // inside the panel is styled here.
+  // One line: the mark, the wordmark, and the X — on the panel itself.
+  // Over the top of the list; the fade below the row is HEADER_FADE_H.
   panelHeader: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2,
-    // One line: the mark, the wordmark, and the X.
     justifyContent: 'center',
-    paddingHorizontal: 16, paddingBottom: 14,
-    // Clips the blur to the bar, and gives the list a visible edge to pass
-    // beneath rather than fading into nothing.
-    overflow: 'hidden',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DIVIDER,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: HEADER_FADE_H,
   },
-  panelHeaderTint: { backgroundColor: 'rgba(0,0,0,0.62)' },
+  // A semi-transparent black disc behind the X.
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   // A little air above it, clear of the panel's rounded top corners.
   titleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 3,
@@ -918,48 +769,52 @@ const styles = StyleSheet.create({
     fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
     letterSpacing: 0.8,
   },
-  // Light on dark — the one cream surface in the drawer, so it leads the eye.
+  // What's New's button (WhatsNew's `btn`), minus its gradient film.
   userCard:   {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    // No horizontal margin any more — the scroll content supplies the gutter
-    // now that this sits inside it.
-    marginBottom: 10, paddingHorizontal: 14, paddingVertical: 12,
-    borderRadius: COMMON_RADIUS, backgroundColor: LOGO_CREAM,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginTop: 24, minHeight: 48,
+    paddingHorizontal: 14, paddingVertical: 10,
+    // A soft grey rather than What's New's white, so the two don't compete.
+    borderRadius: COMMON_RADIUS, backgroundColor: USER_CARD_BG,
   },
   userCardText: { flex: 1, minWidth: 0 },
-  userCardName: { fontSize: 15, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
-  userCardSub:  { fontSize: 13, fontFamily: FONT_INTER.semibold, color: 'rgba(0,0,0,0.6)', marginTop: 1 },
-  // Dark chip, cream cog — the card's colours swapped, so the icon reads as the
-  // button's mark rather than a stray glyph on the cream.
-  userCardCog: {
-    width: 36, height: 36, borderRadius: COMMON_RADIUS,
-    backgroundColor: COLOR_GRAY_18,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  userCardName: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: COLOR_GRAY_10 },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
-  // No wrap: the two share the row evenly rather than sizing to their labels,
-  // so "Messages" and "Notifications" come out the same width despite one
-  // being half again as long.
-  inboxRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  inboxPill: {
-    flex: 1, minWidth: 0,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    // The slab buttons' height and corners (Shop, About…), kept outlined.
-    minHeight: SLAB_H, paddingHorizontal: 12, paddingVertical: 14,
-    borderRadius: COMMON_RADIUS,
-    borderWidth: 1, borderColor: COLOR_BORDER,
+  // The inbox circles, spread evenly across the row.
+  // Ruled off above and below, with room inside, so the inbox reads as its
+  // own band between the account cards and the tiles.
+  circleRow:   {
+    flexDirection: 'row', justifyContent: 'space-between',
+    // Out to the panel's edges, so the rules run edge to edge; the padding
+    // keeps the circles on the gutter.
+    marginTop: 4, marginBottom: 4, marginHorizontal: -16,
+    paddingVertical: 16, paddingHorizontal: 16,
+    borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
-  // Lighter than a tile's label — these sit above the grid and shouldn't
-  // outweigh it.
-  inboxPillLabel: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: TEXT_HI, flexShrink: 1 },
-  // Open tasks, then the pie — after the label, as a count bubble would be.
-  tasksTally:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 2 },
-  tasksTallyText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: TEXT_HI },
+  circleBtn:   { flex: 1, alignItems: 'center', gap: 6 },
+  circle: {
+    width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2,
+    // Darker than the panel, no outline.
+    backgroundColor: CIRCLE_BG,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  // On the circle's top-right edge.
+  circleCount: { position: 'absolute', top: -4, right: -6 },
+  circleLabel: { fontSize: 11, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
 
-  // `paddingTop` picks up the separation the removed section heading used to
-  // provide between the inbox pills and the tiles.
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 12 },
+  // A group of tiles: its name, then the sideways row.
+  section:       { marginTop: 18 },
+  sectionTitle:  {
+    fontSize: 13, fontFamily: FONT_INTER.medium,
+    color: COLOR_WHITE, marginBottom: 8,
+  },
+  // Out to the panel's edges, so a row scrolls under them rather than
+  // stopping at the gutter; the content puts the gutter back.
+  sectionScroll: { marginHorizontal: -16 },
+  sectionRow:    { gap: 8, paddingHorizontal: 16 },
+
   navTile:  {
     width: TILE_WIDTH,
     // Stacked, not inline. An icon beside a label is a list row wearing a
@@ -971,23 +826,19 @@ const styles = StyleSheet.create({
     backgroundColor: TILE_BG,
   },
   navTileWide:  { width: undefined, flex: 1 },
-  // The frame's padding is the border's width; the tile's radius is the frame's less that.
-  // The same gap above it as below it, to the Shop and About row (slabPair).
-  photoTileFrame: { marginTop: 20, padding: 1.5, borderRadius: 12 },
-  photoTile: {
-    height: 128, borderRadius: 10.5, overflow: 'hidden',
-    backgroundColor: PANEL_BG, justifyContent: 'flex-end',
+  // Inline and short: the icon beside the label, and as wide as the two need.
+  navTileRow:   {
+    width: undefined,
+    flexDirection: 'row', justifyContent: 'flex-start', gap: 10,
+    // The inbox circles' dark well.
+    backgroundColor: CIRCLE_BG,
+    paddingHorizontal: 14, paddingVertical: 16,
   },
-  photoTileShots: { flexDirection: 'row' },
-  photoTileShot:  { flex: 1, height: '100%' },
-  photoTileText:  { paddingHorizontal: 14, paddingBottom: 12, gap: 3 },
-  photoTileTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  photoTileTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, color: TEXT_HI },
-  photoTileSub:   { fontSize: 12, fontFamily: FONT_INTER.semibold, color: TEXT_MID },
   navTileLabel: {
     fontSize: 12.5, fontFamily: FONT_INTER.bold, color: TEXT_HI,
     textAlign: 'center', flexShrink: 1,
   },
+  navTileLabelRow: { fontSize: 15, textAlign: 'left', flexShrink: 0 },
   rowGap:       { marginTop: 8 },
   // Every count in the menu is the app's "waiting for you" red — the bell's
   // bubble — a circle for one digit, stretching to a pill for more.
@@ -1001,24 +852,16 @@ const styles = StyleSheet.create({
   unreadPillCorner: { position: 'absolute', top: 11, right: 11 },
   unreadPillText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
 
-  aboutBtn:     {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginTop: 20, minHeight: SLAB_H,
-    paddingHorizontal: 16, paddingVertical: 14, borderRadius: COMMON_RADIUS,
+  // Two outlined buttons sharing the row evenly.
+  footLinks:    { flexDirection: 'row', gap: 8, marginTop: 10 },
+  // Grow from nothing, so the two are exactly half each whatever their labels.
+  footBtn: {
+    flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
   },
-  aboutBtnText: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.medium, color: COLOR_BLACK },
-  supportBtn:   { marginTop: 8 },
-  // Shop and About: a row of two, the slabs' top margin on the row.
-  slabPair:     { flexDirection: 'row', gap: 8, marginTop: 20 },
-  // Half the row, inline as the full-width slabs were.
-  slabHalf:     { flex: 1, marginTop: 0, paddingHorizontal: 12, gap: 8 },
-  // The whole row, the pair's gap above it.
-  slabWide:     { marginTop: 8, paddingHorizontal: 12, gap: 8 },
-  footLinks:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  footLink:     { fontSize: 13, fontFamily: FONT_INTER.semibold, color: 'rgba(255,255,255,0.7)' },
-  footDot:      { fontSize: 13, color: 'rgba(255,255,255,0.35)' },
-  // The second pair, the slabs' usual gap below the first.
-  slabPairNext: { marginTop: 8 },
+  footBtnText:  { flexShrink: 1, fontSize: 13.5, fontFamily: FONT_INTER.semibold, color: TEXT_HI },
 
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   socialBtn: {
@@ -1028,21 +871,20 @@ const styles = StyleSheet.create({
   },
   // `marginLeft: auto` takes the gap between the marks and these, so the two
   // groups sit at opposite ends of the row rather than bunched together.
-  footerChips: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
-  // The version chip's look (footerVersion), with its icon.
+  footerChips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto' },
+  logoutLabel: { fontSize: 13, fontFamily: FONT_INTER.semibold, color: TEXT_MID },
+  // A circle at the social marks' size, the icon alone.
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 9, paddingVertical: 3,
-    borderRadius: 999,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: CHIP_BG,
+    alignItems: 'center', justifyContent: 'center',
   },
-  logoutText: { fontSize: 11, fontFamily: FONT_INTER.medium, letterSpacing: 0.2, color: TEXT_MID },
   footer:        {
-    // Last thing in the list rather than a band pinned under it — no rule
-    // over it: it follows the slabs as one more row of them.
-    marginTop: 8, gap: 12,
+    // Last thing in the list, under the dashboard card — the footer's own
+    // gap, so it and What's New read as a pair.
+    marginTop: 12, gap: 12,
   },
-  footerBottom:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  footerBottom:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8 },
   footerLinks:   { flexDirection: 'row', gap: 12 },
   footerLink:    { fontSize: 12, color: TEXT_MID },
   footerCopy:    { fontSize: 12, color: TEXT_FAINT },
@@ -1067,17 +909,4 @@ const styles = StyleSheet.create({
   proCalloutTitle: { fontSize: 14, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
   proCalloutSub:   { fontSize: 11.5, color: 'rgba(0,0,0,0.65)', marginTop: 1 },
 
-  footerVersion: {
-    paddingHorizontal: 9, paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: CHIP_BG,
-    // Inter, like all small text — the app uses Inter throughout.
-    // Tabular figures keep the version's digits evenly spaced, which is all
-    // the monospace face was doing here.
-    fontFamily: FONT_INTER.medium,
-    fontVariant: ['tabular-nums'],
-    fontSize: 11,
-    letterSpacing: 0.2,
-    color: TEXT_MID,
-  },
 });
