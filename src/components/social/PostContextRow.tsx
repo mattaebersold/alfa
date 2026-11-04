@@ -8,7 +8,7 @@ import UserSummaryModal from '../members/UserSummaryModal';
 import Avatar from '../ui/Avatar';
 import CarSummaryModal from '../cars/CarSummaryModal';
 import GroupSummaryModal from '../groups/GroupSummaryModal';
-import { useEventSheet } from '../../providers/EventSheetProvider';
+import EventSummaryModal from '../society/EventSummaryModal';
 import { Users, Car as CarIcon, User as UserIcon, Calendar, MapPin } from 'lucide-react-native';
 import { useGetPhotoSpotQuery } from '@ors/kit';
 import { PhotoSpotSummaryModal } from '@ors/kit/src/photography';
@@ -338,8 +338,6 @@ export default function PostContextRow({ post, omitGroupId, omitUsers = false, t
    */
   tight?: boolean;
 }) {
-  const { openEventSheet } = useEventSheet();
-
   /**
    * Which panel is open, and where it should grow from.
    *
@@ -362,12 +360,11 @@ export default function PostContextRow({ post, omitGroupId, omitUsers = false, t
    * place you were in. The panels all carry their own "view more" for when the
    * answer is worth leaving for.
    *
-   * Events are the exception in mechanism only: their sheet already exists at
-   * the root — it's the same one the calendar and the drawer open — so they
-   * get that rather than a second, thinner version of it.
+   * Events too: a post tagged with one is mostly about a day that's past, so
+   * it opens a summary of the event (EventSummaryModal) rather than the
+   * calendar's full sheet.
    */
   const openFor = (kind: Kind, id: string) => (origin: SummaryOrigin | null) => {
-    if (kind === 'event') return openEventSheet({ eventId: id });
     setOpen({ kind, id, origin });
   };
 
@@ -417,6 +414,11 @@ export default function PostContextRow({ post, omitGroupId, omitUsers = false, t
       />
       <GroupSummaryModal
         groupId={open?.kind === 'group' ? open.id : null}
+        origin={open?.origin}
+        onClose={close}
+      />
+      <EventSummaryModal
+        eventId={open?.kind === 'event' ? open.id : null}
         origin={open?.origin}
         onClose={close}
       />

@@ -20,7 +20,7 @@ export default function PostCommentsModal({ postId, entryType, origin, onClose }
   onClose: () => void;
 }) {
   // The same query the thread reads — cached, so this costs no second request.
-  const { comments } = useCommentThread(entryType, postId, { skip: origin === undefined });
+  const { rows } = useCommentThread(entryType, postId, { skip: origin === undefined });
   return (
     <SummaryModal
       visible={origin !== undefined}
@@ -29,7 +29,7 @@ export default function PostCommentsModal({ postId, entryType, origin, onClose }
       // Pinned, not scrolled: when the keyboard shrinks the panel and the
       // thread scrolls to the field, the heading would be the first thing
       // to go off the top.
-      header={<CommentsHeading count={comments.length} style={styles.heading} />}
+      header={<CommentsHeading count={rows.length} style={styles.heading} />}
     >
       <InlineComments
         documentId={postId}

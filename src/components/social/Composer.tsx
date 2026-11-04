@@ -71,8 +71,8 @@ export interface ComposerProps {
   /** Draw the bar's send button as an icon rather than the label. */
   sendIcon?: boolean;
   /**
-   * Draw the attach button as a button in the field's own clothes — a round
-   * outline filled like the field — rather than a bare icon beside it.
+   * Put the attach button inside the field, on its left — the grey box is
+   * the field and the button both — rather than a bare icon after it.
    */
   attachField?: boolean;
   /** Padding, border and such for the bar's wrapper. */
@@ -273,8 +273,46 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
       const next = e.nativeEvent.contentSize.height > ONE_LINE_H;
       setTall((was) => (was === next ? was : next));
     },
-    style: [ss.chatInput, styles.field, tall && styles.fieldTall, { color: t.text, backgroundColor: t.field, borderColor: t.border }],
+    style: [
+      ss.chatInput, styles.field,
+      attachField
+        // The box around it carries the fill, rule and corners.
+        ? [styles.fieldInBox, { color: t.text }]
+        : [tall && styles.fieldTall, { color: t.text, backgroundColor: t.field, borderColor: t.border }],
+    ],
   };
+
+  const fieldEl = mentions ? (
+    // Its suggestions open above the field — the keyboard is below it.
+    <MentionInput
+      {...fieldProps}
+      containerStyle={styles.fieldWrap}
+      onChangeText={onChangeText}
+      onSuggestionsOpenChange={onSuggestionsOpenChange}
+    />
+  ) : (
+    <View style={styles.fieldWrap}>
+      <TextInput
+        {...fieldProps}
+        onChangeText={(text) => onChangeText(text, [])}
+        textAlignVertical="top"
+        // Prose — stated outright, since `spellCheck` only follows
+        // `autoCorrect` when neither is given.
+        autoCorrect
+        spellCheck
+        autoCapitalize="sentences"
+      />
+    </View>
+  );
+  const attachEl = photos ? (
+    <AttachButton
+      photos={photos}
+      tint={t.grey}
+      onPress={() => setPickerOpen(true)}
+      size={attachField ? 20 : 21}
+      style={attachField && styles.attachInBox}
+    />
+  ) : null;
 
   return (
     <Reanimated.View style={[{ backgroundColor: t.surface }, barStyle, bottomPad]}>
@@ -282,37 +320,17 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
       {photos ? <ComposerPhotoStrip photos={photos} borderColor={t.border} /> : null}
       <View style={styles.barRow}>
         {leading}
-        {mentions ? (
-          // Its suggestions open above the field — the keyboard is below it.
-          <MentionInput
-            {...fieldProps}
-            containerStyle={styles.fieldWrap}
-            onChangeText={onChangeText}
-            onSuggestionsOpenChange={onSuggestionsOpenChange}
-          />
-        ) : (
-          <View style={styles.fieldWrap}>
-            <TextInput
-              {...fieldProps}
-              onChangeText={(text) => onChangeText(text, [])}
-              textAlignVertical="top"
-              // Prose — stated outright, since `spellCheck` only follows
-              // `autoCorrect` when neither is given.
-              autoCorrect
-              spellCheck
-              autoCapitalize="sentences"
-            />
+        {attachField ? (
+          <View style={[styles.fieldBox, tall && styles.fieldTall, { backgroundColor: t.field }]}>
+            {attachEl}
+            {fieldEl}
           </View>
+        ) : (
+          <>
+            {fieldEl}
+            {attachEl}
+          </>
         )}
-        {photos ? (
-          <AttachButton
-            photos={photos}
-            tint={t.grey}
-            onPress={() => setPickerOpen(true)}
-            size={attachField ? 19 : 21}
-            style={attachField && [styles.attachField, { backgroundColor: t.field, borderColor: t.border }]}
-          />
-        ) : null}
         <TouchableOpacity
           onPress={() => { if (canSend) void onSend(); }}
           disabled={!canSend}
@@ -366,8 +384,11 @@ const styles = StyleSheet.create({
   sendOff:  { opacity: 0.4 },
   iconBtn:  { width: 36, height: 40, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   iconBtnOff: { opacity: 0.35 },
-  // The field's radius and rule (ss.chatInput), at the field's one-line height.
-  attachField: { width: 40, height: 40, borderRadius: 20, borderWidth: 1 },
+  // `attachField`: the field's fill and radius (ss.chatInput), no rule, on a
+  // box holding the attach button and the text — 40 tall at one line, level with the send.
+  fieldBox: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', borderRadius: 20, paddingLeft: 4 },
+  fieldInBox: { minHeight: 40, backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, paddingLeft: 2 },
+  attachInBox: { width: 34, height: 40 },
 
   // ── The strip ────────────────────────────────────────────────────────────
   strip:    { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },

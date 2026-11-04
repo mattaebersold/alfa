@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, Pressable, Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView, ActivityIndicator, Alert, Animated, Platform,
+  View, StyleSheet, ScrollView, TouchableOpacity, Pressable, Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView, ActivityIndicator, Alert, Animated, Platform, Share,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
@@ -8,7 +8,7 @@ import { Image } from '../../components/ui/AppImage';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Camera, Images, Settings, Link2, CheckSquare, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, Users, Warehouse, Car, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2, BookOpen } from 'lucide-react-native';
+import { X, Camera, Images, Settings, Link2, CheckSquare, MoreHorizontal, MoreVertical, Plus, FileText, UsersRound, ChevronDown, ChevronUp, ChevronRight, Users, Warehouse, Car, MessageSquarePlus, Wrench, PenSquare, ArrowRightLeft, Trash2, BookOpen, Share as ShareIcon } from 'lucide-react-native';
 import ReportButton from '../../components/ui/ReportButton';
 import FormInput from '../../components/ui/FormInput';
 import CarBookmarkButton from '../../components/cars/CarBookmarkButton';
@@ -119,6 +119,12 @@ function carTypeLabel(key?: string) {
 }
 function carCategoryLabel(key?: string) {
   return ALL_CATEGORIES.find((c) => c.key === key)?.label ?? key ?? '';
+}
+
+/** The share sheet's subject line — "1995 Porsche 911", else the car's title. */
+function carShareTitle(car: GarageCar): string {
+  const ymm = [car.year, car.make, car.model].filter(Boolean).join(' ');
+  return ymm || car.title || 'A car on Open Road Society';
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -1785,6 +1791,26 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
                     color={COLOR_WHITE}
                   />
                 </View>
+                {/* Share the car's page on the website, not a deep link — the
+                    point is sending it to people who don't have the app. */}
+                <TouchableOpacity
+                  style={styles.pillItem}
+                  onPress={() => {
+                    const url = `https://openroadsociety.co/car/${car.internal_id}`;
+                    const title = carShareTitle(car);
+                    // iOS shows `url` as a link preview; Android only shares
+                    // `message`, so the link has to ride in it there.
+                    Share.share(
+                      Platform.OS === 'ios' ? { url, title } : { message: url, title },
+                    ).catch(() => {});
+                  }}
+                  hitSlop={6}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Share car"
+                >
+                  <ShareIcon size={18} color={COLOR_WHITE} />
+                </TouchableOpacity>
               </View>
             </View>
           </View>

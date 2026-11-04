@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text, useRoomAbove } from '@ors/kit';
 import { MapPin } from 'lucide-react-native';
 import FormInput from './FormInput';
 import { useColors } from '../../hooks/useColors';
@@ -40,6 +40,8 @@ import { FONT_INTER } from '../../constants/fonts';
 const DEBOUNCE_MS = 350;
 /** Matches horacio's MIN_QUERY — below this the server returns nothing anyway. */
 const MIN_QUERY = 3;
+/** The tallest the list gets when it opens above the field — about five places. */
+const ABOVE_MAX_H = 250;
 
 /** Opaque to us; it only has to be unique per interaction. */
 function newSessionToken(): string {
@@ -61,12 +63,20 @@ export interface AddressFieldProps {
   style?: any;
   /** Laid over the field's FormInput look — size and margins only. */
   inputStyle?: any;
+  /**
+   * Open the suggestions above the field, floating over what's there, instead
+   * of in flow under it — where, low in a form, the keyboard covers them. In a
+   * FormScrollView the field is brought down onto the keyboard and the list
+   * gets the room above it (useRoomAbove), as the post form's tag searches do.
+   */
+  above?: boolean;
 }
 
 export default function AddressField({
-  value, onChangeText, onPlacePicked, placeholder, near, style, inputStyle,
+  value, onChangeText, onPlacePicked, placeholder, near, style, inputStyle, above = false,
 }: AddressFieldProps) {
   const colors = useColors();
+  const room = useRoomAbove(ABOVE_MAX_H);
   const [search, { isFetching }] = useLazySearchPlacesQuery();
   const [fetchDetails] = useLazyGetPlaceDetailsQuery();
 
@@ -141,6 +151,59 @@ export default function AddressField({
     }
   }, [fetchDetails, onChangeText, onPlacePicked]);
 
+  const rows = predictions.map((p) => (
+    <TouchableOpacity
+      key={p.place_id}
+      style={styles.row}
+      onPress={() => pick(p)}
+      activeOpacity={0.7}
+    >
+      <MapPin size={13} color={colors.grey} style={styles.rowIcon} />
+      <View style={styles.rowText}>
+        <Text style={[styles.primary, { color: colors.fg }]} numberOfLines={1}>
+          {p.primary}
+        </Text>
+        {p.secondary ? (
+          <Text style={[styles.secondary, { color: colors.grey }]} numberOfLines={1}>
+            {p.secondary}
+          </Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  ));
+  const spinner = isFetching ? (
+    <View style={styles.spinnerRow}>
+      <ActivityIndicator size="small" color={colors.grey} />
+    </View>
+  ) : null;
+  const showList = open && predictions.length > 0;
+
+  if (above) {
+    return (
+      // Raised for good, not only while the list shows — a zIndex that changes
+      // re-orders the native views and the field loses focus mid-word.
+      <View ref={room.ref} collapsable={false} style={[style, styles.aboveHost]}>
+        {showList && (
+          <View style={[styles.list, styles.aboveList, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={{ maxHeight: room.maxHeight }}>
+              {rows}
+              {spinner}
+            </ScrollView>
+          </View>
+        )}
+        <FormInput
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => { setOpen(predictions.length > 0); room.onFocus(); }}
+          onBlur={room.onBlur}
+          placeholder={placeholder}
+          autoCorrect={false}
+          style={inputStyle}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={style}>
       <FormInput
@@ -152,34 +215,10 @@ export default function AddressField({
         style={inputStyle}
       />
 
-      {open && predictions.length > 0 && (
+      {showList && (
         <View style={[styles.list, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {predictions.map((p) => (
-            <TouchableOpacity
-              key={p.place_id}
-              style={styles.row}
-              onPress={() => pick(p)}
-              activeOpacity={0.7}
-            >
-              <MapPin size={13} color={colors.grey} style={styles.rowIcon} />
-              <View style={styles.rowText}>
-                <Text style={[styles.primary, { color: colors.fg }]} numberOfLines={1}>
-                  {p.primary}
-                </Text>
-                {p.secondary ? (
-                  <Text style={[styles.secondary, { color: colors.grey }]} numberOfLines={1}>
-                    {p.secondary}
-                  </Text>
-                ) : null}
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          {isFetching && (
-            <View style={styles.spinnerRow}>
-              <ActivityIndicator size="small" color={colors.grey} />
-            </View>
-          )}
+          {rows}
+          {spinner}
         </View>
       )}
     </View>
@@ -197,6 +236,12 @@ const styles = StyleSheet.create({
    */
   list: {
     marginTop: 6, borderWidth: 1, borderRadius: 10, overflow: 'hidden',
+  },
+  // The `above` variant: hangs off the top of the field, over what's above it.
+  aboveHost: { zIndex: 20, elevation: 20 },
+  aboveList: {
+    position: 'absolute', left: 0, right: 0, bottom: '100%', marginTop: 0, marginBottom: 6,
+    boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.45)',
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 9,

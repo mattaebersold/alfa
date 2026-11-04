@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
-import { MoreVertical, Trash2, Reply } from 'lucide-react-native';
-import { formatDistanceToNowStrict } from 'date-fns';
+import { MoreVertical, Trash2 } from 'lucide-react-native';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
-import UserByline from '../members/UserByline';
+import Avatar from '../ui/Avatar';
 import MentionText from '../ui/MentionText';
 import ReportButton from '../ui/ReportButton';
 import ActionSheet from '../ui/ActionSheet';
@@ -13,19 +12,26 @@ import { useGetUserByIdQuery, useDeleteCommentMutation, useGetLikeInfoQuery } fr
 import LikeButton from './LikeButton';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
-import { contrastText } from '../../hooks/useBrandColor';
-import type { SummaryOrigin } from '../ui/SummaryModal';
+import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import ImageLightbox from '../ui/ImageLightbox';
 import { imageUrl } from '../../utils/image';
 import type { GalleryItem } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_42, COLOR_GRAY_208, COLOR_WHITE } from '../../constants/config';
+import { COLOR_GRAY_208, COLOR_WHITE } from '../../constants/config';
 
 /** Between photos in a comment's strip. */
 const PHOTO_GAP = 8;
-/** The card's side padding, and a reply's deeper left one (room for its line). */
-const CARD_PAD_X = 14;
-const REPLY_PAD_L = 30;
+/** A row's side padding — a little, so the photo and ⋮ aren't on the edge. */
+const ROW_PAD_X = 6;
+/** The compact bubble's own padding, inside its fill. */
+const COMPACT_PAD_X = 12;
+/** The commenter's photo, and the room between it and the name and words. */
+const AVATAR = 32;
+const AVATAR_REPLY = 26;
+const AVATAR_COMPACT = 24;
+const AVATAR_GAP = 10;
+/** A reply steps in by the photo's column, so its photo sits under the words it answers. */
+const REPLY_PAD_L = ROW_PAD_X + AVATAR + AVATAR_GAP;
 
 export interface CommentData {
   internal_id?: string;
@@ -115,6 +121,7 @@ export default function CommentRow({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // The width the words have, which is what the photo strip is sized from.
   const [contentW, setContentW] = useState(0);
+  const avatarRef = useRef<View>(null);
 
   const photos = (comment.gallery ?? [])
     .map((g) => imageUrl(g.filename))
@@ -154,11 +161,15 @@ export default function CommentRow({
   };
 
   const displayName = user?.username || '…';
-  const timeAgo = comment.created_at
-    ? compact ? shortTimeAgo(comment.created_at) : formatDistanceToNowStrict(new Date(comment.created_at), { addSuffix: true })
-    : '';
+  const timeAgo = comment.created_at ? shortTimeAgo(comment.created_at) : '';
 
   const isOwn = currentUserId && currentUserId === comment.user_id;
+  const avatarSize = compact ? AVATAR_COMPACT : isReply ? AVATAR_REPLY : AVATAR;
+  const canOpenUser = !!onOpenUser && !!comment.user_id;
+  /** The summary grows out of the photo, whether it or the name was tapped. */
+  const openUser = () => {
+    measureOrigin(avatarRef.current, (origin) => onOpenUser?.(comment.user_id, origin));
+  };
 
   // Kept only so its replies still have something to hang off, so it carries
   // none of a comment's furniture — no avatar, no name, nothing to press.
@@ -169,28 +180,38 @@ export default function CommentRow({
         flush && styles.flush,
         compact && styles.containerCompact,
         styles.removed,
-        { backgroundColor: backgroundColor ?? colors.card, borderColor: colors.borderDark },
+        { backgroundColor: backgroundColor ?? (compact ? colors.card : 'transparent') },
         isThreadStart && styles.threadStart,
         isThreadEnd && styles.threadEnd,
         compact && isThreadStart && styles.threadStartCompact,
         compact && isThreadEnd && styles.threadEndCompact,
         isReply && styles.replyContainer,
       ]}>
-        {isReply && <View style={styles.replyLine} />}
         <Text style={[styles.removedText, { color: colors.greyDark }]}>Comment removed</Text>
       </View>
     );
   }
 
   /**
-   * The heart and the reply button, drawn alike: two outlined pills. Beside
-   * the words on their last line when the comment is only words; under the
-   * photos, on a row of their own, when it has any — beside a photo strip
-   * they'd squeeze it, and a row of buttons under a picture is how every
-   * other card in the app reads.
+   * On a row of their own under the comment (and its photos), so the words get
+   * the card's full width: "Reply" in grey on the left, the heart on the right.
    */
   const actions = commentId ? (
     <View style={styles.actions}>
+      {onReply ? (
+        <TouchableOpacity
+          onPress={() => onReply(threadId ?? commentId, user?.username ?? displayName ?? '')}
+          hitSlop={8}
+          style={styles.replyBtn}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={replyOpen ? 'Cancel reply' : `Reply to @${displayName}`}
+          accessibilityState={{ expanded: replyOpen }}
+        >
+          {/* In the brand colour while its reply is being written, so the open one stands out. */}
+          <Text style={[styles.replyText, { color: replyOpen ? colors.primaryAlt : colors.greyDark }]}>Reply</Text>
+        </TouchableOpacity>
+      ) : <View />}
       <LikeButton
         documentId={commentId}
         entryType="comment"
@@ -199,102 +220,96 @@ export default function CommentRow({
         initialCount={likeInfo?.total ?? likeInfo?.count ?? 0}
         size={16}
         color={colors.greyDark}
-        style={[styles.actionBtn, styles.likeBtn, { borderColor: colors.borderDark }]}
+        // Solid white once anyone has liked it, the count before the heart.
+        litOnAny
+        litColor={COLOR_WHITE}
+        countFirst
+        style={[styles.actionBtn, styles.likeBtn]}
       />
-      {onReply && (
-        <TouchableOpacity
-          onPress={() => onReply(threadId ?? commentId, user?.username ?? displayName ?? '')}
-          hitSlop={6}
-          style={[
-            styles.actionBtn,
-            { borderColor: colors.borderDark },
-            // Filled while its field is open, so the open one is the one
-            // that reads as pressed.
-            replyOpen && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
-          ]}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={replyOpen ? 'Cancel reply' : `Reply to @${displayName}`}
-          accessibilityState={{ expanded: replyOpen }}
-        >
-          <Reply size={18} color={replyOpen ? contrastText(colors.primaryAlt) : compact ? colors.greyDark : colors.primaryAlt} />
-        </TouchableOpacity>
-      )}
     </View>
   ) : null;
-  const hasPhotos = photos.length > 0;
 
   return (
     <View style={[
       styles.container,
       flush && styles.flush,
       compact && styles.containerCompact,
-      { backgroundColor: backgroundColor ?? colors.card, borderColor: colors.borderDark },
+      { backgroundColor: backgroundColor ?? (compact ? colors.card : 'transparent') },
       isThreadStart && styles.threadStart,
       isThreadEnd && styles.threadEnd,
       compact && isThreadStart && styles.threadStartCompact,
       compact && isThreadEnd && styles.threadEndCompact,
       isReply && styles.replyContainer,
     ]}>
-      {/* A hairline in the border colour, not the brand one: it marks the
-          indent, it isn't a thing to look at. */}
-      {isReply && <View style={styles.replyLine} />}
-      {/* Who said it, on one line: a small avatar beside the name, the way a
-          byline reads. The words come underneath at the card's full width
-          rather than in a column beside the avatar.
+      {/* The photo in a column of its own, and everything else — name, time,
+          words, photos, Reply and the heart — in a column beside it, so the
+          words start under the name rather than under the photo.
 
           Initials come from the username, not the first name: the label beside
           it is the username, and two people whose first names start with the
           same letter produced identical circles — which reads as one person's
           photo repeated rather than as two people. */}
-      <View style={styles.byline}>
-        <UserByline
-          user={user}
-          size={isReply ? 20 : 22}
-          name={displayName}
-          gap={7}
-          color={compact ? COLOR_WHITE : colors.fg}
-          nameStyle={styles.name}
-          style={styles.bylineInner}
-          onPress={(origin) => onOpenUser?.(comment.user_id, origin)}
-          disabled={!onOpenUser || !comment.user_id}
-          accessibilityLabel={`View ${displayName}`}
-        />
-        <View style={styles.bylineRight}>
-          <Text style={[styles.time, { color: colors.greyDark }]}>{timeAgo}</Text>
+      <TouchableOpacity
+        ref={avatarRef}
+        onPress={openUser}
+        disabled={!canOpenUser}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${displayName}`}
+        style={styles.avatar}
+      >
+        <Avatar user={user} name={displayName} size={avatarSize} edge={false} />
+      </TouchableOpacity>
+      <View style={styles.column}>
+        <View style={styles.byline}>
+          {/* Name, then when — the name pure white, brighter than the words. */}
+          <View style={styles.bylineLeft}>
+            <TouchableOpacity
+              onPress={openUser}
+              disabled={!canOpenUser}
+              activeOpacity={0.7}
+              style={styles.nameBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${displayName}`}
+            >
+              <Text style={[styles.name, { color: COLOR_WHITE }]} numberOfLines={1}>{displayName}</Text>
+            </TouchableOpacity>
+            {timeAgo ? <Text style={[styles.time, { color: colors.greyDark }]}>{timeAgo}</Text> : null}
+          </View>
           {/* Yours to delete, anyone else's to report — one dim ⋮ either way. */}
-          {commentId && (isOwn ? (
-            <>
-              <TouchableOpacity
-                onPress={() => setMenuOpen(true)}
-                hitSlop={8}
-                style={styles.menuBtn}
-                disabled={deleting}
-                accessibilityRole="button"
-                accessibilityLabel="Comment options"
-              >
-                <MoreVertical size={16} color="rgba(255,255,255,0.34)" />
-              </TouchableOpacity>
-              <ActionSheet
-                visible={menuOpen}
-                onClose={() => setMenuOpen(false)}
-                title="Your comment"
-                options={[
-                  { label: 'Delete Comment', Icon: Trash2, destructive: true, onPress: deleteNow },
-                ]}
-              />
-            </>
-          ) : (
-            <ReportButton contentType="comment" contentId={commentId} size={16} />
-          ))}
+          {commentId ? (
+            <View style={styles.bylineRight}>
+              {isOwn ? (
+                <>
+                  <TouchableOpacity
+                    onPress={() => setMenuOpen(true)}
+                    hitSlop={8}
+                    style={styles.menuBtn}
+                    disabled={deleting}
+                    accessibilityRole="button"
+                    accessibilityLabel="Comment options"
+                  >
+                    <MoreVertical size={16} color="rgba(255,255,255,0.34)" />
+                  </TouchableOpacity>
+                  <ActionSheet
+                    visible={menuOpen}
+                    onClose={() => setMenuOpen(false)}
+                    title="Your comment"
+                    options={[
+                      { label: 'Delete Comment', Icon: Trash2, destructive: true, onPress: deleteNow },
+                    ]}
+                  />
+                </>
+              ) : (
+                <ReportButton contentType="comment" contentId={commentId} size={16} />
+              )}
+            </View>
+          ) : null}
         </View>
-      </View>
-      <View style={styles.body}>
+
         <View style={styles.content} onLayout={(e) => setContentW(e.nativeEvent.layout.width)}>
-          {/* Full white: a comment is something someone said, not a caption
-              about it, and at `muted` it sat quieter than the timestamps. */}
           {comment.body ? (
-            <MentionText text={comment.body} style={[styles.text, { color: colors.fg }, compact && styles.textCompact]} />
+            <MentionText text={comment.body} style={[styles.text, compact && styles.textCompact]} />
           ) : null}
 
           {/* Fixed 16:9 in the thread so a run of comments keeps an even rhythm
@@ -307,19 +322,13 @@ export default function CommentRow({
 
               Sized in points from the measured column rather than by
               percentage: a horizontal scroller's content has no width of its
-              own for a percentage to be a share of. The ratio is on the image,
-              not on the frame around it — on the frame the image was
-              `absoluteFill` inside a box whose own height came from the ratio,
-              and laid out at nothing. */}
+              own for a percentage to be a share of. */}
           {photos.length > 0 && contentW > 0 && (() => {
             const several = photos.length > 1;
             const w = several ? Math.round(contentW * 0.8) : contentW;
-            // The strip runs to the card's edges — a photo sliding off under
-            // the card's padding, not stopping short of it — while the first
-            // and last photos sit where the words do, by carrying the card's
-            // padding inside the strip instead.
-            const padL = isReply ? REPLY_PAD_L : CARD_PAD_X;
-            const padR = CARD_PAD_X;
+            // Runs on past the row's right padding, so a photo slides off at
+            // the edge rather than stopping short of it.
+            const padR = compact ? COMPACT_PAD_X : ROW_PAD_X;
             return (
               <ScrollView
                 horizontal
@@ -328,8 +337,8 @@ export default function CommentRow({
                 snapToInterval={w + PHOTO_GAP}
                 snapToAlignment="start"
                 decelerationRate="fast"
-                style={{ marginLeft: -padL, marginRight: -padR }}
-                contentContainerStyle={[styles.photoRow, { gap: PHOTO_GAP, paddingLeft: padL, paddingRight: padR }]}
+                style={{ marginRight: -padR }}
+                contentContainerStyle={[styles.photoRow, { gap: PHOTO_GAP, paddingRight: padR }]}
                 // Beside the words it could steal a vertical swipe; nested in
                 // the thread's scroller, this keeps the pages feeling like one.
                 nestedScrollEnabled
@@ -351,10 +360,9 @@ export default function CommentRow({
           })()}
         </View>
 
-        {!hasPhotos && actions}
+        {actions}
+        {below}
       </View>
-      {hasPhotos && <View style={styles.actionsRow}>{actions}</View>}
-      {below}
       <ImageLightbox
         images={photos}
         initialIndex={lightboxIndex ?? 0}
@@ -366,53 +374,33 @@ export default function CommentRow({
 }
 
 const styles = StyleSheet.create({
+  // No padding and no outline: the words sit straight on the surface, and
+  // the room between threads is what groups a comment with its replies.
   container: {
     marginHorizontal: 12,
-    paddingHorizontal: CARD_PAD_X,
-    paddingVertical: 10,
-    // Sides on every row; the caps come from the thread flags, so a comment
-    // and its replies are enclosed by one outline rather than stacked as
-    // separate slabs divided by seams.
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderRightWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: ROW_PAD_X,
+    flexDirection: 'row', alignItems: 'flex-start', gap: AVATAR_GAP,
+    // Between the rows of a thread; threadEnd adds more between threads.
+    marginBottom: 8,
   },
   flush: { marginHorizontal: 0 },
-  // A little closer in, to go with the smaller text, and no outline — the
-  // fill alone sets it off the pane.
-  containerCompact: { paddingHorizontal: 12, paddingVertical: 7, borderLeftWidth: 0, borderRightWidth: 0 },
+  // The compact form keeps its filled bubble, padded inside it.
+  containerCompact: { paddingHorizontal: COMPACT_PAD_X, paddingVertical: 7 },
   threadStart: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopLeftRadius: 14, borderTopRightRadius: 14,
-    paddingTop: 12,
   },
   threadEnd: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
-    paddingBottom: 12,
-    // The gap goes between threads, rather than between every row.
-    marginBottom: 10,
+    // The bigger gap goes between threads.
+    marginBottom: 20,
   },
   // The compact caps: closer in, and rounder.
-  threadStartCompact: { paddingTop: 9, borderTopWidth: 0, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
-  threadEndCompact:   { paddingBottom: 9, borderBottomWidth: 0, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
+  threadStartCompact: { paddingTop: 9, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
+  threadEndCompact:   { paddingBottom: 9, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
   // Half the old inset: a reply is a step in, not a column of its own.
   replyContainer: {
     paddingLeft: REPLY_PAD_L,
     position: 'relative',
-  },
-  // A thread's hairline outline is drawn in the border grey at under a point
-  // wide, which the eye reads darker than the same grey at a point and a
-  // half — so the line is thinner, and a shade darker still, to sit with the
-  // outline rather than stand out from it. Shorter than the row, too: a mark
-  // beside the reply, not a rail down the card.
-  replyLine: {
-    position: 'absolute',
-    left: 14,
-    top: 12,
-    bottom: 12,
-    width: 1,
-    borderRadius: 1,
-    backgroundColor: COLOR_GRAY_42,
   },
   // The tombstone is a single line, so it centres rather than sitting where an
   // avatar would have put it.
@@ -420,21 +408,26 @@ const styles = StyleSheet.create({
   removedText: { fontSize: 12.5, fontStyle: 'italic' },
   menuBtn:  { padding: 4 },
 
-  // Name on the left, when and ⋮ on the right — the row's two ends. The ⋮ is
-  // nudged out so its glyph, not its padding, sits on the card's edge.
-  byline:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
-  bylineInner: { flexShrink: 1 },
-  bylineRight: { flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: -6, flexShrink: 0 },
-  // Words on the left, reply button on the right, bottom-aligned so the
-  // button sits on the comment's last line however many lines it runs to.
-  body:        { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  content:     { flex: 1 },
-  actions:     { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
-  actionsRow:  { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 },
+  avatar:      { flexShrink: 0 },
+  // Everything beside the photo.
+  column:      { flex: 1, minWidth: 0 },
+  // Name and time on the left, the ⋮ on the right. The ⋮ is nudged out so
+  // its glyph, not its padding, sits on the row's edge.
+  byline:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 },
+  bylineLeft:  { flexDirection: 'row', alignItems: 'baseline', gap: 7, flexShrink: 1, minWidth: 0 },
+  nameBtn:     { flexShrink: 1, minWidth: 0 },
+  bylineRight: { flexDirection: 'row', alignItems: 'center', marginRight: -6, marginVertical: -4, flexShrink: 0 },
+  content:     { alignSelf: 'stretch' },
+  // Reply at the start, the heart at the end — pulled out by its padding so
+  // its glyph sits on the card's edge, under the ⋮.
+  actions:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginRight: -8 },
+  replyBtn:    { height: 30, justifyContent: 'center' },
+  replyText:   { fontSize: 13, fontFamily: FONT_INTER.semibold },
   // The comment is the thing being read; the name is a label on it and the
   // time is a footnote. The weights say so.
   name:     { fontSize: 13, fontFamily: FONT_INTER.medium },
-  text:     { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.semibold },
+  // A shade under white, so the name above it leads.
+  text:     { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.semibold, color: COLOR_GRAY_208 },
   textCompact: { fontSize: 13, lineHeight: 18, color: COLOR_GRAY_208 },
   // `alignItems: flex-start` so the row doesn't stretch its children on the
   // cross axis, which is the default and fights an aspect ratio.
@@ -445,12 +438,9 @@ const styles = StyleSheet.create({
   },
   photo: { width: '100%', aspectRatio: 16 / 9 },
   time:     { fontSize: 11, fontStyle: 'italic' },
-  // Small outlined buttons rather than bare glyphs, so they read as things
-  // to press and not as decoration on the comment. The heart's grows into a
-  // pill when it has a count to carry.
+  // Bare glyphs, no outline. The heart's widens when it has a count to carry.
   actionBtn: {
-    minWidth: 32, height: 32, borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+    minWidth: 32, height: 30,
     alignItems: 'center', justifyContent: 'center',
   },
   likeBtn: { paddingHorizontal: 8, gap: 4 },

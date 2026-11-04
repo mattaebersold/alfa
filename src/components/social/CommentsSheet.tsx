@@ -75,6 +75,12 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
    */
   const topGap = Math.max(SCREEN_HEIGHT * 0.12, insets.top + 8);
   const composerRef = useRef<ComposerHandle>(null);
+  const listRef = useRef<FlatList<CommentRowItem>>(null);
+  /**
+   * The row ids there were before a post went up, until it shows up in the
+   * thread — whichever row is new then is yours, and the list scrolls to it.
+   */
+  const [awaitingPost, setAwaitingPost] = useState<Set<string> | null>(null);
 
   // Starts a screen's height down, so even this near-full-height sheet comes
   // up from below the edge rather than appearing part-way up.
@@ -109,6 +115,19 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Your post has landed in the thread: scroll the list to it, once the
+  // keyboard is down and the sheet has grown back to full height.
+  useEffect(() => {
+    if (!awaitingPost) return;
+    const key = (r: CommentRowItem) => r.comment.internal_id ?? r.comment._id;
+    let index = rows.findIndex((r) => !awaitingPost.has(key(r)) && r.comment.user_id === userInfo?.user_id);
+    if (index < 0) index = rows.findIndex((r) => !awaitingPost.has(key(r)));
+    if (index < 0) return;
+    setAwaitingPost(null);
+    const t = setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }), 400);
+    return () => clearTimeout(t);
+  }, [rows, awaitingPost, userInfo?.user_id]);
+
   if (!rendered) return null;
 
   const handleSubmit = async () => {
@@ -121,12 +140,17 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
     // returns these separately (getReplies) and we nest them under the parent.
     if (replyingTo) fd.append('reply_to', replyingTo.commentId);
     if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
+    const before = new Set(rows.map((r) => r.comment.internal_id ?? r.comment._id));
     try {
       await createComment(fd).unwrap();
-      // Posting is the end of the visit: keyboard and sheet go together. The
-      // composer state is cleared by the close animation above.
+      // The keyboard goes, the sheet stays: cleared for the next one, and
+      // taken to what you posted once it's back from the server.
+      setCommentText('');
+      setMentionedUserIds([]);
+      setReplyingTo(null);
+      photos.clear();
       Keyboard.dismiss();
-      onClose();
+      setAwaitingPost(before);
     } catch {
       Alert.alert('Error', 'Could not post comment.');
       // Keeps the composer open with the words still in it.
@@ -174,7 +198,14 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             <ActivityIndicator size="large" color={c.primaryAlt} style={{ marginVertical: 40 }} />
           ) : (
             <FlatList
+              ref={listRef}
               data={rows}
+              // Rows vary in height, so a far jump lands short first; this
+              // finishes it once the rows on the way are laid out.
+              onScrollToIndexFailed={({ index, averageItemLength }) => {
+                listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
+                setTimeout(() => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }), 100);
+              }}
               keyExtractor={(item: any) => item.comment.internal_id ?? item.comment._id}
               style={{ flex: 1 }}
               contentContainerStyle={styles.list}

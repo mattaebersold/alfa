@@ -8,7 +8,7 @@ import PostReactionsSummaryModal, { type PostReactionsTab } from './PostReaction
 import LikerFaces from './LikerFaces';
 import AnimatedHeart from './AnimatedHeart';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
-import { COLOR_WHITE, COLOR_LIKE } from '../../constants/config';
+import { COLOR_WHITE } from '../../constants/config';
 import { formatActionCount } from '../../utils/text';
 import { FONT_INTER } from '../../constants/fonts';
 import type { PostLike } from '../../hooks/usePostLike';
@@ -63,14 +63,16 @@ export default function PostActionRail({
     <>
       <View style={vertical ? styles.column : styles.row} pointerEvents="box-none">
         {bookmark && (
-          <PostBookmarkButton
-            postId={post.internal_id}
-            count={post.bookmark_count ?? 0}
-            size={vertical ? RAIL_ICON : 20}
-            vertical={vertical}
-          />
+          <View style={vertical && styles.iconShadow}>
+            <PostBookmarkButton
+              postId={post.internal_id}
+              count={post.bookmark_count ?? 0}
+              size={vertical ? RAIL_ICON : 20}
+              vertical={vertical}
+            />
+          </View>
         )}
-        <View ref={commentRef} collapsable={false}>
+        <View ref={commentRef} collapsable={false} style={vertical && styles.iconShadow}>
           <CommentButton
             count={post.comment_count ?? post.commentCount ?? 0}
             documentId={post.internal_id}
@@ -89,7 +91,7 @@ export default function PostActionRail({
             <TouchableOpacity
               ref={tagRef}
               onPress={() => measureOrigin(tagRef.current, onOpenTagged)}
-              style={vertical ? styles.itemV : styles.itemH}
+              style={vertical ? [styles.itemV, styles.iconShadow] : styles.itemH}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="See who's tagged"
@@ -118,7 +120,7 @@ export default function PostActionRail({
             // Not yet liked: likes, on the spot. Liked (or yours): the likes
             // tab, which is where an unlike lives.
             onPress={() => (like.mine || like.liked ? measureOrigin(heartRef.current, openOn('likes')) : like.toggle())}
-            style={vertical ? styles.itemV : styles.itemH}
+            style={vertical ? [styles.itemV, styles.iconShadow] : styles.itemH}
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={like.mine || like.liked ? 'See who liked this' : 'Like'}
@@ -126,8 +128,9 @@ export default function PostActionRail({
             <AnimatedHeart
               liked={like.liked}
               size={iconSize}
-              color={like.liked ? COLOR_LIKE : COLOR_WHITE}
-              fill={like.liked ? COLOR_LIKE : 'transparent'}
+              // Liked: solid white rather than the like red, as on comments.
+              color={COLOR_WHITE}
+              fill={like.liked ? COLOR_WHITE : 'transparent'}
               strokeWidth={1.8}
             />
           </TouchableOpacity>
@@ -155,6 +158,10 @@ const styles = StyleSheet.create({
   column: {
     alignItems: 'center', gap: 4,
     paddingVertical: 8, paddingHorizontal: 4,
+  },
+  // On each icon, not the column: a shadow on a background-less view falls
+  // under everything inside it, and the liker faces hang inside the column.
+  iconShadow: {
     shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
   },
   row:    { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -9,6 +9,7 @@ import { usePostLike } from '../../hooks/usePostLike';
 import { useAppSelector } from '../../store/store';
 import type { GarageCar } from '../../types/api';
 import type { CarActivityTab } from './CarActivitySummaryModal';
+import CarBookmarkButton from './CarBookmarkButton';
 import { formatActionCount } from '../../utils/text';
 import { COLOR_BLACK, COLOR_LIKE, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
@@ -35,9 +36,16 @@ export const CAR_COUNTS_CLEARANCE = 52;
  * positions nothing: the column pins itself to the corner of whatever photo
  * it's laid over, and the host lays a wash under it for a bright photo.
  */
-export default function CarCountBadges({ car, followers, onOpen, style }: {
+export default function CarCountBadges({ car, followers, onOpen, only, bookmark = false, style }: {
   car: GarageCar;
   followers: number;
+  /**
+   * A bookmark at the head of the column, as a post's rail has — on someone
+   * else's car only; your own isn't yours to save.
+   */
+  bookmark?: boolean;
+  /** Just these counts — the feed's card keeps to followers, comments and likes. */
+  only?: CarActivityTab[];
   /** A count tapped: the car's activity summary, on that count's tab, grown from it. */
   onOpen: (tab: CarActivityTab, origin: SummaryOrigin | null) => void;
   style?: StyleProp<ViewStyle>;
@@ -53,9 +61,10 @@ export default function CarCountBadges({ car, followers, onOpen, style }: {
     initialCount: car.like_count ?? 0,
   });
   const heartRef = useRef<View>(null);
-  const { data: mods } = useGetCarModsPageQuery({ carId, page: 0, limit: 1 }, { skip: !carId });
-  const { data: albums } = useGetCarGalleriesPageQuery({ carId, page: 0, limit: 1 }, { skip: !carId });
-  const { data: tagged } = useGetCarTaggedPostsQuery({ carId, page: 0, limit: 1 }, { skip: !carId });
+  const off = (key: CarActivityTab) => !carId || (!!only && !only.includes(key));
+  const { data: mods } = useGetCarModsPageQuery({ carId, page: 0, limit: 1 }, { skip: off('mods') });
+  const { data: albums } = useGetCarGalleriesPageQuery({ carId, page: 0, limit: 1 }, { skip: off('galleries') });
+  const { data: tagged } = useGetCarTaggedPostsQuery({ carId, page: 0, limit: 1 }, { skip: off('posts') });
   type Count = { key: CarActivityTab; Icon: typeof Wrench; n: number; label: (n: number) => string };
   const counts: Count[] = ([
     { key: 'mods', Icon: Wrench, n: mods?.total ?? 0, label: (n: number) => (n === 1 ? 'mod' : 'mods') },
@@ -64,10 +73,14 @@ export default function CarCountBadges({ car, followers, onOpen, style }: {
   ] as Count[]).filter((c) => c.n > 0).concat([
     { key: 'followers', Icon: Users, n: followers, label: (n: number) => (n === 1 ? 'follower' : 'followers') },
     { key: 'comments', Icon: MessageCircle, n: car.comment_count ?? 0, label: (n: number) => (n === 1 ? 'comment' : 'comments') },
-  ]);
+  ]).filter((c) => !only || only.includes(c.key));
   const showLikes = like.mine || like.liked;
+  const isOwn = !!myId && (myId === car.user_id || myId === car.coowner_id);
   return (
     <View style={[styles.column, style]} pointerEvents="box-none">
+      {bookmark && !isOwn ? (
+        <CarBookmarkButton carId={carId} size={COUNT_ICON} style={styles.item} />
+      ) : null}
       {counts.map(({ key, Icon, n, label }) => (
         // Each opens the car's activity on its own tab.
         <SummaryTouchable key={key} onPress={(o) => onOpen(key, o)} style={styles.item} accessibilityLabel={`${n} ${label(n)}`}>

@@ -22,15 +22,15 @@ import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import MainTabs, { type MainTab } from './MainTabs';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE } from '../../constants/config';
+import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE } from '../../constants/config';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-const BTN = 42;          // floating button edge length
+const BTN = 46;          // floating button edge length
 /** How far the garage button runs in under the logo, so it reads as a tab pulled out from behind it. */
 const GARAGE_TUCK = 14;
 /** Each car photo on the garage tab — well inside the button's height. */
-const GARAGE_THUMB = 30;
+const GARAGE_THUMB = 33;
 /** Around the photos: the same at the ends as above and below them. */
 const GARAGE_THUMB_PAD = (BTN - GARAGE_THUMB) / 2;
 /** The garage button's own chrome around its photos: padding either end, and the tucked-under length. */
@@ -55,11 +55,12 @@ function fitGarageThumbs(count: number, room: number | null): number {
 }
 
 /** A bare button's drawn width: narrower than BTN, so the glyphs in the right-hand row sit closer. */
-const BARE_W = 36;
+const BARE_W = 38;
 /** Its touch target, back out to BTN — neighbours' slop overlaps, and the one under the finger wins. */
 const BARE_SLOP = { left: (BTN - BARE_W) / 2, right: (BTN - BARE_W) / 2 };
-// The app's shared corner.
-const BTN_RADIUS = COMMON_RADIUS;
+// Half the button: the logo square (and the garage tab's far end) read as a
+// circle. Was the app's shared corner (20), which only came out round at 40.
+const BTN_RADIUS = BTN / 2;
 const ROW_PAD_V = 8;     // vertical padding around the button row
 
 /**
@@ -88,7 +89,7 @@ const BACK_W = 30;
 const BACK_GAP = 7;
 
 /** The bar's side padding — the back button's travel has to clear it too. */
-const BAR_PAD_H = GUTTER;
+const BAR_PAD_H = GUTTER + 8;
 /**
  * Where the back button starts: fully past the left edge of the screen, with
  * room for its shadow, so it arrives from outside rather than fading up in
@@ -121,12 +122,15 @@ export function useHeaderPad({ tabs = false }: { tabs?: boolean } = {}): number 
   return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0);
 }
 
+/** Extra room between the button row and the tab row under it. */
+const TABS_GAP = 6;
+
 /**
  * Height of the tab row under the buttons, on screens that have one: the
- * tabs' track (MainTabs `dense`: 32 tabs inside 1 of padding either side, 34)
- * and the room under it (tabsRow's paddingBottom, 4), and nothing more.
+ * tabs' track (MainTabs `dense`: 38 tabs inside 1 of padding either side, 40)
+ * the room above it (TABS_GAP) and under it (tabsRow's paddingBottom, 4).
  */
-export const HEADER_TABS_HEIGHT = 38;
+export const HEADER_TABS_HEIGHT = 44 + TABS_GAP;
 
 /** One entry in the header's tab row — see MainTabs. */
 export type HeaderTab = MainTab;
@@ -564,7 +568,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
               />
             ) : (
               <View>
-                <GarageDoor size={21} color={COLOR_WHITE} strokeWidth={2.4} />
+                <GarageDoor size={23} color={COLOR_WHITE} strokeWidth={2.4} />
                 {/* No cars yet: a notice dot, the nudge to add the first. */}
                 {garageEmpty && <View style={styles.garageDot} />}
               </View>
@@ -590,7 +594,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
           {bookmarkCount > 0 && (
             <View ref={bookmarksRef} collapsable={false}>
               <FloatingButton label="Bookmarks" tint={tint} bare round onPress={openBookmarks}>
-                <Bookmark size={19} color={COLOR_WHITE} strokeWidth={2.4} />
+                <Bookmark size={21} color={COLOR_WHITE} strokeWidth={2.4} />
               </FloatingButton>
             </View>
           )}
@@ -603,7 +607,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
             bare round
             onPress={openSearch}
           >
-            <Search size={20} color={COLOR_WHITE} strokeWidth={2.4} />
+            <Search size={22} color={COLOR_WHITE} strokeWidth={2.4} />
           </FloatingButton>
 
           {/* No badge. An unread message raises a notice in the bell next to
@@ -617,7 +621,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
               bare round
               onPress={openDrawer}
             >
-              <MenuBars size={22} color={COLOR_WHITE} strokeWidth={2.2} />
+              <MenuBars size={24} color={COLOR_WHITE} strokeWidth={2.2} />
             </FloatingButton>
           </View>
         </View>
@@ -647,7 +651,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
  * the full padding read as a gap, where under the buttons it was breathing
  * room.
  */
-const TABS_STUCK_TRIM = 6;
+const TABS_STUCK_TRIM = 6 + TABS_GAP;
 /** How far the tab row (and the ground behind it) travels up before it sticks. */
 /**
  * How far the tab row rises when the header collapses — exported so a screen
@@ -666,7 +670,7 @@ const TABS_STUCK_TIGHTEN = 4;
 export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM + TABS_STUCK_TIGHTEN;
 
 /** The tabs' size once stuck, against 1 at rest. */
-const TABS_STUCK_SCALE = 0.72;
+const TABS_STUCK_SCALE = 0.76;
 /** Clear space after the last tab, at the end of the row's scroll. */
 const TABS_END_SPACE = 24;
 /** How much further in from the edge the tabs sit once stuck. */
@@ -695,7 +699,7 @@ const styles = StyleSheet.create({
     paddingRight: GUTTER + TABS_STUCK_INDENT + TABS_END_SPACE,
     // Less above than below: the pills sit up near the buttons they belong
     // to, and the room under them parts the row from the page.
-    paddingTop: 0,
+    paddingTop: TABS_GAP,
     paddingBottom: 4,
   },
 
@@ -731,7 +735,7 @@ const styles = StyleSheet.create({
   // The logo's height, set here so nothing inside can grow it.
   garageTab: {
     height: BTN,
-    paddingLeft: 11 + GARAGE_TUCK, paddingRight: 11,
+    paddingLeft: 12 + GARAGE_TUCK, paddingRight: 12,
     borderTopLeftRadius: 0, borderBottomLeftRadius: 0,
   },
   // Holding photos rather than the door: padded evenly round them.
@@ -745,9 +749,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLOR_COUNT_BADGE,
     borderWidth: 1.5, borderColor: COLOR_BLACK,
   },
-  // No gap: the buttons are unfilled, so the room around each glyph is its
-  // own hit area — the targets meet edge to edge rather than shrinking.
-  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  // A small gap between the unfilled glyphs; each button's hitSlop still
+  // reaches its neighbour, so there's no dead space between targets.
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
   btn: {
     width: BTN, height: BTN,
@@ -790,6 +794,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
 
-  logo: { width: 29, height: 29 },
+  logo: { width: 32, height: 32 },
 
 });

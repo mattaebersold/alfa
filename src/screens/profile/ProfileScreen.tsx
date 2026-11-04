@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Easing, Pressable, Dimensions, ActivityIndicator, PanResponder,
 } from 'react-native';
@@ -25,7 +25,10 @@ import {
   useGetFollowStatusQuery,
   useFollowUserMutation,
   useUnfollowUserMutation,
+  useGetMyEventsQuery,
 } from '../../api/apiService';
+import AttendedEventsShelf from '../../components/society/AttendedEventsShelf';
+import EventSummaryModal from '../../components/society/EventSummaryModal';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
@@ -108,7 +111,7 @@ type Tab = 'posts' | 'followers' | 'following' | 'lists' | 'routes'
   | 'forSale' | 'wants' | 'polls' | 'photoSpots';
 
 /** The page's sections, in order — each a sub tab that scrolls to it. */
-type SectionKey = 'activity' | 'garage' | 'polls' | 'routes' | 'lists' | 'photoSpots' | 'listings';
+type SectionKey = 'activity' | 'garage' | 'polls' | 'routes' | 'lists' | 'photoSpots' | 'events' | 'listings';
 const PAGE_SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'activity',   label: 'Activity' },
   { key: 'garage',     label: 'Garage' },
@@ -116,6 +119,7 @@ const PAGE_SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'routes',     label: 'Routes' },
   { key: 'lists',      label: 'Lists' },
   { key: 'photoSpots', label: 'Photo spots' },
+  { key: 'events',     label: 'Events' },
   { key: 'listings',   label: 'Listings' },
 ];
 
@@ -533,6 +537,16 @@ export default function ProfileScreen() {
   // The Posts pane pages rather than stopping at whatever the strip's query
   // happened to fetch. Its own query so the strip and the counts aren't
   // refetched every time someone scrolls the pane.
+  // The events you've been to — your own profile only: who's going where is
+  // yours to see, and the server only answers it for the signed-in member.
+  // One entry per date attended, latest first (the server's order for past ones).
+  const { data: myEventsData } = useGetMyEventsQuery(undefined, { skip: !isOwnProfile || !userInfo });
+  const attendedEvents = useMemo(
+    () => (myEventsData?.entries ?? []).filter((e) => !e.next_occurrence),
+    [myEventsData],
+  );
+  const [eventSummaryId, setEventSummaryId] = useState<string | null>(null);
+
   const [postsPage, setPostsPage] = useState(0);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const { data: postsPageData, isFetching: postsFetching } = useGetPostsQuery(
@@ -809,7 +823,7 @@ export default function ProfileScreen() {
         <EmptyState title="No cars yet" />
       ) : (
         <>
-          {featuredCar && <GarageCarCard car={featuredCar} featured style={styles.featuredCarFrame} summaryOnPress {...ownerControls(featuredCar)} />}
+          {featuredCar && <GarageCarCard car={featuredCar} featured summaryOnPress {...ownerControls(featuredCar)} />}
           {/* A lone card gets the full width. In the carousel it stopped short
               to hint at a next card that doesn't exist, and the row it sat in
               had nowhere to scroll to. Covers a featured car plus one other,
@@ -1357,6 +1371,14 @@ export default function ProfileScreen() {
           onViewAll={() => setActiveSection('photoSpots')}
         />
         </View>
+        {/* The events you've been to. Nothing when there are none, and only
+            on your own profile — see AttendedEventsShelf. */}
+        <View onLayout={sectionTabs.measure('events')}>
+        <AttendedEventsShelf
+          events={attendedEvents}
+          onEventPress={(e) => setEventSummaryId(e.internal_id)}
+        />
+        </View>
         {/* Their marketplace, in the two piles it splits into. Each shelf
             renders nothing when it's empty, so a member with nothing listed
             gets no marketplace section at all rather than two headings over
@@ -1444,6 +1466,8 @@ export default function ProfileScreen() {
         onClose={() => setSpotSummaryId(null)}
         onEdit={(id) => (navigation as any).navigate('PhotoSpotCreate', { spotId: id })}
       />
+
+      <EventSummaryModal eventId={eventSummaryId} onClose={() => setEventSummaryId(null)} />
 
       <ProUpsellModal
         visible={listUpsell}
@@ -1622,9 +1646,6 @@ const styles = StyleSheet.create({
   },
   garageCarouselItem: { width: GARAGE_CARD_WIDTH },
   garageCarouselCard: { marginHorizontal: 0, marginVertical: 0 },
-  // The featured car, edged in white; the edge's radius is the card's plus its
-  // width, so the two curves run parallel.
-  featuredCarFrame: { borderWidth: 2, borderColor: COLOR_WHITE, borderRadius: COMMON_RADIUS + 2 },
   newListBtn:    {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', marginHorizontal: 12, marginBottom: 12, marginTop: 12,

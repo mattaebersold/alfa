@@ -1,77 +1,41 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View, TouchableOpacity, StyleSheet, Modal, Animated, Easing, useWindowDimensions, Platform,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { BlurView } from 'expo-blur';
-import { Bell, X, Mail, ChevronRight } from 'lucide-react-native';
+import { Bell, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList from '../notifications/NotificationsList';
+import SummaryModal, { measureOrigin, useSummaryPanel, type SummaryOrigin } from './SummaryModal';
 import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE, PANE_BG, PANE_SCRIM } from '../../constants/config';
+import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE } from '../../constants/config';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 42;
-/** Black, like every other glyph in the header. */
-const BTN_RADIUS = 14;
-/** The most of the screen the opened panel takes; it scrolls past this. */
-const PANEL_RATIO = 0.9;
-/** Shorter than it is wide: the top edge stays well clear of the phone's own UI. */
-const PANEL_H_RATIO = 0.72;
-/** The close button above the panel's corner, and the gap it keeps around it. */
-const CLOSE_SIZE = 36;
-const CLOSE_GAP = 8;
-/** The panel's height before the list has measured — a spinner's worth. */
-const PANEL_LOADING_H = 220;
-const PANEL_RADIUS = 32; // the menu's GROW_PANEL_RADIUS, so the two panels match
 /** Past this the badge stops counting and starts saying "lots". */
 const BADGE_MAX = 10;
 
 /**
  * Unread notifications, as a header button that opens into the list.
  *
- * The button is always there; only the count bubble comes and goes. It is the
- * way into the list whether or not anything is waiting, and a control that
- * appears and disappears is one people stop reaching for.
+ * The button is always there while something is waiting; only the count
+ * bubble comes and goes.
  *
- * Tapping it grows the button itself into the panel rather than pushing a
- * screen, and its fill carries over — the box is still the button for the first
- * part of the move, bleeding to black as it takes the screen, so what you get
- * reads as the thing you pressed rather than as a new surface that replaced it.
+ * The list opens in the summary panel every other panel in the app uses
+ * (SummaryModal) — the same box, close button, backdrop and tabs (PanelTabs)
+ * as a post's likes and comments. It used to be a panel of its own, grown out
+ * of the bell, and it had drifted into looking like a different thing.
  *
- * ## How the growth is animated
- *
- * Two animated values, deliberately, because they can't share a driver:
- *
- *  - `box` (JS-driven) moves and resizes the growing rectangle, and carries its
- *    corner radius from the button's 15 to the panel's 20. Radius is the reason
- *    this can't be a transform: scaling a box to a fourteenth of its height
- *    scales its corners with it, and the thing collapsing back into the header
- *    ends up a sharp-cornered sliver.
- *  - `reveal` (native) fades the scrim and the content.
- *
- * The box that animates is deliberately childless — two flat colour layers and
- * nothing else. An earlier version had the notification list inside it, so
- * every frame re-laid out the whole list; that was the flicker. The list now
- * lives in its own layer, pinned at the panel's final size, and only ever
- * fades. Nothing re-measures while the box moves.
- *
- * Colour follows from the same split: it can't be interpolated on the native
- * driver, so tint-to-black is a tinted layer fading off a black one.
- *
- * The list that lands inside is the same component the full-screen
- * notifications route renders, so nothing about a notification behaves
- * differently depending on which way you opened it.
+ * The list inside is the same component the full-screen notifications route
+ * renders, so nothing about a notification behaves differently depending on
+ * which way you opened it.
  */
 /**
  * The bell in the header on screen, while there is one — so the menu's
- * Notifications can open this same panel, grown from the bell, rather than a
- * pane of its own. Each header's bell registers itself while its screen is
- * focused; a screen behind (frozen, see freezeOnBlur) never answers.
+ * Notifications can open this same panel rather than a pane of its own. Each
+ * header's bell registers itself while its screen is focused; a screen behind
+ * (frozen, see freezeOnBlur) never answers.
  */
 let openFocusedBell: (() => void) | null = null;
 
@@ -84,8 +48,6 @@ export function openNotificationsPanel(): boolean {
 
 export default function NotificationsBell() {
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
-  const { width: screenW, height: screenH } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
 
   // One poll for every badge the chrome draws — see getBadges.
   const { data: badges } = useGetBadgesQuery(undefined, {
@@ -97,136 +59,27 @@ export default function NotificationsBell() {
    * Unread messages count towards the bell too.
    *
    * A message was the one thing that could be waiting for you with nothing on
-   * screen to say so — the bell reported notifications only, and messages sat
-   * behind a separate icon in the drawer that you had to think to open. They're
-   * both "something arrived for you", so they're both on the badge, and the
-   * panel lists them together.
+   * screen to say so. They're both "something arrived for you", so they're
+   * both on the badge, and the panel lists them together.
    */
   const notificationCount = badges?.notifications ?? 0;
   const messageCount = badges?.messages ?? 0;
   const count = notificationCount + messageCount;
 
-  // The same fill the rest of the header wears — gold on a Pro account, the
-  // accent blue otherwise. It used to be gold for everyone, which left the one
-  // button in a standard header that didn't match the row it sat in.
-  const tint = useBrandColor();
-  const navigation = useNavigation<any>();
-
   const btnRef = useRef<View>(null);
+  /** The panel is asked to show. */
   const [open, setOpen] = useState(false);
-  /** True once the box has finished growing — gates touches on the content. */
-  const [expanded, setExpanded] = useState(false);
-  // Where the button sits on screen, captured at press time — the panel grows
-  // out of that rectangle, so it has to be measured, not assumed.
-  const [origin, setOrigin] = useState({ x: 0, y: 0, w: BTN, h: BTN });
-
-  const box = useRef(new Animated.Value(0)).current;
-  const reveal = useRef(new Animated.Value(0)).current;
-  const badgeScale = useRef(new Animated.Value(1)).current;
-  /**
-   * The button's face drawn inside the modal. It needs its own value because
-   * it isn't symmetrical: on the way up it holds long enough for the bubble to
-   * make its exit and then gets out of the way, and on the way down it comes
-   * back immediately so the bell and its count ride the shrinking box the whole
-   * way home rather than appearing at the end of the trip.
-   */
-  const ghost = useRef(new Animated.Value(1)).current;
-
-  const panelW = screenW * PANEL_RATIO;
-  const maxPanelH = screenH * PANEL_H_RATIO;
-  const panelX = (screenW - panelW) / 2;
-  // Anchored where the full-height panel's top edge would be, so a short panel
-  // hangs from the top of the screen and grows or shrinks at its bottom edge
-  // only, rather than re-centring every time a notification comes or goes.
-  // Never under the status bar: at the old height the top edge met the clock.
-  const panelY = Math.max(insets.top + CLOSE_GAP + CLOSE_SIZE + CLOSE_GAP, (screenH - maxPanelH) / 2);
-
-  /**
-   * As tall as what's in it, up to `maxPanelH`.
-   *
-   * Two notifications used to sit at the top of a panel that took the whole
-   * screen. The header (with the messages row, when there is one) and the
-   * list's rows are measured separately and added up; past the cap the list
-   * scrolls inside the panel.
-   *
-   * Animated rather than set, because it changes while you watch: the rows can
-   * land after the box has started growing, and deleting one shrinks the panel
-   * under your thumb. JS-driven, since it feeds the box's height.
-   */
-  const [chromeH, setChromeH] = useState<number | null>(null);
-  const [listH, setListH] = useState<number | null>(null);
-  const fitH = chromeH != null && listH != null ? Math.min(chromeH + listH, maxPanelH) : null;
-  const fitHRef = useRef(fitH);
-  fitHRef.current = fitH;
-  const panelH = useRef(new Animated.Value(PANEL_LOADING_H)).current;
-
-  useEffect(() => {
-    if (!open || fitH == null) return;
-    Animated.spring(panelH, {
-      toValue: fitH,
-      stiffness: 220,
-      damping: 26,
-      mass: 1,
-      useNativeDriver: false,
-    }).start();
-  }, [open, fitH, panelH]);
+  /** The panel is on screen — still true while it animates away. */
+  const [up, setUp] = useState(false);
+  const [origin, setOrigin] = useState<SummaryOrigin | null>(null);
 
   const openPanel = useCallback(() => {
-    btnRef.current?.measureInWindow((x, y, w, h) => {
-      setOrigin({ x, y, w: w || BTN, h: h || BTN });
-      // Last time's height is the best guess until this open's rows measure.
-      panelH.setValue(fitHRef.current ?? Math.min(PANEL_LOADING_H, maxPanelH));
+    measureOrigin(btnRef.current, (o) => {
+      setOrigin(o);
+      setUp(true);
       setOpen(true);
-      box.setValue(0);
-      reveal.setValue(0);
-      ghost.setValue(1);
-      badgeScale.setValue(1);
-
-      // Two frames of head start. Mounting the modal renders the notification
-      // list, and that is the one heavy chunk of JS in this whole interaction —
-      // starting the box on the same frame means it stutters through its first
-      // few. Letting the list land first buys a quiet thread to animate on.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        Animated.parallel([
-          Animated.timing(box, {
-            toValue: 1,
-            // The same curve GrowPanel opens with: an ease-out with a small
-            // back, so the box slows into place, goes a touch past, and
-            // settles. This was a spring that overshot by a tenth and rocked
-            // back, and that much read as wobble on a box this big.
-            duration: 420,
-            easing: Easing.out(Easing.back(0.9)),
-            useNativeDriver: false,
-          }),
-          Animated.timing(reveal, {
-            toValue: 1,
-            duration: 570,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          // The bubble doesn't just vanish — it winds up and snaps away, which
-          // reads as it being taken rather than switched off.
-          Animated.timing(badgeScale, {
-            toValue: 0,
-            duration: 480,
-            easing: Easing.in(Easing.elastic(1.4)),
-            useNativeDriver: true,
-          }),
-          // Held until the bubble has finished leaving — fading the face out
-          // any sooner takes the exit with it.
-          Animated.timing(ghost, {
-            toValue: 0,
-            delay: 390,
-            duration: 210,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]).start(({ finished }) => {
-          if (finished) setExpanded(true);
-        });
-      }));
     });
-  }, [box, reveal, badgeScale, ghost, panelH, maxPanelH]);
+  }, []);
 
   // The menu's way in — see openNotificationsPanel.
   const isFocused = useIsFocused();
@@ -237,73 +90,20 @@ export default function NotificationsBell() {
     return () => { if (openFocusedBell === open) openFocusedBell = null; };
   }, [isFocused, isLoggedIn, openPanel]);
 
-  /**
-   * Shrink back into the button, then run whatever was waiting on the panel
-   * being gone — opening a notification's target, usually. iOS refuses to
-   * present a screen over a modal that is still dismissing, so the navigation
-   * has to be the last thing that happens, not the first.
-   *
-   * Closing is a fixed-length ease rather than a spring. It used to be an
-   * overdamped spring (stiffness 53, damping 14.6), which looked done in about
-   * half a second but crept the last few pixels for well over a second more —
-   * and the modal, which swallows every touch, stays up until the animation
-   * reports finished. That tail was the lag: the screen looked free and wasn't.
-   * A timing curve ends when it says it does, and still can't overshoot.
-   */
-  const closePanel = useCallback((navigateAfter?: () => void) => {
-    setExpanded(false);
-    // Full size from the off. The real button underneath wears the bubble at
-    // full size, so anything else here would pop at the hand-off.
-    badgeScale.setValue(1);
-    Animated.parallel([
-      Animated.timing(box, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: false,
-      }),
-      // Quicker than the box: the content is pinned at full size, so it has to
-      // be gone before the box shrinks out from under it.
-      Animated.timing(reveal, {
-        toValue: 0,
-        duration: 200,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      // Straight back in, so the bell and count are over the fill for the whole
-      // collapse instead of turning up once it has already landed.
-      Animated.timing(ghost, {
-        toValue: 1,
-        duration: 210,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (!finished) return;
-      setOpen(false);
-      if (navigateAfter) requestAnimationFrame(navigateAfter);
-    });
-  }, [box, reveal, badgeScale, ghost]);
-
   if (!isLoggedIn) return null;
 
   /**
    * No bell when nothing is waiting.
    *
-   * The header carries a row of controls and a permanently empty bell is the
-   * one that never has anything to say. `count` is notifications *and* unread
-   * messages, so this only disappears when both are clear — hiding it on
-   * notifications alone would take the only header route to an unread message
-   * with it. Notifications remain reachable from the drawer either way.
+   * `count` is notifications *and* unread messages, so this only disappears
+   * when both are clear. Notifications remain reachable from the drawer
+   * either way.
    *
-   * `open` keeps it mounted while the panel is showing: archiving the last
-   * notification takes the count to zero, and without this the panel would be
-   * pulled out from under whoever was reading it.
+   * `up` keeps it mounted while the panel is showing (and closing):
+   * archiving the last notification takes the count to zero, and without
+   * this the panel would be pulled out from under whoever was reading it.
    */
-  if (count === 0 && !open) return null;
-
-  const grow = (from: number, to: number) =>
-    box.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
+  if (count === 0 && !up) return null;
 
   return (
     <>
@@ -315,13 +115,8 @@ export default function NotificationsBell() {
         accessibilityRole="button"
         accessibilityLabel={`Notifications, ${count} unread`}
       >
-        <Bell size={22} color={COLOR_WHITE} strokeWidth={2.2} />
-        {/* Not while the panel is up: the copy riding the box carries the
-            bubble then, and by the tail of the collapse the scrim has faded
-            enough to show this one too — two badges, a few pixels apart,
-            chasing each other home. The swap back is invisible because the
-            copy is exactly here at the moment the modal unmounts. */}
-        {count > 0 && !open && (
+        <Bell size={24} color={COLOR_WHITE} strokeWidth={2.2} />
+        {count > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
               {count > BADGE_MAX ? `${BADGE_MAX}+` : count}
@@ -330,182 +125,58 @@ export default function NotificationsBell() {
         )}
       </TouchableOpacity>
 
-      <Modal
-        visible={open}
-        transparent
-        animationType="none"
-        onRequestClose={() => closePanel()}
-        statusBarTranslucent
-      >
-        {/* The ground dims as the panel grows, so the screen behind reads as
-            being covered rather than as having gone dark on its own. */}
-        <Animated.View
-          style={[StyleSheet.absoluteFill, { opacity: reveal }]}
-          pointerEvents="none"
+      {up && (
+        <SummaryModal
+          visible={open}
+          origin={origin}
+          onClose={() => setOpen(false)}
+          onClosed={() => setUp(false)}
         >
-          {/* Blurred on iOS; Android keeps the flat shade. The grey stays on
-              top of the blur so the panel's edges still read against a pale
-              screen behind it. */}
-          {Platform.OS === 'ios' && (
-            <BlurView tint="dark" intensity={30} style={StyleSheet.absoluteFill} />
-          )}
-          <View style={[StyleSheet.absoluteFill, styles.scrim]} />
-        </Animated.View>
-        {/* Tapping outside closes, matching every other sheet in the app. */}
+          <NotificationsPanelBody messageCount={messageCount} />
+        </SummaryModal>
+      )}
+    </>
+  );
+}
+
+/**
+ * What's in the panel: unread messages first, when there are any, then the
+ * list. Inside the panel so it can close it before going anywhere — iOS won't
+ * present a screen over a modal still on its way out (closeThen).
+ */
+function NotificationsPanelBody({ messageCount }: { messageCount: number }) {
+  const panel = useSummaryPanel();
+  const navigation = useNavigation<any>();
+  const tint = useBrandColor();
+  const dismiss = useCallback((after?: () => void) => panel?.closeThen(after), [panel]);
+
+  return (
+    <>
+      {/* Messages first, and only when there are unread ones. A standing
+          "Messages" row on a panel about what's new would be navigation
+          wearing a notification's clothes. */}
+      {messageCount > 0 && (
         <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={() => closePanel()}
-          accessibilityLabel="Close notifications"
-        />
-
-        {/* The morphing box: colour and shape only, nothing to re-measure. */}
-        <Animated.View
-          style={[
-            styles.morphBox,
-            {
-              left: grow(origin.x, panelX),
-              top: grow(origin.y, panelY),
-              width: grow(origin.w, panelW),
-              // grow(origin.h, panelH), except the far end moves too.
-              height: Animated.add(
-                origin.h,
-                Animated.multiply(box, Animated.subtract(panelH, origin.h)),
-              ),
-              borderRadius: grow(BTN_RADIUS, PANEL_RADIUS),
-            },
-          ]}
-          pointerEvents="none"
+          style={styles.messagesRow}
+          onPress={() => dismiss(() => navigation.navigate('Messages'))}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`${messageCount} unread ${messageCount === 1 ? 'message' : 'messages'}`}
         >
-          {/* The pane surface the whole way.
-              This used to open on the brand fill and fade to black, so the
-              growing box matched the brand-filled button it came out of. The
-              button is a bare white glyph now, so there is nothing for a tint
-              to match — starting on it would be a flash of colour that appears
-              for no reason and leaves. */}
-          <View style={[StyleSheet.absoluteFill, styles.morphFill]} />
-        </Animated.View>
+          <View style={[styles.messagesIcon, { backgroundColor: tint }]}>
+            <Mail size={16} color={contrastText(tint)} strokeWidth={2.4} />
+          </View>
+          <View style={styles.messagesText}>
+            <Text style={styles.messagesTitle}>
+              {messageCount} unread {messageCount === 1 ? 'message' : 'messages'}
+            </Text>
+            <Text style={styles.messagesHint}>Open your inbox</Text>
+          </View>
+          <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
+        </TouchableOpacity>
+      )}
 
-        {/* The button's own face, redrawn inside the modal.
-            The real one in the header is behind this whole window, so during
-            the grow and the shrink it is simply not visible — the bell and its
-            count would vanish under the tinted box the moment you pressed, and
-            reappear only once the modal was gone. This tracks the box's leading
-            corner at the button's own size, sits above the fill, and fades out
-            as the box takes the screen. On the way back it fades in over the
-            shrinking box and hands off to the real button underneath. */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.ghostBtn,
-            {
-              left: grow(origin.x, panelX),
-              top: grow(origin.y, panelY),
-            },
-          ]}
-        >
-          {/* Position and opacity are split across two views on purpose.
-              A view with even one native-driven prop has its whole props node
-              moved to native, and left/top don't exist there — putting the
-              JS-driven position and the native-driven fade on one view gets you
-              "Style property 'left' is not supported by native animated module"
-              followed by the JS animation refusing to run at all. */}
-          <Animated.View style={[styles.ghostFace, { opacity: ghost }]}>
-            <Bell size={22} color={COLOR_WHITE} strokeWidth={2.2} />
-            {count > 0 && (
-              <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
-                <Text style={styles.badgeText}>
-                  {count > BADGE_MAX ? `${BADGE_MAX}+` : count}
-                </Text>
-              </Animated.View>
-            )}
-          </Animated.View>
-        </Animated.View>
-
-        {/* Content, at its final size throughout — it only ever fades.
-            Height and opacity on separate views for the same reason as the
-            ghost button: the height is JS-driven, the fade native. */}
-        <Animated.View
-          style={[
-            styles.content,
-            { left: panelX, top: panelY, width: panelW, height: panelH },
-          ]}
-          // Until the box has arrived this layer is invisible, and an invisible
-          // sheet must not be swallowing taps meant for the backdrop.
-          pointerEvents={expanded ? 'auto' : 'none'}
-        >
-          <Animated.View
-            style={[
-              styles.contentFade,
-              {
-                opacity: reveal.interpolate({
-                  inputRange: [0, 0.45, 0.85], outputRange: [0, 0, 1], extrapolate: 'clamp',
-                }),
-              },
-            ]}
-          >
-            <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
-              {/* No heading and no bell — you just tapped the bell, so the panel
-                  doesn't need to say what it is. The close sits outside, above
-                  the corner (below); clearing out lives on the Archived tab. */}
-              <View style={styles.panelTop} />
-
-              {/* Messages first, and only when there are unread ones. A standing
-                  "Messages" row on a panel about what's new would be navigation
-                  wearing a notification's clothes. */}
-              {messageCount > 0 && (
-                <TouchableOpacity
-                  style={styles.messagesRow}
-                  onPress={() => {
-                    closePanel();
-                    navigation.navigate('Messages');
-                  }}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${messageCount} unread ${messageCount === 1 ? 'message' : 'messages'}`}
-                >
-                  <View style={[styles.messagesIcon, { backgroundColor: tint }]}>
-                    <Mail size={16} color={contrastText(tint)} strokeWidth={2.4} />
-                  </View>
-                  <View style={styles.messagesText}>
-                    <Text style={styles.messagesTitle}>
-                      {messageCount} unread {messageCount === 1 ? 'message' : 'messages'}
-                    </Text>
-                    <Text style={styles.messagesHint}>Open your inbox</Text>
-                  </View>
-                  <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <NotificationsList
-              onDismiss={closePanel}
-              revealStagger
-              onContentHeight={setListH}
-            />
-          </Animated.View>
-        </Animated.View>
-
-        {/* Outside the panel, above its top-right corner, on the dimmed
-            backdrop — as every summary panel's close is. Fades with the rest. */}
-        <Animated.View
-          style={[
-            styles.closeOut,
-            { left: panelX + panelW - CLOSE_SIZE, top: panelY - CLOSE_SIZE - CLOSE_GAP, opacity: reveal },
-          ]}
-          pointerEvents={expanded ? 'box-none' : 'none'}
-        >
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={() => closePanel()}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityRole="button"
-            accessibilityLabel="Close notifications"
-          >
-            <X size={22} color={COLOR_WHITE} strokeWidth={2.2} />
-          </TouchableOpacity>
-        </Animated.View>
-      </Modal>
+      <NotificationsList onDismiss={dismiss} inPanel />
     </>
   );
 }
@@ -560,7 +231,8 @@ const styles = StyleSheet.create({
 
   messagesRow: {
     flexDirection: 'row', alignItems: 'center', gap: 11,
-    marginHorizontal: 14, marginBottom: 10,
+    // The panel's top room above it, as the tabs have when they lead.
+    marginHorizontal: 16, marginTop: 18, marginBottom: -6,
     paddingHorizontal: 12, paddingVertical: 11,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -572,59 +244,4 @@ const styles = StyleSheet.create({
   messagesText:  { flex: 1 },
   messagesTitle: { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   messagesHint:  { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
-
-  // Lighter than it was: the panel itself is near-black, and against a
-  // heavy black scrim its edges disappeared into the dim. Grey gives the sheet
-  // something to sit on rather than dissolve into.
-  scrim: { backgroundColor: PANE_SCRIM },
-
-  /**
-   * Stacking inside the modal, bottom to top: scrim, backdrop, this box, the
-   * content, then the button's face on top of everything.
-   *
-   * Both properties on all three, because the two platforms decide this
-   * differently. iOS honours tree order and zIndex; Android honours elevation
-   * *over* tree order, so a later sibling with no elevation of its own is
-   * painted underneath this box's 20 — which is precisely what put the bell and
-   * the count behind the fill while it shrank.
-   */
-  morphBox: {
-    position: 'absolute',
-    overflow: 'hidden',
-    shadowColor: COLOR_BLACK,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    zIndex: 10, elevation: 20,
-  },
-  ghostBtn: {
-    position: 'absolute',
-    width: BTN, height: BTN,
-    zIndex: 30, elevation: 24,
-  },
-  ghostFace: {
-    width: '100%', height: '100%',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  morphFill: { backgroundColor: PANE_BG },
-  // Fades off the fill beneath it — colour can't be interpolated natively, and
-  // two layers cross-fading is the same picture without the bridge traffic. The
-  // fill itself is passed in, so the box leaves as whatever the button was.
-
-  content: {
-    position: 'absolute',
-    borderRadius: PANEL_RADIUS,
-    overflow: 'hidden',
-    zIndex: 20, elevation: 22,
-  },
-  contentFade: { flex: 1 },
-  // The panel's head, now nothing is in it: a little room before the first row.
-  panelTop: { height: 10 },
-  closeOut: { position: 'absolute', width: CLOSE_SIZE, height: CLOSE_SIZE, zIndex: 30, elevation: 24 },
-  closeBtn: {
-    width: CLOSE_SIZE, height: CLOSE_SIZE, borderRadius: CLOSE_SIZE / 2,
-    alignItems: 'center', justifyContent: 'center',
-    // A faint disc: the backdrop is a blurred screen as often as not.
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
 });

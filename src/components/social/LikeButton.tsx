@@ -66,6 +66,15 @@ interface LikeButtonProps {
   vertical?: boolean;
   /** Onto the touchable itself — an outline, a fill — for a heart drawn as a button. */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Solid red whenever anyone has liked it, not only when you have — for a
+   * comment, where the red says "this got likes" at a glance.
+   */
+  litOnAny?: boolean;
+  /** The count before the heart rather than after it. */
+  countFirst?: boolean;
+  /** The lit heart and count in this colour instead of the like red. */
+  litColor?: string;
 }
 
 export default function LikeButton({
@@ -83,6 +92,9 @@ export default function LikeButton({
   countColor,
   vertical = false,
   style,
+  litOnAny = false,
+  countFirst = false,
+  litColor = COLOR_LIKE,
 }: LikeButtonProps) {
   const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
@@ -96,6 +108,8 @@ export default function LikeButton({
   const known = useLikeState(documentId);
   const liked = known?.liked ?? initialLiked;
   const count = known?.count ?? initialCount;
+  /** Drawn red and solid. */
+  const lit = liked || (litOnAny && count > 0);
 
   const [likeEntry] = useLikeEntryMutation();
   const [unlikeEntry] = useUnlikeEntryMutation();
@@ -136,7 +150,7 @@ export default function LikeButton({
       <TouchableOpacity
         ref={btnRef}
         onPress={handlePress}
-        style={[vertical ? styles.vertical : styles.container, style]}
+        style={[vertical ? styles.vertical : styles.container, countFirst && !vertical && styles.countFirst, style]}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={
@@ -147,12 +161,12 @@ export default function LikeButton({
         <AnimatedHeart
           liked={liked}
           size={size}
-          color={liked ? COLOR_LIKE : resting}
-          fill={liked ? COLOR_LIKE : 'transparent'}
+          color={lit ? litColor : resting}
+          fill={lit ? litColor : 'transparent'}
           strokeWidth={vertical ? 1.8 : 2}
         />
         {showCount && count > 0 && (
-          <Text style={[vertical ? styles.railCount : styles.count, countColor ? { color: countColor } : liked ? styles.likedCount : { color: resting }]}>
+          <Text style={[vertical ? styles.railCount : styles.count, countColor ? { color: countColor } : { color: lit ? litColor : resting }]}>
             {formatActionCount(count)}
           </Text>
         )}
@@ -173,8 +187,8 @@ export default function LikeButton({
 
 const styles = StyleSheet.create({
   container:  { flexDirection: 'row', alignItems: 'center', gap: 5, padding: 4 },
+  countFirst: { flexDirection: 'row-reverse' },
   count:      { fontSize: 13, fontFamily: FONT_INTER.medium },
-  likedCount: { color: COLOR_LIKE },
   vertical:   { alignItems: 'center', gap: 3, padding: 4 },
   // Over a photo: white-ish on anything, so a shadow under the digits.
   railCount:  {

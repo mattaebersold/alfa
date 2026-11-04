@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Animated, ScrollView, type StylePro
 import Reanimated from 'react-native-reanimated';
 import { TAB_EASING, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
 import { Text } from '@ors/kit';
-import { GUTTER, COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_32 } from '../../constants/config';
+import { GUTTER, COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_32 } from '../../constants/config';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -37,7 +37,7 @@ const TRACK_GAP = 4;
 /** Each tab's height — a step over SubTabs', which this is the larger of. */
 export const TAB_H = 40;
 /** `dense`: the tab's height, and the track's padding above and below it. */
-const TAB_H_DENSE = 32;
+const TAB_H_DENSE = 38;
 const TRACK_PAD_DENSE = 1;
 
 /**
@@ -67,7 +67,7 @@ const TRACK_PAD_DENSE = 1;
  * that goes with it). Anywhere else leaves both off.
  */
 export default function MainTabs<K extends string>({
-  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, countColor, iconOnly = false, dense = false, itemsStyle, contentContainerStyle, style,
+  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, countColor, iconOnly = false, dense = false, pill = false, plainCounts = false, itemsStyle, contentContainerStyle, style,
 }: {
   tabs: MainTab<K>[];
   value?: K;
@@ -90,6 +90,10 @@ export default function MainTabs<K extends string>({
   iconOnly?: boolean;
   /** Shorter tabs and a thinner track around them — the home header's row. */
   dense?: boolean;
+  /** Fully round track and thumb, rather than the shared corner. */
+  pill?: boolean;
+  /** Counts as bare numbers beside the icon or label, with no bubble behind them. */
+  plainCounts?: boolean;
   itemsStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
@@ -170,11 +174,11 @@ export default function MainTabs<K extends string>({
       {/* The header's shrink and indent on the outside (RN Animated); inside
           it, the track, which eases to its new width when a tab's does. */}
       <Animated.View style={[styles.itemsOuter, stretch && styles.grow, itemsStyle]}>
-      <Reanimated.View layout={TAB_LAYOUT} style={[styles.items, dense && styles.itemsDense, stretch && styles.grow, trackColor ? { backgroundColor: trackColor } : null]}>
+      <Reanimated.View layout={TAB_LAYOUT} style={[styles.items, dense && styles.itemsDense, pill && styles.round, stretch && styles.grow, trackColor ? { backgroundColor: trackColor } : null]}>
         {target && (
           <Animated.View
             pointerEvents="none"
-            style={[styles.thumb, dense && styles.thumbDense, { width: thumbW, backgroundColor: TAB_ON_BG, transform: [{ translateX: thumbX }] }]}
+            style={[styles.thumb, dense && styles.thumbDense, pill && styles.round, { width: thumbW, backgroundColor: TAB_ON_BG, transform: [{ translateX: thumbX }] }]}
           />
         )}
         {tabs.map((t) => {
@@ -219,7 +223,9 @@ export default function MainTabs<K extends string>({
                 >
                   {t.label}
                 </Text>}
-                {t.count ? (
+                {t.count ? plainCounts ? (
+                  <Text style={[styles.countText, styles.countPlain, { color: countColor ?? color }]}>{t.count}</Text>
+                ) : (
                   // The lit tab's count black on its red; the rest a quiet grey.
                   <View style={[styles.count, on && { backgroundColor: TAB_ON_FG }]}>
                     <Text style={[styles.countText, { color: countColor ?? (on ? TAB_ON_BG : TAB_IDLE_FG) }]}>{t.count}</Text>
@@ -281,4 +287,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
   countText: { fontSize: 11, fontFamily: FONT_INTER.bold },
+  countPlain: { fontSize: 13 },
+  round: { borderRadius: PILL_RADIUS },
 });

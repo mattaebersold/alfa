@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Animated, Easing,
+  View, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
@@ -30,7 +30,7 @@ import Spinner from '../ui/Spinner';
 import EmptyState from '../ui/EmptyState';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import SubTabs from '../ui/SubTabs';
+import PanelTabs from '../ui/PanelTabs';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { notificationTarget } from '../../utils/notificationTarget';
 import type { Notification } from '../../types/api';
@@ -46,6 +46,7 @@ import {
   COLOR_SUCCESS,
   COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import PanelEmpty from '../ui/PanelEmpty';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -478,91 +479,26 @@ function ArchiveAllButton({ onPress }: { onPress: () => void }) {
  */
 export type DismissHandler = (navigateAfter?: () => void) => void;
 
-/** Rows land one after another rather than all at once. */
-const ROW_STAGGER_MS = 50;
-/**
- * Waits for the panel to have most of its size before the first row lands.
- * Tuned against NotificationsBell's opening spring — the rows should start
- * arriving as it settles, not while the box is still visibly moving.
- */
-const ROW_STAGGER_DELAY_MS = 360;
-/** Roughly a screenful — rows past this arrive without ceremony. */
-const MAX_STAGGERED_ROWS = 9;
-
-/**
- * One row's entrance: up and in, on its own beat.
- *
- * Only the panel asks for this. Opening the full-screen route doesn't need
- * choreography — the list is simply there — but the panel grows out of a 44pt
- * button, and rows that snap in fully formed the moment it stops make the box
- * look like it was hiding them rather than filling with them.
- */
-function RowReveal({
-  index, enabled, children,
-}: {
-  index: number;
-  enabled: boolean;
-  children: React.ReactNode;
-}) {
-  // Only the opening screenful is choreographed. Past that a row is one the
-  // list recycles in as you scroll, and holding it invisible for its turn in a
-  // sequence that finished long ago would just look like a row failing to draw.
-  const animates = enabled && index <= MAX_STAGGERED_ROWS;
-  const progress = useRef(new Animated.Value(animates ? 0 : 1)).current;
-
-  useEffect(() => {
-    if (!animates) return;
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 320,
-      delay: ROW_STAGGER_DELAY_MS + index * ROW_STAGGER_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-    // Deliberately mount-only: a row that has arrived shouldn't replay its
-    // entrance when the list re-renders around it.
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!animates) return <>{children}</>;
-
-  return (
-    <Animated.View
-      style={{
-        opacity: progress,
-        transform: [{
-          translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }),
-        }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
 /**
  * The notifications list — toolbar and rows, with no chrome of its own.
  *
  * Lives apart from the screen because it now has two homes: the full-screen
- * modal route, and the panel the header's bell expands into. Both need the same
+ * modal route, and the summary panel the header's bell opens. Both need the same
  * list; only what "close this" means differs, which is `onDismiss`.
  */
 export default React.memo(NotificationsList);
 
 function NotificationsList({
   onDismiss,
-  /** Stagger the rows in on mount — see RowReveal. */
-  revealStagger = false,
   /**
-   * The rows' natural height, for a host that sizes itself to the list rather
-   * than giving it a fixed frame — the panel does. Passing it also stops the
-   * rows stretching to fill the frame, which would otherwise feed the frame's
-   * own height back in as the content's.
+   * Inside a summary panel (the bell's), which brings its own scroller and
+   * sizes itself to what's in it — so the rows are laid out plainly rather
+   * than in a list of their own, which would nest one scroller in another.
    */
-  onContentHeight,
+  inPanel = false,
 }: {
   onDismiss: DismissHandler;
-  revealStagger?: boolean;
-  onContentHeight?: (height: number) => void;
+  inPanel?: boolean;
 }) {
   const colors = useColors();
   const navigation = useNavigation<NavProp>();
@@ -699,38 +635,58 @@ function NotificationsList({
    * view, and a button under them is the rest. Back to five on a tab change.
    */
   const [shown, setShown] = useState(NOTIFICATIONS_PAGE);
-  /** The two heights the host adds up: what's above the rows, and the rows. */
-  const aboveH = useRef(0);
-  const rowsH = useRef<number | null>(null);
-  const report = () => {
-    if (onContentHeight && rowsH.current != null) onContentHeight(aboveH.current + rowsH.current);
-  };
   const notifications = onTab.slice(0, shown);
   const remaining = onTab.length - notifications.length;
-  if (isLoading) return <Spinner fullScreen />;
+  if (isLoading) return inPanel ? <ActivityIndicator color={colors.grey} style={styles.panelLoader} /> : <Spinner fullScreen />;
+
+  const renderRow = (item: Notification) => {
+    const admin = refusingAdmin(item);
+    return (
+      <NotificationRow
+          notification={item}
+          onRead={() => handlePress(item)}
+          onArchive={tab === 'unread' && !awaitingDecision(item) ? () => archiveNotif(item) : undefined}
+          onDelete={() => deleteNotif(item.internal_id)}
+          onApprove={() => handleApprove(item)}
+          onDeny={() => handleDeny(item)}
+          onMessageAdmin={admin ? () => handleMessageAdmin(item, admin) : undefined}
+        />
+    );
+  };
+  // In the bell's panel, every summary panel's empty line; on the screen, the app's.
+  const empty = inPanel
+    ? <PanelEmpty>{tab === 'unread' ? 'Nothing unread' : 'Nothing archived'}</PanelEmpty>
+    : tab === 'unread'
+    ? <EmptyState title="Nothing unread" message="You're all caught up." />
+    : <EmptyState title="Nothing archived" message="Notifications you've read will be kept here." />;
+  const more = remaining > 0 ? (
+    <TouchableOpacity
+      style={[styles.moreBtn, { borderColor: colors.borderDark }]}
+      onPress={() => setShown((n) => n + NOTIFICATIONS_PAGE)}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.moreText, { color: colors.fg }]}>
+        Show {Math.min(remaining, NOTIFICATIONS_PAGE)} more{remaining > NOTIFICATIONS_PAGE ? ` of ${remaining}` : ''}
+      </Text>
+    </TouchableOpacity>
+  ) : null;
 
   // Its own gesture root: the bell's panel is a Modal, which on Android is a
   // window the app root's doesn't reach, and the rows' swipe needs one.
   return (
-    <GestureHandlerRootView style={ss.fill}>
-      {/* Everything above the rows is measured with them — the host sizes its
-          panel to what's reported, and a panel sized to the rows alone came
-          up a tab bar short, with the last row cut off at its foot. */}
-      <View onLayout={(e) => { aboveH.current = e.nativeEvent.layout.height; report(); }}>
-      {/* Unread or Archived — the post form's track, two across. Reading a
+    <GestureHandlerRootView style={inPanel ? undefined : ss.fill}>
+      {/* Unread or Archived — every summary panel's tabs. Reading a
           notification is what archives it; clearing the archive is the one
           bulk action, and it lives on that tab. */}
-      <View style={styles.tabs}>
-        <SubTabs
-          options={[
-            { key: 'unread', label: unread.length ? `Unread (${unread.length})` : 'Unread' },
-            { key: 'archived', label: archived.length ? `Archived (${archived.length})` : 'Archived' },
-          ]}
-          value={tab}
-          onChange={(t) => { setTab(t); setShown(NOTIFICATIONS_PAGE); }}
-          stretch
-        />
-      </View>
+      <PanelTabs
+        tabs={[
+          { key: 'unread', label: 'Unread', count: unread.length },
+          { key: 'archived', label: 'Archived', count: archived.length },
+        ]}
+        value={tab}
+        onChange={(t) => { setTab(t); setShown(NOTIFICATIONS_PAGE); }}
+      />
       {tab === 'unread' && archivable.length > 0 && (
         <View style={styles.deleteAllRow}>
           <ArchiveAllButton onPress={archiveAll} />
@@ -741,49 +697,26 @@ function NotificationsList({
           <DeleteAllButton onDone={() => onDismiss()} />
         </View>
       )}
-      </View>
 
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.internal_id}
-        renderItem={({ item, index }) => {
-          const admin = refusingAdmin(item);
-          return (
-            <RowReveal index={index} enabled={revealStagger}>
-              <NotificationRow
-                notification={item}
-                onRead={() => handlePress(item)}
-                onArchive={tab === 'unread' && !awaitingDecision(item) ? () => archiveNotif(item) : undefined}
-                onDelete={() => deleteNotif(item.internal_id)}
-                onApprove={() => handleApprove(item)}
-                onDeny={() => handleDeny(item)}
-                onMessageAdmin={admin ? () => handleMessageAdmin(item, admin) : undefined}
-              />
-            </RowReveal>
-          );
-        }}
-        ListEmptyComponent={
-          tab === 'unread'
-            ? <EmptyState title="Nothing unread" message="You're all caught up." />
-            : <EmptyState title="Nothing archived" message="Notifications you've read will be kept here." />
-        }
-        ListFooterComponent={remaining > 0 ? (
-          <TouchableOpacity
-            style={[styles.moreBtn, { borderColor: colors.borderDark }]}
-            onPress={() => setShown((n) => n + NOTIFICATIONS_PAGE)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.moreText, { color: colors.fg }]}>
-              Show {Math.min(remaining, NOTIFICATIONS_PAGE)} more{remaining > NOTIFICATIONS_PAGE ? ` of ${remaining}` : ''}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={onContentHeight ? styles.listFit : styles.list}
-        onContentSizeChange={onContentHeight ? (_w, h) => { rowsH.current = h; report(); } : undefined}
-        refreshControl={refreshControl}
-      />
+      {inPanel ? (
+        <View style={styles.listFit}>
+          {notifications.length === 0 ? empty : notifications.map((item) => (
+            <React.Fragment key={item.internal_id}>{renderRow(item)}</React.Fragment>
+          ))}
+          {more}
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.internal_id}
+          renderItem={({ item }) => renderRow(item)}
+          ListEmptyComponent={empty}
+          ListFooterComponent={more}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+          refreshControl={refreshControl}
+        />
+      )}
     </GestureHandlerRootView>
   );
 }
@@ -833,7 +766,7 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: COMMON_RADIUS, backgroundColor: colors.red,
     alignItems: 'center', justifyContent: 'center',
   },
-  tabs:    { paddingTop: 4, paddingBottom: 6 },
+  panelLoader: { marginVertical: 40 },
   moreBtn: {
     marginHorizontal: 12, marginTop: 6, height: 40,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,

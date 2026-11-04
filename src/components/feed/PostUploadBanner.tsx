@@ -80,9 +80,10 @@ function UploadBar({ upload, onPress }: { upload: PostUpload; onPress: () => voi
           <Text style={styles.title} numberOfLines={1}>
             {failed ? "Couldn't post" : upload.label}
           </Text>
-          <Text style={styles.sub} numberOfLines={1}>
-            {failed ? 'Tap to try again or edit' : `${Math.round(upload.progress * 100)}%`}
-          </Text>
+          {/* While it's going up the bar says how far — no number beside it. */}
+          {failed ? (
+            <Text style={styles.sub} numberOfLines={1}>Tap to try again or edit</Text>
+          ) : null}
         </View>
         {failed ? <AlertCircle size={20} color={COLOR_RED} strokeWidth={2.2} /> : null}
       </View>

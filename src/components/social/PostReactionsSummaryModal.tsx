@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 're
 import { Text } from '@ors/kit';
 import { Heart, MessageCircle } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
-import MainTabs, { PANEL_TRACK_BG } from '../ui/MainTabs';
+import PanelTabs from '../ui/PanelTabs';
 import InlineComments from './InlineComments';
 import { LikerRow } from './LikersSheet';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
@@ -14,6 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import type { PostLike } from '../../hooks/usePostLike';
 import { COMMON_RADIUS, COLOR_GRAY_42, COLOR_LIKE, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import PanelEmpty from '../ui/PanelEmpty';
 
 export type PostReactionsTab = 'likes' | 'comments';
 
@@ -53,12 +54,12 @@ export default function PostReactionsSummaryModal({ postId, entryType, like, tab
   // you off it straight away.
   const known = useLikeState(postId);
   const likerIds = known?.users ?? likes.data?.users ?? [];
-  const { comments } = useCommentThread(entryType, postId, { skip: !visible });
+  const { rows: commentRows } = useCommentThread(entryType, postId, { skip: !visible });
   const { openUser, stacked } = useStackedUserSummary(visible);
 
   const tabs = [
     { key: 'likes' as const, label: 'Likes', Icon: Heart, count: like.count },
-    { key: 'comments' as const, label: 'Comments', Icon: MessageCircle, count: comments.length },
+    { key: 'comments' as const, label: 'Comments', Icon: MessageCircle, count: commentRows.length },
   ];
 
   const confirmUnlike = () => Alert.alert('Unlike this post?', undefined, [
@@ -86,7 +87,7 @@ export default function PostReactionsSummaryModal({ postId, entryType, like, tab
       {likes.isLoading && !likerIds.length ? (
         <ActivityIndicator color={colors.grey} style={styles.loader} />
       ) : !likerIds.length ? (
-        <Text style={[styles.empty, { color: colors.grey }]}>No likes yet</Text>
+        <PanelEmpty>No likes yet</PanelEmpty>
       ) : (
         likerIds.map((id, i) => <LikerRow key={id} userId={id} onOpen={openUser} last={i === likerIds.length - 1} rule={false} dense />)
       )}
@@ -103,10 +104,8 @@ export default function PostReactionsSummaryModal({ postId, entryType, like, tab
       minHeightRatio={0.6}
       stacked={stacked}
     >
-      {/* A darker grey track, every count in white — the lit tab's too — and
-          icons rather than words, spread across the panel, so it never scrolls. */}
-      <MainTabs tabs={tabs} value={tab} onChange={setTab} inset={16} trackColor={PANEL_TRACK_BG} countColor={COLOR_WHITE} iconOnly stretch style={styles.tabs} />
-      <View style={styles.body}>
+      <PanelTabs tabs={tabs} value={tab} onChange={setTab} iconOnly />
+      <View style={[styles.body, tab === 'comments' && styles.bodyComments]}>
         {tab === 'likes' ? likesBody() : (
           // No heading — the tab says "Comments" and how many — and no
           // ground of its own behind the thread or the composer.
@@ -118,10 +117,10 @@ export default function PostReactionsSummaryModal({ postId, entryType, like, tab
 }
 
 const styles = StyleSheet.create({
-  tabs:     { marginTop: 18, marginBottom: 6 },
   body:     { paddingHorizontal: 16, paddingBottom: 8 },
+  // More room between the tabs and the first comment.
+  bodyComments: { paddingTop: 12 },
   loader:   { marginTop: 30 },
-  empty:    { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
   // Your own like, over the list — and the way to take it back.
   mine:     {
     flexDirection: 'row', alignItems: 'center', gap: 10,

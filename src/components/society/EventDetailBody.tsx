@@ -334,22 +334,56 @@ export function EventDetailBody({
  * Calendar, side by side as pills. Attend is for the date the pane was
  * opened on.
  */
-export function EventInterestBar({ eventId, occurrenceDate: clickedDate }: {
+export function EventInterestBar({ eventId, occurrenceDate: clickedDate, calendarLabel, after }: {
   eventId: string;
   /** The occurrence being looked at — what Attend and Add to Calendar act on. */
   occurrenceDate?: string;
+  /** The calendar pill's words, in place of "Add to Calendar" — "Add" where three share the row. */
+  calendarLabel?: string;
+  /** More pills at the end of the row — an EventPill each. */
+  after?: React.ReactNode;
 }) {
   const colors = useColors();
   const day = clickedDate ? toDayKey(clickedDate) : undefined;
   const { data: event } = useGetSocietyEventQuery({ id: eventId, day });
   if (!event) return null;
-  return <EventFoot event={event} clickedDate={clickedDate} colors={colors} />;
+  return <EventFoot event={event} clickedDate={clickedDate} colors={colors} calendarLabel={calendarLabel} after={after} />;
 }
 
-function EventFoot({ event, clickedDate, colors }: {
+/** A pill in the event's foot row, dressed like Attend and Add to Calendar. */
+export function EventPill({ Icon, label, accessibilityLabel, onPress }: {
+  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  label: string;
+  /** What a screen reader says, when the label alone is too terse. */
+  accessibilityLabel?: string;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <TouchableOpacity
+      style={[styles.footPill, { backgroundColor: colors.card }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+    >
+      <Icon size={16} color={colors.fg} strokeWidth={2.4} />
+      <Text style={[styles.footText, { color: colors.fg }]} numberOfLines={1}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Just the row of pills, for a host with no Attend to offer — see EventSummaryModal. */
+export function EventPillRow({ children }: { children: React.ReactNode }) {
+  return <View style={styles.footRow}>{children}</View>;
+}
+
+function EventFoot({ event, clickedDate, colors, calendarLabel = 'Add to Calendar', after }: {
   event: SocietyEvent;
   clickedDate?: string;
   colors: ReturnType<typeof useColors>;
+  calendarLabel?: string;
+  after?: React.ReactNode;
 }) {
   const brand = useBrandColor();
   const shownDate = clickedDate || occurrenceDate(event);
@@ -385,9 +419,10 @@ function EventFoot({ event, clickedDate, colors }: {
           activeOpacity={0.85}
         >
           <CalendarPlus size={16} color={colors.fg} />
-          <Text style={[styles.footText, { color: colors.fg }]}>Add to Calendar</Text>
+          <Text style={[styles.footText, { color: colors.fg }]}>{calendarLabel}</Text>
         </TouchableOpacity>
       ) : null}
+      {after}
     </View>
   );
 }

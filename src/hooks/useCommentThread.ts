@@ -44,7 +44,12 @@ export function useCommentThread(
     { skip }
   );
 
-  const comments = commentsData?.entries ?? [];
+  const entries = commentsData?.entries ?? [];
+  /**
+   * Live top-level comments. A `removed` one is a tombstone — deleted, but kept
+   * on the server because replies hang off it — and isn't shown or counted.
+   */
+  const comments = useMemo(() => entries.filter((c: any) => !c.removed), [entries]);
 
   const rows = useMemo<CommentRowItem[]>(() => {
     const replies = repliesData?.entries ?? [];
@@ -64,9 +69,17 @@ export function useCommentThread(
     const out: CommentRowItem[] = [];
     const ordered = opts?.newestFirst
       ? [...comments].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-      : comments;
+      : entries;
     for (const cmt of ordered) {
       const threadReplies = byParent[cmt.internal_id] || [];
+      if (cmt.removed) {
+        // No row for the tombstone: its replies stand as comments of their
+        // own, still filed under its thread so a reply to one lands there too.
+        threadReplies.forEach((r) => {
+          out.push({ comment: r, isReply: false, isThreadStart: true, isThreadEnd: true, threadId: cmt.internal_id });
+        });
+        continue;
+      }
       out.push({
         comment: cmt,
         isReply: false,
@@ -85,7 +98,7 @@ export function useCommentThread(
       });
     }
     return out;
-  }, [comments, repliesData, opts?.newestFirst]);
+  }, [entries, repliesData, opts?.newestFirst]);
 
   return { rows, comments, isFetching };
 }

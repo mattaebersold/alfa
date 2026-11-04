@@ -106,9 +106,10 @@ export default function PostLocationField({ value, onChange, framed = true }: {
       )}
 
       {/* The search, until a place is picked — one place per post. The same
-          box and search glyph as the tag searches above it; the glyph sits
-          over the field's left padding rather than beside it in a row, since
-          AddressField's suggestions drop down under its own input. */}
+          box and search glyph as the tag searches above it, and like theirs,
+          its suggestions open above the field, clear of the keyboard. The
+          glyph is pinned to the bottom, over the input's left padding, so the
+          list opening above doesn't carry it along. */}
       {!value && (
         <View>
           <AddressField
@@ -120,6 +121,8 @@ export default function PostLocationField({ value, onChange, framed = true }: {
             }}
             placeholder="Search for a place…"
             inputStyle={styles.input}
+            // Low on the form, so under the field is where the keyboard is.
+            above
           />
           <View style={styles.searchIcon} pointerEvents="none">
             <Search size={15} color={colors.grey} />
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
   // the left for the glyph laid over it.
   input: { height: INPUT_H, paddingLeft: 35, paddingRight: 12, paddingVertical: 0 },
   searchIcon: {
-    position: 'absolute', left: 12, top: 0, height: INPUT_H,
+    position: 'absolute', left: 12, bottom: 0, height: INPUT_H, zIndex: 21, elevation: 21,
     justifyContent: 'center',
   },
 });

@@ -25,6 +25,31 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.87': {
+    date: 'November 2026',
+    groups: [
+      {
+        title: 'Cars & garage',
+        items: [
+          'Added a share button to the car detail screen.',
+        ],
+      },
+      {
+        title: 'Comments',
+        items: [
+          'Updated the reply UI to make replying to a comment easier.',
+          'The comment window now stays open after you post a comment or a reply.',
+        ],
+      },
+      {
+        title: 'Posts',
+        items: [
+          'Moved the location autocomplete list so it\'s not hidden by the keyboard.',
+          'Updated the style of the progress widget that shows while your post is processing.',
+        ],
+      },
+    ],
+  },
   '1.86': {
     date: 'October 2026',
     groups: [

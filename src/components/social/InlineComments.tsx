@@ -1,8 +1,10 @@
 import React, { useLayoutEffect, useState, useRef, useEffect } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
-  View, StyleSheet, ActivityIndicator, Alert, Keyboard, Platform,
+  View, StyleSheet, ActivityIndicator, Alert, Keyboard, Platform, TouchableOpacity,
 } from 'react-native';
+import { X } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
 import { Text } from '@ors/kit';
 import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread } from '../../hooks/useCommentThread';
@@ -17,6 +19,7 @@ import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import PanelEmpty from '../ui/PanelEmpty';
 
 interface InlineCommentsProps {
   /** internal_id of the thing being commented on. */
@@ -44,14 +47,16 @@ interface InlineCommentsProps {
   pinComposer?: boolean;
 }
 
+/** The pinned composer's blur strength (iOS). */
+const PINNED_BLUR = 30;
+/**
+ * Its tint over the blur: black at half. Android has no blur under it, so a
+ * heavier tint there keeps the words passing beneath from showing through.
+ */
+const PINNED_TINT = Platform.OS === 'ios' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.85)';
+
 /** Long enough for the keyboard, and the panel's move for it, to be done. */
 const KEYBOARD_SETTLE_MS = 400;
-/**
- * How long a just-posted comment stays on screen before a panel closes on it.
- * Long enough to see it land in the thread; short enough that the close reads
- * as the end of posting rather than as the panel going by itself.
- */
-const CLOSE_AFTER_POST_MS = 1000;
 /**
  * Room opened above the thread while the mention suggestions are up.
  *
@@ -63,21 +68,6 @@ const CLOSE_AFTER_POST_MS = 1000;
  * list draws over it. Taller than the list can be (four names, four cars).
  */
 const SUGGESTIONS_ROOM = 300;
-
-/**
- * In a summary panel, close it a beat after a comment goes up. Inline on a
- * page there's no panel and this does nothing. The timer is the caller's to
- * clear on unmount.
- */
-function useCloseAfterPost(panel: ReturnType<typeof useSummaryPanel>) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  return () => {
-    if (!panel) return;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => panel.closeThen(), CLOSE_AFTER_POST_MS);
-  };
-}
 
 /**
  * "Comments" and how many. Its own piece so a panel can pin it above the
@@ -102,89 +92,6 @@ export function CommentsHeading({ title = 'Comments', count, style }: {
 }
 
 /**
- * The reply field that opens under a comment when its reply button is tapped.
- *
- * Its own component, mounted fresh per target, so the words, mentions and
- * photos of one reply start empty and die with it — there's nothing to reset
- * when it closes, and nothing from the main composer to share or confuse with.
- * The keyboard comes up on mount: you tapped Reply to type.
- */
-function ReplyComposer({ documentId, entryType, replyTo, username, tone, onDone, onSuggestionsOpenChange }: {
-  documentId: string;
-  entryType: string;
-  /** The thread's top-level comment — what the reply hangs off. */
-  replyTo: string;
-  username: string;
-  tone: React.ComponentProps<typeof Composer>['tone'];
-  /** Posted, or given up on — the field goes either way. */
-  onDone: () => void;
-  /** See MentionInput; the thread makes room above itself. */
-  onSuggestionsOpenChange?: (open: boolean) => void;
-}) {
-  const [text, setText] = useState('');
-  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
-  const photos = useComposerPhotos();
-  const ref = useRef<ComposerHandle>(null);
-  const box = useRef<View>(null);
-  const panel = useSummaryPanel();
-  const closeAfterPost = useCloseAfterPost(panel);
-  const [createComment, { isLoading: submitting }] = useCreateCommentMutation();
-
-  useEffect(() => {
-    ref.current?.open();
-    // In a summary panel the keyboard shrinks the panel rather than lifting
-    // it, so a field low in the thread can end up under the fold. Asked for
-    // once the keyboard's animation has had its time.
-    if (!panel) return;
-    const t = setTimeout(() => panel.scrollIntoView(box.current), KEYBOARD_SETTLE_MS);
-    return () => clearTimeout(t);
-  }, [panel]);
-
-  const send = async () => {
-    const fd = new FormData();
-    fd.append('document_id', documentId);
-    fd.append('document_type', entryType);
-    fd.append('body', text.trim());
-    fd.append('reply_to', replyTo);
-    photos.appendTo(fd);
-    if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
-    try {
-      await createComment(fd).unwrap();
-      Keyboard.dismiss();
-      onDone();
-      closeAfterPost();
-    } catch {
-      Alert.alert('Error', 'Could not post reply.');
-      return false;
-    }
-  };
-
-  return (
-    <View ref={box}>
-      <Composer
-        ref={ref}
-        value={text}
-        onChangeText={(t, ids) => { setText(t); setMentionedUserIds(ids); }}
-        placeholder={`Reply to @${username}...`}
-        photos={photos}
-        onSend={send}
-        sending={submitting}
-        mentions
-        sendLabel="Reply"
-        tone={tone}
-        attachField
-        barStyle={styles.replyComposer}
-        onSuggestionsOpenChange={(open) => {
-          onSuggestionsOpenChange?.(open);
-          // Once the room above has laid out, the field back into view.
-          if (open && panel) setTimeout(() => panel.scrollIntoView(box.current), 50);
-        }}
-      />
-    </View>
-  );
-}
-
-/**
  * Comment thread rendered inline in a page rather than in a bottom sheet.
  *
  * Uses the same data hook as CommentsSheet, but plain Views instead of a
@@ -199,9 +106,12 @@ export default function InlineComments({
   const [commentText, setCommentText] = useState('');
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   /**
-   * The comment a reply is being written under. `rowId` is the row whose
-   * button was tapped, where the field opens; `threadId` is the thread's head,
-   * what the reply attaches to — the two differ when you reply to a reply.
+   * The comment a reply is being written to. `rowId` is the row whose button
+   * was tapped (it stays lit while you write); `threadId` is the thread's
+   * head, what the reply attaches to — the two differ when you reply to a
+   * reply. The reply is written in the thread's own composer, full width,
+   * with a banner over it saying who it's to — not in a field squeezed into
+   * the comment's card.
    */
   const [replyingTo, setReplyingTo] = useState<{ rowId: string; threadId: string; username: string } | null>(null);
   const photos = useComposerPhotos();
@@ -215,8 +125,16 @@ export default function InlineComments({
   // once the keyboard has had its time. On a page the FormScrollView does
   // its own keyboard work and this is null.
   const panel = useSummaryPanel();
-  const closeAfterPost = useCloseAfterPost(panel);
-  /** The mention suggestions are up over one of the fields — see SUGGESTIONS_ROOM. */
+  const composerRef = useRef<ComposerHandle>(null);
+  /** Each row's view, by id — to scroll to the comment you just posted. */
+  const rowViews = useRef(new Map<string, View | null>());
+  /**
+   * The rows there were before a post went up, until the post shows up in
+   * the thread — whichever row is new then is yours, and the panel scrolls to
+   * it. Null when nothing is waiting.
+   */
+  const [awaitingPost, setAwaitingPost] = useState<Set<string> | null>(null);
+  /** The mention suggestions are up over the composer — see SUGGESTIONS_ROOM. */
   const [suggesting, setSuggesting] = useState(false);
   const makeRoom = variant === 'panel' && !!panel;
 
@@ -229,19 +147,22 @@ export default function InlineComments({
     fd.append('document_id', documentId);
     fd.append('document_type', entryType);
     fd.append('body', commentText.trim());
+    if (replyingTo) fd.append('reply_to', replyingTo.threadId);
     photos.appendTo(fd);
     if (mentionedUserIds.length > 0) fd.append('mentioned_users', mentionedUserIds.join(','));
+    const before = new Set(rows.map(rowKey));
     try {
       await createComment(fd).unwrap();
       setCommentText('');
       setMentionedUserIds([]);
+      setReplyingTo(null);
       photos.clear();
-      // Clear the keyboard off the comment you just posted; in a panel, the
-      // panel follows a beat later, once the comment has been seen to land.
+      // The keyboard goes; the thread stays up, and is taken to what you
+      // posted once it has come back from the server (see awaitingPost).
       Keyboard.dismiss();
-      closeAfterPost();
+      setAwaitingPost(before);
     } catch {
-      Alert.alert('Error', 'Could not post comment.');
+      Alert.alert('Error', replyingTo ? 'Could not post reply.' : 'Could not post comment.');
       // Keeps the composer open with the words still in it.
       return false;
     }
@@ -265,19 +186,52 @@ export default function InlineComments({
     setTimeout(() => sub.remove(), 1500);
   };
 
+  // Your post has landed in the thread: scroll to it, once the keyboard is
+  // down and the panel has grown back to its size.
+  useEffect(() => {
+    if (!awaitingPost) return;
+    const mine = rows.find((r) => !awaitingPost.has(rowKey(r)) && r.comment.user_id === userInfo?.user_id)
+      ?? rows.find((r) => !awaitingPost.has(rowKey(r)));
+    if (!mine) return;
+    setAwaitingPost(null);
+    if (!panel) return;
+    const t = setTimeout(() => panel.scrollIntoView(rowViews.current.get(rowKey(mine)) ?? null), KEYBOARD_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [rows, awaitingPost, panel, userInfo?.user_id]);
+
+  const replyBanner = replyingTo ? (
+    <View style={[styles.replyBanner, { borderColor: c.borderDark }]}>
+      <Text style={[styles.replyText, { color: c.greyDark }]} numberOfLines={1}>
+        Replying to <Text style={[styles.replyName, { color: c.fg }]}>@{replyingTo.username}</Text>
+      </Text>
+      <TouchableOpacity
+        onPress={() => setReplyingTo(null)}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Stop replying"
+      >
+        <X size={16} color={c.greyDark} />
+      </TouchableOpacity>
+    </View>
+  ) : null;
+
   const composerEl = (
     <Composer
+      ref={composerRef}
       value={commentText}
       onOpenChange={toFootOnOpen}
       onChangeText={(text, ids) => { setCommentText(text); setMentionedUserIds(ids); }}
-      placeholder="Write a comment..."
+      placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : 'Write a comment...'}
       photos={photos}
       onSend={handleSubmit}
       sending={submitting}
       mentions
-      sendLabel="Post"
+      sendLabel={replyingTo ? 'Reply' : 'Post'}
+      banner={replyBanner}
+      onSuggestionsOpenChange={makeRoom ? setSuggesting : undefined}
       tone={tone}
       barStyle={styles.composer}
+      sendIcon
       attachField
       // Boxed at a fixed size: in a row whose other child grows, the avatar
       // was picking up the leftover width and drawing as a wide rectangle
@@ -292,7 +246,15 @@ export default function InlineComments({
   /** Pinned to the panel's foot instead of after the thread — see `pinComposer`. */
   const pinned = pinComposer && !!panel;
   useLayoutEffect(() => {
-    if (pinned) panel!.setFooter(<View style={[styles.pinnedComposer, { backgroundColor: bg }]}>{composerEl}</View>);
+    if (pinned) panel!.setFooter(
+      // Over the thread's foot, which scrolls on under it to the panel's edge:
+      // a blur of what's passing beneath, darkened to black at half.
+      <View style={styles.pinnedComposer}>
+        {Platform.OS === 'ios' ? <BlurView tint="dark" intensity={PINNED_BLUR} style={StyleSheet.absoluteFill} /> : null}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: PINNED_TINT }]} />
+        {composerEl}
+      </View>,
+    );
   });
   useLayoutEffect(() => () => { if (pinned) panel!.setFooter(null); }, [pinned, panel]);
 
@@ -303,19 +265,21 @@ export default function InlineComments({
         // the foot by the time the frame draws.
         <View style={{ height: SUGGESTIONS_ROOM }} onLayout={() => panel?.scrollToEnd(false)} />
       ) : null}
-      {title ? <CommentsHeading title={title} count={comments.length} /> : null}
+      {title ? <CommentsHeading title={title} count={rows.length} /> : null}
 
       {isFetching && comments.length === 0 ? (
         <ActivityIndicator color={c.primaryAlt} style={{ marginVertical: 24 }} />
       ) : rows.length === 0 ? (
-        <Text style={[styles.empty, { color: c.greyDark }]}>No comments yet. Be first!</Text>
+        variant === 'panel'
+          ? <PanelEmpty>No comments yet</PanelEmpty>
+          : <Text style={[styles.empty, { color: c.greyDark }]}>No comments yet. Be first!</Text>
       ) : (
         rows.map((item: any) => {
-          const rowId: string = item.comment.internal_id ?? item.comment._id;
+          const rowId = rowKey(item);
           const replyOpen = replyingTo?.rowId === rowId;
           return (
+          <View key={rowId} ref={(v) => { rowViews.current.set(rowId, v); }} collapsable={false}>
           <CommentRow
-            key={rowId}
             comment={item.comment}
             currentUserId={userInfo?.user_id}
             isReply={item.isReply}
@@ -327,26 +291,20 @@ export default function InlineComments({
             threadId={item.threadId}
             onOpenUser={(userId, origin) => setUserSummary({ userId, origin })}
             backgroundColor={bg}
-            // The button toggles: a second tap on the open one puts the field
-            // away, and a tap on another comment's moves it there.
+            // A panel already insets its content, so the cards take its full width.
+            flush={variant === 'panel'}
+            // The button toggles: a second tap on the lit one stops replying,
+            // and a tap on another comment's moves the reply there.
             replyOpen={replyOpen}
             onReply={(threadId, username) => {
-              setReplyingTo(replyOpen ? null : { rowId, threadId, username });
+              if (replyOpen) { setReplyingTo(null); return; }
+              setReplyingTo({ rowId, threadId, username });
+              composerRef.current?.open();
+              // Already focused, the field won't announce opening again.
+              if (!pinned) panel?.scrollToEnd();
             }}
-            below={replyOpen && replyingTo ? (
-              <ReplyComposer
-                // Fresh state per target, see ReplyComposer.
-                key={rowId}
-                documentId={documentId}
-                entryType={entryType}
-                replyTo={replyingTo.threadId}
-                username={replyingTo.username}
-                tone={tone}
-                onDone={() => setReplyingTo(null)}
-                onSuggestionsOpenChange={makeRoom ? setSuggesting : undefined}
-              />
-            ) : null}
           />
+          </View>
           );
         })
       )}
@@ -360,6 +318,11 @@ export default function InlineComments({
       />
     </View>
   );
+}
+
+/** A row's id — the comment's, whichever key the server used. */
+function rowKey(item: { comment: any }): string {
+  return item.comment.internal_id ?? item.comment._id;
 }
 
 const styles = StyleSheet.create({
@@ -379,14 +342,23 @@ const styles = StyleSheet.create({
 
   empty:      { fontSize: 13, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 },
 
+  // Overridden by the composer's own keyboard padding (useKeyboardPadding
+  // sets paddingBottom), so room under the bar goes on its wrapper instead.
   composer:  { paddingBottom: 6 },
-  pinnedComposer: { paddingTop: 8 },
+  // Pinned to a panel's foot: 8 here plus the bar's own 10 under the field
+  // makes 18 — the same as above the panel's tabs (PostReactionsSummaryModal).
+  // Its sides a little further in than the bar's own 12, off the panel's edge.
+  pinnedComposer: { paddingTop: 8, paddingBottom: 8, paddingHorizontal: 6 },
   // Android draws the panel's foot tighter under the bar than iOS does —
   // the Post button sat nearly on the edge — so it gets more room there.
   panelComposer: { paddingBottom: Platform.OS === 'android' ? 16 : 6 },
-  // Inside the comment card: the bar's own side padding is pulled back to
-  // the card's, and its ground is the card's, so it reads as part of the
-  // comment it answers rather than a strip laid over it.
-  replyComposer: { marginHorizontal: -12, marginTop: 4, marginBottom: -8, backgroundColor: 'transparent' },
+  // Over the composer while replying: who to, and a way out of it.
+  replyBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    marginHorizontal: 12, marginTop: 8, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: PILL_RADIUS,
+  },
+  replyText: { flex: 1, fontSize: 13, fontFamily: FONT_INTER.medium },
+  replyName: { fontFamily: FONT_INTER.bold },
   avatarBox: { width: 30, height: 30, flexGrow: 0, flexShrink: 0 },
 });

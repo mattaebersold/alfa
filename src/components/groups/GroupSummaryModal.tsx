@@ -4,9 +4,9 @@ import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Users, Lock, MapPin, ChevronUp, Plus } from 'lucide-react-native';
-import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
+import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';
-import AvatarStack from '../ui/AvatarStack';
+import AvatarStack, { AVATAR_STACK_MAX } from '../ui/AvatarStack';
 import SummaryUserRow from '../members/SummaryUserRow';
 import SummaryMessageButton from '../members/SummaryMessageButton';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
@@ -17,7 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { regionLabel } from '../../constants/regions';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_22 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -64,6 +64,11 @@ export default function GroupSummaryModal({
 
   // The member list folds open in place; each open starts folded.
   const [membersExpanded, setMembersExpanded] = useState(false);
+  /** The row the faces sit in — they're sized so a full one spans it. */
+  const [membersW, setMembersW] = useState(0);
+  /** The banner's and the members toggle's heights — what's above the open list. */
+  const [bannerH, setBannerH] = useState(0);
+  const [toggleH, setToggleH] = useState(0);
   const [bannerRatio, setBannerRatio] = useState(16 / 9);
   useEffect(() => { if (groupId) setMembersExpanded(false); }, [groupId]);
 
@@ -107,6 +112,8 @@ export default function GroupSummaryModal({
       onClose={onClose}
       origin={origin}
       actionLabel="View Group"
+      // A pill, as the listing's and the group activity panel's are.
+      actionPill
       onAction={rosterKnown && isMember ? () => nav.navigate('GroupDetail', { groupId }) : undefined}
       stacked={stacked}
     >
@@ -122,7 +129,7 @@ export default function GroupSummaryModal({
               then), capped at square so a tall one can't take the panel.
               Rounded at the foot, so it sits in the panel rather than
               capping it. */}
-          <View style={styles.bannerWrap}>
+          <View style={styles.bannerWrap} onLayout={(e) => setBannerH(e.nativeEvent.layout.height)}>
             {banner ? (
               <Image
                 source={{ uri: banner }}
@@ -141,6 +148,10 @@ export default function GroupSummaryModal({
           </View>
 
           <View style={styles.body}>
+            {/* Folded away while the member list is open, so the list has the
+                room; back when it closes. */}
+            {!membersExpanded && (
+            <>
             <View style={styles.titleRow}>
               <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{group.title}</Text>
             </View>
@@ -213,11 +224,14 @@ export default function GroupSummaryModal({
                 />
               ) : null}
             </View>
+            </>
+            )}
 
             {/* Who's in it — the faces first, and the names when you ask. */}
             {roster.length > 0 && (
               <View style={styles.membersBlock}>
                 <TouchableOpacity
+                  onLayout={(e) => { setMembersW(e.nativeEvent.layout.width); setToggleH(e.nativeEvent.layout.height); }}
                   style={styles.membersToggle}
                   onPress={() => setMembersExpanded((v) => !v)}
                   activeOpacity={0.75}
@@ -233,8 +247,8 @@ export default function GroupSummaryModal({
                       <ChevronUp size={16} color={colors.grey} />
                     </>
                   ) : (
-                    // Ringed in the panel's own black — see SummaryModal.
-                    <AvatarStack users={roster.map((m) => m.user)} ringColor={COLOR_BLACK} />
+                    // Larger faces, with no ring or edge around them.
+                    <AvatarStack users={roster.map((m) => m.user)} size={faceSize(membersW)} overlap={FACE_OVERLAP} edge={false} moreColor={COLOR_WHITE} moreTextColor={COLOR_BLACK} />
                   )}
                 </TouchableOpacity>
 
@@ -245,27 +259,26 @@ export default function GroupSummaryModal({
                     `nestedScrollEnabled` is what lets it scroll at all inside
                     another scroller on Android; iOS nests without it. */}
                 {membersExpanded && (
-                  <ScrollView
-                    style={styles.memberList}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator
-                    keyboardShouldPersistTaps="handled"
-                  >
+                  <MemberListBox above={bannerH + BODY_PAD_TOP + toggleH + LIST_GAP} below={LIST_FOOT}>
                     {roster.map((m) => (
                       <SummaryUserRow
                         key={m.user_id}
                         userId={m.user_id}
                         user={m.user}
                         onOpen={openUser}
-                        style={[styles.memberRow, { borderTopColor: colors.borderDark }]}
+                        avatarSize={44}
+                        // The row itself opens them; no View button.
+                        viewButton={false}
+                        style={styles.memberRow}
                         badge={m.member_type === 'admin' ? (
-                          <View style={[styles.adminPill, { backgroundColor: colors.segment }]}>
-                            <Text style={[styles.adminPillText, { color: colors.fg }]}>Admin</Text>
+                          // White, like the "+N" — bright enough to spot in the list.
+                          <View style={[styles.adminPill, { backgroundColor: COLOR_WHITE }]}>
+                            <Text style={[styles.adminPillText, { color: COLOR_BLACK }]}>Admin</Text>
                           </View>
                         ) : null}
                       />
                     ))}
-                  </ScrollView>
+                  </MemberListBox>
                 )}
               </View>
             )}
@@ -274,6 +287,58 @@ export default function GroupSummaryModal({
       )}
     </SummaryModal>
   );
+}
+
+/** The body's top padding, the list's gap under the toggle, and what's left under it. */
+const BODY_PAD_TOP = 14;
+const LIST_GAP = 6;
+// The body's 16 of foot padding, less the members block's pull of 10.
+const LIST_FOOT = 6;
+/** The open list's tallest, room allowing. */
+const LIST_MAX = 420;
+/** And its shortest, so a cramped panel still shows a few people. */
+const LIST_MIN = 160;
+
+/**
+ * The open member list: a grey, rounded box with a scroller of its own.
+ *
+ * Sized to the room the panel has left under what's above it (`above`) — a
+ * fixed height ran past the panel's foot under a tall banner, and the panel's
+ * own scroller cut the box off flat there, its rounded foot out of sight.
+ * Inside the panel, so it can ask the panel how much room there is.
+ */
+function MemberListBox({ above, below, children }: { above: number; below: number; children: React.ReactNode }) {
+  const panel = useSummaryPanel();
+  const fit = panel ? panel.room - above - below : LIST_MAX;
+  const maxHeight = Math.max(LIST_MIN, Math.min(LIST_MAX, fit));
+  return (
+    // `nestedScrollEnabled` is what lets it scroll at all inside the panel's
+    // scroller on Android; iOS nests without it.
+    <ScrollView
+      style={[styles.memberList, { maxHeight, backgroundColor: COLOR_GRAY_22 }]}
+      contentContainerStyle={styles.memberListContent}
+      nestedScrollEnabled
+      showsVerticalScrollIndicator
+      keyboardShouldPersistTaps="handled"
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+/** How much of each member's face the next covers. */
+const FACE_OVERLAP = 0.22;
+/** Before the row has measured. */
+const FACE_FALLBACK = 38;
+/**
+ * Each face's size, so a full row — the most faces, then the "+N" circle —
+ * runs the row's whole width. A smaller group's row is the same size, shorter.
+ */
+function faceSize(rowW: number): number {
+  if (!rowW) return FACE_FALLBACK;
+  const n = AVATAR_STACK_MAX + 1;
+  // n faces, each but the last losing FACE_OVERLAP of itself to the next.
+  return Math.floor(rowW / (n - (n - 1) * FACE_OVERLAP));
 }
 
 const styles = StyleSheet.create({
@@ -303,15 +368,19 @@ const styles = StyleSheet.create({
   messageBtn: { paddingVertical: 8 },
 
   // Straight under the actions: no rule, no extra room.
-  membersBlock:  { marginTop: 0 },
+  // Pulled into the body's foot padding, so less room under the faces.
+  membersBlock:  { marginTop: 0, marginBottom: -10 },
   membersToggle: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 2, paddingBottom: 4, minHeight: 40,
+    paddingTop: 2, paddingBottom: 0, minHeight: 40,
   },
   membersLabel:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   // A ceiling, like the panel's: a short roster gets a short list.
-  memberList:    { maxHeight: 300 },
-  memberRow:     { borderTopWidth: StyleSheet.hairlineWidth },
+  // A grey box of its own, so where the scroll window ends is plain.
+  memberList:    { borderRadius: COMMON_RADIUS, overflow: 'hidden', marginTop: LIST_GAP },
+  memberListContent: { paddingHorizontal: 12, paddingVertical: 6 },
+  // No rule between people; a little closer together than the row's own 9.
+  memberRow:     { paddingVertical: 6 },
   adminPill:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: PILL_RADIUS },
   adminPillText: { fontSize: 10, fontFamily: FONT_INTER.extrabold },
 });

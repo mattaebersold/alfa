@@ -18,6 +18,19 @@ import { clampMediaRatio, mediaShape, DEFAULT_MEDIA_RATIO, type PostMedia } from
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config';
 
+/**
+ * Every photo's pixel size once it has loaded, by URL, for the life of the app.
+ *
+ * A card only learns its photo's shape from `onLoad`, so it is drawn at the
+ * default shape first and then resized. The feed unmounts cards a couple of
+ * screens away (its `windowSize`) and remounts them on the way back, so that
+ * resize happened again for every card scrolled past — each one shoving the
+ * cards below it, which is the jumping in older posts. With the size held
+ * here, a card coming back is the right height on its first frame.
+ */
+const knownSizes = new Map<string, { w: number; h: number }>();
+const sizeKey = (item: PostMedia) => (item.kind === 'image' ? item.url : item.poster) || null;
+
 /** How long the adaptive height takes to ease to the next slide's shape. */
 const SETTLE_MS = 260;
 
@@ -124,12 +137,14 @@ export default function PostMediaCarousel({
   exactShape?: boolean;
 }) {
   const [width, setWidth] = useState(0);
-  const [measuredRatio, setRatio] = useState(DEFAULT_MEDIA_RATIO);
+  // The lead photo's size, when it's been seen before — see `knownSizes`.
+  const leadSize = media[0] ? knownSizes.get(sizeKey(media[0]) ?? '') : undefined;
+  const [measuredRatio, setRatio] = useState(() => (leadSize ? clampMediaRatio(leadSize.w / leadSize.h) : DEFAULT_MEDIA_RATIO));
   const ratio = fixedRatio ?? measuredRatio;
   const [active, setActive] = useState(0);
   /** The video open in the full-screen viewer. Null when it's closed. */
   const [watchingId, setWatchingId] = useState<string | null>(null);
-  const ratioLocked = useRef(false);
+  const ratioLocked = useRef(!!leadSize);
   const listRef = useRef<FlatList<PostMedia>>(null);
   /** A photo is being pinched — the strip holds still so it doesn't page. */
   const [pinching, setPinching] = useState(false);
@@ -149,13 +164,28 @@ export default function PostMediaCarousel({
 
   /** Each slide's rounded shape, as its image reports its size — adaptive only. */
   const adaptive = adaptiveHeight && fixedRatio == null;
-  const [shapes, setShapes] = useState<Record<number, number>>({});
+  const shapeOf = useCallback(
+    (w: number, h: number) => (exactShape && w && h ? w / h : mediaShape(w, h)),
+    [exactShape],
+  );
+  // Seeded from photos already seen, so a remounted card starts at its size.
+  const [shapes, setShapes] = useState<Record<number, number>>(() => {
+    const seed: Record<number, number> = {};
+    media.forEach((item, i) => {
+      const key = sizeKey(item);
+      const size = key ? knownSizes.get(key) : undefined;
+      if (size && adaptive) seed[i] = shapeOf(size.w, size.h);
+    });
+    return seed;
+  });
   const noteSize = useCallback((index: number, w: number, h: number) => {
+    const key = media[index] ? sizeKey(media[index]) : null;
+    if (key && w && h) knownSizes.set(key, { w, h });
     if (index === 0) lockRatio(w, h);
     if (!adaptive) return;
-    const shape = exactShape && w && h ? w / h : mediaShape(w, h);
+    const shape = shapeOf(w, h);
     setShapes((prev) => (prev[index] === shape ? prev : { ...prev, [index]: shape }));
-  }, [adaptive, exactShape, lockRatio]);
+  }, [adaptive, media, shapeOf, lockRatio]);
 
   const closeViewer = useCallback(() => setWatchingId(null), []);
 

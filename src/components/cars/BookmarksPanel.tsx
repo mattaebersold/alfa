@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Image } from '../ui/AppImage';
 import { Bookmark, Car, FileText } from 'lucide-react-native';
 import { useSummaryPanel } from '../ui/SummaryModal';
-import SubTabs from '../ui/SubTabs';
+import PanelTabs from '../ui/PanelTabs';
 import {
   useGetCarsQuery, useGetLoggedInUserQuery, useGetPostBookmarksQuery, useGetUserByIdQuery,
   useToggleModelBookmarkMutation, useTogglePostBookmarkMutation,
@@ -20,6 +20,7 @@ import { bookmarkTitle, bookmarkRoute } from '../../utils/modelBookmark';
 import type { GarageCar, ModelBookmark, Post } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 import { COLOR_GRAY_17, COLOR_GRAY_26 } from '../../constants/config';
+import PanelEmpty from '../ui/PanelEmpty';
 
 type Tab = 'posts' | 'cars' | 'models';
 
@@ -204,20 +205,15 @@ export default function BookmarksPanel() {
   ];
 
   return (
+    <>
+    {/* No heading — the panel opened from the bookmark button, so it's
+        already clear what this is. Posts, cars or models: the panel's tabs. */}
+    <PanelTabs tabs={tabs} value={tab} onChange={setTab} />
     <View style={styles.body}>
-      {/* No heading — the panel opened from the bookmark button, so it's
-          already clear what this is. Posts, cars or models, as sub tabs. */}
-      <View style={styles.tabs}>
-        <SubTabs
-          options={tabs.map((t) => ({ key: t.key, label: t.count > 0 ? `${t.label} · ${t.count}` : t.label }))}
-          value={tab}
-          onChange={setTab}
-        />
-      </View>
 
       {tab === 'posts' ? (
         postIds.length === 0 ? (
-          <Text style={[styles.empty, { color: colors.grey }]}>No posts bookmarked yet — tap the bookmark on any post in the feed.</Text>
+          <PanelEmpty>No posts bookmarked yet — tap the bookmark on any post in the feed.</PanelEmpty>
         ) : postsLoading ? (
           <Text style={[styles.empty, { color: colors.grey }]}>Loading…</Text>
         ) : (
@@ -227,7 +223,7 @@ export default function BookmarksPanel() {
         )
       ) : tab === 'cars' ? (
         carIds.length === 0 ? (
-          <Text style={[styles.empty, { color: colors.grey }]}>No cars bookmarked yet — tap the bookmark on anyone's car.</Text>
+          <PanelEmpty>No cars bookmarked yet — tap the bookmark on anyone's car.</PanelEmpty>
         ) : carsLoading ? (
           <Text style={[styles.empty, { color: colors.grey }]}>Loading…</Text>
         ) : (
@@ -236,7 +232,7 @@ export default function BookmarksPanel() {
           </View>
         )
       ) : models.length === 0 ? (
-        <Text style={[styles.empty, { color: colors.grey }]}>No models bookmarked yet — bookmark a make or model from its page.</Text>
+        <PanelEmpty>No models bookmarked yet — bookmark a make or model from its page.</PanelEmpty>
       ) : (
         <View style={styles.list}>
           {models.map((b) => (
@@ -249,13 +245,13 @@ export default function BookmarksPanel() {
         </View>
       )}
     </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { padding: 16, gap: 12 },
-  // SubTabs brings its own 12 of side margin; the body already has 16.
-  tabs: { marginHorizontal: -12 },
+  // The tabs above bring their own room under them.
+  body: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
   empty: { fontSize: 14, lineHeight: 20 },
   list: { gap: 8 },
   // No padding and no edge: the photo runs to the row's top, bottom and left,

@@ -21,6 +21,9 @@ import { useSummary } from '../../providers/SummaryProvider';
 import { carPreview } from '../cars/CarSummaryModal';
 import TaskProgressPie from '../cars/TaskProgressPie';
 import CarActivitySummaryModal, { type CarActivityTab } from '../cars/CarActivitySummaryModal';
+
+/** On the home feed, a car's card keeps to how it's been received: who follows it, what's been said, who likes it. */
+const FEED_ACTIVITY_TABS: CarActivityTab[] = ['followers', 'comments', 'likes'];
 import { type SummaryOrigin } from '../ui/SummaryModal';
 import { userPreview } from '../members/UserSummaryModal';
 import RegionBadge from '../ui/RegionBadge';
@@ -31,7 +34,7 @@ import CarCountBadges, { CAR_COUNTS_CLEARANCE } from '../cars/CarCountBadges';
 import { TYPE_COLORS, CATEGORY_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
 import {
-  COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_BLACK, COLOR_GRAY_17, COLOR_GRAY_180, COLOR_GRAY_187, COLOR_WHITE,
+  COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_BLACK, COLOR_GRAY_17, COLOR_GRAY_180, COLOR_WHITE,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -321,16 +324,11 @@ export default function CarPosterCard({
         style,
       ]}
     >
-      {/* In the feed, a car added to a garage wears a light grey frame, so a
-          new car stands out in a column of posts. Elsewhere the card is
-          borderless: the photo is the card. */}
-      <FeedFrame on={attribution}>
       <TouchableOpacity
         ref={cardRef}
         style={[
           styles.card,
           { aspectRatio: square ? 1 : fixedRatio ?? ratio },
-          attribution && styles.cardInFrame,
         ]}
         onPress={attribution || summaryOnPress ? openSummary : handlePress}
         activeOpacity={0.92}
@@ -475,9 +473,17 @@ export default function CarPosterCard({
             <CarCountBadges
               car={car}
               followers={followerCount}
+              only={attribution ? FEED_ACTIVITY_TABS : undefined}
+              bookmark={attribution}
               onOpen={(tab, origin) => setActivity({ tab, origin })}
             />
-            <CarActivitySummaryModal car={car} tab={activity?.tab ?? null} origin={activity?.origin} onClose={() => setActivity(null)} />
+            <CarActivitySummaryModal
+              car={car}
+              only={attribution ? FEED_ACTIVITY_TABS : undefined}
+              tab={activity?.tab ?? null}
+              origin={activity?.origin}
+              onClose={() => setActivity(null)}
+            />
           </>
         )}
 
@@ -491,7 +497,7 @@ export default function CarPosterCard({
           ]}
           pointerEvents="none"
         >
-          {!compact && <CarIcon size={plain ? 34 : attribution ? 30 : 38} color={COLOR_WHITE} strokeWidth={1.6} />}
+          {!compact && <CarIcon size={plain ? 42 : attribution ? 38 : 46} color={COLOR_WHITE} strokeWidth={1.6} />}
           <Text
             style={[
               styles.title,
@@ -626,7 +632,6 @@ export default function CarPosterCard({
           </>
         )}
       </TouchableOpacity>
-      </FeedFrame>
     </View>
 
 
@@ -634,14 +639,6 @@ export default function CarPosterCard({
   );
 }
 
-/** The feed frame's width. */
-const FRAME_W = 1;
-
-/** The feed's light grey frame, around the card — or nothing. */
-function FeedFrame({ on, children }: { on: boolean; children: React.ReactNode }) {
-  if (!on) return <>{children}</>;
-  return <View style={styles.feedFrame}>{children}</View>;
-}
 
 const styles = StyleSheet.create({
   /**
@@ -658,9 +655,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLOR_GRAY_17,
   },
   feedWrap: { marginBottom: 6 },
-  // Inside the feed's frame: the frame's radius less its width.
-  cardInFrame: { borderRadius: COMMON_RADIUS - FRAME_W },
-  feedFrame: { padding: FRAME_W, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_187 },
   // In the feed: the icon closer to the name, and the name in the body face,
   // a size down — a line about the car, not a headline over it.
   // Clear of the counts down the right, as the garage's plate is.

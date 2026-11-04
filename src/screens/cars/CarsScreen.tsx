@@ -37,8 +37,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import type { CarsScreenProps } from '../../navigation/types';
 import type { GarageCar } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { useBrandColor } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, GUTTER, PILL_RADIUS, MAIN_SCREEN_TOP_GAP } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE, COLOR_GRAY_22, GUTTER, PILL_RADIUS, MAIN_SCREEN_TOP_GAP } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid } from '../../components/ui/Skeleton';
 
@@ -93,7 +92,6 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { popTo(trail.length - 1); return true; });
     return () => sub.remove();
   }, [trail.length]);
-  const brand = useBrandColor();
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
   const [page, setPage] = useState(0);
@@ -275,15 +273,15 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
               {/* The way into the site by make — a real button now, not a
                   strip: the car, the words, how many makes there are to browse. */}
               <TouchableOpacity
-                style={[styles.brandsBtn, { backgroundColor: brand }]}
+                style={styles.brandsBtn}
                 onPress={() => setTrail([{ kind: 'brands' }])}
                 activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityLabel="Browse by brand"
               >
-                <Car size={22} color={COLOR_BLACK} strokeWidth={2.2} />
+                <Car size={22} color={COLOR_WHITE} strokeWidth={2.2} />
                 <Text style={styles.brandsBtnText}>Browse by Brand</Text>
-                <ChevronRight size={20} color={COLOR_BLACK} strokeWidth={2.4} style={styles.brandsChevron} />
+                <ChevronRight size={20} color={COLOR_WHITE} strokeWidth={2.4} style={styles.brandsChevron} />
               </TouchableOpacity>
             </View>
             <View style={styles.searchRow}>
@@ -384,11 +382,12 @@ const styles = StyleSheet.create({
   brandsBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     borderRadius: COMMON_RADIUS,
+    backgroundColor: COLOR_GRAY_22,
     paddingVertical: 15,
     paddingHorizontal: 16,
     width: '100%',
   },
-  brandsBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.bold, fontSize: 16 },
+  brandsBtnText: { color: COLOR_WHITE, fontFamily: FONT_INTER.bold, fontSize: 16 },
   brandsChevron: { marginLeft: 'auto' },
   list: { paddingBottom: 20 },
   // The brand page's mosaic (CarMosaic): two columns, each card its photo's shape.

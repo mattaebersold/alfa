@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { Wrench, Images, Tag, Users, MessageCircle, Heart, Check, Plus } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
-import MainTabs, { PANEL_TRACK_BG } from '../ui/MainTabs';
+import PanelTabs from '../ui/PanelTabs';
 import CarItemSummaryModal, { type CarItem } from './CarItemSummaryModal';
 import TaggedPostsPane from './TaggedPostsPane';
 import PostSummaryModal from '../social/PostSummaryModal';
@@ -21,8 +21,9 @@ import { useLikeState } from '../../hooks/useLikeState';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { CarGalleryAlbum, GarageCar, Mod, Post } from '../../types/api';
-import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import PanelEmpty from '../ui/PanelEmpty';
 
 /** One tab per count on the garage card — see CarPosterCard's CarCountBadges. */
 export type CarActivityTab = 'mods' | 'galleries' | 'posts' | 'followers' | 'comments' | 'likes';
@@ -105,7 +106,7 @@ export default function CarActivitySummaryModal({ car, tab: openOn, origin, only
   const tabs = only ? only.map((k) => allTabs.find((t) => t.key === k)!) : allTabs;
 
   const loading = <ActivityIndicator color={colors.grey} style={styles.loader} />;
-  const empty = (text: string) => <Text style={[styles.empty, { color: colors.grey }]}>{text}</Text>;
+  const empty = (text: string) => <PanelEmpty>{text}</PanelEmpty>;
 
   const body = () => {
     switch (tab) {
@@ -169,9 +170,8 @@ export default function CarActivitySummaryModal({ car, tab: openOn, origin, only
         </>
       )}
     >
-      {/* A darker grey track, every count in white — the lit tab's too — and
-          icons rather than words, spread across the panel, so it never scrolls. */}
-      <MainTabs tabs={tabs} value={tab} onChange={setTab} inset={16} trackColor={PANEL_TRACK_BG} countColor={COLOR_WHITE} iconOnly stretch style={styles.tabs} />
+      {/* Icons rather than words, spread across the panel, so it never scrolls. */}
+      <PanelTabs tabs={tabs} value={tab} onChange={setTab} iconOnly />
       <View style={styles.body}>{body()}</View>
     </SummaryModal>
   );
@@ -259,10 +259,8 @@ function CarFollowToggle({ car }: { car: GarageCar }) {
 
 const styles = StyleSheet.create({
   // No title over them — the panel grew out of the car's card.
-  tabs:    { marginTop: 18, marginBottom: 6 },
   body:    { paddingHorizontal: 16, paddingBottom: 8 },
   loader:  { marginTop: 30 },
-  empty:   { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
   followBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, marginTop: 4, marginBottom: 8,

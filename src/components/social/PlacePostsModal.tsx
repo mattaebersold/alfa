@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, Platform,
   type StyleProp, type ViewStyle,
@@ -6,7 +6,8 @@ import {
 import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { MapPin, Navigation, Play, Image as ImageIcon } from 'lucide-react-native';
-import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import SummaryModal, { SummaryTouchable, useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
+import Avatar from '../ui/Avatar';
 import { PostSheet } from './PostSummaryModal';
 import { CurrentPlaceContext } from './PostPlaceLine';
 import { useGetPostsQuery } from '../../api/apiService';
@@ -15,18 +16,21 @@ import { postThumb } from '../../utils/postMedia';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { stripHtml } from '../../utils/text';
 import type { Post, PostPlace } from '../../types/api';
-import { COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
+import { COLOR_GRAY_22, COLOR_WHITE, COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import PanelEmpty from '../ui/PanelEmpty';
 
 /** How many posts each page of a place's list brings. */
 const PAGE = 20;
 /** A row's thumbnail edge. */
-const THUMB = 56;
+const THUMB = 76;
+/** The author's photo beside their name. */
+const AUTHOR_AVATAR = 18;
 
 // ── One post, compact ────────────────────────────────────────────────────────
 
 /**
- * One post as a short row: its first picture, its words, who and when.
+ * One post as a short row: its first picture, then who and when over its words.
  *
  * For lists of posts that are all about one other thing — a place's posts here,
  * the posts map's carousel — where the post's own card would be too much to
@@ -47,9 +51,9 @@ export function PlacePostRow({ post, onPress, style }: {
   const lead = post.title?.trim() || body || 'Post';
   // A line of the body under a title; nothing when the body already led.
   const sub = post.title?.trim() && body ? body : '';
-  const author = (post.user ?? post.user_objectid)?.username;
+  const authorUser = post.user ?? post.user_objectid;
+  const author = authorUser?.username;
   const when = shortTimeAgo(post.created_at);
-  const byline = [author ? `@${author}` : null, when || null].filter(Boolean).join(' · ');
 
   return (
     <SummaryTouchable
@@ -74,9 +78,20 @@ export function PlacePostRow({ post, onPress, style }: {
         </View>
       )}
       <View style={styles.rowText}>
+        {/* Who, with their photo, and when beside the name — over the words. */}
+        {author || when ? (
+          <View style={styles.byline}>
+            {author ? (
+              <>
+                <Avatar user={authorUser} size={AUTHOR_AVATAR} edge={false} />
+                <Text style={[styles.authorName, { color: COLOR_WHITE }]} numberOfLines={1}>{author}</Text>
+              </>
+            ) : null}
+            {when ? <Text style={[styles.when, { color: colors.greyDark }]}>{when}</Text> : null}
+          </View>
+        ) : null}
         <Text style={[styles.lead, { color: colors.fg }]} numberOfLines={sub ? 1 : 2}>{lead}</Text>
         {sub ? <Text style={[styles.sub, { color: colors.muted }]} numberOfLines={1}>{sub}</Text> : null}
-        {byline ? <Text style={[styles.byline, { color: colors.grey }]} numberOfLines={1}>{byline}</Text> : null}
       </View>
     </SummaryTouchable>
   );
@@ -113,6 +128,23 @@ export function useStackedPostSheet(hostVisible: boolean) {
 }
 
 // ── The place ────────────────────────────────────────────────────────────────
+
+/** Country names left off the end of an address — it's understood. */
+const HOME_COUNTRIES = new Set(['usa', 'us', 'united states', 'united states of america']);
+
+/**
+ * An address as it's written on an envelope: the street on one line, the
+ * city, state and postcode on the next — rather than one long run of commas.
+ * The place's own name is dropped if the address leads with it (the title
+ * already says it), and so is a home country at the end.
+ */
+function addressLines(address: string, name: string): string[] {
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length && parts[0].toLowerCase() === name.trim().toLowerCase()) parts.shift();
+  if (parts.length > 1 && HOME_COUNTRIES.has(parts[parts.length - 1].toLowerCase())) parts.pop();
+  if (parts.length <= 1) return parts;
+  return [parts[0], parts.slice(1).join(', ')];
+}
 
 /** The place in the phone's maps app — Apple's on iOS, Google's elsewhere. */
 function openInMaps(place: PostPlace) {
@@ -185,31 +217,21 @@ export default function PlacePostsModal({ place, onClose, origin }: {
 
   const { openPost, stacked } = useStackedPostSheet(visible);
 
+  // The place in a dark grey card of its own, over the list.
   const header = shown ? (
     <View style={styles.header}>
-      <View style={styles.headTop}>
-        <MapPin size={18} color={colors.fg} style={styles.headPin} />
+      <View style={styles.headCard}>
+        <MapPin size={24} color={colors.fg} style={styles.headPin} />
         <View style={styles.headText}>
           <Text style={[styles.name, { color: colors.fg }]} numberOfLines={2}>{shown.name}</Text>
           {shown.address ? (
-            <Text style={[styles.address, { color: colors.grey }]} numberOfLines={2}>{shown.address}</Text>
+            <View style={styles.addressBlock}>
+              {addressLines(shown.address, shown.name).map((line, i) => (
+                <Text key={i} style={[styles.address, { color: colors.grey }]} numberOfLines={1}>{line}</Text>
+              ))}
+            </View>
           ) : null}
         </View>
-      </View>
-      <View style={styles.headMeta}>
-        <Text style={[styles.count, { color: colors.grey }]}>
-          {isLoading ? ' ' : `${total} ${total === 1 ? 'post' : 'posts'}`}
-        </Text>
-        <TouchableOpacity
-          style={[styles.mapsBtn, { backgroundColor: colors.segment }]}
-          onPress={() => openInMaps(shown)}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${shown.name} in Maps`}
-        >
-          <Navigation size={12} color={colors.fg} />
-          <Text style={[styles.mapsText, { color: colors.fg }]}>Open in Maps</Text>
-        </TouchableOpacity>
       </View>
     </View>
   ) : null;
@@ -227,11 +249,12 @@ export default function PlacePostsModal({ place, onClose, origin }: {
         </CurrentPlaceContext.Provider>
       )}
     >
+      {shown ? <MapsFooter place={shown} /> : null}
       <View style={styles.body}>
         {isLoading ? (
           <ActivityIndicator style={styles.loader} color={colors.grey} />
         ) : posts.length === 0 ? (
-          <Text style={[styles.empty, { color: colors.grey }]}>No posts here yet.</Text>
+          <PanelEmpty>No posts here yet</PanelEmpty>
         ) : (
           // Mapped, not listed: SummaryModal brings its own scroller.
           posts.map((p, i) => (
@@ -261,40 +284,76 @@ export default function PlacePostsModal({ place, onClose, origin }: {
   );
 }
 
+/**
+ * "Open in Maps", pinned to the panel's bottom-right corner over the list —
+ * the way out for directions, in reach however far down you've scrolled.
+ */
+function MapsFooter({ place }: { place: PostPlace }) {
+  const panel = useSummaryPanel();
+  const colors = useColors();
+  useLayoutEffect(() => {
+    panel?.setFooter(
+      <View style={styles.footer} pointerEvents="box-none">
+        <TouchableOpacity
+          style={[styles.mapsBtn, { backgroundColor: COLOR_GRAY_22 }]}
+          onPress={() => openInMaps(place)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${place.name} in Maps`}
+        >
+          <Navigation size={14} color={colors.fg} />
+          <Text style={[styles.mapsText, { color: colors.fg }]}>Open in Maps</Text>
+        </TouchableOpacity>
+      </View>,
+    );
+  });
+  useLayoutEffect(() => () => panel?.setFooter(null), [panel]);
+  return null;
+}
+
 const styles = StyleSheet.create({
-  header:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 10 },
-  headTop:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  // Down a touch, onto the name's first line rather than above it.
-  headPin:  { marginTop: 3 },
+  header:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6 },
+  headCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    padding: 14, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22,
+  },
+  // Level with the name's first line.
+  headPin:  { marginTop: 0 },
   headText: { flex: 1, minWidth: 0 },
   name:     { fontSize: 19, fontFamily: FONT_INTER.bold },
-  address:  { fontSize: 13, marginTop: 2 },
-  headMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  count:    { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  // Narrower than the card, so it reads as a block of address lines.
+  addressBlock: { marginTop: 4, maxWidth: '80%', gap: 1 },
+  address:  { fontSize: 13, lineHeight: 18 },
+  // Bottom-right of the panel, the list passing under it.
+  footer:   { alignItems: 'flex-end', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
   mapsBtn:  {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: PILL_RADIUS,
+    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  mapsText: { fontSize: 12, fontFamily: FONT_INTER.semibold },
+  mapsText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   body:     { paddingHorizontal: 16, paddingBottom: 16 },
   loader:   { marginVertical: 30 },
-  empty:    { fontSize: 14, paddingVertical: 24, textAlign: 'center' },
   more:     {
     alignSelf: 'center', marginTop: 14, minWidth: 160, alignItems: 'center',
     paddingHorizontal: 18, paddingVertical: 10, borderRadius: PILL_RADIUS,
   },
   moreText: { fontSize: 13.5, fontFamily: FONT_INTER.semibold },
 
-  row:      { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  thumb:    { width: THUMB, height: THUMB, borderRadius: 8 },
+  row:      { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 },
+  thumb:    { width: THUMB, height: THUMB, borderRadius: 10 },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
   play: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',
   },
-  rowText:  { flex: 1, minWidth: 0, gap: 2 },
+  rowText:  { flex: 1, minWidth: 0, gap: 4 },
+  // Photo, name, then when — one line.
+  byline:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  authorName: { fontSize: 12, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
+  when:     { fontSize: 12, flexShrink: 0 },
   lead:     { fontSize: 14, fontFamily: FONT_INTER.semibold },
   sub:      { fontSize: 13 },
-  byline:   { fontSize: 12 },
 });

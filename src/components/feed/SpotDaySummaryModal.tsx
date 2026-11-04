@@ -4,10 +4,8 @@ import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { Car, ChevronRight, CircleQuestionMark, Gavel, Target } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
-import Avatar, { type AvatarUser } from '../ui/Avatar';
+import Avatar from '../ui/Avatar';
 import { useColors } from '../../hooks/useColors';
-import { useAppSelector } from '../../store/store';
-import { useGetLoggedInUserQuery } from '../../api/apiService';
 import { openSpotGame } from '../../constants/sourceApps';
 import { GuessDots, HIT, MISS, MAX_ATTEMPTS, SimpleCrown, SpotHintBadge, winnerOf } from './SpotResultBody';
 import {
@@ -86,23 +84,21 @@ function PlayButton({ game }: { game: (typeof SPOT_GAMES)[number] }) {
   );
 }
 
-/** One person's line in a game: their face (crowned if they took it), whose it is, and how it went. */
-function PlayerLine({ user, label, crowned, children }: {
-  user?: AvatarUser | null; label: string; crowned: boolean; children: React.ReactNode;
+/**
+ * One person's line in a game: how it went, then a crown if they took it. No
+ * face or name — theirs is the first line and yours the second, and the
+ * card's head says who took it.
+ */
+function PlayerLine({ crowned, label, children }: {
+  crowned: boolean; label: string; children: React.ReactNode;
 }) {
-  const colors = useColors();
   return (
-    <View style={styles.line}>
-      <View>
-        <Avatar user={user ?? undefined} size={26} />
-        {crowned ? (
-          <View style={styles.crown} pointerEvents="none">
-            <SimpleCrown size={14} color={COLOR_SHEEN_GOLD} />
-          </View>
-        ) : null}
+    <View style={styles.line} accessible accessibilityLabel={label}>
+      <View style={styles.lineResult}>
+        {children}
+        {/* After the result, so both lines start level. */}
+        {crowned ? <SimpleCrown size={14} color={COLOR_SHEEN_GOLD} /> : null}
       </View>
-      <Text style={[styles.lineName, { color: colors.muted }]} numberOfLines={1}>{label}</Text>
-      <View style={styles.lineResult}>{children}</View>
     </View>
   );
 }
@@ -146,10 +142,10 @@ function AuctionResult({ auction }: { auction: SpotDayAuction }) {
   );
 }
 
-function GameCard({ game, them, me, author, myUser, theirName }: {
+function GameCard({ game, them, me, theirName }: {
   game: (typeof SPOT_GAMES)[number];
   them: SpotDayGames; me: SpotDayGames;
-  author: AvatarUser; myUser?: AvatarUser | null; theirName: string;
+  theirName: string;
 }) {
   const colors = useColors();
   const k = game.key;
@@ -169,7 +165,7 @@ function GameCard({ game, them, me, author, myUser, theirName }: {
   return (
     <View style={[styles.game, { borderColor: colors.borderDark }]}>
       <View style={styles.gameHead}>
-        <game.Icon size={15} color={colors.fg} strokeWidth={2.4} />
+        <game.Icon size={19} color={colors.fg} strokeWidth={2.2} />
         <Text style={[styles.gameTitle, { color: colors.fg }]}>{game.label}</Text>
         {winner ? (
           <Text style={[styles.gameWinner, { color: COLOR_SHEEN_GOLD }]} numberOfLines={1}>
@@ -179,12 +175,12 @@ function GameCard({ game, them, me, author, myUser, theirName }: {
       </View>
 
       {/* Only cards for games they played are drawn — see the panel. */}
-      <PlayerLine user={author} label={theirName} crowned={winner === 'them'}>
+      <PlayerLine label={theirName} crowned={winner === 'them'}>
         {result(them)}
       </PlayerLine>
 
       {iPlayed ? (
-        <PlayerLine user={myUser} label="You" crowned={winner === 'me'}>{result(me)}</PlayerLine>
+        <PlayerLine label="You" crowned={winner === 'me'}>{result(me)}</PlayerLine>
       ) : (
         <View style={styles.playRow}><PlayButton game={game} /></View>
       )}
@@ -209,8 +205,6 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
   origin?: SummaryOrigin | null;
 }) {
   const colors = useColors();
-  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
-  const { data: myUser } = useGetLoggedInUserQuery(undefined, { skip: !myId });
   const mine: SpotDayGames = me ?? { car: null, trivia: null, auction: null };
   const user = player?.user;
   const name = user?.username || 'They';
@@ -235,7 +229,7 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
           {/* Only the games they played — a game they skipped has nothing of
               theirs to compare against. */}
           {SPOT_GAMES.filter((g) => fillOf(g.key, player) != null).map((g) => (
-            <GameCard key={g.key} game={g} them={player} me={mine} author={user} myUser={myUser} theirName={shortName} />
+            <GameCard key={g.key} game={g} them={player} me={mine} theirName={shortName} />
           ))}
 
         </View>
@@ -256,14 +250,13 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_10,
     paddingHorizontal: 12, paddingVertical: 10, gap: 8,
   },
-  gameHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  gameHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   gameTitle: { fontSize: 14, fontFamily: FONT_INTER.bold },
   gameWinner: { marginLeft: 'auto', fontSize: 11, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 30 },
-  crown: { position: 'absolute', top: -7, left: -5, transform: [{ rotate: '-30deg' }] },
-  lineName: { width: 84, fontSize: 12, fontFamily: FONT_INTER.semibold },
-  lineResult: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
-  figure: { fontSize: 13, fontFamily: FONT_INTER.extrabold, minWidth: 30, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  // From the left, under the card's title — not pushed to the far side.
+  lineResult: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8 },
+  figure: { fontSize: 13, fontFamily: FONT_INTER.extrabold, fontVariant: ['tabular-nums'] },
   verdict: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth },
   verdictText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   auctionCol: { flex: 1, maxWidth: 120, gap: 3 },
