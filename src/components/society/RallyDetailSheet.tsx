@@ -1,13 +1,16 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
-import { MapPin, Clock, Navigation, Users, Trash2 } from 'lucide-react-native';
+import { MapPin, Clock, Navigation, Users, Trash2, Settings, Pencil, UserPlus, UserCheck } from 'lucide-react-native';
+import ActionSheet from '../ui/ActionSheet';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
-import { useGetRallyQuery } from '../../api/apiService';
+import { useGetRallyQuery, useGetMyRallysQuery, useToggleRallyInterestMutation } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import RouteMap from '../routes/RouteMap';
 import RallyRegistrationForm from './RallyRegistrationForm';
 import RallyDays from './RallyDays';
@@ -19,9 +22,11 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
 import { isRallyUpcoming, toRallyFormEmbedUrl, rallyDateRange, RALLY_DATE_TBA } from '../../utils/rally';
 import { stripHtml } from '../../utils/text';
-import { colors as palette } from '../../constants/colors';
 import { useRallyDelete } from '../../hooks/useRallyDelete';
-import { COMMON_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
+
+/** The website, for what only it can do — editing a rally. */
+const WEB_BASE = 'https://openroadsociety.co';
 import { FONT_INTER } from '../../constants/fonts'
 import { openInMaps } from '../../utils/openInMaps';
 
@@ -36,9 +41,31 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
   const nav = useNavigation<any>();
   const { data: rally, isLoading } = useGetRallyQuery(rallyId!, { skip: !rallyId });
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
+  /** The cog's menu. */
+  const [menuOpen, setMenuOpen] = useState(false);
   // The rally is gone once this resolves, so the sheet closes rather than
   // sitting on a stale copy of it.
   const { canDelete, confirmDelete, isDeleting } = useRallyDelete(rally, onClose);
+
+  // "I'm interested": read off your My Events rallys, set optimistically.
+  const brand = useBrandColor();
+  const loggedIn = !!useAppSelector((s) => s.auth.userInfo);
+  const { data: myRallys } = useGetMyRallysQuery(undefined, { skip: !loggedIn || !rallyId });
+  const serverInterested = !!myRallys?.entries.some((r) => r.internal_id === rallyId);
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
+  useEffect(() => { setOptimistic(null); }, [serverInterested, rallyId]);
+  const interested = optimistic ?? serverInterested;
+  const [toggleInterest, { isLoading: togglingInterest }] = useToggleRallyInterestMutation();
+  const onToggleInterest = async () => {
+    if (!rallyId) return;
+    setOptimistic(!interested);
+    try {
+      const res = await toggleInterest({ rally_id: rallyId }).unwrap();
+      setOptimistic(res.is_interested);
+    } catch {
+      setOptimistic(null);
+    }
+  };
 
   const handleOpenMaps = useCallback(() => {
     if (!rally) return;
@@ -82,14 +109,20 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
     <SharedModal
       visible={!!rallyId}
       onClose={onClose}
-      title={rally?.title ?? 'Rally'}
+      // No title bar: the hero runs to the pane's top, the grabber over it,
+      // and the title is under the photo.
+      hideHeader
       // The embedded form is tall and its inputs need the keyboard, so the sheet
       // takes the whole screen rather than sizing to content.
       fullHeight={showRegistration}
+      // Otherwise nearly the whole screen, whatever the rally holds — it's a
+      // page's worth of itinerary, FAQ and map, not a peek.
+      heightRatio={showRegistration ? undefined : 0.92}
     >
       {isLoading || !rally ? (
         <Spinner />
       ) : (
+        <>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           {hero
             ? (
@@ -109,7 +142,7 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
               contentContainerStyle={styles.galleryStrip}
               renderItem={({ item, index }) => (
                 <TouchableOpacity activeOpacity={0.9} onPress={() => setZoomIndex(galleryOffset + index)}>
-                  <Image source={{ uri: imageUrl(item.filename) ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
+                  <Image source={{ uri: imageUrl(item.filename, 'small') ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
                 </TouchableOpacity>
               )}
             />
@@ -118,16 +151,6 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
           <View style={styles.body}>
             <View style={styles.titleRow}>
               <Text style={[styles.title, { color: colors.fg }]}>{rally.title}</Text>
-              {canDelete && (
-                <TouchableOpacity
-                  onPress={confirmDelete}
-                  disabled={isDeleting}
-                  hitSlop={10}
-                  style={[styles.deleteBtn, { borderColor: colors.border, opacity: isDeleting ? 0.5 : 1 }]}
-                >
-                  <Trash2 size={18} color={palette.red} />
-                </TouchableOpacity>
-              )}
             </View>
 
             {date && (
@@ -155,6 +178,25 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
 
             {rally.slots_available != null && (
               <Text style={[styles.slots, { color: colors.primaryAlt }]}>{rally.slots_available} slots available</Text>
+            )}
+
+            {/* Interest — puts the rally in your My Events, as Attend does an event. */}
+            {loggedIn && (
+              <TouchableOpacity
+                style={[styles.interestBtn, { backgroundColor: interested ? brand : colors.card }, togglingInterest && { opacity: 0.6 }]}
+                onPress={onToggleInterest}
+                disabled={togglingInterest}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityState={{ selected: interested }}
+              >
+                {interested
+                  ? <UserCheck size={17} color={COLOR_BLACK} strokeWidth={2.6} />
+                  : <UserPlus size={17} color={colors.fg} strokeWidth={2.6} />}
+                <Text style={[styles.interestText, { color: interested ? COLOR_BLACK : colors.fg }]}>
+                  {interested ? 'Interested' : "I'm Interested"}
+                </Text>
+              </TouchableOpacity>
             )}
 
             {rally.body ? (
@@ -241,6 +283,35 @@ export default function RallyDetailSheet({ rallyId, onClose }: Props) {
             </View>
           )}
         </ScrollView>
+
+        {/* The organiser's (or an admin's) options — a cog over the hero's
+            top-right corner, clear of the grabber, as on an event. */}
+        {canDelete && (
+          <>
+            <TouchableOpacity
+              style={[styles.cog, isDeleting && { opacity: 0.5 }]}
+              onPress={() => setMenuOpen(true)}
+              disabled={isDeleting}
+              hitSlop={8}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Rally options"
+            >
+              <Settings size={19} color={COLOR_WHITE} strokeWidth={2.2} />
+            </TouchableOpacity>
+            <ActionSheet
+              visible={menuOpen}
+              onClose={() => setMenuOpen(false)}
+              title="Rally"
+              options={[
+                // No rally editor in the app — the web form, at the same rally.
+                { label: 'Edit rally', Icon: Pencil, onPress: () => Linking.openURL(`${WEB_BASE}/edit/rally/${rally.internal_id}`) },
+                { label: 'Delete rally', Icon: Trash2, destructive: true, onPress: confirmDelete },
+              ]}
+            />
+          </>
+        )}
+        </>
       )}
 
       <ImageLightbox
@@ -261,14 +332,22 @@ const styles = StyleSheet.create({
   body:    { padding: PANE_GUTTER },
   titleRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   title:   { fontSize: 22, fontFamily: FONT_INTER.bold, marginBottom: 12, flex: 1 },
-  deleteBtn: {
-    width: 36, height: 36, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center', justifyContent: 'center',
+  // Over the hero's top-right corner, on a dark disc so it reads on any photo.
+  cog: {
+    position: 'absolute', top: 10, right: 12, zIndex: 4,
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   metaText:{ fontSize: 14 },
   slots:   { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 12 },
   description: { fontSize: 15, lineHeight: 22 },
+  // The event pane's Attend pill.
+  interestBtn: {
+    height: 48, borderRadius: PILL_RADIUS, marginTop: 4, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+  },
+  interestText: { fontSize: 14.5, fontFamily: FONT_INTER.extrabold },
 
   // Shared shape with RallyDays/RallyFaq, so the sheet reads as one rhythm.
   section:  { paddingHorizontal: PANE_GUTTER, paddingTop: 28 },

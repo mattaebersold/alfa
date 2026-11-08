@@ -16,8 +16,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_DANGER,
-  COLOR_GRAY_22,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -31,7 +30,7 @@ const CARD_WIDTH = Math.min(Dimensions.get('window').width * 0.42, 190);
 
 function ListingTile({ listing, onPress }: { listing: Listing; onPress: () => void }) {
   const colors = useColors();
-  const hero = firstGalleryUrl(listing.gallery);
+  const hero = firstGalleryUrl(listing.gallery, 'small');
   const price = priceLabel(listing);
 
   return (
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
   // Rounded along its foot as well as at the tile's top, so the photo reads
   // as its own piece over the title.
   thumbWrap: { width: '100%', aspectRatio: 1, borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
-  thumb:     { width: '100%', height: '100%', backgroundColor: COLOR_GRAY_22 },
+  thumb:     { width: '100%', height: '100%', backgroundColor: SURFACE_MID },
   soldScrim: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',

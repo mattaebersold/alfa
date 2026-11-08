@@ -17,9 +17,7 @@ import { colors as palette } from '../../constants/colors';
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_18,
-  COLOR_GRAY_22,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import type { GarageCar } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
@@ -345,7 +343,7 @@ const styles = StyleSheet.create({
   field: { gap: 4 },
   label: { fontSize: 12, fontFamily: FONT_INTER.semibold },
   strip: { gap: 8 },
-  thumb: { width: 72, height: 72, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
+  thumb: { width: 72, height: 72, borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_MID },
   thumbX: {
     position: 'absolute', top: 4, right: 4,
     width: 20, height: 20, borderRadius: 10,

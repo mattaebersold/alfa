@@ -8,9 +8,11 @@ import { useColors } from '../../hooks/useColors';
 import type { Group } from '../../types/api';
 import { regionLabel } from '../../constants/regions';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import {
   PILL_RADIUS,
   COLOR_BLACK,
+  COLOR_MEMBER_BLUE,
   COLOR_WHITE,
   COLOR_GRAY_40,
   COLOR_HUE_SEAFOAM,
@@ -40,8 +42,15 @@ function regionColor(key?: string | null): string {
   return REGION_HUES[h % REGION_HUES.length];
 }
 
+/** Your part in a group of your own — the badge GroupsView's My Groups shelf wears. */
+const ROLE_BADGES = {
+  admin:  { label: 'ADMIN',  bg: WARM_SHEEN_FILL,   fg: COLOR_BLACK },
+  member: { label: 'MEMBER', bg: COLOR_MEMBER_BLUE, fg: COLOR_WHITE },
+} as const;
+
 /**
- * A group you're not in.
+ * A group you're not in — or, given a `role`, one you are (the home screen's
+ * Groups › My Groups list).
  *
  * Opens a summary rather than the group itself. Everything in this grid is
  * somewhere you haven't joined — the list is filtered to exclude your own — so
@@ -50,13 +59,23 @@ function regionColor(key?: string | null): string {
  * position you'd scrolled to, and the panel carries a View Group button for
  * when the answer is yes.
  */
-export default function GroupCard({ group, onPress }: {
+export default function GroupCard({ group, onPress, role, bannerRatio }: {
   group: Group;
   onPress: (origin: SummaryOrigin | null) => void;
+  /**
+   * A group you're in: your part in it as a badge top left — the gold with
+   * the oil-slick film for one you run, the member blue otherwise — and no
+   * region, as on the My Groups shelf: you know where your own groups are.
+   */
+  role?: 'admin' | 'member';
+  /** The picture's shape — wider and shallower for a card on a row of its own. Default 3:2. */
+  bannerRatio?: number;
 }) {
   const colors = useColors();
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
-  const region = regionLabel(group.region);
+  const region = role ? null : regionLabel(group.region);
+  const badge = role ? ROLE_BADGES[role] : null;
+  const bannerStyle = [styles.cardBanner, bannerRatio ? { aspectRatio: bannerRatio } : null];
   return (
     // Built like a marketplace card: a bordered card, its picture rounded
     // all round, and the words on a lighter panel under it.
@@ -66,13 +85,19 @@ export default function GroupCard({ group, onPress }: {
       style={[styles.card, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.9}
-      accessibilityLabel={group.title ?? 'Group'}
+      accessibilityLabel={badge ? `${group.title ?? 'Group'}, ${badge.label.toLowerCase()}` : (group.title ?? 'Group')}
     >
       <View style={styles.cardBannerWrap}>
         {banner
-          ? <Image source={{ uri: banner }} style={styles.cardBanner} contentFit="cover" />
-          : <View style={[styles.cardBanner, { backgroundColor: colors.primaryAlt + '55' }]} />
+          ? <Image source={{ uri: banner }} style={bannerStyle} contentFit="cover" />
+          : <View style={[bannerStyle, { backgroundColor: colors.primaryAlt + '55' }]} />
         }
+        {badge ? (
+          <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
+            {role === 'admin' ? <OilSheen tone="warm" radius={PILL_RADIUS} /> : null}
+            <Text style={[styles.roleBadgeText, { color: badge.fg }]}>{badge.label}</Text>
+          </View>
+        ) : null}
         {/* Where it is, on the picture's bottom left — each region its own
             colour, as a listing's category is. */}
         {region ? (
@@ -128,4 +153,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   cardMembersText: { fontSize: 11, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  // Top left — the My Groups shelf's badge.
+  roleBadge: {
+    position: 'absolute', top: 6, left: 6,
+    paddingHorizontal: 7, paddingVertical: 2.5,
+    borderRadius: PILL_RADIUS, overflow: 'hidden',
+  },
+  roleBadgeText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.5 },
 });

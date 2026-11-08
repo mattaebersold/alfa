@@ -40,11 +40,11 @@ import {
   COMMON_RADIUS,
   COLOR_BLACK,
   COLOR_GRAY_136,
-  COLOR_GRAY_20,
   COLOR_GRAY_236,
   COLOR_GRAY_42,
   COLOR_SUCCESS,
-  COLOR_WHITE } from '../../constants/config';
+  COLOR_WHITE, SURFACE_MID
+} from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import PanelEmpty from '../ui/PanelEmpty';
 
@@ -679,6 +679,14 @@ function NotificationsList({
       {/* Unread or Archived — every summary panel's tabs. Reading a
           notification is what archives it; clearing the archive is the one
           bulk action, and it lives on that tab. */}
+      {/* Archive all in the header, over the tabs at the right — under the
+          panel's close — so the tabs keep the full width. Only on Unread,
+          and only when there's something it would move. */}
+      {tab === 'unread' && archivable.length > 0 && (
+        <View style={styles.headRow}>
+          <ArchiveAllButton onPress={archiveAll} />
+        </View>
+      )}
       <PanelTabs
         tabs={[
           { key: 'unread', label: 'Unread', count: unread.length },
@@ -686,12 +694,8 @@ function NotificationsList({
         ]}
         value={tab}
         onChange={(t) => { setTab(t); setShown(NOTIFICATIONS_PAGE); }}
+        style={tab === 'unread' && archivable.length > 0 ? styles.tabsUnderHead : undefined}
       />
-      {tab === 'unread' && archivable.length > 0 && (
-        <View style={styles.deleteAllRow}>
-          <ArchiveAllButton onPress={archiveAll} />
-        </View>
-      )}
       {tab === 'archived' && archived.length > 0 && (
         <View style={styles.deleteAllRow}>
           <DeleteAllButton onDone={() => onDismiss()} />
@@ -729,6 +733,10 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, borderWidth: 1,
   },
   deleteAllText: { fontSize: 12, fontFamily: FONT_INTER.bold },
+  // The panel's header: Archive all at its right, over the tabs.
+  headRow:       { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 14 },
+  // Closer up under the header than PanelTabs' own room from the panel's edge.
+  tabsUnderHead: { marginTop: 10 },
   list:        { flexGrow: 1, paddingTop: 8, paddingBottom: 24 },
   listFit:     { paddingTop: 8, paddingBottom: 16 },
 
@@ -752,7 +760,7 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
   },
-  cardRead:   { backgroundColor: COLOR_GRAY_20, borderColor: 'rgba(255,255,255,0.07)' },
+  cardRead:   { backgroundColor: SURFACE_MID, borderColor: 'rgba(255,255,255,0.07)' },
   swipeAction: { width: 80, paddingLeft: 8 },
   // The panel behind the card; the run behind it covers a long swipe.
   swipeArchiveSide: { width: 80, marginRight: 8 },

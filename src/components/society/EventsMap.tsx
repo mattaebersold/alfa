@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform, ScrollView, Dimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
@@ -11,7 +11,7 @@ import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { categoryFor, parseDayKey } from '../../constants/eventTypes';
 import { firstGalleryUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_10, COLOR_GRAY_22, COLOR_GRAY_38, COLOR_GRAY_90, COLOR_WHITE, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_38, COLOR_GRAY_90, COLOR_WHITE, GUTTER, SURFACE_BLACK, SURFACE_MID } from '../../constants/config';
 import type { SocietyEvent } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -144,8 +144,47 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
   onOpenEvent: (event: SocietyEvent) => void;
   onDismissed?: () => void;
 }) {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
+  return (
+    // No title row: the map runs up to the pane's top, under the floating
+    // grabber, and to its foot, under the home indicator. The map's own state
+    // (the tapped pin) goes with it when the pane closes and unmounts it.
+    <SharedModal
+      visible={visible}
+      onClose={onClose}
+      onDismissed={onDismissed}
+      hideHeader
+      edgeToEdge
+      heightRatio={0.9}
+    >
+      <EventsMapView
+        events={events}
+        onOpenEvent={onOpenEvent}
+        tools={tools}
+        topInset={PANE_GRABBER_H + 6}
+        bottomInset={insets.bottom + 16}
+      />
+    </SharedModal>
+  );
+}
+
+/**
+ * The map itself — pins, the tools over its top and the tapped pin's cards
+ * over its foot. The sheet above wraps it; the home screen's Events › Map
+ * shows it as a whole pane, under the floating header.
+ */
+export function EventsMapView({ events, onOpenEvent, tools, topInset, bottomInset, style }: {
+  events: SocietyEvent[];
+  onOpenEvent: (event: SocietyEvent) => void;
+  /** Laid over the top of the map. */
+  tools?: React.ReactNode;
+  /** How far down the tools sit — clear of whatever floats over the map's top. */
+  topInset: number;
+  /** How far up the preview cards sit — clear of whatever covers its foot. */
+  bottomInset: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const colors = useColors();
   // The tapped pin's spot, and every event at it.
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
   const selectedEvents = useMemo(
@@ -191,7 +230,7 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
       >
         {photo
           ? <Image source={{ uri: photo }} style={styles.previewPhoto} contentFit="cover" />
-          : <View style={[styles.previewPhoto, { backgroundColor: COLOR_GRAY_22 }]} />}
+          : <View style={[styles.previewPhoto, { backgroundColor: SURFACE_MID }]} />}
         <View style={styles.previewText}>
           <View style={[styles.catPill, { backgroundColor: cat.color }]}>
             <Text style={styles.catText}>{cat.label}</Text>
@@ -207,52 +246,41 @@ export function EventsMapSheet({ visible, onClose, events, onOpenEvent, onDismis
   };
 
   return (
-    // No title row: the map runs up to the pane's top, under the floating
-    // grabber, and to its foot, under the home indicator.
-    <SharedModal
-      visible={visible}
-      onClose={onClose}
-      onDismissed={() => { setSelectedSpot(null); onDismissed?.(); }}
-      hideHeader
-      edgeToEdge
-      heightRatio={0.9}
-    >
-      <View style={styles.mapWrap}>
-        {camera && (Platform.OS === 'ios'
-          ? <AppleMaps.View {...mapProps} markers={markers as any} />
-          : (
-            <GoogleMaps.View
-              {...mapProps}
-              markers={markers as any}
-              uiSettings={{ zoomControlsEnabled: false, mapToolbarEnabled: false }}
-            />
-          ))}
+    <View style={[styles.mapWrap, style]}>
+      {camera && (Platform.OS === 'ios'
+        ? <AppleMaps.View {...mapProps} markers={markers as any} />
+        : (
+          <GoogleMaps.View
+            {...mapProps}
+            markers={markers as any}
+            uiSettings={{ zoomControlsEnabled: false, mapToolbarEnabled: false }}
+          />
+        ))}
 
-        {/* Search and filter along the top, clear of the grabber. */}
-        {tools ? <View style={styles.tools}>{tools}</View> : null}
+      {/* Search and filter along the top. */}
+      {tools ? <View style={[styles.tools, { top: topInset }]}>{tools}</View> : null}
 
-        {/* The tapped pin's events, floating over the foot of the map — one
-            card, or a carousel when several share the spot, the next one
-            peeking in from the edge. */}
-        {selectedEvents.length === 1 ? (
-          <View style={[styles.previewDock, { bottom: insets.bottom + 16 }]}>
-            {previewCard(selectedEvents[0])}
-          </View>
-        ) : selectedEvents.length > 1 ? (
-          <ScrollView
-            horizontal
-            style={[styles.previewDockScroll, { bottom: insets.bottom + 16 }]}
-            contentContainerStyle={styles.previewRow}
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={PEEK_CARD_W + PEEK_GAP}
-            snapToAlignment="start"
-            decelerationRate="fast"
-          >
-            {selectedEvents.map((ev) => previewCard(ev, PEEK_CARD_W))}
-          </ScrollView>
-        ) : null}
-      </View>
-    </SharedModal>
+      {/* The tapped pin's events, floating over the foot of the map — one
+          card, or a carousel when several share the spot, the next one
+          peeking in from the edge. */}
+      {selectedEvents.length === 1 ? (
+        <View style={[styles.previewDock, { bottom: bottomInset }]}>
+          {previewCard(selectedEvents[0])}
+        </View>
+      ) : selectedEvents.length > 1 ? (
+        <ScrollView
+          horizontal
+          style={[styles.previewDockScroll, { bottom: bottomInset }]}
+          contentContainerStyle={styles.previewRow}
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={PEEK_CARD_W + PEEK_GAP}
+          snapToAlignment="start"
+          decelerationRate="fast"
+        >
+          {selectedEvents.map((ev) => previewCard(ev, PEEK_CARD_W))}
+        </ScrollView>
+      ) : null}
+    </View>
   );
 }
 
@@ -260,7 +288,7 @@ const styles = StyleSheet.create({
   tileFrame: { marginHorizontal: GUTTER, marginTop: 12, padding: 1.5, borderRadius: 12 },
   tile: {
     height: 112, borderRadius: 10.5, overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_10, justifyContent: 'flex-end',
+    backgroundColor: SURFACE_BLACK, justifyContent: 'flex-end',
   },
   tileText:  { paddingHorizontal: 14, paddingBottom: 12, gap: 3 },
   tileTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -269,7 +297,7 @@ const styles = StyleSheet.create({
 
   mapWrap: { flex: 1, minHeight: 300 },
   // Edge to edge: the row brings its own side padding.
-  tools: { position: 'absolute', top: PANE_GRABBER_H + 6, left: 0, right: 0, zIndex: 5 },
+  tools: { position: 'absolute', left: 0, right: 0, zIndex: 5 },
   previewDock: { position: 'absolute', left: 12, right: 12 },
   previewDockScroll: { position: 'absolute', left: 0, right: 0, flexGrow: 0 },
   // Padded vertically for the cards' shadow, which a scroller would clip.

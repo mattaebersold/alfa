@@ -33,9 +33,8 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_DANGER,
-  COLOR_GRAY_22,
   COLOR_WHITE,
-  COLOR_GREEN,
+  COLOR_GREEN, SURFACE_MID
 } from '../../constants/config';
 import {
   categoryLabel, conditionLabel, distanceLabel, matchLabel, categoryColor, conditionColor,
@@ -548,13 +547,13 @@ const styles = StyleSheet.create({
   photoStrip: { flexGrow: 0 },
   // In line with the body's 18, above it.
   photoRow:   { gap: 8, paddingHorizontal: 18, paddingTop: 18 },
-  photoTile:  { height: TILE_H, borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
+  photoTile:  { height: TILE_H, borderRadius: 10, backgroundColor: SURFACE_MID },
   // One or two photos: inside the body's 18 margins, below the top of the panel.
   photoInset: { marginHorizontal: 18, marginTop: 18 },
-  photoSingle:{ width: '100%', borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
+  photoSingle:{ width: '100%', borderRadius: 10, backgroundColor: SURFACE_MID },
   photoPair:  { flexDirection: 'row', gap: 8 },
   photoHalf:  { flex: 1 },
-  photoHalfImage: { width: '100%', height: TILE_H, borderRadius: 10, backgroundColor: COLOR_GRAY_22 },
+  photoHalfImage: { width: '100%', height: TILE_H, borderRadius: 10, backgroundColor: SURFACE_MID },
   // Beside the title, at its end — the height of the title's first line, so
   // the two sit on one centre. Bare, just the cog, but still 26 square so it's
   // as easy to hit.

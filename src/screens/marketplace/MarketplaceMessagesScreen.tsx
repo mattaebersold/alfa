@@ -17,7 +17,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingSnapshot from '../../components/marketplace/ListingSnapshot';
-import { CONFIG, COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { CONFIG, COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
@@ -321,6 +321,6 @@ const styles = StyleSheet.create({
     minWidth: 18, height: 18, borderRadius: PILL_RADIUS,
     paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center',
   },
-  unreadPillText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  unreadPillText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_ON_ALERT },
   unreadBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
 });

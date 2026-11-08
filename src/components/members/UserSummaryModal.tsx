@@ -7,7 +7,7 @@ import { User as UserIcon } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import GarageDoor from '../ui/GarageDoor';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
-import Avatar from '../ui/Avatar';
+import ProAvatar, { isProUser } from '../ui/ProAvatar';
 import RegionBadge from '../ui/RegionBadge';
 import { regionForCityState } from '../../constants/regions';
 import { Skeleton, SkeletonLine, FadeIn } from '../ui/Skeleton';
@@ -128,10 +128,10 @@ export default function UserSummaryModal({
         <View>
           <View style={styles.body}>
             <View style={styles.head}>
-              {preview ? <Avatar user={preview as any} size={AVATAR} /> : <Skeleton width={AVATAR} height={AVATAR} radius={AVATAR / 2} />}
+              {preview ? <ProAvatar user={preview as any} size={AVATAR} pro={isProUser(preview)} edge /> : <Skeleton width={AVATAR} height={AVATAR} radius={AVATAR / 2} />}
               <View style={styles.headText}>
                 {preview?.username
-                  ? <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>@{preview.username}</Text>
+                  ? <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>{preview.username}</Text>
                   : <SkeletonLine width="55%" height={18} />}
                 <SkeletonLine width="40%" height={12} style={{ marginTop: 8 }} />
               </View>
@@ -171,13 +171,13 @@ export default function UserSummaryModal({
 
           <View style={[styles.body, bannerUri ? styles.bodyOverBanner : null]}>
             <View style={styles.head}>
-              <Avatar user={user} size={AVATAR} />
+              <ProAvatar user={user} size={AVATAR} pro={isProUser(user)} edge />
               <View style={styles.headText}>
                 {/* The handle alone. A real name under it was a second name
                     for the same person in a panel that has one line to say
                     who they are. */}
                 <Text style={[styles.username, { color: colors.fg }]} numberOfLines={1}>
-                  @{user.username}
+                  {user.username}
                 </Text>
                 {/* Where they are, said twice over: the town in words, and
                     the part of the country as a shape. Neither means much to
@@ -285,7 +285,7 @@ function GarageCarousel({ cars, total, onOpenCar, onOpenGarage }: {
         decelerationRate="fast"
       >
         {cars.map((car) => {
-          const uri = car.profile_image ? imageUrl(car.profile_image) : firstGalleryUrl(car.gallery);
+          const uri = car.profile_image ? imageUrl(car.profile_image, 'small') : firstGalleryUrl(car.gallery, 'small');
           const name = carDisplayName(car);
           // What it is, under what it's called: "1987 Porsche 911 · 964 · Carrera".
           const details = [

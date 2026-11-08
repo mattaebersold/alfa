@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { Text } from '@ors/kit';
-import Avatar, { type AvatarUser } from '../ui/Avatar';
+import type { AvatarUser } from '../ui/Avatar';
+import ProAvatar from '../ui/ProAvatar';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts';
@@ -33,6 +34,7 @@ export default function UserByline({
   at = false,
   edge = false,
   fill = false,
+  pro = false,
   onPress,
   disabled,
   activeOpacity = 0.7,
@@ -66,6 +68,8 @@ export default function UserByline({
   edge?: boolean;
   /** The name takes the row's spare width — for a row with something pinned at its end. */
   fill?: boolean;
+  /** The Pro ring round the photo and the wheel on its corner, as MemberRow wears them. */
+  pro?: boolean;
   onPress?: (origin: SummaryOrigin | null) => void;
   disabled?: boolean;
   activeOpacity?: number;
@@ -80,7 +84,7 @@ export default function UserByline({
 
   const content = (
     <>
-      <Avatar user={user} size={size} edge={edge} />
+      <ProAvatar user={user} size={size} pro={pro} edge={edge} />
       <View style={[styles.text, fill && styles.fill]}>
         <Text style={[styles.name, { color: color ?? colors.fg }, nameStyle]} numberOfLines={numberOfLines}>
           {label}{meta ? ` · ${meta}` : ''}

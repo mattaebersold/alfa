@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
+  type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +29,7 @@ import { useColors } from '../../hooks/useColors';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import type { AppStackParamList } from '../../navigation/types';
 import type { Listing } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_GRAY_14, COLOR_GRAY_30, COLOR_WHITE, SEARCH_EDGE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_GREEN, COLOR_WHITE, SEARCH_EDGE, SURFACE_BLACK, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -224,7 +225,23 @@ function ManageRow({
  * it can sit inside whatever sheet the host already has — the dashboard drops
  * it into its own SheetModal, the marketplace entry below into a SharedModal.
  */
-export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
+export function ManageListingsPane({ navigate, inset, onScroll, header, emptyAction }: {
+  navigate?: Navigate;
+  /**
+   * Hosted as a full screen rather than in a sheet — the home header's
+   * Marketplace › My Listings. The scroller clears `top` (a floating header)
+   * and `bottom` (the tab bar) instead of the sheet's grabber and home
+   * indicator, and the loading and empty states draw inside it, so the
+   * header still has a scroller to follow.
+   */
+  inset?: { top: number; bottom: number };
+  /** Spread on the scroller — the host's header hide-and-show. */
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** Above the tabs, scrolling away with them. */
+  header?: React.ReactNode;
+  /** A button on the empty state — "List something", say. */
+  emptyAction?: { label: string; onPress: () => void };
+}) {
   const colors = useColors();
   const { data, isLoading, refetch } = useGetMyListingsQuery();
   const { countForListing } = useMarketplaceUnread();
@@ -249,21 +266,38 @@ export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
     ? [{ key: 'listings', entries: listings }, { key: 'sold', title: 'Sold', entries: sold }]
     : [{ key: 'wants', entries: wants }];
 
-  if (isLoading) return <Spinner />;
+  const nothing = !listings.length && !wants.length && !sold.length;
+  const emptyState = (
+    <EmptyState
+      title="You haven't listed anything"
+      actionLabel={emptyAction?.label}
+      onAction={emptyAction?.onPress}
+    />
+  );
 
-  if (!listings.length && !wants.length && !sold.length) {
-    return <EmptyState title="You haven't listed anything" />;
-  }
+  // In a sheet these stand alone; hosted, they're drawn in the scroller below.
+  if (!inset && isLoading) return <Spinner />;
+  if (!inset && nothing) return emptyState;
 
   return (
     // Bounded to the sheet, and padded at its end past the home indicator:
     // the last row used to run into the screen's rounded corner.
     <ScrollView
       style={styles.paneScroll}
-      contentContainerStyle={[styles.pane, { paddingBottom: insets.bottom + 28 }]}
+      contentContainerStyle={[
+        styles.pane,
+        inset
+          ? { paddingTop: inset.top, paddingBottom: inset.bottom }
+          : { paddingBottom: insets.bottom + 28 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={refreshControl}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
+      {header}
+      {isLoading ? <Spinner /> : nothing ? emptyState : (
+      <>
       <View style={styles.tabs}>
         <SubTabs
           options={[
@@ -272,6 +306,7 @@ export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
           ]}
           value={tab}
           onChange={setTab}
+          tone="grey"
         />
       </View>
       {sections.every((s) => s.entries.length === 0) ? (
@@ -303,6 +338,8 @@ export function ManageListingsPane({ navigate }: { navigate?: Navigate }) {
           </View>
         )
       ))}
+      </>
+      )}
     </ScrollView>
   );
 }
@@ -398,7 +435,7 @@ export default function ManageListingsEntry({
           variant === 'card' ? styles.entryCard : styles.entryRow,
           // A step under the marketplace's ground, so it reads as a panel set
           // into it — edged like the search and filter below it.
-          variant === 'card' && { backgroundColor: COLOR_GRAY_14, borderColor: SEARCH_EDGE },
+          variant === 'card' && { backgroundColor: SURFACE_BLACK, borderColor: SEARCH_EDGE },
           style,
         ]}
         onPress={() => setOpen(true)}
@@ -477,7 +514,7 @@ const styles = StyleSheet.create({
 
   // A step lighter than the pane, and no edge.
   row: {
-    borderRadius: 14, backgroundColor: COLOR_GRAY_30,
+    borderRadius: 14, backgroundColor: SURFACE_MID,
     padding: 12, marginBottom: 10, gap: 10,
   },
   // The row's top-right corner, inside its padding.

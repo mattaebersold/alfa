@@ -11,7 +11,6 @@ import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { useAppSelector } from '../../store/store';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
-import { useSecondaryColor } from '../../hooks/useBrandColor';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { carHeroUrl } from '../../utils/image';
 import ActionSheet from '../ui/ActionSheet';
@@ -34,7 +33,7 @@ import CarCountBadges, { CAR_COUNTS_CLEARANCE } from '../cars/CarCountBadges';
 import { TYPE_COLORS, CATEGORY_COLORS, formatLabel } from '../../constants/carTypes';
 import type { GarageCar } from '../../types/api';
 import {
-  COMMON_RADIUS, PILL_RADIUS, GUTTER, COLOR_BLACK, COLOR_GRAY_17, COLOR_GRAY_180, COLOR_WHITE,
+  COMMON_RADIUS, PILL_RADIUS, FEED_CARD_GUTTER, FEED_CARD_GAP, COLOR_BLACK, COLOR_GRAY_180, COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -153,7 +152,6 @@ export default function CarPosterCard({
   style,
 }: CarPosterCardProps) {
   const c = useColors();
-  const secondary = useSecondaryColor();
   const nav = useNavigation();
   const { userInfo } = useAppSelector((s) => s.auth);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
@@ -297,7 +295,8 @@ export default function CarPosterCard({
             size={30}
             fallback="Someone"
             sub="added a car to their garage"
-            subColor={secondary}
+            subColor={COLOR_WHITE}
+            subStyle={styles.bylineAction}
             gap={9}
             fill
             style={styles.bylineWho}
@@ -652,9 +651,9 @@ const styles = StyleSheet.create({
   card: {
     position: 'relative',
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_17,
+    backgroundColor: SURFACE_MID,
   },
-  feedWrap: { marginBottom: 6 },
+  feedWrap: { marginBottom: FEED_CARD_GAP },
   // In the feed: the icon closer to the name, and the name in the body face,
   // a size down — a line about the car, not a headline over it.
   // Clear of the counts down the right, as the garage's plate is.
@@ -662,8 +661,10 @@ const styles = StyleSheet.create({
   titleFeed: { fontSize: 18, fontFamily: FONT_INTER.bold, letterSpacing: 0 },
   byline: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
+    paddingHorizontal: FEED_CARD_GUTTER, paddingTop: 8, paddingBottom: 8,
   },
+  // What they did, under the name — white and italic.
+  bylineAction: { fontStyle: 'italic' },
   bylineWho:  { flex: 1 },
   bylineTime: { fontSize: 11, fontStyle: 'italic' },
   bylineMeta: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -677,7 +678,7 @@ const styles = StyleSheet.create({
    * the card and letting the image fill it leaves nothing to resolve twice.
    */
   imageFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  frameInFeed: { marginHorizontal: GUTTER, marginVertical: 0 },
+  frameInFeed: { marginHorizontal: FEED_CARD_GUTTER, marginVertical: 0 },
 
   scrimTop:    { position: 'absolute', left: 0, right: 0, top: 0, height: '34%' },
   // One point past the bottom edge: flush, the card's height and the scrim's

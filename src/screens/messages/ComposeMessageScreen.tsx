@@ -73,9 +73,14 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
     }) ?? null;
   }, [allMessages, recipient, myId]);
 
-  // If there's already a thread with this person, go there instead
+  // If there's already a thread with this person, go there instead — once.
+  // The inbox query refetches whenever any message changes (the thread marking
+  // itself read does it), and each refetch is a new `existingThread`: without
+  // the latch this replaced again on every one, while the thread was opening.
+  const redirected = React.useRef(false);
   useEffect(() => {
-    if (existingThread && recipient) {
+    if (existingThread && recipient && !redirected.current) {
+      redirected.current = true;
       navigation.replace('MessageThread', {
         threadId: existingThread.thread_id,
         recipientId: recipient.user_id,

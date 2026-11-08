@@ -65,7 +65,7 @@ function CarTagRow({ id, go, stacked, marked }: { id: string; go: Go; stacked?: 
   const colors = useColors();
   const { data: car } = useGetCarQuery(id, { skip: !id });
   if (!car) return null;
-  const img = car.profile_image ? imageUrl(car.profile_image) : firstGalleryUrl(car.gallery);
+  const img = car.profile_image ? imageUrl(car.profile_image, 'thumb') : firstGalleryUrl(car.gallery, 'thumb');
   const name = car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car';
   return (
     <TouchableOpacity
@@ -103,7 +103,7 @@ function EventTagRow({ id, onOpen, stacked }: { id: string; onOpen: (e: Event) =
   const colors = useColors();
   const { data: event } = useGetEventQuery(id, { skip: !id });
   if (!event) return null;
-  const img = firstGalleryUrl(event.gallery);
+  const img = firstGalleryUrl(event.gallery, 'thumb');
   return (
     <TouchableOpacity
       style={[styles.badge, stacked ? styles.badgeStacked : styles.gridItem, { backgroundColor: colors.inputBg, borderColor: colors.border }]}

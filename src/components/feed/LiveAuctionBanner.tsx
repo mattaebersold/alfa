@@ -9,7 +9,7 @@ import { useAppDispatch } from '../../store/store';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { imageUrl } from '../../utils/image';
 import {
-  COMMON_RADIUS, COLOR_ALERT, COLOR_BLACK, COLOR_GRAY_26, COLOR_RED, COLOR_WHITE, GUTTER,
+  COMMON_RADIUS, COLOR_ALERT, COLOR_BLACK, COLOR_RED, COLOR_WHITE, GUTTER, SURFACE_MID, COLOR_ON_ALERT
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type { SponsoredAuction, SponsoredAuctionSource } from '../../types/api';
@@ -264,11 +264,11 @@ function Reveal({ children }: { children: React.ReactNode }) {
 
 /**
  * Across the whole card: clear over its first 10%, then easing all the way to
- * the card's grey (COLOR_GRAY_26) at its right edge. The clear end is the same
+ * the card's grey (SURFACE_MID) at its right edge. The clear end is the same
  * grey at no opacity, so the fade doesn't pass through a muddy darker band.
  */
 const COVER_FADE = {
-  colors: ['rgba(26,26,26,0)', COLOR_GRAY_26] as const,
+  colors: ['rgba(38,38,38,0)', SURFACE_MID] as const,
   locations: [0.1, 1] as const,
 };
 
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     minHeight: CARD_MIN_H, padding: CARD_PAD,
-    borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_26, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_MID, overflow: 'hidden',
   },
   badge: { position: 'absolute', top: 10, left: 10 },
   // The right half, set against the card's right edge; the photo has the left.
@@ -310,8 +310,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     height: 18, paddingHorizontal: 6, borderRadius: 999, backgroundColor: COLOR_ALERT,
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLOR_WHITE },
-  liveText: { fontSize: 10, lineHeight: 12, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, color: COLOR_WHITE },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLOR_ON_ALERT },
+  liveText: { fontSize: 10, lineHeight: 12, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, color: COLOR_ON_ALERT },
 
   clock: { alignItems: 'flex-end', flexShrink: 0 },
   clockDigits: {

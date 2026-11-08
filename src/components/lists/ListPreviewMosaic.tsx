@@ -5,7 +5,7 @@ import { ListOrdered } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import type { List } from '../../types/api';
-import { COLOR_GRAY_22 } from '../../constants/config';
+import { SURFACE_MID } from '../../constants/config';
 
 /** The most tiles a preview shows; past three they're too small to read. */
 export const LIST_PREVIEW_MAX = 3;
@@ -24,7 +24,7 @@ export function listPreviewPhotos(list: List): string[] {
   const photos: string[] = [];
   for (const item of list.items ?? []) {
     if (item.deleted) continue;
-    const url = firstGalleryUrl(item.gallery);
+    const url = firstGalleryUrl(item.gallery, 'small');
     if (url) photos.push(url);
     if (photos.length >= LIST_PREVIEW_MAX) break;
   }
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   box:   { width: '100%', overflow: 'hidden' },
   blank: { alignItems: 'center', justifyContent: 'center' },
   row:   { flexDirection: 'row', gap: SEAM },
-  tile:  { backgroundColor: COLOR_GRAY_22 },
+  tile:  { backgroundColor: SURFACE_MID },
   fill:  { flex: 1 },
   // Wider than tall on the left so the pair on the right stays near square.
   hero:  { flex: 2 },

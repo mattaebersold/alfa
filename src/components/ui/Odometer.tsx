@@ -5,11 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FONT_INTER } from '../../constants/fonts'
 import {
   COLOR_GRAY_138,
-  COLOR_GRAY_14,
   COLOR_GRAY_244,
-  COLOR_GRAY_26,
   COLOR_GRAY_60,
-  COLOR_GRAY_74,
+  COLOR_GRAY_74, SURFACE_BLACK, SURFACE_MID
 } from '../../constants/config';
 
 /**
@@ -81,7 +79,7 @@ const styles = StyleSheet.create({
 
   housing: {
     flexDirection: 'row',
-    backgroundColor: COLOR_GRAY_14,
+    backgroundColor: SURFACE_BLACK,
     borderRadius: 4,
     borderWidth: 1, borderColor: COLOR_GRAY_60,
     overflow: 'hidden',
@@ -91,7 +89,7 @@ const styles = StyleSheet.create({
   cell:   { width: 24, height: 36, alignItems: 'center', justifyContent: 'center' },
   cellSm: { width: 17, height: 26, alignItems: 'center', justifyContent: 'center' },
   // The tenths wheel: paler housing, as on the instrument itself.
-  cellLast: { backgroundColor: COLOR_GRAY_26 },
+  cellLast: { backgroundColor: SURFACE_MID },
   divider:  { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: COLOR_GRAY_74 },
 
   digit: {

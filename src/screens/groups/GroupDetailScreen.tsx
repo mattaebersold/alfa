@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert, Animated,
+  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert, Animated, Easing,
   ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, Platform, Dimensions } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from '../../components/ui/AppImage';
@@ -19,16 +19,16 @@ import {
   useGetGroupQuery,
   useGetGroupMembersQuery,
   useLeaveGroupMutation,
-  useGetGroupCarsQuery,
   useGetUserGarageQuery,
   useUpdateCarGroupMutation,
-  useGetGroupDiscussionQuery,
-  useGetGroupNewsQuery,
-  useGetGroupResourcesQuery,
-  useGetEventsQuery,
+  useGetGroupDiscussionFeedInfiniteQuery,
+  useGetGroupNewsFeedInfiniteQuery,
+  useGetGroupResourcesFeedInfiniteQuery,
+  useGetGroupPostsFeedInfiniteQuery,
+  useGetGroupCarsFeedInfiniteQuery,
+  useGetGroupEventsFeedInfiniteQuery,
+  useGetGroupRoutesFeedInfiniteQuery,
   useGetRallysQuery,
-  useGetRoutesQuery,
-  useGetPostsQuery,
 } from '../../api/apiService';
 import type { GarageCar } from '../../types/api';
 import { GroupSettingsBody } from '../../components/groups/GroupSettingsSheet';
@@ -42,6 +42,9 @@ import { headerOffset, hideHeader, holdHeader, useHeaderScroll } from '../../hoo
 import CarGridItem from '../../components/cars/CarGridItem';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import Spinner from '../../components/ui/Spinner';
+import { useCreateRoute } from '../../hooks/useCreateRoute';
+import SearchPill from '../../components/ui/SearchPill';
+import { COMPACT_FILTER_HEIGHT } from '../../components/ui/FilterSummaryRow';
 import EmptyState from '../../components/ui/EmptyState';
 import FeedItemCard from '../../components/cards/FeedItemCard';
 import RouteTrace from '../../components/routes/RouteTrace';
@@ -73,16 +76,14 @@ import { DISCUSSION_CATEGORIES, RESOURCE_CATEGORIES } from '../../constants/grou
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_31,
   COLOR_GRAY_102,
   COLOR_COUNT_BADGE,
   COLOR_WHITE,
   APP_BG,
   GROUP_GROUND,
   GROUP_LISTING_CARD,
-  COLOR_GRAY_34,
   PANE_BG,
-  SHEET_RADIUS,
+  SHEET_RADIUS, SURFACE_MID, COLOR_ON_ALERT, TAB_IDLE_FG
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
@@ -93,7 +94,7 @@ type AppNav = NativeStackNavigationProp<AppStackParamList>;
  * The header band's own surface — a shade under the app's card colour.
  *
  * The banner, the title card and the members strip read as one masthead rather
- * than as three stacked cards, and dropping them below `card` (#1e1e1e) sets
+ * than as three stacked cards, and dropping them below `card` (SURFACE_MID) sets
  * that whole block back from the content beneath it. The banner's bottom fade
  * has to land on exactly this value or the seam it exists to hide comes back.
  *
@@ -102,7 +103,7 @@ type AppNav = NativeStackNavigationProp<AppStackParamList>;
  */
 const HERO_SURFACE = APP_BG;
 /** Controls sitting on the banner — one step up, so they read as raised. */
-const HERO_CONTROL = COLOR_GRAY_31;
+const HERO_CONTROL = SURFACE_MID;
 /**
  * Border for the back and options buttons on the banner. A translucent white
  * rather than a fixed grey: the buttons sit on a photo, and a dark rule
@@ -111,12 +112,16 @@ const HERO_CONTROL = COLOR_GRAY_31;
 const HERO_BTN_BORDER = 'rgba(255,255,255,0.28)';
 /** The discussion, news and resource cards' ground — a shade under the other cards'. */
 // A step up from the ground (GROUP_GROUND).
-const ITEM_CARD = COLOR_GRAY_34;
+const ITEM_CARD = SURFACE_MID;
 const GUTTER = 12;
 /** Rows added each time the roster list reaches its end. */
 const MEMBER_PAGE_SIZE = 25;
 /** How many of a section's most recent items the tab shows before "view all". */
 const RECENT_LIMIT = 5;
+/** The tabs shown as searchable, paged feeds — search, + New, and all of it as you scroll. */
+const FEED_TAB_KEYS: ReadonlySet<string> = new Set(['discussion', 'posts', 'news', 'resources', 'events', 'routes']);
+/** How long a tab switch's glide up to the docked tab row takes. */
+const TAB_GLIDE_MS = 560;
 /** The group's name over the docked tab row. */
 const DOCK_TITLE_H = 22;
 /** For the list's least height — see `tabsTop`. */
@@ -159,9 +164,6 @@ const CATEGORY_LISTS: Record<string, { key: string; label: string }[]> = {
 const catLabel = (kind: string, key?: string) =>
   CATEGORY_LISTS[kind]?.find((cat) => cat.key === (key ?? 'general'))?.label ?? key;
 
-const newestFirst = <T extends { created_at?: string }>(items: T[]) =>
-  [...items].sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
-
 
 type DetailKind = 'news' | 'discussion' | 'resource';
 
@@ -198,6 +200,8 @@ export default function GroupDetailScreen() {
   // rows at once.
   const [memberPage, setMemberPage] = useState(1);
   const [tab, setTab] = useState<TabKey>('discussion');
+  /** The search on a feed tab (see FEED_TABS) — cleared on every switch. */
+  const [feedQuery, setFeedQuery] = useState('');
   // "Post to group": the menu of what to post, then the sheet for the kind chosen.
   const [postMenuOpen, setPostMenuOpen] = useState(false);
   const [createKind, setCreateKind] = useState<Extract<CreateKind, 'discussion' | 'resources' | 'news'> | null>(null);
@@ -254,6 +258,7 @@ export default function GroupDetailScreen() {
     setTabsTop((was) => (was === top ? was : top));
   };
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollYNow.current = e.nativeEvent.contentOffset.y;
     onHeaderScroll(e);
     const stuck = e.nativeEvent.contentOffset.y >= dockOffset();
     setTabsStuck((was) => (was === stuck ? was : stuck));
@@ -276,38 +281,71 @@ export default function GroupDetailScreen() {
   // join request gets approved — the roster here has to reflect that decision.
   useRefetchOnFocus(refetchMembers);
   useRefetchOnFocus(refetchGroup);
-  const { data: groupCarsData, refetch: refetchCars } = useGetGroupCarsQuery(groupId);
   const { data: garageData }       = useGetUserGarageQuery(undefined, { skip: !carModalOpen });
   const [leave] = useLeaveGroupMutation();
   const [updateCarGroup] = useUpdateCarGroupMutation();
 
   // One section's items at a time — the tab you're on. Lazy, like the section
   // screen: the others are skipped until you switch to them.
-  const { data: discussionData, isFetching: discussionFetching, refetch: refetchDiscussion } =
-    useGetGroupDiscussionQuery({ groupId, limit: RECENT_LIMIT * 2 }, { skip: tab !== 'discussion' });
-  const { data: postsData, isFetching: postsFetching, refetch: refetchPosts } =
-    useGetPostsQuery({ group_id: groupId, limit: RECENT_LIMIT }, { skip: tab !== 'posts' });
-  const { data: newsData, isFetching: newsFetching, refetch: refetchNews } =
-    useGetGroupNewsQuery({ groupId, limit: RECENT_LIMIT * 2 }, { skip: tab !== 'news' });
-  const { data: resourcesData, isFetching: resourcesFetching, refetch: refetchResources } =
-    useGetGroupResourcesQuery({ groupId, limit: RECENT_LIMIT * 2 }, { skip: tab !== 'resources' });
-  const { data: eventsData, isFetching: eventsFetching, refetch: refetchEvents } =
-    useGetEventsQuery({ limit: RECENT_LIMIT, group_id: groupId }, { skip: tab !== 'events' });
-  // The club rallys attached to this group lead its events.
+  /**
+   * The feed tabs — Discussion, Posts, News, Resources: all of each, a page
+   * at a time as you scroll (see the list's onEndReached), and refreshed every
+   * 30 seconds while the tab is open, so new items arrive without a pull. The
+   * search runs on the server, a moment after you stop typing. Only the open
+   * tab's feed runs.
+   */
+  const [feedSearch, setFeedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setFeedSearch(feedQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [feedQuery]);
+  const feedArg = { groupId, ...(feedSearch ? { q: feedSearch } : {}) };
+  const feedOpts = (key: TabKey) => ({ skip: tab !== key, pollingInterval: 30_000 });
+  const discussionFeed = useGetGroupDiscussionFeedInfiniteQuery(feedArg, feedOpts('discussion'));
+  const postsFeed = useGetGroupPostsFeedInfiniteQuery(feedArg, feedOpts('posts'));
+  const newsFeed = useGetGroupNewsFeedInfiniteQuery(feedArg, feedOpts('news'));
+  const resourcesFeed = useGetGroupResourcesFeedInfiniteQuery(feedArg, feedOpts('resources'));
+  const eventsFeed = useGetGroupEventsFeedInfiniteQuery(feedArg, feedOpts('events'));
+  const routesFeed = useGetGroupRoutesFeedInfiniteQuery(feedArg, feedOpts('routes'));
+  // Cars page the same way, without a search.
+  const carsFeed = useGetGroupCarsFeedInfiniteQuery({ groupId }, feedOpts('cars'));
+  const feeds: Partial<Record<TabKey, {
+    data?: { pages: { entries?: any[] }[] };
+    isLoading: boolean; isFetchingNextPage: boolean; hasNextPage: boolean;
+    fetchNextPage: () => unknown; refetch: () => unknown;
+  }>> = { discussion: discussionFeed, posts: postsFeed, news: newsFeed, resources: resourcesFeed, cars: carsFeed,
+    events: eventsFeed, routes: routesFeed,
+  };
+  const feed = feeds[tab];
+  // Offset paging: an item posted between two page loads shifts the rest down
+  // one, so the next page can repeat the last one seen.
+  const feedEntries = useMemo(() => {
+    const seen = new Set<string>();
+    return (feed?.data?.pages ?? []).flatMap((p) => p.entries ?? []).filter((d: any) => {
+      if (seen.has(d.internal_id)) return false;
+      seen.add(d.internal_id);
+      return true;
+    });
+  }, [feed?.data]);
+  const loadMoreFeed = () => {
+    if (feed?.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage();
+  };
+  // The club rallys attached to this group lead its events — a few, upcoming,
+  // above the paged events (see eventsFeed).
   const { data: rallysData, isFetching: rallysFetching, refetch: refetchRallys } =
     useGetRallysQuery({ group_id: groupId, time_filter: 'upcoming', limit: RECENT_LIMIT }, { skip: tab !== 'events' });
-  const { data: routesData, isFetching: routesFetching, refetch: refetchRoutes } =
-    useGetRoutesQuery({ group_id: groupId, sort: 'votes', limit: RECENT_LIMIT }, { skip: tab !== 'routes' });
+  // Making a route: record or plot, Pro only — the same as the Routes screen's.
+  const { create: createRoute, upsell: routeUpsell } = useCreateRoute();
 
   // Only the visible tab's query is running — refetching a skipped one throws.
   const refetchTab: Record<TabKey, () => unknown> = {
-    discussion: refetchDiscussion, posts: refetchPosts, news: refetchNews, resources: refetchResources,
-    events: () => Promise.all([refetchEvents(), refetchRallys()]),
+    discussion: discussionFeed.refetch, posts: postsFeed.refetch, news: newsFeed.refetch, resources: resourcesFeed.refetch,
+    events: () => Promise.all([eventsFeed.refetch(), refetchRallys()]),
     // The market's browse refreshes itself.
-    routes: refetchRoutes, market: () => undefined, cars: refetchCars,
+    routes: routesFeed.refetch, market: () => undefined, cars: carsFeed.refetch,
   };
   const refreshControl = useRefreshControl(() =>
-    Promise.all([refetchGroup(), refetchMembers(), refetchCars(), refetchTab[tab]()]));
+    Promise.all([refetchGroup(), refetchMembers(), refetchTab[tab]()]));
 
   /**
    * This page is for members.
@@ -338,34 +376,70 @@ export default function GroupDetailScreen() {
     setTimeout(() => openGroup(groupId), 400);
   }, [membersLoaded, members, userInfo?.user_id, navigation, openGroup, groupId]);
 
-  const groupCars = groupCarsData?.entries ?? [];
   const myCars = garageData?.entries ?? [];
 
   // ── Tab row ─────────────────────────────────────────────────────────────
-  const pendingTabScroll = useRef(false);
-  const switchTab = (key: TabKey) => {
-    setTab(key);
-    pendingTabScroll.current = true;
+  /**
+   * Switching tabs brings the tab row up to dock at the top, with the new
+   * section under it — as one easy movement rather than a jump.
+   *
+   * The old section fades out first, the header slides away, and the page
+   * glides up to the row on an ease-in-out curve while the section swaps
+   * unseen; then the new one fades up into place. Stepped by hand, a frame at
+   * a time, rather than `animated: true`: the native scroll ran short and fast,
+   * and racing the header's slide it shook. The header is held through the
+   * glide so it doesn't read it as a swipe and come back.
+   */
+  const contentFade = useRef(new Animated.Value(1)).current;
+  const contentRise = useRef(contentFade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] })).current;
+  const switching = useRef(false);
+  const scrollYNow = useRef(0);
+  const glide = useRef<number | null>(null);
+  const stopGlide = () => {
+    if (glide.current != null) cancelAnimationFrame(glide.current);
+    glide.current = null;
   };
-  // Every switch rests the tab row docked at the top, with the new section
-  // right under it — as the make and model pages do: a jump, once the new
-  // section has drawn, not an animated scroll (that, the header's slide and the
-  // fixed row appearing part-way all ran at once, and shook). The header goes
-  // to its small state, as on the home screen, and the docked row sits under
-  // the status bar with the group's name over it. The header is held through
-  // the jump so it doesn't read it as a swipe and come back.
+  const glideTo = (to: number, duration = TAB_GLIDE_MS) => {
+    stopGlide();
+    const from = scrollYNow.current;
+    if (Math.abs(to - from) < 1) return;
+    const start = Date.now();
+    // Ease in and out: it leaves gently and settles gently.
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const step = () => {
+      const t = Math.min(1, (Date.now() - start) / duration);
+      listRef.current?.scrollToOffset({ offset: from + (to - from) * ease(t), animated: false });
+      glide.current = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    glide.current = requestAnimationFrame(step);
+  };
+  /** Where the page rests with the row docked: under the status bar, the group's name over it. */
+  const dockedOffset = () => Math.max(0, tabsTopNow() - insets.top - DOCK_TITLE_H);
+  const switchTab = (key: TabKey) => {
+    hideHeader(headerPad);
+    holdHeader(TAB_GLIDE_MS + 300);
+    // A beat after the fade starts, so the movement leads from it.
+    setTimeout(() => glideTo(dockedOffset()), 60);
+    if (key === tab) return;
+    // A search belongs to the tab it was typed on.
+    setFeedQuery('');
+    setFeedSearch('');
+    switching.current = true;
+    Animated.timing(contentFade, {
+      toValue: 0, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true,
+    }).start(() => setTab(key));
+  };
+  // The new section, once drawn: up from a little below, as it fades in.
   useEffect(() => {
-    if (!pendingTabScroll.current) return;
-    pendingTabScroll.current = false;
+    if (!switching.current) return;
+    switching.current = false;
     requestAnimationFrame(() => {
-      hideHeader(headerPad);
-      holdHeader();
-      listRef.current?.scrollToOffset({
-        offset: Math.max(0, tabsTopNow() - insets.top - DOCK_TITLE_H),
-        animated: false,
-      });
+      Animated.timing(contentFade, {
+        toValue: 1, duration: 360, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      }).start();
     });
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => stopGlide, []);
 
 
   // The roster decides whether you can see this page at all, so nothing renders
@@ -441,10 +515,11 @@ export default function GroupDetailScreen() {
       {banner
         ? <Image source={{ uri: banner }} style={styles.banner} contentFit="cover" />
         : <View style={[styles.banner, { backgroundColor: c.primaryAlt }]} />}
-      {/* A flat wash over the whole image, so the photo sits back and
-          anything laid over it reads regardless of how bright it is. */}
+      {/* A flat black shade over the whole image, so the photo sits back
+          and anything laid over it reads however bright it is. Black rather
+          than the page's grey: the grey hazed a photo without darkening it. */}
       <View
-        style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(HERO_SURFACE, 0.34) }]}
+        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.38)' }]}
         pointerEvents="none"
       />
       {/* Darkens the top so the floating app header reads over the image. */}
@@ -510,8 +585,9 @@ export default function GroupDetailScreen() {
   );
 
   // ── Tab bar ─────────────────────────────────────────────────────────────
-  // The main tabs every other screen has (MainTabs): the black track, the Pro
-  // red thumb that slides to the picked tab, which it also keeps in view.
+  // The main tabs every other screen has (MainTabs), dressed as the home
+  // header's: the black track, the lit tab on the card grey with white
+  // lettering, the rest grey. The thumb slides to the picked tab and keeps it in view.
   // Two of them — the one in the page and the docked copy — on the same value.
   const tabBar = (
     <View style={[styles.tabBar, { backgroundColor: HERO_SURFACE }]}>
@@ -520,31 +596,41 @@ export default function GroupDetailScreen() {
         value={tab}
         onChange={switchTab}
         inset={GUTTER}
+        thumbColor={SURFACE_MID}
+        idleColor={TAB_IDLE_FG}
       />
     </View>
   );
 
   // ── Tab content ─────────────────────────────────────────────────────────
   const activeTab = TABS.find((t) => t.key === tab)!;
+  /** A tab that's a searchable, paged feed — see FEED_TAB_KEYS. */
+  const isFeed = FEED_TAB_KEYS.has(tab);
   const fetching =
-    (tab === 'discussion' && discussionFetching) || (tab === 'posts' && postsFetching) ||
-    (tab === 'news' && newsFetching) || (tab === 'resources' && resourcesFetching) ||
-    (tab === 'events' && (eventsFetching || rallysFetching)) || (tab === 'routes' && routesFetching);
+    !!feed?.isLoading ||
+    (tab === 'events' && rallysFetching && !rallysData);
 
   let items: any[] = [];
   switch (tab) {
-    case 'discussion': items = newestFirst(discussionData?.entries ?? []).slice(0, RECENT_LIMIT); break;
-    case 'posts':      items = (postsData?.entries ?? []).slice(0, RECENT_LIMIT); break;
-    case 'news':       items = newestFirst(newsData?.entries ?? []).slice(0, RECENT_LIMIT); break;
-    case 'resources':  items = newestFirst(resourcesData?.entries ?? []).slice(0, RECENT_LIMIT); break;
+    // Every thread loaded so far, newest first — the server's order.
+    // The feed tabs: everything loaded so far, newest first — the server's order.
+    case 'discussion':
+    case 'posts':
+    case 'news':
+    case 'resources':  items = feedEntries; break;
     // Rallys first, marked so the renderer knows them from the group's own events.
-    case 'events':     items = [
-      ...(rallysData?.entries ?? []).map((r) => ({ ...r, _rally: true })),
-      ...(eventsData?.entries ?? []),
-    ].slice(0, RECENT_LIMIT); break;
-    case 'routes':     items = (routesData?.entries ?? []).slice(0, RECENT_LIMIT); break;
+    case 'events': {
+      // The rallys first, narrowed by the search here (there are only a few),
+      // then the events, searched on the server.
+      const q = feedSearch.toLowerCase();
+      const rallys = (rallysData?.entries ?? []).filter((r: any) => !q || String(r.title ?? '').toLowerCase().includes(q));
+      items = [...rallys.map((r) => ({ ...r, _rally: true })), ...feedEntries];
+      break;
+    }
+    case 'routes':     items = feedEntries; break;
     // All of them, not a recent few: this is where the group's cars live now.
-    case 'cars':       items = groupCars; break;
+    // All of them, a page at a time — see carsFeed.
+    case 'cars':       items = feedEntries; break;
   }
 
   // Discussion, news and resources share one card: the heading, two lines of
@@ -688,33 +774,53 @@ export default function GroupDetailScreen() {
     : tab === 'posts' ? () => (navigation as any).navigate('Create', { groupId })
     : tab === 'cars' && canManageCars ? () => setCarModalOpen(true)
     : tab === 'market' ? () => (navigation as any).navigate('ListingCreate', { groupId })
+    : tab === 'events' ? () => (navigation as any).navigate('SocietyEventCreate')
+    : tab === 'routes' ? createRoute
     : null;
 
   const tabContent = (
     // No minimum height: a section with two items in it shouldn't scroll, and
     // the header only collapses as far as the content gives it reason to.
-    <View>
+    // Fades and rises on a tab switch — see switchTab.
+    <Animated.View style={{ opacity: contentFade, transform: [{ translateY: contentRise }] }}>
       {/* What the section is, and the way to all of it — the way a feed
           introduces itself. Always shown, so an empty section still says what
           would go in it. */}
+      {/* Cars and Market have no head: Cars is just the cars, and the
+          market brings its own rows (For sale / Want ads, Add listing, the search). */}
+      {tab === 'cars' || tab === 'market' ? <View style={styles.carsTop} /> : (
       <View style={styles.tabIntro}>
-        <Text style={[styles.tabBlurb, { color: c.grey }]}>{activeTab.blurb}</Text>
+        {/* A feed tab: a search in place of the blurb — the events and
+            marketplace row, with + New where their filter sits. */}
+        {isFeed ? (
+          <SearchPill
+            style={styles.tabSearch}
+            value={feedQuery}
+            onChangeText={setFeedQuery}
+            onClear={() => setFeedQuery('')}
+            placeholder={`Search ${activeTab.label.toLowerCase()}...`}
+          />
+        ) : (
+          <Text style={[styles.tabBlurb, { color: c.grey }]}>{activeTab.blurb}</Text>
+        )}
         {/* A new one of whatever the tab holds. Events and routes have no
             "new" of their own here — both are made elsewhere — and news is
             the admins' to write. */}
         {createNew && (
           <TouchableOpacity
-            style={[styles.newBtn, { backgroundColor: c.primaryAlt }]}
+            style={isFeed ? styles.newBtnOutline : [styles.newBtn, { backgroundColor: c.primaryAlt }]}
             onPress={createNew}
             activeOpacity={0.85}
             hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={`New ${activeTab.label.toLowerCase()}`}
           >
-            <Plus size={13} color={COLOR_BLACK} strokeWidth={3} />
-            <Text style={styles.newBtnText}>New</Text>
+            <Plus size={13} color={isFeed ? COLOR_WHITE : COLOR_BLACK} strokeWidth={3} />
+            <Text style={[styles.newBtnText, isFeed && styles.newBtnOutlineText]}>New</Text>
           </TouchableOpacity>
         )}
+        {/* The whole section — not on a feed tab, which is the whole of it already. */}
+        {!isFeed && (
         <TouchableOpacity
           style={[styles.viewAll, { borderColor: c.primaryAlt }]}
           onPress={() => goToSection(tab)}
@@ -726,7 +832,9 @@ export default function GroupDetailScreen() {
           <Text style={[styles.viewAllText, { color: c.primaryAlt }]}>All</Text>
           <ChevronRight size={13} color={c.primaryAlt} strokeWidth={2.6} />
         </TouchableOpacity>
+        )}
       </View>
+      )}
       {tab === 'market' ? (
         // The main marketplace's browse — for sale or wanted, categories,
         // search, filter and the mosaic — narrowed to this group. It fetches
@@ -735,9 +843,12 @@ export default function GroupDetailScreen() {
       ) : fetching ? (
         <ActivityIndicator size="large" color={c.primaryAlt} style={styles.loader} />
       ) : items.length === 0 ? (
-        <EmptyState title={`No ${activeTab.label.toLowerCase()} yet`} />
+        <EmptyState title={isFeed && feedQuery.trim() ? 'Nothing matches that search' : `No ${activeTab.label.toLowerCase()} yet`} />
       ) : tab === 'cars' ? renderCars() : items.map(renderTabItem)}
-    </View>
+      {feed?.isFetchingNextPage ? (
+        <ActivityIndicator size="small" color={c.grey} style={styles.moreLoader} />
+      ) : null}
+    </Animated.View>
   );
 
   // ── Page rows ───────────────────────────────────────────────────────────
@@ -830,6 +941,11 @@ export default function GroupDetailScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        // The discussion tab's next page, as you near its end.
+        onEndReached={loadMoreFeed}
+        // A finger on the page takes over from a glide in progress.
+        onScrollBeginDrag={stopGlide}
+        onEndReachedThreshold={0.6}
       />
 
       {/* The fixed tab row — see `tabsStuck`. Under the app header's own
@@ -843,6 +959,9 @@ export default function GroupDetailScreen() {
           {tabBar}
         </Animated.View>
       )}
+
+      {/* The Pro pitch, for + New on Routes from a basic account. */}
+      {routeUpsell}
 
       {/* Add car modal. Slides up over the panes' fading wash, as every
           pane does (SlideSheet). */}
@@ -1113,12 +1232,13 @@ const styles = StyleSheet.create({
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_COUNT_BADGE,
   },
-  requestsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  requestsCountText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_ON_ALERT },
   requestsText:   { flex: 1, fontSize: 14, fontFamily: FONT_INTER.bold },
   requestsAction: { fontSize: 13, fontFamily: FONT_INTER.extrabold },
 
   // Close to the tabs under it, as the description used to be.
-  membersStrip: { padding: 14, paddingTop: 0, paddingBottom: 6 },
+  // Room above and below the faces, so the row stands apart from the description and the tabs.
+  membersStrip: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 18 },
   avatarRow:    { flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' },
   stripInvite:  {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -1165,11 +1285,24 @@ const styles = StyleSheet.create({
   metaText:     { fontSize: 12 },
   rallyTag:     { fontSize: 10, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.6, marginBottom: 2 },
   rowThumb:     { width: 72, height: 52, borderRadius: 8 },
+  // Room under it before the first item, so the search row reads as the
+  // section's head rather than the top of its list.
   tabIntro:     {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: GUTTER, paddingTop: 10, paddingBottom: 2,
+    paddingHorizontal: GUTTER, paddingTop: 10, paddingBottom: 12,
   },
   tabBlurb:     { flex: 1, fontSize: 13, lineHeight: 18 },
+  tabSearch:    { flex: 1 },
+  // Beside the search: a white outline, the search's height and roundness.
+  newBtnOutline: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    height: COMPACT_FILTER_HEIGHT, paddingLeft: 12, paddingRight: 14,
+    borderRadius: COMPACT_FILTER_HEIGHT / 2, borderWidth: 1.5, borderColor: COLOR_WHITE,
+  },
+  newBtnOutlineText: { color: COLOR_WHITE, fontSize: 13 },
+  moreLoader:   { paddingVertical: 18 },
+  // Where the head would be on the other tabs: a little room above the cars.
+  carsTop:      { height: 12 },
   viewAll:      {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingLeft: 10, paddingRight: 7, paddingVertical: 5,

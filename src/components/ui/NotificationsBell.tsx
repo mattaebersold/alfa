@@ -6,7 +6,7 @@ import NotificationsList from '../notifications/NotificationsList';
 import SummaryModal, { measureOrigin, useSummaryPanel, type SummaryOrigin } from './SummaryModal';
 import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE } from '../../constants/config';
+import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLOR_COUNT_BADGE,
     zIndex: 10, elevation: 12,
   },
-  badgeText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  badgeText: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_ON_ALERT },
 
   messagesRow: {
     flexDirection: 'row', alignItems: 'center', gap: 11,

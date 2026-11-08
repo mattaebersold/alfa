@@ -5,9 +5,9 @@ import { X } from 'lucide-react-native';
 import type { AppStackParamList } from './types';
 import MainTabNavigator from './MainTabNavigator';
 import { colors } from '../constants/colors';
-import { COLOR_GRAY_32, COLOR_WHITE } from '../constants/config';
+import { COLOR_WHITE, SURFACE_MID } from '../constants/config';
 
-const MODAL_HEADER_BG = COLOR_GRAY_32;
+const MODAL_HEADER_BG = SURFACE_MID;
 
 function CloseButton({ onPress }: { onPress: () => void }) {
   return (

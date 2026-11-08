@@ -76,7 +76,7 @@ export default function DeclinedInvitesSheet({
   };
 
   const renderRow = ({ item }: { item: DeclinedInvite }) => {
-    const banner = firstGalleryUrl(item.group?.banners) ?? firstGalleryUrl(item.group?.gallery);
+    const banner = firstGalleryUrl(item.group?.banners, 'thumb') ?? firstGalleryUrl(item.group?.gallery, 'thumb');
     const busy = clearing && pendingId === item.group_id;
     const when = item.declined_at
       ? new Date(item.declined_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })

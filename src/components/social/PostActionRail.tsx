@@ -35,7 +35,7 @@ import type { Post } from '../../types/api';
  *  - bookmark: saves it to the header's Bookmarks (PostBookmarkButton).
  */
 export default function PostActionRail({
-  post, entryType, like, likers, tagged = [], onOpenTagged, vertical = true, bookmark = true,
+  post, entryType, like, likers, tagged = [], onOpenTagged, vertical = true, bookmark = true, bookmarkSlot,
 }: {
   post: Post;
   entryType: string;
@@ -50,6 +50,11 @@ export default function PostActionRail({
   vertical?: boolean;
   /** Off for a post that isn't worth keeping — a shared game result. */
   bookmark?: boolean;
+  /**
+   * In place of the post bookmark — for something on the rail that isn't a
+   * post and keeps a bookmark of its own (a car gallery bookmarks its car).
+   */
+  bookmarkSlot?: React.ReactNode;
 }) {
   const commentRef = useRef<View>(null);
   const heartRef = useRef<View>(null);
@@ -62,7 +67,9 @@ export default function PostActionRail({
   return (
     <>
       <View style={vertical ? styles.column : styles.row} pointerEvents="box-none">
-        {bookmark && (
+        {bookmark && bookmarkSlot ? (
+          <View style={vertical && [styles.itemV, styles.iconShadow]}>{bookmarkSlot}</View>
+        ) : bookmark && (
           <View style={vertical && styles.iconShadow}>
             <PostBookmarkButton
               postId={post.internal_id}

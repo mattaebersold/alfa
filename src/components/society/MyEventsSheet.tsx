@@ -5,7 +5,10 @@ import SubTabs from '../ui/SubTabs';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import ExpandableEventCard from './ExpandableEventCard';
-import { useGetMyEventsQuery } from '../../api/apiService';
+import { useGetMyEventsQuery, useGetMyRallysQuery } from '../../api/apiService';
+import RallyCard from '../rallys/RallyCard';
+import RallyDetailSheet from './RallyDetailSheet';
+import { isRallyUpcoming } from '../../utils/rally';
 import type { SocietyEvent } from '../../types/api';
 
 type Tab = 'upcoming' | 'past';
@@ -31,6 +34,10 @@ export default function MyEventsSheet({
   const { data, isLoading } = useGetMyEventsQuery(undefined, { skip: !visible });
   const [tab, setTab] = useState<Tab>('upcoming');
   const [openId, setOpenId] = useState<string | null>(null);
+  // Rallys you're interested in, above the events — they open their own pane.
+  const { data: rallyData } = useGetMyRallysQuery(undefined, { skip: !visible });
+  const [rallyId, setRallyId] = useState<string | null>(null);
+  const rallys = (rallyData?.entries ?? []).filter((r) => (tab === 'upcoming') === isRallyUpcoming(r));
 
   const entries = data?.entries ?? [];
   const shown = tab === 'upcoming'
@@ -55,15 +62,21 @@ export default function MyEventsSheet({
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <Spinner />
-        ) : shown.length === 0 ? (
+        ) : shown.length === 0 && rallys.length === 0 ? (
           tab === 'upcoming' ? (
             <EmptyState
               title="Nothing coming up"
-              message="Tap Attend on an event to keep it here."
+              message="Tap Attend on an event, or I'm Interested on a rally, to keep it here."
             />
           ) : <EmptyState title="No past events" />
         ) : (
-          shown.map((event) => {
+          <>
+          {rallys.map((rally) => (
+            <View key={`rally-${rally.internal_id}`} style={styles.rally}>
+              <RallyCard rally={rally} onPress={() => setRallyId(rally.internal_id)} />
+            </View>
+          ))}
+          {shown.map((event) => {
             // One row per date you're going to — a weekly meet can be here twice.
             const key = `${event.internal_id}-${event.day ?? ''}`;
             return (
@@ -75,9 +88,12 @@ export default function MyEventsSheet({
               onOpenFull={onSelectEvent}
             />
             );
-          })
+          })}
+          </>
         )}
       </ScrollView>
+      {/* Inside this pane's Modal, so it presents over it on iOS. */}
+      <RallyDetailSheet rallyId={rallyId} onClose={() => setRallyId(null)} />
     </SharedModal>
   );
 }
@@ -85,4 +101,6 @@ export default function MyEventsSheet({
 const styles = StyleSheet.create({
   tabs: { paddingTop: 4 },
   body: { padding: 12, gap: 12, paddingBottom: 32 },
+  // RallyCard brings its own side and top margins, for a list of its own.
+  rally: { marginHorizontal: -12, marginTop: -12 },
 });

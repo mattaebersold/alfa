@@ -8,7 +8,7 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_DANGER, COLOR_GRAY_22, COLOR_WHITE, GUTTER, COLOR_GRAY_40,
+  COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_DANGER, COLOR_WHITE, GUTTER, COLOR_GRAY_40, SURFACE_MID
 } from '../../constants/config';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import {
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   // Rounded at the foot too, where it meets the words — the card's radius, so
   // the photo reads as a tile set into the card.
   thumbWrap: { width: '100%', aspectRatio: 16 / 9, borderBottomLeftRadius: CARD_RADIUS, borderBottomRightRadius: CARD_RADIUS, overflow: 'hidden' },
-  thumb:     { width: '100%', height: '100%', backgroundColor: COLOR_GRAY_22 },
+  thumb:     { width: '100%', height: '100%', backgroundColor: SURFACE_MID },
   soldScrim: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center',

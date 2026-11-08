@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import { X, Images, SwitchCamera } from 'lucide-react-native';
 import { COLOR_WHITE, COLOR_BLACK, COLOR_RED, PILL_RADIUS, PANE_BG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import { selectionHaptic } from '../../utils/haptics';
 
 /** What the camera hands back — the shape the create form's drafts take. */
 export type CameraCapture =
@@ -199,7 +200,7 @@ export default function CameraSheet({ visible, onClose, onCapture, onPickLibrary
             {(['picture', 'video'] as const).map((m) => (
               <TouchableOpacity
                 key={m}
-                onPress={() => !recording && setMode(m)}
+                onPress={() => { if (recording) return; if (m !== mode) selectionHaptic(); setMode(m); }}
                 hitSlop={8}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: mode === m }}

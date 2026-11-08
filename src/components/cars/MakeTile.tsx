@@ -7,12 +7,10 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import {
   COMMON_RADIUS,
-  COLOR_GRAY_17,
   COLOR_GRAY_38,
   COLOR_GRAY_208,
-  COLOR_GRAY_26,
   COLOR_GRAY_46,
-  COLOR_GRAY_64,
+  COLOR_GRAY_64, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -64,7 +62,7 @@ export default function MakeTile({ name, subtitle, photos, count, countLabel, on
   compact?: boolean;
 }) {
   const colors = useColors();
-  const shots = (photos ?? []).slice(0, 3).map((f) => imageUrl(f)).filter((u): u is string => !!u);
+  const shots = (photos ?? []).slice(0, 3).map((f) => imageUrl(f, 'small')).filter((u): u is string => !!u);
   // The slices are laid out in points, so they wait for the panel's width.
   const [width, setWidth] = useState(0);
 
@@ -182,7 +180,7 @@ const styles = StyleSheet.create({
     height: PHOTO_H, width: '100%', overflow: 'hidden',
     borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS,
   },
-  photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: COLOR_GRAY_17 },
+  photo: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: SURFACE_MID },
   slice: { position: 'absolute', top: 0, height: PHOTO_H, overflow: 'hidden' },
   // Every slice before the last sits above the next (zIndex) and casts a soft
   // shadow forward over it, so the first photo reads as the top of the stack.
@@ -192,7 +190,7 @@ const styles = StyleSheet.create({
   // photos. At part strength, so a little of each photo's own color survives.
   sliceMono: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, mixBlendMode: 'color', opacity: 0.35, zIndex: 20 },
   sliceTint: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0, 0, 0, 0.12)', zIndex: 21 },
-  sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: COLOR_GRAY_17 },
+  sliceImage: { position: 'absolute', top: 0, height: PHOTO_H, backgroundColor: SURFACE_MID },
   blank: { alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 8, right: 8, zIndex: 10 },
   badgeLeft: { position: 'absolute', top: 8, left: 8, zIndex: 10 },

@@ -203,7 +203,10 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
     // `society_event` the current one, and both open the same sheet.
     case 'event':
     case 'society_event':
-      return id ? { name: 'SocietyEventDetail', params: { eventId: id } } : null;
+      // A follower's "attending" notice names the date they're going — open on it.
+      return id
+        ? { name: 'SocietyEventDetail', params: { eventId: id, ...(typeof meta.day === 'string' ? { occurrenceDate: meta.day } : {}) } }
+        : null;
 
     /**
      * A photo spot lives on a map rather than on a screen of its own, so the

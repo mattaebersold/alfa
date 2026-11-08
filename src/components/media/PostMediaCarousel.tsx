@@ -16,7 +16,7 @@ import VideoLightbox from '../ui/VideoLightbox';
 import PinchZoom from './PinchZoom';
 import { clampMediaRatio, mediaShape, DEFAULT_MEDIA_RATIO, type PostMedia } from '../../utils/postMedia';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_BLACK, COLOR_GRAY_26, COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 
 /**
  * Every photo's pixel size once it has loaded, by URL, for the life of the app.
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playGlyph:   { marginLeft: 3 },
-  processingBg:   { backgroundColor: COLOR_GRAY_26 },
+  processingBg:   { backgroundColor: SURFACE_MID },
   processingPill: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.6)',

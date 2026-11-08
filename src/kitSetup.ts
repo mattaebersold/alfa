@@ -14,6 +14,8 @@ configureKit({
   appName: 'Open Road Society',
   API_BASE_URL: CONFIG.API_BASE_URL,
   S3_BASE_URL: CONFIG.S3_BASE_URL,
+  // Full-width unless a call says otherwise — see ImageSize in @ors/kit.
+  IMAGE_DEFAULT_SIZE: 'medium',
   GOOGLE_WEB_CLIENT_ID: CONFIG.GOOGLE_WEB_CLIENT_ID,
   GOOGLE_IOS_CLIENT_ID: CONFIG.GOOGLE_IOS_CLIENT_ID,
   USER_REFRESH_INTERVAL: CONFIG.USER_REFRESH_INTERVAL,

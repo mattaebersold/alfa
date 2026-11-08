@@ -7,7 +7,7 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import type { ModelBookmark } from '../../types/api';
 import { bookmarkTitle, bookmarkRoute } from '../../utils/modelBookmark';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_26, COLOR_WHITE, COLOR_BORDER } from '../../constants/config';
+import { COLOR_WHITE, COLOR_BORDER, SURFACE_MID } from '../../constants/config';
 
 /**
  * Your bookmarked car models, as a row of pills — in the menu, above the main
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: COLOR_GRAY_26, borderWidth: 1, borderColor: COLOR_BORDER,
+    backgroundColor: SURFACE_MID, borderWidth: 1, borderColor: COLOR_BORDER,
   },
   pillText: { fontSize: 14, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
 });

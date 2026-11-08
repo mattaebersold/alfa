@@ -163,7 +163,7 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
           )}
 
           {cars.slice(0, MAX_CARS).map((car) => {
-            const thumb = imageUrl(car.profile_image) ?? firstGalleryUrl(car.gallery);
+            const thumb = imageUrl(car.profile_image, 'thumb') ?? firstGalleryUrl(car.gallery, 'thumb');
             return (
               <TouchableOpacity
                 key={`c_${car.internal_id}`}

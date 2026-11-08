@@ -34,7 +34,7 @@ export default function GarageCarStrip({
   const { data } = useGetUserGarageQuery();
   const cards = (data?.entries ?? []).map((car) => ({
     tag: garageCarTag(car),
-    image: carHeroUrl(car),
+    image: carHeroUrl(car, 'small'),
     // A car with no photo gets the stock one, filling the tile like a photo would.
     fallback: <Image source={require('../../../assets/car-placeholder.jpg')} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" />,
   }));

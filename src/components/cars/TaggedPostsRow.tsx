@@ -2,7 +2,7 @@ import React from 'react';
 import PostStrip, { STRIP_PREVIEW_COUNT, type PostCardLook } from '../social/PostStrip';
 import { useGetCarTaggedPostsQuery } from '../../api/apiService';
 import type { Post } from '../../types/api';
-import { COLOR_GRAY_23 } from '../../constants/config';
+import { SURFACE_MID } from '../../constants/config';
 
 /**
  * How a tagged post's card looks — on the shelf and in the list behind it: all
@@ -10,7 +10,7 @@ import { COLOR_GRAY_23 } from '../../constants/config';
  * the top.
  */
 export const TAGGED_LOOK: PostCardLook = {
-  cardBackground: COLOR_GRAY_23,
+  cardBackground: SURFACE_MID,
   showTime: false,
   captionLines: 1,
   captionOnImage: true,

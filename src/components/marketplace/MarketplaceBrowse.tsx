@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SubTabs from '../ui/SubTabs';
+import UnderlineTabs from '../ui/UnderlineTabs';
 import {
   View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text } from '@ors/kit';
-import { Plus, Tag, Megaphone } from 'lucide-react-native';
+import { Tag, ListFilter } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeading from '../ui/ScreenHeading';
 import EmptyState from '../ui/EmptyState';
@@ -22,7 +23,8 @@ import {
   LISTING_LIMIT_UPSELL,
   COMMON_RADIUS,
   PILL_RADIUS,
-  COLOR_BLACK, COLOR_GRAY_26, GUTTER } from '../../constants/config';
+  COLOR_BLACK, COLOR_WHITE, GUTTER, SURFACE_DARK, SURFACE_MID
+} from '../../constants/config';
 import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
@@ -106,9 +108,11 @@ export default function MarketplaceBrowse({
   contentContainerStyle,
   style,
   stickyTop = 0,
-  ground = COLOR_GRAY_26,
+  ground = SURFACE_DARK,
   embedded = false,
   cardBackground,
+  lockKind,
+  hideManageEntry = false,
 }: {
   /**
    * Narrow to one group's listings. The server reads it as "only things in
@@ -147,6 +151,17 @@ export default function MarketplaceBrowse({
   embedded?: boolean;
   /** The listing cards' fill, when the host's ground calls for another — see ListingCard. */
   cardBackground?: string;
+  /**
+   * Fix the browse to one half of the market and drop the For sale / Want ads
+   * switch — for a host that gives each half a screen of its own (the home
+   * header's Marketplace › Listings and Want Ads). Omitted, both, switchable.
+   */
+  lockKind?: ListingKind;
+  /**
+   * Leave out the "Your Listings" card at the top — for a host that has a
+   * screen of its own for them (Marketplace › My Listings).
+   */
+  hideManageEntry?: boolean;
 }) {
   const nav = useNavigation<any>();
   const colors = useColors();
@@ -163,8 +178,12 @@ export default function MarketplaceBrowse({
   // At the limit the plus opens the pitch rather than a form the server will
   // refuse after five steps of it have been filled in.
   const [upsell, setUpsell] = useState(false);
+  /** The category row — hidden until the filter button beside the search opens it. */
+  const [showTypes, setShowTypes] = useState(false);
 
-  const [kind, setKind] = useState<ListingKind>('sale');
+  const [pickedKind, setKind] = useState<ListingKind>(lockKind ?? 'sale');
+  // A locked host's kind wins over the switch's, which it doesn't show.
+  const kind = lockKind ?? pickedKind;
 
   // The sticky bar: where it sits in the list (barY, in content), how tall it
   // is, and the scroll — so it can ride with the list until it reaches
@@ -209,8 +228,9 @@ export default function MarketplaceBrowse({
     kind,
     page,
     limit: PAGE_SIZE,
-    ...location.params,
-    ...(groupId ? { group_id: groupId } : {}),
+    // A group's market is the whole group's, wherever its members are: no
+    // radius, so no "near me".
+    ...(groupId ? { group_id: groupId } : location.params),
     ...(activeSearch ? { q: activeSearch } : {}),
     ...(filters.category ? { category: filters.category } : {}),
     // A want ad has no condition — it has a wish — so the floor is only ever
@@ -358,58 +378,57 @@ export default function MarketplaceBrowse({
       {/* For sale or wanted — two halves of the same market rather than
           two screens, so the filters above apply to whichever you're
           looking at. */}
+      {lockKind ? null : (
       <View style={styles.kindRow}>
-        {/* For sale or wanted, as sub tabs — the same control as the
-            categories under it, so the two read as two steps of one choice. */}
-        <View style={styles.kindTabs}>
-          <SubTabs
-            options={[
-              { key: 'sale' as const, label: 'For sale', Icon: Tag },
-              { key: 'want' as const, label: 'Want ads', Icon: Megaphone },
-            ]}
-            value={kind}
-            onChange={switchKind}
-            inset={GUTTER}
-            // The two share the full width, rather than hugging their labels.
-            stretch
-          />
-        </View>
-        {/* Listing something, inside a group — the group comes with it
-            (see the create form's "Where to post" step). On the main
-            marketplace this lives on the app's + instead (CreateFab),
-            beside a new post. */}
-        {groupId && !embedded ? (
-        <TouchableOpacity
-          style={[styles.newBtn, { backgroundColor: brand }]}
-          onPress={() => (listingAllowance?.reached
-            ? setUpsell(true)
-            : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) }))}
-          accessibilityRole="button"
-          accessibilityLabel={
-            // A basic member's allowance, read aloud on the button that
-            // spends it — the plus itself has no room for a count.
-            listingAllowance
-              ? `${kind === 'want' ? 'Post a want ad' : 'List something for sale'}, ${listingAllowance.used} of ${listingAllowance.limit} used this month`
-              : kind === 'want' ? 'Post a want ad' : 'List something for sale'
-          }
-        >
-          <Plus size={16} color={COLOR_BLACK} strokeWidth={2.8} />
-        </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* The categories, as sub tabs — All first, and picked by default.
-          The same filter the panel used to hold, a tap away. */}
-      <View style={styles.categoryTabs}>
-        <SubTabs
-          options={categoryOptions.map((o) => ({ key: o.key ?? '', label: o.label }))}
-          value={filters.category ?? ''}
-          onChange={(key) => applyFilters({ ...filterValue, category: key || null })}
+        {/* For sale or wanted, as the home header's options: plain labels,
+            the picked one underlined. Listing something closes the row —
+            inside a group, the group comes with it (see the create form's
+            "Where to post" step). The allowance check is the same one the
+            app's + runs: at the limit it's the pitch, not a form the
+            server would refuse. */}
+        <UnderlineTabs
+          tabs={[
+            { key: 'sale' as const, label: 'For sale' },
+            { key: 'want' as const, label: 'Want ads' },
+          ]}
+          value={kind}
+          onChange={switchKind}
           inset={GUTTER}
+          action={{
+            label: 'Add listing',
+            accessibilityLabel: listingAllowance
+              ? `${kind === 'want' ? 'Post a want ad' : 'List something for sale'}, ${listingAllowance.used} of ${listingAllowance.limit} used this month`
+              : kind === 'want' ? 'Post a want ad' : 'List something for sale',
+            onPress: () => (listingAllowance?.reached
+              ? setUpsell(true)
+              : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) })),
+          }}
         />
       </View>
+      )}
+
     </>
   );
+
+  /**
+   * The categories, as sub tabs — All first, and picked by default. Hidden
+   * until the filter button beside the search opens them, then shown under
+   * the search row, above the listings.
+   */
+  const categories = showTypes ? (
+    <View style={styles.categoryTabs}>
+      <SubTabs
+        options={categoryOptions.map((o) => ({ key: o.key ?? '', label: o.label }))}
+        value={filters.category ?? ''}
+        onChange={(key) => applyFilters({ ...filterValue, category: key || null })}
+        inset={GUTTER}
+        // The home header's look: a grey thumb, the others white and lighter.
+        tone="grey"
+      />
+    </View>
+  ) : null;
+  /** A category is narrowing the list — marked on the button while the row is hidden. */
+  const typeChosen = !!filters.category;
 
   // The search and filter, pinned once you scroll past them: drawn over the
   // list at their place in it (barY, less the scroll), never above `stickyTop`.
@@ -427,6 +446,8 @@ export default function MarketplaceBrowse({
         placeholder={kind === 'want' ? 'Search want ads…' : 'Search listings…'}
       />
 
+      {/* Where to look — not in a group, which shows all of its own. */}
+      {groupId ? null : (
       <FilterSummaryRow<MarketFilters>
         value={filterValue}
         onApply={applyFilters}
@@ -459,7 +480,23 @@ export default function MarketplaceBrowse({
           </>
         )}
       </FilterSummaryRow>
+      )}
+
+      {/* Shows and hides the categories under this row. White while open;
+          a dot while closed with a category still applied. */}
+      <TouchableOpacity
+        style={[styles.typesBtn, { backgroundColor: showTypes ? COLOR_WHITE : SURFACE_MID }]}
+        onPress={() => setShowTypes((v) => !v)}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showTypes }}
+        accessibilityLabel={showTypes ? 'Hide categories' : 'Show categories'}
+      >
+        <ListFilter size={17} color={showTypes ? COLOR_BLACK : COLOR_WHITE} strokeWidth={2.4} />
+        {!showTypes && typeChosen ? <View style={[styles.typesDot, { backgroundColor: brand }]} /> : null}
+      </TouchableOpacity>
       </View>
+      {categories}
     </>
   );
   const stickyBar = (
@@ -528,7 +565,7 @@ export default function MarketplaceBrowse({
       <View style={[{ backgroundColor: ground }, style]}>
         {kindSwitch}
         {tools}
-        {location.fellBack && (
+        {!groupId && location.fellBack && (
           <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
         )}
         {entries.length ? mosaic : emptyState}
@@ -560,7 +597,7 @@ export default function MarketplaceBrowse({
             {/* Your own side of the market, above the browse: what you're
                 selling, what sold, and anyone waiting on an answer — the
                 unread bubble is the reason it sits this high. */}
-            <ManageListingsEntry
+            {hideManageEntry ? null : <ManageListingsEntry
               variant="card"
               // The + inside the card, after the counts. The allowance check
               // is the same one the group's + runs — at the limit it's the
@@ -568,7 +605,7 @@ export default function MarketplaceBrowse({
               onNew={() => (listingAllowance?.reached
                 ? setUpsell(true)
                 : nav.navigate('ListingCreate', { kind, ...(groupId ? { groupId } : {}) }))}
-            />
+            />}
 
             {kindSwitch}
 
@@ -581,7 +618,7 @@ export default function MarketplaceBrowse({
             />
 
             {/* On the screen, not in the panel — it explains the list below. */}
-            {location.fellBack && (
+            {!groupId && location.fellBack && (
               <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
             )}
 
@@ -619,17 +656,16 @@ const styles = StyleSheet.create({
   stickyBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingTop: 6 },
   // Every row's edge inset is the app's GUTTER, so the browse lines up with
   // the header's tabs and the rest of the home screen.
-  // Close under For sale / Want ads, with room before the search below.
-  categoryTabs: { marginTop: 4, marginBottom: 6 },
-  // SubTabs brings its own 12 of side margin, so the row only pads its end —
-  // where a group's + sits — and the two rows of tabs line up.
-  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: GUTTER, paddingTop: 8, paddingBottom: 4 },
-  kindTabs: { flex: 1 },
-  // Inside a group only — the switch's height, round like it.
-  newBtn: {
-    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
-    borderRadius: PILL_RADIUS,
+  // Under the search row, with room before the listings.
+  categoryTabs: { marginTop: -2, marginBottom: 10 },
+  // The categories' toggle — a circle the filter pill's height.
+  typesBtn: {
+    width: COMPACT_FILTER_HEIGHT, height: COMPACT_FILTER_HEIGHT, borderRadius: COMPACT_FILTER_HEIGHT / 2,
+    alignItems: 'center', justifyContent: 'center',
   },
+  typesDot: { position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4 },
+  // For sale / Want ads and Add listing, over the search.
+  kindRow: { paddingTop: 4, paddingBottom: 8 },
 
   // The search and the filter pill, side by side.
   toolsRow: {

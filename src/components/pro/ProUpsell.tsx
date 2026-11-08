@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator,
+  View, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator, Linking,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Info, X, Check, Bell } from 'lucide-react-native';
+import { useProPurchase } from '../../providers/ProPurchaseProvider';
 import SteeringWheel from '../ui/SteeringWheel';
 import { useRegisterProInterestMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
@@ -79,9 +80,11 @@ export function GetProButton({ onPress, style }: { onPress: () => void; style?: 
  * read. Everything on it is near-black, because gold is a light fill and white
  * on it is unreadable.
  *
- * The action is "get notified", not "buy" — Pro isn't purchasable yet, and a
- * button that can't do what it says is worse than no button. It registers
- * interest once and then reports that it did.
+ * The action is "get notified" until in-app purchase is switched on (see
+ * providers/ProPurchaseProvider): a button that can't do what it says is worse
+ * than no button. It registers interest once and then reports that it did.
+ * Once the store is ready, the same place sells the subscription, with the
+ * renewal terms the stores require shown under it.
  */
 export function ProUpsellModal({
   visible,
@@ -109,6 +112,10 @@ export function ProUpsellModal({
    * tap and the profile refetch landing.
    */
   const onTheList = justRegistered || userInfo?.proInterest === true;
+
+  const purchase = useProPurchase();
+  /** Bought just now, or the profile already says so. */
+  const isPro = purchase.purchased || userInfo?.accountType === 'pro';
 
   const handleNotify = async () => {
     setError(null);
@@ -167,7 +174,53 @@ export function ProUpsellModal({
             ))}
           </ScrollView>
 
-          {onTheList ? (
+          {purchase.ready ? (
+            isPro ? (
+              <View style={styles.done}>
+                <Check size={16} color={ON_GOLD} strokeWidth={3} />
+                <Text style={styles.doneText}>You're PRO. Thanks for supporting the society.</Text>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.cta, purchase.busy && styles.ctaBusy]}
+                  onPress={purchase.subscribe}
+                  disabled={purchase.busy}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={purchase.price ? `Subscribe to Pro for ${purchase.price} a month` : 'Subscribe to Pro'}
+                >
+                  {purchase.busy ? (
+                    <ActivityIndicator size="small" color={colors.pro} />
+                  ) : (
+                    <>
+                      <SteeringWheel size={15} color={colors.pro} strokeWidth={2.4} />
+                      <Text style={styles.ctaText}>
+                        {purchase.price ? `Get PRO · ${purchase.price}/month` : 'Get PRO'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                {purchase.error ? <Text style={styles.error}>{purchase.error}</Text> : null}
+                {/* What the stores require beside a subscription: the length,
+                    the price, that it renews, how to stop it, and the terms. */}
+                <Text style={styles.fine}>
+                  Monthly subscription{purchase.price ? ` at ${purchase.price}` : ''}, renewing automatically
+                  until you cancel. Cancel anytime in your {purchase.storeName} settings.{' '}
+                  <Text style={styles.fineLink} onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')}>
+                    Terms
+                  </Text>
+                  {' · '}
+                  <Text style={styles.fineLink} onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
+                    Privacy
+                  </Text>
+                </Text>
+                <TouchableOpacity onPress={purchase.restore} disabled={purchase.busy} hitSlop={8} style={styles.restore}>
+                  <Text style={styles.dismissText}>Restore purchase</Text>
+                </TouchableOpacity>
+              </>
+            )
+          ) : onTheList ? (
             <View style={styles.done}>
               <Check size={16} color={ON_GOLD} strokeWidth={3} />
               <Text style={styles.doneText}>
@@ -198,7 +251,7 @@ export function ProUpsellModal({
           )}
 
           <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.dismiss}>
-            <Text style={styles.dismissText}>{onTheList ? 'Close' : 'Not now'}</Text>
+            <Text style={styles.dismissText}>{onTheList || isPro ? 'Close' : 'Not now'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -295,6 +348,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: ON_GOLD,
   },
   doneText: { flex: 1, fontSize: 13, fontFamily: FONT_INTER.bold, color: ON_GOLD, lineHeight: 18 },
+
+  fine:     { fontSize: 11, lineHeight: 15, color: ON_GOLD_MUTED, textAlign: 'center', marginTop: 10 },
+  fineLink: { fontFamily: FONT_INTER.bold, color: ON_GOLD, textDecorationLine: 'underline' },
+  restore:  { alignSelf: 'center', marginTop: 10, paddingVertical: 4 },
 
   dismiss:     { alignSelf: 'center', marginTop: 12, paddingVertical: 4 },
   dismissText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: ON_GOLD_MUTED },

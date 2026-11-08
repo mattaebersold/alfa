@@ -8,7 +8,7 @@ import RouteCard from '../cards/RouteCard';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import type { DrivingRoute } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_23 } from '../../constants/config';
+import { COMMON_RADIUS, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer — same as PostStrip. */
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   card: {
     marginVertical: 0, paddingBottom: 12,
     // The darker card shade the car page and profile shelves share.
-    backgroundColor: COLOR_GRAY_23,
+    backgroundColor: SURFACE_MID,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },

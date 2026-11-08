@@ -31,11 +31,10 @@ import { ss } from '../../styles/shared';
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_26,
   COLOR_GRAY_38,
   COLOR_PURE_RED,
   COLOR_TANGERINE,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -66,7 +65,7 @@ const CAT_ORDER = (key?: string) => {
  * grey. The cogs on it take a lighter step, to read as buttons rather than
  * more row.
  */
-const SECTION_BG = COLOR_GRAY_26;
+const SECTION_BG = SURFACE_MID;
 const SECTION_BTN_BG = COLOR_GRAY_38;
 
 /**
@@ -335,7 +334,7 @@ function TaskRow({
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
   const swipeRef = useRef<SwipeableMethods>(null);
-  const photo = firstGalleryUrl(task.gallery);
+  const photo = firstGalleryUrl(task.gallery, 'thumb');
   const priority = task.priority as Priority | null | undefined;
 
   /**

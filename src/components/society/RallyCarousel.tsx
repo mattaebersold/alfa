@@ -22,13 +22,13 @@ const CARD_WIDTH = SCREEN_WIDTH * 0.72;
 const CARD_RADIUS = 12;
 
 /**
- * ORS Rallys as a horizontal row, pulling the same list the Rallys section
- * shows. Tapping one opens the same detail sheet used there.
+ * The upcoming ORS Rallys as a horizontal row — the Events landing's second
+ * section. Tapping one opens the same detail sheet the Rallys tab uses.
  */
 export default function RallyCarousel() {
   const colors = useColors();
   const [selectedRallyId, setSelectedRallyId] = useState<string | null>(null);
-  const { data } = useGetRallysQuery({ page: 0, limit: 12 });
+  const { data } = useGetRallysQuery({ page: 0, limit: 12, time_filter: 'upcoming' });
 
   const rallys = data?.entries ?? [];
   if (rallys.length === 0) return null;
@@ -36,7 +36,7 @@ export default function RallyCarousel() {
   return (
     <View>
       <View style={styles.head}>
-        <Text style={[styles.heading, { color: colors.fg }]}>ORS Rallys</Text>
+        <Text style={[styles.heading, { color: colors.fg }]}>Upcoming Rallys</Text>
       </View>
 
       <ScrollView

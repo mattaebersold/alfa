@@ -3,36 +3,30 @@ import { colors } from '../constants/colors';
 import { useAppSelector } from '../store/store';
 import {
   APP_BG,
-  COLOR_GRAY_13,
   COLOR_GRAY_160,
   COLOR_GRAY_180,
   COLOR_GRAY_224,
-  COLOR_GRAY_30,
-  COLOR_GRAY_32,
   COLOR_GRAY_40,
-  COLOR_GRAY_85,
+  COLOR_GRAY_85, SURFACE_BLACK, SURFACE_MID, COLOR_LINE
 } from '../constants/config';
 
 // Dark-mode overrides — only surfaces that need to change from the light palette
 export const DarkColors = {
   ...colors,
-  // Backgrounds — matching Murray dark mode
-  //
-  // Darker than the cards that sit on it (#1e1e1e) by a wider margin than
-  // before: at #121212 the two were close enough that a card read as a slightly
-  // different patch of background rather than as an object on it.
+  // Backgrounds — the three surfaces (SURFACE_* in constants/config): the
+  // app's dark grey ground, the medium grey cards on it.
   cream:    APP_BG,
   bg:       APP_BG,
-  segment:  COLOR_GRAY_30,
+  segment:  SURFACE_MID,
   secondary:COLOR_GRAY_40,
-  inputBg:  COLOR_GRAY_13,
+  inputBg:  SURFACE_BLACK,
   // Cards / surfaces
-  card:     COLOR_GRAY_30,
+  card:     SURFACE_MID,
   // Text
   fg:       COLOR_GRAY_224,
   muted:    COLOR_GRAY_160,
   // Borders
-  border:   COLOR_GRAY_32,
+  border:   COLOR_LINE,
   // Input
   inputBorder: COLOR_GRAY_85,
   // Grey — lighter on dark surfaces

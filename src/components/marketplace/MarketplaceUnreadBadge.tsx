@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
-import { CONFIG, PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
+import { CONFIG, PILL_RADIUS, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { colors } from '../../constants/colors';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -93,5 +93,5 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -6, right: -8,
     zIndex: 10, elevation: 12,
   },
-  text: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  text: { fontSize: 10.5, fontFamily: FONT_INTER.extrabold, color: COLOR_ON_ALERT },
 });

@@ -68,6 +68,10 @@ export const imageUrl = (filename: string | null | undefined): string | null => 
  * figure read as cramped against the side.
  */
 export const GUTTER = Platform.OS === 'android' ? 14 : 6;
+/** The side inset for the home feed's non-post cards (cars, mods, galleries, groups, routes) — wider than GUTTER; posts run full-bleed. */
+export const FEED_CARD_GUTTER = GUTTER + 8;
+/** Room under each of those cards — more than a post's, so each reads as its own item. */
+export const FEED_CARD_GAP = 18;
 /** Room between the header and a main screen's first row, now those screens carry no title. */
 export const MAIN_SCREEN_TOP_GAP = 12;
 
@@ -132,7 +136,7 @@ export const COLOR_LOGO_CREAM = '#F7F1D9'; // the wordmark in the nav drawer
 export const COLOR_CYAN       = '#08DEE3'; // the primary button's fill
 // The Pro red and its darker fill are set in the kit's palette, which the kit's
 // own components draw with too — so the app and the kit can't drift apart.
-export const COLOR_PRO        = KIT_COLORS.pro;        // Pro red (was the Pro gold, #CDA96F)
+export const COLOR_PRO        = KIT_COLORS.pro;        // Pro red, #FF5F6A (was the Pro gold, #CDA96F)
 export const COLOR_PRO_DARK   = KIT_COLORS.primaryPro;
 // The old Pro gold, kept for what borrowed it without meaning Pro — the
 // condition scale's middle step, the "show" category, ORS-sponsored events —
@@ -150,10 +154,12 @@ export const COLOR_RED        = '#EC4632';
 export const COLOR_SECONDARY_PRO   = '#7FD1F7';
 export const COLOR_SECONDARY_BASIC = '#2EC4B6';
 /** Something wants your attention now — the live auction's LIVE pill, every count badge. */
-export const COLOR_ALERT      = COLOR_RED;
+export const COLOR_ALERT      = '#3AA9EA';
 // Every count bubble and unread dot — the bell, the drawer, messages — for every
-// account, Pro or not. The alert red, so "waiting on you" reads like "live".
+// account, Pro or not. The alert blue, so "waiting on you" reads like "live".
 export const COLOR_COUNT_BADGE = COLOR_ALERT;
+/** Text and glyphs on the alert blue — always black, for every account. */
+export const COLOR_ON_ALERT = COLOR_BLACK;
 export const COLOR_GUARDS_RED = '#D00000';
 export const COLOR_TEAL       = '#01777A';
 export const COLOR_SLATE      = '#2F3A4C'; // a surface, not a text colour
@@ -162,8 +168,8 @@ export const COLOR_BORDER     = '#FFFFFF40';
 
 /**
  * Grays — numbered by brightness: the number is each RGB channel, from 0
- * (black) to 255 (white).
- * `COLOR_GRAY_22` is `#161616`.
+ * (black) to 255 (white). `COLOR_GRAY_42` is `#2A2A2A`. None darker than
+ * #262626: dark grounds and cards are the three SURFACE_ colours below.
  */
 export const COLOR_GRAY_244 = '#F4F4F4';
 export const COLOR_GRAY_240 = '#F0F0F0';
@@ -198,33 +204,34 @@ export const COLOR_GRAY_46  = '#2E2E2E';
 export const COLOR_GRAY_42  = '#2A2A2A';
 export const COLOR_GRAY_40  = '#282828';
 export const COLOR_GRAY_38  = '#262626';
-export const COLOR_GRAY_34  = '#222222';
-export const COLOR_GRAY_32  = '#202020';
-export const COLOR_GRAY_31  = '#1F1F1F';
-export const COLOR_GRAY_30  = '#1E1E1E';
-export const COLOR_GRAY_29  = '#1D1D1D';
-export const COLOR_GRAY_26  = '#1A1A1A';
-export const COLOR_GRAY_25  = '#191919';
-export const COLOR_GRAY_23  = '#171717';
-export const COLOR_GRAY_22  = '#161616';
-export const COLOR_GRAY_21  = '#151515';
-export const COLOR_GRAY_20  = '#141414';
-export const COLOR_GRAY_18  = '#121212';
-export const COLOR_GRAY_17  = '#111111';
-export const COLOR_GRAY_14  = '#0E0E0E';
-export const COLOR_GRAY_13  = '#0D0D0D';
-export const COLOR_GRAY_11  = '#0B0B0B';
-export const COLOR_GRAY_10  = '#0A0A0A';
 
-/* Grounds — one each, so every screen, modal and pane agrees */
-/** Every screen's ground. Painted once, by the navigator's theme; screens don't set their own — the profile excepted (PROFILE_BG). */
-export const APP_BG   = COLOR_GRAY_17;
-/** The profile's ground: a step darker than the app's, so the page reads as somebody's own. */
-export const PROFILE_BG = COLOR_GRAY_11;
+/*
+ * The three dark surfaces. Every dark background in the app is one of these;
+ * don't add a fourth. Lighter greys below (#262626 and up) are for lines,
+ * controls and text, not for grounds or cards.
+ *
+ * - SURFACE_BLACK: the header's tabs and garage button, the active state's
+ *   track, inputs, the summary modal, and anything sunk below the page.
+ * - SURFACE_DARK: the app's background — every screen and pane.
+ * - SURFACE_MID: cards and tiles, and the lit tab. Anything that sits on the page.
+ */
+export const SURFACE_BLACK = '#000000';
+export const SURFACE_DARK  = '#161616';
+export const SURFACE_MID   = '#262626';
+/** Hairlines and edges on those surfaces — the one dark line colour. */
+export const COLOR_LINE    = '#2E2E2E';
+/** An unlit tab's lettering on a black track — the home header's tabs and options, the group page's. */
+export const TAB_IDLE_FG   = 'rgba(255,255,255,0.62)';
+
+/* Grounds — named uses of the three surfaces above */
+/** Every screen's ground. Painted once, by the navigator's theme; screens don't set their own. */
+export const APP_BG   = SURFACE_DARK;
+/** The profile's ground — the same as every other screen's. */
+export const PROFILE_BG = SURFACE_DARK;
 /** The summary modal's surface. */
-export const MODAL_BG = COLOR_BLACK;
-/** Every pane's surface — sheets, slide-ups and the panels that grow from a button. A shade over the app's ground. */
-export const PANE_BG  = COLOR_GRAY_18;
+export const MODAL_BG = SURFACE_BLACK;
+/** Every pane's surface — sheets, slide-ups and the panels that grow from a button. */
+export const PANE_BG  = SURFACE_DARK;
 /** How far a pane's opening runs past its place before settling — Easing.back's overshoot. */
 export const PANE_OPEN_OVERSHOOT = 1.2;
 /** How long a pane takes to open. */
@@ -233,22 +240,19 @@ export const PANE_OPEN_MS = 380;
 export const SHEET_RADIUS = 32;
 /**
  * A card within a form — Optional Details, the tag cards, Post To, the
- * location: a step darker than the pane it sits on, no edge. Only the text
- * fields inside are edged.
+ * location: sunk below the pane it sits on, no edge. Only the text fields
+ * inside are edged.
  */
-export const FORM_CARD_BG = '#060606';
+export const FORM_CARD_BG = SURFACE_BLACK;
 /** Its corners — rounder than the fields inside it, so a card reads as holding them. */
 export const FORM_CARD_RADIUS = 18;
 /** The light grey wash behind every pane and summary while it's open — one for all of them. */
 export const PANE_SCRIM = 'rgba(100,100,100,0.55)';
 
-/**
- * The group pages' ground — the marketplace's, a step up from the app's black,
- * so the sub tabs' dark tracks have an edge against it.
- */
-export const GROUP_GROUND = COLOR_GRAY_26;
-/** A listing card on that ground — a step lighter than the marketplace's own. */
-export const GROUP_LISTING_CARD = COLOR_GRAY_46;
+/** The group pages' ground — the app's, like every other page. */
+export const GROUP_GROUND = SURFACE_DARK;
+/** A listing card on that ground. */
+export const GROUP_LISTING_CARD = SURFACE_MID;
 
 /* Status */
 export const COLOR_DANGER           = '#EF4444'; // recording dot, destructive fills

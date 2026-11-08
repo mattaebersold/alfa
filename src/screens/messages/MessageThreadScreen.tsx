@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, StyleSheet, FlatList,
+  View, StyleSheet, FlatList, useWindowDimensions,
 } from 'react-native';
 import {
   useGetMessageThreadQuery,
@@ -11,8 +11,9 @@ import {
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import UserByline from '../../components/members/UserByline';
+import { isProUser } from '../../components/ui/ProAvatar';
 import Spinner from '../../components/ui/Spinner';
-import SharedModal from '../../components/ui/SharedModal';
+import SummaryModal from '../../components/ui/SummaryModal';
 import ThreadBubble from '../../components/messages/ThreadBubble';
 import Composer from '../../components/social/Composer';
 import { useComposerPhotos, appendPhotosTo } from '../../hooks/useComposerPhotos';
@@ -20,12 +21,17 @@ import { CONFIG, COLOR_WHITE } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppScreenProps } from '../../navigation/types';
-import { ss } from '../../styles/shared';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** The server's ceiling for photos on one message — see uploadMessageGallery. */
 const MAX_PHOTOS = 4;
+/**
+ * The conversation's height, as a share of the screen. A summary sizes to its
+ * contents; a chat has to be a set height so its own list scrolls (and opens on
+ * the newest message) with the reply bar fixed under it.
+ */
+const THREAD_HEIGHT_RATIO = 0.68;
 
 export default function MessageThreadScreen({ route, navigation }: AppScreenProps<'MessageThread'>) {
   const { threadId, recipientId: routeRecipientId, subject } = route.params;
@@ -57,10 +63,16 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
     wasActive.current = appActive;
   }, [appActive, refetch]);
 
-  // Mark unread messages as read on mount
+  // Mark their unread messages read — each one once. Every mark invalidates
+  // the whole Message cache, which refetches this thread; the refetch can
+  // still say "unread" while the marks are in flight, and re-marking on that
+  // fed itself — a storm of requests and refetches that slowed the app until
+  // it fell over.
+  const marked = useRef(new Set<string>());
   useEffect(() => {
     messages.forEach((m) => {
-      if (!m.read && m.sender_id !== myId) {
+      if (!m.read && m.sender_id !== myId && !marked.current.has(m.internal_id)) {
+        marked.current.add(m.internal_id);
         markRead(m.internal_id);
       }
     });
@@ -76,14 +88,23 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   });
   const otherUser = populatedSender ?? fetchedOtherUser;
 
-  // Sheet owns its visibility so it can animate out before the route unmounts.
+  // The panel owns its visibility so it can animate out before the route unmounts.
   const [visible, setVisible] = useState(true);
+  const { height: screenH } = useWindowDimensions();
+  const otherIsPro = isProUser(otherUser as { accountType?: string } | undefined);
   const pendingNav = useRef<(() => void) | null>(null);
 
+  // Once: the panel's close can report more than once (a re-close, a
+  // remount), and a second goBack — or one with nothing behind the thread,
+  // when it was opened straight from a link — is an unhandled GO_BACK.
+  const left = useRef(false);
   const handleDismissed = () => {
     const go = pendingNav.current;
     pendingNav.current = null;
-    navigation.goBack();
+    if (!left.current) {
+      left.current = true;
+      if (navigation.canGoBack()) navigation.goBack();
+    }
     go?.();
   };
 
@@ -95,8 +116,10 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
       size={30}
       fallback=""
       gap={8}
+      pro={otherIsPro}
       color={COLOR_WHITE}
       nameStyle={styles.headerTitleText}
+      style={styles.header}
       disabled={!otherUser?.user_id}
       onPress={() => {
         // Close first: pushing while the RN Modal is mounted would render the
@@ -171,16 +194,23 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
   }, [body, photos, recipientId, sendMessage, subject, sorted, parentMessageId, refetch]);
 
   return (
-    <SharedModal
+    // The global summary panel, as every other "about this" view is: who
+    // you're talking to pinned at its head, the conversation under it at a set
+    // height with its own scroll, and the reply bar at its foot. The route
+    // stays (transparent, un-animated) so the thread can still be navigated
+    // to; the panel runs its own open and close.
+    <SummaryModal
       visible={visible}
       onClose={() => setVisible(false)}
-      onDismissed={handleDismissed}
-      titleContent={headerContent}
-      fullHeight
+      onClosed={handleDismissed}
+      header={headerContent}
     >
+      <View style={[styles.thread, { height: Math.round(screenH * THREAD_HEIGHT_RATIO) }]}>
       {isLoading ? <Spinner /> : (
-      <View style={ss.fill}>
+      <>
       <FlatList
+        // Inside the panel's own scroller: this one does the scrolling.
+        nestedScrollEnabled
         refreshControl={refreshControl}
         ref={listRef}
         data={sorted}
@@ -205,9 +235,9 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         keyboardDismissMode="interactive"
       />
 
-      {/* Reply bar. The sheet rides the keyboard and keeps its own
-          home-indicator clearance, so the bar needs neither; the list above
-          shrinks and stays on the newest message (its onLayout). */}
+      {/* Reply bar. The panel rises for the keyboard, so the bar needs no
+          keyboard handling of its own; the list stays on the newest message
+          (its onLayout). On the panel's ground rather than a card of its own. */}
       <Composer
         value={body}
         onChangeText={setBody}
@@ -218,18 +248,23 @@ export default function MessageThreadScreen({ route, navigation }: AppScreenProp
         sendLabel="Send"
         sendIcon
         maxLength={2000}
-        tone={{ surface: colors.card, field: colors.cream, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
+        tone={{ surface: 'transparent', field: colors.card, border: colors.border, text: colors.fg, accent: colors.primaryAlt }}
         barStyle={[styles.replyBar, { borderTopColor: colors.border }]}
       />
-      </View>
+      </>
       )}
-    </SharedModal>
+      </View>
+    </SummaryModal>
   );
 }
 
 const styles = StyleSheet.create({
+  // The conversation's box — its height set at render (THREAD_HEIGHT_RATIO).
+  thread:   { width: '100%' },
   list:     { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
   replyBar: { borderTopWidth: 1 },
 
+  // Clear of the panel's close button in the top-right corner.
+  header:   { paddingTop: 16, paddingBottom: 10, paddingLeft: 16, paddingRight: 56 },
   headerTitleText: { fontSize: 16, fontFamily: FONT_INTER.bold, maxWidth: 180 },
 });

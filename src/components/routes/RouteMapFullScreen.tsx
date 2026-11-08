@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import RouteMap, { type LatLng } from './RouteMap';
-import { COMMON_RADIUS, COLOR_GRAY_10, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE, SURFACE_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -87,7 +87,7 @@ export default function RouteMapFullScreen({
 }
 
 const styles = StyleSheet.create({
-  fill:  { flex: 1, backgroundColor: COLOR_GRAY_10 },
+  fill:  { flex: 1, backgroundColor: SURFACE_BLACK },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0 },
   bar: {
     position: 'absolute', left: 16, right: 16,

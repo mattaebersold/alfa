@@ -33,6 +33,14 @@ const AVATAR_GAP = 10;
 /** A reply steps in by the photo's column, so its photo sits under the words it answers. */
 const REPLY_PAD_L = ROW_PAD_X + AVATAR + AVATAR_GAP;
 
+/**
+ * One emoji and nothing else — flags, skin tones and ZWJ families included
+ * (one grapheme, several code points). Set three times the size: a lone
+ * emoji is the whole comment, and at text size it reads as a stray glyph.
+ */
+const SINGLE_EMOJI = /^(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}[\uFE0F\p{Emoji_Modifier}]?(?:\u200D\p{Extended_Pictographic}[\uFE0F\p{Emoji_Modifier}]?)*)$/u;
+const isSingleEmoji = (s: string) => SINGLE_EMOJI.test(s.trim());
+
 export interface CommentData {
   internal_id?: string;
   _id?: string;
@@ -309,7 +317,10 @@ export default function CommentRow({
 
         <View style={styles.content} onLayout={(e) => setContentW(e.nativeEvent.layout.width)}>
           {comment.body ? (
-            <MentionText text={comment.body} style={[styles.text, compact && styles.textCompact]} />
+            <MentionText
+              text={comment.body}
+              style={[styles.text, compact && styles.textCompact, isSingleEmoji(comment.body) && (compact ? styles.emojiCompact : styles.emoji)]}
+            />
           ) : null}
 
           {/* Fixed 16:9 in the thread so a run of comments keeps an even rhythm
@@ -429,6 +440,9 @@ const styles = StyleSheet.create({
   // A shade under white, so the name above it leads.
   text:     { fontSize: 14, lineHeight: 20, fontFamily: FONT_INTER.semibold, color: COLOR_GRAY_208 },
   textCompact: { fontSize: 13, lineHeight: 18, color: COLOR_GRAY_208 },
+  // A lone emoji, three times the words' size.
+  emoji:        { fontSize: 14 * 3, lineHeight: 20 * 3 },
+  emojiCompact: { fontSize: 13 * 3, lineHeight: 18 * 3 },
   // `alignItems: flex-start` so the row doesn't stretch its children on the
   // cross axis, which is the default and fights an aspect ratio.
   photoRow: { flexDirection: 'row', alignItems: 'flex-start', paddingTop: 8 },

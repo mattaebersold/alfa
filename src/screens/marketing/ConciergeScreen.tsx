@@ -20,7 +20,7 @@ import { imageUrl } from '../../utils/image';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
 import type { ConciergeRow, ConciergeService, ConciergePlatform, SponsoredAuction } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_22, COLOR_GRAY_38, COLOR_GREEN, COLOR_WHITE, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_38, COLOR_GREEN, COLOR_WHITE, GUTTER, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -144,7 +144,7 @@ function AuctionRow({ auction, now, live = false }: { auction: SponsoredAuction;
   const result = live ? null : auctionResult(auction);
   return (
     <TouchableOpacity
-      style={[styles.auctionRow, { borderColor: live ? 'rgba(236,70,50,0.45)' : colors.borderDark }]}
+      style={[styles.auctionRow, { borderColor: live ? 'rgba(58,169,234,0.45)' : colors.borderDark }]}
       onPress={() => Linking.openURL(auction.url).catch(() => {})}
       activeOpacity={0.85}
       accessibilityRole="link"
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: CARD_MARGIN, marginTop: 12,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_22,
+    backgroundColor: SURFACE_MID,
   },
   galleryWrap: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   // The feed card's gallery pill: bottom left, the count's icon and the page dots.
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24, paddingHorizontal: 8, paddingBottom: 2 },
   auctionRow:   {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 8, paddingRight: 14,
-    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, backgroundColor: COLOR_GRAY_22,
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth, backgroundColor: SURFACE_MID,
   },
   auctionThumb: {
     width: AUCTION_THUMB, height: AUCTION_THUMB, borderRadius: COMMON_RADIUS - 4, overflow: 'hidden',

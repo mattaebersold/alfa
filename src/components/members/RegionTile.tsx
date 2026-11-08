@@ -8,7 +8,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import RegionBadge from '../ui/RegionBadge';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_GRAY_23, COLOR_GRAY_29, COLOR_WHITE } from '../../constants/config';
+import { COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 
 /** Both tiles' height: a band under the bio, not a panel. */
 const TILE_HEIGHT = 92;
@@ -146,12 +146,12 @@ const styles = StyleSheet.create({
   usTile: {
     flex: 1,
     // The profile's tile shade — the white outline and lit region carry it.
-    backgroundColor: COLOR_GRAY_23,
+    backgroundColor: SURFACE_MID,
     alignItems: 'center', justifyContent: 'center',
   },
   tile: {
     flex: 1,
-    backgroundColor: COLOR_GRAY_29,
+    backgroundColor: SURFACE_MID,
     justifyContent: 'flex-end',
   },
   // Just enough to carry the label. Any more and it dims the map twice, since

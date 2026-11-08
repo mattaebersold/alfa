@@ -16,7 +16,7 @@ import { postThumb } from '../../utils/postMedia';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { stripHtml } from '../../utils/text';
 import type { Post, PostPlace } from '../../types/api';
-import { COLOR_GRAY_22, COLOR_WHITE, COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
+import { COLOR_WHITE, COMMON_RADIUS, PILL_RADIUS, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import PanelEmpty from '../ui/PanelEmpty';
 
@@ -295,7 +295,7 @@ function MapsFooter({ place }: { place: PostPlace }) {
     panel?.setFooter(
       <View style={styles.footer} pointerEvents="box-none">
         <TouchableOpacity
-          style={[styles.mapsBtn, { backgroundColor: COLOR_GRAY_22 }]}
+          style={[styles.mapsBtn, { backgroundColor: SURFACE_MID }]}
           onPress={() => openInMaps(place)}
           activeOpacity={0.8}
           accessibilityRole="button"
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   header:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6 },
   headCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    padding: 14, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22,
+    padding: 14, borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_MID,
   },
   // Level with the name's first line.
   headPin:  { marginTop: 0 },

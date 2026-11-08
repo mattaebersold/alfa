@@ -57,8 +57,6 @@ import {
   COMMON_RADIUS,
   PILL_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_23,
-  COLOR_GRAY_30,
   PROFILE_BG,
   COLOR_WHITE,
   COLOR_BORDER,
@@ -68,7 +66,7 @@ import {
   PANE_OPEN_MS,
   PANE_OPEN_OVERSHOOT,
   PANE_SCRIM,
-  SHEET_RADIUS,
+  SHEET_RADIUS, SURFACE_MID
 } from '../../constants/config';
 import { Skeleton, SkeletonLine, SkeletonCard } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
@@ -76,6 +74,7 @@ import { colors } from '../../constants/colors';
 import SteeringWheel from '../../components/ui/SteeringWheel';
 import RegionTile from '../../components/members/RegionTile';
 import ProfileLinks from '../../components/members/ProfileLinks';
+import ProfileSocials from '../../components/members/ProfileSocials';
 import PostStrip, { STRIP_PREVIEW_COUNT } from '../../components/social/PostStrip';
 import RouteStrip, { ROUTE_STRIP_PREVIEW_COUNT } from '../../components/routes/RouteStrip';
 import PollShelf, { POLL_SHELF_PREVIEW_COUNT } from '../../components/social/PollShelf';
@@ -996,7 +995,7 @@ export default function ProfileScreen() {
                 Wrapped so it can take half the row: Button has no style prop,
                 and a column child stretches to its parent's width. */}
             <View style={styles.actionGrow}>
-              <FollowButton username={user.username} radius={PILL_RADIUS} followingBackground={COLOR_GRAY_30} />
+              <FollowButton username={user.username} radius={PILL_RADIUS} followingBackground={SURFACE_MID} />
             </View>
             <TouchableOpacity
               style={[styles.msgBtn, styles.actionGrow, { borderColor: colors.border }]}
@@ -1049,7 +1048,8 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        {/* Their own links, under the bio they belong to. */}
+        {/* Their socials and website, then their own links, under the bio. */}
+        <ProfileSocials socials={user.socials} />
         <ProfileLinks links={user.links} />
 
         {/* Yours: what's still missing — a photo, a bio, a car, anyone to
@@ -1315,7 +1315,7 @@ export default function ProfileScreen() {
           // the same name six times.
           showByline={false}
           // Same shade as the section tiles, so the page's surfaces agree.
-          cardBackground={COLOR_GRAY_23}
+          cardBackground={SURFACE_MID}
           onPostPress={(post) => (navigation as any).navigate('PostDetailModal', { postId: post.internal_id })}
           onViewAll={() => setActiveSection('posts')}
         />
@@ -1595,7 +1595,7 @@ const styles = StyleSheet.create({
   tile:       {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     height: 32, paddingHorizontal: 10, borderRadius: PILL_RADIUS, borderWidth: 1,
-    backgroundColor: COLOR_GRAY_23,
+    backgroundColor: SURFACE_MID,
   },
   tileCount:  { fontSize: 13, fontFamily: FONT_INTER.bold },
   tileLabel:  { fontSize: 13, fontFamily: FONT_INTER.semibold },

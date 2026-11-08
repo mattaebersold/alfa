@@ -9,7 +9,7 @@ import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import type { List } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_23, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** As many as fit before "View all" is the better answer — same as PostStrip. */
@@ -23,7 +23,7 @@ const CAR_CARD_WIDTH = 232;
 /** Tall enough that the three-up mosaic's small tiles are still pictures, not swatches. */
 const PREVIEW_HEIGHT = 104;
 /** The post cards' shade — see PostStrip's `cardBackground` on the profile. */
-const CARD_BG = COLOR_GRAY_23;
+const CARD_BG = SURFACE_MID;
 
 /**
  * A shelf of lists — a handful, sideways, with the rest behind "View all".

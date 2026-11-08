@@ -11,10 +11,8 @@ import { imageUrl } from '../../utils/image';
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_17,
-  COLOR_GRAY_34,
   COLOR_PRO,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { FONT_INTER } from '../../constants/fonts'
@@ -33,7 +31,7 @@ export default function MemberCard({ member, onPress, featured = false, style }:
 }) {
   const { data: carsData } = useGetCarsQuery({ user_id: member.user_id, limit: 1 }, { skip: !member.user_id });
   const carCount = carsData?.total ?? 0;
-  const photo = member.gallery?.[0]?.filename ? imageUrl(member.gallery[0].filename) : null;
+  const photo = member.gallery?.[0]?.filename ? imageUrl(member.gallery[0].filename, 'small') : null;
   const isPro = member.accountType === 'pro' || member.accountType === 'admin';
 
   return (
@@ -41,7 +39,7 @@ export default function MemberCard({ member, onPress, featured = false, style }:
       {photo ? (
         <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: COLOR_GRAY_34 }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: SURFACE_MID }]} />
       )}
       <View style={styles.overlay} />
       {/* Gold with the oil-slick film, as on the featured car cards. */}
@@ -89,7 +87,7 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 2.5,
     borderRadius: COMMON_RADIUS,
     overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_17,
+    backgroundColor: SURFACE_MID,
   },
   overlay:    {
     ...StyleSheet.absoluteFill,

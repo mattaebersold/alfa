@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Animated, Easing, InteractionManager, type FlatList, type ScrollView } from 'react-native';
+import { View, StyleSheet, Animated, Easing, type FlatList, type ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FeedList from '../../components/feed/FeedList';
 import SpotTodayRow from '../../components/feed/SpotTodayRow';
 import LiveAuctionBanner from '../../components/feed/LiveAuctionBanner';
+import AppUpdateBanner from '../../components/feed/AppUpdateBanner';
 import PostUploadBanner from '../../components/feed/PostUploadBanner';
 import { onPostUploadEvent } from '../../utils/postUpload';
 import StoriesRow from '../../components/stories/StoriesRow';
@@ -38,11 +39,26 @@ import type { AppStackParamList, FeedStackParamList } from '../../navigation/typ
 import { ss } from '../../styles/shared';
 import { GUTTER } from '../../constants/config';
 import { recordFeedTab } from '../../utils/screenViews';
+import { SECTION_SUBS, type SectionSub } from '../../components/sections';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
+/** Sections that show no options row under the main tabs. */
+const NO_SUB_TABS: ReadonlySet<FeedTab> = new Set<FeedTab>(['groups']);
+/** The sub-tab key for a section's own landing pane. */
+const LANDING = '__landing';
+/** What each section's landing is called in its row of options. */
+const SECTION_LANDING_LABEL: Record<Exclude<FeedTab, 'feed'>, string> = {
+  events: 'Upcoming',
+  market: 'Browse',
+  groups: 'All Groups',
+  photography: 'Map',
+  cars: 'Browse',
+  members: 'Everyone',
+};
+
 const FEED_TABS: HeaderTab[] = [
-  { key: 'feed',        label: 'Feed',        Icon: Home },
+  { key: 'feed',        label: 'Feed',        Icon: Home, iconOnly: true },
   { key: 'events',      label: 'Events',      Icon: Calendar },
   { key: 'market',      label: 'Marketplace', Icon: ShoppingBag },
   { key: 'groups',      label: 'Groups',      Icon: Users },
@@ -93,6 +109,8 @@ function FeedHeader() {
       <PostUploadBanner />
       {/* The society's own auction while it's live — gone when it ends. */}
       <LiveAuctionBanner />
+      {/* The store has a newer build than this one — dismissable for 30 days. */}
+      <AppUpdateBanner />
       <SpotTodayRow />
       {/* {isPro && <StoriesRow />} */}
       {/* Feature banner parked for now — <HomeFeatureBanner /> */}
@@ -114,14 +132,17 @@ export default function FeedScreen() {
   useScrollTopOnBack(scrollRef);
   const navigation = useNavigation<NavProp>();
   const headerPad = useHeaderPad({ tabs: true });
+  /** A section's panes sit lower: its options open in a row under the tabs. */
+  const sectionPad = useHeaderPad({ tabs: true, subTabs: true });
   // One per pane: each tracks its own last position, so switching tabs doesn't
   // read the jump between two lists' offsets as a scroll.
   const onScroll = useHeaderScroll(headerPad);
-  const onEventsScroll = useHeaderScroll(headerPad);
-  const onMarketScroll = useHeaderScroll(headerPad);
+  const onEventsScroll = useHeaderScroll(sectionPad);
+  const onMarketScroll = useHeaderScroll(sectionPad);
+  // Groups has no options row (see NO_SUB_TABS), so its pane sits where the feed's does.
   const onGroupsScroll = useHeaderScroll(headerPad);
-  const onCarsScroll = useHeaderScroll(headerPad);
-  const onMembersScroll = useHeaderScroll(headerPad);
+  const onCarsScroll = useHeaderScroll(sectionPad);
+  const onMembersScroll = useHeaderScroll(sectionPad);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
 
@@ -176,6 +197,17 @@ export default function FeedScreen() {
   /** The showing pane's wrapper, and a hidden one's. */
   const paneShown = styles.pane;
   const paneHidden = useMemo(() => [styles.pane, styles.hidden], []);
+  /**
+   * Inside a section, which of its sub-screens is showing (SECTION_SUBS) —
+   * null for the section's own landing pane. Always null on the feed.
+   */
+  const [sub, setSub] = useState<string | null>(null);
+  /** Sub-screens opened so far, as "section:key" — mounted on first pick and kept, as the panes are. */
+  const [mountedSubs, setMountedSubs] = useState<ReadonlySet<string>>(() => new Set<string>());
+  const subRef = useRef(sub);
+  subRef.current = sub;
+  /** Whether a section's own landing pane is the one showing. */
+  const landing = (pane: FeedTab) => tab === pane && sub === null;
   /** Which tab is showing, readable from a handler without re-creating it. */
   const tabRef = useRef(tab);
   tabRef.current = tab;
@@ -198,16 +230,18 @@ export default function FeedScreen() {
    * that was done, so the first tap on each tab was the slow one.
    */
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const task = InteractionManager.runAfterInteractions(() => {
-      timer = setTimeout(() => {
+    // After launch has settled, then when JS is next idle (requestIdleCallback
+    // — InteractionManager is deprecated).
+    let idle: number | null = null;
+    const timer = setTimeout(() => {
+      idle = requestIdleCallback(() => {
         setMounted((m) => {
           if (m.has('events') && m.has('market') && m.has('groups')) return m;
           return new Set([...m, 'events', 'market', 'groups']);
         });
-      }, 1500);
-    });
-    return () => { task.cancel(); if (timer) clearTimeout(timer); };
+      });
+    }, 1500);
+    return () => { clearTimeout(timer); if (idle != null) cancelIdleCallback(idle); };
   }, []);
   /** A pane back to its first item. One that's never been opened has no list yet — it'll start there anyway. */
   const scrollToTop = (pane: FeedTab) => {
@@ -231,6 +265,17 @@ export default function FeedScreen() {
     const next = key as FeedTab;
     // Slid back, not snapped — it's coming from wherever the last tab left it.
     showHeader();
+    // A section is always entered at its landing, never part-way into it.
+    if (sub !== null) {
+      setSub(null);
+      if (next === tab) {
+        // Back to the landing from one of its sub-screens: it fades up as a
+        // tab arriving does (see the effect on `sub`).
+        enter[next].setValue(0);
+        subSwitched.current = true;
+        return;
+      }
+    }
     if (next === tab) {
       scrollToTop(next);
       return;
@@ -242,6 +287,52 @@ export default function FeedScreen() {
     setTab(next);
     recordFeedTab(next);
   };
+
+  /** A sub-screen of the section you're in. Picking the one showing does nothing new — its own pane keeps its place. */
+  const selectSub = (key: string) => {
+    showHeader();
+    if (key === sub) return;
+    const id = `${tab}:${key}`;
+    if (!mountedSubs.has(id)) setMountedSubs((m) => new Set(m).add(id));
+    setSub(key);
+    recordFeedTab(id);
+  };
+  // The landing fading back up after a sub-screen — run once it's rendered,
+  // for the same reason the tab switch's is.
+  const subSwitched = useRef(false);
+  useEffect(() => {
+    if (!subSwitched.current || sub !== null) return;
+    subSwitched.current = false;
+    scrollToTop(tab);
+    Animated.timing(enter[tab], {
+      toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub]);
+
+  /**
+   * The header's rows. The main row is every section, always, and stays put.
+   * Inside a section its options open in a smaller row beneath: its landing
+   * first, then its sub-screens.
+   */
+  const subTabs = useMemo<HeaderTab[] | undefined>(() => {
+    if (tab === 'feed' || NO_SUB_TABS.has(tab)) return undefined;
+    return [
+      { key: LANDING, label: SECTION_LANDING_LABEL[tab] },
+      ...(SECTION_SUBS[tab] ?? []).map((s) => ({ key: s.key, label: s.label, Icon: s.Icon })),
+    ];
+  }, [tab]);
+  const eventsNew = useMemo(() => ({
+    label: 'New',
+    accessibilityLabel: 'Create a new event',
+    onPress: () => (navigation as any).navigate('SocietyEventCreate'),
+  }), [navigation]);
+  const onSubTab = (key: string) => {
+    // The landing: selectTab on the section you're in brings it back (or to its top).
+    if (key === LANDING) selectTab(tab);
+    else selectSub(key);
+  };
+  const bottomPad = 88 + insets.bottom + 32;
 
   /**
    * Arriving with a tab asked for — the menu's Events, Marketplace or Groups: that
@@ -270,17 +361,17 @@ export default function FeedScreen() {
    */
   type ScrollHandler = (e: any) => void;
   const gated = useMemo(() => {
-    const gate = (pane: FeedTab, fn: ScrollHandler): ScrollHandler => (e) => { if (tabRef.current === pane) fn(e); };
+    const gate = (pane: FeedTab, fn: ScrollHandler): ScrollHandler => (e) => { if (tabRef.current === pane && !subRef.current) fn(e); };
     return {
       feed: gate('feed', onScroll), events: gate('events', onEventsScroll), market: gate('market', onMarketScroll),
       groups: gate('groups', onGroupsScroll), cars: gate('cars', onCarsScroll), members: gate('members', onMembersScroll),
     };
   }, [onScroll, onEventsScroll, onMarketScroll, onGroupsScroll, onCarsScroll, onMembersScroll]);
-  const marketContentStyle = useMemo(() => ({ paddingTop: headerPad, paddingBottom: 88 + insets.bottom + 32 }), [headerPad, insets.bottom]);
+  const marketContentStyle = useMemo(() => ({ paddingTop: sectionPad, paddingBottom: 88 + insets.bottom + 32 }), [sectionPad, insets.bottom]);
   // The market's switch and search pin under the header, following it as it hides.
   // The tab row stays when the header hides, so the bar stops under it.
-  const marketStickyTop = useMemo(() => headerBottom(headerPad, insets.top, TABS_STUCK_RISE), [headerPad, insets.top]);
-  const photoHeader = useMemo(() => <View style={{ height: headerPad }} />, [headerPad]);
+  const marketStickyTop = useMemo(() => headerBottom(sectionPad, insets.top, TABS_STUCK_RISE), [sectionPad, insets.top]);
+  const photoHeader = useMemo(() => <View style={{ height: sectionPad }} />, [sectionPad]);
   const photoZoom = useMemo(() => ({ bottom: insets.bottom + FAB_BOTTOM, left: FAB_RIGHT }), [insets.bottom]);
   const onDropPin = useCallback((point: { lat: number; lng: number; name?: string; address?: string }) => (navigation as any).navigate('PhotoSpotCreate', {
     lat: point.lat, lng: point.lng, name: point.name, address: point.address,
@@ -337,6 +428,11 @@ export default function FeedScreen() {
         tabs={FEED_TABS}
         activeTab={tab}
         onTabPress={selectTab}
+        subTabs={subTabs}
+        activeSubTab={sub ?? LANDING}
+        onSubTabPress={onSubTab}
+        // Events' Add New, after its options rather than on the page.
+        subTabsAction={tab === 'events' ? eventsNew : undefined}
         // Already home: the logo has nowhere to go, so it does what a pull
         // does — back to the top, header showing, and a fresh page with the
         // spinner turning. On another tab it brings you back to the feed.
@@ -362,18 +458,22 @@ export default function FeedScreen() {
       </Animated.View>
       </View>
       {mounted.has('events') && (
-        <View style={tab === 'events' ? paneShown : paneHidden} pointerEvents={tab === 'events' ? 'auto' : 'none'}>
+        <View style={landing('events') ? paneShown : paneHidden} pointerEvents={landing('events') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.events]}>
-          <MemoEventsView headerPad={headerPad} onScroll={gated.events} scrollRef={eventsScrollRef} />
+          <MemoEventsView headerPad={sectionPad} onScroll={gated.events} scrollRef={eventsScrollRef} />
         </Animated.View>
         </View>
       )}
       {mounted.has('market') && (
-        <View style={tab === 'market' ? paneShown : paneHidden} pointerEvents={tab === 'market' ? 'auto' : 'none'}>
+        <View style={landing('market') ? paneShown : paneHidden} pointerEvents={landing('market') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.market]}>
           {/* The same browse the group Market sections use. The bottom pad
               clears the floating tab bar, as the Marketplace screen's did. */}
+          {/* For sale only, with no Your Listings card or For sale / Want
+              ads switch — Want Ads and My Listings are the header's tabs now. */}
           <MemoMarketplaceBrowse
+            lockKind="sale"
+            hideManageEntry
             listRef={marketScrollRef}
             onScroll={gated.market}
             contentContainerStyle={marketContentStyle}
@@ -383,28 +483,28 @@ export default function FeedScreen() {
         </View>
       )}
       {mounted.has('groups') && (
-        <View style={tab === 'groups' ? paneShown : paneHidden} pointerEvents={tab === 'groups' ? 'auto' : 'none'}>
+        <View style={landing('groups') ? paneShown : paneHidden} pointerEvents={landing('groups') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.groups]}>
           <MemoGroupsView headerPad={headerPad} onScroll={gated.groups} scrollRef={groupsScrollRef} />
         </Animated.View>
         </View>
       )}
       {mounted.has('cars') && (
-        <View style={tab === 'cars' ? paneShown : paneHidden} pointerEvents={tab === 'cars' ? 'auto' : 'none'}>
+        <View style={landing('cars') ? paneShown : paneHidden} pointerEvents={landing('cars') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.cars]}>
-          <MemoCarsView headerPad={headerPad} onScroll={gated.cars} scrollRef={carsScrollRef} />
+          <MemoCarsView headerPad={sectionPad} onScroll={gated.cars} scrollRef={carsScrollRef} />
         </Animated.View>
         </View>
       )}
       {mounted.has('members') && (
-        <View style={tab === 'members' ? paneShown : paneHidden} pointerEvents={tab === 'members' ? 'auto' : 'none'}>
+        <View style={landing('members') ? paneShown : paneHidden} pointerEvents={landing('members') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.members]}>
-          <MemoMembersView headerPad={headerPad} onScroll={gated.members} scrollRef={membersScrollRef} />
+          <MemoMembersView headerPad={sectionPad} onScroll={gated.members} scrollRef={membersScrollRef} />
         </Animated.View>
         </View>
       )}
       {mounted.has('photography') && (
-        <View style={tab === 'photography' ? paneShown : paneHidden} pointerEvents={tab === 'photography' ? 'auto' : 'none'}>
+        <View style={landing('photography') ? paneShown : paneHidden} pointerEvents={landing('photography') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.photography]}>
           {/* @ors/kit's map, shared with the photo app (see its README). The
               header floats over the top, so the kit's `header` slot is just
@@ -431,10 +531,59 @@ export default function FeedScreen() {
         </Animated.View>
         </View>
       )}
+      {/* The sections' sub-screens, each mounted on its first pick and kept. */}
+      {Object.entries(SECTION_SUBS).flatMap(([section, subs]) => subs.map((s) => {
+        const id = `${section}:${s.key}`;
+        if (!mountedSubs.has(id)) return null;
+        return (
+          <SubPane
+            key={id}
+            sub={s}
+            headerPad={sectionPad}
+            bottomPad={bottomPad}
+            active={tab === section && sub === s.key}
+          />
+        );
+      }))}
       </View>
     </SafeAreaView>
   );
 }
+
+/**
+ * One section sub-screen's pane: hidden but kept when not showing, as the
+ * section panes are, with its own header-scroll tracking (gated to when it's
+ * showing) and the same fade-and-rise on arrival.
+ */
+const SubPane = React.memo(function SubPane({ sub, headerPad, bottomPad, active }: {
+  sub: SectionSub;
+  headerPad: number;
+  bottomPad: number;
+  active: boolean;
+}) {
+  const scroll = useHeaderScroll(headerPad);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const onScroll = useCallback((e: any) => { if (activeRef.current) scroll(e); }, [scroll]);
+  const enter = useRef(new Animated.Value(0)).current;
+  const style = useMemo(() => ({
+    opacity: enter,
+    transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [TAB_ENTER_RISE, 0] }) }],
+  }), [enter]);
+  useEffect(() => {
+    if (!active) return;
+    enter.setValue(0);
+    Animated.timing(enter, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [active, enter]);
+  const Screen = sub.Component;
+  return (
+    <View style={active ? styles.pane : [styles.pane, styles.hidden]} pointerEvents={active ? 'auto' : 'none'}>
+      <Animated.View style={[ss.fill, style]}>
+        <Screen headerPad={headerPad} onScroll={onScroll} bottomPad={bottomPad} active={active} />
+      </Animated.View>
+    </View>
+  );
+});
 
 const styles = StyleSheet.create({
   // Every pane fills the space under the header; the showing one is on top.

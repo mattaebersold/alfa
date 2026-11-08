@@ -1,7 +1,7 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { baseQuery, UPLOAD_TIMEOUT_MS } from './baseQuery';
 import type {
-  User, GarageCar, Post, Event, SocietyEvent, Group, GroupMember, Article, CrossPosts,
+  User, GarageCar, Post, Event, SocietyEvent, EventAttendee, Group, GroupMember, Article, CrossPosts,
   CarTask, CarJournalEntry, Mod, Message, Notification, Tag, PaginatedResponse, LikeInfo, LoginResponse,
   CarSpotToday, CarSpotDay, CarSpotDifficulty, SpotFeedToday, ConciergeRow, SponsoredAuction,
   GroupVoteResult,
@@ -15,7 +15,7 @@ import type {
   ListingDetailResponse, MyListingsResponse,
   MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
   MarketplaceRoleFilter, MarketplaceUnreadCount, Badges,
-  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry } from '../types/api';
+  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry, IapConfig, MemberSubscription } from '../types/api';
 import { carScopeKey } from '../utils/carScope';
 
 /**
@@ -92,11 +92,16 @@ export interface ChannelVideo {
   url: string;
 }
 
+/** Items per page of a group's paged feeds — discussion, posts, news, resources. */
+const DISCUSSION_PAGE = 15;
+/** Cars per page of a group's cars — two columns' worth. */
+const GROUP_CARS_PAGE = 24;
+
 export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
   tagTypes: [
-    'CarJournal',
+    'CarJournal', 'RallyInterest',
     'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment', 'PostBookmarks', 'CarBookmarks',
     'ModelProfile', 'ModelProposals',
     'SocietyEvent', 'EventInterest',
@@ -1068,7 +1073,7 @@ export const apiService = createApi({
     }),
 
     /** Everyone going on one date of an event — its next, without `day`. */
-    getEventInterestedUsers: builder.query<{ entries: User[]; total: number; day?: string }, string | { id: string; day?: string }>({
+    getEventInterestedUsers: builder.query<{ entries: EventAttendee[]; total: number; day?: string }, string | { id: string; day?: string }>({
       query: (arg) => typeof arg === 'string'
         ? `api/events/${arg}/interested`
         : { url: `api/events/${arg.id}/interested`, params: { limit: 200, ...(arg.day ? { day: arg.day } : {}) } },
@@ -1096,11 +1101,26 @@ export const apiService = createApi({
 
     /** Attend, or stop attending, one date of an event. */
     toggleEventInterest: builder.mutation<
-      { is_interested: boolean; interested_count: number; day?: string },
-      { event_id: string; day?: string }
+      { is_interested: boolean; interested_count: number; day?: string; car_id?: string | null },
+      /** `car_id` — the garage car you're bringing, when attending. Ignored when un-attending. */
+      { event_id: string; day?: string; car_id?: string | null }
     >({
       query: (body) => ({ url: 'api/events/interest', method: 'POST', body }),
       invalidatesTags: (r, e, { event_id }) => [{ type: 'SocietyEvent', id: event_id }, 'EventInterest', 'SocietyEvent'],
+    }),
+
+    /** Change the car you're bringing to a date you're attending — null for none. */
+    setEventAttendingCar: builder.mutation<{ day: string; car_id: string | null }, { event_id: string; day: string; car_id: string | null }>({
+      query: (body) => ({ url: 'api/events/interest/car', method: 'POST', body }),
+      invalidatesTags: (r, e, { event_id }) => [{ type: 'SocietyEvent', id: event_id }, 'EventInterest', 'SocietyEvent'],
+    }),
+
+    /**
+     * The newest version in this platform's store — see horacio's
+     * helpers/storeVersions. `version` null means unknown: don't prompt.
+     */
+    getLatestAppVersion: builder.query<{ platform: string; version: string | null; url: string | null }, 'ios' | 'android'>({
+      query: (platform) => ({ url: 'api/app/latest-version', params: { platform } }),
     }),
 
     createSocietyEvent: builder.mutation<SocietyEvent, FormData>({
@@ -1324,6 +1344,29 @@ export const apiService = createApi({
       invalidatesTags: ['User'],
     }),
 
+    /**
+     * In-app purchase of Pro. `enabled` comes from the server, so selling can
+     * be switched on (or limited to testers) without shipping a build. Tagged
+     * 'User' so it refetches alongside the profile after a purchase.
+     */
+    getIapConfig: builder.query<IapConfig, void>({
+      query: () => 'api/billing/iap/config',
+      providesTags: ['User'],
+    }),
+
+    /**
+     * A store purchase (or restore), checked with Apple/Google by horacio and
+     * applied. The transaction is only finished once this succeeds. Refetches
+     * the profile, which is where the new `accountType` arrives.
+     */
+    verifyIapPurchase: builder.mutation<
+      { accountType: User['accountType']; subscription: MemberSubscription },
+      { platform: 'ios' | 'android'; purchaseToken: string }
+    >({
+      query: (body) => ({ url: 'api/billing/iap/verify', method: 'POST', body }),
+      invalidatesTags: ['User'],
+    }),
+
     getGroupMembers: builder.query<GroupMember[], string>({
       query: (groupId) => `api/group/${groupId}/members`,
       transformResponse: (response: any): GroupMember[] =>
@@ -1477,6 +1520,18 @@ export const apiService = createApi({
       invalidatesTags: ['Rally'],
     }),
 
+    /** "I'm interested" in a rally — on, or off again. Puts it in My Events. */
+    toggleRallyInterest: builder.mutation<{ is_interested: boolean; interested_count: number }, { rally_id: string }>({
+      query: (body) => ({ url: 'api/rally/interest', method: 'POST', body }),
+      invalidatesTags: ['RallyInterest'],
+    }),
+
+    /** The rallys you're interested in — My Events' rally half. */
+    getMyRallys: builder.query<{ entries: Rally[]; total: number; upcoming_count: number }, void>({
+      query: () => 'api/rally/mine/interested',
+      providesTags: ['RallyInterest'],
+    }),
+
     declineRally: builder.mutation<void, { rally_id: string }>({
       query: (body) => ({ url: 'api/rally/decline', method: 'POST', body }),
       invalidatesTags: ['Rally'],
@@ -1534,6 +1589,131 @@ export const apiService = createApi({
         params: { group_id: groupId },
       }),
       providesTags: (result, error, { groupId }) => [{ type: 'GroupDiscussion', id: groupId }],
+    }),
+
+    /**
+     * A group's discussion, a page at a time — the group page's Discussion
+     * tab, which scrolls on through all of it. The server pages by offset
+     * (how many to skip), so the next page starts after everything loaded so
+     * far; a short page means there's no more. `q` searches titles and bodies
+     * on the server. Shares the GroupDiscussion tag, so posting a thread
+     * refetches every loaded page.
+     */
+    getGroupDiscussionFeed: builder.infiniteQuery<
+      { entries: GroupDiscussionPost[] },
+      { groupId: string; q?: string },
+      number
+    >({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _all, lastOffset) =>
+          (lastPage.entries?.length ?? 0) < DISCUSSION_PAGE ? undefined : lastOffset + lastPage.entries.length,
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: `api/groupdiscussion/${pageParam}/none/${DISCUSSION_PAGE}`,
+        params: { group_id: queryArg.groupId, ...(queryArg.q ? { q: queryArg.q } : {}) },
+      }),
+      providesTags: (result, error, { groupId }) => [{ type: 'GroupDiscussion', id: groupId }],
+    }),
+
+    /** A group's news, a page at a time, searchable — see getGroupDiscussionFeed. */
+    getGroupNewsFeed: builder.infiniteQuery<{ entries: GroupNewsPost[] }, { groupId: string; q?: string }, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _all, lastOffset) =>
+          (lastPage.entries?.length ?? 0) < DISCUSSION_PAGE ? undefined : lastOffset + lastPage.entries.length,
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: `api/groupnews/${pageParam}/none/${DISCUSSION_PAGE}`,
+        params: { group_id: queryArg.groupId, ...(queryArg.q ? { q: queryArg.q } : {}) },
+      }),
+      providesTags: (result, error, { groupId }) => [{ type: 'GroupNews', id: groupId }],
+    }),
+
+    /** A group's resources, a page at a time, searchable — see getGroupDiscussionFeed. */
+    getGroupResourcesFeed: builder.infiniteQuery<{ entries: GroupResource[] }, { groupId: string; q?: string }, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _all, lastOffset) =>
+          (lastPage.entries?.length ?? 0) < DISCUSSION_PAGE ? undefined : lastOffset + lastPage.entries.length,
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: `api/groupresource/${pageParam}/none/${DISCUSSION_PAGE}`,
+        params: { group_id: queryArg.groupId, ...(queryArg.q ? { q: queryArg.q } : {}) },
+      }),
+      providesTags: (result, error, { groupId }) => [{ type: 'GroupResources', id: groupId }],
+    }),
+
+    /** A group's events, a page at a time, searchable — pages by number with a total. */
+    getGroupEventsFeed: builder.infiniteQuery<PaginatedResponse<Event>, { groupId: string; q?: string }, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, allPages, lastPageNo) => {
+          const loaded = allPages.reduce((n, p) => n + (p.entries?.length ?? 0), 0);
+          return (lastPage.entries?.length ?? 0) > 0 && loaded < (lastPage.total ?? 0) ? lastPageNo + 1 : undefined;
+        },
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: 'api/event',
+        params: { group_id: queryArg.groupId, page: pageParam, limit: DISCUSSION_PAGE, ...(queryArg.q ? { q: queryArg.q } : {}) },
+      }),
+      providesTags: ['Events'],
+    }),
+
+    /** A group's routes, best-voted first, a page at a time, searchable. */
+    getGroupRoutesFeed: builder.infiniteQuery<{ entries: DrivingRoute[]; total: number }, { groupId: string; q?: string }, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, allPages, lastPageNo) => {
+          const loaded = allPages.reduce((n, p) => n + (p.entries?.length ?? 0), 0);
+          return (lastPage.entries?.length ?? 0) > 0 && loaded < (lastPage.total ?? 0) ? lastPageNo + 1 : undefined;
+        },
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: 'api/routes',
+        params: { group_id: queryArg.groupId, sort: 'votes', page: pageParam, limit: DISCUSSION_PAGE, ...(queryArg.q ? { q: queryArg.q } : {}) },
+      }),
+      providesTags: ['Route'],
+    }),
+
+    /**
+     * A group's cars, a page at a time — the group page's Cars tab, which
+     * scrolls on through all of them. Pages by number with a total, as
+     * `api/post` does.
+     */
+    getGroupCarsFeed: builder.infiniteQuery<{ entries: GarageCar[]; total: number }, { groupId: string }, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, allPages, lastPageNo) => {
+          const loaded = allPages.reduce((n, p) => n + (p.entries?.length ?? 0), 0);
+          return (lastPage.entries?.length ?? 0) > 0 && loaded < (lastPage.total ?? 0) ? lastPageNo + 1 : undefined;
+        },
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: `api/garage/group/${queryArg.groupId}`,
+        params: { page: pageParam, limit: GROUP_CARS_PAGE },
+      }),
+      providesTags: (result, error, { groupId }) => [{ type: 'Cars', id: groupId }],
+    }),
+
+    /**
+     * A group's posts, a page at a time, searchable. Unlike the group lists
+     * above, `api/post` pages by page number and says how many there are in
+     * all, so the next page is simply the one after while there are more.
+     */
+    getGroupPostsFeed: builder.infiniteQuery<PaginatedResponse<Post>, { groupId: string; q?: string }, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, allPages, lastPageNo) => {
+          const loaded = allPages.reduce((n, p) => n + (p.entries?.length ?? 0), 0);
+          return (lastPage.entries?.length ?? 0) > 0 && loaded < (lastPage.total ?? 0) ? lastPageNo + 1 : undefined;
+        },
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: 'api/post',
+        params: { group_id: queryArg.groupId, page: pageParam, limit: DISCUSSION_PAGE, ...(queryArg.q ? { search: queryArg.q } : {}) },
+      }),
+      providesTags: ['Post'],
     }),
 
     /**
@@ -3014,6 +3194,8 @@ export const {
   useGetMyEventsQuery,
   useGetMyEventsCountQuery,
   useToggleEventInterestMutation,
+  useSetEventAttendingCarMutation,
+  useGetLatestAppVersionQuery,
   useCreateSocietyEventMutation,
   useUpdateSocietyEventMutation,
   useDeleteSocietyEventMutation,
@@ -3029,6 +3211,15 @@ export const {
   useUpdateGroupMutation,
   useDeleteGroupMutation,
   useRegisterProInterestMutation,
+  useGetIapConfigQuery,
+  useGetGroupDiscussionFeedInfiniteQuery,
+  useGetGroupNewsFeedInfiniteQuery,
+  useGetGroupResourcesFeedInfiniteQuery,
+  useGetGroupPostsFeedInfiniteQuery,
+  useGetGroupCarsFeedInfiniteQuery,
+  useGetGroupEventsFeedInfiniteQuery,
+  useGetGroupRoutesFeedInfiniteQuery,
+  useVerifyIapPurchaseMutation,
   useGetGroupMembersQuery,
   useJoinGroupMutation,
   useGetJoinableGroupsQuery,
@@ -3069,6 +3260,8 @@ export const {
   useGetRallysQuery,
   useGetRallyQuery,
   useAttendRallyMutation,
+  useToggleRallyInterestMutation,
+  useGetMyRallysQuery,
   useDeclineRallyMutation,
   useDeleteRallyMutation,
   useGetCalendarEventsQuery,

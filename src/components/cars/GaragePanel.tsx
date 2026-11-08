@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Plus } from 'lucide-react-native';
 import GrowPanel, { type GrowOrigin } from '../ui/GrowPanel';
-import DropPane from '../ui/DropPane';
+import SlidePanel from '../ui/SlidePanel';
 import GarageCarCard from './GarageCarCard';
 import HeadingActionButton from '../ui/HeadingActionButton';
 import SharedButton from '../ui/SharedButton';
@@ -43,8 +43,8 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
   /** Whose garage. Omitted, or yourself, means yours. */
   owner?: { user_id: string; username?: string } | null;
   /**
-   * Full height, down from the top of the screen (DropPane) rather than grown
-   * out of the button — the header's garage tab opens it this way.
+   * Full height, in from the left edge with the app pushed right (SlidePanel)
+   * rather than grown out of the button — the header's garage tab opens it this way.
    */
   drop?: boolean;
 }) {
@@ -80,15 +80,12 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
       if (headH.current && listH.current) fitHeight(headH.current + listH.current);
     };
 
-    return (
-      <>
-        <View style={styles.fill}>
-          {/* The head: the action, how full the garage is, and the way
-              out. No title — you pressed the garage button and the panel
-              is full of cars; a word saying "Garage" would be doing no
-              work. The count says what's left as well as what's there on
-              a basic account; Pro has no cap to count against. */}
-          <View style={styles.head} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; setHeadHeight(headH.current); measure(); }}>
+    // The head: the action, how full the garage is, and the way out. The
+    // count says what's left as well as what's there on a basic account; Pro
+    // has no cap to count against. In the full-height pane it's the list's
+    // own header — under the status bar, and scrolling away with the cars.
+    const head = (
+          <View style={[styles.head, drop && { paddingTop: insets.top + 12 }]} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; setHeadHeight(headH.current); measure(); }}>
             <View style={styles.headText}>
               {/* Someone else's garage does get a title: here the button
                   was theirs, and the panel should say whose cars these are. */}
@@ -124,11 +121,21 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
               </TouchableOpacity>
             </View>
           </View>
+    );
+
+    return (
+      <>
+        <View style={styles.fill}>
+          {!drop && head}
 
           {isLoading ? (
-            <View style={styles.loading} onLayout={(e) => { listH.current = e.nativeEvent.layout.height; measure(); }}><Spinner /></View>
+            <>
+              {drop && head}
+              <View style={styles.loading} onLayout={(e) => { listH.current = e.nativeEvent.layout.height; measure(); }}><Spinner /></View>
+            </>
           ) : (
             <FlatList
+              ListHeaderComponent={drop ? head : undefined}
               data={cars}
               keyExtractor={(item) => item.internal_id}
               renderItem={({ item }) => visiting ? (
@@ -152,7 +159,7 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
                   styles.firstCar,
                   // The pane's top is the screen's; the list starts under the
                   // status bar, the head, and the list's own top padding.
-                  drop && { paddingTop: Math.max(24, screenH / 2 - insets.top - headHeight - LIST_TOP - FIRST_CAR_H / 2) },
+                  drop && { paddingTop: Math.max(24, screenH / 2 - headHeight - FIRST_CAR_H / 2) },
                 ]}>
                   <SharedButton
                     label="Create your first car"
@@ -166,7 +173,13 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
               )}
               // Full height, the list runs to the screen's foot: clear of the
               // system's navigation bar (Android) or home indicator (iOS).
-              contentContainerStyle={[styles.list, drop && { paddingBottom: LIST_FOOT + insets.bottom }]}
+              contentContainerStyle={[
+                styles.list,
+                // Edge to edge: from the pane's very top (the head clears the
+                // status bar) to behind the home indicator / navigation bar,
+                // clear of both at rest.
+                drop && { paddingTop: 0, paddingBottom: LIST_FOOT + insets.bottom },
+              ]}
               onContentSizeChange={(_, h) => { listH.current = h; measure(); }}
               showsVerticalScrollIndicator={false}
             />
@@ -185,7 +198,8 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
   };
 
   return drop ? (
-    <DropPane visible={visible} onClose={onClose}>{body}</DropPane>
+    // In from the left, the app pushed right — the main menu's mirror (SlidePanel).
+    <SlidePanel visible={visible} onClose={onClose} side="left" fullBleed>{body}</SlidePanel>
   ) : (
     <GrowPanel visible={visible} origin={origin} onClose={onClose} backdrop="summary">{body}</GrowPanel>
   );

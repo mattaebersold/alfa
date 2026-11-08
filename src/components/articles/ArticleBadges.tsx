@@ -66,7 +66,7 @@ function CarPill({ id, onNavigate }: { id: string; onNavigate: ArticleBadgesProp
   const { data: car } = useGetCarQuery(id, { skip: !id });
   if (!car) return null;
 
-  const img = car.profile_image ? imageUrl(car.profile_image) : firstGalleryUrl(car.gallery);
+  const img = car.profile_image ? imageUrl(car.profile_image, 'thumb') : firstGalleryUrl(car.gallery, 'thumb');
   const name = car.title
     || [car.year, car.make, car.model].filter(Boolean).join(' ')
     || 'Car';
@@ -107,7 +107,7 @@ function EventPill({ id, onNavigate }: { id: string; onNavigate: ArticleBadgesPr
   const { data: event } = useGetEventQuery(id, { skip: !id });
   if (!event) return null;
 
-  const img = firstGalleryUrl(event.gallery);
+  const img = firstGalleryUrl(event.gallery, 'thumb');
 
   return (
     <Pill

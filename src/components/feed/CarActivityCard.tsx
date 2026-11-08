@@ -3,10 +3,15 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { formatDistanceToNow } from 'date-fns';
+import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images, Car as CarIcon } from 'lucide-react-native';
-import { useGetUserByIdQuery } from '../../api/apiService';
+import { useGetUserByIdQuery, useGetLikeUsersQuery } from '../../api/apiService';
+import PostActionRail from '../social/PostActionRail';
+import CarBookmarkButton from '../cars/CarBookmarkButton';
+import { usePostLike } from '../../hooks/usePostLike';
+import { useLikeState } from '../../hooks/useLikeState';
+import type { Post } from '../../types/api';
 import { firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import { CATEGORY_BADGE_COLORS } from '../../constants/colors';
 import { stripHtml } from '../../utils/text';
@@ -18,7 +23,6 @@ import CarItemSummaryModal from '../cars/CarItemSummaryModal';
 import type { SummaryOrigin } from '../ui/SummaryModal';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
-import { useSecondaryColor } from '../../hooks/useBrandColor';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import LikeButton from '../social/LikeButton';
 import CommentButton from '../social/CommentButton';
@@ -26,12 +30,11 @@ import CommentsSheet from '../social/CommentsSheet';
 import type { CarActivityItem } from '../../types/api';
 import {
   COMMON_RADIUS,
-  GUTTER,
+  FEED_CARD_GUTTER,
+  FEED_CARD_GAP,
   COLOR_BLACK,
-  COLOR_GRAY_17,
   COLOR_GRAY_187,
-  COLOR_GRAY_20,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -63,7 +66,6 @@ import { FONT_INTER } from '../../constants/fonts'
  */
 export default function CarActivityCard({ item }: { item: CarActivityItem }) {
   const colors = useColors();
-  const secondary = useSecondaryColor();
   const nav = useNavigation();
   const { userInfo } = useAppSelector((st) => st.auth);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -87,16 +89,35 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
   const car = item.car;
   const { data: owner } = useGetUserByIdQuery(car?.user_id ?? '', { skip: !car?.user_id });
 
+  /**
+   * A gallery wears the feed post's rail — bookmark, comment, like, in the
+   * photo's bottom-right corner, opening the same likes / comments panel —
+   * where a mod keeps its footer. Held up here, ahead of the early return,
+   * since they're hooks.
+   */
+  const isGallery = item.kind !== 'mod';
+  const railEntryType = item.entry_type ?? (isGallery ? 'cargallery' : 'mod');
+  const known = useLikeState(item.internal_id);
+  const { data: likeData } = useGetLikeUsersQuery(item.internal_id, { skip: !isGallery || !item.internal_id });
+  const like = usePostLike({
+    postId: item.internal_id,
+    entryType: railEntryType,
+    // A gallery belongs to whoever owns the car.
+    ownerId: car?.user_id,
+    initialLiked: known ? known.liked : (likeData && userInfo?.user_id ? likeData.users.includes(userInfo.user_id) : item.isLiked ?? false),
+    initialCount: known?.count ?? likeData?.total ?? item.like_count ?? 0,
+  });
+  const likers = known?.users ?? likeData?.users ?? [];
+
   if (!car) return null;
 
   const carName = car.title
     || [car.year, car.make, car.model].filter(Boolean).join(' ')
     || 'their car';
-  const timeAgo = item.created_at
-    ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
-    : '';
+  // Short ("3h"), as on a post and the new-car card.
+  const timeAgo = item.created_at ? shortTimeAgo(item.created_at) : '';
 
-  const carThumb = carHeroUrl(car);
+  const carThumb = carHeroUrl(car, 'thumb');
   // The item's own photo where it has one — that's the new thing.
   const ownPhoto = firstGalleryUrl(item.gallery);
 
@@ -137,7 +158,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
 
   const carChip = (
     <TouchableOpacity
-      style={[styles.carChip, bare && styles.carChipCorner]}
+      style={styles.carChip}
       onPress={openCar}
       activeOpacity={0.75}
       accessibilityRole="button"
@@ -167,21 +188,26 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           size={30}
           fallback="Someone"
           sub={`${verb} ${carName}`}
-          subColor={secondary}
+          subColor={COLOR_WHITE}
+          subStyle={styles.action}
           gap={9}
           fill
           style={styles.bylineWho}
           onPress={openOwner}
           disabled={!owner}
         />
-        {timeAgo ? <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text> : null}
-        {!isOwner && (
-          <ReportButton
-            contentType={isMod ? 'mod' : 'cargallery'}
-            contentId={item.internal_id}
-            size={18}
-          />
-        )}
+        {/* Grouped tighter than the byline's gap, as on a post: the short time
+            sits right by the menu rather than floating off on its own. */}
+        <View style={styles.bylineMeta}>
+          {timeAgo ? <Text style={[styles.time, { color: colors.grey }]}>{timeAgo}</Text> : null}
+          {!isOwner && (
+            <ReportButton
+              contentType={isMod ? 'mod' : 'cargallery'}
+              contentId={item.internal_id}
+              size={18}
+            />
+          )}
+        </View>
       </View>
 
       {/* The card opens what was added, not the page it lives on. Tapping a
@@ -195,6 +221,8 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           // Bare, it's as tall as its words: there's no photo to give it a shape.
           { aspectRatio: bare ? undefined : ratio, borderColor: COLOR_GRAY_187 },
           bare && styles.cardBare,
+          // A gallery is a photograph, edge to edge — no frame round it.
+          isGallery && styles.cardBorderless,
         ]}
         onPress={openDetail}
         activeOpacity={0.92}
@@ -226,7 +254,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
 
         {/* Anchored to the foot and ranged left, so the badge, the name and the
             description read as one block down the same edge. */}
-        <View style={[styles.plate, bare && styles.plateBare]} pointerEvents="none">
+        <View style={[styles.plate, bare && styles.plateBare, isGallery && styles.plateBesideRail]} pointerEvents="box-none">
           {/* The mark, at size, on its own — it's the one thing that says at a
               glance which of the two kinds this is, and shrunk into the badge
               it was competing with the word beside it. */}
@@ -242,19 +270,34 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           {description ? (
             <Text style={styles.body} numberOfLines={2}>{description}</Text>
           ) : null}
+          {/* Which car, under the words — its own touchable, so this tap goes
+              to the car rather than opening what was added. */}
+          {carChip}
         </View>
 
-        {/* Which car — its own touchable, so this tap goes to the car rather
-            than to whatever the card is doing. Top left over a photo; on the
-            bare card, top right, across from the wrench, so the title has the
-            whole width. */}
-        {carChip}
+
+        {/* The feed post's rail, in the same corner: bookmark (the car — a
+            gallery has no bookmark of its own), comment and like, the like
+            and comment opening the post's likes / comments panel. */}
+        {isGallery && (
+          <View style={styles.rail} pointerEvents="box-none">
+            <PostActionRail
+              post={{ internal_id: item.internal_id, comment_count: item.comment_count ?? 0 } as Post}
+              entryType={railEntryType}
+              like={like}
+              likers={likers}
+              bookmarkSlot={<CarBookmarkButton carId={car.internal_id} size={21} />}
+            />
+          </View>
+        )}
       </TouchableOpacity>
 
+      {/* A mod only — a gallery has the rail on its photo. */}
       {/* Like and comment, under the card — the same footer a post has.
           A mod and a set of photos are things people react to, and they had no
           way to, even though the server has always keyed likes and comments
           generically by document. */}
+      {!isGallery && (
       <View style={styles.footer}>
         <View style={styles.actionsPill}>
           <LikeButton
@@ -274,6 +317,7 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
           />
         </View>
       </View>
+      )}
 
       <CarItemSummaryModal
         item={!detailOpen ? null : {
@@ -307,14 +351,17 @@ export default function CarActivityCard({ item }: { item: CarActivityItem }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: 6 },
+  wrap: { marginBottom: FEED_CARD_GAP },
 
   byline: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
+    paddingHorizontal: FEED_CARD_GUTTER, paddingTop: 8, paddingBottom: 8,
   },
   bylineWho:  { flex: 1 },
+  // What they did, under the name — white and italic.
+  action:     { fontStyle: 'italic' },
   time:       { fontSize: 11, fontStyle: 'italic' },
+  bylineMeta: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
   // A light grey edge, as the feed's new-car card wears: this is an object on the
   // page. Not a type colour, which would file it as a car.
@@ -330,21 +377,24 @@ const styles = StyleSheet.create({
    */
   card: {
     position: 'relative',
-    marginHorizontal: GUTTER,
+    marginHorizontal: FEED_CARD_GUTTER,
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
     borderWidth: 1,
-    backgroundColor: COLOR_GRAY_17,
+    backgroundColor: SURFACE_MID,
   },
+  cardBorderless: { borderWidth: 0 },
+  // The rail, in the photo's bottom-right corner — the feed post's placing.
+  rail: { position: 'absolute', right: 4, bottom: 4 },
+  // Clear of the rail down the right, so the title and description don't run under it.
+  plateBesideRail: { paddingRight: 56 },
   // Written out rather than spreading `StyleSheet.absoluteFillObject`, which
   // RN 0.86 removed — spreading it yields {} and the image loses its position
   // entirely, silently.
   image: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // A photo-less mod: no picture to be, so a dark grey ground for the plate.
-  cardBare: { backgroundColor: COLOR_GRAY_20 },
+  cardBare: { backgroundColor: SURFACE_MID },
   // In the flow rather than pinned to the foot, so the card sizes to it.
   plateBare: { position: 'relative', paddingTop: 16 },
-  // Across from the mark, at the bare card's top right.
-  carChipCorner: { left: undefined, right: 12, maxWidth: '60%' },
 
   scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '58%' },
 
@@ -372,14 +422,12 @@ const styles = StyleSheet.create({
   },
   body: { fontSize: 13, lineHeight: 18, color: 'rgba(255,255,255,0.85)' },
 
-  // Top left, sized to the car's name. Along the foot it was competing with
-  // the title for the same edge; up here it sits on the clear half of the
-  // photo and leaves the whole bottom to the text.
+  // At the foot of the plate, under the title and description.
   carChip: {
-    position: 'absolute', top: 12, left: 12,
+    marginTop: 4,
     maxWidth: '72%',
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.82)',
     paddingLeft: 4, paddingRight: 11, paddingVertical: 4,
     borderRadius: 999,
   },

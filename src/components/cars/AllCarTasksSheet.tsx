@@ -138,7 +138,7 @@ function CarTasksAccordion({ car, open, onToggle }: { car: GarageCar; open: bool
   const colors = useColors();
   const { data } = useGetCarTasksQuery(car.internal_id);
   const { done, open: left, total } = taskTally(data?.entries ?? []);
-  const photo = carHeroUrl(car);
+  const photo = carHeroUrl(car, 'thumb');
   const name = car.title || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car';
 
   // Opening, the photo shrinks into a circle while the count and pie slide

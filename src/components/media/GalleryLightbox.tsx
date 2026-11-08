@@ -41,7 +41,7 @@ function LightboxPage({
   return (
     <View style={{ width: SCREEN_WIDTH, height }}>
       <PinchZoom style={StyleSheet.absoluteFill} simultaneousWith={listRef} onActiveChange={onPinchChange}>
-        <Image source={{ uri: imageUrl(item.filename)! }} style={StyleSheet.absoluteFill} contentFit="contain" enforceEarlyResizing={false} />
+        <Image source={{ uri: imageUrl(item.filename, 'full')! }} style={StyleSheet.absoluteFill} contentFit="contain" enforceEarlyResizing={false} />
       </PinchZoom>
     </View>
   );

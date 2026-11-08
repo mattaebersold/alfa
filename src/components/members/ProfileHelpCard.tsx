@@ -11,7 +11,7 @@ import { useGetLoggedInUserQuery, useGetUsersQuery, useGetFollowStatusesQuery } 
 import { useColors } from '../../hooks/useColors';
 import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import { colors as palette } from '../../constants/colors';
-import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type Step = 'photo' | 'bio' | 'car' | 'follow';

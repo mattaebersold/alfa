@@ -14,7 +14,7 @@ import { useColors } from '../../hooks/useColors';
 import { ss } from '../../styles/shared';
 import type { User } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_BLACK, COLOR_GRAY_32, COLOR_PRO, COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK, COLOR_PRO, COLOR_WHITE, COLOR_LINE } from '../../constants/config';
 
 /**
  * One member, in a list of them.
@@ -79,7 +79,7 @@ export default function MemberRow({ user, onPress, isFollowing, showStats = true
       style={[
         ss.listRow,
         plain
-          ? { borderBottomColor: COLOR_GRAY_32, borderBottomWidth: StyleSheet.hairlineWidth }
+          ? { borderBottomColor: COLOR_LINE, borderBottomWidth: StyleSheet.hairlineWidth }
           : { backgroundColor: colors.card, borderBottomColor: colors.border },
       ]}
       onPress={onPress}

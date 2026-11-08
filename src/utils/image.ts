@@ -1,15 +1,19 @@
-import { CONFIG } from '../constants/config';
+import { imageUrl as kitImageUrl, type ImageSize } from '@ors/kit';
 import type { GalleryItem } from '../types/api';
 
-export function imageUrl(filename: string | null | undefined): string | null {
-  if (!filename) return null;
-  if (filename.startsWith('http')) return filename;
-  return `${CONFIG.S3_BASE_URL}/${filename}`;
+export type { ImageSize };
+
+/**
+ * An uploaded image's URL, through the image CDN at the size it's drawn —
+ * see ImageSize in @ors/kit's config. Defaults to `medium` (full-width).
+ */
+export function imageUrl(filename: string | null | undefined, size?: ImageSize): string | null {
+  return kitImageUrl(filename, size);
 }
 
-export function firstGalleryUrl(gallery?: GalleryItem[] | null): string | null {
+export function firstGalleryUrl(gallery?: GalleryItem[] | null, size?: ImageSize): string | null {
   if (!gallery?.length) return null;
-  return imageUrl(gallery[0].filename);
+  return imageUrl(gallery[0].filename, size);
 }
 
 /**
@@ -20,7 +24,8 @@ export function firstGalleryUrl(gallery?: GalleryItem[] | null): string | null {
  */
 export function carHeroUrl(
   car?: { profile_image?: string | null; gallery?: GalleryItem[] | null } | null,
+  size?: ImageSize,
 ): string | null {
   if (!car) return null;
-  return imageUrl(car.profile_image) ?? firstGalleryUrl(car.gallery);
+  return imageUrl(car.profile_image, size) ?? firstGalleryUrl(car.gallery, size);
 }

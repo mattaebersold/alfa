@@ -11,7 +11,7 @@ import { toDayKey, isOrsEvent } from '../../constants/eventTypes';
 import { calendarDate } from '../../utils/calendarDate';
 import { rallyColors } from '../../utils/rally';
 import type { SocietyEvent, Rally, EventLocationParams } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_11, COLOR_GRAY_79, COLOR_GRAY_102, COLOR_GRAY_141, GUTTER, ORS_GRADIENT } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_79, COLOR_GRAY_102, COLOR_GRAY_141, GUTTER, ORS_GRADIENT, SURFACE_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** The most a day's count shows before it becomes "99+". */
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
 
   dayTile:   { position: 'absolute', top: 2, left: 3, right: 3, bottom: 2, borderRadius: 9 },
   todayTile: { backgroundColor: COLOR_WHITE },
-  eventTile: { backgroundColor: COLOR_GRAY_11 },
+  eventTile: { backgroundColor: SURFACE_BLACK },
 
   // A painted day fills its cell rather than sitting inside it — inset just
   // enough to stay a tile in a grid rather than a band across the week.

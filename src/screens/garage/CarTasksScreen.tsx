@@ -34,7 +34,7 @@ export default function CarTasksScreen({ route, navigation }: AppScreenProps<'Ca
   const addRef = useRef<View>(null);
 
   const { data: car } = useGetCarWithUserQuery(carId);
-  const carPhoto = carHeroUrl(car);
+  const carPhoto = carHeroUrl(car, 'thumb');
   const { data: tasksData, refetch } = useGetCarTasksQuery(carId);
   const { done, total } = taskTally(tasksData?.entries ?? []);
 

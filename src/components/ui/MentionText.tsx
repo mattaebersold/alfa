@@ -6,6 +6,9 @@ import type { AppStackParamList } from '../../navigation/types';
 import { useColors } from '../../hooks/useColors';
 import { useLazyGetPublicUserQuery } from '../../api/apiService';
 import { parseMentions } from '../../utils/mentions';
+import { Linking } from 'react-native';
+import { LINK_LABEL, LINK_MARKER_RE } from '../../utils/linkify';
+import { FONT_INTER } from '../../constants/fonts';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -26,6 +29,11 @@ interface MentionTextProps {
    * than take one of its own.
    */
   trailing?: React.ReactNode;
+  /**
+   * The URLs behind the text's link markers, in order — see utils/linkify.
+   * Each marker is drawn as a bold, underlined "View More" that opens its URL.
+   */
+  links?: string[];
 }
 
 function UserSegment({ username, textStyle }: { username: string; textStyle?: any }) {
@@ -69,13 +77,39 @@ function CarSegment({ label, carId, textStyle }: { label: string; carId: string;
   );
 }
 
-export default function MentionText({ text, style, numberOfLines, onTextLayout, trailing }: MentionTextProps) {
+export default function MentionText({ text, style, numberOfLines, onTextLayout, trailing, links }: MentionTextProps) {
   const segments = parseMentions(text);
+  // Which URL the next marker opens — markers are numbered in reading order
+  // across every plain run.
+  let linkIndex = 0;
+  /** A plain run, with any link markers in it drawn as links. */
+  const plain = (s: string, key?: number) => {
+    if (!links?.length || !s.includes(LINK_LABEL)) return key == null ? s : <Text key={key}>{s}</Text>;
+    const parts = s.split(LINK_MARKER_RE);
+    return (
+      <Text key={key}>
+        {parts.map((p, j) => {
+          if (j === 0) return p;
+          const url = links[linkIndex++];
+          return (
+            <React.Fragment key={j}>
+              {url ? (
+                <Text style={LINK_STYLE} onPress={() => { Linking.openURL(url).catch(() => {}); }} accessibilityRole="link">
+                  {LINK_LABEL}
+                </Text>
+              ) : LINK_LABEL}
+              {p}
+            </React.Fragment>
+          );
+        })}
+      </Text>
+    );
+  };
 
   if (segments.length <= 1 && segments[0]?.kind !== 'car' && segments[0]?.kind !== 'user') {
     return (
       <Text style={style} numberOfLines={numberOfLines} onTextLayout={onTextLayout}>
-        {text}
+        {plain(text)}
         {trailing}
       </Text>
     );
@@ -90,7 +124,7 @@ export default function MentionText({ text, style, numberOfLines, onTextLayout, 
         if (seg.kind === 'car') {
           return <CarSegment key={i} label={seg.label} carId={seg.carId} textStyle={style} />;
         }
-        return <Text key={i}>{seg.text}</Text>;
+        return plain(seg.text, i);
       })}
       {trailing}
     </Text>
@@ -104,3 +138,6 @@ export default function MentionText({ text, style, numberOfLines, onTextLayout, 
 // The blue itself matters: it used to take `primaryAlt`, which useColors
 // remaps to gold for pro members, so a mention read as a highlight rather than
 // as something to press.
+
+/** A link in the words: the words' own face and ink, bold and underlined. */
+const LINK_STYLE = { fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' as const };

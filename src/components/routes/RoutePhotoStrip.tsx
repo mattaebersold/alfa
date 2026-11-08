@@ -53,7 +53,7 @@ export default function RoutePhotoStrip({
             accessibilityLabel={photo.user?.username ? `Photo by @${photo.user.username}` : 'Route photo'}
           >
             <Image
-              source={{ uri: imageUrl(photo.filename) ?? undefined }}
+              source={{ uri: imageUrl(photo.filename, 'small') ?? undefined }}
               style={[styles.photo, { width: size, height: size, backgroundColor: colors.card }]}
               contentFit="cover"
               transition={150}

@@ -11,7 +11,7 @@ import type { GarageCar } from '../../types/api';
 import type { CarActivityTab } from './CarActivitySummaryModal';
 import CarBookmarkButton from './CarBookmarkButton';
 import { formatActionCount } from '../../utils/text';
-import { COLOR_BLACK, COLOR_LIKE, COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** The rail's icon size on a photo — PostActionRail's RAIL_ICON. */
@@ -103,8 +103,8 @@ export default function CarCountBadges({ car, followers, onOpen, only, bookmark 
         <AnimatedHeart
           liked={like.liked}
           size={COUNT_ICON}
-          color={like.liked ? COLOR_LIKE : COLOR_WHITE}
-          fill={like.liked ? COLOR_LIKE : 'transparent'}
+          color={COLOR_WHITE}
+          fill={like.liked ? COLOR_WHITE : 'transparent'}
           strokeWidth={1.8}
         />
       </TouchableOpacity>

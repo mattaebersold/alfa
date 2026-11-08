@@ -56,7 +56,7 @@ interface AvatarProps {
 
 export default function Avatar({ user, filename, name, size = 40, radius, edge = true }: AvatarProps) {
   const source = filename ?? user?.gallery?.[0]?.filename ?? user?.profilePicture;
-  const uri = imageUrl(source);
+  const uri = imageUrl(source, 'thumb');
   const corner = radius ?? size / 2;
   const [failed, setFailed] = useState(false);
 

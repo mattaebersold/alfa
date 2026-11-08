@@ -1,5 +1,5 @@
 import { Linking, Platform } from 'react-native';
-import { COLOR_GRAY_17, COLOR_SOURCE_APP_ACCENT, COLOR_SPOTTER_GREEN } from './config';
+import { COLOR_SOURCE_APP_ACCENT, COLOR_SPOTTER_GREEN, SURFACE_MID } from './config';
 
 /**
  * The sibling apps a post can have been shared from.
@@ -49,7 +49,7 @@ export const SOURCE_APPS: Record<SourceAppId, SourceApp> = {
       ios: 'https://openroadsociety.co/apps/photo',     // TODO: App Store URL
       android: 'https://openroadsociety.co/apps/photo', // TODO: Play Store URL
     },
-    tile: COLOR_GRAY_17,
+    tile: SURFACE_MID,
     accent: COLOR_SOURCE_APP_ACCENT,
   },
   spot: {

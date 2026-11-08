@@ -13,7 +13,7 @@ import { FONT_INTER } from '../../constants/fonts'
  * row looks its person up; RTK Query shares those lookups with every other
  * place that shows the same people.
  */
-export function LikerRow({ userId, onOpen, last, rule = true, dense = false }: {
+export function LikerRow({ userId, onOpen, last, rule = true, dense = false, trailing }: {
   userId: string;
   onOpen: (userId: string, origin: SummaryOrigin | null) => void;
   /** The list's last row — no rule under it, the panel's edge is enough. */
@@ -22,6 +22,8 @@ export function LikerRow({ userId, onOpen, last, rule = true, dense = false }: {
   rule?: boolean;
   /** Closer together — for a list without the rules to separate its rows. */
   dense?: boolean;
+  /** At the row's end — see SummaryUserRow. */
+  trailing?: React.ReactNode;
 }) {
   const colors = useColors();
   const { data: user } = useGetUserByIdQuery(userId, { skip: !userId });
@@ -36,6 +38,7 @@ export function LikerRow({ userId, onOpen, last, rule = true, dense = false }: {
       at={false}
       edge={false}
       viewButton={false}
+      trailing={trailing}
       style={[styles.row, { borderBottomColor: colors.border }, (last || !rule) && styles.rowLast, dense && styles.rowDense]}
     />
   );

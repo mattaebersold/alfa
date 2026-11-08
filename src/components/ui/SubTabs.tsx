@@ -2,10 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import Reanimated from 'react-native-reanimated';
 import { TAB_EASING, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
+import { selectionHaptic } from '../../utils/haptics';
 import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_58, COLOR_WHITE } from '../../constants/config';
+
+/** `tone="grey"`'s track — the home header's (AppHeader's MainTabs). */
+const GREY_TRACK = 'rgba(0,0,0,0.8)';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** The track behind the options: solid black, under any ground. */
@@ -32,7 +36,7 @@ const SEG_GAP = 3;
  * MainTabs' `stretch` does. Both animate on the JS driver, since the thumb's
  * width changes too.
  */
-export default function SubTabs<T extends string>({ options, value, onChange, stretch = false, inset = 12, padX }: {
+export default function SubTabs<T extends string>({ options, value, onChange, stretch = false, inset = 12, padX, tone = 'brand' }: {
   /** `Icon`, optionally, before the label in the label's colour. */
   options: { key: T; label: string; Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[];
   value: T;
@@ -43,10 +47,20 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   inset?: number;
   /** Each option's side padding when they keep their own widths — wider than the default 14 for a roomier row. */
   padX?: number;
+  /**
+   * `grey` dresses it as the home header's MainTabs: a grey thumb with white
+   * words, and the others white too, a weight lighter. `brand` (default) is
+   * the brand-coloured thumb.
+   */
+  tone?: 'brand' | 'grey';
 }) {
   const fit = stretch ? 'equal' : 'scroll';
   const colors = useColors();
-  const brand = useBrandColor();
+  const brandColor = useBrandColor();
+  const grey = tone === 'grey';
+  const brand = grey ? COLOR_GRAY_58 : brandColor;
+  const litText = grey ? COLOR_WHITE : contrastText(brandColor);
+  const unlitText = grey ? COLOR_WHITE : colors.muted;
   const [trackW, setTrackW] = useState(0);
   const [cells, setCells] = useState<Record<string, { x: number; w: number }>>({ });
   const scrollRef = useRef<ScrollView>(null);
@@ -109,14 +123,14 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
           >
           <TouchableOpacity
             style={[styles.segment, fit === 'scroll' && styles.segmentOwn, fit === 'scroll' && padX != null && { paddingHorizontal: padX }]}
-            onPress={() => onChange(o.key)}
+            onPress={() => { if (o.key !== value) selectionHaptic(); onChange(o.key); }}
             activeOpacity={0.8}
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
           >
             <View style={styles.segmentInner}>
-              {o.Icon ? <o.Icon size={14} color={active ? contrastText(brand) : colors.muted} strokeWidth={2.4} /> : null}
-              <Text style={[styles.segmentLabel, { color: active ? contrastText(brand) : colors.muted }]} numberOfLines={1}>
+              {o.Icon ? <o.Icon size={14} color={active ? litText : unlitText} strokeWidth={grey && !active ? 2 : 2.4} /> : null}
+              <Text style={[styles.segmentLabel, grey && !active && styles.segmentLabelUnlit, { color: active ? litText : unlitText }]} numberOfLines={1}>
                 {o.label}
               </Text>
             </View>
@@ -135,7 +149,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
       <View style={[styles.segmentRoom, { marginHorizontal: inset }]} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
       <View style={[
         styles.segmentTrack, styles.segmentTrackScroll,
-        { backgroundColor: TRACK_BG },
+        { backgroundColor: grey ? GREY_TRACK : TRACK_BG },
         trackW > 0 ? null : styles.unmeasured,
       ]}>
         <ScrollView
@@ -154,7 +168,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   }
   return (
     <View
-      style={[styles.segmentTrack, { backgroundColor: TRACK_BG, marginHorizontal: inset }]}
+      style={[styles.segmentTrack, { backgroundColor: grey ? GREY_TRACK : TRACK_BG, marginHorizontal: inset }]}
       onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
       accessibilityRole="radiogroup"
     >
@@ -185,4 +199,5 @@ const styles = StyleSheet.create({
   segmentOwn:   { paddingHorizontal: 14 },
   segmentInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   segmentLabel: { fontSize: 13, fontFamily: FONT_INTER.bold },
+  segmentLabelUnlit: { fontFamily: FONT_INTER.medium },
 });

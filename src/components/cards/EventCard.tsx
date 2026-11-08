@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
-import { MapPin } from 'lucide-react-native';
+import { MapPin, CarFront } from 'lucide-react-native';
+import { Image } from '../ui/AppImage';
+import { carHeroUrl } from '../../utils/image';
 import OrsGradient from '../ui/OrsGradient';
 import Avatar from '../ui/Avatar';
 import EventImage from '../society/EventImage';
@@ -12,7 +14,7 @@ import {
 } from '../../constants/eventTypes';
 import { useColors } from '../../hooks/useColors';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';
-import type { SocietyEvent, User } from '../../types/api';
+import type { SocietyEvent, EventAttendee } from '../../types/api';
 import {
   COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS,
 } from '../../constants/config';
@@ -65,11 +67,38 @@ const STACK_MAX = 3;
  * Up to three overlapping avatars, then "+N" for the rest. Shared with the
  * event detail, which passes a bigger `size` and `onPressUser`.
  */
+/**
+ * The little mark on an attendee's avatar saying they're bringing a car.
+ * At card sizes a photo that small is a smudge, so it's a car glyph; from
+ * BADGE_PHOTO_MIN up it's the car itself.
+ */
+const BADGE_PHOTO_MIN = 36;
+export function AttendeeCarBadge({ attendee, size }: { attendee: EventAttendee; size: number }) {
+  const colors = useColors();
+  if (!attendee.car) return null;
+  const badge = Math.max(13, Math.round(size * 0.5));
+  const uri = size >= BADGE_PHOTO_MIN ? carHeroUrl(attendee.car, 'thumb') : null;
+  return (
+    <View
+      style={[
+        styles.carBadge,
+        { width: badge, height: badge, borderRadius: badge / 2, borderColor: colors.card, backgroundColor: colors.fg },
+      ]}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    >
+      {uri
+        ? <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+        : <CarFront size={Math.round(badge * 0.62)} color={colors.card} strokeWidth={2.6} />}
+    </View>
+  );
+}
+
 export function InterestedStack({ users, total, size = 26, onPressUser }: {
-  users?: User[];
+  users?: EventAttendee[];
   total: number;
   size?: number;
-  onPressUser?: (user: User) => void;
+  onPressUser?: (user: EventAttendee) => void;
 }) {
   const colors = useColors();
   if (!users?.length) return null;
@@ -82,12 +111,16 @@ export function InterestedStack({ users, total, size = 26, onPressUser }: {
       {shown.map((user, i) => (
         <TouchableOpacity
           key={user.user_id}
-          style={i > 0 ? overlap : undefined}
+          // Earlier faces sit over later ones, so each one's car badge (at
+          // its lower right) lands on top of its neighbour rather than under it.
+          style={[i > 0 ? overlap : undefined, { zIndex: shown.length - i }]}
           onPress={() => onPressUser?.(user)}
           disabled={!onPressUser}
           activeOpacity={0.8}
+          accessibilityLabel={user.car ? `${user.username}, bringing ${user.car.title ?? 'a car'}` : user.username}
         >
           <Avatar user={user} size={size} />
+          <AttendeeCarBadge attendee={user} size={size} />
         </TouchableOpacity>
       ))}
       {extra > 0 && (
@@ -256,6 +289,10 @@ export default function EventCard({
 }
 
 const styles = StyleSheet.create({
+  carBadge: {
+    position: 'absolute', right: -3, bottom: -3,
+    borderWidth: 1.5, overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
+  },
   card: {
     borderRadius: COMMON_RADIUS, overflow: 'hidden',
     shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,

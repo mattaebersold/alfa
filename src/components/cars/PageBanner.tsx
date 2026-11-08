@@ -4,7 +4,7 @@ import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Car } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
-import { COLOR_GRAY_26 } from '../../constants/config';
+import { SURFACE_MID } from '../../constants/config';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -63,7 +63,7 @@ export default function PageBanner({ photo, overlay, ground }: {
 }
 
 const styles = StyleSheet.create({
-  banner:  { width: '100%', height: PAGE_BANNER_H, backgroundColor: COLOR_GRAY_26 },
+  banner:  { width: '100%', height: PAGE_BANNER_H, backgroundColor: SURFACE_MID },
   blank:   { alignItems: 'center', justifyContent: 'center' },
   overlay: { position: 'absolute', left: 0, right: 0, top: 0 },
   top:     { position: 'absolute', left: 0, right: 0, top: 0, height: 130 },

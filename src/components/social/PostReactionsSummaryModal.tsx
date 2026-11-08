@@ -11,8 +11,9 @@ import { useGetLikeUsersQuery } from '../../api/apiService';
 import { useLikeState } from '../../hooks/useLikeState';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useColors } from '../../hooks/useColors';
+import { useAppSelector } from '../../store/store';
 import type { PostLike } from '../../hooks/usePostLike';
-import { COMMON_RADIUS, COLOR_GRAY_42, COLOR_LIKE, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_42, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import PanelEmpty from '../ui/PanelEmpty';
 
@@ -24,9 +25,9 @@ export type PostReactionsTab = 'likes' | 'comments';
  * comment bubble); the other is a tap away along the row. The car page's
  * reactions panel (CarActivitySummaryModal) in the same dress.
  *
- * Having liked it, the likes tab leads with the way to take it back — the
- * rail's heart opens this rather than unliking on the spot, and the unlike
- * asks first.
+ * Having liked it, your own row leads the likes tab with an Unlike at its
+ * end — the rail's heart opens this rather than unliking on the spot, and the
+ * unlike asks first.
  */
 export default function PostReactionsSummaryModal({ postId, entryType, like, tab: openOn, origin, onClose }: {
   postId: string;
@@ -53,7 +54,14 @@ export default function PostReactionsSummaryModal({ postId, entryType, like, tab
   // What this session knows over the fetched list, so an unlike here takes
   // you off it straight away.
   const known = useLikeState(postId);
-  const likerIds = known?.users ?? likes.data?.users ?? [];
+  const fetchedIds = known?.users ?? likes.data?.users ?? [];
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
+  // Having liked it (and not being its owner, who can't), your own row leads
+  // the list and carries the Unlike — added if the list hasn't caught up yet.
+  const canUnlike = like.liked && !like.mine && !!myId;
+  const likerIds = canUnlike
+    ? [myId!, ...fetchedIds.filter((id) => id !== myId)]
+    : fetchedIds;
   const { rows: commentRows } = useCommentThread(entryType, postId, { skip: !visible });
   const { openUser, stacked } = useStackedUserSummary(visible);
 
@@ -69,27 +77,33 @@ export default function PostReactionsSummaryModal({ postId, entryType, like, tab
 
   const likesBody = () => (
     <>
-      {like.liked && !like.mine && (
-        <View style={[styles.mine, { backgroundColor: colors.segment }]}>
-          <Heart size={18} color={COLOR_LIKE} fill={COLOR_LIKE} />
-          <Text style={[styles.mineText, { color: colors.fg }]}>You liked this</Text>
-          <TouchableOpacity
-            style={styles.unlikeBtn}
-            onPress={confirmUnlike}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Unlike"
-          >
-            <Text style={styles.unlikeText}>Unlike</Text>
-          </TouchableOpacity>
-        </View>
-      )}
       {likes.isLoading && !likerIds.length ? (
         <ActivityIndicator color={colors.grey} style={styles.loader} />
       ) : !likerIds.length ? (
         <PanelEmpty>No likes yet</PanelEmpty>
       ) : (
-        likerIds.map((id, i) => <LikerRow key={id} userId={id} onOpen={openUser} last={i === likerIds.length - 1} rule={false} dense />)
+        likerIds.map((id, i) => (
+          <LikerRow
+            key={id}
+            userId={id}
+            onOpen={openUser}
+            last={i === likerIds.length - 1}
+            rule={false}
+            dense
+            trailing={canUnlike && id === myId ? (
+              <TouchableOpacity
+                style={styles.unlikeBtn}
+                onPress={confirmUnlike}
+                activeOpacity={0.85}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Unlike"
+              >
+                <Text style={styles.unlikeText}>Unlike</Text>
+              </TouchableOpacity>
+            ) : null}
+          />
+        ))
       )}
     </>
   );
@@ -121,13 +135,6 @@ const styles = StyleSheet.create({
   // More room between the tabs and the first comment.
   bodyComments: { paddingTop: 12 },
   loader:   { marginTop: 30 },
-  // Your own like, over the list — and the way to take it back.
-  mine:     {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, marginBottom: 4,
-    borderRadius: COMMON_RADIUS,
-  },
-  mineText: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
   // The summaries' secondary-button grey (SummaryUserRow's View).
   unlikeBtn: {
     paddingHorizontal: 12, paddingVertical: 6,

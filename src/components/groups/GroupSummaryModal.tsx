@@ -17,7 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { regionLabel } from '../../constants/regions';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_GRAY_22 } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -315,7 +315,7 @@ function MemberListBox({ above, below, children }: { above: number; below: numbe
     // `nestedScrollEnabled` is what lets it scroll at all inside the panel's
     // scroller on Android; iOS nests without it.
     <ScrollView
-      style={[styles.memberList, { maxHeight, backgroundColor: COLOR_GRAY_22 }]}
+      style={[styles.memberList, { maxHeight, backgroundColor: SURFACE_MID }]}
       contentContainerStyle={styles.memberListContent}
       nestedScrollEnabled
       showsVerticalScrollIndicator

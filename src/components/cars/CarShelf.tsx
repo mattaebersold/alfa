@@ -8,7 +8,7 @@ import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { clampMediaRatio } from '../../utils/postMedia';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COLOR_BLACK, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** One card on the shelf: a picture, what it is, and a line under it. */
@@ -33,7 +33,7 @@ export function pairCardWidth(sidePad: number): number {
 }
 const MEDIA_RATIO = 4 / 3;
 /** A card with no picture: a well darker than the card around it. */
-const BLANK_BG = '#151515';
+const BLANK_BG = SURFACE_MID;
 
 /**
  * A car's mods or albums as a shelf — the latest few sideways, and the rest

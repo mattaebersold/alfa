@@ -39,9 +39,8 @@ import {
   COLOR_GRAY_180,
   COLOR_GRAY_236,
   COLOR_GRAY_42,
-  COLOR_GRAY_13,
   COLOR_GRAY_102,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_BLACK
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -296,7 +295,7 @@ export default function GroupItemDetailModal({
                 threadId={threadId}
                 flush
                 compact
-                backgroundColor={COLOR_GRAY_13}
+                backgroundColor={SURFACE_BLACK}
                 onReply={(commentId, username) => {
                   setReplyingTo({ commentId, username });
                   setCommentText(`@${username} `);

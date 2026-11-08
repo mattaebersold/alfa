@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { COLOR_GRAY_26 } from '../../constants/config';
+import { SURFACE_DARK } from '../../constants/config';
 import SubTabs from '../../components/ui/SubTabs';
 import PageBanner, { PAGE_BANNER_OVERLAP } from '../../components/cars/PageBanner';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
@@ -25,7 +25,7 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 
 /** The colour the make page's banner fades into. */
-const MAKE_GROUND = COLOR_GRAY_26;
+const MAKE_GROUND = SURFACE_DARK;
 
 /** The "All" sub tab's key — no filter. */
 const ALL = '__all';

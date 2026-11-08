@@ -9,7 +9,7 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import {
   usePostUploads, retryPostUpload, discardPostUpload, type PostUpload,
 } from '../../utils/postUpload';
-import { COMMON_RADIUS, COLOR_GRAY_26, COLOR_RED, COLOR_WHITE, GUTTER } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_RED, COLOR_WHITE, GUTTER, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   // A little clear of the header's tabs above, as the auction banner is.
   wrap: { paddingTop: 12, paddingHorizontal: GUTTER, gap: 8 },
   card: {
-    borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_26, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_MID, overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
   thumb: { width: 36, height: 36, borderRadius: 6 },

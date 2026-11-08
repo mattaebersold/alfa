@@ -74,7 +74,7 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
   const removeAt = (key: string) => onChange(images.filter((i) => i.key !== key));
 
   const renderItem = ({ item, drag, isActive }: RenderItemParams<EditorImage>) => {
-    const uri = item.kind === 'existing' ? imageUrl(item.filename) ?? undefined : item.uri;
+    const uri = item.kind === 'existing' ? imageUrl(item.filename, 'small') ?? undefined : item.uri;
 
     return (
       <ScaleDecorator>

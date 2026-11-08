@@ -20,9 +20,8 @@ import { usePosterRatio } from '../../hooks/usePosterRatio';
 import { carHeroUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { TYPE_COLORS, CATEGORY_COLORS, formatLabel } from '../../constants/carTypes';
-import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
-import CarBookmarkButton from './CarBookmarkButton';
 import CarCountBadges, { CAR_COUNTS_CLEARANCE } from './CarCountBadges';
 import CarActivitySummaryModal, { type CarActivityTab } from './CarActivitySummaryModal';
 
@@ -113,7 +112,6 @@ export default function CarSummaryModal({
   if (carId) lastCarId.current = carId;
   const shownCarId = carId ?? lastCarId.current;
   const { data: car, isLoading } = useGetCarWithUserQuery(shownCarId ?? '', { skip: !shownCarId });
-  const isOwner = !!car && (userInfo?.user_id === car.user_id || userInfo?.user_id === car.coowner_id);
 
   // The payload carries the follower count now; the query is the fallback
   // for a server that hasn't sent it.
@@ -279,6 +277,8 @@ export default function CarSummaryModal({
               car={car}
               followers={followerCount ?? 0}
               onOpen={(tab, origin) => setActivity({ tab, origin })}
+              // The bookmark heads the column, on someone else's car.
+              bookmark
             />
           </View>
 
@@ -291,9 +291,6 @@ export default function CarSummaryModal({
               {coowner ? <OwnerChip user={coowner} co onOpen={openUser} /> : null}
             </View>
 
-            {/* Your own car has nothing to bookmark. Following it is in the
-                followers count on the photo, at the head of that list. */}
-            {!isOwner && carId ? <CarBookmarkButton carId={carId} size={22} color={colors.fg} style={styles.bookmarkBtn} /> : null}
           </View>
 
           {/* One line that scrolls, rather than a block that wraps. Six specs
@@ -340,7 +337,7 @@ const styles = StyleSheet.create({
   heroWrap: { position: 'relative', borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
   // The ratio comes from the photo — see usePosterRatio. A fixed 16:9 cropped
   // a portrait shot down to a letterbox, which on a car is usually the car.
-  hero:     { width: '100%', backgroundColor: COLOR_GRAY_22 },
+  hero:     { width: '100%', backgroundColor: SURFACE_MID },
   // A little further in from the left than the panel's inset.
   // Clear of the counts down the photo's right.
   heroText: { position: 'absolute', left: 12, right: CAR_COUNTS_CLEARANCE, bottom: 12, alignItems: 'flex-start', gap: 4 },
@@ -379,7 +376,6 @@ const styles = StyleSheet.create({
   coTagText: { fontSize: 9, fontFamily: FONT_INTER.extrabold, letterSpacing: 0.4 },
 
   // At the row's end, opposite the owners.
-  bookmarkBtn: { width: 34, height: 34 },
 
   specsScroll: { flexGrow: 0, flexShrink: 0 },
   specs: {

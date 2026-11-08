@@ -16,13 +16,11 @@ import { SOURCE_APPS, openSourceApp } from '../../constants/sourceApps';
 import {
   COMMON_RADIUS,
   PILL_RADIUS,
-  COLOR_GRAY_10,
-  COLOR_GRAY_22,
   COLOR_RED,
   COLOR_GREEN,
   COLOR_PRO,
   COLOR_SPOTTER_GREEN,
-  COLOR_SHEEN_GOLD,
+  COLOR_SHEEN_GOLD, SURFACE_BLACK, SURFACE_MID
 } from '../../constants/config';
 import type { CarSpotSummary, CarSpotPlay, CarSpotSharedResult, CarSpotDifficulty } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
@@ -186,7 +184,7 @@ function ZoomedPuzzleImage({ carspot }: { carspot: PuzzleCrop }) {
         ]}
       >
         <Image
-          source={{ uri: imageUrl(carspot.image) ?? undefined }}
+          source={{ uri: imageUrl(carspot.image, 'full') ?? undefined }}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           contentPosition="center"
@@ -344,7 +342,7 @@ export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBod
     );
     return (
       <View
-        style={[styles.appBtn, styles.compare, { backgroundColor: COLOR_GRAY_10, borderColor: colors.borderDark }]}
+        style={[styles.appBtn, styles.compare, { backgroundColor: SURFACE_BLACK, borderColor: colors.borderDark }]}
         accessibilityLabel={`${DIFFICULTY_LABEL[game.difficulty]}: you ${scoreOf(iWon, mine.attempts)}, ${theirName} ${scoreOf(game.won, game.attempts)}${
           winner === 'me' ? '. You won' : winner === 'them' ? `. ${theirName} won` : ''}`}
       >
@@ -363,7 +361,7 @@ export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBod
       onPress={() => openSourceApp(SOURCE_APPS.spot)}
       activeOpacity={0.8}
       accessibilityRole="link"
-      style={[styles.appBtn, { backgroundColor: COLOR_GRAY_22, borderColor: colors.borderDark }]}
+      style={[styles.appBtn, { backgroundColor: SURFACE_MID, borderColor: colors.borderDark }]}
     >
       <Image source={SPOT_ICON} style={styles.appIcon} contentFit="cover" />
       <Text style={[styles.appBtnText, { color: colors.fg }]} numberOfLines={1}>
@@ -617,14 +615,14 @@ const styles = StyleSheet.create({
   subCards: { gap: 8, paddingTop: 4 },
   subCard: {
     borderWidth: StyleSheet.hairlineWidth, borderRadius: COMMON_RADIUS,
-    backgroundColor: COLOR_GRAY_10, paddingTop: 4, paddingBottom: 10,
+    backgroundColor: SURFACE_BLACK, paddingTop: 4, paddingBottom: 10,
   },
   main: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 4 },
   imageWindow: {
     width: PHOTO, height: PHOTO,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_10,
+    backgroundColor: SURFACE_BLACK,
     flexShrink: 0,
   },
   headerDateBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: PILL_RADIUS },

@@ -9,8 +9,8 @@ import { useColors } from '../../hooks/useColors';
 import { openSpotGame } from '../../constants/sourceApps';
 import { GuessDots, HIT, MISS, MAX_ATTEMPTS, SimpleCrown, SpotHintBadge, winnerOf } from './SpotResultBody';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_10, COLOR_GRAY_22, COLOR_GRAY_38,
-  COLOR_SHEEN_GOLD,
+  COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_38,
+  COLOR_SHEEN_GOLD, SURFACE_BLACK, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type {
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
 
 
   game: {
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_10,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_BLACK,
     paddingHorizontal: 12, paddingVertical: 10, gap: 8,
   },
   gameHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   playBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingLeft: 6, paddingRight: 10, paddingVertical: 6,
-    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, backgroundColor: COLOR_GRAY_22, maxWidth: '100%',
+    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, backgroundColor: SURFACE_MID, maxWidth: '100%',
   },
   playIcon: { width: 24, height: 24, borderRadius: 6 },
   playText: { flexShrink: 1, fontSize: 12.5, fontFamily: FONT_INTER.bold },

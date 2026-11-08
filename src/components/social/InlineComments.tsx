@@ -38,6 +38,8 @@ interface InlineCommentsProps {
    * yours apart from — both go.
    */
   variant?: 'inline' | 'panel';
+  /** Inline, without the rule and room above it — for a host that spaces its own sections. */
+  bare?: boolean;
   /**
    * In a panel, the composer pinned to the panel's foot (SummaryPanelHandle's
    * setFooter) rather than after the thread — for a panel with something above
@@ -99,7 +101,7 @@ export function CommentsHeading({ title = 'Comments', count, style }: {
  * same-direction VirtualizedList inside one breaks scrolling and warns.
  */
 export default function InlineComments({
-  documentId, entryType, title = 'Comments', backgroundColor, variant = 'inline', pinComposer = false,
+  documentId, entryType, title = 'Comments', backgroundColor, variant = 'inline', pinComposer = false, bare = false,
 }: InlineCommentsProps) {
   const c = useColors();
   const { userInfo } = useAppSelector((s) => s.auth);
@@ -259,7 +261,7 @@ export default function InlineComments({
   useLayoutEffect(() => () => { if (pinned) panel!.setFooter(null); }, [pinned, panel]);
 
   return (
-    <View style={[variant === 'inline' && styles.framed, { backgroundColor: bg, borderTopColor: c.borderDark }]}>
+    <View style={[variant === 'inline' && !bare && styles.framed, { backgroundColor: bg, borderTopColor: c.borderDark }]}>
       {makeRoom && suggesting ? (
         // Laid out before the catch-up scroll, so the field is already at
         // the foot by the time the frame draws.

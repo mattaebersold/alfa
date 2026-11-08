@@ -28,8 +28,7 @@ import {
   COMMON_RADIUS,
   PILL_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_22,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { imageUrl } from '../../utils/image';
@@ -973,7 +972,7 @@ const styles = StyleSheet.create({
   thumbWrap: { marginRight: 8, position: 'relative' },
   addTile:     { borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
   addTileText: { fontSize: 10, fontFamily: FONT_INTER.bold, textAlign: 'center' },
-  thumb:     { width: 72, height: 72, borderRadius: 8, backgroundColor: COLOR_GRAY_22 },
+  thumb:     { width: 72, height: 72, borderRadius: 8, backgroundColor: SURFACE_MID },
   thumbX: {
     position: 'absolute', top: 4, right: 4,
     width: 20, height: 20, borderRadius: PILL_RADIUS,

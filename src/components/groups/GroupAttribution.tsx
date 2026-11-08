@@ -55,7 +55,7 @@ export default function GroupAttribution({
 
   // The banner if there is one — it's the group's own picture at the shape this
   // row wants. The profile shot is the fallback, then a plain badge.
-  const image = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
+  const image = firstGalleryUrl(group.banners, 'thumb') ?? firstGalleryUrl(group.gallery, 'thumb');
   const name = group.title ?? 'Group';
 
   // The page if you're a member, the summary with Join if you're not — see

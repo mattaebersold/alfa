@@ -280,7 +280,7 @@ function SpotTagRow({ selected, onToggle, onCreate }: {
     if (!spot) return [];
     return [{
       tag: { id, label: spot.title || 'Photo spot', kind: 'spot' as const },
-      image: firstGalleryUrl(spot.gallery),
+      image: firstGalleryUrl(spot.gallery, 'thumb'),
       fallback: <MapPin size={22} color={colors.grey} />,
     }];
   });
@@ -366,13 +366,13 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
     id: c.internal_id,
     label: [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car',
     kind: 'car',
-    image: carHeroUrl(c),
+    image: carHeroUrl(c, 'thumb'),
   });
   const toEvent = (e: any): TagItem => ({
     id: e.internal_id,
     label: e.title || 'Event',
     kind: 'event',
-    image: firstGalleryUrl(e.gallery) ?? (e.hero_image ? imageUrl(e.hero_image) : null),
+    image: firstGalleryUrl(e.gallery, 'thumb') ?? (e.hero_image ? imageUrl(e.hero_image, 'thumb') : null),
   });
   // What you've tagged before, as tiles over each search — see TagRow.
   const { data: recentUsers }  = useGetPreviouslyTaggedUsersQuery();
@@ -380,7 +380,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   // Never yourself: tagging yourself in your own post isn't a shortcut anyone needs.
   const userCards: TagCard[] = (recentUsers?.users ?? []).filter((u: any) => !myId || u.user_id !== myId).map((u: any) => ({
     tag: userTag(u),
-    image: imageUrl(u.gallery?.[0]?.filename ?? u.profilePicture),
+    image: imageUrl(u.gallery?.[0]?.filename ?? u.profilePicture, 'thumb'),
     // No photo: the tile is their colour, their initials white on it — the
     // whole tile, rather than an avatar's disc sat in a black one.
     fallback: <Text style={styles.tileInitials}>{initialsFor({ firstName: u.firstName, lastName: u.lastName, username: u.username })}</Text>,

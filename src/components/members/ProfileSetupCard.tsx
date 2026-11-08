@@ -7,7 +7,7 @@ import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 import { ProfilePhotoSheet, BioSheet } from './ProfileSetupSheets';
 import { colors } from '../../constants/colors';
 import type { SetupPrompt } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_18, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** The card's own steps — 'username' is AccountPrompt's alone. */
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.countBadge,
     alignItems: 'center', justifyContent: 'center',
   },
-  bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  bubbleText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_ON_ALERT },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 13.5, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
   dismiss: {

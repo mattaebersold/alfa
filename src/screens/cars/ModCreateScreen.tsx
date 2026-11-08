@@ -30,7 +30,7 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
   // For the heading's "for" line: the car's photo, and its name when the
   // caller didn't pass one.
   const { data: car } = useGetCarQuery(carId, { skip: !carId });
-  const carPhoto = car ? carHeroUrl(car) : null;
+  const carPhoto = car ? carHeroUrl(car, 'thumb') : null;
   const carName = carTitle
     || car?.title
     || [car?.year, car?.make, car?.model].filter(Boolean).join(' ');

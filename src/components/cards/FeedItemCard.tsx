@@ -34,7 +34,7 @@ import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/col
 import { DIECAST_BLUE } from '../../constants/diecast';
 
 /**
- * The feed card's ground — a step below `colors.card` (#1e1e1e).
+ * The feed card's ground — `colors.card`, SURFACE_MID.
  *
  * The feed is a column of these against the page's APP_BG, and at card grey
  * they ran together as one continuous slab. Staying under it gives each card an
@@ -43,10 +43,12 @@ import { DIECAST_BLUE } from '../../constants/diecast';
  * #202020, which sat above `card` and made the posts the brightest things on
  * the page, when the photos in them should be.
  */
-const FEED_CARD_BG = COLOR_GRAY_29;
+const FEED_CARD_BG = SURFACE_MID;
 
 /** Lines of description a card shows before it offers "more". */
 const BODY_LINES = 2;
+/** The same, on a post with no photo — the words are the whole post, so more of them show. */
+const BODY_LINES_NO_MEDIA = 6;
 
 /**
  * The visible lines, with their tail cut back to make room for "… more".
@@ -86,7 +88,7 @@ function clipForMore(lines: string[], room = MORE_ROOM): string {
 const EXPAND_MS = 260;
 
 function ClampedText({
-  text, lines, expandable, startExpanded, wrapStyle, style, moreColor, moreRoom, onPress,
+  text: rawText, lines, expandable, startExpanded, wrapStyle, style, moreRoom, onPress,
 }: {
   text: string;
   lines: number;
@@ -95,11 +97,13 @@ function ClampedText({
   startExpanded: boolean;
   wrapStyle: any;
   style: any;
-  moreColor: string;
   /** Characters cut from the last line to fit the link — wider for bigger type. */
   moreRoom: number;
   onPress?: () => void;
 }) {
+  // URLs shown as a bold "View More" — swapped before layout, so the clamp
+  // measures what's shown. See utils/linkify.
+  const { text, urls } = useMemo(() => linkify(rawText), [rawText]);
   const [expanded, setExpanded] = useState(startExpanded);
   const [lineCount, setLineCount] = useState<number | null>(null);
   /** The first `lines` lines as laid out — what the clamped preview shows. */
@@ -140,11 +144,12 @@ function ClampedText({
       >
         <MentionText
           text={inlineMore ? `${clipForMore([clip!], moreRoom)}… ` : text}
+          links={urls}
           style={style}
           numberOfLines={expanded ? undefined : lines}
           trailing={inlineMore ? (
             <Text
-              style={[styles.moreLink, { color: moreColor }]}
+              style={[style, styles.moreLink]}
               onPress={expand}
               accessibilityRole="button"
             >
@@ -163,6 +168,7 @@ function ClampedText({
           <MentionText
             text={text}
             style={style}
+            links={urls}
             onTextLayout={(e) => {
               const laid: { text: string }[] = e.nativeEvent?.lines ?? [];
               setLineCount(laid.length);
@@ -178,6 +184,7 @@ import { useColors } from '../../hooks/useColors';
 import type { FeedStackParamList } from '../../navigation/types';
 import type { Post } from '../../types/api';
 import { stripHtml } from '../../utils/text';
+import { linkify } from '../../utils/linkify';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import PostContextRow, { usePostContextItems } from '../social/PostContextRow';
 import PostPlaceLine from '../social/PostPlaceLine';
@@ -189,8 +196,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_FOREST,
-  COLOR_GRAY_29,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -511,12 +517,11 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {!spotResult && !!post.title !== !!bodyText ? (
         <ClampedText
           text={post.title || bodyText}
-          lines={BODY_LINES}
+          lines={hasMedia ? BODY_LINES : BODY_LINES_NO_MEDIA}
           expandable
           startExpanded={fullText}
           wrapStyle={styles.titleAsBodyWrap}
           style={[styles.wordsAlone, { color: COLOR_WHITE }]}
-          moreColor={mutedColor}
           moreRoom={MORE_ROOM}
           onPress={onPress}
         />
@@ -529,7 +534,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           startExpanded={fullText}
           wrapStyle={hasMedia ? styles.titleWrap : styles.titleAloneWrap}
           style={[hasMedia ? styles.title : styles.titleAlone, { color: COLOR_WHITE }]}
-          moreColor={fgColor}
           moreRoom={hasMedia ? 12 : 16}
           onPress={onPress}
         />
@@ -538,16 +542,23 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {post.title && bodyText ? (
         <ClampedText
           text={bodyText}
-          lines={BODY_LINES}
+          lines={hasMedia ? BODY_LINES : BODY_LINES_NO_MEDIA}
           expandable
           startExpanded={fullText}
           wrapStyle={styles.bodyPreviewWrap}
           style={[styles.bodyPreview, { color: mutedColor }]}
-          moreColor={mutedColor}
           moreRoom={MORE_ROOM}
           onPress={onPress}
         />
       ) : null}
+
+      {/* No photo to carry the actions: a row of their own straight under the
+          words, right-aligned. */}
+      {!hasMedia && !spotResult && (
+        <View style={styles.footerRow}>
+          {rail(false)}
+        </View>
+      )}
 
       {/* The poll, when the post has one — under the words and above the
           picture, because the question is what the words were leading up
@@ -672,14 +683,6 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* Closer under the tiles when there are any — they already leave room. */}
       {spotResult ? null : <PostPlaceLine place={post.place} color={mutedColor} style={[styles.placeLine, hasContextTiles && styles.placeLineUnderTiles]} />}
 
-      {/* No photo to carry the actions: they end the card in a row of their
-          own instead, right-aligned. */}
-      {!hasMedia && !spotResult && (
-        <View style={styles.footerRow}>
-          {rail(false)}
-        </View>
-      )}
-
 
       <LikersSheet
         entryId={post.internal_id}
@@ -744,7 +747,8 @@ const styles = StyleSheet.create({
   // Underlined and on its own line: inline it would have to sit inside the
   // clamped Text, where it'd be the first thing the clamp cut off.
   // Inline at the end of the preview's last line, in the preview's own size.
-  moreLink: { fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
+  // The words' own weight and colour — just underlined, so it still reads as a link.
+  moreLink: { textDecorationLine: 'underline' },
 
   image:       { width: '100%' },
   // Rounded all round, the card's radius — a tile set into the card between

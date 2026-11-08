@@ -29,6 +29,7 @@ export default function SummaryUserRow({
   at = false,
   edge = false,
   viewButton = true,
+  trailing,
 }: {
   userId: string;
   user?: AvatarUser;
@@ -44,9 +45,14 @@ export default function SummaryUserRow({
   edge?: boolean;
   /** The View button. Off where the row alone is enough of a target. */
   viewButton?: boolean;
+  /** Pinned at the row's end, after the View button if there is one — an Unlike on your own row, say. */
+  trailing?: React.ReactNode;
 }) {
   const rowRef = useRef<View>(null);
   const username = user?.username;
+  // Pro members wear their ring and wheel here as they do in MemberRow.
+  const accountType = (user as { accountType?: string } | undefined)?.accountType;
+  const isPro = accountType === 'pro' || accountType === 'admin';
 
   // Measured off the row, whichever was tapped, so the stacked panel grows out
   // of the person rather than out of a small button at the row's edge.
@@ -61,7 +67,7 @@ export default function SummaryUserRow({
       accessibilityRole="button"
       accessibilityLabel={username ? `View @${username}` : 'View member'}
     >
-      <UserByline user={user} size={avatarSize} at={at} edge={edge} gap={10} fill nameStyle={styles.name} style={styles.who}>
+      <UserByline user={user} size={avatarSize} at={at} edge={edge} pro={isPro} gap={10} fill nameStyle={styles.name} style={styles.who}>
         {badge}
       </UserByline>
       {viewButton && (
@@ -78,6 +84,7 @@ export default function SummaryUserRow({
         <Text style={styles.viewText}>View</Text>
       </TouchableOpacity>
       )}
+      {trailing}
     </TouchableOpacity>
   );
 }

@@ -26,4 +26,7 @@ const OVERSHOOT = 1.3;
 export const TAB_EASING = Easing.out(Easing.back(OVERSHOOT));
 
 /** The same curve as a Reanimated layout transition, for the tabs and their track. */
+/** TAB_EASING for Reanimated — the thumb, which runs on the UI thread. */
+export const TAB_EASING_UI = ReEasing.out(ReEasing.back(OVERSHOOT));
+
 export const TAB_LAYOUT = LinearTransition.duration(TAB_MOVE_MS).easing(ReEasing.out(ReEasing.back(OVERSHOOT)));

@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ShopifyCheckoutSheetProvider, ColorScheme } from '@shopify/checkout-sheet-kit';
+import { ProPurchaseProvider } from './src/providers/ProPurchaseProvider';
 import { StatusBar } from 'expo-status-bar';
 import { PortalHost, enableKitFonts } from '@ors/kit';
 import { FONT_FILES } from './src/constants/fonts';
@@ -17,6 +18,7 @@ import { store } from './src/store/store';
 import RootNavigator from './src/navigation/RootNavigator';
 import OfflineOverlay from './src/components/ui/OfflineOverlay';
 import AppErrorBoundary from './src/components/ui/AppErrorBoundary';
+import { AppPushView } from './src/components/ui/SlidePanel';
 import { configureImageMemory } from './src/components/ui/AppImage';
 // Registers the route background-location task. Imported for its side
 // effect: defineTask must run before React mounts, because the OS can
@@ -58,11 +60,18 @@ export default function App() {
           <StatusBar style="light" />
           {/* Floating lists (autocompletes) draw here, over the screens; each
               Modal has a host of its own. */}
+          {/* In-app purchase of Pro — off until horacio's iap config says
+              otherwise. See providers/ProPurchaseProvider. */}
+          <ProPurchaseProvider>
+          {/* The app slides left as the main menu comes in from the right — see SlidePanel. */}
+          <AppPushView>
           <PortalHost>
           <AppErrorBoundary>
           <RootNavigator />
           </AppErrorBoundary>
           </PortalHost>
+          </AppPushView>
+          </ProPurchaseProvider>
           {/* Last child, so it covers the navigator rather than being covered
               by it — an outage has to be answerable from whatever screen the
               app happens to be on. */}

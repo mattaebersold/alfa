@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
+import { useBrandColor, useBrandTextColor, contrastText } from '../../hooks/useBrandColor';
 import {
   TouchableOpacity, ActivityIndicator, StyleSheet, StyleProp, ViewStyle, TextStyle,
 } from 'react-native';
@@ -18,6 +18,8 @@ interface SharedButtonProps {
   /** 'blue' (default) = blue fill, black text. 'outline' = transparent w/ border. */
   variant?: 'blue' | 'outline';
   Icon?: LucideIcon;
+  /** In place of the brand colour — the outline's edge and lettering, or the fill. */
+  tint?: string;
   disabled?: boolean;
   loading?: boolean;
   /** Full-width block button. */
@@ -35,6 +37,7 @@ export default function SharedButton({
   onPress,
   variant = 'blue',
   Icon,
+  tint,
   disabled,
   loading,
   full,
@@ -42,8 +45,10 @@ export default function SharedButton({
   textStyle,
 }: SharedButtonProps) {
   const isOutline = variant === 'outline';
-  const brand = useBrandColor();
-  const brandText = useBrandTextColor();
+  const brandColor = useBrandColor();
+  const brandTextColor = useBrandTextColor();
+  const brand = tint ?? brandColor;
+  const brandText = tint ? contrastText(tint) : brandTextColor;
   const fg = isOutline ? brand : brandText;
 
   return (

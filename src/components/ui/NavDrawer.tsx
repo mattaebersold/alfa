@@ -6,13 +6,14 @@ import { Text } from '@ors/kit';
 import { Image } from './AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Car, Users, ShoppingBag, BookOpen, Flag, X, ChevronRight, Store, Route, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, Package, LifeBuoy, Camera, UserPlus, Settings, MapPinned, Waypoints, Shield,
+  Car, Users, ShoppingBag, BookOpen, X, Calendar, ChevronRight, Store, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, LifeBuoy, Camera, UserPlus, Settings,
 
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LogOut } from 'lucide-react-native';
-import GrowPanel, { type GrowOrigin } from './GrowPanel';
+import type { GrowOrigin } from './GrowPanel';
+import SlidePanel from './SlidePanel';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { useGetBadgesQuery, useGetMyEventsCountQuery } from '../../api/apiService';
 import { useMarketplaceUnread } from '../marketplace/MarketplaceUnreadBadge';
@@ -29,8 +30,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_LOGO_CREAM,
-  COLOR_WHITE,
-  COLOR_GRAY_10,
+  COLOR_WHITE, SURFACE_BLACK, COLOR_ON_ALERT
 } from '../../constants/config';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import InviteFriendModal from '../members/InviteFriendModal';
@@ -124,7 +124,7 @@ const CIRCLE_BG = 'rgba(0,0,0,0.6)';
 const LOGO_CREAM = COLOR_LOGO_CREAM;
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, count, wide, flex, row }: {
+function NavTile({ label, Icon, onPress, count, wide, flex, row, fill }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
@@ -140,6 +140,8 @@ function NavTile({ label, Icon, onPress, count, wide, flex, row }: {
   flex?: number;
   /** A tile in one of the sideways rows (NavSection): a fixed width. */
   row?: boolean;
+  /** Half of a wrapping row, growing to the row's full width — the section grid. */
+  fill?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -148,13 +150,14 @@ function NavTile({ label, Icon, onPress, count, wide, flex, row }: {
         row && styles.navTileRow,
         wide && styles.navTileWide,
         flex != null && { width: undefined, flex },
+        fill && styles.navTileFill,
       ]}
       onPress={onPress}
       activeOpacity={0.75}
     >
       {/* Larger and white: the mark is how a tile is found at a glance, and at
           mid grey it sat behind its own label. */}
-      <Icon size={row ? 22 : 24} color={COLOR_WHITE} />
+      <Icon size={row ? 17 : 24} color={COLOR_WHITE} />
       <Text style={[styles.navTileLabel, row && styles.navTileLabelRow]} numberOfLines={1}>{label}</Text>
       {/* Stacked, pinned to the corner — there's no end of the line for it.
           Inline in a row tile, after the label. */}
@@ -169,19 +172,12 @@ function NavTile({ label, Icon, onPress, count, wide, flex, row }: {
   );
 }
 
-/** A titled group of tiles, in a row that scrolls sideways out to the panel's edges. */
+/** A titled group of small tiles, wrapping onto as many lines as they need — nothing runs off the edge. */
 function NavSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.sectionScroll}
-        contentContainerStyle={styles.sectionRow}
-      >
-        {children}
-      </ScrollView>
+      <View style={styles.sectionRow}>{children}</View>
     </View>
   );
 }
@@ -277,7 +273,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const { openEventSheet } = useEventSheet();
 
   /**
-   * Set by GrowPanel once mounted — the panel owns the open/close animation
+   * Set by SlidePanel once mounted — the panel owns the open/close animation
    * and hands this in, so every "leave the menu" path below goes through the
    * same collapse-then-go. Held in a ref so the callbacks defined here (which
    * are created before the panel renders) can reach it.
@@ -303,6 +299,11 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
     ]);
   }, [closeThen, dispatch]);
 
+  /** Home, on one of its header sections — the menu's section grid. */
+  const openHomeTab = (tab: string) => closeThen(() => navigation.navigate('MainTabs', {
+    screen: 'FeedTab',
+    params: { screen: 'Feed', params: { tab, at: Date.now() } },
+  } as any));
   const goFeed = useCallback((screen: 'Feed' | 'Groups' | 'Articles' | 'Podcasts' | 'Search' | 'Dashboard' | 'Members' | 'Marketplace' | 'Brands') => {
     closeThen(() => navigation.navigate('MainTabs', {
       screen: 'FeedTab',
@@ -312,7 +313,10 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
 
 
   return (
-    <GrowPanel visible={visible} origin={origin} onClose={onClose} backdrop="summary">
+    // A full-height pane in from the right, the app pushed left beside it —
+    // see SlidePanel. (`origin` is kept for callers but no longer used: it
+    // doesn't grow out of the button any more.)
+    <SlidePanel visible={visible} onClose={onClose}>
       {({ closeThen: panelClose }) => {
         leave.current = panelClose;
         return (
@@ -418,56 +422,17 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 )}
               </View>
 
-              {/* The places you browse to, grouped, each group a row that
-                  scrolls sideways. */}
-              <NavSection title="Events & Drives">
-                {/* Home, on its Events tab — where events live now. */}
-                <NavTile row label="Events" Icon={Flag} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'events', at: Date.now() } },
-                  } as any))} />
-                <NavTile row label="ORS Rallys" Icon={Route}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', { screen: 'SocietyTab', params: { screen: 'Rallys' } } as any))} />
-                <NavTile row label="Routes" Icon={Waypoints}
-                  onPress={() => closeThen(() => navigation.navigate('Routes'))} />
-              </NavSection>
-
-              <NavSection title="Community">
-                <NavTile row label="Groups" Icon={Users} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'groups', at: Date.now() } },
-                  } as any))} />
-                <NavTile row label="Members" Icon={UserRound} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'members', at: Date.now() } },
-                  } as any))} />
-                {/* Where posts were made, as pins — the other map you browse. */}
-                <NavTile row label="Posts Map" Icon={MapPinned}
-                  onPress={() => closeThen(() => navigation.navigate('PostsMap'))} />
-                {/* Home, on its Photography tab — the map lives there now. */}
-                <NavTile row label="Photography" Icon={Camera}
-                  onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'photography', at: Date.now() } },
-                  } as any))} />
-                <NavTile row label="Marketplace" Icon={ShoppingBag} count={marketplaceUnread} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'market', at: Date.now() } },
-                  } as any))} />
-                {/* Pro-only, beside the marketplace it lists into. */}
-                {isPro && (
-                  <NavTile row label="List a Diecast" Icon={Package}
-                    onPress={() => closeThen(() => navigation.navigate('DiecastCreate'))} />
-                )}
-              </NavSection>
-
-              <NavSection title="Cars">
-                <NavTile row label="Member Cars" Icon={Car} onPress={() => closeThen(() => navigation.navigate('MainTabs', {
-                    screen: 'FeedTab',
-                    params: { screen: 'Feed', params: { tab: 'cars', at: Date.now() } },
-                  } as any))} />
-                <NavTile row label="All Brands" Icon={Shield} onPress={() => goFeed('Brands')} />
-              </NavSection>
+              {/* The home sections — the header's own tab list — as a fixed
+                  grid, nothing to scroll: two to a row across the full width.
+                  Each opens home on that section. */}
+              <View style={styles.sectionGrid}>
+                <NavTile fill label="Events" Icon={Calendar} onPress={() => openHomeTab('events')} />
+                <NavTile fill label="Marketplace" Icon={ShoppingBag} count={marketplaceUnread} onPress={() => openHomeTab('market')} />
+                <NavTile fill label="Groups" Icon={Users} onPress={() => openHomeTab('groups')} />
+                <NavTile fill label="Photography" Icon={Camera} onPress={() => openHomeTab('photography')} />
+                <NavTile fill label="Cars" Icon={Car} onPress={() => openHomeTab('cars')} />
+                <NavTile fill label="Members" Icon={UserRound} onPress={() => openHomeTab('members')} />
+              </View>
 
 
               <NavSection title="The Society">
@@ -508,7 +473,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                 >
                   {/* What's New's button, under it, without the gradient: the
                       same slab and chevron. */}
-                  <Settings size={17} color={COLOR_GRAY_10} strokeWidth={2.2} />
+                  <Settings size={17} color={SURFACE_BLACK} strokeWidth={2.2} />
                   <View style={styles.userCardText}>
                     <Text style={styles.userCardName} numberOfLines={1}>Dashboard & Settings</Text>
                   </View>
@@ -683,7 +648,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
           </View>
 
           {/* Sheets that open over the menu. Rendered in here, inside
-              GrowPanel's own Modal, on purpose: on iOS a Modal is presented
+              SlidePanel's own Modal, on purpose: on iOS a Modal is presented
               by the nearest presented controller above it, so a sibling
               outside the panel would be asked of the root — which is busy
               showing the panel — and never appear. Inside, each stacks on
@@ -724,12 +689,12 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
           </>
         );
       }}
-    </GrowPanel>
+    </SlidePanel>
   );
 }
 
 const styles = StyleSheet.create({
-  // The panel's box, backdrop and fade are GrowPanel's; only what's drawn
+  // The pane, its push and its wash are SlidePanel's; only what's drawn
   // inside the panel is styled here.
   // One line: the mark, the wordmark, and the X — on the panel itself.
   // Over the top of the list; the fade below the row is HEADER_FADE_H.
@@ -778,7 +743,7 @@ const styles = StyleSheet.create({
     borderRadius: COMMON_RADIUS, backgroundColor: USER_CARD_BG,
   },
   userCardText: { flex: 1, minWidth: 0 },
-  userCardName: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: COLOR_GRAY_10 },
+  userCardName: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: SURFACE_BLACK },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
   // The inbox circles, spread evenly across the row.
@@ -810,10 +775,10 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: FONT_INTER.medium,
     color: COLOR_WHITE, marginBottom: 8,
   },
-  // Out to the panel's edges, so a row scrolls under them rather than
-  // stopping at the gutter; the content puts the gutter back.
-  sectionScroll: { marginHorizontal: -16 },
-  sectionRow:    { gap: 8, paddingHorizontal: 16 },
+  // Wraps rather than scrolling sideways, so every tile is in view.
+  sectionRow:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // The home sections: tiles two to a row, filling the pane's width.
+  sectionGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18 },
 
   navTile:  {
     width: TILE_WIDTH,
@@ -825,20 +790,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 16, borderRadius: 12,
     backgroundColor: TILE_BG,
   },
-  navTileWide:  { width: undefined, flex: 1 },
+  navTileWide:  { width: '100%' },
+  // Two to a row, sharing it edge to edge whatever the pane's width.
+  navTileFill:  { width: undefined, flexGrow: 1, flexBasis: '40%' },
   // Inline and short: the icon beside the label, and as wide as the two need.
   navTileRow:   {
     width: undefined,
-    flexDirection: 'row', justifyContent: 'flex-start', gap: 10,
+    flexDirection: 'row', justifyContent: 'flex-start', gap: 7,
     // The inbox circles' dark well.
     backgroundColor: CIRCLE_BG,
-    paddingHorizontal: 14, paddingVertical: 16,
+    // Small: these are the society's pages, a step down from the sections above.
+    paddingHorizontal: 11, paddingVertical: 9, borderRadius: 10,
   },
   navTileLabel: {
     fontSize: 12.5, fontFamily: FONT_INTER.bold, color: TEXT_HI,
     textAlign: 'center', flexShrink: 1,
   },
-  navTileLabelRow: { fontSize: 15, textAlign: 'left', flexShrink: 0 },
+  navTileLabelRow: { fontSize: 13, textAlign: 'left', flexShrink: 0 },
   rowGap:       { marginTop: 8 },
   // Every count in the menu is the app's "waiting for you" red — the bell's
   // bubble — a circle for one digit, stretching to a pill for more.
@@ -850,7 +818,7 @@ const styles = StyleSheet.create({
   // On a tile, pinned in the corner — far enough in that it sits on the tile
   // rather than on its edge. In an inbox pill it's inline, after the label.
   unreadPillCorner: { position: 'absolute', top: 11, right: 11 },
-  unreadPillText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_WHITE },
+  unreadPillText: { fontSize: 11.5, fontFamily: FONT_INTER.extrabold, color: COLOR_ON_ALERT },
 
   // Two outlined buttons sharing the row evenly.
   footLinks:    { flexDirection: 'row', gap: 8, marginTop: 10 },

@@ -7,7 +7,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { categoryFor, eventCityState, formatEventDate } from '../../constants/eventTypes';
 import type { SocietyEvent } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_17, COLOR_GRAY_23 } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 const CARD_WIDTH = 168;
@@ -15,7 +15,7 @@ const CARD_GAP = 10;
 const ROW_PAD_LEFT = 16;
 const MEDIA_RATIO = 4 / 3;
 /** The profile shelves' card shade — see PostStrip and PhotoSpotShelf. */
-const CARD_BG = COLOR_GRAY_23;
+const CARD_BG = SURFACE_MID;
 
 /**
  * The events you've been to, as a shelf on your profile — the same shape as
@@ -61,7 +61,7 @@ export default function AttendedEventsShelf({ events, onEventPress }: {
               accessibilityLabel={event.title}
             >
               <View style={styles.imageWrap}>
-                <EventImage uri={firstGalleryUrl(event.gallery)} style={styles.image} />
+                <EventImage uri={firstGalleryUrl(event.gallery, 'small')} style={styles.image} />
                 <View style={[styles.typeBadge, { backgroundColor: category.color }]}>
                   <Text style={styles.typeText} numberOfLines={1}>{category.label}</Text>
                 </View>
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   },
   // Rounded along its foot too, as the Photo spots cards are.
   imageWrap: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
-  image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: COLOR_GRAY_17 },
+  image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: SURFACE_MID },
   typeBadge: {
     position: 'absolute', left: 8, bottom: 8, maxWidth: CARD_WIDTH - 16,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,

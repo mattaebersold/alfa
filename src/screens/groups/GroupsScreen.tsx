@@ -12,7 +12,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGetGroupsQuery, useGetUserGroupsQuery, useGetUsageQuery } from '../../api/apiService';
-import { useBrandTextColor, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
 import { firstGalleryUrl } from '../../utils/image';
 import EmptyState from '../../components/ui/EmptyState';
@@ -39,7 +39,7 @@ import {
   COLOR_MEMBER_BLUE,
   COLOR_WHITE,
   GUTTER,
-  COLOR_GRAY_40, MAIN_SCREEN_TOP_GAP} from '../../constants/config';
+  COLOR_GRAY_40, MAIN_SCREEN_TOP_GAP, COLOR_ALERT, COLOR_ON_ALERT, FEED_CARD_GUTTER} from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
 import GroupCard, { CARD_RADIUS } from '../../components/groups/GroupCard';
@@ -182,7 +182,6 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const colors = useColors();
   const tabBarHeight = useBottomTabBarHeight();
   const { userInfo } = useAppSelector((s) => s.auth);
-  const brandTextColor = useBrandTextColor();
   const [search, setSearch] = useState('');
   /**
    * Region filter. `null` is every region; `'none'` is the groups that
@@ -325,11 +324,25 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                       and answering it there costs no vertical space. */}
                   <View style={styles.myGroupsHeadingRow}>
                     <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
-                    <View style={[styles.myGroupsCount, { backgroundColor: brand }]}>
-                      <Text style={[styles.myGroupsCountText, { color: brandTextColor }]}>
+                    {/* The alert blue, black lettering — as every count badge. */}
+                    <View style={[styles.myGroupsCount, { backgroundColor: COLOR_ALERT }]}>
+                      <Text style={[styles.myGroupsCountText, { color: COLOR_ON_ALERT }]}>
                         {userGroups.length}
                       </Text>
                     </View>
+                    {/* Making a group lives on the heading's right, as a small
+                        outline button, rather than a full-width bar under it. */}
+                    {canCreateGroup && (
+                      <SharedButton
+                        label="New"
+                        Icon={Plus}
+                        variant="outline"
+                        tint={COLOR_WHITE}
+                        onPress={() => setNewGroupOpen(true)}
+                        style={styles.newGroupHeadBtn}
+                        textStyle={styles.newGroupHeadText}
+                      />
+                    )}
                   </View>
                   <ScrollView
                     horizontal
@@ -352,7 +365,9 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
 
               {/* Full width, between your groups and the search — the one
                   thing on the screen that makes something. */}
-              {canCreateGroup && (
+              {/* With no groups of your own there's no heading to hold it, so
+                  New Group keeps its full-width place. */}
+              {canCreateGroup && userGroups.length === 0 && (
                 <SharedButton
                   label="New Group"
                   Icon={Plus}
@@ -361,6 +376,11 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                   style={[styles.newGroupBtn, userGroups.length === 0 && styles.newGroupBtnFirst]}
                 />
               )}
+
+              {/* The browse below, headed the same way as your own groups above. */}
+              <View style={[styles.myGroupsHeadingRow, styles.allGroupsHeadingRow]}>
+                <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>All Groups</Text>
+              </View>
 
               <View style={styles.searchRow}>
                 <SearchPill value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search groups..." />
@@ -448,11 +468,17 @@ const styles = StyleSheet.create({
    */
   // No box of its own: the heading and the row sit straight on the page,
   // full-bleed so the cards scroll out to the screen's edge.
-  myGroupsSection: { paddingTop: 4, marginBottom: 16 },
+  // Pulled up toward the tabs; more room between the heading and its cards.
+  myGroupsSection: { marginTop: -6, marginBottom: 16 },
   myGroupsHeadingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: MY_SECTION_MARGIN, marginBottom: 10,
+    paddingHorizontal: FEED_CARD_GUTTER, marginBottom: 14,
   },
+  // Leads into the search row, which brings its own room above.
+  allGroupsHeadingRow: { marginBottom: 0 },
+  // Small, on the heading's right edge.
+  newGroupHeadBtn: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, gap: 4 },
+  newGroupHeadText: { fontSize: 13 },
   // Uppercase and small, like a section label rather than a page title — the
   // page title is "Groups", and two headings at the same weight competed.
   // A section heading, in the form's heading face — not a small caps label.

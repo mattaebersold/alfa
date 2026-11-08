@@ -166,7 +166,7 @@ export default function RallyDetailScreen({ route }: SocietyScreenProps<'RallyDe
               contentContainerStyle={styles.galleryStrip}
               renderItem={({ item, index }) => (
                 <TouchableOpacity activeOpacity={0.9} onPress={() => setZoomIndex(galleryOffset + index)}>
-                  <Image source={{ uri: imageUrl(item.filename) ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
+                  <Image source={{ uri: imageUrl(item.filename, 'small') ?? undefined }} style={styles.galleryThumb} contentFit="cover" />
                 </TouchableOpacity>
               )}
             />

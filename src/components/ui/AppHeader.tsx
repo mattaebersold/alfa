@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, type StyleProp, type ViewStyle } from 'react-native';
+import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { Text } from '@ors/kit';
+import { FONT_INTER } from '../../constants/fonts';
+import UnderlineTabs, { UNDERLINE_TABS_H, type UnderlineTabsAction } from './UnderlineTabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { openHaptic } from '../../utils/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { headerOffset, resetHeader } from '../../hooks/useHeaderScroll';
 import { goBackToTop } from '../../hooks/useScrollTopOnBack';
@@ -20,9 +25,10 @@ import { useGetUserGarageQuery, useGetLoggedInUserQuery } from '../../api/apiSer
 import SummaryModal, { type SummaryOrigin } from './SummaryModal';
 import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
-import MainTabs, { type MainTab } from './MainTabs';
+import MainTabs, { DENSE_TRACK_H, type MainTab } from './MainTabs';
 import type { AppStackParamList } from '../../navigation/types';
-import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE } from '../../constants/config';
+import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE, APP_BG, SURFACE_BLACK, SURFACE_MID, TAB_IDLE_FG } from '../../constants/config';
+import { withAlpha } from '../../constants/colors';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -90,6 +96,8 @@ const BACK_GAP = 7;
 
 /** The bar's side padding — the back button's travel has to clear it too. */
 const BAR_PAD_H = GUTTER + 8;
+/** The header buttons' inset from the screen edge — for rows that should line up with them. */
+export const HEADER_GUTTER = BAR_PAD_H;
 /**
  * Where the back button starts: fully past the left edge of the screen, with
  * room for its shadow, so it arrives from outside rather than fading up in
@@ -117,20 +125,28 @@ export const APP_HEADER_HEIGHT = BTN + TOP_OFFSET + ROW_PAD_V;
  * the floating buttons. The bar is an absolute overlay and reserves no layout
  * space, so content scrolls up underneath it.
  */
-export function useHeaderPad({ tabs = false }: { tabs?: boolean } = {}): number {
+export function useHeaderPad({ tabs = false, subTabs = false }: { tabs?: boolean; subTabs?: boolean } = {}): number {
   const insets = useSafeAreaInsets();
-  return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0);
+  return insets.top + APP_HEADER_HEIGHT + (tabs ? HEADER_TABS_HEIGHT : 0) + (subTabs ? HEADER_SUB_TABS_HEIGHT : 0);
 }
 
 /** Extra room between the button row and the tab row under it. */
-const TABS_GAP = 6;
+const TABS_GAP = 3;
 
 /**
  * Height of the tab row under the buttons, on screens that have one: the
- * tabs' track (MainTabs `dense`: 38 tabs inside 1 of padding either side, 40)
- * the room above it (TABS_GAP) and under it (tabsRow's paddingBottom, 4).
+ * tabs' track (MainTabs' DENSE_TRACK_H), the room above it (TABS_GAP) and under it (tabsRow's paddingBottom, 4).
  */
-export const HEADER_TABS_HEIGHT = 44 + TABS_GAP;
+export const HEADER_TABS_HEIGHT = DENSE_TRACK_H + 4 + TABS_GAP;
+
+/** One of the smaller options under the main tabs — see SubTabsRow. */
+const SUB_TAB_H = UNDERLINE_TABS_H;
+/**
+ * The extra height the tab row grows by when a section's options show under
+ * it: the options themselves and the room below them. A screen whose content
+ * sits under them pads with `useHeaderPad({ tabs: true, subTabs: true })`.
+ */
+export const HEADER_SUB_TABS_HEIGHT = SUB_TAB_H;
 
 /** One entry in the header's tab row — see MainTabs. */
 export type HeaderTab = MainTab;
@@ -188,7 +204,7 @@ function HeaderGround({ height }: { height: number }) {
           scrolls up behind the buttons and tabs and darkens away under them,
           the page's ground at the top easing to nothing past the tab row. */}
       <LinearGradient
-        colors={['rgba(21,21,21,0.96)', 'rgba(21,21,21,0.88)', 'rgba(21,21,21,0)']}
+        colors={[withAlpha(APP_BG, 0.96), withAlpha(APP_BG, 0.88), withAlpha(APP_BG, 0)]}
         locations={[0, 0.72, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -196,22 +212,16 @@ function HeaderGround({ height }: { height: number }) {
   );
 }
 
-function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
+function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, top }: {
   tabs: HeaderTab[];
   activeTab?: string;
   onTabPress?: (key: string) => void;
+  subTabs?: HeaderTab[];
+  activeSubTab?: string;
+  onSubTabPress?: (key: string) => void;
+  subTabsAction?: SubTabsAction;
   top: number;
 }) {
-  const indent = headerOffset.interpolate({
-    inputRange: [-APP_HEADER_HEIGHT, 0],
-    outputRange: [TABS_STUCK_INDENT, 0],
-    extrapolate: 'clamp',
-  });
-  const shrink = headerOffset.interpolate({
-    inputRange: [-APP_HEADER_HEIGHT, 0],
-    outputRange: [TABS_STUCK_SCALE, 1],
-    extrapolate: 'clamp',
-  });
   /**
    * Whether the row has stuck — for the heavier weight it takes there: scaled
    * down, a weight reads lighter, so the stuck tabs step up to Inter Black.
@@ -234,29 +244,70 @@ function HeaderTabs({ tabs, activeTab, onTabPress, top }: {
   });
 
   return (
-    <Animated.View style={[styles.tabs, { top, transform: [{ translateY: lift }] }]}>
+    <Animated.View style={[styles.tabs, subTabs?.length ? styles.tabsWithSubs : null, { top, transform: [{ translateY: lift }] }]}>
       {/* The pills are MainTabs. What's the header's own is how the row
-          rides it: it slides further in as the row sticks — flush with the
-          header's buttons at rest, but on its own against the screen edge it
-          read as crammed into the corner — and shrinks a little as it goes:
-          under the status bar it's a strip you reach for, not the screen's
-          title. Scaled rather than re-sized, so it rides the same
-          native-driven offset. */}
+          rides it: as the row sticks it only moves up — same size, same
+          horizontal place, flush with the header's buttons. */}
+      {/* Mounted for good: the row stays the same whichever section is
+          showing, and the section's own options open beneath it. */}
       <MainTabs
         tabs={tabs}
         value={activeTab}
         onChange={onTabPress}
         inset={TABS_START_PAD}
         stuck={stuck}
-        // TEST: a faint black track (40%) behind the home tabs, not the solid one.
-        trackColor="rgba(0,0,0,0.4)"
+        // Solid black behind the home tabs, always — docked or not, so the row
+        // never seems to lose its ground mid-scroll.
+        trackColor={SURFACE_BLACK}
+        // The lit tab in the card grey, its label white — quieter than the brand fill.
+        thumbColor={SURFACE_MID}
+        // The unlit tabs grey, as the section options under them are.
+        idleColor={SUB_IDLE_FG}
         dense
-        itemsStyle={{ transform: [{ translateX: indent }, { scale: shrink }] }}
         contentContainerStyle={styles.tabsRow}
       />
+      {subTabs?.length ? (
+        <SubTabsRow
+          // Keyed on the set of options, so moving to another section fades
+          // its options in fresh rather than swapping labels in place.
+          key={subTabs.map((t) => t.key).join('|')}
+          tabs={subTabs}
+          value={activeSubTab}
+          onChange={onSubTabPress}
+          action={subTabsAction}
+        />
+      ) : null}
     </Animated.View>
   );
 }
+
+/**
+ * The section's options, under the main tabs: plain labels straight on the
+ * header's ground, no band or track — a quieter level below the row above.
+ * The lit one in white with a short bar under it; the rest grey. Its first
+ * label lines up with the inside of the main row's track. Scrolls sideways
+ * if they run long.
+ */
+function SubTabsRow({ tabs, value, onChange, action }: {
+  tabs: HeaderTab[];
+  value?: string;
+  onChange?: (key: string) => void;
+  action?: SubTabsAction;
+}) {
+  return (
+    <Reanimated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={styles.subRow}>
+      {/* The first label lines up with the inside of the main row's track
+          (its 4pt padding past the gutter), plus a little. */}
+      <UnderlineTabs tabs={tabs} value={value} onChange={onChange} action={action} inset={GUTTER + 4 + 6} />
+    </Reanimated.View>
+  );
+}
+
+/** An action at the end of a section's options. */
+export type SubTabsAction = UnderlineTabsAction;
+
+/** An unlit option's lettering — quieter than the main row's white. */
+const SUB_IDLE_FG = TAB_IDLE_FG;
 
 function FloatingButton({
   onPress, children, label, tint, wide, bare, outlined, round, style,
@@ -330,13 +381,23 @@ interface AppHeaderProps {
   activeTab?: string;
   onTabPress?: (key: string) => void;
   /**
+   * A smaller row of options under the tabs — the section you're in, its
+   * views. The tab row stays as it is and grows to show them beneath.
+   */
+  subTabs?: HeaderTab[];
+  /** The option that's lit. */
+  activeSubTab?: string;
+  onSubTabPress?: (key: string) => void;
+  /** An action at the end of the options — Events' Add New. */
+  subTabsAction?: SubTabsAction;
+  /**
    * What the logo does on a screen that's already where it leads — the home
    * feed refreshing itself. Left out, the logo goes to the home feed.
    */
   onLogoPress?: () => void;
 }
 
-export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoPress }: AppHeaderProps = {}) {
+export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, onLogoPress }: AppHeaderProps = {}) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAppSelector((s) => s.auth);
@@ -359,6 +420,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
     });
   }, []);
   const openDrawer = useCallback(() => {
+    openHaptic();
     const node = menuRef.current;
     if (!node) { setDrawerOpen(true); return; }
     node.measureInWindow((x, y, w, h) => {
@@ -446,9 +508,11 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
       {/* The bar is transparent, so the status bar shows the screen behind it. */}
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + (tabs?.length ? HEADER_TABS_HEIGHT : 0) }} />}
+      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + (tabs?.length ? HEADER_TABS_HEIGHT : 0) + (tabs?.length && subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0) }} />}
 
-      {tabs?.length ? <HeaderGround height={insets.top + APP_HEADER_HEIGHT + HEADER_TABS_HEIGHT} /> : null}
+      {tabs?.length ? (
+        <HeaderGround height={insets.top + APP_HEADER_HEIGHT + HEADER_TABS_HEIGHT + (subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0)} />
+      ) : null}
 
       {/* A scrim from the very top of the device down past the button row.
           The bar floats over whatever the screen is showing, and against a
@@ -470,7 +534,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
           // The page's own ground (APP_BG) rather than black: over the
           // page it vanishes, so the header area and the screen read as one
           // surface, and over a photo it still darkens as before.
-          colors={['rgba(21,21,21,0.86)', 'rgba(21,21,21,0.62)', 'rgba(21,21,21,0)']}
+          colors={[withAlpha(APP_BG, 0.86), withAlpha(APP_BG, 0.62), withAlpha(APP_BG, 0)]}
           locations={[0, 0.6, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -632,6 +696,10 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, onLogoP
           tabs={tabs}
           activeTab={activeTab}
           onTabPress={onTabPress}
+          subTabs={subTabs}
+          activeSubTab={activeSubTab}
+          onSubTabPress={onSubTabPress}
+          subTabsAction={subTabsAction}
           top={insets.top + APP_HEADER_HEIGHT}
         />
       ) : null}
@@ -669,12 +737,8 @@ const TABS_STUCK_TRIM = 6 + TABS_GAP;
 const TABS_STUCK_TIGHTEN = 4;
 export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM + TABS_STUCK_TIGHTEN;
 
-/** The tabs' size once stuck, against 1 at rest. */
-const TABS_STUCK_SCALE = 0.76;
 /** Clear space after the last tab, at the end of the row's scroll. */
 const TABS_END_SPACE = 24;
-/** How much further in from the edge the tabs sit once stuck. */
-const TABS_STUCK_INDENT = 12;
 
 /** Room before the first tab: the global gutter, so it lines up with the header's buttons and the page under it. */
 const TABS_START_PAD = GUTTER;
@@ -689,14 +753,17 @@ const styles = StyleSheet.create({
     height: HEADER_TABS_HEIGHT,
     zIndex: 21,
   },
+  // Grown to hold the section's options beneath the main row.
+  tabsWithSubs: { height: HEADER_TABS_HEIGHT + HEADER_SUB_TABS_HEIGHT },
+  // Full width, black, flush under the main row.
+  subRow: { height: HEADER_SUB_TABS_HEIGHT },
   // Under the scrim and the buttons, over the screen's content.
   ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
   // MainTabs' row, with the header's own room at the end and below.
   tabsRow: {
-    // Past the last tab: room for the stuck indent, so it can still scroll
-    // fully into view, plus clear space so it doesn't end hard against the
+    // Past the last tab: clear space so it doesn't end hard against the
     // screen edge when scrolled all the way along.
-    paddingRight: GUTTER + TABS_STUCK_INDENT + TABS_END_SPACE,
+    paddingRight: GUTTER + TABS_END_SPACE,
     // Less above than below: the pills sit up near the buttons they belong
     // to, and the room under them parts the row from the page.
     paddingTop: TABS_GAP,

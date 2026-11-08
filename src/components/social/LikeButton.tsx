@@ -11,7 +11,7 @@ import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';
 import LikersSheet from './LikersSheet';
 import AnimatedHeart from './AnimatedHeart';
 import { FONT_INTER } from '../../constants/fonts';
-import { COLOR_LIKE } from '../../constants/config';
+import { COLOR_WHITE } from '../../constants/config';
 
 interface LikeButtonProps {
   documentId: string;
@@ -25,8 +25,8 @@ interface LikeButtonProps {
    * always used; a caller placing this inside a filled button passes the same
    * ink as the icons beside it, so the row reads as one set of controls.
    *
-   * The liked state is deliberately not configurable — the red is what says
-   * "you liked this", and a caller overriding it would be removing the signal.
+   * Liked, the heart fills solid white (`litColor`) — the fill, not a colour,
+   * is what says "you liked this", the same as the feed post's rail.
    */
   color?: string;
   /**
@@ -94,7 +94,7 @@ export default function LikeButton({
   style,
   litOnAny = false,
   countFirst = false,
-  litColor = COLOR_LIKE,
+  litColor = COLOR_WHITE,
 }: LikeButtonProps) {
   const colors = useColors();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);

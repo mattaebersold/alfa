@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS, GUTTER, COLOR_GRAY_30 } from '../../constants/config';
+import { COMMON_RADIUS, GUTTER, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     borderRadius: COMMON_RADIUS,
-    backgroundColor: COLOR_GRAY_30,
+    backgroundColor: SURFACE_MID,
     overflow: 'hidden',
   },
   // With no surface to sit inside, the card's padding was only empty space

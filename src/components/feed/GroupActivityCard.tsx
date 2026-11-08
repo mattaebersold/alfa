@@ -10,7 +10,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import type { GroupActivityItem } from '../../types/api';
 import Avatar from '../ui/Avatar';
-import { COMMON_RADIUS, GUTTER, COLOR_BADGE_NEWS } from '../../constants/config';
+import { COMMON_RADIUS, FEED_CARD_GUTTER, FEED_CARD_GAP, COLOR_BADGE_NEWS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -45,7 +45,7 @@ export default function GroupActivityCard({ item, onPress }: {
   const spec = GROUP_KIND[item.kind] ?? GROUP_KIND.discussion;
   const { Icon } = spec;
 
-  const groupImage = firstGalleryUrl(item.group?.gallery);
+  const groupImage = firstGalleryUrl(item.group?.gallery, 'thumb');
   const groupName = item.group?.title ?? 'a group';
   const who = item.user?.username ? `@${item.user.username}` : 'A member';
 
@@ -79,7 +79,7 @@ export default function GroupActivityCard({ item, onPress }: {
         <View style={styles.who}>
           <Avatar user={item.user as any} size={30} edge={false} />
           <View style={styles.whoText}>
-            <Text style={[styles.byline, { color: colors.grey }]} numberOfLines={1}>
+            <Text style={[styles.byline, styles.action]} numberOfLines={1}>
               {who} posted to the group
             </Text>
             <Text style={[styles.group, { color: colors.fg }]} numberOfLines={1}>
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   card: {
     // Same vertical spacing as the post cards around it — with none on top,
     // a group card first in the feed sat tucked under the header.
-    marginHorizontal: GUTTER, marginVertical: 6,
+    marginHorizontal: FEED_CARD_GUTTER, marginTop: 2, marginBottom: FEED_CARD_GAP,
     borderRadius: COMMON_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
   art: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '50%' },
@@ -118,6 +118,8 @@ const styles = StyleSheet.create({
   who:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   whoText: { flex: 1 },
   byline: { fontSize: 12, fontFamily: FONT_INTER.medium },
+  // What they did — white and italic.
+  action: { color: COLOR_WHITE, fontStyle: 'italic' },
   group:  { fontSize: 13, fontFamily: FONT_INTER.semibold, marginTop: 1 },
   title:  { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 21 },
 });

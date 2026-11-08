@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import {
-  View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, Alert,
+  View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, Alert, Platform,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
-import { Repeat, MapPin, UserPlus, UserCheck, CalendarPlus, Settings, Pencil, Trash2 } from 'lucide-react-native';
-import { useEventInterest } from './ExpandableEventCard';
+import { Repeat, MapPin, UserPlus, UserCheck, CalendarPlus, Settings, Pencil, Trash2, CalendarDays, Navigation } from 'lucide-react-native';
+import { AppleMaps, GoogleMaps } from 'expo-maps';
+import { format } from 'date-fns';
+import { calendarDate } from '../../utils/calendarDate';
+import { useEventInterest, BringingRow } from './ExpandableEventCard';
+import { AttendeeCarBadge } from '../cards/EventCard';
+import { carName } from './AttendCarSheet';
 import Avatar from '../ui/Avatar';
 import ActionSheet from '../ui/ActionSheet';
 import { PANE_GRABBER_H } from '../ui/SharedModal';
 import CheckeredFlag from '../ui/CheckeredFlag';
 import InlineComments from '../social/InlineComments';
 import Spinner from '../ui/Spinner';
-import EmptyState from '../ui/EmptyState';
 import {
   useGetSocietyEventQuery,
   useGetEventInterestedUsersQuery,
@@ -23,16 +27,15 @@ import {
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
-import { firstGalleryUrl } from '../../utils/image';
+import { firstGalleryUrl, carHeroUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { categoryFor, formatTime, occurrenceDate, toDayKey, ORS_EVENT_COLOR, isOrsEvent } from '../../constants/eventTypes';
-import EventDateBadge from './EventDateBadge';
 import EventImage from './EventImage';
 import { googleCalendarUrl } from '../../utils/calendarLinks';
 import { openInMaps } from '../../utils/openInMaps';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import type { SocietyEvent, User } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS } from '../../constants/config';
+import type { SocietyEvent, User, EventAttendee } from '../../types/api';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, PILL_RADIUS, PANE_BG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -46,29 +49,76 @@ const HEAD_PHOTO_W = 112;
  * Members attending this date — every face, wrapping, each to its profile.
  * The Attend button is in the pane's foot.
  */
-function MembersAttending({ users, onPressUser }: {
-  users: User[];
+function MembersAttending({ users, onPressUser, onPressCar }: {
+  users: EventAttendee[];
   onPressUser: (user: User) => void;
+  onPressCar: (carId: string) => void;
 }) {
   const colors = useColors();
+  const withCars = users.filter((u) => u.car);
   return (
     <View style={styles.membersBlock}>
-      <Text style={[styles.sectionTitle, styles.membersTitle, { color: colors.fg }]}>Members attending</Text>
-      {users.length === 0 ? (
-        <Text style={[styles.quiet, { color: colors.grey }]}>No one yet — be the first.</Text>
-      ) : (
+      <Text style={styles.sectionTitle}>Members attending</Text>
+      {/* Only shown with someone in it — see the caller. */}
+      {(
         <View style={styles.avatarRow}>
           {users.map((user) => (
             <TouchableOpacity
               key={user.user_id}
               onPress={() => onPressUser(user)}
-              accessibilityLabel={user.username}
+              accessibilityLabel={user.car ? `${user.username}, bringing ${user.car.title ?? 'a car'}` : user.username}
             >
               <Avatar user={user} size={44} />
+              <AttendeeCarBadge attendee={user} size={44} />
             </TouchableOpacity>
           ))}
         </View>
       )}
+
+      {/* The cars coming — each with whose it is, each to its own page. */}
+      {withCars.length > 0 ? (
+        <>
+          <Text style={[styles.sectionTitle, styles.carsTitle]}>Cars coming</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carsRow}>
+            {withCars.map((user) => {
+              const car = user.car!;
+              const uri = carHeroUrl(car, 'thumb');
+              return (
+                <TouchableOpacity
+                  key={`${user.user_id}_${car.internal_id}`}
+                  style={[styles.carTile, { backgroundColor: colors.card }]}
+                  onPress={() => onPressCar(car.internal_id)}
+                  activeOpacity={0.85}
+                  accessibilityLabel={`${carName(car)}, brought by ${user.username}`}
+                >
+                  {uri
+                    ? <Image source={{ uri }} style={styles.carTileImage} contentFit="cover" />
+                    : <View style={[styles.carTileImage, { backgroundColor: colors.secondary }]} />}
+                  <View style={styles.carTileBody}>
+                    <Text style={[styles.carTileTitle, { color: colors.fg }]} numberOfLines={1}>{carName(car)}</Text>
+                    <View style={styles.carTileOwner}>
+                      <Avatar user={user} size={16} />
+                      <Text style={[styles.carTileUser, { color: colors.grey }]} numberOfLines={1}>{user.username}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/** Your own car for this date, with the way to change it — only once you're going. */
+function MyBringing({ event, shownDate }: { event: SocietyEvent; shownDate?: string | null }) {
+  const { interested, myCar, canChooseCar, changeCar, sheet } = useEventInterest(event, shownDate);
+  if (!interested) return null;
+  return (
+    <View style={styles.myBringing}>
+      <BringingRow myCar={myCar} canChooseCar={canChooseCar} onChange={changeCar} />
+      {sheet}
     </View>
   );
 }
@@ -169,6 +219,23 @@ export function EventDetailBody({
 
   const openMap = () => openInMaps(event);
 
+  // The facts card's lines.
+  const when = calendarDate(shownDate);
+  const start = formatTime(event.start_time);
+  const finish = formatTime(event.end_time);
+  const timeLine = start ? (finish ? `${start} – ${finish}` : start) : null;
+  // "Venue, 1 Main St, Portland, OR" → the venue (or street) leads, the rest under it.
+  const place = (() => {
+    const parts = (event.location ?? '').split(',').map((p) => p.trim()).filter(Boolean);
+    while (parts.length > 1 && /^(usa|us|united states)$/i.test(parts[parts.length - 1])) parts.pop();
+    return { name: parts[0] ?? '', rest: parts.slice(1).join(', ') };
+  })();
+  const hasPoint = typeof event.location_lat === 'number' && typeof event.location_lng === 'number';
+  const mapCamera = {
+    coordinates: { latitude: event.location_lat as number, longitude: event.location_lng as number },
+    zoom: 14,
+  };
+
   return (
     <>
       {/* Your own event's controls — a cog in the pane's top right, opening
@@ -234,61 +301,100 @@ export function EventDetailBody({
         </View>
       )}
 
-      {/* A rule between the head and the when. */}
-      <View style={[styles.rule, { backgroundColor: colors.border }]} />
-
-      <View style={styles.tiles}>
-        <EventDateBadge date={shownDate} />
-        <View style={styles.whenText}>
-          {formatTime(event.start_time) ? (
-            <Text style={[styles.timeText, { color: colors.fg }]} numberOfLines={1}>
-              {formatTime(event.start_time)}
-            </Text>
-          ) : null}
-          {/* How often, as on the cards: the icon in a dark circle, the words bold. */}
-          {event.frequency !== 'single' && event.schedule_label ? (
-            <View style={styles.repeatRow}>
-              <View style={[styles.repeatDot, { backgroundColor: colors.bg }]}>
-                <Repeat size={13} color={colors.fg} strokeWidth={2.4} />
-              </View>
-              <Text style={[styles.repeatText, { color: colors.fg }]} numberOfLines={2}>
-                {event.schedule_label}
-              </Text>
+      {/* The facts, together on one card: when, how often, where — each a
+          row with its icon in the same column, the map under the address. */}
+      <View style={styles.infoCard}>
+        {when ? (
+          <View style={styles.infoRow}>
+            <View style={styles.infoIcon}><CalendarDays size={17} color={COLOR_WHITE} strokeWidth={2.2} /></View>
+            <View style={styles.infoText}>
+              <Text style={styles.infoMain}>{format(when, 'EEEE, MMMM d')}</Text>
+              {timeLine ? <Text style={styles.infoSub}>{timeLine}</Text> : null}
             </View>
-          ) : null}
-        </View>
-      </View>
-
-
-      <View style={styles.section}>
-
-        {/* Description */}
-        {event.body ? (
-          <Text style={[styles.body, { color: colors.muted }]}>{stripHtml(event.body)}</Text>
+          </View>
         ) : null}
 
-        {/* Location — tap the address for the maps app */}
-        {event.location ? (
+        {event.frequency !== 'single' && event.schedule_label ? (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.fg }]}>Location</Text>
-            <TouchableOpacity style={styles.locationRow} onPress={openMap} activeOpacity={0.8}>
-              <MapPin size={14} color={colors.grey} />
-              <Text style={[styles.locationText, { color: colors.fg }]}>{event.location}</Text>
-            </TouchableOpacity>
+            {when ? <View style={styles.infoDivider} /> : null}
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}><Repeat size={16} color={COLOR_WHITE} strokeWidth={2.2} /></View>
+              <View style={styles.infoText}>
+                <Text style={styles.infoMain}>{event.schedule_label}</Text>
+              </View>
+            </View>
           </>
         ) : null}
 
-        {/* Who's going on this date, close under where */}
+        {event.location ? (
+          <>
+            {(when || event.schedule_label) ? <View style={styles.infoDivider} /> : null}
+            <TouchableOpacity style={styles.infoRow} onPress={openMap} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Directions to ${event.location}`}>
+              <View style={styles.infoIcon}><MapPin size={17} color={COLOR_WHITE} strokeWidth={2.2} /></View>
+              <View style={styles.infoText}>
+                <Text style={styles.infoMain} numberOfLines={2}>{place.name}</Text>
+                {place.rest ? <Text style={styles.infoSub} numberOfLines={2}>{place.rest}</Text> : null}
+              </View>
+              <View style={styles.directions}>
+                <Navigation size={13} color={COLOR_WHITE} strokeWidth={2.4} />
+                <Text style={styles.directionsText}>Directions</Text>
+              </View>
+            </TouchableOpacity>
+            {hasPoint ? (
+              // A still picture of the spot — touches pass to the press over
+              // it, which opens the maps app, rather than panning a map that
+              // sits inside a scrolling pane.
+              <TouchableOpacity style={styles.mapEmbed} onPress={openMap} activeOpacity={0.9} accessibilityLabel="Open in Maps">
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  {Platform.OS === 'ios' ? (
+                    <AppleMaps.View
+                      style={StyleSheet.absoluteFill}
+                      cameraPosition={mapCamera}
+                      markers={[{ id: 'event', coordinates: mapCamera.coordinates, systemImage: 'calendar', tintColor: category.color }] as any}
+                      uiSettings={{ compassEnabled: false, scaleBarEnabled: false, myLocationButtonEnabled: false, togglePitchEnabled: false }}
+                    />
+                  ) : (
+                    <GoogleMaps.View
+                      style={StyleSheet.absoluteFill}
+                      cameraPosition={mapCamera}
+                      markers={[{ id: 'event', coordinates: mapCamera.coordinates }] as any}
+                      uiSettings={{ zoomControlsEnabled: false, mapToolbarEnabled: false, scrollGesturesEnabled: false, zoomGesturesEnabled: false, rotationGesturesEnabled: false, tiltGesturesEnabled: false, compassEnabled: false, myLocationButtonEnabled: false }}
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        ) : null}
+      </View>
+
+      <View style={styles.section}>
+
+        {/* What it is — readable copy, not small print. */}
+        {event.body ? (
+          <View style={styles.block}>
+            <Text style={styles.body}>{stripHtml(event.body)}</Text>
+          </View>
+        ) : null}
+
+        {/* Who's going on this date, close under where — and what they're bringing. */}
+        {/* A section only when there's someone in it — likewise the posts. */}
+        {interested.length > 0 && (
+        <View style={styles.block}>
+        <MyBringing event={event} shownDate={shownDate} />
         <MembersAttending
           users={interested}
           onPressUser={(user) => go('UserDetail', { userId: user.user_id, username: user.username })}
+          onPressCar={(carId) => go('CarDetail', { carId })}
         />
+        </View>
+        )}
 
         {/* Posts tagged with this event — most recent first, as a slider */}
-        <Text style={[styles.sectionTitle, styles.postsTitle, { color: colors.fg }]}>Posts from this event</Text>
-        {taggedPosts.length === 0 ? (
-          <EmptyState title="No posts tagged yet" />
-        ) : (
+        {taggedPosts.length > 0 && (
+        <View style={styles.block}>
+        <Text style={styles.sectionTitle}>Posts from this event</Text>
+        {(
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -300,7 +406,7 @@ export function EventDetailBody({
             decelerationRate="fast"
           >
             {taggedPosts.map((post) => {
-              const thumb = firstGalleryUrl(post.gallery);
+              const thumb = firstGalleryUrl(post.gallery, 'small');
               return (
                 <TouchableOpacity
                   key={post.internal_id}
@@ -319,10 +425,18 @@ export function EventDetailBody({
             <RowEndSpacer width={16} />
           </ScrollView>
         )}
+        </View>
+        )}
 
         {/* Comments — last, so the screen ends where the conversation is */}
         <View style={styles.comments}>
-          <InlineComments documentId={eventId} entryType="society_event" />
+          <InlineComments
+            documentId={eventId}
+            entryType="society_event"
+            // No rule above, and the pane's own ground rather than the page's.
+            bare
+            backgroundColor={fullBleed ? PANE_BG : undefined}
+          />
         </View>
       </View>
     </>
@@ -387,10 +501,11 @@ function EventFoot({ event, clickedDate, colors, calendarLabel = 'Add to Calenda
 }) {
   const brand = useBrandColor();
   const shownDate = clickedDate || occurrenceDate(event);
-  const { interested, onToggle, busy } = useEventInterest(event, shownDate);
+  const { interested, onToggle, busy, sheet } = useEventInterest(event, shownDate);
 
   return (
     <View style={styles.footRow}>
+      {sheet}
       <TouchableOpacity
         style={[
           styles.footPill,
@@ -428,6 +543,14 @@ function EventFoot({ event, clickedDate, colors, calendarLabel = 'Add to Calenda
 }
 
 const styles = StyleSheet.create({
+  myBringing: {},
+  carsRow: { gap: 10, paddingRight: 16 },
+  carTile: { width: 150, borderRadius: COMMON_RADIUS, overflow: 'hidden' },
+  carTileImage: { width: 150, height: 96 },
+  carTileBody: { padding: 8, gap: 4 },
+  carTileTitle: { fontSize: 13, fontFamily: FONT_INTER.bold },
+  carTileOwner: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  carTileUser: { flex: 1, fontSize: 12, fontFamily: FONT_INTER.semibold },
   // marginTop is set inline — clearance for the grabber, or a floating header.
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingHorizontal: 16 },
   headPhoto: { width: HEAD_PHOTO_W, borderRadius: 12, overflow: 'hidden' },
@@ -439,7 +562,7 @@ const styles = StyleSheet.create({
     position: 'absolute', right: 12, zIndex: 4,
     width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
   },
-  comments: { marginTop: 8, marginHorizontal: -16 },
+  comments: { marginTop: 26, marginHorizontal: -16 },
   categoryText: {
     fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK,
   },
@@ -454,29 +577,38 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.8,
   },
 
-  rule: { height: StyleSheet.hairlineWidth, marginHorizontal: 16, marginTop: 18 },
-  tiles: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, marginTop: 16 },
-  whenText: { flex: 1, minWidth: 0, gap: 8 },
-  // One line, AM/PM and all.
-  timeText: { fontSize: 17, fontFamily: FONT_INTER.bold },
-  repeatRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  repeatDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  repeatText: { flexShrink: 1, fontSize: 13.5, fontFamily: FONT_INTER.bold },
+  // The facts card: rows of icon + words, hairlines between, the map at its foot.
+  infoCard: {
+    marginHorizontal: 16, marginTop: 20, borderRadius: 14, overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  infoIcon: {
+    width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  infoText: { flex: 1, minWidth: 0, gap: 2 },
+  infoMain: { fontSize: 15, lineHeight: 20, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  infoSub: { fontSize: 13.5, lineHeight: 18, fontFamily: FONT_INTER.medium, color: 'rgba(255,255,255,0.72)' },
+  // Lines up with the words, not the icons.
+  infoDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.12)', marginLeft: 14 + 34 + 12 },
+  directions: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: PILL_RADIUS,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  directionsText: { fontSize: 12, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  mapEmbed: { height: 150, marginHorizontal: 10, marginBottom: 10, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.06)' },
 
-
-
-  section: { paddingHorizontal: 16, paddingTop: 24, gap: 12 },
-  body:      { fontSize: 15, lineHeight: 22 },
-  sectionTitle: { fontSize: 18, fontFamily: FONT_INTER.bold, marginTop: 10 },
-  // A step down from the location; a clear break before the posts.
-  membersBlock: { gap: 10, marginTop: 10 },
+  // Every section the same distance from the last, its heading the same
+  // distance from what it heads.
+  section: { paddingHorizontal: 16, paddingTop: 4 },
+  block: { marginTop: 26, gap: 10 },
+  body:      { fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.88)' },
+  sectionTitle: { fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  membersBlock: { gap: 10 },
   avatarRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  quiet: { fontSize: 13, fontStyle: 'italic' },
-  membersTitle: { marginTop: 0 },
-  postsTitle: { marginTop: 22 },
-
-  locationRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  locationText: { fontSize: 14, flex: 1 },
+  carsTitle: { marginTop: 16 },
 
   postRowOuter: { marginHorizontal: -16 },
   postRow:      { paddingLeft: 16, gap: 8 },

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { COLOR_GRAY_26 } from '../../constants/config';
+import { SURFACE_DARK } from '../../constants/config';
 import { View, FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
@@ -10,7 +10,7 @@ import { ss } from '../../styles/shared';
 import type { Listing } from '../../types/api';
 
 /** The ground MarketplaceBrowse draws its own surfaces against. */
-const MARKET_GROUND = COLOR_GRAY_26;
+const MARKET_GROUND = SURFACE_DARK;
 
 /**
  * The marketplace tab.

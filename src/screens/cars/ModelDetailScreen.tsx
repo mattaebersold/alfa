@@ -23,7 +23,7 @@ import type { CarsScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts';
 import MainTabs from '../../components/ui/MainTabs';
-import { COLOR_BLACK, COLOR_GRAY_26, COLOR_GREEN, COLOR_WHITE, GUTTER, PILL_RADIUS } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GREEN, COLOR_WHITE, GUTTER, PILL_RADIUS, SURFACE_MID } from '../../constants/config';
 
 type Tab = 'cars' | 'discussion' | 'resources' | 'groups';
 
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   stat: {
     minWidth: 112, maxWidth: 280,
     paddingHorizontal: 12, paddingVertical: 10, gap: 3,
-    borderRadius: 14, backgroundColor: COLOR_GRAY_26,
+    borderRadius: 14, backgroundColor: SURFACE_MID,
   },
   statLabel: { fontSize: 11.5, fontFamily: FONT_INTER.semibold },
   statValue: { fontSize: 14, lineHeight: 18, fontFamily: FONT_INTER.bold },

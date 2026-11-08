@@ -23,6 +23,7 @@ import { ss } from '../../styles/shared';
 import type { User, GarageCar } from '../../types/api';
 import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import { selectionHaptic } from '../../utils/haptics';
 
 /**
  * Admin: who and what is featured on the Members and Cars screens.
@@ -47,7 +48,7 @@ const CAR_RESULTS = 20;
 
 const carName = (car: GarageCar) =>
   [car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Untitled car';
-const carThumb = (car: GarageCar) => carHeroUrl(car);
+const carThumb = (car: GarageCar) => carHeroUrl(car, 'thumb');
 const personName = (u: User) => [u.firstName, u.lastName].filter(Boolean).join(' ');
 
 export default function FeaturedManager() {
@@ -270,7 +271,7 @@ export default function FeaturedManager() {
               <TouchableOpacity
                 key={t}
                 style={[styles.tab, active && { backgroundColor: colors.card }]}
-                onPress={() => setTab(t)}
+                onPress={() => { if (t !== tab) selectionHaptic(); setTab(t); }}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
               >

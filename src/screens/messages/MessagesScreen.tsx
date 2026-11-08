@@ -20,7 +20,7 @@ import Avatar from '../../components/ui/Avatar';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import { colors } from '../../constants/colors';
-import { CONFIG, COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { CONFIG, COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { useColors } from '../../hooks/useColors';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import type { AppStackParamList } from '../../navigation/types';
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center',
   },
-  unreadBadgeText: { color: COLOR_WHITE, fontSize: 11, fontFamily: FONT_INTER.extrabold },
+  unreadBadgeText: { color: COLOR_ON_ALERT, fontSize: 11, fontFamily: FONT_INTER.extrabold },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 56, height: 56, borderRadius: COMMON_RADIUS,

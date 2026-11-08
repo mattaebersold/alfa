@@ -55,8 +55,8 @@ export default function GarageThumbs({ cars, max = 2, size = 23, overlap = OVERL
     <View style={styles.thumbRow}>
       {shown.map((car, i) => {
         const uri = car.profile_image
-          ? imageUrl(car.profile_image) ?? undefined
-          : firstGalleryUrl(car.gallery) ?? undefined;
+          ? imageUrl(car.profile_image, 'small') ?? undefined
+          : firstGalleryUrl(car.gallery, 'small') ?? undefined;
         return (
           // The shadow on a wrapper: the image clips to its circle.
           <View key={car.internal_id ?? i} style={[dims, i > 0 && tuck, drop]}>

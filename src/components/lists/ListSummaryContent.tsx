@@ -11,7 +11,7 @@ import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { isOpenableLink, listLinkLabel } from '../../utils/listLinks';
 import type { List, ListItem } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_22 } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /** What a list calls its car: the owner's own name for it, else year make model. */
@@ -29,7 +29,7 @@ export function listCarLabel(car?: List['car']): string {
  */
 function ItemRow({ item, rank }: { item: ListItem; rank: number }) {
   const colors = useColors();
-  const photo = firstGalleryUrl(item.gallery);
+  const photo = firstGalleryUrl(item.gallery, 'thumb');
   const description = item.description ? stripHtml(item.description).trim() : '';
   // Checked here as well as in the form: the form is this build's, the record
   // may be another client's. Anything that isn't http(s) gets no button at all
@@ -237,7 +237,7 @@ export default function ListSummaryContent({
 }
 
 const styles = StyleSheet.create({
-  cover: { width: '100%', height: 140, backgroundColor: COLOR_GRAY_22 },
+  cover: { width: '100%', height: 140, backgroundColor: SURFACE_MID },
   body:  { padding: 18, paddingBottom: 22, gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   title: { flex: 1, fontSize: 20, fontFamily: FONT_INTER.bold, letterSpacing: -0.3 },
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     padding: 8, borderRadius: COMMON_RADIUS, marginTop: 4,
   },
   carGlyph: {
-    width: 44, height: 34, borderRadius: 6, backgroundColor: COLOR_GRAY_22,
+    width: 44, height: 34, borderRadius: 6, backgroundColor: SURFACE_MID,
     alignItems: 'center', justifyContent: 'center',
   },
   carText:  { flex: 1, minWidth: 0 },
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   rankText:    { fontSize: 13, fontFamily: FONT_INTER.extrabold },
   rankOnPhoto: { position: 'absolute', top: 8, left: 8 },
   // The panel's full width: the car is the point of the entry.
-  itemPhoto: { width: '100%', aspectRatio: 16 / 10, borderRadius: COMMON_RADIUS, backgroundColor: COLOR_GRAY_22 },
+  itemPhoto: { width: '100%', aspectRatio: 16 / 10, borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_MID },
   itemText:  { minWidth: 0, gap: 3 },
   itemTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   itemTitle: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.bold },

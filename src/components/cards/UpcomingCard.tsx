@@ -12,9 +12,8 @@ import type { Rally, SocietyEvent } from '../../types/api';
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_26,
   COLOR_GRAY_38,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -157,7 +156,7 @@ const styles = StyleSheet.create({
     // No padding on the picture's side: it runs to the card's top, bottom and
     // left edges, and the card's clip rounds its left corners.
     paddingRight: 10,
-    borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: COLOR_GRAY_26,
+    borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: SURFACE_MID,
   },
   thumb: {
     // The card's full height (what the padding used to add), square.

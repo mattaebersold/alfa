@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Text } from '@ors/kit';
+import { ChevronRight } from 'lucide-react-native';
 import { Image } from '../ui/AppImage';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
+import { HEADER_GUTTER } from '../ui/AppHeader';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { UPCOMING_CARD_WIDTH } from '../cards/UpcomingCard';
 import SpotDaySummaryModal, { SPOT_GAMES } from './SpotDaySummaryModal';
@@ -15,7 +17,7 @@ import { useAppSelector } from '../../store/store';
 import { SOURCE_APPS, openSourceApp, sourceAppFallback } from '../../constants/sourceApps';
 import { imageUrl } from '../../utils/image';
 import {
-  COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_26, COLOR_GRAY_38, COLOR_SHEEN_GOLD, COLOR_WHITE, GUTTER,
+  COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_38, COLOR_SHEEN_GOLD, COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type { SpotDayGames, SpotFeedToday, SpotGameKind } from '../../types/api';
@@ -55,7 +57,7 @@ function PlayerCard({ player, onPress, full = false }: {
   full?: boolean;
 }) {
   const { user } = player;
-  const photo = imageUrl(user.gallery?.[0]?.filename ?? user.profilePicture);
+  const photo = imageUrl(user.gallery?.[0]?.filename ?? user.profilePicture, 'thumb');
   const chips = (
     <View style={styles.chips}>
       {/* Only the games they played — a skipped one has nothing to say. */}
@@ -145,13 +147,14 @@ export default function SpotTodayRow() {
               to get first. Gone once you've played. */}
           {cta && (
             <TouchableOpacity
-              style={[styles.dateBadge, styles.ctaBadge]}
+              style={[styles.dateBadge, styles.ctaBadge, { borderColor: colors.border }]}
               onPress={cta.onPress}
               activeOpacity={0.8}
               hitSlop={6}
               accessibilityRole="button"
             >
-              <Text style={[styles.dateText, styles.ctaText]}>{cta.label}</Text>
+              <Text style={[styles.dateText, { color: colors.fg }]}>{cta.label}</Text>
+              <ChevronRight size={14} color={colors.fg} strokeWidth={2.6} style={styles.ctaChevron} />
             </TouchableOpacity>
           )}
         </View>
@@ -190,11 +193,11 @@ export default function SpotTodayRow() {
 
 const styles = StyleSheet.create({
   // A little clear of the header's tabs above.
-  wrap: { paddingTop: 12, paddingBottom: 14 },
+  wrap: { paddingTop: 4, paddingBottom: 14 },
   sectionHead: {
     // The title on the left, the date pinned to the right edge.
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-    paddingHorizontal: GUTTER, paddingBottom: 10,
+    paddingHorizontal: HEADER_GUTTER, paddingBottom: 10,
   },
   sectionTitle: { flexShrink: 1, fontSize: 16, fontFamily: FONT_INTER.bold },
   // A set height, not padding around the text: the date and the button
@@ -207,17 +210,17 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 12.5, lineHeight: 16, fontFamily: FONT_INTER.bold },
   // Never squeezed — the title gives way instead.
   headEnd:  { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
-  // The date pill filled in the game's gold, so it reads as the thing to tap.
-  ctaBadge: { backgroundColor: COLOR_SHEEN_GOLD, borderColor: COLOR_SHEEN_GOLD },
-  ctaText:  { color: COLOR_BLACK },
-  carousel: { paddingLeft: GUTTER, gap: CARD_GAP, alignItems: 'flex-start' },
+  // The date pill's look, with a chevron after the label to say it goes somewhere.
+  ctaBadge:   { flexDirection: 'row', gap: 2, paddingRight: 7 },
+  ctaChevron: { marginTop: 1 },
+  carousel: { paddingLeft: HEADER_GUTTER, gap: CARD_GAP, alignItems: 'flex-start' },
   // The lone card: the carousel's start gutter, and the same on the right.
-  single:   { paddingHorizontal: GUTTER },
+  single:   { paddingHorizontal: HEADER_GUTTER },
   cardFull: { alignSelf: 'stretch' },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 11, paddingRight: 10,
-    borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: COLOR_GRAY_26,
+    borderRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: SURFACE_MID,
   },
   thumb: {
     width: THUMB, height: THUMB,

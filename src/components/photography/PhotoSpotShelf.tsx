@@ -11,9 +11,7 @@ import { imageUrl } from '../../utils/image';
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
-  COLOR_GRAY_17,
-  COLOR_GRAY_23,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -24,7 +22,7 @@ const CARD_GAP = 10;
 const ROW_PAD_LEFT = 16;
 const MEDIA_RATIO = 4 / 3;
 /** The profile shelves' card shade — see PostStrip and ListShelf. */
-const CARD_BG = COLOR_GRAY_23;
+const CARD_BG = SURFACE_MID;
 
 /**
  * The photography pins a member has dropped, as a shelf on their profile.
@@ -75,7 +73,7 @@ export default function PhotoSpotShelf({ spots, total, onSpotPress, onViewAll }:
         decelerationRate="fast"
       >
         {shown.map((spot) => {
-          const cover = imageUrl(spot.gallery?.[0]?.filename);
+          const cover = imageUrl(spot.gallery?.[0]?.filename, 'small');
           const type = spotTypeLabel(spot.type);
           const photos = spot.gallery?.length ?? 0;
           return (
@@ -140,7 +138,7 @@ const styles = StyleSheet.create({
   // the name. On a frame, not the image: per-corner radii on an image can
   // stretch it rather than crop it.
   imageWrap: { borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden' },
-  image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: COLOR_GRAY_17 },
+  image: { width: '100%', aspectRatio: MEDIA_RATIO, backgroundColor: SURFACE_MID },
   typeBadge: {
     position: 'absolute', left: 8, bottom: 8, maxWidth: CARD_WIDTH - 60,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,

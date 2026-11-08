@@ -19,7 +19,7 @@ import { useColors } from '../../hooks/useColors';
 import { bookmarkTitle, bookmarkRoute } from '../../utils/modelBookmark';
 import type { GarageCar, ModelBookmark, Post } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_GRAY_17, COLOR_GRAY_26 } from '../../constants/config';
+import { SURFACE_MID } from '../../constants/config';
 import PanelEmpty from '../ui/PanelEmpty';
 
 type Tab = 'posts' | 'cars' | 'models';
@@ -61,7 +61,7 @@ function ModelRow({ bookmark: b, onPress }: { bookmark: ModelBookmark; onPress: 
     ...(b.generation_handle ? { generation: b.generation_handle } : {}),
   });
   const car = data?.entries?.[0];
-  const photo = imageUrl(car?.profile_image || car?.gallery?.[0]?.filename);
+  const photo = imageUrl(car?.profile_image || car?.gallery?.[0]?.filename, 'thumb');
   const title = bookmarkTitle(b);
 
   return (
@@ -135,7 +135,7 @@ function PostRow({ post, onPress }: { post: Post; onPress: () => void }) {
 function CarRow({ car, onPress }: { car: GarageCar; onPress: () => void }) {
   const colors = useColors();
   const [toggle] = useToggleCarBookmarkMutation();
-  const photo = carHeroUrl(car);
+  const photo = carHeroUrl(car, 'thumb');
   const { data: owner } = useGetUserByIdQuery(car.user_id ?? '', { skip: !car.user_id });
   const title = car.title?.trim() || [car.year, car.make, car.model].filter(Boolean).join(' ') || 'Car';
 
@@ -259,11 +259,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingRight: 8, borderRadius: 12, overflow: 'hidden',
-    backgroundColor: COLOR_GRAY_17,
+    backgroundColor: SURFACE_MID,
   },
   // Rounded on the right only — the side that meets the words.
   thumb: {
-    width: 88, height: 64, backgroundColor: COLOR_GRAY_26,
+    width: 88, height: 64, backgroundColor: SURFACE_MID,
     borderTopRightRadius: 10, borderBottomRightRadius: 10,
   },
   thumbBlank: { alignItems: 'center', justifyContent: 'center' },

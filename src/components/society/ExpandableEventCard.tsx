@@ -8,8 +8,13 @@ import EventCard from '../cards/EventCard';
 import {
   useGetMyEventsQuery,
   useGetSocietyEventQuery,
+  useGetUserGarageQuery,
+  useSetEventAttendingCarMutation,
   useToggleEventInterestMutation,
 } from '../../api/apiService';
+import AttendCarSheet, { carName } from './AttendCarSheet';
+import { Image } from '../ui/AppImage';
+import { carHeroUrl } from '../../utils/image';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -35,25 +40,101 @@ import type { SocietyEvent } from '../../types/api';
 export function useEventInterest(event: SocietyEvent, openedOn?: string | null) {
   const loggedIn = !!useAppSelector((s) => s.auth.userInfo);
   const { data } = useGetMyEventsQuery(undefined, { skip: !loggedIn });
+  const { data: garage } = useGetUserGarageQuery(undefined, { skip: !loggedIn });
   const [toggle, { isLoading }] = useToggleEventInterestMutation();
+  const [setCar, { isLoading: savingCar }] = useSetEventAttendingCarMutation();
   const day = eventDayKey(event, openedOn);
-  const server = data
-    ? data.entries.some((e) => e.internal_id === event.internal_id && (!day || e.day === day))
-    : !!event.is_interested;
+  const mine = data?.entries.find((e) => e.internal_id === event.internal_id && (!day || e.day === day));
+  const server = data ? !!mine : !!event.is_interested;
   const [optimistic, setOptimistic] = useState<boolean | null>(null);
   useEffect(() => { setOptimistic(null); }, [server]);
   const interested = optimistic ?? server;
 
-  const onToggle = async () => {
+  const cars = garage?.entries ?? [];
+  const myCarId = (mine ? mine.my_car_id : event.my_car_id) ?? null;
+  const myCar = myCarId ? cars.find((c) => c.internal_id === myCarId) ?? null : null;
+  /** 'attend' — choosing for a new RSVP; 'change' — swapping the car on one. */
+  const [picking, setPicking] = useState<null | 'attend' | 'change'>(null);
+
+  const attend = async (carId?: string | null) => {
     setOptimistic(!interested);
     try {
-      const res = await toggle({ event_id: event.internal_id, ...(day ? { day } : {}) }).unwrap();
+      const res = await toggle({
+        event_id: event.internal_id,
+        ...(day ? { day } : {}),
+        ...(carId !== undefined ? { car_id: carId } : {}),
+      }).unwrap();
       setOptimistic(res.is_interested);
     } catch {
       setOptimistic(null);
     }
   };
-  return { interested, onToggle, busy: isLoading };
+
+  // Going, with cars in the garage: ask which first. Nothing to choose from,
+  // or un-attending: straight through.
+  const onToggle = () => {
+    if (!interested && cars.length > 0) setPicking('attend');
+    else attend();
+  };
+  const changeCar = () => setPicking('change');
+
+  const sheet = (
+    <AttendCarSheet
+      visible={picking !== null}
+      cars={cars}
+      selectedId={picking === 'change' ? myCarId : undefined}
+      title={picking === 'change' ? 'Change your car' : undefined}
+      onClose={() => setPicking(null)}
+      onChoose={(carId) => {
+        if (picking === 'change') {
+          const target = day ?? mine?.day ?? event.interest_day;
+          if (target) setCar({ event_id: event.internal_id, day: target, car_id: carId }).catch(() => {});
+        } else {
+          attend(carId);
+        }
+      }}
+    />
+  );
+
+  return {
+    interested, onToggle, busy: isLoading || savingCar,
+    /** The car you said you're bringing, if it's still in your garage. */
+    myCar,
+    /** Can a car be picked at all — anything in the garage. */
+    canChooseCar: cars.length > 0,
+    changeCar,
+    /** Render this alongside the Attend button — it's the car picker. */
+    sheet,
+  };
+}
+
+/**
+ * "Bringing your 1973 911 · Change" — under a date you're attending. Offers
+ * a car when you said none; nothing at all when your garage is empty.
+ */
+export function BringingRow({ myCar, canChooseCar, onChange }: {
+  myCar: { title?: string; year?: string; make?: string; model?: string; profile_image?: string | null; gallery?: any[] } | null;
+  canChooseCar: boolean;
+  onChange: () => void;
+}) {
+  const colors = useColors();
+  if (!myCar && !canChooseCar) return null;
+  const uri = myCar ? carHeroUrl(myCar, 'thumb') : null;
+  return (
+    <TouchableOpacity
+      style={[styles.bringing, { backgroundColor: colors.secondary }]}
+      onPress={onChange}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={myCar ? `Bringing ${carName(myCar)}. Change car` : 'Add the car you are bringing'}
+    >
+      {uri ? <Image source={{ uri }} style={styles.bringingThumb} contentFit="cover" /> : null}
+      <Text style={[styles.bringingText, { color: colors.fg }]} numberOfLines={1}>
+        {myCar ? `Bringing ${carName(myCar)}` : 'Bringing a car?'}
+      </Text>
+      <Text style={[styles.bringingAction, { color: colors.grey }]}>{myCar ? 'Change' : 'Add'}</Text>
+    </TouchableOpacity>
+  );
 }
 
 /**
@@ -72,7 +153,7 @@ export default function ExpandableEventCard({ event, expanded, onToggleExpanded,
 }) {
   const colors = useColors();
   const brand = useBrandColor();
-  const { interested, onToggle, busy } = useEventInterest(event);
+  const { interested, onToggle, busy, myCar, canChooseCar, changeCar, sheet } = useEventInterest(event);
   // The full record once it's open — a list row can be an expanded occurrence
   // with less on it than the event itself.
   const { data: full } = useGetSocietyEventQuery(event.internal_id, { skip: !expanded });
@@ -118,6 +199,7 @@ export default function ExpandableEventCard({ event, expanded, onToggleExpanded,
   return (
     <View style={[styles.wrap, { backgroundColor: colors.card }]}>
       <EventCard event={event} side typePill={false} onPress={toggleOpen} accessory={attendPill} />
+      {sheet}
 
       {expanded && (
         <View style={styles.details}>
@@ -172,6 +254,8 @@ export default function ExpandableEventCard({ event, expanded, onToggleExpanded,
               </TouchableOpacity>
             ) : null}
           </View>
+
+          {interested ? <BringingRow myCar={myCar} canChooseCar={canChooseCar} onChange={changeCar} /> : null}
 
           {/* Where — the place's name, to the phone's maps app. */}
           {placeName ? (
@@ -230,4 +314,11 @@ const styles = StyleSheet.create({
   },
   moreText: { fontSize: 14, fontFamily: FONT_INTER.extrabold },
   placeText: { flexShrink: 1 },
+  bringing: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    height: 42, borderRadius: PILL_RADIUS, paddingLeft: 6, paddingRight: 16,
+  },
+  bringingThumb: { width: 44, height: 30, borderRadius: 15 },
+  bringingText: { flex: 1, fontSize: 14, fontFamily: FONT_INTER.bold, marginLeft: 6 },
+  bringingAction: { fontSize: 13, fontFamily: FONT_INTER.bold },
 });

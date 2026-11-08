@@ -144,7 +144,7 @@ function GroupTile({ id, width, compact, solo, onOpen }: TileProps) {
     <Tile
       kind="group"
       name={group.title ?? 'Group'}
-      image={firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery)}
+      image={firstGalleryUrl(group.banners, 'thumb') ?? firstGalleryUrl(group.gallery, 'thumb')}
       width={width}
       compact={compact}
       solo={solo}
@@ -160,7 +160,7 @@ function SpotTile({ id, width, compact, solo, onOpen }: TileProps) {
     <Tile
       kind="spot"
       name={spot.title || 'Photo spot'}
-      image={firstGalleryUrl(spot.gallery as any)}
+      image={firstGalleryUrl(spot.gallery as any, 'thumb')}
       width={width}
       compact={compact}
       solo={solo}
@@ -196,7 +196,7 @@ function CarTile({ id, width, compact, solo, onOpen }: TileProps) {
     <Tile
       kind="car"
       name={name}
-      image={carHeroUrl(car)}
+      image={carHeroUrl(car, 'thumb')}
       width={width}
       compact={compact}
       solo={solo}
@@ -224,7 +224,7 @@ function EventTile({ id, width, compact, solo, onOpen }: TileProps) {
    */
   const { data: event } = useGetSocietyEventQuery(id, { skip: !id });
   if (!event) return null;
-  const photo = firstGalleryUrl(event.gallery);
+  const photo = firstGalleryUrl(event.gallery, 'thumb');
   return (
     <Tile
       kind="event"

@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from '@ors/kit';
 import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts';
+import { selectionHaptic } from '../../utils/haptics';
 
 export interface RallySection {
   id: string;
@@ -48,7 +49,7 @@ export default function RallySubNav({
           return (
             <TouchableOpacity
               key={section.id}
-              onPress={() => onSelect(section.id)}
+              onPress={() => { if (!isActive) selectionHaptic(); onSelect(section.id); }}
               style={[
                 styles.tab,
                 { borderBottomColor: isActive ? c.primaryAlt : 'transparent' },

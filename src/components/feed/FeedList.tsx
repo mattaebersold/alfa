@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { likeStates } from '../../hooks/useLikeState';
 import { FlatList, RefreshControl, ActivityIndicator, View, StyleSheet, Platform } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, ViewToken } from 'react-native';
-import { GUTTER } from '../../constants/config';
+import { GUTTER, FEED_CARD_GUTTER, FEED_CARD_GAP } from '../../constants/config';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   apiService,
@@ -371,22 +371,18 @@ export default function FeedList({
           ) : row.kind === 'groupActivity' ? (
             <GroupActivityCard item={row.item} onPress={(origin) => setGroupItem({ item: row.item, origin })} />
           ) : row.kind === 'route' ? (
-            <View style={styles.gutter}>
+            <View style={styles.feedCardGutter}>
               <RouteCard route={row.route} />
             </View>
           ) : (
-            // Post and route cards are full-bleed wherever else they're used;
-            // here they sit in the same GUTTER as the car and group cards
-            // around them, so the feed's left and right edges line up.
-            <View style={styles.gutter}>
-              <FeedItemCard
-                post={row.post}
-                isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
-                onPress={() => onPostPress?.(row.post)}
-                onCommentPress={() => setCommentPost(row.post)}
-                visible={visibleIds.includes(row.post.internal_id)}
-              />
-            </View>
+            // Full-bleed, edge to edge — no gutter around a post on the home feed.
+            <FeedItemCard
+              post={row.post}
+              isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
+              onPress={() => onPostPress?.(row.post)}
+              onCommentPress={() => setCommentPost(row.post)}
+              visible={visibleIds.includes(row.post.internal_id)}
+            />
           )
         )}
         ListHeaderComponent={ListHeaderComponent}
@@ -466,4 +462,8 @@ const styles = StyleSheet.create({
   footer:        { padding: 20, alignItems: 'center' },
   signalLoader:  { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   gutter:        { paddingHorizontal: GUTTER },
+  // The non-post cards' wider inset; posts are full-bleed.
+  // Net of the route card's own 6 above and below: the same gap under it as
+  // the other cards, and a little less room above.
+  feedCardGutter: { paddingHorizontal: FEED_CARD_GUTTER, marginTop: -4, marginBottom: FEED_CARD_GAP - 6 },
 });

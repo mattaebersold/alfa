@@ -10,7 +10,7 @@ import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { groupCarsLine } from '../../utils/groupCars';
 import type { Group } from '../../types/api';
-import { COMMON_RADIUS, COLOR_GRAY_22, COLOR_GRAY_26, COLOR_WHITE, GUTTER, PILL_RADIUS, COLOR_GRAY_38 } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_WHITE, GUTTER, PILL_RADIUS, COLOR_GRAY_38, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -78,7 +78,7 @@ function GroupCard({ group, line, style, onPress }: {
   onPress: (origin: SummaryOrigin | null) => void;
 }) {
   const colors = useColors();
-  const cover = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
+  const cover = firstGalleryUrl(group.banners, 'small') ?? firstGalleryUrl(group.gallery, 'small');
   const members = group.member_count;
   return (
     <SummaryTouchable style={[styles.card, style]} onPress={onPress} accessibilityLabel={group.title ?? 'Group'}>
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   coverWrap: {
     borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden',
   },
-  cover: { width: '100%', aspectRatio: 16 / 9, backgroundColor: COLOR_GRAY_22 },
+  cover: { width: '100%', aspectRatio: 16 / 9, backgroundColor: SURFACE_MID },
   coverBlank: { alignItems: 'center', justifyContent: 'center' },
   // Bottom right of the picture, lifted off it.
   members: {

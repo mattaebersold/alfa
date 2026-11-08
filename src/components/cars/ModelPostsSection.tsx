@@ -14,7 +14,7 @@ import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import { DISCUSSION_CATEGORIES, RESOURCE_CATEGORIES } from '../../constants/groupCategories';
 import { carScopeKey } from '../../utils/carScope';
 import { stripHtml } from '../../utils/text';
-import { COMMON_RADIUS, COLOR_GRAY_17, COLOR_GRAY_102 } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_GRAY_102, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type Kind = 'discussion' | 'resource';
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   row: {
     padding: 12, gap: 6,
     borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: COLOR_GRAY_17,
+    backgroundColor: SURFACE_MID,
   },
   rowHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   catPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },

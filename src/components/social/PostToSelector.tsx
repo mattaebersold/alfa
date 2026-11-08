@@ -5,7 +5,7 @@ import { Check, Globe, Users } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_GRAY_10 } from '../../constants/config';
+import { COMMON_RADIUS, SURFACE_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 export interface PostToGroup { internal_id: string; title?: string }
@@ -76,7 +76,7 @@ export function ChoiceCardRow({ items, bleed = 0, layout = 'row' }: {
         styles.card,
         // Darker than the block they sit in, with a hairline edge; chosen,
         // the edge and the tint both take the brand colour.
-        { width: cardWidth, height: layout === 'row' ? ROW_CARD_HEIGHT : CARD_HEIGHT, backgroundColor: COLOR_GRAY_10, borderColor: colors.borderDark },
+        { width: cardWidth, height: layout === 'row' ? ROW_CARD_HEIGHT : CARD_HEIGHT, backgroundColor: SURFACE_BLACK, borderColor: colors.borderDark },
         active && { backgroundColor: brand + '1F', borderColor: brand },
       ]}
       onPress={onPress}

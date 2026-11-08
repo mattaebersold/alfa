@@ -2,7 +2,7 @@ import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native';
 import MainTabs, { type MainTab } from './MainTabs';
-import { COLOR_GRAY_22 } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GRAY_58 } from '../../constants/config';
 
 /** Side inset, matching the panel bodies under the tabs. */
 export const PANEL_TABS_INSET = 16;
@@ -12,9 +12,9 @@ export const PANEL_TABS_INSET = 16;
  * panel that splits its contents: a post's likes and comments, a car's
  * reactions, notifications, bookmarks.
  *
- * MainTabs underneath, dressed for a panel: a round near-black track, the lit
- * tab's pill in the brand colour, spread across the panel's width, and each
- * count a bare number after the label or icon in that tab's own colour. Give
+ * MainTabs underneath, dressed for a panel: a round pure-black track, the lit
+ * tab's pill a dark grey with white lettering (as the home header's tabs), spread across the panel's width, and each
+ * count in a round black/70 chip after the label or icon. Give
  * every tab an Icon and `iconOnly` for a row of icons; otherwise the labels
  * show.
  *
@@ -37,7 +37,8 @@ export default function PanelTabs<K extends string>({
       value={value}
       onChange={onChange}
       inset={PANEL_TABS_INSET}
-      trackColor={COLOR_GRAY_22}
+      trackColor={COLOR_BLACK}
+      thumbColor={COLOR_GRAY_58}
       iconOnly={iconOnly}
       pill
       plainCounts

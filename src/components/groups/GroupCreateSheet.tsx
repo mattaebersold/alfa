@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard,
+  View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard, Platform,
+  type TextInput,
 } from 'react-native';
 import { Text } from '@ors/kit';
 import FormInput from '../ui/FormInput';
-import { FormScrollView } from '@ors/kit';
 import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X, AlertCircle } from 'lucide-react-native';
@@ -19,7 +19,8 @@ import {
   useCreateGroupDiscussionPostFormMutation, useCreateGroupNewsPostFormMutation, useCreateGroupResourceFormMutation,
   useGetGroupQuery, useGetUserGroupsQuery,
 } from '../../api/apiService';
-import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
+import { PANE_GUTTER } from '../ui/SharedModal';
+import SummaryModal, { useSummaryPanel } from '../ui/SummaryModal';
 import ActionSheet from '../ui/ActionSheet';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import { useColors } from '../../hooks/useColors';
@@ -39,25 +40,19 @@ import { FONT_INTER } from '../../constants/fonts'
 /**
  * "New <whatever you're looking at>" for a group section.
  *
- * One sheet rather than four, because the four differ only in which endpoint
+ * In the summary panel (SummaryModal) rather than a slide-up pane: the pane
+ * fought the keyboard, worst on Android. The panel shrinks to fit above the
+ * keyboard and scrolls, its heading stays pinned, and each field scrolls
+ * itself into view when it takes focus (InView). The keyboard comes up only
+ * once the panel has finished growing.
+ *
+ * One form rather than four, because the four differ only in which endpoint
  * they hit and which fields they show. It closes on success and lets RTK
  * Query's tag invalidation refresh the list behind it — no manual refetch, and
  * nothing to navigate back from.
  */
 
 export type CreateKind = 'posts' | 'discussion' | 'news' | 'resources';
-
-const KIND_TITLE: Record<CreateKind, string> = {
-  posts:     'New Post',
-  discussion:     'New Discussion',
-  news:      'New News Item',
-  resources: 'New Resource',
-};
-
-const EDIT_TITLE: Partial<Record<CreateKind, string>> = {
-  discussion: 'Edit Discussion',
-  resources:  'Edit Resource',
-};
 
 /** An existing discussion post or resource to edit in place of creating one. */
 export interface EditableGroupItem {
@@ -67,6 +62,9 @@ export interface EditableGroupItem {
   url?: string;
   category?: string;
 }
+
+/** When the title takes focus after opening: once the panel has grown. */
+const FOCUS_AFTER_MS = 450;
 
 /** How long a save runs before the form says it's still going. */
 const SLOW_AFTER_MS = 8000;
@@ -81,6 +79,7 @@ interface Props {
    * group id.
    */
   scope?: { make: string; model: string };
+  /** No longer shown — the form has no heading. Kept so callers needn't change. */
   groupTitle?: string;
   /** Categories offered for this section, already narrowed to the real set. */
   categories: { key: string; label: string }[];
@@ -103,6 +102,7 @@ export default function GroupCreateSheet({
   const c = useColors();
 
   const [title, setTitle] = useState('');
+  const titleRef = useRef<TextInput>(null);
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('');
   const [category, setCategory] = useState<string>('general');
@@ -206,6 +206,15 @@ export default function GroupCreateSheet({
     also_models: picked.flatMap((o) => (o.model ? [o.model] : [])),
     also_groups: picked.flatMap((o) => (o.groupId ? [o.groupId] : [])),
   };
+
+  // A new item starts in its title — once the panel has grown, so the
+  // keyboard rising doesn't race the panel opening. Not on an edit: what's
+  // there is the point.
+  useEffect(() => {
+    if (!visible || editing) return;
+    const t = setTimeout(() => titleRef.current?.focus(), FOCUS_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset on open, not on close — clearing while it animates out is visible.
   useEffect(() => {
@@ -368,23 +377,15 @@ export default function GroupCreateSheet({
   useEffect(() => { setError(null); }, [title, body, url, category, images.length]);
 
   return (
-    <SharedModal
+    <SummaryModal
       visible={visible}
       // Not while it's sending: closed mid-upload, the save carries on unseen
       // and you'd never learn whether it landed.
       onClose={busy ? () => {} : onClose}
-      title={(editing && EDIT_TITLE[kind]) || KIND_TITLE[kind]}
-      // Where it's going, up in the heading's corner rather than as the first
-      // thing in the form — it's context, not a field.
-      headerRight={groupTitle ? (
-        <View style={[styles.groupChip, { backgroundColor: c.secondary, borderColor: c.borderDark }]}>
-          <Text style={[styles.groupChipLabel, { color: c.grey }]}>Group:</Text>
-          <Text style={[styles.groupChipName, { color: c.fg }]} numberOfLines={1}>{groupTitle}</Text>
-        </View>
-      ) : undefined}
-      heightRatio={0.85}
+      // Opens tall, so a form that grows (photos, an error) doesn't jump.
+      minHeightRatio={0.7}
     >
-      <FormScrollView contentContainerStyle={styles.body}>
+      <View style={styles.body}>
 
         {kind === 'posts' && (
           <>
@@ -415,84 +416,78 @@ export default function GroupCreateSheet({
           </>
         )}
 
-        <Text style={[styles.label, { color: c.grey }]}>Title</Text>
-        <FormInput
-          value={title}
-          onChangeText={setTitle}
-          editable={!busy}
-          placeholder="Title"
-          // Not on an edit: what's there is the point, and the keyboard rising
-          // as the pane slides in over the item made the two fight for room.
-          autoFocus={!editing}
-        />
+        {/* No labels on the text fields: their placeholders say what goes in them. */}
+        <InView>{(onFocus) => (
+          <FormInput
+            ref={titleRef}
+            value={title}
+            onChangeText={setTitle}
+            editable={!busy}
+            placeholder="Title"
+            onFocus={onFocus}
+          />
+        )}</InView>
 
-        <Text style={[styles.label, { color: c.grey }]}>
-          {kind === 'posts' ? 'Body' : 'Details'}
-        </Text>
-        <FormInput
-          value={body}
-          onChangeText={setBody}
-          editable={!busy}
-          placeholder={kind === 'posts' ? "What's on your mind…" : 'Add some detail…'}
-          multiline
-        />
+        <View style={styles.fieldGap} />
+        <InView>{(onFocus) => (
+          <FormInput
+            value={body}
+            onChangeText={setBody}
+            editable={!busy}
+            placeholder={kind === 'posts' ? "What's on your mind…" : 'Add some detail…'}
+            multiline
+            onFocus={onFocus}
+          />
+        )}</InView>
 
         {showUrl && (
           <>
             <Text style={[styles.label, { color: c.grey }]}>Link (optional)</Text>
-            <FormInput
-              value={url}
-              onChangeText={setUrl}
-              editable={!busy}
-              placeholder="https://…"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
+            <InView>{(onFocus) => (
+              <FormInput
+                value={url}
+                onChangeText={setUrl}
+                editable={!busy}
+                placeholder="https://…"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                onFocus={onFocus}
+              />
+            )}</InView>
           </>
         )}
 
+        {/* The categories, wrapped rather than in a row that scrolls, so
+            every one is in sight at once. */}
         {showCategory && categoryOptions.length > 0 && (
-          <>
-            <Text style={[styles.label, { color: c.grey }]}>Category</Text>
-            {/* One row that scrolls, rather than wrapping: a group's categories
-                run to a dozen, and wrapped they were a block the title had to
-                be found under. Bled to the sheet's edges so the row runs off
-                them, with the body's inset carried as content padding. */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.chipScroller}
-              contentContainerStyle={styles.chipRow}
-              keyboardShouldPersistTaps="handled"
-            >
-              {categoryOptions.map((cat) => {
-                const active = category === cat.key;
-                const tint = categoryColor(cat.key);
-                return (
-                  <TouchableOpacity
-                    key={cat.key}
-                    onPress={() => setCategory(cat.key)}
-                    disabled={busy}
-                    style={[
-                      styles.chip,
-                      { borderColor: c.borderDark, backgroundColor: c.secondary },
-                      active && { backgroundColor: tint, borderColor: tint },
-                    ]}
-                  >
-                    <Text style={[styles.chipText, { color: active ? pillTextColor(tint) : c.fg }]}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </>
+          <View style={[styles.chips, styles.sectionGap]}>
+            {categoryOptions.map((cat) => {
+              const active = category === cat.key;
+              const tint = categoryColor(cat.key);
+              return (
+                <TouchableOpacity
+                  key={cat.key}
+                  onPress={() => setCategory(cat.key)}
+                  disabled={busy}
+                  style={[
+                    styles.chip,
+                    { borderColor: c.borderDark, backgroundColor: c.secondary },
+                    active && { backgroundColor: tint, borderColor: tint },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: active ? pillTextColor(tint) : c.fg }]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
 
         {showPhotos && (
           <>
-            <Text style={[styles.label, { color: c.grey }]}>{maxImages === 1 ? 'Photo' : 'Photos'}</Text>
+            <View style={styles.sectionGap} />
             <PhotoPickerField
               onPress={() => { if (busy) return; Keyboard.dismiss(); setMediaSheet(true); }}
               title={images.length
@@ -618,16 +613,16 @@ export default function GroupCreateSheet({
             )}
         </TouchableOpacity>
 
-        {missing && !busy ? (
-          <Text style={[styles.hint, { color: c.grey }]}>{missing}</Text>
-        ) : busy && slow ? (
+        {/* The button greys out until there's a title (and details); no line
+            under it spelling that out. */}
+        {busy && slow ? (
           <Text style={[styles.hint, { color: c.grey }]}>
             {images.length > 0
               ? 'Still uploading — photos can take a minute on a slow connection. Keep this open.'
               : 'Still working — hang on a moment.'}
           </Text>
         ) : null}
-      </FormScrollView>
+      </View>
 
       <ActionSheet
         visible={mediaSheet}
@@ -638,25 +633,36 @@ export default function GroupCreateSheet({
           { label: 'Choose Photos', onPress: addFromLibrary },
         ]}
       />
-    </SharedModal>
+    </SummaryModal>
   );
 }
 
+/**
+ * A field that scrolls itself into the panel's view when it takes focus — the
+ * keyboard shrinks the panel, and a field low in the form would otherwise sit
+ * behind it. A beat later than the focus, so it measures the panel at the
+ * size the keyboard has left it.
+ */
+function InView({ children }: { children: (onFocus: () => void) => React.ReactNode }) {
+  const panel = useSummaryPanel();
+  const ref = useRef<View>(null);
+  const onFocus = useCallback(() => {
+    setTimeout(() => panel?.scrollIntoView(ref.current), Platform.OS === 'android' ? 350 : 250);
+  }, [panel]);
+  return <View ref={ref} collapsable={false}>{children(onFocus)}</View>;
+}
+
 const styles = StyleSheet.create({
-  // Close under the heading: the header carries its own foot padding.
-  body:        { paddingHorizontal: PANE_GUTTER, paddingTop: 4, paddingBottom: 40 },
-  groupChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    maxWidth: 190,
-    paddingHorizontal: 9, paddingVertical: 4,
-    borderRadius: 999, borderWidth: StyleSheet.hairlineWidth,
-  },
-  groupChipLabel: { fontSize: 12, fontFamily: FONT_INTER.semibold },
-  groupChipName: { fontSize: 12, fontFamily: FONT_INTER.bold, flexShrink: 1 },
+  // Between the title and the details.
+  fieldGap:    { height: 10 },
+  // Before the categories, and before the photos.
+  sectionGap:  { marginTop: 16 },
+  // A generous foot: with the keyboard up, the button and anything under it
+  // can still be scrolled clear of the panel's bottom edge.
+  // Starts below the panel's close button, which sits in its top corner.
+  body:        { paddingHorizontal: PANE_GUTTER, paddingTop: 56, paddingBottom: 72 },
   label:       { fontSize: 11, fontFamily: FONT_INTER.extrabold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 6 },
   chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chipScroller:{ marginHorizontal: -PANE_GUTTER },
-  chipRow:     { flexDirection: 'row', gap: 8, paddingHorizontal: PANE_GUTTER },
   chip:        { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   chipText:    { fontSize: 12, fontFamily: FONT_INTER.bold },
   publicRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 22 },

@@ -114,7 +114,7 @@ export default function StoryViewerScreen({ route }: Props) {
   const user = group?.user as any;
   const username: string = user?.username ?? '';
   const profileFilename: string | undefined = user?.profile_image ?? user?.gallery?.[0]?.filename;
-  const profileUri = profileFilename ? imageUrl(profileFilename) : null;
+  const profileUri = profileFilename ? imageUrl(profileFilename, 'thumb') : null;
 
   // Reset buffering indicator on story change
   useEffect(() => {

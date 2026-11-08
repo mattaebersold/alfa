@@ -6,6 +6,17 @@ export interface ProfileLink {
   url: string;
 }
 
+/**
+ * A member's social accounts — handles, not URLs (see utils/socials, which
+ * builds the links), plus a website URL. Empty string or missing = not set.
+ */
+export interface ProfileSocials {
+  facebook?: string;
+  instagram?: string;
+  youtube?: string;
+  website?: string;
+}
+
 /** A bookmarked car model — see horacio's User.modelBookmarks. */
 export interface ModelBookmark {
   make: string;
@@ -32,6 +43,8 @@ export interface User {
    * array order is the display order — and rewritten wholesale on save.
    */
   links?: ProfileLink[];
+  /** Social handles and website, shown as icon buttons on their profile. */
+  socials?: ProfileSocials;
   cityState?: string;
   /**
    * Only ever on your own profile — no listing returns another member's. It's
@@ -70,6 +83,12 @@ export interface User {
    * upsell can stop offering a button they've already pressed.
    */
   proInterest?: boolean;
+  /**
+   * The paid membership behind `accountType`, if there is one — renewal date,
+   * whether it's cancelling, and which store to manage it in. `accountType`
+   * is still what every Pro gate reads. See horacio's helpers/entitlements.
+   */
+  subscription?: MemberSubscription;
   standing?: string;
   displayMode?: 'light' | 'dark';
   followersCount?: number;
@@ -875,6 +894,20 @@ export interface Event {
  * column, so `occurrence_date` is what the server computed for a given day and
  * `next_occurrence` is the soonest one still ahead.
  */
+/** The car an attendee is bringing — just enough for a thumbnail and a name. */
+export interface AttendeeCar {
+  internal_id: string;
+  title?: string;
+  year?: string;
+  make?: string;
+  model?: string;
+  profile_image?: string | null;
+  gallery?: GalleryItem[];
+}
+
+/** Someone attending an event date, and the car they're bringing (null for none). */
+export type EventAttendee = User & { car?: AttendeeCar | null };
+
 export interface SocietyEvent {
   _id?: string;
   internal_id: string;
@@ -929,8 +962,10 @@ export interface SocietyEvent {
   interest_day?: string | null;
   interested_count?: number;
   is_interested?: boolean;
-  /** A few profiles for the avatar stack on cards. */
-  interested_preview?: User[];
+  /** A few profiles for the avatar stack on cards, each with the car they're bringing. */
+  interested_preview?: EventAttendee[];
+  /** The car the viewer said they're bringing on this date — null for none. */
+  my_car_id?: string | null;
   created_at?: string;
   user?: User;
 }
@@ -1162,6 +1197,8 @@ export interface Rally {
   faqs?: RallyFaqItem[];
   /** Populated by the server from `attending_members`. */
   attending_members_data?: User[];
+  /** Where in the country it runs — a key from constants/regions, set by hand on the rally form. */
+  region?: string | null;
   /**
    * Rally livery, `#rrggbb`. Paints the rally's calendar tile as a gradient.
    * Either may be absent — see rallyColors() in utils/rally.
@@ -2258,4 +2295,29 @@ export interface CarGeneration {
   end?: number | null;
   /** "<make> <name>" reads on its own — "Porsche 993", "BMW E30". */
   standalone?: boolean;
+}
+
+/** A member's paid membership, as horacio's `publicSubscription` reports it. */
+export interface MemberSubscription {
+  isPro: boolean;
+  status: 'none' | 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired';
+  /** Who takes the money: the web (stripe/patreon), a store (ios/android), or a hand grant. */
+  provider: 'stripe' | 'patreon' | 'manual' | 'ios' | 'android' | null;
+  plan: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  /** False for hand-granted Pro: there's nothing to manage. */
+  managed: boolean;
+}
+
+/** What the app needs before it can sell Pro in-app — `GET api/billing/iap/config`. */
+export interface IapConfig {
+  /** The switch. Until it's on, the Pro sheet keeps offering "get notified". */
+  enabled: boolean;
+  productIds: { ios: string; android: string };
+  /** Attached to an App Store purchase so it can be tied back to this member. */
+  appAccountToken: string;
+  /** The same, for Google Play. */
+  obfuscatedAccountId: string;
+  subscription: MemberSubscription;
 }

@@ -4,7 +4,7 @@ import { Text } from '@ors/kit';
 import { colors } from '../../constants/colors';
 import { calendarDate } from '../../utils/calendarDate';
 import { FONT_INTER } from '../../constants/fonts'
-import { COLOR_GRAY_20, COLOR_WHITE } from '../../constants/config';
+import { COLOR_WHITE, SURFACE_BLACK } from '../../constants/config';
 
 /**
  * Torn-off calendar page: red month strip over a big day number and weekday on
@@ -69,8 +69,8 @@ const styles = StyleSheet.create({
   body:   { paddingVertical: 5, alignItems: 'center' },
   bodySm: { paddingVertical: 3, alignItems: 'center' },
 
-  day:    { fontSize: 24, fontFamily: FONT_INTER.bold, lineHeight: 26, color: COLOR_GRAY_20 },
-  daySm:  { fontSize: 19, fontFamily: FONT_INTER.bold, lineHeight: 21, color: COLOR_GRAY_20 },
+  day:    { fontSize: 24, fontFamily: FONT_INTER.bold, lineHeight: 26, color: SURFACE_BLACK },
+  daySm:  { fontSize: 19, fontFamily: FONT_INTER.bold, lineHeight: 21, color: SURFACE_BLACK },
 
   weekday: {
     fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 1,

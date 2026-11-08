@@ -25,6 +25,67 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.88': {
+    date: 'November 2026',
+    groups: [
+      {
+        title: 'Look & feel',
+        items: [
+          'Made the header larger, with more breathing room.',
+          'Restyled the tabs — their colour, size and position.',
+          'Added sub-tabs to each main section — Events, Groups and more.',
+          'Added haptics when you tap tabs and menus.',
+          'Cleaned up and restyled the menu.',
+          'Photos now load smaller and faster.',
+          'You\'ll see a notice when a newer version of the app is available.',
+        ],
+      },
+      {
+        title: 'Posts & comments',
+        items: [
+          'Improved the comments window.',
+          'Improved the location window.',
+          'Cleaned up how gallery posts look in the home feed.',
+          'Posts without photos now show likes, comments and bookmarks.',
+          'Links in posts now show as buttons.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'Bookmark cars straight from the home feed.',
+          'Fewer tabs on a car\'s window when you open it from the home feed.',
+        ],
+      },
+      {
+        title: 'Profiles',
+        items: [
+          'Add your website and social links to your profile.',
+          'Fixed a crash when messaging someone from their profile.',
+        ],
+      },
+      {
+        title: 'Events',
+        items: [
+          'Redesigned the Events page with a scrolling grid of upcoming events.',
+          'Improved the event and rally detail panes.',
+          'Improved the window that opens when you tap a tagged event.',
+          'Choose which car you\'re bringing when you attend an event.',
+          'Get notified when people you follow are going to an event.',
+          'Added thousands of events.',
+        ],
+      },
+      {
+        title: 'Groups',
+        items: [
+          'Cleaned up the group pages.',
+          'The group window is easier to read, and shows its members more clearly.',
+          'Search every section of a group.',
+          'Fixed an issue that stopped group discussions from being created.',
+        ],
+      },
+    ],
+  },
   '1.87': {
     date: 'November 2026',
     groups: [

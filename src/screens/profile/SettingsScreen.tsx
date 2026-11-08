@@ -11,7 +11,7 @@ import { uploadFile } from '../../utils/upload';
 import { Image } from '../../components/ui/AppImage';
 import {
   Plus, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon, UserRound, Link as LinkIcon,
-  AtSign, Mail, Lock, ShieldCheck, LogOut,
+  AtSign, Mail, Lock, ShieldCheck, LogOut, Share2,
 } from 'lucide-react-native';
 import {
   useGetLoggedInUserQuery,
@@ -30,13 +30,15 @@ import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { validateUsername } from '../../utils/username';
-import type { ProfileLink } from '../../types/api';
+import type { ProfileLink, ProfileSocials } from '../../types/api';
+import { SOCIALS, socialLinks } from '../../utils/socials';
+import SocialIcon from '../../components/members/SocialIcon';
 import { ss } from '../../styles/shared';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import FormInput from '../../components/ui/FormInput';
 
-type SectionKey = 'photos' | 'profile' | 'links' | 'username' | 'email' | 'password';
+type SectionKey = 'photos' | 'profile' | 'socials' | 'links' | 'username' | 'email' | 'password';
 type LucideIcon = React.ComponentType<{ size?: number; color?: string }>;
 
 function Field({
@@ -96,6 +98,9 @@ export default function SettingsScreen() {
    */
   const [links, setLinks] = useState<ProfileLink[]>([]);
   const [savingLinks, setSavingLinks] = useState(false);
+  /** Social handles and website — one field each, saved together. */
+  const [socials, setSocials] = useState<ProfileSocials>({});
+  const [savingSocials, setSavingSocials] = useState(false);
   /**
    * The member's zip — private, and the one location they actually type.
    * Everything public comes from it: "Bothell, WA" on the profile, the region
@@ -128,6 +133,7 @@ export default function SettingsScreen() {
       setLastName(user.lastName ?? '');
       setBio(user.bio ?? '');
       setLinks(user.links ?? []);
+      setSocials(user.socials ?? {});
       setCityState(user.cityState ?? '');
       setZip(user.zip != null ? String(user.zip).padStart(5, '0') : '');
       setUsername(user.username ?? '');
@@ -184,6 +190,30 @@ export default function SettingsScreen() {
       Alert.alert('Error', 'Failed to update links.');
     } finally {
       setSavingLinks(false);
+    }
+  };
+
+  const handleSaveSocials = async () => {
+    setSavingSocials(true);
+    try {
+      // All four go up, so a cleared field clears on the server too.
+      const body = Object.fromEntries(SOCIALS.map(({ key }) => [key, socials[key]?.trim() ?? '']));
+      const res: any = await updateSetting({ type: 'socials', socials: body }).unwrap();
+      // The server reduces pasted URLs to handles and blanks anything unusable;
+      // say so rather than letting a typed value silently vanish.
+      if (res?.socials) {
+        const dropped = SOCIALS.filter(({ key }) => body[key] && !res.socials[key]).map((s) => s.label);
+        setSocials(res.socials);
+        if (dropped.length) {
+          Alert.alert('Saved', `Couldn't use what was entered for ${dropped.join(', ')} — check it and try again.`);
+          return;
+        }
+      }
+      Alert.alert('Saved', 'Your social links have been updated.');
+    } catch {
+      Alert.alert('Error', 'Failed to update social links.');
+    } finally {
+      setSavingSocials(false);
     }
   };
 
@@ -282,6 +312,7 @@ export default function SettingsScreen() {
   ]);
 
   const linkCount = (user?.links ?? []).filter((l) => l.url).length;
+  const socialsSet = socialLinks(user?.socials).map((s) => s.label);
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
 
   /** Each row's section, opened in place of the list. */
@@ -334,6 +365,35 @@ export default function SettingsScreen() {
 
               </View>
               <SaveButton label="Save Profile" onPress={handleSaveProfile} loading={savingProfile} />
+            </View>
+      ),
+    },
+    socials: {
+      title: 'Social', Icon: Share2, hint: socialsSet.length ? socialsSet.join(', ') : 'Instagram, Facebook, YouTube, website',
+      body: () => (
+            <View style={[styles.card, { backgroundColor: colors.bgDark }]}>
+              <View style={styles.cardPad}>
+                <Text style={[styles.fieldHint, { color: colors.grey, marginBottom: 8 }]}>
+                  Just your username — or paste your profile link and we'll pull it out. These show as buttons on your profile.
+                </Text>
+                {SOCIALS.map(({ key, label, placeholder }) => (
+                  <View key={key} style={styles.socialRow}>
+                    <View style={styles.socialIcon}>
+                      <SocialIcon network={key} size={18} color={colors.fg} />
+                    </View>
+                    <View style={styles.linkFields}>
+                      <Field
+                        label={label}
+                        value={socials[key] ?? ''}
+                        onChangeText={(v) => setSocials((prev) => ({ ...prev, [key]: v }))}
+                        placeholder={placeholder}
+                        autoCapitalize="none"
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <SaveButton label="Save Social" onPress={handleSaveSocials} loading={savingSocials} />
             </View>
       ),
     },
@@ -582,6 +642,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   linkFields:   { flex: 1 },
+  socialRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  // Lines the icon up with the input, below the field's label.
+  socialIcon:   { width: 22, alignItems: 'center', marginTop: 34 },
   linkRemove:   { padding: 8, marginTop: 22 },
   addLinkBtn:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,

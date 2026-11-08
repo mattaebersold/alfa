@@ -11,7 +11,7 @@ import { carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { usePosterRatio } from '../../hooks/usePosterRatio';
 import type { GarageCar } from '../../types/api';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_23, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -22,7 +22,7 @@ import { FONT_INTER } from '../../constants/fonts'
 const OVERLAY_SHAPES = { landscape: 3 / 2.5, portrait: 2.5 / 3 };
 
 /** The grid cards' fill — the darker shade the profile's shelves use. */
-const CARD_BG = COLOR_GRAY_23;
+const CARD_BG = SURFACE_MID;
 
 /**
  * One car in a two-up grid: its photo (or the dimmed stand-in), its name with
@@ -44,7 +44,7 @@ export default function CarGridItem({ item, onPress, overlay = false }: {
    */
   overlay?: boolean;
 }) {
-  const hero = carHeroUrl(item);
+  const hero = carHeroUrl(item, 'small');
   const { ratio, onLoad } = usePosterRatio(undefined, OVERLAY_SHAPES, true, hero);
   const colors = useColors();
   const { data: owner } = useGetUserByIdQuery(item.user_id, { skip: !item.user_id });

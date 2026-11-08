@@ -22,14 +22,13 @@ import { FONT_INTER } from '../../constants/fonts'
 import {
   COLOR_BLACK,
   COLOR_GRAY_236,
-  COLOR_GRAY_30,
   COLOR_GRAY_42,
   COLOR_WHITE,
   PANE_BG,
   PANE_OPEN_MS,
   PANE_OPEN_OVERSHOOT,
   PANE_SCRIM,
-  SHEET_RADIUS,
+  SHEET_RADIUS, SURFACE_MID
 } from '../../constants/config';
 
 /**
@@ -254,7 +253,7 @@ export default function CommentsSheet({ postId, entryType, visible, onClose }: C
             barStyle={{ paddingHorizontal: 4, paddingTop: 4 }}
             bottomInset={Math.max(insets.bottom, 12)}
             banner={replyingTo ? (
-              <View style={[styles.replyBanner, { backgroundColor: COLOR_GRAY_30, borderBottomColor: COLOR_BLACK }]}>
+              <View style={[styles.replyBanner, { backgroundColor: SURFACE_MID, borderBottomColor: COLOR_BLACK }]}>
                 <Text style={[styles.replyText, { color: 'rgba(255,255,255,0.7)' }]}>
                   Replying to <Text style={{ fontWeight: '700', color: COLOR_WHITE }}>@{replyingTo.username}</Text>
                 </Text>

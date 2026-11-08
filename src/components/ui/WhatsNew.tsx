@@ -9,10 +9,9 @@ import { latestChangelog, changelogBefore, EARLIEST_SHOWN, type ChangelogEntry }
 import {
   COMMON_RADIUS,
   PILL_RADIUS,
-  COLOR_GRAY_10,
   COLOR_GRAY_42,
   COLOR_GRAY_60,
-  COLOR_WHITE,
+  COLOR_WHITE, SURFACE_BLACK
 } from '../../constants/config';
 import { FONT_INTER, FONT_MONO, monoWeight } from '../../constants/fonts';
 
@@ -22,7 +21,7 @@ import { FONT_INTER, FONT_MONO, monoWeight } from '../../constants/fonts';
  * footer, so its colours are the button's rather than the theme's.
  */
 const BTN_BG = COLOR_WHITE;
-const BTN_FG = COLOR_GRAY_10;
+const BTN_FG = SURFACE_BLACK;
 const BTN_FG_MID = 'rgba(0,0,0,0.55)';
 
 /** Sheet colours, on SharedModal's pane ground. */

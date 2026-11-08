@@ -127,7 +127,7 @@ function ArchivedCarRow({ car, incoming, colors, onOpen }: {
   const busy = restoring || accepting || declining;
 
   const name = [car.year, car.make, car.model].filter(Boolean).join(' ') || car.title || 'Car';
-  const thumb = carHeroUrl(car);
+  const thumb = carHeroUrl(car, 'thumb');
   const pending = !!car.transfer_to_id;
 
   const run = async (fn: () => Promise<unknown>, failure: string) => {
@@ -225,7 +225,7 @@ function TransferRow({ transfer, colors, onOpenCar, onMessage }: {
 
   const { car, other_user: other, status, direction } = transfer;
   const name = (car && ([car.year, car.make, car.model].filter(Boolean).join(' ') || car.title)) || transfer.car_name || 'Car';
-  const thumb = carHeroUrl(car);
+  const thumb = carHeroUrl(car, 'thumb');
   const who = other?.username ?? 'a member';
   const when = transfer.resolved_at ?? transfer.requested_at;
   const date = when ? new Date(when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -1060,7 +1060,7 @@ export default function DashboardScreen() {
                   <FlaggedRow
                     key={p.internal_id}
                     colors={colors}
-                    thumb={firstGalleryUrl(p.gallery)}
+                    thumb={firstGalleryUrl(p.gallery, 'thumb')}
                     title={p.title || (p.body ? p.body.slice(0, 60) : 'Untitled post')}
                     user={p.user}
                     reportCount={p.report_count}
@@ -1080,7 +1080,7 @@ export default function DashboardScreen() {
                   <FlaggedRow
                     key={c.internal_id}
                     colors={colors}
-                    thumb={carHeroUrl(c)}
+                    thumb={carHeroUrl(c, 'thumb')}
                     title={[c.year, c.make, c.model].filter(Boolean).join(' ') || 'Untitled car'}
                     user={c.user}
                     reportCount={c.report_count}
@@ -1127,7 +1127,7 @@ export default function DashboardScreen() {
                     <FlaggedRow
                       key={uid}
                       colors={colors}
-                      thumb={u.gallery?.[0]?.filename ? imageUrl(u.gallery[0].filename) : null}
+                      thumb={u.gallery?.[0]?.filename ? imageUrl(u.gallery[0].filename, 'thumb') : null}
                       thumbRound
                       title={`@${u.username || 'Unknown user'}${banned ? '  ·  BANNED' : ''}`}
                       user={u}

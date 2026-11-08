@@ -62,7 +62,7 @@ function StoryBubble({
   const username: string = user?.username ?? '';
   const displayName = username.length > 8 ? username.slice(0, 7) + '…' : username;
   const profileFilename: string | undefined = user?.profile_image ?? user?.gallery?.[0]?.filename;
-  const profileUri = profileFilename ? imageUrl(profileFilename) : null;
+  const profileUri = profileFilename ? imageUrl(profileFilename, 'thumb') : null;
   const ringColor = group.allSeen ? colors.border : COLOR_STORY_RING;
 
   return (

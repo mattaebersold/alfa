@@ -101,14 +101,11 @@ import {
   COLOR_BADGE_RECORD,
   COLOR_BADGE_SPOT,
   COLOR_BLACK,
-  COLOR_GRAY_11,
   COLOR_GRAY_141,
-  COLOR_GRAY_22,
   COLOR_GRAY_236,
-  COLOR_GRAY_26,
   COLOR_GRAY_42,
   COLOR_WHITE,
-  SHEET_RADIUS,
+  SHEET_RADIUS, SURFACE_BLACK, SURFACE_DARK, SURFACE_MID
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
@@ -150,8 +147,8 @@ const REACTION_TABS: CarActivityTab[] = ['followers', 'likes', 'comments'];
 
 
 // Near-black surfaces for the shared bottom-sheet / pane modal.
-const SHEET_BG = COLOR_GRAY_22;
-const SHEET_HEADER_BG = COLOR_GRAY_11;
+const SHEET_BG = SURFACE_DARK;
+const SHEET_HEADER_BG = SURFACE_BLACK;
 const SHEET_FG = COLOR_GRAY_236;
 const SHEET_BORDER = COLOR_GRAY_42;
 const SHEET_PLACEHOLDER = COLOR_GRAY_42;
@@ -185,7 +182,7 @@ const CAR_TILES: {
 // ── Album card ───────────────────────────────────────────────────────────────
 
 function AlbumCard({ album, onPress, onManage, height }: { album: CarGalleryAlbum; onPress: () => void; onManage?: () => void; /** Half the strip, less the gap — see CarGalleryStrip's stripH. */ height?: number }) {
-  const thumb = album.gallery?.[0] ? imageUrl(album.gallery[0].filename) : null;
+  const thumb = album.gallery?.[0] ? imageUrl(album.gallery[0].filename, 'small') : null;
   return (
     <TouchableOpacity style={[styles.albumCard, height != null && { height }]} onPress={onPress} activeOpacity={0.85}>
       {thumb
@@ -459,7 +456,7 @@ function ModCard({ mod, colors, onOptions, onComments, onPhoto, bare = false }: 
           mod with a dozen install shots doesn't run a screen tall. */}
       {bare ? null : photos.length === 1 ? (
         <Pressable onPress={() => onPhoto?.(0)} accessibilityRole="imagebutton" accessibilityLabel="View photo">
-          <Image source={{ uri: imageUrl(photos[0].filename)! }} style={modStyles.thumb} contentFit="cover" />
+          <Image source={{ uri: imageUrl(photos[0].filename, 'small')! }} style={modStyles.thumb} contentFit="cover" />
         </Pressable>
       ) : photos.length > 1 ? (
         <ScrollView
@@ -474,7 +471,7 @@ function ModCard({ mod, colors, onOptions, onComments, onPhoto, bare = false }: 
               accessibilityRole="imagebutton"
               accessibilityLabel={`View photo ${i + 1} of ${photos.length}`}
             >
-              <Image source={{ uri: imageUrl(g.filename)! }} style={modStyles.stripThumb} contentFit="cover" />
+              <Image source={{ uri: imageUrl(g.filename, 'small')! }} style={modStyles.stripThumb} contentFit="cover" />
             </Pressable>
           ))}
         </ScrollView>
@@ -2287,7 +2284,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
             {editAlbumKept
               .map((img, i) => (
                 <View key={`existing-${i}`} style={styles.galleryThumbWrap}>
-                  <Image source={{ uri: imageUrl(img.filename)! }} style={styles.galleryThumb} contentFit="cover" />
+                  <Image source={{ uri: imageUrl(img.filename, 'small')! }} style={styles.galleryThumb} contentFit="cover" />
                   <TouchableOpacity
                     style={styles.galleryThumbRemove}
                     onPress={() => img.filename && setEditAlbumRemovedFilenames((prev) => [...prev, img.filename!])}
@@ -2787,7 +2784,7 @@ const styles = StyleSheet.create({
     flex: 1, minWidth: 0,
     paddingTop: 8, paddingBottom: 11, paddingLeft: 12, paddingRight: 9, gap: 8,
     borderRadius: 9,
-    backgroundColor: COLOR_GRAY_26,
+    backgroundColor: SURFACE_MID,
   },
   // Sentence case, a shade under the value — the label, not a heading.
   specsLabel:  { fontSize: 11.5, fontFamily: FONT_INTER.semibold },
