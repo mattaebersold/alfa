@@ -1,36 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, ImageBackground, Image, Pressable, Linking,
+  View, StyleSheet, TouchableOpacity, ImageBackground, Linking, Dimensions,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, type TextInput } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { ArrowLeft } from 'lucide-react-native';
 import { useAppDispatch } from '../../store/store';
 import {
-  verifyEmail, resendVerification, changeVerificationEmail, userLogin,
-  type VerifyRejection,
-} from '../../store/authSlice';
+  verifyEmail, resendVerification, userLogin,
+  type VerifyRejection, startOnboarding } from '../../store/authSlice';
 import Button from '../../components/ui/Button';
-import FormInput from '../../components/ui/FormInput';
+import CodeInput, { CODE_LENGTH } from '../../components/auth/CodeInput';
 import { colors } from '../../constants/colors';
 import type { AuthScreenProps } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts'
 import { COLOR_ERROR_BG, COLOR_WHITE } from '../../constants/config';
 
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 const RESEND_COOLDOWN = 60;
-const CODE_LENGTH = 6;
 const SUPPORT_EMAIL = 'matt@openroadsociety.co';
 
 export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps<'VerifyEmail'>) {
-  const { password, verificationSent } = route.params;
+  const { email, password, verificationSent } = route.params;
   const dispatch = useAppDispatch();
 
-  // The address can change under us — see "Use a different email".
-  const [email, setEmail] = useState(route.params.email);
   const [code, setCode] = useState('');
-  const [focused, setFocused] = useState(false);
   // A code just went out (registration or login sent it), so resend starts
   // cooling down — unless it didn't go out, in which case resend is the answer.
   const [cooldown, setCooldown] = useState(verificationSent === false ? 0 : RESEND_COOLDOWN);
@@ -43,18 +40,6 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
   );
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [changing, setChanging] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [savingEmail, setSavingEmail] = useState(false);
-
-  /**
-   * One real input behind the six boxes.
-   *
-   * It used to be six inputs of maxLength 1, and iOS applies maxLength to
-   * autofill as well as typing — so the code Mail offers above the keyboard
-   * arrived as its first digit only. One field takes a paste or an autofill
-   * whole; the boxes just draw its value.
-   */
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -68,7 +53,11 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
     // bouncing back to the login form.
     if (password) {
       const login = await dispatch(userLogin({ email, password }));
-      if (userLogin.fulfilled.match(login)) return; // RootNavigator swaps to the app
+      if (userLogin.fulfilled.match(login)) {
+        // A brand-new account: the first-car step opens over the app.
+        dispatch(startOnboarding());
+        return; // RootNavigator swaps to the app
+      }
     }
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
@@ -96,12 +85,8 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
   };
 
   const handleCodeChange = (value: string) => {
-    const clean = value.replace(/[^0-9]/g, '').slice(0, CODE_LENGTH);
-    setCode(clean);
+    setCode(value);
     if (error) setError(null);
-    // Autofill and paste land all six at once; typing lands the sixth last.
-    // Either way, a full code is submitted without a tap on Verify.
-    if (clean.length === CODE_LENGTH) submit(clean);
   };
 
   const handleResend = async () => {
@@ -124,34 +109,6 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
     if (rejection?.retryAfter) setCooldown(rejection.retryAfter);
   };
 
-  const handleChangeEmail = async () => {
-    const next = newEmail.trim().toLowerCase();
-    if (!password || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    setError(null);
-    setNotice(null);
-    setSavingEmail(true);
-    const result = await dispatch(changeVerificationEmail({ email, password, newEmail: next }));
-    setSavingEmail(false);
-    if (changeVerificationEmail.fulfilled.match(result)) {
-      setEmail(result.payload.email);
-      setChanging(false);
-      setNewEmail('');
-      setCode('');
-      if (result.payload.verificationSent) {
-        setCooldown(RESEND_COOLDOWN);
-        setNotice(`Code sent to ${result.payload.email}.`);
-      } else {
-        setCooldown(0);
-        setError("We updated your email but couldn't send the code. Tap \"Resend code\".");
-      }
-      return;
-    }
-    setError((result.payload as VerifyRejection | undefined)?.message ?? 'Could not change email');
-  };
-
   return (
     <ImageBackground
       source={require('../../../assets/splash.jpg')}
@@ -159,34 +116,27 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
       resizeMode="cover"
     >
       <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        {/* To login, not back: the account exists by now, and what's
+            behind this screen is either the sign-up form (whose button
+            would only say the email is taken) or the login form anyway. */}
+        <TouchableOpacity
+          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })}
+          style={styles.backBtn}
+          hitSlop={8}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Back to login"
+        >
+          <ArrowLeft size={20} color={COLOR_WHITE} />
+        </TouchableOpacity>
         <FormScrollView
           style={styles.flex}
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Image
-              source={require('../../../assets/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.logoTitle}>Open Road{'\n'}Society</Text>
-          </View>
-
-          <BlurView intensity={40} tint="dark" style={styles.form}>
-            {/* To login, not back: the account exists by now, and what's
-                behind this screen is either the sign-up form (whose button
-                would only say the email is taken) or the login form anyway. */}
-            <TouchableOpacity
-              onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })}
-              style={styles.backBtn}
-            >
-              <Text style={styles.back}>← Back to login</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.title}>Check your email</Text>
+          <BlurView intensity={60} tint="dark" style={styles.form}>
             <Text style={styles.subtitle}>
-              We sent a 6-digit code to{'\n'}
+              We sent a code to{'\n'}
               <Text style={styles.emailText}>{email}</Text>
             </Text>
 
@@ -201,38 +151,13 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
               </View>
             )}
 
-            <Pressable style={styles.codeRow} onPress={() => inputRef.current?.focus()}>
-              {Array.from({ length: CODE_LENGTH }, (_, i) => {
-                const active = focused && i === Math.min(code.length, CODE_LENGTH - 1);
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.codeBox,
-                      code[i] ? styles.codeBoxFilled : null,
-                      active ? styles.codeBoxActive : null,
-                    ]}
-                  >
-                    <Text style={styles.codeDigit}>{code[i] ?? ''}</Text>
-                  </View>
-                );
-              })}
-              <TextInput
-                ref={inputRef}
-                style={styles.hiddenInput}
-                value={code}
-                onChangeText={handleCodeChange}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                keyboardType="number-pad"
-                maxLength={CODE_LENGTH}
-                textContentType="oneTimeCode"
-                autoComplete="one-time-code"
-                autoFocus
-                caretHidden
-                editable={!verifying}
-              />
-            </Pressable>
+            <CodeInput
+              ref={inputRef}
+              value={code}
+              onChange={handleCodeChange}
+              onComplete={submit}
+              editable={!verifying}
+            />
 
             <View style={styles.gap} />
 
@@ -256,54 +181,15 @@ export default function VerifyEmailScreen({ navigation, route }: AuthScreenProps
               </Text>
             </TouchableOpacity>
 
-            <Text style={styles.helpText}>
-              Didn't get it? Check your spam or promotions folder — codes can take a minute to arrive.
-              Still stuck?{' '}
-              <Text
-                style={styles.helpLink}
-                onPress={() => Linking.openURL(
-                  `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Trouble verifying my email')}`
-                  + `&body=${encodeURIComponent(`I can't verify ${email}.`)}`,
-                )}
-              >
-                Contact support
-              </Text>
+            <Text
+              style={[styles.helpText, styles.helpLink]}
+              onPress={() => Linking.openURL(
+                `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Trouble verifying my email')}`
+                + `&body=${encodeURIComponent(`I can't verify ${email}.`)}`,
+              )}
+            >
+              Contact support
             </Text>
-
-            {/* A typo at sign-up otherwise leaves an account nobody can
-                verify. Needs the password to prove it's theirs, which we
-                only have when they came here from signing up or in. */}
-            {password && (
-              changing ? (
-                <View style={styles.changeBox}>
-                  <FormInput
-                    value={newEmail}
-                    onChangeText={setNewEmail}
-                    placeholder="New email address"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    textContentType="emailAddress"
-                    autoComplete="email"
-                  />
-                  <Button
-                    label="Send code to this email"
-                    onPress={handleChangeEmail}
-                    loading={savingEmail}
-                    disabled={!newEmail.trim()}
-                    size="full"
-                    variant="dark"
-                  />
-                  <TouchableOpacity onPress={() => setChanging(false)} style={styles.resendBtn}>
-                    <Text style={styles.linkText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity onPress={() => setChanging(true)} style={styles.resendBtn} activeOpacity={0.7}>
-                  <Text style={styles.linkText}>Wrong email? Use a different one</Text>
-                </TouchableOpacity>
-              )
-            )}
           </BlurView>
         </FormScrollView>
       </SafeAreaView>
@@ -316,33 +202,33 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  logo: { width: 180, height: 80 },
-  logoTitle: {
-    color: COLOR_WHITE,
-    fontSize: 13,
-    fontFamily: FONT_INTER.semibold,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: SCREEN_HEIGHT * 0.15 + 24,
   },
   form: {
     borderRadius: 14,
     padding: 18,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  backBtn: { marginBottom: 12 },
-  back: { fontSize: 14, color: colors.primaryAlt, fontFamily: FONT_INTER.semibold },
-  title: { fontSize: 18, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 8 },
+  backBtn: {
+    alignSelf: 'flex-start',
+    marginLeft: 16,
+    marginTop: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   subtitle: {
+    textAlign: 'center',
     fontSize: 14,
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 20,
@@ -353,29 +239,6 @@ const styles = StyleSheet.create({
   errorText: { color: colors.red, fontSize: 14, fontFamily: FONT_INTER.medium },
   noticeBox: { backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 8, padding: 12, marginBottom: 16 },
   noticeText: { color: COLOR_WHITE, fontSize: 14, fontFamily: FONT_INTER.medium },
-  codeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  codeBox: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  codeBoxFilled: {
-    borderColor: COLOR_WHITE,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-  },
-  codeBoxActive: { borderColor: colors.cream },
-  codeDigit: { color: COLOR_WHITE, fontSize: 22, fontFamily: FONT_INTER.bold },
-  // Covers the boxes so a tap anywhere on them lands in it, but draws nothing.
-  hiddenInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.01, color: 'transparent' },
   gap: { height: 20 },
   resendBtn: { alignItems: 'center', marginTop: 16 },
   resendText: { fontSize: 14, color: colors.cream, fontFamily: FONT_INTER.medium },
@@ -388,6 +251,4 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   helpLink: { color: '#FFFFFF', textDecorationLine: 'underline' },
-  linkText: { fontSize: 13, color: colors.cream, fontFamily: FONT_INTER.medium, textDecorationLine: 'underline' },
-  changeBox: { marginTop: 16, gap: 10 },
 });

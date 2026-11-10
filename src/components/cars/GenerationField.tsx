@@ -62,15 +62,16 @@ export default function GenerationField({ make, model, year, value, onChange, hi
 
   const field = (
     <AutocompleteField
-      // No label: the placeholder names it, as on the rest of the form's first step.
+      // Labelled like the Make and Model fields beside it; optional, so no *.
+      label="Generation"
       value={value}
       onChangeText={onChange}
       suggestions={names}
-      placeholder={`Generation (optional) — e.g. ${names[names.length - 1]}`}
+      placeholder={`Optional — e.g. ${names[names.length - 1]}`}
       autoCapitalize="none"
       // A line under it only while it's asking to be filled.
       message={highlight && !value ? `New — choose which ${model.trim()} this is.` : undefined}
-      // Under the model field, as the model is under the make.
+      // Under the make and model, full width — they may sit side by side, it doesn't.
       style={highlight && !value ? undefined : { marginTop: 16 }}
     />
   );

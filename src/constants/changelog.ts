@@ -25,6 +25,41 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.89': {
+    date: 'November 2026',
+    groups: [
+      {
+        title: 'Signing up',
+        items: [
+          'Restyled the steps of the registration form.',
+          'New members are asked to add a car to their garage before registration is done.',
+          'Fixed an issue where backing out at the email verification step let you skip verifying by logging in again.',
+          'Usernames can now be longer.',
+        ],
+      },
+      {
+        title: 'Dashboard & membership',
+        items: [
+          'Dashboard & Settings now opens as a full-screen pane.',
+          'Fixed the usage panel on the dashboard.',
+          'Monthly limits now reset on the 1st of each month.',
+          'Members without Pro can now create 1 driving route.',
+        ],
+      },
+      {
+        title: 'Cars',
+        items: [
+          'A better layout and autocomplete for the year, make and model picker.',
+        ],
+      },
+      {
+        title: 'Account',
+        items: [
+          'Deleting your account now takes you straight back to the login screen.',
+        ],
+      },
+    ],
+  },
   '1.88': {
     date: 'November 2026',
     groups: [

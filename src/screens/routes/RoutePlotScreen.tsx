@@ -10,7 +10,8 @@ import * as Location from 'expo-location';
 import RouteMap, { type LatLng } from '../../components/routes/RouteMap';
 import { usePlotRouteMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor, useIsPro, contrastText } from '../../hooks/useBrandColor';
+import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { useRouteAllowance } from '../../hooks/useRouteAllowance';
 import { decodePolyline, formatDistance, haversine, curvinessLabel } from '../../utils/routeGeometry';
 import type { AppStackParamList } from '../../navigation/types';
 import type { RoutePlotPreview } from '../../types/api';
@@ -19,6 +20,7 @@ import {
   COLOR_ROUTE_FINISH,
   COLOR_ROUTE_START,
   COLOR_WHITE,
+  ROUTE_UPSELL,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -63,17 +65,25 @@ export default function RoutePlotScreen() {
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
-  const isPro = useIsPro();
+  /**
+   * Decided once, when the allowance first arrives — the first save makes a
+   * basic member's allowance read "blocked", and this screen may still be
+   * mounted under the save screen when it does.
+   */
+  const allowance = useRouteAllowance();
+  const [canCreate, setCanCreate] = useState(false);
+  const decided = useRef(false);
 
   useEffect(() => {
-    if (!isPro) {
-      Alert.alert(
-        'Pro membership required',
-        'Plotting routes is a Pro member feature.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
-    }
-  }, [isPro, navigation]);
+    if (decided.current || allowance.status === 'loading') return;
+    decided.current = true;
+    if (allowance.status === 'allowed') { setCanCreate(true); return; }
+    Alert.alert(
+      ROUTE_UPSELL.title,
+      ROUTE_UPSELL.message,
+      [{ text: 'OK', onPress: () => navigation.goBack() }],
+    );
+  }, [allowance.status, navigation]);
 
   // The camera is set once, to where the member is, and then left alone —
   // a plotted drive is usually near home, and a map that kept recentring

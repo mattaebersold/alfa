@@ -10,13 +10,14 @@ import * as Location from 'expo-location';
 import RouteMap from '../../components/routes/RouteMap';
 import { useRouteRecorder, readDraft, clearDraft } from '../../hooks/useRouteRecorder';
 import { useColors } from '../../hooks/useColors';
-import { useBrandColor, useIsPro, contrastText } from '../../hooks/useBrandColor';
+import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
+import { useRouteAllowance } from '../../hooks/useRouteAllowance';
 import { formatDistance, formatDuration, formatSpeed, haversine } from '../../utils/routeGeometry';
 import { formatDistanceToNow } from 'date-fns';
 import PitStopSheet from '../../components/routes/PitStopSheet';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, ROUTE_UPSELL } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -34,7 +35,14 @@ export default function RouteRecordScreen() {
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
-  const isPro = useIsPro();
+  /**
+   * Decided once, when the allowance first arrives — the first save makes a
+   * basic member's allowance read "blocked", and this screen may still be
+   * mounted under the save screen when it does.
+   */
+  const allowance = useRouteAllowance();
+  const [canCreate, setCanCreate] = useState(false);
+  const decided = useRef(false);
 
   const recorder = useRouteRecorder();
   const { status, stats, path, error, isRecording, isPaused } = recorder;
@@ -43,20 +51,21 @@ export default function RouteRecordScreen() {
   // The API rejects non-pro creates anyway; this is so someone who reaches the
   // screen by another path gets an explanation rather than a failed save.
   useEffect(() => {
-    if (!isPro) {
-      Alert.alert(
-        'Pro membership required',
-        'Recording routes is a pro member feature.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
-    }
-  }, [isPro, navigation]);
+    if (decided.current || allowance.status === 'loading') return;
+    decided.current = true;
+    if (allowance.status === 'allowed') { setCanCreate(true); return; }
+    Alert.alert(
+      ROUTE_UPSELL.title,
+      ROUTE_UPSELL.message,
+      [{ text: 'OK', onPress: () => navigation.goBack() }],
+    );
+  }, [allowance.status, navigation]);
 
   // An interrupted drive is on disk but invisible until it's offered back —
   // without this prompt, closing the app mid-route silently loses it.
   const recoveryChecked = useRef(false);
   useEffect(() => {
-    if (!isPro || recoveryChecked.current) return;
+    if (!canCreate || recoveryChecked.current) return;
     recoveryChecked.current = true;
 
     const draft = readDraft();
@@ -77,7 +86,7 @@ export default function RouteRecordScreen() {
         { text: 'Keep driving', onPress: () => recorder.resumeFromDraft() },
       ],
     );
-  }, [isPro]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canCreate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Location permission and an opening camera position.
@@ -93,7 +102,7 @@ export default function RouteRecordScreen() {
   const [initialCenter, setInitialCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    if (!isPro) return;
+    if (!canCreate) return;
     let cancelled = false;
 
     (async () => {
@@ -118,7 +127,7 @@ export default function RouteRecordScreen() {
     })();
 
     return () => { cancelled = true; };
-  }, [isPro]);
+  }, [canCreate]);
 
   // The position is frozen when the button is tapped, so typing a name at the
   // roadside doesn't drag the pin along with the car.

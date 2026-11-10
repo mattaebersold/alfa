@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: SCREEN_HEIGHT * 0.2 + 24,
   },
@@ -209,6 +209,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 18,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   noticeBox: {

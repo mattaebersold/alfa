@@ -64,6 +64,11 @@ export interface User {
   /** Which sign-in made it, when `hasTempUsername`. */
   tempUsernameFrom?: 'apple' | 'google' | null;
   /**
+   * An unverified address on an account new enough to need verifying — your
+   * own profile only. While true, EmailVerificationGate covers the app.
+   */
+  needsEmailVerification?: boolean;
+  /**
    * A rendered map of the general region this member is in, stored once on the
    * server. Their zip is never exposed — see horacio's userRegionMap.
    */
@@ -1143,6 +1148,8 @@ export interface MonthlyUsage {
   remaining: number | null;
   reached: boolean;
   resets_at: string | null;
+  /** The reset as a calendar date, `YYYY-MM-DD` — always the 1st. Absent from older servers. */
+  resets_on?: string | null;
   isPro: boolean;
 }
 

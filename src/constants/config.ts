@@ -455,9 +455,11 @@ export const LISTING_LIMIT_UPSELL = {
   message: `A basic membership posts ${LISTING_LIMIT_BASIC} marketplace listings a month, and you've used all of them. Your allowance comes back on the 1st — or go Pro for up to ${LISTING_LIMIT_PRO} a month.`,
 };
 
+export const ROUTE_LIMIT_BASIC = 1;
+
 export const ROUTE_UPSELL = {
-  title: 'Routes are a Pro feature',
-  message: "Record a drive as you go, or plot one you've already done, and share it with members and your groups. Go Pro to make routes of your own — browsing and driving everyone else's stays open to all.",
+  title: 'Route limit reached',
+  message: `A basic membership keeps ${ROUTE_LIMIT_BASIC} route. Delete yours to make another, or go Pro to record and plot as many as you like — browsing and driving everyone else's stays open to all.`,
 };
 
 export const DIECAST_UPSELL = {

@@ -8,6 +8,7 @@ import { Car as CarIcon } from 'lucide-react-native';
 import { useSearchUsersQuery, useGetCarsQuery } from '../../api/apiService';
 import Avatar from './Avatar';
 import FormInput from './FormInput';
+import { attachedList } from './attachedList';
 import { useColors } from '../../hooks/useColors';
 import { buildCarMention, carDisplayName } from '../../utils/mentions';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';
@@ -127,6 +128,8 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
   }, [value, onChangeText]);
 
   const open = mentionQuery !== null && hasResults;
+  /** A caller's own corner radius, so the list's top corners match the field's. */
+  const fieldRadius = (StyleSheet.flatten(style) as any)?.borderRadius as number | undefined;
   useEffect(() => { onSuggestionsOpenChange?.(open); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   // Down with the field, so a host that made room takes it back.
   useEffect(() => () => { onSuggestionsOpenChange?.(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -139,7 +142,11 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
           // Above the field: a composer sits on the keyboard, so below it
           // there's no room.
           styles.dropdownAbove,
-          { backgroundColor: c.card, borderColor: c.border },
+          // Black and flush on the field, its top corners matching the
+          // field's — see attachedList.
+          attachedList.listAbove,
+          { borderColor: c.inputBorder },
+          fieldRadius != null && { borderTopLeftRadius: fieldRadius, borderTopRightRadius: fieldRadius },
         ]}>
           {/* Rendered with map() rather than a FlatList: this input often lives
               inside a ScrollView, and a nested VirtualizedList warns/breaks. The
@@ -197,7 +204,7 @@ const MentionInput = forwardRef<TextInput, MentionInputProps>(function MentionIn
         // it to the last content size stuck it at one line — the new
         // architecture only reports a content size when the layout changes,
         // and a pinned height means the layout never does.
-        style={style}
+        style={[style, open && attachedList.fieldOpenAbove]}
         multiline={multiline}
         maxLength={maxLength}
         onContentSizeChange={onContentSizeChange}
@@ -224,13 +231,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    borderWidth: 1,
-    borderRadius: 8,
     maxHeight: 280,
     zIndex: 999,
-    overflow: 'hidden',
   },
-  dropdownAbove:  { bottom: '100%', marginBottom: 4 },
+  dropdownAbove:  { bottom: '100%' },
   resultRow:  {
     flexDirection: 'row',
     alignItems: 'center',

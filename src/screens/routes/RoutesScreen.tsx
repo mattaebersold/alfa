@@ -165,9 +165,7 @@ export default function RoutesScreen() {
           ) : (
             <EmptyState
               title="No routes yet"
-              message={isPro
-                ? 'Record a drive, or plot one you\'ve already done, with Create your own.'
-                : 'Pro members can record and share the roads they drive.'}
+              message={'Record a drive, or plot one you\'ve already done, with Create your own.'}
             />
           )}
         />

@@ -4,6 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useColorScheme } from 'react-native';
 import { useAppDispatch } from '../../store/store';
 import { appleSignIn } from '../../store/authSlice';
+import { COMMON_RADIUS } from '../../constants/config';
 
 /**
  * "Sign in with Apple", using Apple's own button.
@@ -85,7 +86,8 @@ export default function AppleSignInButton({ onError }: {
           ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
           : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
       }
-      cornerRadius={10}
+      // Same radius as the Google button beside it.
+      cornerRadius={COMMON_RADIUS}
       style={styles.button}
       onPress={signIn}
     />

@@ -7,7 +7,6 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { useAppDispatch } from '../../store/store';
 import { googleSignIn } from '../../store/authSlice';
-import { useColors } from '../../hooks/useColors';
 import { CONFIG, COMMON_RADIUS } from '../../constants/config';
 import GoogleGlyph from './GoogleGlyph';
 import { FONT_INTER } from '../../constants/fonts';
@@ -49,7 +48,6 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onE
   onError?: (message: string) => void;
 }) {
   const dispatch = useAppDispatch();
-  const colors = useColors();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -101,7 +99,7 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onE
 
   return (
     <TouchableOpacity
-      style={[styles.button, { borderColor: colors.border, backgroundColor: colors.card }]}
+      style={styles.button}
       onPress={signIn}
       disabled={busy}
       activeOpacity={0.8}
@@ -109,22 +107,26 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onE
       accessibilityLabel={label}
     >
       {busy ? (
-        <ActivityIndicator size="small" color={colors.grey} />
+        <ActivityIndicator size="small" color={GOOGLE_DARK.text} />
       ) : (
         <View style={styles.inner}>
           <GoogleGlyph size={18} />
-          <Text style={[styles.label, { color: colors.fg }]}>{label}</Text>
+          <Text style={styles.label}>{label}</Text>
         </View>
       )}
     </TouchableOpacity>
   );
 }
 
+// Google's own dark-theme button colors, from its sign-in branding guidelines.
+const GOOGLE_DARK = { fill: '#131314', stroke: '#8E918F', text: '#E3E3E3' };
+
 const styles = StyleSheet.create({
   button: {
     height: 48, borderRadius: COMMON_RADIUS, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
+    backgroundColor: GOOGLE_DARK.fill, borderColor: GOOGLE_DARK.stroke,
   },
   inner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  label: { fontSize: 15, fontFamily: FONT_INTER.bold },
+  label: { fontSize: 15, fontFamily: FONT_INTER.bold, color: GOOGLE_DARK.text },
 });

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { toUploadableJpeg, uploadFile } from '../utils/upload';
+import { alertPermissionDenied } from '../utils/permissionAlert';
 
 export interface ComposerPhoto {
   /** Local uri, already normalised to JPEG and ready to preview or upload. */
@@ -47,18 +48,13 @@ export function useComposerPhotos(max = 4) {
 
   const add = useCallback(async (from: PhotoSource) => {
     if (room === 0) return;
-    const permission = from === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permission.status !== 'granted') {
-      Alert.alert(
-        'Permission needed',
-        from === 'camera'
-          ? 'Please allow camera access to take a photo.'
-          : 'Please allow photo access to add a photo.',
-      );
-      return;
+    // Only the camera asks — the library's system picker needs no permission.
+    if (from === 'camera') {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (permission.status !== 'granted') {
+        alertPermissionDenied('Allow camera access in Settings to take a photo.');
+        return;
+      }
     }
 
     // No `allowsEditing`: a comment's list crops to 16:9 for the thumbnail, but

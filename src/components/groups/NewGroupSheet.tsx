@@ -23,6 +23,7 @@ import { REGIONS } from '../../constants/regions';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';
 import type { GroupCar, User } from '../../types/api';
 import { FONT_INTER } from '../../constants/fonts'
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 interface PickedImage { uri: string; name: string; type: string }
 
@@ -108,7 +109,7 @@ export default function NewGroupSheet({
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            alertPermissionDenied('Camera access is required to take photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });

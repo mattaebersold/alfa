@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useIsPro } from './useBrandColor';
+import { useRouteAllowance } from './useRouteAllowance';
 import { ProUpsellModal } from '../components/pro/ProUpsell';
 import { ROUTE_UPSELL } from '../constants/config';
 
@@ -10,17 +10,17 @@ import { ROUTE_UPSELL } from '../constants/config';
  * heading and every route card.
  *
  * Two ways in, as there always were: record a drive as it happens, or plot
- * one already driven. Making routes is Pro (the API says so too), so a basic
- * member gets the pitch rather than a form the server would refuse. Render
+ * one already driven. A basic member keeps one route (the API says so too),
+ * so one at the limit gets the pitch rather than a form the server would refuse. Render
  * `upsell` somewhere in the host.
  */
 export function useCreateRoute() {
   const navigation = useNavigation<any>();
-  const isPro = useIsPro();
+  const allowance = useRouteAllowance();
   const [pitch, setPitch] = useState(false);
 
   const create = () => {
-    if (!isPro) { setPitch(true); return; }
+    if (allowance.status === 'blocked') { setPitch(true); return; }
     Alert.alert('New route', "Record a drive as you go, or plot one you've already done.", [
       { text: 'Record a drive', onPress: () => navigation.navigate('RouteRecord') },
       { text: 'Plot a past drive', onPress: () => navigation.navigate('RoutePlot') },

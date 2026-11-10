@@ -4,14 +4,17 @@ import {
 } from 'react-native';
 import { Text } from '@ors/kit';
 import { FormScrollView } from '@ors/kit';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { ChevronLeft, Eye, EyeOff, Check } from 'lucide-react-native';
+import { ArrowLeft, Eye, EyeOff, Check } from 'lucide-react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+// Room for the floating back button (8 offset + 40 button + 16 gap).
+const BACK_CLEARANCE = 64;
 import * as ImagePicker from 'expo-image-picker';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { registerUser, clearError } from '../../store/authSlice';
+import { useCheckUsernameMutation, useCheckEmailMutation } from '../../api/apiService';
 import Button from '../../components/ui/Button';
 import FormInput from '../../components/ui/FormInput';
 import TermsModal from '../../components/auth/TermsModal';
@@ -28,15 +31,16 @@ import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import AppleSignInButton from '../../components/auth/AppleSignInButton';
 import {
   COMMON_RADIUS,
-  COLOR_ERROR_BG,
   COLOR_ERROR_TEXT_LIGHT,
   COLOR_WHITE,
   COLOR_BORDER,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
   const { loading, error } = useAppSelector((s) => s.auth);
   const colors = useColors();
 
@@ -58,6 +62,47 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   const [termsVisible, setTermsVisible] = useState(false);
   /** Google's own failures, which never reach the auth slice's `error`. */
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [checkUsername] = useCheckUsernameMutation();
+  const [checkEmail] = useCheckEmailMutation();
+  /**
+   * The last username / email the server said is taken, normalized. The
+   * message shows only while the field still holds that value, so editing it
+   * clears the message without any bookkeeping.
+   */
+  const [takenUsername, setTakenUsername] = useState<string | null>(null);
+  const [takenEmail, setTakenEmail] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const normUsername = (v: string) => v.trim().toLowerCase();
+  const normEmail = (v: string) => v.trim().toLowerCase();
+  const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  /**
+   * Ask the server whether it's free. Returns true only when it's known to be
+   * taken — a failed request lets them carry on, and registration itself
+   * still refuses a duplicate.
+   */
+  const usernameIsTaken = async (raw: string) => {
+    const username = normUsername(raw);
+    if (!username || validateUsername(username)) return false;
+    try {
+      const { msg } = await checkUsername({ username }).unwrap();
+      const taken = msg === 'true';
+      setTakenUsername(taken ? username : null);
+      return taken;
+    } catch { return false; }
+  };
+  const emailIsTaken = async (raw: string) => {
+    const email = normEmail(raw);
+    if (!isEmail(email)) return false;
+    try {
+      const { msg } = await checkEmail({ email }).unwrap();
+      const taken = msg === 'true';
+      setTakenEmail(taken ? email : null);
+      return taken;
+    } catch { return false; }
+  };
+
   const toggleShow = (key: keyof typeof form) =>
     setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -76,10 +121,16 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   // Shown under the field as it's typed, so someone pasting their email address
   // is told before they reach the button. Nothing is stripped on the way in —
   // the `@` has to survive for the address to be recognisable as one.
-  const usernameError = form.username ? validateUsername(form.username) : null;
+  const usernameError = form.username
+    ? validateUsername(form.username)
+      ?? (takenUsername === normUsername(form.username) ? 'That username is already taken.' : null)
+    : null;
+  const emailError = takenEmail && takenEmail === normEmail(form.email)
+    ? 'An account with that email already exists.'
+    : null;
   const zipError = form.zip ? validateZip(form.zip) : null;
 
-  const handleStep1 = () => {
+  const handleStep1 = async () => {
     if (!form.firstName || !form.lastName || !form.username || !form.email || !form.password) {
       Alert.alert('Error', 'Please fill in all required fields.');
       return;
@@ -108,16 +159,21 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
       Alert.alert('Terms required', 'Please accept the terms and conditions to continue.');
       return;
     }
+    // Checked again here, not just on blur: autofill and a tap straight on
+    // Continue can both skip the blur.
+    setChecking(true);
+    const [userTaken, mailTaken] = await Promise.all([
+      usernameIsTaken(form.username),
+      emailIsTaken(form.email),
+    ]);
+    setChecking(false);
+    if (userTaken || mailTaken) return; // the field says why
     dispatch(clearError());
     setStep(2);
   };
 
   const handlePickPhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo access to upload a profile picture.');
-      return;
-    }
+    // The system picker needs no permission — see utils/permissionAlert.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images',
       allowsEditing: true,
@@ -130,7 +186,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow camera access to take a profile picture.');
+      alertPermissionDenied('Please allow camera access to take a profile picture.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -203,24 +259,33 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
       sources={SPLASH_IMAGES}
       style={ss.fill}
     >
-      <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+      {/* The scroll runs edge to edge; the insets go into its padding so the
+          form clears the notch and home indicator but scrolls beneath them. */}
+      <View style={ss.fill}>
         <TouchableOpacity
-          style={styles.backBtn}
+          style={[styles.backBtn, { top: insets.top + 8 }]}
           onPress={() => step === 2 ? setStep(1) : navigation.navigate('Login')}
           hitSlop={8}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={step === 2 ? 'Back' : 'Back to login'}
         >
-          <ChevronLeft size={18} color={COLOR_WHITE} />
-          <Text style={styles.backToLogin}>Back to login</Text>
+          <ArrowLeft size={20} color={COLOR_WHITE} />
         </TouchableOpacity>
 
         <FormScrollView
           style={styles.flex}
-          contentContainerStyle={styles.container}
+          contentContainerStyle={[
+            styles.container,
+            {
+              paddingTop: insets.top + BACK_CLEARANCE,
+              paddingBottom: insets.bottom + SCREEN_HEIGHT * 0.1 + 24,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <BlurView intensity={40} tint="dark" style={styles.form}>
-            <Text style={styles.title}>
+            <Text style={[styles.title, step === 2 && styles.titleCentered]}>
               {step === 1 ? 'Create Account' : 'Profile Photo'}
             </Text>
 
@@ -267,6 +332,11 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                         autoCorrect={false}
                         textContentType={contentType}
                         autoComplete={autoComplete}
+                        onBlur={
+                          key === 'username' ? () => { usernameIsTaken(form.username); }
+                          : key === 'email' ? () => { emailIsTaken(form.email); }
+                          : undefined
+                        }
                       />
                       {secure && (
                         <TouchableOpacity style={styles.eyeBtn} onPress={() => toggleShow(key)} hitSlop={8}>
@@ -284,6 +354,9 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                           Letters, numbers, and _ - . — this is your public handle.
                         </Text>
                       )
+                    )}
+                    {key === 'email' && emailError && (
+                      <Text style={styles.fieldError}>{emailError}</Text>
                     )}
                     {key === 'zip' && (
                       zipError ? (
@@ -321,6 +394,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
                 <Button
                   label="Continue"
                   onPress={handleStep1}
+                  loading={checking}
                   size="full"
                   variant="dark"
                 />
@@ -328,10 +402,6 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
               </>
             ) : (
               <>
-                <Text style={styles.photoHint}>
-                  Add a profile photo so people know who you are. This is optional — you can always add one later.
-                </Text>
-
                 <View style={styles.photoCircle}>
                   {photo ? (
                     <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
@@ -369,7 +439,7 @@ export default function RegisterScreen({ navigation }: AuthScreenProps<'Register
             )}
           </BlurView>
         </FormScrollView>
-      </SafeAreaView>
+      </View>
 
       <TermsModal
         visible={termsVisible}
@@ -385,30 +455,36 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 24,
-    paddingBottom: SCREEN_HEIGHT * 0.1 + 24,
+    paddingHorizontal: 20,
   },
   backBtn: {
-    flexDirection: 'row',
+    position: 'absolute',
+    left: 16,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 2,
+    justifyContent: 'center',
   },
-  backToLogin: { fontSize: 14, color: COLOR_WHITE, fontFamily: FONT_INTER.medium },
   form: {
     borderRadius: 24,
     padding: 18,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   title: { fontSize: 18, fontFamily: FONT_INTER.bold, color: COLOR_WHITE, marginBottom: 16 },
+  titleCentered: { textAlign: 'center' },
   altRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
   altLine:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
   altLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.7)' },
-  errorBox: { backgroundColor: COLOR_ERROR_BG, borderRadius: 8, padding: 12, marginBottom: 16 },
-  errorText: { color: colors.red, fontSize: 14, fontFamily: FONT_INTER.medium },
+  errorBox: { backgroundColor: colors.red, borderRadius: 8, padding: 12, marginBottom: 16 },
+  errorText: { color: COLOR_WHITE, fontSize: 14, fontFamily: FONT_INTER.semibold },
   field: { marginBottom: 12 },
   label: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginBottom: 4, color: COLOR_WHITE },
   // Sits under the username field: the hint while it's fine, the reason when
@@ -419,12 +495,6 @@ const styles = StyleSheet.create({
   inputWithEye: { paddingRight: 44 },
   eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
   gap: { height: 8 },
-  photoHint: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 19,
-    marginBottom: 20,
-  },
   photoCircle: {
     alignSelf: 'center',
     width: 100,

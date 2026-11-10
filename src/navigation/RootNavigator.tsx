@@ -13,6 +13,8 @@ import AppNavigator from './AppNavigator';
 import Spinner from '../components/ui/Spinner';
 import SessionRecovery from '../components/auth/SessionRecovery';
 import AccountPrompt from '../components/auth/AccountPrompt';
+import EmailVerificationGate from '../components/auth/EmailVerificationGate';
+import FirstCarOnboarding from '../components/onboarding/FirstCarOnboarding';
 import { EventSheetProvider } from '../providers/EventSheetProvider';
 import { GroupSummaryProvider } from '../providers/GroupSummaryProvider';
 import { SummaryProvider } from '../providers/SummaryProvider';
@@ -185,8 +187,18 @@ function AuthGate() {
   return (
     <>
       <AppNavigator />
-      {/* Over the app, not in place of it — see AccountPrompt. */}
-      <AccountPrompt />
+      {/* An unverified new account sees only this until it's done — the other
+          prompts wait, since iOS won't present two modals side by side. */}
+      {user?.needsEmailVerification ? (
+        <EmailVerificationGate />
+      ) : (
+        <>
+          {/* Over the app, not in place of it — see AccountPrompt. */}
+          <AccountPrompt />
+          {/* A brand-new account's first car — over the app, until saved or put off. */}
+          <FirstCarOnboarding />
+        </>
+      )}
     </>
   );
 }

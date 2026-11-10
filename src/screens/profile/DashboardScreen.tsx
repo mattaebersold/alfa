@@ -2,8 +2,8 @@ import React, { useState, useMemo, useRef } from 'react';
 import DeclinedInvitesSheet from '../../components/groups/DeclinedInvitesSheet';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { Text, useGetPhotoSpotUsageQuery } from '@ors/kit';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, LogOut, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered, ChevronRight, Settings, Ban } from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered, ChevronRight, Settings, Ban } from 'lucide-react-native';
 import { Image } from '../../components/ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -413,7 +413,13 @@ const sheetStyles = StyleSheet.create({
   addCarBtnText: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
 });
 
-export default function DashboardScreen() {
+/**
+ * `onClose` is set when the menu hosts this in its full-screen pane (see
+ * SettingsPane): the app header gives way to a close button, since the pane
+ * sits over the menu rather than in the app's stack.
+ */
+export default function DashboardScreen({ onClose }: { onClose?: () => void } = {}) {
+  const insets = useSafeAreaInsets();
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const scrollRef = useRef<ScrollView>(null);
   useScrollTopOnBack(scrollRef);
@@ -438,11 +444,6 @@ export default function DashboardScreen() {
   );
   const listUsers = (listModal === 'followers' ? followersData?.entries : followingData?.entries) ?? [];
 
-  const confirmLogout = () => Alert.alert('Log Out', 'Are you sure?', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
-  ]);
-
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
@@ -464,6 +465,7 @@ export default function DashboardScreen() {
                   onPress: async () => {
                     try {
                       await deleteAccount().unwrap();
+                      // Straight to the login screen — see logout.pending.
                       dispatch(logout());
                     } catch {
                       Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
@@ -806,23 +808,56 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={ss.fill} edges={[]}>
-      <AppHeader spacer />
-      <ScrollView ref={scrollRef} refreshControl={refreshControl} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {/* In the pane the list runs edge to edge, the close button floating
+          over its top corner; the insets go into the list's padding. */}
+      {onClose ? (
+        <View style={[styles.paneBar, { top: insets.top }]}>
+          <TouchableOpacity
+            style={[styles.paneClose, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={onClose}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <X size={20} color={COLOR_WHITE} strokeWidth={2.2} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <AppHeader spacer />
+      )}
+      <ScrollView
+        ref={scrollRef}
+        refreshControl={refreshControl}
+        contentContainerStyle={[
+          styles.content,
+          onClose && { paddingTop: insets.top, paddingBottom: insets.bottom + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headingRow}>
           <Text style={[styles.heading, { color: colors.fg }]}>Dashboard & Settings</Text>
-          <TouchableOpacity
-            style={[styles.logoutBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={confirmLogout}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
-          >
-            <LogOut size={17} color={colors.red} />
-          </TouchableOpacity>
+          {/* Room for the pane's floating close button, level with the heading. */}
+          {onClose && <View style={styles.paneCloseSpace} />}
         </View>
 
         {/* You: photo, username and bio, each edited in place. */}
         <DashboardProfileCard user={user} />
+
+        {/* What the membership allows and how much is spent — full width, in
+            the member's own colour. Basic accounts only: Pro has no limits, so
+            the card was a list of counts with nothing to measure them against. */}
+        {!isPro && usage && (
+          <UsagePanel
+            cars={usage.cars}
+            posts={usage.posts}
+            events={usage.events}
+            listings={usage.listings}
+            alerts={usage.alerts}
+            groups={usage.groups}
+            routes={usage.routes}
+            photoSpots={spotUsage}
+          />
+        )}
 
         {/* Groups of rows: the title, then how many and the way in. */}
         <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>My Content & Settings</Text>
@@ -840,19 +875,6 @@ export default function DashboardScreen() {
         <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Marketplace</Text>
         {renderRows(marketRows)}
 
-        {/* What the membership allows and how much is spent — full width, in
-            the member's own colour. Basic accounts only: Pro has no limits, so
-            the card was a list of counts with nothing to measure them against. */}
-        {!isPro && usage && (
-          <UsagePanel
-            cars={usage.cars}
-            posts={usage.posts}
-            events={usage.events}
-            listings={usage.listings}
-            alerts={usage.alerts}
-            photoSpots={spotUsage}
-          />
-        )}
 
         <Text style={[styles.bucketTitle, { color: COLOR_WHITE }]}>Notifications</Text>
         {renderRows(notifRows)}
@@ -1186,7 +1208,9 @@ const styles = StyleSheet.create({
   content:        { padding: 16, gap: 14, paddingBottom: 160 },
   headingRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   heading:        { fontSize: 22, fontFamily: FONT_INTER.bold, flexShrink: 1 },
-  logoutBtn:      { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  paneBar:        { position: 'absolute', right: 16, zIndex: 1 },
+  paneCloseSpace: { width: 38, height: 38 },
+  paneClose:      { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   // Over each group of rows; the screen's gap would hold it too far off its own.
   bucketTitle:    { fontSize: 16, fontFamily: FONT_INTER.medium, marginTop: 6, marginBottom: -6 },
 

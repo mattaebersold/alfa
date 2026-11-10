@@ -12,6 +12,7 @@ import { colors } from '../../constants/colors';
 import {
   COMMON_RADIUS,
   COLOR_BLACK,
+  COLOR_WHITE,
   COLOR_ERROR_TEXT_DARK,
   COLOR_ON_GOLD,
   CAR_LIMIT_PRO,
@@ -55,18 +56,23 @@ const ON_GOLD_RULE = 'rgba(20,17,11,0.22)';
  * The way in. Gold whoever is looking at it — this button is about Pro, and on
  * a basic account the brand fill is the ordinary blue.
  */
-export function GetProButton({ onPress, style }: { onPress: () => void; style?: any }) {
+export function GetProButton({ onPress, style, dark }: {
+  onPress: () => void;
+  style?: any;
+  /** Black with white text, for when it sits on a coloured card. */
+  dark?: boolean;
+}) {
   return (
     <TouchableOpacity
-      style={[styles.getProBtn, style]}
+      style={[styles.getProBtn, dark && styles.getProBtnDark, style]}
       onPress={onPress}
       hitSlop={8}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel="Get Pro"
     >
-      <Info size={13} color={COLOR_BLACK} />
-      <Text style={styles.getProText}>Get Pro</Text>
+      <Info size={13} color={dark ? COLOR_WHITE : COLOR_BLACK} />
+      <Text style={[styles.getProText, dark && styles.getProTextDark]}>Get Pro</Text>
     </TouchableOpacity>
   );
 }
@@ -260,15 +266,16 @@ export function ProUpsellModal({
 }
 
 /** Button and modal together, for the common case. */
-export function ProUpsell({ title, message, style }: {
+export function ProUpsell({ title, message, style, dark }: {
   title: string;
   message: string;
   style?: any;
+  dark?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <GetProButton onPress={() => setOpen(true)} style={style} />
+      <GetProButton onPress={() => setOpen(true)} style={style} dark={dark} />
       <ProUpsellModal
         visible={open}
         onClose={() => setOpen(false)}
@@ -288,6 +295,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pro,
   },
   getProText: { fontSize: 12, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK, letterSpacing: 0.2 },
+  getProBtnDark: { backgroundColor: COLOR_BLACK },
+  getProTextDark: { color: COLOR_WHITE },
 
   backdrop: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.78)',

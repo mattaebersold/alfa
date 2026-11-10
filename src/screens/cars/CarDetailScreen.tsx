@@ -109,6 +109,7 @@ import {
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 const ALL_CATEGORIES = Object.values(CAR_CATEGORIES).flat();
 function carTypeLabel(key?: string) {
@@ -908,7 +909,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         text: 'Take Photo',
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
+          if (!perm.granted) { alertPermissionDenied('Camera access is required.'); return; }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
           if (!result.canceled) await uploadHero(result.assets);
         },
@@ -930,7 +931,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         text: 'Take Photo',
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
+          if (!perm.granted) { alertPermissionDenied('Camera access is required.'); return; }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
           if (!result.canceled) {
             const picked = await normalizePickedAssets(result.assets);
@@ -1185,7 +1186,7 @@ export default function CarDetailScreen({ route }: { route: { params: { carId: s
         text: 'Take Photo',
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
-          if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
+          if (!perm.granted) { alertPermissionDenied('Camera access is required.'); return; }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
           if (!result.canceled) {
             const picked = await normalizePickedAssets(result.assets);

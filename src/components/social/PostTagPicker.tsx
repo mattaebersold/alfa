@@ -11,6 +11,7 @@ import {
 import GarageCarStrip from './GarageCarStrip';
 import TagCardStrip, { type TagCard } from './TagCardStrip';
 import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
+import { attachedList } from '../ui/attachedList';
 import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
@@ -143,6 +144,9 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
   // whatever's left above it, up to SUGGEST_MAX_H.
   const room = useRoomAbove(SUGGEST_MAX_H);
 
+  /** The suggestions box is up — it and the field join while it is. */
+  const suggesting = query.trim().length === 1 || typing;
+
   return (
     // A card per kind rather than three bands divided by hairlines: tagging a
     // person and tagging a car are separate jobs, and stacked rules made them
@@ -164,8 +168,8 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
           never push the form around. Content that moved as you typed also
           had the form re-scrolling under the field on every keystroke. */}
       <View ref={room.ref} collapsable={false} style={styles.searchWrap}>
-        {(query.trim().length === 1 || typing) && (
-          <View style={[styles.suggestBox, { borderColor: colors.inputBorder, backgroundColor: colors.card }]}>
+        {suggesting && (
+          <View style={[attachedList.listAbove, styles.suggestBox, { borderColor: colors.inputBorder }]}>
             {query.trim().length === 1 ? (
               <Text style={[styles.hint, { color: colors.grey }]}>Keep typing…</Text>
             ) : list.length > 0 ? (
@@ -200,7 +204,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
             )}
           </View>
         )}
-        <View style={[styles.inputBox, surface]}>
+        <View style={[styles.inputBox, surface, suggesting && attachedList.fieldOpenAbove]}>
           <Search size={15} color={colors.grey} />
           <TextInput
             style={[styles.input, { color: colors.fg }]}
@@ -466,10 +470,10 @@ const styles = StyleSheet.create({
   // re-orders the native views and the field loses focus mid-word.
   searchWrap:   { zIndex: 20, elevation: 20 },
   // Hangs off the top of the field, over whatever's above it.
+  // Sits on the field's top edge — the rest of the look is attachedList.listAbove.
   suggestBox:   {
-    position: 'absolute', left: 0, right: 0, bottom: '100%', marginBottom: 6,
-    borderWidth: 1, borderRadius: 10, overflow: 'hidden',
-    boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.45)',
+    position: 'absolute', left: 0, right: 0, bottom: '100%',
+    boxShadow: '0px -6px 18px rgba(0, 0, 0, 0.45)',
   },
   suggestHeader:{ fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4 },
   suggestRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9 },

@@ -23,6 +23,7 @@ import { ss } from '../../styles/shared';
 import type { AppScreenProps } from '../../navigation/types';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_WHITE, COMMON_RADIUS, PANE_BG } from '../../constants/config';
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 /** As many photos as a post takes. */
 const MAX_PHOTOS = 10;
@@ -96,7 +97,7 @@ export default function JournalCreateScreen({ navigation, route }: AppScreenProp
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            alertPermissionDenied('Camera access is required to take photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });

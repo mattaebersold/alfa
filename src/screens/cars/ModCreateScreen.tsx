@@ -21,6 +21,7 @@ import { ss } from '../../styles/shared';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_WHITE, PANE_BG } from '../../constants/config';
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 type ImageAsset = { uri: string; name: string; type: string };
 
@@ -49,7 +50,7 @@ export default function ModCreateScreen({ navigation, route }: AppScreenProps<'M
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            alertPermissionDenied('Camera access is required to take photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });

@@ -186,13 +186,20 @@ export const apiService = createApi({
        * a server without it falls back to `/api/alerts`'s own `counts`.
        */
       alerts?: AlertCounts;
-      routes: { pro_only: boolean; allowed: boolean };
+      /**
+       * One route on basic, unlimited on Pro — a standing count. `used` and
+       * `limit` are absent from servers older than the basic allowance, where
+       * routes were Pro-only. See useRouteAllowance.
+       */
+      routes: { pro_only: boolean; allowed: boolean; used?: number; limit?: number | null };
       /** Diecast listings are Pro-only. Absent from older servers. */
       diecast?: { pro_only: boolean; allowed: boolean };
+      /** Member lists — creating one is Pro-only. Absent from older servers. */
+      lists?: { allowed: boolean; used?: number; limit?: number | null };
       isPro: boolean;
     }, void>({
       query: () => 'api/users/usage',
-      providesTags: ['User', 'Post', 'SocietyEvent', 'Listing', 'Alert', 'Group'],
+      providesTags: ['User', 'Post', 'SocietyEvent', 'Listing', 'Alert', 'Group', 'Route'],
     }),
 
     getUserStats: builder.query<{

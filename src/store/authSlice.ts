@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { CONFIG } from '../constants/config';
 import { storeToken, removeToken, getToken } from '../utils/token';
+import { readOnboardingFlag, writeOnboardingFlag } from '../utils/onboardingFlag';
 import { orsApi } from '@ors/kit';
 import { apiService } from '../api/apiService';
 import type { User, LoginResponse } from '../types/api';
@@ -26,6 +27,12 @@ interface AuthState {
    * out" for those frames flashes the login screen at members who are not.
    */
   restoring: boolean;
+  /**
+   * A brand-new account that hasn't been through the first-car step yet —
+   * set when verifying signs a new member in, or when Google/Apple creates
+   * the account. See components/onboarding/FirstCarOnboarding.
+   */
+  onboarding: boolean;
 }
 
 const initialState: AuthState = {
@@ -37,6 +44,7 @@ const initialState: AuthState = {
   success: false,
   sessionExpired: false,
   restoring: true,
+  onboarding: false,
 };
 
 // ── Async thunks ────────────────────────────────────────────────────────────
@@ -112,13 +120,14 @@ export const googleSignIn = createAsyncThunk(
   'auth/googleSignIn',
   async (idToken: string, { rejectWithValue }) => {
     try {
-      const { data } = await axios.post<LoginResponse>(
+      const { data, status } = await axios.post<LoginResponse>(
         `${CONFIG.API_BASE_URL}/api/users/google-auth`,
         { idToken },
         { headers: { 'Content-Type': 'application/json' } }
       );
       await storeToken(data.userToken);
-      return data;
+      // horacio answers 201 only when this sign-in created the account.
+      return { ...data, isNewAccount: status === 201 };
     } catch (error: any) {
       return rejectWithValue(
         error.response?.data?.error || error.response?.data?.message || 'Google sign-in failed'
@@ -145,13 +154,13 @@ export const appleSignIn = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      const { data } = await axios.post<LoginResponse>(
+      const { data, status } = await axios.post<LoginResponse>(
         `${CONFIG.API_BASE_URL}/api/users/apple-auth`,
         { identityToken, fullName },
         { headers: { 'Content-Type': 'application/json' } }
       );
       await storeToken(data.userToken);
-      return data;
+      return { ...data, isNewAccount: status === 201 };
     } catch (error: any) {
       return rejectWithValue(
         error.response?.data?.error || error.response?.data?.message || 'Apple sign-in failed'
@@ -263,6 +272,14 @@ const authSlice = createSlice({
     clearError: (state) => { state.error = null; },
     clearSuccess: (state) => { state.success = false; },
     clearSessionExpired: (state) => { state.sessionExpired = false; },
+    startOnboarding: (state) => {
+      state.onboarding = true;
+      writeOnboardingFlag(true);
+    },
+    finishOnboarding: (state) => {
+      state.onboarding = false;
+      writeOnboardingFlag(false);
+    },
     setCredentials: (state, action: PayloadAction<User>) => {
       state.userInfo = action.payload;
       state.isLoggedIn = true;
@@ -290,6 +307,10 @@ const authSlice = createSlice({
       })
       .addCase(googleSignIn.fulfilled, (state, { payload }) => {
         state.loading = false;
+        if (payload.isNewAccount) {
+          state.onboarding = true;
+          writeOnboardingFlag(true);
+        }
         state.userInfo = payload;
         state.userToken = payload.userToken;
         state.isLoggedIn = true;
@@ -306,6 +327,10 @@ const authSlice = createSlice({
       })
       .addCase(appleSignIn.fulfilled, (state, { payload }) => {
         state.loading = false;
+        if (payload.isNewAccount) {
+          state.onboarding = true;
+          writeOnboardingFlag(true);
+        }
         state.userInfo = payload;
         state.userToken = payload.userToken;
         state.isLoggedIn = true;
@@ -342,6 +367,17 @@ const authSlice = createSlice({
       // Through the slice, a failed verify's message outlived the screen and
       // greeted the member on the login form they were sent back to.
       // Logout
+      // Signed out the moment logout starts, not once the token is off disk.
+      // In between, the app's polls go out with a token for an account that
+      // may be gone (a deleted account) — each 401 would otherwise land as a
+      // "session expired" logout, or the failed profile fetch as the recovery
+      // screen. With `isLoggedIn` already false, the 401 guard lets them pass.
+      .addCase(logout.pending, (state, action) => {
+        const opts = action.meta.arg as { expired?: boolean } | undefined;
+        state.userInfo = null;
+        state.isLoggedIn = false;
+        state.sessionExpired = !!opts?.expired;
+      })
       .addCase(logout.fulfilled, (state, { payload }) => {
         state.loading = false;
         state.userInfo = null;
@@ -349,12 +385,15 @@ const authSlice = createSlice({
         state.isLoggedIn = false;
         state.error = null;
         state.sessionExpired = payload?.expired ?? false;
+        state.onboarding = false;
+        writeOnboardingFlag(false);
       })
       // Restore session
       .addCase(restoreSession.fulfilled, (state, { payload }) => {
         state.userToken = payload;
         state.isLoggedIn = !!payload;
         state.restoring = false;
+        state.onboarding = !!payload && readOnboardingFlag();
       })
       // A SecureStore that won't answer leaves us with no token to try, which
       // is the logged-out case — the alternative is holding the splash forever.
@@ -365,5 +404,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, clearSuccess, clearSessionExpired, setCredentials } = authSlice.actions;
+export const { clearError, clearSuccess, clearSessionExpired, setCredentials, startOnboarding, finishOnboarding } = authSlice.actions;
 export default authSlice.reducer;

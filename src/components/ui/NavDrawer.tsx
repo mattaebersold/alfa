@@ -34,6 +34,7 @@ import {
 } from '../../constants/config';
 import { ProUpsellModal } from '../pro/ProUpsell';
 import InviteFriendModal from '../members/InviteFriendModal';
+import SettingsPane from '../profile/SettingsPane';
 import ProfileSetupCard from '../members/ProfileSetupCard';
 import { CarCreateSheet } from '../../screens/garage/CarCreateScreen';
 import { SummaryTouchable, type SummaryOrigin } from './SummaryModal';
@@ -270,6 +271,8 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   const [invite, setInvite] = useState<{ origin: SummaryOrigin | null } | null>(null);
   /** The add-a-car form, open over the menu — see the setup card below. */
   const [carFormOpen, setCarFormOpen] = useState(false);
+  /** Dashboard & Settings, full screen over the menu — see SettingsPane. */
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { openEventSheet } = useEventSheet();
 
   /**
@@ -282,6 +285,11 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
   /** Close first, then navigate once the drawer is off-screen. */
   const closeThen = useCallback((go: () => void) => leave.current(go), []);
   const handleClose = useCallback(() => leave.current(), []);
+  /** Leaving from inside the settings pane: it slides away, then the menu, then go. */
+  const leaveFromSettings = useCallback((go: () => void) => {
+    setSettingsOpen(false);
+    setTimeout(() => closeThen(go), 350);
+  }, [closeThen]);
 
   /**
    * Confirmed, because the control is now an icon rather than a labelled
@@ -466,7 +474,7 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
               {userInfo && (
                 <TouchableOpacity
                   style={styles.userCard}
-                  onPress={() => goFeed('Dashboard')}
+                  onPress={() => setSettingsOpen(true)}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel="Dashboard & Settings"
@@ -667,6 +675,12 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
           photo and bio sheets do. Mounted only while open: the sheet runs its
           own close animation and reports back when it's gone. */}
       {carFormOpen && <CarCreateSheet onDismissed={() => setCarFormOpen(false)} />}
+
+      <SettingsPane
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onLeave={leaveFromSettings}
+      />
 
       <InviteFriendModal
         visible={!!invite}

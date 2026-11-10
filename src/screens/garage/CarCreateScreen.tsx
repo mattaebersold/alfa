@@ -39,6 +39,7 @@ import { FONT_INTER } from '../../constants/fonts'
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 /**
  * The step names, which head the nav row rather than the scrolling content.
@@ -485,7 +486,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            alertPermissionDenied('Camera access is required to take photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -521,7 +522,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            alertPermissionDenied('Camera access is required to take photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -784,6 +785,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
 
               <MakeModelFields
                 required
+                // Side by side, half each; the generation below runs full width.
+                columns
                 make={form.make}
                 model={form.model}
                 onMakeChange={set('make')}

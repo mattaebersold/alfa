@@ -41,6 +41,7 @@ import type { AppScreenProps } from '../../navigation/types';
 import type { ListingKind, ListingPriceMode, ListingShipping } from '../../types/api';
 import FormInput from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 /**
  * The steps, named in the header rather than inside each one — the same
@@ -316,7 +317,7 @@ export function ListingCreateSheet({ listingId, initialKind, initialGroupId, ini
         onPress: async () => {
           const perm = await ImagePicker.requestCameraPermissionsAsync();
           if (!perm.granted) {
-            Alert.alert('Permission needed', 'Camera access is required to take photos.');
+            alertPermissionDenied('Camera access is required to take photos.');
             return;
           }
           const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });

@@ -19,6 +19,7 @@ import { useBrandColor } from '../../hooks/useBrandColor';
 import { toUploadableJpeg, uploadFile } from '../../utils/upload';
 import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import { alertPermissionDenied } from '../../utils/permissionAlert';
 
 /**
  * The two setup steps that can be finished on the spot.
@@ -48,7 +49,7 @@ export async function pickProfilePhoto(source: 'library' | 'camera'): Promise<st
   if (source === 'camera') {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow camera access to take a profile photo.');
+      alertPermissionDenied('Allow camera access to take a profile photo.');
       return null;
     }
   }

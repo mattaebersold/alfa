@@ -5,6 +5,7 @@ import {
 import { Text, useRoomAbove } from '@ors/kit';
 import { MapPin } from 'lucide-react-native';
 import FormInput from './FormInput';
+import { attachedList } from './attachedList';
 import { useColors } from '../../hooks/useColors';
 import {
   useLazySearchPlacesQuery, useLazyGetPlaceDetailsQuery,
@@ -184,7 +185,7 @@ export default function AddressField({
       // re-orders the native views and the field loses focus mid-word.
       <View ref={room.ref} collapsable={false} style={[style, styles.aboveHost]}>
         {showList && (
-          <View style={[styles.list, styles.aboveList, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[attachedList.listAbove, styles.aboveList, { borderColor: colors.inputBorder }]}>
             <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={{ maxHeight: room.maxHeight }}>
               {rows}
               {spinner}
@@ -198,7 +199,7 @@ export default function AddressField({
           onBlur={room.onBlur}
           placeholder={placeholder}
           autoCorrect={false}
-          style={inputStyle}
+          style={[inputStyle, showList && attachedList.fieldOpenAbove]}
         />
       </View>
     );
@@ -212,11 +213,11 @@ export default function AddressField({
         onFocus={() => setOpen(predictions.length > 0)}
         placeholder={placeholder}
         autoCorrect={false}
-        style={inputStyle}
+        style={[inputStyle, showList && attachedList.fieldOpenBelow]}
       />
 
       {showList && (
-        <View style={[styles.list, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[attachedList.listBelow, { borderColor: colors.inputBorder }]}>
           {rows}
           {spinner}
         </View>
@@ -234,14 +235,11 @@ const styles = StyleSheet.create({
    * by the next section. Pushing the content down is uglier in principle and
    * reliable in practice.
    */
-  list: {
-    marginTop: 6, borderWidth: 1, borderRadius: 10, overflow: 'hidden',
-  },
   // The `above` variant: hangs off the top of the field, over what's above it.
   aboveHost: { zIndex: 20, elevation: 20 },
   aboveList: {
-    position: 'absolute', left: 0, right: 0, bottom: '100%', marginTop: 0, marginBottom: 6,
-    boxShadow: '0px 6px 18px rgba(0, 0, 0, 0.45)',
+    position: 'absolute', left: 0, right: 0, bottom: '100%',
+    boxShadow: '0px -6px 18px rgba(0, 0, 0, 0.45)',
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 9,

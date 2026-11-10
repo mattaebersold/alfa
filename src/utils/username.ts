@@ -12,7 +12,7 @@
  */
 
 export const USERNAME_MIN = 3;
-export const USERNAME_MAX = 20;
+export const USERNAME_MAX = 40;
 
 /** Letters, numbers, and `_ - .` — nothing else. */
 const ALLOWED = /^[A-Za-z0-9._-]+$/;

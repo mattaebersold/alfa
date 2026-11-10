@@ -358,26 +358,40 @@ export default function CreateScreen() {
     return drafts;
   }, [posterFor, patchMedia]);
 
+  /**
+   * The picker closes before it hands anything back — iOS re-encodes each
+   * photo, exports each video to 1080p and fetches anything in iCloud first,
+   * which can take seconds. A loading tile holds the row over that gap so it
+   * doesn't look like the pick went nowhere. Set while the picker is up too;
+   * the picker covers the form then, so it's never seen early.
+   */
+  const [importing, setImporting] = useState(false);
+
   const addFromLibrary = useCallback(async () => {
     const room = mediaRoom();
     if (room <= 0) return;
-    // Photos and videos in one pass — the author picks what they want in the
-    // order they want it, instead of choosing a lane first.
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsMultipleSelection: true,
-      selectionLimit: room,
-      quality: 0.85,
-      videoMaxDuration: 120,
-      // iOS hands library videos over untouched by default — often 4K, and
-      // several hundred MB for two minutes, which is what timed out on a
-      // phone connection. 1080p is what the post plays at anyway (Mux
-      // streams it adaptively), and any preset but Passthrough also fetches
-      // an iCloud-only video instead of failing to load it.
-      videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
-    });
-    if (result.canceled) return;
-    appendMedia(await toDraft(result.assets));
+    setImporting(true);
+    try {
+      // Photos and videos in one pass — the author picks what they want in the
+      // order they want it, instead of choosing a lane first.
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsMultipleSelection: true,
+        selectionLimit: room,
+        quality: 0.85,
+        videoMaxDuration: 120,
+        // iOS hands library videos over untouched by default — often 4K, and
+        // several hundred MB for two minutes, which is what timed out on a
+        // phone connection. 1080p is what the post plays at anyway (Mux
+        // streams it adaptively), and any preset but Passthrough also fetches
+        // an iCloud-only video instead of failing to load it.
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
+      });
+      if (result.canceled) return;
+      appendMedia(await toDraft(result.assets));
+    } finally {
+      setImporting(false);
+    }
   }, [mediaRoom, appendMedia, toDraft]);
 
   /**
@@ -771,7 +785,7 @@ export default function CreateScreen() {
 
         {/* Photos / video */}
         <View style={styles.photosSection}>
-          {media.length === 0 ? (
+          {media.length === 0 && !importing ? (
             <PhotoPickerField
               onPress={pickImage}
               title="Add Media"
@@ -791,6 +805,14 @@ export default function CreateScreen() {
               {media.map((item) => (
                 <MediaThumb key={item.key} item={item} onRemove={() => removeMedia(item.key)} />
               ))}
+              {importing && (
+                <View
+                  style={[styles.thumbWrap, styles.thumb, styles.importingTile, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
+                  accessibilityLabel="Adding media"
+                >
+                  <ActivityIndicator size="small" color={colors.grey} />
+                </View>
+              )}
               <TouchableOpacity
                 style={[styles.thumb, styles.addTile, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
                 onPress={pickImage}
@@ -1000,6 +1022,7 @@ const styles = StyleSheet.create({
   thumbWrap:    { marginRight: 8, position: 'relative' },
   thumb:        { width: 72, height: 72, borderRadius: 8 },
   thumbPlaceholder: { backgroundColor: COLOR_GRAY_42 },
+  importingTile: { borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   // Over a photo still being shrunk for upload.
   thumbBusy: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 8 },
   videoPlayBadge: {
