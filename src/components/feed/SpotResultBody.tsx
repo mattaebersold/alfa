@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { View, TouchableOpacity, StyleSheet, Platform, type LayoutChangeEvent } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
-import { ChevronRight, Plus, Minus, Lightbulb } from 'lucide-react-native';
+import { Car, ChevronRight, Plus, Minus, Lightbulb } from 'lucide-react-native';
 import Svg, { G, Path } from 'react-native-svg';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
@@ -12,7 +12,8 @@ import {
   useGetLoggedInUserQuery, useGetCarSpotTodayQuery, useGetCarSpotDayQuery,
 } from '../../api/apiService';
 import { imageUrl } from '../../utils/image';
-import { SOURCE_APPS, openSourceApp } from '../../constants/sourceApps';
+import { useIsPro } from '../../hooks/useBrandColor';
+import { openDailyGames } from '../games/openDailyGames';
 import {
   COMMON_RADIUS,
   PILL_RADIUS,
@@ -46,7 +47,6 @@ const PREVIEW_BLUR = Platform.OS === 'android' ? .7 :.7;
 /** The puzzle photo's side: a small thumbnail set into the card, not a banner across it. */
 const PHOTO = 60;
 
-const SPOT_ICON = require('../../../assets/apps/spot-icon.png');
 
 /** The server clamps zoom to 1.5–8; clamped again here so a bad row can't blow the image up. */
 const clampZoom = (z: number) => Math.min(8, Math.max(1.5, Number(z) || 3.5));
@@ -255,10 +255,9 @@ export function winnerOf(me: Game, them: Game): 'me' | 'them' | null {
 }
 
 /**
- * Where the viewer stands against this result, from what their own account
- * says. Three answers:
- *  - `download`: not a Car Spotter player yet — the app, to get;
- *  - `play`: a player who hasn't finished today's — today's puzzle, to play;
+ * Where the viewer stands against this result. The game is the PRO tab's
+ * now, so only a Pro member has a standing; two answers:
+ *  - `play`: hasn't finished today's — today's puzzle, on the PRO tab;
  *  - `compare`: a player who played the day this result is from — the two
  *    games side by side (`mine` is theirs).
  * Null for a player who has played today but not the (older) day this is
@@ -269,9 +268,8 @@ function useSpotStanding(
   carspot: CarSpotSummary, difficulty: CarSpotDifficulty, author?: SpotResultBodyProps['author'],
 ) {
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
-  const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !myId });
-  // Missing means an account from before the field, which is an ORS-only one.
-  const hasSpot = !!me?.accounts?.includes('spot');
+  // The Daily Games are Pro's: no one else has a game to compare or play.
+  const hasSpot = useIsPro();
   const date = carspot.play_date;
 
   // The viewer's game of the same day in the same difficulty — those are what compare.
@@ -283,7 +281,7 @@ function useSpotStanding(
 
   const isMine = !!myId && !!author?.user_id && author.user_id === myId;
   if (isMine) return null;
-  if (me && !hasSpot) return { kind: 'download' as const };
+  if (!hasSpot) return null;
   // Not answered yet (or no account to answer for): nothing to say.
   if (!day) return null;
   if (finished(day.play)) return { kind: 'compare' as const, mine: day.play };
@@ -353,20 +351,19 @@ export function SpotResultAction({ carspot, author, result }: Pick<SpotResultBod
     );
   }
 
-  const play = standing.kind === 'play';
   // Dark either way: the app's icon carries its colour, and a green slab in
   // the footer outshone the post it was under.
   return (
     <TouchableOpacity
-      onPress={() => openSourceApp(SOURCE_APPS.spot)}
+      onPress={openDailyGames}
       activeOpacity={0.8}
       accessibilityRole="link"
       style={[styles.appBtn, { backgroundColor: SURFACE_MID, borderColor: colors.borderDark }]}
     >
-      <Image source={SPOT_ICON} style={styles.appIcon} contentFit="cover" />
-      <Text style={[styles.appBtnText, { color: colors.fg }]} numberOfLines={1}>
-        {play ? "Play today's puzzle" : 'Get the guessing game app'}
-      </Text>
+      <View style={styles.appIcon}>
+        <Car size={14} color={COLOR_PRO} strokeWidth={2.4} />
+      </View>
+      <Text style={[styles.appBtnText, { color: colors.fg }]} numberOfLines={1}>Play today's puzzle</Text>
       <ChevronRight size={15} color={colors.muted} strokeWidth={2.5} />
     </TouchableOpacity>
   );
@@ -654,7 +651,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   // The app's own icon, at home-screen proportions.
-  appIcon: { width: 24, height: 24, borderRadius: 6 },
+  appIcon: { width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE_BLACK },
   appBtnText: { flexShrink: 1, fontSize: 12.5, fontFamily: FONT_INTER.bold },
 
   // The two games as one pill, the same shape as the button it stands in

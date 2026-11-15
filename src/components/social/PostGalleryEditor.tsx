@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';

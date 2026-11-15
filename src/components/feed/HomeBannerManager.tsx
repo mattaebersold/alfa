@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import FormInput from '../ui/FormInput';
-import { FormScrollView } from '@ors/kit';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Trash2, Check } from 'lucide-react-native';

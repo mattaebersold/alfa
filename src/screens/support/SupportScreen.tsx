@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, Platform,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, MessageCircle, ChevronRight } from 'lucide-react-native';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';

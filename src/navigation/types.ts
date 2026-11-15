@@ -1,3 +1,4 @@
+import type { DailyGameKind } from '../types/games';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NavigatorScreenParams } from '@react-navigation/native';
@@ -48,7 +49,7 @@ export type FeedStackParamList = {
    * the tab already showing still takes you back to its top.
    */
   Feed: {
-    tab?: 'feed' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
+    tab?: 'feed' | 'pro' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
     at?: number;
     /** With `tab: 'photography'`: a spot to open on the map. */
     spotId?: string;
@@ -72,6 +73,11 @@ export type FeedStackParamList = {
   // Also reachable from the drawer while on the feed tab, so it's registered
   // here as well as in MarketStackParamList.
   Marketplace: undefined;
+  /**
+   * One of the PRO tab's Daily Games, full screen: today's without `date`,
+   * or that past day's ('YYYY-MM-DD') to play late or look back on.
+   */
+  DailyGame: { game: DailyGameKind; date?: string };
 };
 
 // ── Society Stack ───────────────────────────────────────────────────────────

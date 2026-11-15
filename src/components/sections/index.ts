@@ -3,6 +3,7 @@ import { EVENTS_SUBS } from './events';
 import { MARKET_SUBS } from './market';
 import { GROUPS_SUBS } from './groups';
 import { PHOTOGRAPHY_SUBS, CARS_SUBS, MEMBERS_SUBS } from './more';
+import { PRO_SUBS } from './pro';
 
 /**
  * Each home section's sub-screens, in header order after the section's own
@@ -10,6 +11,8 @@ import { PHOTOGRAPHY_SUBS, CARS_SUBS, MEMBERS_SUBS } from './more';
  * shows just [home] [section].
  */
 export const SECTION_SUBS: Record<string, SectionSub[]> = {
+  // Pro members only — FeedScreen leaves PRO's row off for everyone else.
+  pro: PRO_SUBS,
   events: EVENTS_SUBS,
   market: MARKET_SUBS,
   groups: GROUPS_SUBS,

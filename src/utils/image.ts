@@ -1,11 +1,11 @@
-import { imageUrl as kitImageUrl, type ImageSize } from '@ors/kit';
+import { imageUrl as kitImageUrl, type ImageSize } from '../constants/appConfig';
 import type { GalleryItem } from '../types/api';
 
 export type { ImageSize };
 
 /**
  * An uploaded image's URL, through the image CDN at the size it's drawn —
- * see ImageSize in @ors/kit's config. Defaults to `medium` (full-width).
+ * see ImageSize in config. Defaults to `medium` (full-width).
  */
 export function imageUrl(filename: string | null | undefined, size?: ImageSize): string | null {
   return kitImageUrl(filename, size);

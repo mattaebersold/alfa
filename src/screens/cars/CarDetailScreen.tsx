@@ -2,8 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Pressable, Dimensions, FlatList, Modal, StatusBar, SafeAreaView as RNSafeAreaView, ActivityIndicator, Alert, Animated, Platform, Share,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { Image } from '../../components/ui/AppImage';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,7 +74,7 @@ import ActionSheet from '../../components/ui/ActionSheet';
 import { format, formatDistanceToNow } from 'date-fns';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { GestureHandlerRootView, FlatList as GHFlatList } from 'react-native-gesture-handler';
-import { PortalHost } from '@ors/kit';
+import { PortalHost } from '../../components/Portal';
 import PinchZoom from '../../components/media/PinchZoom';
 import Lightbox from '../../components/media/GalleryLightbox';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';

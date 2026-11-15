@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from './AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { imageUrl } from '../../utils/image';

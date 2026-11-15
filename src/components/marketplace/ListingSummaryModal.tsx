@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
 import GalleryLightbox from '../media/GalleryLightbox';

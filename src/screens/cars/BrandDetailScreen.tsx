@@ -4,7 +4,7 @@ import SubTabs from '../../components/ui/SubTabs';
 import PageBanner, { PAGE_BANNER_OVERLAP } from '../../components/cars/PageBanner';
 import { imageUrl, firstGalleryUrl } from '../../utils/image';
 import { View, StyleSheet, ScrollView, Dimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Car } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CarMosaic from '../../components/cars/CarMosaic';

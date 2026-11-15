@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, StyleSheet, ScrollView, Dimensions, type DimensionValue,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import UserSummaryModal from '../members/UserSummaryModal';
 import Avatar from '../ui/Avatar';
@@ -10,8 +10,8 @@ import CarSummaryModal from '../cars/CarSummaryModal';
 import GroupSummaryModal from '../groups/GroupSummaryModal';
 import EventSummaryModal from '../society/EventSummaryModal';
 import { Users, Car as CarIcon, User as UserIcon, Calendar, MapPin } from 'lucide-react-native';
-import { useGetPhotoSpotQuery } from '@ors/kit';
-import { PhotoSpotSummaryModal } from '@ors/kit/src/photography';
+import { useGetPhotoSpotQuery } from '../../api/orsApi';
+import { PhotoSpotSummaryModal } from '../../photography';
 import {
   useGetGroupQuery, useGetUserByIdQuery, useGetCarQuery, useGetSocietyEventQuery,
   useGetPostTagsQuery,

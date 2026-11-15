@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, Platform,
   type StyleProp, type ViewStyle,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { MapPin, Navigation, Play, Image as ImageIcon } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';

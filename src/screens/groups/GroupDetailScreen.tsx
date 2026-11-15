@@ -3,7 +3,7 @@ import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert, Animated, Easing,
   ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent, Platform, Dimensions } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -87,6 +87,7 @@ import {
 } from '../../constants/config';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -168,6 +169,7 @@ const catLabel = (kind: string, key?: string) =>
 type DetailKind = 'news' | 'discussion' | 'resource';
 
 export default function GroupDetailScreen() {
+  const badge = useCountBadge();
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const listRef = useRef<FlatList>(null);
   useScrollTopOnBack(listRef);
@@ -867,8 +869,8 @@ export default function GroupDetailScreen() {
       activeOpacity={0.8}
       accessibilityLabel={`Review ${pendingRequests.length} join request${pendingRequests.length === 1 ? '' : 's'}`}
     >
-      <View style={styles.requestsCount}>
-        <Text style={styles.requestsCountText}>{pendingRequests.length}</Text>
+      <View style={[styles.requestsCount, { backgroundColor: badge.bg }]}>
+        <Text style={[styles.requestsCountText, { color: badge.fg }]}>{pendingRequests.length}</Text>
       </View>
       <Text style={[styles.requestsText, { color: c.fg }]}>
         {pendingRequests.length === 1 ? 'Join request waiting' : 'Join requests waiting'}

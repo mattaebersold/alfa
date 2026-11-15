@@ -24,6 +24,7 @@ import { useColors } from '../../hooks/useColors';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import type { Post, GarageCar, DrivingRoute, CarActivityItem, GroupActivityItem } from '../../types/api';
 import { SkeletonList } from '../ui/Skeleton';
+import { useFeedPreferences } from '../../hooks/useFeedPreferences';
 
 interface FeedListProps {
   filter?: string;
@@ -131,9 +132,22 @@ export default function FeedList({
 
   const activeFilter = filter ?? (contentFilterEnabled ? 'safe' : undefined);
 
+  /**
+   * How the member asked for the home feed to be built — its order, and which
+   * kinds of row it carries (the banner above the first card; see
+   * FeedPrefsBanner). Home feed only: a profile's or a car's list ignores it.
+   */
+  const home = includeGarageAdditions;
+  const { feedSort, feedContent } = useFeedPreferences();
+  const sort = home ? feedSort : 'auto';
+  // "All recent" and "Most popular" are about everyone, so the side rows widen
+  // past the people and cars you follow. "Auto" and "Following" keep them yours.
+  const sideScope = sort === 'recent' || sort === 'popular' ? { scope: 'all' as const } : {};
+  const showPosts = !home || feedContent.posts;
+
   const { data: garageAdditions } = useGetFollowingGarageQuery(
-    { limit: GARAGE_ADDITIONS_LIMIT },
-    { skip: !includeGarageAdditions },
+    { limit: GARAGE_ADDITIONS_LIMIT, ...sideScope },
+    { skip: !home || !feedContent.cars },
   );
   // Memoized so the merged row list below keeps a stable identity between renders.
   const garageCars = useMemo(() => garageAdditions?.entries ?? [], [garageAdditions]);
@@ -144,27 +158,31 @@ export default function FeedList({
   // seeing what your friends did.
   const { data: routeData } = useGetRoutesQuery(
     { sort: 'recent', limit: 20 },
-    { skip: !includeGarageAdditions },
+    { skip: !home || !feedContent.routes },
   );
   const newRoutes = useMemo(() => routeData?.entries ?? [], [routeData]);
 
   // Mods and photos added to cars you follow. Scoped like the garage additions
   // — this is your list of cars, not a discovery feed.
   const { data: carActivityData } = useGetFollowedCarActivityQuery(
-    { limit: CAR_ACTIVITY_LIMIT },
-    { skip: !includeGarageAdditions },
+    { limit: CAR_ACTIVITY_LIMIT, ...sideScope },
+    { skip: !home || (!feedContent.mods && !feedContent.galleries) },
   );
-  const carActivity = useMemo(() => carActivityData?.entries ?? [], [carActivityData]);
+  // One request carries both kinds; each has its own switch.
+  const carActivity = useMemo(
+    () => (carActivityData?.entries ?? []).filter((e) => (e.kind === 'mod' ? feedContent.mods : feedContent.galleries)),
+    [carActivityData, feedContent.mods, feedContent.galleries],
+  );
 
   // Discussions, news and resources from the groups you're in. Same scoping
   // argument as the two above: your groups, not a discovery feed.
   const { data: groupActivityData } = useGetGroupActivityQuery(
     { limit: GROUP_ACTIVITY_LIMIT },
-    { skip: !includeGarageAdditions },
+    { skip: !home || !feedContent.groups },
   );
   const groupActivity = useMemo(() => groupActivityData?.entries ?? [], [groupActivityData]);
 
-  const { data, isFetching, isError, refetch } = useGetPostsQuery({
+  const { data, currentData, isFetching, isError, refetch } = useGetPostsQuery({
     page,
     limit: PAGE_SIZE,
     filter: activeFilter,
@@ -177,10 +195,32 @@ export default function FeedList({
     // …and it's the home feed, which the server ranks for someone who
     // follows only a few people.
     ...(includeGarageAdditions ? { include_groups: true, feed: 'home' as const } : {}),
-  });
+    // Only sent when it changes something, so an 'auto' feed's cache key is
+    // the one it always was.
+    ...(home && sort !== 'auto' ? { feed_sort: sort } : {}),
+  }, { skip: !showPosts });
 
+  /**
+   * A new order is a new list: back to the first page, with the stand-ins up
+   * until it lands, rather than the old order's pages with the new one's
+   * appended under them. Not on mount — the list starts there anyway.
+   */
+  const shapeKey = `${sort}|${showPosts}`;
+  const lastShape = useRef(shapeKey);
   useEffect(() => {
-    if (data?.entries) {
+    if (lastShape.current === shapeKey) return;
+    lastShape.current = shapeKey;
+    setPage(0);
+    setAllPosts([]);
+    setFirstPageIn(!showPosts);
+  }, [shapeKey, showPosts]);
+
+  // `currentData`, not `data`: after the order changes, `data` is still the
+  // old order's page until the new one arrives, and would be copied in as if
+  // it were the new one's.
+  useEffect(() => {
+    if (currentData?.entries) {
+      const data = currentData;
       const entries = excludeTypes?.length
         ? data.entries.filter((p) => !excludeTypes.includes(p.type ?? ''))
         : data.entries;
@@ -216,7 +256,7 @@ export default function FeedList({
         });
       }
     }
-  }, [data, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentData, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = useCallback(async () => {
     refreshingRef.current = true;
@@ -228,6 +268,14 @@ export default function FeedList({
     // The home feed's header rows ride the same pull — the "played today"
     // row most of all, which changes all day, and the live-auction banner.
     if (includeGarageAdditions) dispatch(apiService.util.invalidateTags(['SpotFeed', { type: 'SponsoredAuction', id: 'LIVE' }]));
+    // Posts switched off: there's no post query to refetch (RTK throws on a
+    // skipped one), so the rows that *are* showing are what refresh.
+    if (!showPosts) {
+      dispatch(apiService.util.invalidateTags(['Cars', 'CarFollow', 'Mods', 'CarGallery', 'Route', 'Group']));
+      refreshingRef.current = false;
+      setRefreshing(false);
+      return;
+    }
     // If page is already 0, RTK Query won't re-fetch automatically — force it
     if (page === 0) {
       await refetch();
@@ -235,7 +283,7 @@ export default function FeedList({
       setRefreshing(false);
     }
     // Otherwise, setting page=0 triggers a new query; the useEffect clears refreshing
-  }, [page, refetch, includeGarageAdditions, dispatch]);
+  }, [page, refetch, includeGarageAdditions, dispatch, showPosts]);
 
   /**
    * A refresh asked for by the logo rather than by a pull. iOS only draws the
@@ -263,14 +311,14 @@ export default function FeedList({
   }, [signalLoading, refreshing]);
 
   const handleLoadMore = useCallback(() => {
-    if (!isFetching && data && allPosts.length < data.total) {
+    if (showPosts && !isFetching && data && allPosts.length < data.total) {
       setPage((p) => p + 1);
     }
-  }, [isFetching, data, allPosts.length]);
+  }, [showPosts, isFetching, data, allPosts.length]);
 
-  const hasMorePosts = !!data && allPosts.length < data.total;
+  const hasMorePosts = showPosts && !!data && allPosts.length < data.total;
   /** The server ranked this feed (see apiService's `feed`), so its order is kept. */
-  const ranked = !!data?.ranked;
+  const ranked = showPosts && !!data?.ranked;
 
   // Merge garage additions into the post stream by date. Cars older than the
   // oldest loaded post are held back until the posts around them arrive —
@@ -343,7 +391,7 @@ export default function FeedList({
         // Nothing but the stand-ins until the posts are in: the garage and
         // group rows can land first, and would otherwise show alone, then be
         // shuffled down by the posts arriving around them.
-        data={firstPageIn || isError ? rows : []}
+        data={firstPageIn || isError || !showPosts ? rows : []}
         // About two screens of cards either side of the one in view, rather
         // than the default ten. Each card is a photo or a carousel of them,
         // and at the default the feed kept ~470 images decoded (~370 MB) —
@@ -389,7 +437,10 @@ export default function FeedList({
         // The shape of the feed, in grey, until the first page lands — inside
         // the list, under its header, so the header's rows (the live auction
         // among them) don't wait on the posts.
-        ListEmptyComponent={firstPageIn || isError ? (
+        ListEmptyComponent={!showPosts ? (
+          // Every kind switched off, or nothing new in the ones left on.
+          <EmptyState title="Nothing to show" message="Turn more kinds of content on from Feed settings above." />
+        ) : firstPageIn || isError ? (
           <EmptyState title="No posts yet" message="Be the first to share something!" />
         ) : (
           <View style={styles.gutter}>

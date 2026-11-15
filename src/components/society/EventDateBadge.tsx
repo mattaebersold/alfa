@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { colors } from '../../constants/colors';
 import { calendarDate } from '../../utils/calendarDate';
 import { FONT_INTER } from '../../constants/fonts'

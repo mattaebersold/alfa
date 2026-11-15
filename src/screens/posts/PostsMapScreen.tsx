@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View, StyleSheet, Platform, TouchableOpacity, ScrollView, Dimensions, Alert, Linking, type LayoutChangeEvent,
 } from 'react-native';
-import { Text, AddressField, FilterSummaryRow, FilterChoiceRow, FilterDivider, type FilterPill } from '@ors/kit';
-import { boundsFor, type MapBounds } from '@ors/kit/src/photography';
+import { Text } from '../../theme/Text';
+import AddressField from '../../components/AddressField';
+import FilterSummaryRow, { FilterChoiceRow, FilterDivider, type FilterPill } from '../../filters/FilterSummaryRow';
+import { boundsFor, type MapBounds } from '../../photography';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
@@ -25,7 +27,7 @@ import type { Post, PostMapPlace, PostMapParams } from '../../types/api';
 /**
  * Posts Map — where posts were made, as pins.
  *
- * Built after the photography map (@ors/kit's PhotographyScreen): the pins are
+ * Built after the photography map (PhotographyScreen): the pins are
  * the places inside the viewport, and the viewport is derived from the
  * camera's centre and zoom plus the measured size of the view (`boundsFor`),
  * committed only once the camera settles. A place is one pin however many

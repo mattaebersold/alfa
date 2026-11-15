@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, FlatList,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { Archive, ArrowRightLeft, Trash2, Search, ChevronLeft } from 'lucide-react-native';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import UserByline from '../members/UserByline';
@@ -258,7 +258,7 @@ export default function CarDeleteOptionsModal({
               value={search}
               onChangeText={setSearch}
               placeholder="Search members by name or @handle"
-              placeholderTextColor={colors.grey}
+              placeholderTextColor={colors.placeholder}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"

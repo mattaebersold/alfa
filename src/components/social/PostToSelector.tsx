@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, ScrollView, StyleSheet, Dimensions, type LayoutChangeEvent } from 'react-native';
-import { Text } from '@ors/kit';
-import { Check, Globe, Users } from 'lucide-react-native';
+import { Text } from '../../theme/Text';
+import { Check, ChevronDown, ChevronUp, Globe, Users } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, SURFACE_BLACK } from '../../constants/config';
+import { COMMON_RADIUS, SURFACE_BLACK, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 export interface PostToGroup { internal_id: string; title?: string }
@@ -131,6 +131,69 @@ export function ChoiceCardRow({ items, bleed = 0, layout = 'row' }: {
   );
 }
 
+/** How many the checklist shows before "Show more" — three rows of two. */
+const CHECKLIST_SHOWN = 6;
+
+/**
+ * Plain checkboxes, each as wide as its name, wrapping: a box and a name,
+ * nothing tinted. Checked is a white box with a black tick and a white name;
+ * unchecked, an outlined box and a grey name. Past six, the rest fold behind
+ * "Show N more". The new-post form's Post To.
+ */
+function ChoiceChecklist({ items }: { items: ChoiceCardItem[] }) {
+  const colors = useColors();
+  const [expanded, setExpanded] = useState(false);
+  const overflow = items.length > CHECKLIST_SHOWN;
+  const shown = overflow && !expanded ? items.slice(0, CHECKLIST_SHOWN) : items;
+  const hidden = items.slice(CHECKLIST_SHOWN);
+  const hiddenChecked = hidden.filter((i) => i.active).length;
+  return (
+    <View>
+      <View style={styles.checkGrid}>
+        {shown.map(({ key, label, active, onPress }) => (
+          <TouchableOpacity
+            key={key}
+            style={styles.checkItem}
+            onPress={onPress}
+            activeOpacity={0.7}
+            hitSlop={{ top: 4, bottom: 4 }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: active }}
+            accessibilityLabel={label}
+          >
+            <View style={[
+              styles.checkBox,
+              active ? styles.checkBoxOn : { borderColor: colors.inputBorder },
+            ]}>
+              {active && <Check size={13} color={COLOR_BLACK} strokeWidth={3.5} />}
+            </View>
+            <Text style={[styles.checkLabel, { color: active ? COLOR_WHITE : colors.muted }]} numberOfLines={1}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {overflow && (
+        <TouchableOpacity
+          style={styles.moreRow}
+          onPress={() => setExpanded((v) => !v)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+        >
+          <Text style={[styles.moreText, { color: colors.grey }]}>
+            {expanded
+              ? 'Show less'
+              // Says when something ticked is folded away, so it isn't forgotten.
+              : `Show ${hidden.length} more${hiddenChecked ? ` · ${hiddenChecked} checked` : ''}`}
+          </Text>
+          {expanded ? <ChevronUp size={15} color={colors.grey} /> : <ChevronDown size={15} color={colors.grey} />}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export default function PostToSelector({
   isPublic,
   onTogglePublic,
@@ -155,11 +218,12 @@ export default function PostToSelector({
    * `row` scrolls sideways, one line however many groups (the post form).
    * `grid` lays the cards two across and wraps, every one in view at once —
    * the listing flow's last step, where the choice ends the form.
+   * `checklist` is plain checkboxes, each its own width, folding past six (the post form).
    */
-  layout?: 'row' | 'grid';
+  layout?: 'row' | 'grid' | 'checklist';
 }) {
   const items: ChoiceCardItem[] = [
-    { key: '__public', label: 'Post publicly', Icon: Globe, active: isPublic, onPress: onTogglePublic },
+    { key: '__public', label: layout === 'checklist' ? 'Public' : 'Post publicly', Icon: Globe, active: isPublic, onPress: onTogglePublic },
     ...groups.map((g) => ({
       key: g.internal_id,
       label: g.title ?? 'Group',
@@ -168,6 +232,7 @@ export default function PostToSelector({
       onPress: () => onToggleGroup(g.internal_id),
     })),
   ];
+  if (layout === 'checklist') return <ChoiceChecklist items={items} />;
   return <ChoiceCardRow items={items} bleed={bleed} layout={layout} />;
 }
 
@@ -188,4 +253,16 @@ const styles = StyleSheet.create({
   },
   cardLabel: { fontSize: 13.5, fontFamily: FONT_INTER.bold, lineHeight: 18 },
   cardLabelRow: { fontSize: 11, lineHeight: 14 },
+
+  // The checklist: each item as wide as its name, wrapping onto the next line.
+  checkGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14, columnGap: 20 },
+  checkItem: { flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: '100%' },
+  checkBox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkBoxOn: { backgroundColor: COLOR_WHITE, borderColor: COLOR_WHITE },
+  checkLabel: { flexShrink: 1, fontSize: 14, fontFamily: FONT_INTER.semibold },
+  moreRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 14, paddingVertical: 2 },
+  moreText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
 });

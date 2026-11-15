@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Alert as RNAlert,
   Dimensions,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 import { Plus, Settings2, Pencil, Trash2, Tag, Megaphone } from 'lucide-react-native';
 import SubTabs from '../../ui/SubTabs';
@@ -182,7 +182,7 @@ export default function WatchlistScreen({ headerPad, onScroll, bottomPad }: Sect
             onChangeText={setKeyword}
             onSubmitEditing={onAdd}
             placeholder="Watch for… e.g. 911 gearbox"
-            placeholderTextColor={colors.grey}
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="none"
             returnKeyType="done"
             accessibilityLabel="Word or phrase to watch for"

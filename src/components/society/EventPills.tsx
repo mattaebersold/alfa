@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { ORS_EVENT_COLOR } from '../../constants/eventTypes';
 import CheckeredFlag from '../ui/CheckeredFlag';
 import { contrastText } from '../../hooks/useBrandColor';

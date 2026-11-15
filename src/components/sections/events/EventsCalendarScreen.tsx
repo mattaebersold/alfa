@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../../theme/Text';
 import EventMonthCalendar from '../../society/EventMonthCalendar';
 import EventFilters from '../../society/EventFilters';
 import EventSearchField from '../../society/EventSearchField';
 import { NO_ZIP_NOTE } from '../../ui/LocationFilterRow';
+import NoResultsNear from '../../ui/NoResultsNear';
 import EventDaySheet from './EventDaySheet';
 import { useEventsFilter } from './useEventsFilter';
 import { useEventSheet } from '../../../providers/EventSheetProvider';
@@ -22,7 +23,7 @@ import type { SectionScreenProps } from '../types';
 export default function EventsCalendarScreen({ headerPad, onScroll, bottomPad }: SectionScreenProps) {
   const colors = useColors();
   const { openEventSheet } = useEventSheet();
-  const { location, category, setCategory, regions, presentCategories, upcoming } = useEventsFilter();
+  const { location, category, setCategory, states, presentCategories, upcoming } = useEventsFilter();
   const [day, setDay] = useState<{ date: Date; events: SocietyEvent[] } | null>(null);
   // The calendar holds its own month query; a pull refreshes the filter's
   // list, and the calendar's goes with it (both provide 'SocietyEvent').
@@ -43,7 +44,7 @@ export default function EventsCalendarScreen({ headerPad, onScroll, bottomPad }:
           <EventSearchField style={styles.toolsSearch} onPick={(eventId) => openEventSheet({ eventId })} />
           <EventFilters
             location={location}
-            regions={regions}
+            states={states}
             category={category}
             onCategory={setCategory}
             presentCategories={presentCategories}
@@ -53,6 +54,7 @@ export default function EventsCalendarScreen({ headerPad, onScroll, bottomPad }:
         {location.fellBack && (
           <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
         )}
+        {location.others && <NoResultsNear radius={location.radius} style={{ marginTop: 6 }} />}
 
         <View style={styles.calendar}>
           <EventMonthCalendar

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, ScrollView, Dimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppleMaps, GoogleMaps } from 'expo-maps';

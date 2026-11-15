@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, ScrollView, Keyboard, Platform, ActivityIndicator,
 } from 'react-native';
-import { Text, FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import * as ImagePicker from 'expo-image-picker';

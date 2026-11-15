@@ -1,10 +1,10 @@
 import { useGetUsageQuery } from '../api/apiService';
-import { useIsPro } from './useBrandColor';
+import { useAppSelector } from '../store/store';
 
 /**
  * Whether this member can make a route right now.
  *
- * Every member gets one route; Pro is unlimited (horacio's
+ * Every member gets one route, Pro ten, an admin any number (horacio's
  * limits.checkRouteAllowance — the server is the one that refuses). A slot
  * comes back when a route is deleted.
  *
@@ -17,9 +17,10 @@ export function useRouteAllowance(): {
   used?: number;
   limit?: number | null;
 } {
-  const isPro = useIsPro();
-  const { data, isLoading, isError } = useGetUsageQuery(undefined, { skip: isPro });
-  if (isPro) return { status: 'allowed' };
+  // Only an admin is uncapped; Pro has a ceiling too, so it asks like anyone.
+  const isAdmin = useAppSelector((s) => s.auth.userInfo?.accountType === 'admin');
+  const { data, isLoading, isError } = useGetUsageQuery(undefined, { skip: isAdmin });
+  if (isAdmin) return { status: 'allowed' };
   const routes = data?.routes;
   if (!routes) return { status: isLoading ? 'loading' : isError ? 'allowed' : 'loading' };
   if (typeof routes.used !== 'number') return { status: routes.allowed ? 'allowed' : 'blocked' };

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View, StyleSheet, ScrollView, FlatList, TouchableOpacity, Alert, Linking, useWindowDimensions,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';

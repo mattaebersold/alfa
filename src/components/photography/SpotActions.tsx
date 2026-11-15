@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useGetPhotoSpotQuery, orsApi } from '@ors/kit';
+import { useGetPhotoSpotQuery, orsApi } from '../../api/orsApi';
 import { useAppDispatch } from '../../store/store';
 import PostActionRail from '../social/PostActionRail';
 import { usePostLike } from '../../hooks/usePostLike';
@@ -10,7 +10,7 @@ import type { Post } from '../../types/api';
  * A photo spot's like and comment, on its summary over the map — the same
  * heart, faces and comment button as every other card.
  *
- * Handed only the id (the kit's `renderSpotContext` slot), so it reads the
+ * Handed only the id (the shared `renderSpotContext` slot), so it reads the
  * spot from the same cached detail query the summary itself is drawn from —
  * no second request. The counts and the viewer's own like come with that
  * detail (horacio's enrichEntries on /api/photospot/detail).
@@ -21,7 +21,7 @@ export default function SpotActions({ spotId }: { spotId: string }) {
   const dispatch = useAppDispatch();
   /**
    * The like goes through alfa's API, but the spot — and with it `isLiked` —
-   * is the kit's cached detail, which that request doesn't touch. Left alone,
+   * is the shared cached detail, which that request doesn't touch. Left alone,
    * reopening the spot drew the heart from the copy cached before the tap, so
    * the like looked like it hadn't saved. The cached copy is moved on the tap,
    * and refetched once the server has answered.

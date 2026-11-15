@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { Plus, ArrowUp, Link2 } from 'lucide-react-native';
 import UserByline from '../members/UserByline';

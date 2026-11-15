@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Plus, X } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
 import { useColors } from '../../hooks/useColors';

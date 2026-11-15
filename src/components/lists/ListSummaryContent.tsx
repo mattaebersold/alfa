@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { Car, ExternalLink, Lock, Settings, PenSquare, Trash2 } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';

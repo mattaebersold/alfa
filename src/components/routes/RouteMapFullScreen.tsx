@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Modal, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';

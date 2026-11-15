@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { MoreVertical, Play } from 'lucide-react-native';
 import Avatar, { type AvatarUser } from '../ui/Avatar';

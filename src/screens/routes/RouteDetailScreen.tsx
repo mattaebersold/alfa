@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Animated, PanResponder, Platform,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';

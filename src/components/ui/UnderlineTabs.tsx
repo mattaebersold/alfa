@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Plus } from 'lucide-react-native';
 import { selectionHaptic } from '../../utils/haptics';
-import { COLOR_WHITE, TAB_IDLE_FG } from '../../constants/config';
+import { COLOR_GRAY_58, COLOR_WHITE, TAB_IDLE_FG } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /** One option in an UnderlineTabs row. */
@@ -19,15 +19,21 @@ export interface UnderlineTabsAction {
   accessibilityLabel?: string;
 }
 
-/** The row's height: an option's touch area. */
-export const UNDERLINE_TABS_H = 36;
-/** Each option's touch padding either side of its label. */
-export const UNDERLINE_TAB_PAD_H = 10;
+/** The row's height: an option's touch area, with room above and below its pill. */
+export const UNDERLINE_TABS_H = 44;
+/** The lit option's pill: its height, and its padding either side of the label. */
+const PILL_H = 30;
+const PILL_PAD_H = 12;
+/** Between one option's pill and the next. */
+const TAB_GAP = 2;
+/** From an option's edge to its label — what `inset` is measured against. */
+export const UNDERLINE_TAB_PAD_H = PILL_PAD_H;
 
 /**
  * The home header's sub-tabs, for anywhere: plain labels with no band or
- * track, the lit one white with a short bar under it, the rest grey — a
- * quieter level below whatever's above. An optional action closes the row as
+ * track, the lit one white on a grey pill (the main tabs' lit grey,
+ * #3A3A3A), the rest grey — a quieter level below whatever's above. (It was
+ * an underline; the name stayed.) An optional action closes the row as
  * a small white outline, so it reads as a button rather than another option.
  * Scrolls sideways if it runs long.
  *
@@ -60,10 +66,8 @@ export default function UnderlineTabs<K extends string = string>({ tabs, value, 
             accessibilityLabel={t.label}
             style={styles.tab}
           >
-            <View>
+            <View style={[styles.pill, on && styles.pillOn]}>
               <Text style={[styles.text, on && styles.textOn]} numberOfLines={1}>{t.label}</Text>
-              {/* The label's own width, so the bar reads as underlining it. */}
-              <View style={[styles.bar, on && styles.barOn]} />
             </View>
           </TouchableOpacity>
         );
@@ -86,11 +90,11 @@ export default function UnderlineTabs<K extends string = string>({ tabs, value, 
 
 const styles = StyleSheet.create({
   row: { flexGrow: 0, height: UNDERLINE_TABS_H },
-  content: { alignItems: 'center', paddingRight: 24 },
-  tab: { height: UNDERLINE_TABS_H, justifyContent: 'center', paddingHorizontal: UNDERLINE_TAB_PAD_H },
-  // Under the label, its width: clear on the unlit options so all sit level.
-  bar: { height: 2, borderRadius: 1, marginTop: 5, backgroundColor: 'transparent' },
-  barOn: { backgroundColor: COLOR_WHITE },
+  content: { alignItems: 'center', gap: TAB_GAP, paddingRight: 24 },
+  tab: { height: UNDERLINE_TABS_H, justifyContent: 'center' },
+  // Every option has the pill's box, filled only on the lit one, so the labels sit level.
+  pill: { height: PILL_H, paddingHorizontal: PILL_PAD_H, borderRadius: PILL_H / 2, justifyContent: 'center' },
+  pillOn: { backgroundColor: COLOR_GRAY_58 },
   text: { fontSize: 14, fontFamily: FONT_INTER.medium, color: TAB_IDLE_FG },
   textOn: { fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
   action: {

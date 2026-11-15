@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Modal,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';

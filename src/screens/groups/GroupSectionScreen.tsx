@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View, StyleSheet, FlatList, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Linking, Animated, useWindowDimensions,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { RESOURCE_CATEGORIES, DISCUSSION_CATEGORIES } from '../../constants/groupCategories';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from '../../components/ui/AppImage';
@@ -491,7 +491,7 @@ export default function GroupSectionScreen() {
             value={search}
             onChangeText={setSearch}
             placeholder={`Search ${tab}…`}
-            placeholderTextColor={c.grey}
+            placeholderTextColor={c.placeholder}
             clearButtonMode="while-editing"
             autoCapitalize="none"
             autoCorrect={false}

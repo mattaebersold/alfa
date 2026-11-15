@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator, Linking,
+  type StyleProp, type ViewStyle,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Info, X, Check, Bell } from 'lucide-react-native';
 import { useProPurchase } from '../../providers/ProPurchaseProvider';
 import SteeringWheel from '../ui/SteeringWheel';
@@ -18,8 +19,11 @@ import {
   CAR_LIMIT_PRO,
   POST_LIMIT_PRO,
   LISTING_LIMIT_PRO,
+  EVENT_LIMIT_PRO,
+  GROUP_LIMIT_PRO,
+  ROUTE_LIMIT_PRO,
 } from '../../constants/config';
-import { PHOTO_SPOT_LIMIT_PRO } from '@ors/kit/src/photography';
+import { PHOTO_SPOT_LIMIT_PRO } from '../../photography';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -33,11 +37,11 @@ import { FONT_INTER } from '../../constants/fonts'
 export const PRO_BENEFITS = [
   `${CAR_LIMIT_PRO} cars in your garage`,
   `${POST_LIMIT_PRO} posts a month`,
-  'Create unlimited events',
+  `Create up to ${EVENT_LIMIT_PRO} events`,
   `${LISTING_LIMIT_PRO} marketplace listings a month`,
   '20 custom alerts — get told the moment a part for your car is listed',
-  'Create unlimited groups',
-  'Create driving routes',
+  `Start up to ${GROUP_LIMIT_PRO} groups`,
+  `Create up to ${ROUTE_LIMIT_PRO} driving routes`,
   'Task lists on every car',
   `${PHOTO_SPOT_LIMIT_PRO} photography pins`,
   'Lists on your profile and your cars',
@@ -92,18 +96,12 @@ export function GetProButton({ onPress, style, dark }: {
  * Once the store is ready, the same place sells the subscription, with the
  * renewal terms the stores require shown under it.
  */
-export function ProUpsellModal({
-  visible,
-  onClose,
-  title,
-  message,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  title: string;
-  /** The specific limit that prompted this — the rest is the same every time. */
-  message: string;
-}) {
+/**
+ * The way into Pro, shared by the Pro sheet and the PRO tab's page: whether
+ * you already are, the store purchase, and — before the store is ready — the
+ * "get notified" list.
+ */
+export function useProSignup() {
   const { userInfo } = useAppSelector((st) => st.auth);
   const [registerInterest, { isLoading }] = useRegisterProInterestMutation();
   const [justRegistered, setJustRegistered] = useState(false);
@@ -121,7 +119,7 @@ export function ProUpsellModal({
 
   const purchase = useProPurchase();
   /** Bought just now, or the profile already says so. */
-  const isPro = purchase.purchased || userInfo?.accountType === 'pro';
+  const isPro = purchase.purchased || userInfo?.accountType === 'pro' || userInfo?.accountType === 'admin';
 
   const handleNotify = async () => {
     setError(null);
@@ -133,6 +131,160 @@ export function ProUpsellModal({
     }
   };
 
+  return { isPro, onTheList, purchase, handleNotify, isLoading, error };
+}
+
+/**
+ * The pitch itself: the wheel, the title, what Pro includes, and the way in —
+ * subscribe (or get notified, before the store is ready), or "You're PRO" if
+ * you already are. In the Pro sheet (ProUpsellModal), and on its own on the
+ * home header's PRO tab. With no `onClose` it has no X and no "Not now".
+ */
+export function ProPitchCard({ title, message, onClose, style }: {
+  title: string;
+  message?: string;
+  onClose?: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { isPro, onTheList, purchase, handleNotify, isLoading, error } = useProSignup();
+
+  return (
+    <View style={[styles.card, style]}>
+      {onClose ? <TouchableOpacity
+        style={styles.close}
+        onPress={onClose}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
+        <X size={17} color={ON_GOLD} />
+      </TouchableOpacity> : null}
+
+      <View style={styles.head}>
+        <View style={styles.wheel}>
+          <SteeringWheel size={19} color={colors.pro} strokeWidth={2.4} />
+        </View>
+        <Text style={styles.eyebrow}>Open Road Society</Text>
+      </View>
+
+      <Text style={styles.title}>{title}</Text>
+      {message ? <Text style={styles.body}>{message}</Text> : null}
+
+      {/* The whole list shows; only on a phone too short for it does it
+          scroll, rather than pushing the action off the card. */}
+      <ScrollView
+        style={styles.listScroll}
+        // Shown, on a short phone where it's cut off, so it reads as one to scroll.
+        showsVerticalScrollIndicator
+        nestedScrollEnabled
+      >
+        {PRO_BENEFITS.map((line, i) => (
+          <View key={line} style={[styles.listRow, i > 0 && styles.listRowRule]}>
+            <View style={styles.tick}>
+              <Check size={9} color={colors.pro} strokeWidth={3.5} />
+            </View>
+            <Text style={styles.listText}>{line}</Text>
+          </View>
+        ))}
+      </ScrollView>
+
+      {purchase.ready ? (
+        isPro ? (
+          <View style={styles.done}>
+            <Check size={16} color={ON_GOLD} strokeWidth={3} />
+            <Text style={styles.doneText}>You're PRO. Thanks for supporting the society.</Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.cta, purchase.busy && styles.ctaBusy]}
+              onPress={purchase.subscribe}
+              disabled={purchase.busy}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={purchase.price ? `Subscribe to Pro for ${purchase.price} a month` : 'Subscribe to Pro'}
+            >
+              {purchase.busy ? (
+                <ActivityIndicator size="small" color={colors.pro} />
+              ) : (
+                <>
+                  <SteeringWheel size={15} color={colors.pro} strokeWidth={2.4} />
+                  <Text style={styles.ctaText}>
+                    {purchase.price ? `Get PRO · ${purchase.price}/month` : 'Get PRO'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            {purchase.error ? <Text style={styles.error}>{purchase.error}</Text> : null}
+            {/* What the stores require beside a subscription: the length,
+                the price, that it renews, how to stop it, and the terms. */}
+            <Text style={styles.fine}>
+              Monthly subscription{purchase.price ? ` at ${purchase.price}` : ''}, renewing automatically
+              until you cancel. Cancel anytime in your {purchase.storeName} settings.{' '}
+              <Text style={styles.fineLink} onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')}>
+                Terms
+              </Text>
+              {' · '}
+              <Text style={styles.fineLink} onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
+                Privacy
+              </Text>
+            </Text>
+            <TouchableOpacity onPress={purchase.restore} disabled={purchase.busy} hitSlop={8} style={styles.restore}>
+              <Text style={styles.dismissText}>Restore purchase</Text>
+            </TouchableOpacity>
+          </>
+        )
+      ) : onTheList ? (
+        <View style={styles.done}>
+          <Check size={16} color={ON_GOLD} strokeWidth={3} />
+          <Text style={styles.doneText}>
+            We'll reach out to you when PRO is available.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={[styles.cta, isLoading && styles.ctaBusy]}
+            onPress={handleNotify}
+            disabled={isLoading}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Get notified when Pro is available"
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.pro} />
+            ) : (
+              <>
+                <Bell size={15} color={colors.pro} strokeWidth={2.4} />
+                <Text style={styles.ctaText}>Get notified when available</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </>
+      )}
+
+      {onClose ? (
+        <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.dismiss}>
+          <Text style={styles.dismissText}>{onTheList || isPro ? 'Close' : 'Not now'}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+export function ProUpsellModal({
+  visible,
+  onClose,
+  title,
+  message,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  /** The specific limit that prompted this — the rest is the same every time. Omit for none (the menu's Pro sheet). */
+  message?: string;
+}) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -140,126 +292,7 @@ export function ProUpsellModal({
             Pressable card (to swallow taps) also claimed every drag, so the
             benefits list inside it never scrolled. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.close}
-            onPress={onClose}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <X size={17} color={ON_GOLD} />
-          </TouchableOpacity>
-
-          <View style={styles.head}>
-            <View style={styles.wheel}>
-              <SteeringWheel size={19} color={colors.pro} strokeWidth={2.4} />
-            </View>
-            <Text style={styles.eyebrow}>Open Road Society</Text>
-          </View>
-
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.body}>{message}</Text>
-
-          {/* The list can outgrow a short phone; it scrolls rather than pushing
-              the action off the bottom of the card. */}
-          <ScrollView
-            style={styles.listScroll}
-            // Shown, so a list cut off at its cap reads as one to scroll.
-            showsVerticalScrollIndicator
-            persistentScrollbar
-            nestedScrollEnabled
-          >
-            {PRO_BENEFITS.map((line, i) => (
-              <View key={line} style={[styles.listRow, i > 0 && styles.listRowRule]}>
-                <View style={styles.tick}>
-                  <Check size={9} color={colors.pro} strokeWidth={3.5} />
-                </View>
-                <Text style={styles.listText}>{line}</Text>
-              </View>
-            ))}
-          </ScrollView>
-
-          {purchase.ready ? (
-            isPro ? (
-              <View style={styles.done}>
-                <Check size={16} color={ON_GOLD} strokeWidth={3} />
-                <Text style={styles.doneText}>You're PRO. Thanks for supporting the society.</Text>
-              </View>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={[styles.cta, purchase.busy && styles.ctaBusy]}
-                  onPress={purchase.subscribe}
-                  disabled={purchase.busy}
-                  activeOpacity={0.85}
-                  accessibilityRole="button"
-                  accessibilityLabel={purchase.price ? `Subscribe to Pro for ${purchase.price} a month` : 'Subscribe to Pro'}
-                >
-                  {purchase.busy ? (
-                    <ActivityIndicator size="small" color={colors.pro} />
-                  ) : (
-                    <>
-                      <SteeringWheel size={15} color={colors.pro} strokeWidth={2.4} />
-                      <Text style={styles.ctaText}>
-                        {purchase.price ? `Get PRO · ${purchase.price}/month` : 'Get PRO'}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                {purchase.error ? <Text style={styles.error}>{purchase.error}</Text> : null}
-                {/* What the stores require beside a subscription: the length,
-                    the price, that it renews, how to stop it, and the terms. */}
-                <Text style={styles.fine}>
-                  Monthly subscription{purchase.price ? ` at ${purchase.price}` : ''}, renewing automatically
-                  until you cancel. Cancel anytime in your {purchase.storeName} settings.{' '}
-                  <Text style={styles.fineLink} onPress={() => Linking.openURL('https://openroadsociety.co/terms-of-service')}>
-                    Terms
-                  </Text>
-                  {' · '}
-                  <Text style={styles.fineLink} onPress={() => Linking.openURL('https://openroadsociety.co/privacy-policy')}>
-                    Privacy
-                  </Text>
-                </Text>
-                <TouchableOpacity onPress={purchase.restore} disabled={purchase.busy} hitSlop={8} style={styles.restore}>
-                  <Text style={styles.dismissText}>Restore purchase</Text>
-                </TouchableOpacity>
-              </>
-            )
-          ) : onTheList ? (
-            <View style={styles.done}>
-              <Check size={16} color={ON_GOLD} strokeWidth={3} />
-              <Text style={styles.doneText}>
-                We'll reach out to you when PRO is available.
-              </Text>
-            </View>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[styles.cta, isLoading && styles.ctaBusy]}
-                onPress={handleNotify}
-                disabled={isLoading}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel="Get notified when Pro is available"
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={colors.pro} />
-                ) : (
-                  <>
-                    <Bell size={15} color={colors.pro} strokeWidth={2.4} />
-                    <Text style={styles.ctaText}>Get notified when available</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-            </>
-          )}
-
-          <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.dismiss}>
-            <Text style={styles.dismissText}>{onTheList || isPro ? 'Close' : 'Not now'}</Text>
-          </TouchableOpacity>
-        </View>
+        <ProPitchCard title={title} message={message} onClose={onClose} style={styles.cardInModal} />
       </View>
     </Modal>
   );
@@ -303,10 +336,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', padding: 24,
   },
   card: {
-    width: '100%', maxWidth: 380, maxHeight: '86%',
+    width: '100%', maxWidth: 380,
     borderRadius: COMMON_RADIUS, padding: 22,
     backgroundColor: colors.pro,
   },
+  // In the sheet: no taller than the screen allows, the list giving up room first.
+  cardInModal: { maxHeight: '92%' },
   close: { position: 'absolute', top: 14, right: 14, padding: 4, zIndex: 1 },
 
   head:    { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 14 },
@@ -323,11 +358,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontFamily: FONT_INTER.bold, color: ON_GOLD, letterSpacing: -0.3, paddingRight: 20 },
   body:  { fontSize: 14, lineHeight: 20, color: ON_GOLD_MUTED, marginTop: 7 },
 
-  // Capped, and free to shrink below that: a ScrollView in a card that only
-  // has a maxHeight otherwise grows to its whole content, so the list never
-  // scrolled — it pushed the button off the card instead.
+  // The whole list, no cap of its own, so on most phones it shows in full and
+  // doesn't scroll. Free to shrink: on a phone too short for the card
+  // (maxHeight 92%), it gives up room and scrolls rather than pushing the
+  // button off the card — a ScrollView that can't shrink grows to its content.
   listScroll: {
-    flexShrink: 1, maxHeight: 260,
+    flexShrink: 1, flexGrow: 0,
     marginTop: 16, marginBottom: 4,
     borderRadius: 12, overflow: 'hidden',
     borderWidth: 1, borderColor: ON_GOLD_RULE,

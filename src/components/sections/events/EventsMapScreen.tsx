@@ -30,7 +30,7 @@ const MAP_WINDOW_OPTIONS = MAP_WINDOWS.map((d) => ({
  */
 export default function EventsMapScreen({ headerPad, bottomPad }: SectionScreenProps) {
   const { openEventSheet } = useEventSheet();
-  const { location, category, setCategory, regions, presentCategories, all } = useEventsFilter();
+  const { location, category, setCategory, states, presentCategories, all } = useEventsFilter();
   const [days, setDays] = useState<MapWindow>(UPCOMING_DAYS);
 
   // The 30-day window is the filter's own list; any other is its own fetch,
@@ -58,7 +58,7 @@ export default function EventsMapScreen({ headerPad, bottomPad }: SectionScreenP
               <EventSearchField style={styles.toolsSearch} onPick={(eventId) => openEventSheet({ eventId })} />
               <EventFilters
                 location={location}
-                regions={regions}
+                states={states}
                 category={category}
                 onCategory={setCategory}
                 presentCategories={presentCategories}

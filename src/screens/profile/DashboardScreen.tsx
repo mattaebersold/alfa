@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
 import DeclinedInvitesSheet from '../../components/groups/DeclinedInvitesSheet';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
-import { Text, useGetPhotoSpotUsageQuery } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import { useGetPhotoSpotUsageQuery } from '../../api/orsApi';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered, ChevronRight, Settings, Ban } from 'lucide-react-native';
 import { Image } from '../../components/ui/AppImage';
@@ -485,8 +486,8 @@ export default function DashboardScreen({ onClose }: { onClose?: () => void } = 
   const isPro = useIsPro();
   // Only the basic card reads this, so Pro doesn't pay for the count queries.
   const { data: usage } = useGetUsageQuery(undefined, { skip: isPro });
-  // From the kit's own endpoint rather than /api/users/usage: pinning and
-  // removing a spot go through the kit's API, which refreshes this one.
+  // From the shared endpoint rather than /api/users/usage: pinning and
+  // removing a spot go through the shared API, which refreshes this one.
   const { data: spotUsage } = useGetPhotoSpotUsageQuery(undefined, { skip: isPro });
   const { data: garageData, refetch: refetchGarage } = useGetUserGarageQuery();
   const { data: postsData } = useGetPostsQuery(

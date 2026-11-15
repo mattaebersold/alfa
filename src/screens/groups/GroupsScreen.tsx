@@ -3,7 +3,7 @@ import {
   View, StyleSheet, FlatList, ScrollView, TouchableOpacity, RefreshControl, Dimensions,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import OilSheen, { WARM_SHEEN_FILL } from '../../components/ui/OilSheen';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,10 +39,11 @@ import {
   COLOR_MEMBER_BLUE,
   COLOR_WHITE,
   GUTTER,
-  COLOR_GRAY_40, MAIN_SCREEN_TOP_GAP, COLOR_ALERT, COLOR_ON_ALERT, FEED_CARD_GUTTER} from '../../constants/config';
+  COLOR_GRAY_40, MAIN_SCREEN_TOP_GAP, FEED_CARD_GUTTER} from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
 import GroupCard, { CARD_RADIUS } from '../../components/groups/GroupCard';
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 /** What the filter row says is applied. */
 function regionButtonLabel(key: string | null) {
@@ -174,6 +175,7 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   /** For a host that needs to move the scroll itself — the home screen's jump to the top. */
   scrollRef?: React.RefObject<FlatList<any> | null>;
 }) {
+  const badge = useCountBadge();
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const ownRef = useRef<FlatList<any>>(null);
   const scrollRef = givenRef ?? ownRef;
@@ -204,9 +206,10 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   const isPro = useIsPro();
   const brand = useBrandColor();
   const [newGroupOpen, setNewGroupOpen] = useState(false);
-  // Pro starts as many groups as they like; basic, one — the server holds
-  // both (horacio's helpers/limits), and `usage.groups` says where you stand.
-  const { data: usage } = useGetUsageQuery(undefined, { skip: isPro || !userInfo?.user_id });
+  // Basic starts one group, Pro ten, an admin any number — the server holds
+  // them (horacio's helpers/limits), and `usage.groups` says where you stand.
+  const isAdmin = userInfo?.accountType === 'admin';
+  const { data: usage } = useGetUsageQuery(undefined, { skip: isAdmin || !userInfo?.user_id });
 
   const { data: rawUserGroups, isLoading: userGroupsLoading, refetch: refetchUserGroups } = useGetUserGroupsQuery(
     userInfo?.user_id ?? '',
@@ -251,9 +254,9 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
    * sends no `groups`, so a basic member falls back to "have you started one
    * of the groups you're in".
    */
-  const canCreateGroup = isPro || (usage?.groups
+  const canCreateGroup = isAdmin || (usage?.groups
     ? !usage.groups.reached
-    : !userGroups.some((g) => g.user_id === userInfo?.user_id));
+    : isPro || !userGroups.some((g) => g.user_id === userInfo?.user_id));
 
   const searchLower = search.trim().toLowerCase();
   const publicGroups = allGroups
@@ -324,9 +327,9 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                       and answering it there costs no vertical space. */}
                   <View style={styles.myGroupsHeadingRow}>
                     <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
-                    {/* The alert blue, black lettering — as every count badge. */}
-                    <View style={[styles.myGroupsCount, { backgroundColor: COLOR_ALERT }]}>
-                      <Text style={[styles.myGroupsCountText, { color: COLOR_ON_ALERT }]}>
+                    {/* Coloured as every count badge — see useCountBadge. */}
+                    <View style={[styles.myGroupsCount, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.myGroupsCountText, { color: badge.fg }]}>
                         {userGroups.length}
                       </Text>
                     </View>

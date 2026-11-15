@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import {
   useUpvoteGroupDiscussionPostMutation,

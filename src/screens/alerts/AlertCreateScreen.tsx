@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert as RNAlert, Platform, Switch,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { Check, Mail, Smartphone } from 'lucide-react-native';
 import SharedModal from '../../components/ui/SharedModal';
 import FormInput from '../../components/ui/FormInput';

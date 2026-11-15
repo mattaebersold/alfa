@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { ExternalLink } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { ProfileLink } from '../../types/api';

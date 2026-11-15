@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Sparkles, ChevronRight } from 'lucide-react-native';
 import SharedModal, { PANE_GRABBER_H, PANE_GUTTER } from './SharedModal';
 import OrsGradient from './OrsGradient';

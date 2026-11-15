@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { Search, X, Check, UserPlus } from 'lucide-react-native';
 import { useSearchQuery } from '../../api/apiService';
 import UserByline from '../members/UserByline';
@@ -92,7 +92,7 @@ export default function GroupInvitePicker({
           value={query}
           onChangeText={setQuery}
           placeholder="Search members by username…"
-          placeholderTextColor={c.grey}
+          placeholderTextColor={c.placeholder}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, Linking } from 'react-native';
-import { Text, type TextInput } from '@ors/kit';
-import { KeyboardAvoidingView } from '@ors/kit';
+import { Text, type TextInput } from '../../theme/Text';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import { BlurView } from 'expo-blur';
 import { useAppDispatch } from '../../store/store';
 import {

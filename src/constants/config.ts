@@ -1,6 +1,6 @@
 import { Alert, Platform } from 'react-native';
-import { FONT_INTER } from '@ors/kit/src/theme/fonts';
-import { colors as KIT_COLORS } from '@ors/kit/src/theme/colors';
+import { FONT_INTER } from '../theme/fonts';
+import { colors as THEME_COLORS } from '../theme/colors';
 /** The live API. */
 const PRODUCTION_API = 'https://factory.openroadsociety.co';
 
@@ -134,10 +134,10 @@ export const COLOR_SECONDARY  = '#DDD8D6'; // the light-mode secondary surface
 export const COLOR_CREAM      = '#F5EFED'; // the light-mode page background
 export const COLOR_LOGO_CREAM = '#F7F1D9'; // the wordmark in the nav drawer
 export const COLOR_CYAN       = '#08DEE3'; // the primary button's fill
-// The Pro red and its darker fill are set in the kit's palette, which the kit's
-// own components draw with too — so the app and the kit can't drift apart.
-export const COLOR_PRO        = KIT_COLORS.pro;        // Pro red, #FF5F6A (was the Pro gold, #CDA96F)
-export const COLOR_PRO_DARK   = KIT_COLORS.primaryPro;
+// The Pro red and its darker fill are set in the shared palette (theme/colors),
+// which the shared components draw with too — so the two can't drift apart.
+export const COLOR_PRO        = THEME_COLORS.pro;        // Pro red, #FF5F6A (was the Pro gold, #CDA96F)
+export const COLOR_PRO_DARK   = THEME_COLORS.primaryPro;
 // The old Pro gold, kept for what borrowed it without meaning Pro — the
 // condition scale's middle step, the "show" category, ORS-sponsored events —
 // and the fill under the warm oil-sheen film (WARM_SHEEN_FILL in OilSheen).
@@ -196,7 +196,7 @@ export const COLOR_GRAY_64  = '#404040';
 export const COLOR_GRAY_60  = '#3C3C3C';
 /**
  * The edge on a search field and the filter button beside it — the same as
- * the kit's `borderStrong`, which the filter button reads, so the pair match.
+ * the shared `borderStrong`, which the filter button reads, so the pair match.
  */
 export const SEARCH_EDGE = COLOR_GRAY_60;
 export const COLOR_GRAY_58  = '#3A3A3A';
@@ -232,6 +232,11 @@ export const PROFILE_BG = SURFACE_DARK;
 export const MODAL_BG = SURFACE_BLACK;
 /** Every pane's surface — sheets, slide-ups and the panels that grow from a button. */
 export const PANE_BG  = SURFACE_DARK;
+/**
+ * The create forms' pane — a new post, a garage car: a step lighter than
+ * PANE_BG, so a form reads as its own surface over the app.
+ */
+export const FORM_PANE_BG = '#1E1E1E';
 /** How far a pane's opening runs past its place before settling — Easing.back's overshoot. */
 export const PANE_OPEN_OVERSHOOT = 1.2;
 /** How long a pane takes to open. */
@@ -456,10 +461,24 @@ export const LISTING_LIMIT_UPSELL = {
 };
 
 export const ROUTE_LIMIT_BASIC = 1;
+/**
+ * Pro's ceilings on events, groups and routes — ten of each, standing totals.
+ * Admins stay uncapped. Enforced by horacio (helpers/limits *_LIMIT_PRO).
+ */
+export const EVENT_LIMIT_PRO = 10;
+export const GROUP_LIMIT_PRO = 10;
+export const ROUTE_LIMIT_PRO = 10;
+/** Groups a basic member may start — a standing total; Pro is uncapped. Enforced by horacio (helpers/limits GROUP_LIMIT_BASIC). */
+export const GROUP_LIMIT_BASIC = 1;
 
+/** A Pro member at their route ceiling: nothing to sell, only what to do. */
+export const ROUTE_PRO_FULL = {
+  title: 'Route limit reached',
+  message: `You have all ${ROUTE_LIMIT_PRO} of your routes. Delete one to make another.`,
+};
 export const ROUTE_UPSELL = {
   title: 'Route limit reached',
-  message: `A basic membership keeps ${ROUTE_LIMIT_BASIC} route. Delete yours to make another, or go Pro to record and plot as many as you like — browsing and driving everyone else's stays open to all.`,
+  message: `A basic membership keeps ${ROUTE_LIMIT_BASIC} route. Delete yours to make another, or go Pro for up to ${ROUTE_LIMIT_PRO} — browsing and driving everyone else's stays open to all.`,
 };
 
 export const DIECAST_UPSELL = {

@@ -1,0 +1,467 @@
+import React, { useState } from 'react';
+import {
+  View, StyleSheet, TouchableOpacity, Alert, Image, Dimensions,
+} from 'react-native';
+import { Text, TextInput } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { ChevronLeft, Eye, EyeOff, Check } from 'lucide-react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+import * as ImagePicker from 'expo-image-picker';
+import { useOrsDispatch, useOrsSelector } from '../../store/createStore';
+import { registerUser, clearError } from '../authSlice';
+import Button from '../../components/Button';
+import TermsModal from '../../components/TermsModal';
+import CrossfadeBackground from '../../components/CrossfadeBackground';
+import { toUploadableJpeg } from '../../utils/upload';
+import { validateUsername } from '../../utils/username';
+import { validateZip, sanitizeZip } from '../../utils/zip';
+import { colors } from '../../theme/colors';
+import { useColors } from '../../theme/useColors';
+import { useAuthBranding, type AuthScreenProps } from '../branding';
+import { ss } from '../../theme/shared';
+import GoogleSignInButton from '../GoogleSignInButton';
+import AppleSignInButton from '../AppleSignInButton';
+import { COMMON_RADIUS } from '../../theme/radius';
+import { FONT_INTER } from '../../theme/fonts'
+
+export default function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
+  const dispatch = useOrsDispatch();
+  const { loading, error } = useOrsSelector((s) => s.auth);
+  const colors = useColors();
+  const branding = useAuthBranding();
+
+  const [step, setStep] = useState<1 | 2>(1);
+  const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    zip: '',
+  });
+
+  const [showPasswords, setShowPasswords] = useState<Partial<Record<keyof typeof form, boolean>>>({});
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsVisible, setTermsVisible] = useState(false);
+  /** Google's own failures, which never reach the auth slice's `error`. */
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const toggleShow = (key: keyof typeof form) =>
+    setShowPasswords((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const handleChange = (key: keyof typeof form) => (value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      // Spaces can never be part of a username, so they're dropped as they're
+      // typed rather than rejected at the button. Everything else survives —
+      // an "@" has to reach `validateUsername` for a pasted email address to
+      // be recognised as one and named in the message.
+      [key]: key === 'username' ? value.replace(/\s+/g, '')
+        : key === 'zip' ? sanitizeZip(value)
+        : value,
+    }));
+
+  // Shown under the field as it's typed, so someone pasting their email address
+  // is told before they reach the button. Nothing is stripped on the way in —
+  // the `@` has to survive for the address to be recognisable as one.
+  const usernameError = form.username ? validateUsername(form.username) : null;
+  const zipError = form.zip ? validateZip(form.zip) : null;
+
+  const handleStep1 = () => {
+    if (!form.firstName || !form.lastName || !form.username || !form.email || !form.password) {
+      Alert.alert('Error', 'Please fill in all required fields.');
+      return;
+    }
+    const zipProblem = validateZip(form.zip);
+    if (zipProblem) {
+      Alert.alert('Check your zip code', zipProblem);
+      return;
+    }
+
+    const usernameProblem = validateUsername(form.username);
+    if (usernameProblem) {
+      Alert.alert('Choose a different username', usernameProblem);
+      return;
+    }
+    // Basic email format check (must be something@something.tld)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match.');
+      return;
+    }
+    if (!termsAccepted) {
+      Alert.alert('Terms required', 'Please accept the terms and conditions to continue.');
+      return;
+    }
+    dispatch(clearError());
+    setStep(2);
+  };
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to upload a profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setPhoto(result.assets[0]);
+  };
+
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow camera access to take a profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setPhoto(result.assets[0]);
+  };
+
+  const handleRegister = async () => {
+    const fd = new FormData();
+    fd.append('firstName', form.firstName.trim());
+    fd.append('lastName', form.lastName.trim());
+    fd.append('username', form.username.trim().toLowerCase());
+    fd.append('email', form.email.trim().toLowerCase());
+    fd.append('password', form.password);
+    fd.append('zip', form.zip.trim());
+
+    if (photo?.uri) {
+      // Convert to JPEG first — iOS delivers HEIC, which the server can't decode.
+      const jpegUri = await toUploadableJpeg(photo.uri);
+      // Registration posts via axios → React Native XHR, which needs the classic
+      // { uri, name, type } file shape (NOT the expo-file-system File used for the
+      // spec-compliant fetch in RTK Query). This is what makes the upload work on
+      // Android, where XHR can't serialize the expo File object.
+      fd.append('profilePhoto', {
+        uri: jpegUri,
+        name: `profile_${Date.now()}.jpg`,
+        type: 'image/jpeg',
+      } as any);
+    }
+
+    dispatch(clearError());
+    const result = await dispatch(registerUser(fd));
+    if (registerUser.fulfilled.match(result)) {
+      navigation.navigate('VerifyEmail', { email: form.email.trim().toLowerCase(), password: form.password });
+    } else {
+      // Registration failed (e.g. username/email already taken) — return to the
+      // form fields so the error is visible and they can change them.
+      setStep(1);
+    }
+  };
+
+  const fields: {
+    key: keyof typeof form;
+    label: string;
+    secure?: boolean;
+    keyboard?: any;
+    contentType?: any;
+    autoComplete?: any;
+  }[] = [
+    { key: 'firstName',       label: 'First Name *',        contentType: 'givenName',     autoComplete: 'name-given' },
+    { key: 'lastName',        label: 'Last Name *',         contentType: 'familyName',    autoComplete: 'name-family' },
+    { key: 'username',        label: 'Username *',          contentType: 'username',      autoComplete: 'username-new' },
+    { key: 'email',           label: 'Email *',             contentType: 'emailAddress',  autoComplete: 'email',        keyboard: 'email-address' },
+    { key: 'password',        label: 'Password *',          contentType: 'newPassword',   autoComplete: 'new-password', secure: true },
+    { key: 'confirmPassword', label: 'Confirm Password *',  contentType: 'newPassword',   autoComplete: 'new-password', secure: true },
+    { key: 'zip',             label: 'Zip Code',            contentType: 'postalCode',    autoComplete: 'postal-code',  keyboard: 'numeric' },
+  ];
+
+  return (
+    <CrossfadeBackground
+      sources={branding.backgrounds}
+      style={ss.fill}
+    >
+      <SafeAreaView style={[ss.fill, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => step === 2 ? setStep(1) : navigation.navigate('Login')}
+          hitSlop={8}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={18} color="#FFFFFF" />
+          <Text style={styles.backToLogin}>Back to login</Text>
+        </TouchableOpacity>
+
+        <FormScrollView
+
+          style={styles.flex}
+            contentContainerStyle={styles.container}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <BlurView intensity={40} tint="dark" style={styles.form}>
+              <Text style={styles.title}>
+                {step === 1 ? 'Create Account' : 'Profile Photo'}
+              </Text>
+              {step === 1 && branding.accountNote ? (
+                <Text style={styles.photoHint}>{branding.accountNote}</Text>
+              ) : null}
+
+              {(error || googleError) && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error || googleError}</Text>
+                </View>
+              )}
+
+              {/* Only on step 1. Step 2 is the profile photo, by which point the
+                  account already exists — offering Google there would start a
+                  second, competing signup half way through the first.
+
+                  There is no separate "register with Google": horacio matches on
+                  Google id, then email, and creates an account only if neither
+                  exists. The same button on the login screen does the same three
+                  things. */}
+              {step === 1 && (
+                <>
+                  <GoogleSignInButton label="Sign up with Google" onError={setGoogleError} />
+                  <AppleSignInButton onError={setGoogleError} />
+                  <View style={styles.altRow}>
+                    <View style={styles.altLine} />
+                    <Text style={styles.altLabel}>or sign up with email</Text>
+                    <View style={styles.altLine} />
+                  </View>
+                </>
+              )}
+
+              {step === 1 ? (
+                <>
+                  {fields.map(({ key, label, secure, keyboard, contentType, autoComplete }) => (
+                    <View key={key} style={styles.field}>
+                      <Text style={styles.label}>{label}</Text>
+                      <View style={secure ? styles.inputWrap : undefined}>
+                        <TextInput
+                          style={[ss.input, secure && styles.inputWithEye, { borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg, backgroundColor: colors.inputBg }]}
+                          value={form[key]}
+                          onChangeText={handleChange(key)}
+                          placeholder=""
+                          placeholderTextColor={colors.grey}
+                          secureTextEntry={secure && !showPasswords[key]}
+                          autoCapitalize={key === 'username' || key === 'email' ? 'none' : 'words'}
+                          keyboardType={keyboard ?? 'default'}
+                          autoCorrect={false}
+                          textContentType={contentType}
+                          autoComplete={autoComplete}
+                        />
+                        {secure && (
+                          <TouchableOpacity style={styles.eyeBtn} onPress={() => toggleShow(key)} hitSlop={8}>
+                            {showPasswords[key]
+                              ? <Eye size={18} color={colors.grey} />
+                              : <EyeOff size={18} color={colors.grey} />}
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {key === 'username' && (
+                        usernameError ? (
+                          <Text style={styles.fieldError}>{usernameError}</Text>
+                        ) : (
+                          <Text style={styles.fieldHint}>
+                            Letters, numbers, and _ - . — this is your public handle.
+                          </Text>
+                        )
+                      )}
+                      {key === 'zip' && (
+                        zipError ? (
+                          <Text style={styles.fieldError}>{zipError}</Text>
+                        ) : (
+                          <Text style={styles.fieldHint}>
+                            Five digits. Sets your region and what "near me" shows you — it stays private.
+                          </Text>
+                        )
+                      )}
+                    </View>
+                  ))}
+
+                  <TouchableOpacity
+                    style={styles.termsRow}
+                    onPress={() => setTermsAccepted(v => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                      {termsAccepted && <Check size={11} color="#FFF" />}
+                    </View>
+                    <Text style={styles.termsText}>
+                      By creating an account you're accepting the{' '}
+                      <Text
+                        style={styles.termsLink}
+                        onPress={() => setTermsVisible(true)}
+                      >
+                        terms and conditions
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.gap} />
+
+                  <Button
+                    label="Continue"
+                    onPress={handleStep1}
+                    size="full"
+                    variant="brand"
+                  />
+
+                </>
+              ) : (
+                <>
+                  <Text style={styles.photoHint}>
+                    Add a profile photo so people know who you are. This is optional — you can always add one later.
+                  </Text>
+
+                  <View style={styles.photoCircle}>
+                    {photo ? (
+                      <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
+                    ) : (
+                      <View style={styles.photoPlaceholder} />
+                    )}
+                  </View>
+
+                  <View style={styles.photoButtons}>
+                    <TouchableOpacity style={styles.photoBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
+                      <Text style={styles.photoBtnText}>Take Photo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.photoBtn} onPress={handlePickPhoto} activeOpacity={0.8}>
+                      <Text style={styles.photoBtnText}>Choose Photo</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {photo && (
+                    <TouchableOpacity onPress={() => setPhoto(null)} style={styles.removePhotoBtn}>
+                      <Text style={styles.removePhotoText}>Remove photo</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={styles.gap} />
+
+                  <Button
+                    label="Create account"
+                    onPress={handleRegister}
+                    loading={loading}
+                    size="full"
+                    variant="brand"
+                  />
+
+                </>
+              )}
+            </BlurView>
+        </FormScrollView>
+      </SafeAreaView>
+
+      <TermsModal
+        visible={termsVisible}
+        onClose={() => setTermsVisible(false)}
+        onAccept={() => setTermsAccepted(true)}
+      />
+    </CrossfadeBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 24,
+    paddingBottom: SCREEN_HEIGHT * 0.1 + 24,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 2,
+  },
+  backToLogin: { fontSize: 14, color: '#FFFFFF', fontFamily: FONT_INTER.medium },
+  form: {
+    borderRadius: 24,
+    padding: 18,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  title: { fontSize: 18, fontFamily: FONT_INTER.bold, color: '#FFFFFF', marginBottom: 16 },
+  altRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 16 },
+  altLine:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  altLabel: { fontSize: 12, fontFamily: FONT_INTER.bold, color: 'rgba(255,255,255,0.7)' },
+  errorBox: { backgroundColor: '#FEE2E2', borderRadius: 8, padding: 12, marginBottom: 16 },
+  errorText: { color: colors.red, fontSize: 14, fontFamily: FONT_INTER.medium },
+  field: { marginBottom: 12 },
+  label: { fontSize: 12, fontFamily: FONT_INTER.semibold, marginBottom: 4, color: '#FFFFFF' },
+  // Sits under the username field: the hint while it's fine, the reason when
+  // it isn't. Same slot either way, so the form doesn't jump as you type.
+  fieldHint:  { fontSize: 11, marginTop: 5, lineHeight: 15, color: 'rgba(255,255,255,0.6)' },
+  fieldError: { fontSize: 11, marginTop: 5, lineHeight: 15, color: '#FFB4A8', fontFamily: FONT_INTER.semibold },
+  inputWrap: { position: 'relative' },
+  inputWithEye: { paddingRight: 44 },
+  eyeBtn: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
+  gap: { height: 8 },
+  photoHint: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  photoCircle: {
+    alignSelf: 'center',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  photoPreview: { width: 100, height: 100 },
+  photoPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderStyle: 'dashed',
+  },
+  photoButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  photoBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: COMMON_RADIUS,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  photoBtnText: { fontSize: 14, fontFamily: FONT_INTER.semibold, color: '#FFFFFF' },
+  removePhotoBtn: { alignSelf: 'center', marginBottom: 8 },
+  removePhotoText: { fontSize: 13, color: 'rgba(255,255,255,0.55)' },
+
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 16 },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 1, flexShrink: 0,
+  },
+  checkboxChecked: { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt },
+  termsText: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 19 },
+  termsLink: { color: '#FFFFFF', textDecorationLine: 'underline', fontWeight: '600' },
+});

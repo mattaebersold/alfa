@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, AppState } from 'react-native';
-import { Text, withAlpha } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import { withAlpha } from '../../theme/colors';
 import { WifiOff } from 'lucide-react-native';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { connectionLost, connectionRestored, offlineNoticeDismissed } from '../../store/connectivitySlice';

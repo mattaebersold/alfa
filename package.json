@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
-    "@ors/kit": "file:./kit",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "@react-native-masked-view/masked-view": "0.3.2",

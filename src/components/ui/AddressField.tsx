@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView,
 } from 'react-native';
-import { Text, useRoomAbove } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import { useRoomAbove } from '../../keyboard/FormScrollView';
 import { MapPin } from 'lucide-react-native';
 import FormInput from './FormInput';
 import { attachedList } from './attachedList';

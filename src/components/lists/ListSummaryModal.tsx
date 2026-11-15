@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';

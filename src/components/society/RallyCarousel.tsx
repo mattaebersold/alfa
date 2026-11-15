@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { format } from 'date-fns';
 import RallyDetailSheet from './RallyDetailSheet';
 import EventImage from './EventImage';

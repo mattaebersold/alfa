@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Animated, Easing, type FlatList, type ScrollView } from 'react-native';
+import { View, StyleSheet, Animated, Easing, ScrollView, type FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +12,7 @@ import { onPostUploadEvent } from '../../utils/postUpload';
 import StoriesRow from '../../components/stories/StoriesRow';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
 import SuggestedCarsRow from '../../components/feed/SuggestedCarsRow';
+import FeedPrefsBanner from '../../components/feed/FeedPrefsBanner';
 // import HomeFeatureBanner from '../../components/feed/HomeFeatureBanner';
 import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
 import { useFeedPreferences, type SuggestionRow } from '../../hooks/useFeedPreferences';
@@ -24,9 +25,9 @@ import MarketplaceBrowse from '../../components/marketplace/MarketplaceBrowse';
 import { GroupsView } from '../groups/GroupsScreen';
 import { CarsView } from '../cars/CarsScreen';
 import { MembersView } from '../society/MembersScreen';
-import { Home, Calendar, ShoppingBag, Users, Camera, Car, User } from 'lucide-react-native';
-import { PhotographyScreen as KitPhotographyScreen } from '@ors/kit/src/photography';
-import { useGetPhotoSpotQuery } from '@ors/kit';
+import { Home, Calendar, Users, Camera, Car, User } from 'lucide-react-native';
+import { PhotographyScreen } from '../../photography';
+import { useGetPhotoSpotQuery } from '../../api/orsApi';
 import SpotActions from '../../components/photography/SpotActions';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { Listing } from '../../types/api';
@@ -35,6 +36,10 @@ import { useAppDispatch } from '../../store/store';
 import { setBlockedUsers } from '../../store/moderationSlice';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
+import SteeringWheel from '../../components/ui/SteeringWheel';
+import ProPage from '../../components/pro/ProPage';
+import DailyGamesLanding from '../../components/sections/pro/DailyGamesLanding';
+import { colors } from '../../constants/colors';
 import type { AppStackParamList, FeedStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
 import { GUTTER } from '../../constants/config';
@@ -43,12 +48,16 @@ import { SECTION_SUBS, type SectionSub } from '../../components/sections';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
-/** Sections that show no options row under the main tabs. */
+/**
+ * Sections that show no options row under the main tabs. PRO has one only
+ * for Pro members (Daily Games, Past Games, Leaderboards) — see `subTabs`.
+ */
 const NO_SUB_TABS: ReadonlySet<FeedTab> = new Set<FeedTab>(['groups']);
 /** The sub-tab key for a section's own landing pane. */
 const LANDING = '__landing';
 /** What each section's landing is called in its row of options. */
 const SECTION_LANDING_LABEL: Record<Exclude<FeedTab, 'feed'>, string> = {
+  pro: 'Daily Games',
   events: 'Upcoming',
   market: 'Browse',
   groups: 'All Groups',
@@ -57,16 +66,24 @@ const SECTION_LANDING_LABEL: Record<Exclude<FeedTab, 'feed'>, string> = {
   members: 'Everyone',
 };
 
+/**
+ * The header's tab row. Marketplace isn't in it any more, but its section
+ * still is: the menu's Marketplace tile opens it here (tab 'market'), with
+ * its Listings / Want Ads / My Listings / Watchlist options, and the row
+ * shows no tab lit while it's open.
+ */
 const FEED_TABS: HeaderTab[] = [
   { key: 'feed',        label: 'Feed',        Icon: Home, iconOnly: true },
+  // In the Pro red for everyone, with the wheel. Its pane is the Pro pitch,
+  // or, for a Pro member, the Daily Games — see ProPane.
+  { key: 'pro',         label: 'PRO',         Icon: SteeringWheel, color: colors.pro },
   { key: 'events',      label: 'Events',      Icon: Calendar },
-  { key: 'market',      label: 'Marketplace', Icon: ShoppingBag },
   { key: 'groups',      label: 'Groups',      Icon: Users },
-  { key: 'photography', label: 'Photography', Icon: Camera },
   { key: 'cars',        label: 'Cars',        Icon: Car },
   { key: 'members',     label: 'Members',     Icon: User },
+  { key: 'photography', label: 'Photography', Icon: Camera },
 ];
-type FeedTab = 'feed' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
+type FeedTab = 'feed' | 'pro' | 'events' | 'market' | 'groups' | 'photography' | 'cars' | 'members';
 /** How far below its place an arriving tab's content starts, in points. */
 const TAB_ENTER_RISE = 16;
 
@@ -89,7 +106,7 @@ const MemoMarketplaceBrowse = React.memo(MarketplaceBrowse);
 const MemoGroupsView = React.memo(GroupsView);
 const MemoCarsView = React.memo(CarsView);
 const MemoMembersView = React.memo(MembersView);
-const MemoPhotography = React.memo(KitPhotographyScreen);
+const MemoPhotography = React.memo(PhotographyScreen);
 // Car Spotter results live in the "Played Today" row at the top now (see
 // SpotTodayRow), today's only — not as cards down the feed.
 const FEED_EXCLUDE_TYPES = ['story', 'spot_result'];
@@ -103,7 +120,8 @@ function FeedHeader() {
   const [hiding, setHiding] = useState<SuggestionRow | null>(null);
 
   return (
-    <View>
+    // The bottom pad parts the suggestion cards from the first post.
+    <View style={styles.feedHeader}>
       {/* Posts on their way up — first, so a post just made is the first
           thing you see. See utils/postUpload. */}
       <PostUploadBanner />
@@ -116,6 +134,8 @@ function FeedHeader() {
       {/* Feature banner parked for now — <HomeFeatureBanner /> */}
       {!isRowHidden('members') && <SuggestedMembersRow onRequestHide={() => setHiding('members')} />}
       {!isRowHidden('cars') && <SuggestedCarsRow onRequestHide={() => setHiding('cars')} />}
+      {/* Last, so it sits right on the first card it governs. */}
+      <FeedPrefsBanner />
       <HideSuggestionsDialog
         visible={hiding !== null}
         rowTitle={hiding === 'cars' ? 'Suggested Cars' : 'Suggested Members'}
@@ -143,8 +163,11 @@ export default function FeedScreen() {
   const onGroupsScroll = useHeaderScroll(headerPad);
   const onCarsScroll = useHeaderScroll(sectionPad);
   const onMembersScroll = useHeaderScroll(sectionPad);
+  const onProScroll = useHeaderScroll(sectionPad);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
+  /** Pro members' PRO tab is the Daily Games, with its options row; everyone else's is the sign-up. */
+  const isPro = useIsPro();
 
   /**
    * Which tab's content is showing. The tabs swap what's under the header
@@ -171,6 +194,7 @@ export default function FeedScreen() {
    */
   const enter = useRef<Record<FeedTab, Animated.Value>>({
     feed: new Animated.Value(1),
+    pro: new Animated.Value(1),
     events: new Animated.Value(1),
     market: new Animated.Value(1),
     groups: new Animated.Value(1),
@@ -250,6 +274,7 @@ export default function FeedScreen() {
     else if (pane === 'groups') groupsScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
     else if (pane === 'cars') carsScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
     else if (pane === 'members') membersScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
+    else if (pane === 'pro') proScrollRef.current?.scrollTo({ y: 0, animated: false });
     // The photography map doesn't scroll — nothing to reset.
     else if (pane === 'photography') return;
     else scrollRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -317,11 +342,16 @@ export default function FeedScreen() {
    */
   const subTabs = useMemo<HeaderTab[] | undefined>(() => {
     if (tab === 'feed' || NO_SUB_TABS.has(tab)) return undefined;
+    if (tab === 'pro' && !isPro) return undefined;
     return [
       { key: LANDING, label: SECTION_LANDING_LABEL[tab] },
       ...(SECTION_SUBS[tab] ?? []).map((s) => ({ key: s.key, label: s.label, Icon: s.Icon })),
     ];
-  }, [tab]);
+  }, [tab, isPro]);
+  // Pro lapsed while on one of PRO's options: back to its landing, which is now the sign-up page.
+  useEffect(() => {
+    if (!isPro && tab === 'pro' && sub !== null) setSub(null);
+  }, [isPro, tab, sub]);
   const eventsNew = useMemo(() => ({
     label: 'New',
     accessibilityLabel: 'Create a new event',
@@ -365,8 +395,9 @@ export default function FeedScreen() {
     return {
       feed: gate('feed', onScroll), events: gate('events', onEventsScroll), market: gate('market', onMarketScroll),
       groups: gate('groups', onGroupsScroll), cars: gate('cars', onCarsScroll), members: gate('members', onMembersScroll),
+      pro: gate('pro', onProScroll),
     };
-  }, [onScroll, onEventsScroll, onMarketScroll, onGroupsScroll, onCarsScroll, onMembersScroll]);
+  }, [onScroll, onEventsScroll, onMarketScroll, onGroupsScroll, onCarsScroll, onMembersScroll, onProScroll]);
   const marketContentStyle = useMemo(() => ({ paddingTop: sectionPad, paddingBottom: 88 + insets.bottom + 32 }), [sectionPad, insets.bottom]);
   // The market's switch and search pin under the header, following it as it hides.
   // The tab row stays when the header hides, so the bar stops under it.
@@ -379,6 +410,7 @@ export default function FeedScreen() {
   const renderSpotActions = useCallback((spotId: string) => <SpotActions spotId={spotId} />, []);
   const onEditSpot = useCallback((spotId: string) => (navigation as any).navigate('PhotoSpotCreate', { spotId }), [navigation]);
   const eventsScrollRef = useRef<ScrollView>(null);
+  const proScrollRef = useRef<ScrollView>(null);
   const marketScrollRef = useRef<FlatList<Listing>>(null);
   const groupsScrollRef = useRef<FlatList<any>>(null);
   const carsScrollRef = useRef<FlatList<any>>(null);
@@ -457,6 +489,18 @@ export default function FeedScreen() {
         />
       </Animated.View>
       </View>
+      {mounted.has('pro') && (
+        <View style={landing('pro') ? paneShown : paneHidden} pointerEvents={landing('pro') ? 'auto' : 'none'}>
+        <Animated.View style={[ss.fill, paneAnim.pro]}>
+          {isPro ? (
+            // Under the options row, so it starts where the other sections' panes do.
+            <DailyGamesLanding scrollRef={proScrollRef} headerPad={sectionPad} bottomPad={bottomPad} onScroll={gated.pro} />
+          ) : (
+            <ProPane scrollRef={proScrollRef} headerPad={headerPad} bottomPad={bottomPad} />
+          )}
+        </Animated.View>
+        </View>
+      )}
       {mounted.has('events') && (
         <View style={landing('events') ? paneShown : paneHidden} pointerEvents={landing('events') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.events]}>
@@ -506,8 +550,8 @@ export default function FeedScreen() {
       {mounted.has('photography') && (
         <View style={landing('photography') ? paneShown : paneHidden} pointerEvents={landing('photography') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.photography]}>
-          {/* @ors/kit's map, shared with the photo app (see its README). The
-              header floats over the top, so the kit's `header` slot is just
+          {/* map, shared with the photo app (see its README). The
+              header floats over the top, so the shared `header` slot is just
               the space it takes. A map doesn't scroll, so the header stays
               put here rather than hiding. */}
           <MemoPhotography
@@ -535,6 +579,8 @@ export default function FeedScreen() {
       {Object.entries(SECTION_SUBS).flatMap(([section, subs]) => subs.map((s) => {
         const id = `${section}:${s.key}`;
         if (!mountedSubs.has(id)) return null;
+        // PRO's options are Pro's: games, boards and the marketplace never show for anyone else.
+        if (section === 'pro' && !isPro) return null;
         return (
           <SubPane
             key={id}
@@ -585,7 +631,30 @@ const SubPane = React.memo(function SubPane({ sub, headerPad, bottomPad, active 
   );
 });
 
+/**
+ * The PRO tab for a member who isn't Pro: ProPage, straight on the screen —
+ * what Pro adds and the way to sign up. A Pro member (or an admin) gets the
+ * Daily Games instead (DailyGamesLanding).
+ */
+function ProPane({ scrollRef, headerPad, bottomPad }: {
+  scrollRef: React.RefObject<ScrollView | null>;
+  headerPad: number;
+  bottomPad: number;
+}) {
+  return (
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={{ paddingTop: headerPad + 12, paddingBottom: bottomPad, paddingHorizontal: GUTTER + 16 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* It knows whether you're Pro: the sign-up, or "You're PRO". */}
+      <ProPage />
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
+  feedHeader: { paddingBottom: 12 },
   // Every pane fills the space under the header; the showing one is on top.
   pane: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   // A pane whose tab isn't showing: still in the native tree, so a return to

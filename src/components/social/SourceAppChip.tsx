@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Aperture, ScanSearch, ArrowUpRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { sourceAppFor, openSourceApp, type SourceAppId } from '../../constants/sourceApps';
+import { openDailyGames } from '../games/openDailyGames';
 import { PILL_RADIUS, COLOR_WHITE } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
@@ -38,7 +39,8 @@ function AppIconTile({ app, tile }: { app: SourceAppId; tile: string }) {
  * respect (likes, comments, menus), so this is the one thing that marks them.
  * A pill, not a banner: it's provenance, and it shouldn't outrank the post.
  * Tapping opens the app on the thing that was shared, or its store page when
- * it isn't installed — see openSourceApp.
+ * it isn't installed — see openSourceApp. Car Spotter's games live in the
+ * PRO tab now, so a Car Spotter post opens the Daily Games instead.
  */
 export default function SourceAppChip({ app, sourceId, style }: SourceAppChipProps) {
   const colors = useColors();
@@ -48,11 +50,11 @@ export default function SourceAppChip({ app, sourceId, style }: SourceAppChipPro
   return (
     <TouchableOpacity
       style={[styles.chip, { borderColor: colors.border }, style]}
-      onPress={() => openSourceApp(def, sourceId)}
+      onPress={() => (def.id === 'spot' ? openDailyGames() : openSourceApp(def, sourceId))}
       activeOpacity={0.75}
       hitSlop={6}
       accessibilityRole="link"
-      accessibilityLabel={`Shared from ${def.name}. Open in ${def.name}`}
+      accessibilityLabel={def.id === 'spot' ? `Shared from ${def.name}. Open the Daily Games` : `Shared from ${def.name}. Open in ${def.name}`}
     >
       <AppIconTile app={def.id} tile={def.tile} />
       <Text style={[styles.label, { color: colors.muted }]} numberOfLines={1}>

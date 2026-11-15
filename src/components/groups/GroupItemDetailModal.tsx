@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Keyboard,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { carScopeKey } from '../../utils/carScope';
-import { FormScrollView } from '@ors/kit';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { WebView } from 'react-native-webview';
 import { ExternalLink, Pencil, Trash2, ChevronRight, Settings, Images } from 'lucide-react-native';
 import { Linking } from 'react-native';

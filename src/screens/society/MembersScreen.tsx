@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, ScrollView, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {MapPin, Users} from 'lucide-react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -15,8 +15,8 @@ import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import RowEndSpacer from '../../components/ui/RowEndSpacer';
-import { REGIONS } from '../../constants/regions';
-import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useNearFallback, isNear } from '../../hooks/useLocationFilter';
+import NoResultsNear from '../../components/ui/NoResultsNear';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import SearchPill from '../../components/ui/SearchPill';
@@ -86,11 +86,12 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
-  // Nobody near you: everyone, rather than an empty list. Not while searching.
-  useWidenWhenEmpty(location, {
+  // Nobody near you: say so, then everyone (still searched) under "Other
+  // results". A new search asks near me again first.
+  useNearFallback(location, {
     settled: !!data && !isFetching && !data.near_unavailable,
     empty: (data?.entries?.length ?? 0) === 0,
-    narrowed: !!query,
+    key: query,
   });
 
   /**
@@ -176,6 +177,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
       {location.fellBack && (
         <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
       )}
+      {location.others && <NoResultsNear radius={location.radius} />}
     </>
   );
 
@@ -192,7 +194,7 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
             user={item}
             plain
             // Near you, everyone's map would light the same patch.
-            showRegion={!(isNear(location.choice) && !location.fellBack)}
+            showRegion={!(isNear(location.choice) && !location.fellBack) || location.others}
             isFollowing={item.username ? followStatuses?.[item.username] : undefined}
             // A summary first, as the home feed's suggestions do — the
             // profile is one button inside the panel.
@@ -202,8 +204,8 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
         ListEmptyComponent={
           isLoading ? <SkeletonPeople count={8} style={{ paddingHorizontal: GUTTER }} /> : (
             <EmptyState
-              title={location.choice !== 'all'
-                ? `No members ${isNear(location.choice) ? `within ${location.radius} miles` : `in the ${REGIONS.find((r) => r.key === location.choice)?.label}`}`
+              title={location.choice !== 'all' && !location.others
+                ? `No members ${isNear(location.choice) ? `within ${location.radius} miles` : `in ${locationPill(location.choice).label}`}`
                 : 'No members found'}
             />
           )

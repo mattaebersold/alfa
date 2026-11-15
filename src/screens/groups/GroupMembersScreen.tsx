@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, FlatList,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search } from 'lucide-react-native';
 import { useGetGroupMembersQuery } from '../../api/apiService';
@@ -86,7 +86,7 @@ export default function GroupMembersScreen({ route }: GroupsScreenProps<'GroupMe
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Search by username..."
-                placeholderTextColor={colors.grey}
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="none"
               />
             </View>

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from '../../components/ui/AppImage';
 import { ArrowLeft, Plus } from 'lucide-react-native';

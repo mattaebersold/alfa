@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, forwardRef, useEffect } from 'rea
 import {
   View, TouchableOpacity, StyleSheet,
 } from 'react-native';
-import { Text, type TextInput } from '@ors/kit';
+import { Text, type TextInput } from '../../theme/Text';
 import { Image } from './AppImage';
 import { Car as CarIcon } from 'lucide-react-native';
 import { useSearchUsersQuery, useGetCarsQuery } from '../../api/apiService';

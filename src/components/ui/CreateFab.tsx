@@ -11,11 +11,11 @@ import Avatar from './Avatar';
 import { useAppSelector } from '../../store/store';
 
 /**
- * The + — 46, a little over the header's 42-point buttons: it's the one
- * thing here you're most likely to reach for, and the photo above it is
- * smaller still. (It was 50, and 62 before that.)
+ * The + — 54, over the header's 42-point buttons: it's the one thing here
+ * you're most likely to reach for, and the photo above it is smaller still.
+ * (It was 46, 50, and 62 before that; the whole tray went up ~15% with it.)
  */
-const FAB_SIZE = 46;
+const FAB_SIZE = 54;
 /** A full circle. */
 const FAB_RADIUS = FAB_SIZE / 2;
 /**
@@ -23,15 +23,15 @@ const FAB_RADIUS = FAB_SIZE / 2;
  * and set to the tray's right, so the two line up along the edge nearest the
  * screen's and the tray narrows toward the top.
  */
-const PROFILE_SIZE = 34;
+const PROFILE_SIZE = 39;
 /**
  * How far right of the +'s centre the photo's centre sits — past flush with
  * its right edge, so the photo steps out toward the screen's edge and the
  * tray leans with it.
  */
-const PROFILE_NUDGE = 12;
+const PROFILE_NUDGE = 14;
 /** Between the photo and the + below it. */
-const FAB_GAP = 6;
+const FAB_GAP = 7;
 /**
  * In from the right edge — clear of an iPhone's rounded corner, not tucked
  * into it. Android's corners are square or barely rounded, and its GUTTER is
@@ -39,7 +39,7 @@ const FAB_GAP = 6;
  */
 export const FAB_RIGHT = Platform.OS === 'android' ? GUTTER + 8 : 16;
 /** Around the two circles, inside their container. */
-const FAB_TRAY_PAD = 7;
+const FAB_TRAY_PAD = 8;
 /** The tray's width: whichever reaches further right, the + or the stepped-out photo, padded. */
 const TRAY_W_ = Math.max(FAB_SIZE, FAB_SIZE / 2 + PROFILE_NUDGE + PROFILE_SIZE / 2) + FAB_TRAY_PAD * 2;
 /**
@@ -141,7 +141,8 @@ export default function CreateFab() {
     {/* Both circles placed on the tray's outline (TRAY_PATH) rather than
         flowed, since the photo steps out of the column. */}
     <Svg width={TRAY_W} height={TRAY_H} style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Path d={TRAY_PATH} fill={COLOR_BLACK} />
+      {/* 90% black: what's behind shows faintly through the tray. */}
+      <Path d={TRAY_PATH} fill={COLOR_BLACK} fillOpacity={0.9} />
     </Svg>
     <TouchableOpacity
       style={styles.profile}
@@ -169,7 +170,7 @@ export default function CreateFab() {
           by contrast, but it made the same button look like two different
           controls depending on the account. The mark is black on gold and
           black on blue; both are legible, and it stays one button. */}
-      <Plus size={25} color={COLOR_BLACK} strokeWidth={3.3} />
+      <Plus size={28} color={COLOR_BLACK} strokeWidth={3.3} />
     </TouchableOpacity>
     </View>
     </>

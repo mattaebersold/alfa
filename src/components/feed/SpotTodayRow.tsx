@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
-import { Text } from '@ors/kit';
+import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text } from '../../theme/Text';
 import { ChevronRight } from 'lucide-react-native';
 import { Image } from '../ui/AppImage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,9 +12,9 @@ import { UPCOMING_CARD_WIDTH } from '../cards/UpcomingCard';
 import SpotDaySummaryModal, { SPOT_GAMES } from './SpotDaySummaryModal';
 import { HIT, MISS } from './SpotResultBody';
 import { useColors } from '../../hooks/useColors';
-import { useGetSpotFeedTodayQuery, useGetLoggedInUserQuery } from '../../api/apiService';
-import { useAppSelector } from '../../store/store';
-import { SOURCE_APPS, openSourceApp, sourceAppFallback } from '../../constants/sourceApps';
+import { useGetSpotFeedTodayQuery } from '../../api/apiService';
+import { useIsPro } from '../../hooks/useBrandColor';
+import { openDailyGames } from '../games/openDailyGames';
 import { imageUrl } from '../../utils/image';
 import {
   COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_38, COLOR_SHEEN_GOLD, COLOR_WHITE, SURFACE_MID
@@ -40,14 +40,13 @@ const CARD_GAP = 12;
 /** A game's chip colour on a card: how it went, or null for one not played. */
 function chipColor(game: SpotGameKind, day: SpotDayGames): string | null {
   if (game === 'car') return day.car ? (day.car.won ? HIT : MISS) : null;
-  if (game === 'trivia') return day.trivia ? (day.trivia.correct ? HIT : MISS) : null;
   if (!day.auction) return null;
   return day.auction.bullseye ? HIT : day.auction.score >= 50 ? COLOR_SHEEN_GOLD : MISS;
 }
 
 /**
- * One member who played today: their photo as the square, then the three
- * games they played as chips — green or red — and their name.
+ * One member who played today: their photo as the square, then the games
+ * they played as chips — green or red — and their name.
  * The events carousel's card, so the two rows read as the same kind of thing.
  */
 function PlayerCard({ player, onPress, full = false }: {
@@ -76,7 +75,7 @@ function PlayerCard({ player, onPress, full = false }: {
     <SummaryTouchable
       style={[styles.card, full ? styles.cardFull : { width: UPCOMING_CARD_WIDTH }]}
       onPress={onPress}
-      accessibilityLabel={`${user.username} played the ORS Guessing Game today`}
+      accessibilityLabel={`${user.username} played the Daily Games today`}
     >
       <View style={styles.thumb}>
         {photo ? (
@@ -101,50 +100,41 @@ function PlayerCard({ player, onPress, full = false }: {
 }
 
 /**
- * The top of the home feed: the members you follow who've played Car
- * Spotter's games today, one card each, opening their day against yours.
+ * The top of the home feed: the Pro members who've played the PRO tab's
+ * Daily Games today, one card each, opening their day against yours.
  *
- * Today only — the server answers for the game's own day, so yesterday's
- * players are gone at midnight — and nothing at all until someone you follow
- * has played. Refetched on focus and on the feed's pull to refresh, since it
- * fills up through the day.
+ * Pro members only, like the games — nothing at all for anyone else, and the
+ * server only answers a Pro member. Today only (yesterday's players are gone
+ * at midnight), and nothing until someone has played. Refetched on focus,
+ * since it fills up through the day.
  */
 export default function SpotTodayRow() {
   const colors = useColors();
-  const { data, refetch } = useGetSpotFeedTodayQuery();
+  const isPro = useIsPro();
+  const { data, refetch } = useGetSpotFeedTodayQuery(undefined, { skip: !isPro });
   const [open, setOpen] = useState<{ player: Player; origin: SummaryOrigin | null } | null>(null);
 
-  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+  useFocusEffect(useCallback(() => { if (isPro) refetch(); }, [isPro, refetch]));
 
-  // Whether you're a Car Spotter player at all — missing `accounts` is an
-  // account from before the field, which is ORS-only (see SpotResultBody).
-  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
-  const { data: me } = useGetLoggedInUserQuery(undefined, { skip: !myId });
-  const hasSpot = !!me?.accounts?.includes('spot');
-  // Any of today's three counts as having played.
-  const played = !!(data?.me?.car || data?.me?.trivia || data?.me?.auction);
-  const cta = !me ? null
-    : !hasSpot
-      ? { label: 'Get the app', onPress: () => { Linking.openURL(sourceAppFallback(SOURCE_APPS.spot)).catch(() => {}); } }
-      : !played
-        ? { label: 'Play', onPress: () => { openSourceApp(SOURCE_APPS.spot); } }
-        : null;
+  // Either of today's games counts as having played.
+  const played = !!(data?.me?.car || data?.me?.auction);
+  const cta = !played ? { label: 'Play', onPress: openDailyGames } : null;
 
   const players = data?.players ?? [];
-  if (!players.length) return null;
+  if (!isPro || !players.length) return null;
 
   return (
     <View style={styles.wrap}>
       {/* The game's name, with the day it's for in a badge beside it — these
           cards are today's only and gone at midnight. */}
       <View style={styles.sectionHead}>
-        <Text style={[styles.sectionTitle, { color: colors.fg }]} numberOfLines={1}>ORS Guessing Game</Text>
+        <Text style={[styles.sectionTitle, { color: colors.fg }]} numberOfLines={1}>Daily Games</Text>
         <View style={styles.headEnd}>
           <View style={[styles.dateBadge, { borderColor: colors.border }]}>
             <Text style={[styles.dateText, { color: colors.fg }]}>{todayLabel()}</Text>
           </View>
-          {/* The date's pill, as a button: today's games to play, or the app
-              to get first. Gone once you've played. */}
+          {/* The date's pill, as a button: today's games, on the PRO tab.
+              Gone once you've played. */}
           {cta && (
             <TouchableOpacity
               style={[styles.dateBadge, styles.ctaBadge, { borderColor: colors.border }]}

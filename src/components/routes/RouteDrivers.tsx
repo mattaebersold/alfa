@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { format } from 'date-fns';
 import { Timer, Trophy, CarFront } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';

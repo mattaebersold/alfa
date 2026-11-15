@@ -4,7 +4,7 @@ import UnderlineTabs from '../ui/UnderlineTabs';
 import {
   View, StyleSheet, Animated, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Tag, ListFilter } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import ScreenHeading from '../ui/ScreenHeading';
@@ -25,7 +25,8 @@ import {
   PILL_RADIUS,
   COLOR_BLACK, COLOR_WHITE, GUTTER, SURFACE_DARK, SURFACE_MID
 } from '../../constants/config';
-import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useNearFallback, isNear } from '../../hooks/useLocationFilter';
+import NoResultsNear from '../ui/NoResultsNear';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { Listing, ListingKind, ListingShipping, ListingSort } from '../../types/api';
@@ -251,12 +252,17 @@ export default function MarketplaceBrowse({
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
 
-  // Nothing near you on the first look: All, rather than an empty market.
-  useWidenWhenEmpty(location, {
-    settled: !!data && !isFetching && !data.near_unavailable,
+  // Nothing near you: say so, then everything (same search and filters) under
+  // "Other results". Changing those asks near me again first. Not in a
+  // group's market, which has no location.
+  useNearFallback(location, {
+    settled: !groupId && !!data && !isFetching && !data.near_unavailable,
     empty: (data?.entries?.length ?? 0) === 0,
-    narrowed: !!activeSearch,
+    key: JSON.stringify([kind, activeSearch, filters]),
   });
+  const nearEmpty = !groupId && location.others
+    ? <NoResultsNear radius={location.radius} style={styles.nearEmpty} />
+    : null;
 
   useEffect(() => {
     if (!data?.entries) return;
@@ -568,6 +574,7 @@ export default function MarketplaceBrowse({
         {!groupId && location.fellBack && (
           <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
         )}
+        {nearEmpty}
         {entries.length ? mosaic : emptyState}
         {modals}
       </View>
@@ -621,7 +628,7 @@ export default function MarketplaceBrowse({
             {!groupId && location.fellBack && (
               <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
             )}
-
+            {nearEmpty}
           </>
         }
         renderItem={() => mosaic}
@@ -647,6 +654,7 @@ export default function MarketplaceBrowse({
 
 
 const styles = StyleSheet.create({
+  nearEmpty: { marginTop: 8 },
   fill: { flex: 1 },
   // Two columns of cards, each its photo's shape — the Cars page's mosaic.
   mosaic: { flexDirection: 'row', gap: 10, paddingHorizontal: GUTTER },

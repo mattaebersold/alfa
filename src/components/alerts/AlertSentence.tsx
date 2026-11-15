@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, type StyleProp, type TextStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { sentenceToneColor, type SentencePart } from './alertFormat';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';

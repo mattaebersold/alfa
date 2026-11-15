@@ -4,7 +4,7 @@ import Reanimated, {
   LinearTransition, Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';

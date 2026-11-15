@@ -1,22 +1,21 @@
 import React, { useRef, useState } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Plus } from 'lucide-react-native';
+import { X, Car } from 'lucide-react-native';
 import GrowPanel, { type GrowOrigin } from '../ui/GrowPanel';
 import SlidePanel from '../ui/SlidePanel';
 import GarageCarCard from './GarageCarCard';
 import HeadingActionButton from '../ui/HeadingActionButton';
-import SharedButton from '../ui/SharedButton';
 import EmptyState from '../ui/EmptyState';
 import Spinner from '../ui/Spinner';
 import { GetProButton, ProUpsellModal } from '../pro/ProUpsell';
 import { useGetUserGarageQuery, useGetCarsQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
-import { useIsPro } from '../../hooks/useBrandColor';
-import { PILL_RADIUS, carLimitFor, garageFull, showProGarageFull, GARAGE_UPSELL } from '../../constants/config';
+import { useIsPro, useBrandColor } from '../../hooks/useBrandColor';
+import { PILL_RADIUS, COMMON_RADIUS, carLimitFor, garageFull, showProGarageFull, GARAGE_UPSELL } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -51,6 +50,7 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isPro = useIsPro();
+  const brand = useBrandColor();
   const navigation = useNavigation<any>();
   const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
   const visiting = !!owner && owner.user_id !== myId;
@@ -84,8 +84,44 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
     // count says what's left as well as what's there on a basic account; Pro
     // has no cap to count against. In the full-height pane it's the list's
     // own header — under the status bar, and scrolling away with the cars.
-    const head = (
-          <View style={[styles.head, drop && { paddingTop: insets.top + 12 }]} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; setHeadHeight(headH.current); measure(); }}>
+    const closeButton = (
+      <TouchableOpacity
+        onPress={() => closeThen()}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Close garage"
+      >
+        <X size={26} color={colors.fg} strokeWidth={2.4} />
+      </TouchableOpacity>
+    );
+    const countPill = (
+      <View style={[styles.countPill, { backgroundColor: colors.segment }]}>
+        <Text style={[styles.countText, { color: colors.fg }]}>
+          {visiting ? (theirs.data?.total ?? cars.length) : `${cars.length}/${carLimitFor(isPro)}`}
+        </Text>
+      </View>
+    );
+
+    // The full-height pane stacks its head: the title and the way out alone on
+    // the first line, then how full the garage is and the Add Car under them.
+    // No Pro pitch here — the car limit's upsell still opens from Add Car.
+    const head = drop ? (
+          <View style={[styles.dropHead, { paddingTop: insets.top + 12 }]} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; setHeadHeight(headH.current); measure(); }}>
+            <View style={styles.dropTitleRow}>
+              <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
+                {visiting ? (owner?.username ? `@${owner.username}'s garage` : 'Garage') : 'Your Garage'}
+              </Text>
+              {closeButton}
+            </View>
+            <View style={styles.dropMetaRow}>
+              {countPill}
+              {!visiting && (
+                <HeadingActionButton label="Add Car" onPress={addCar} accessibilityLabel="Add a car" compact />
+              )}
+            </View>
+          </View>
+    ) : (
+          <View style={styles.head} onLayout={(e) => { headH.current = e.nativeEvent.layout.height; setHeadHeight(headH.current); measure(); }}>
             <View style={styles.headText}>
               {/* Someone else's garage does get a title: here the button
                   was theirs, and the panel should say whose cars these are. */}
@@ -95,30 +131,14 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
                 <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
                   {owner?.username ? `@${owner.username}'s garage` : 'Garage'}
                 </Text>
-              ) : drop ? (
-                <Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>Your Garage</Text>
               ) : (
                 <HeadingActionButton label="Add Car" onPress={addCar} accessibilityLabel="Add a car" />
               )}
-              <View style={[styles.countPill, { backgroundColor: colors.segment }]}>
-                <Text style={[styles.countText, { color: colors.fg }]}>
-                  {visiting ? (theirs.data?.total ?? cars.length) : `${cars.length}/${carLimitFor(isPro)}`}
-                </Text>
-              </View>
+              {countPill}
             </View>
             <View style={styles.headActions}>
               {!isPro && !visiting && <GetProButton onPress={() => setUpsell(true)} />}
-              {drop && !visiting && (
-                <HeadingActionButton label="Add Car" onPress={addCar} accessibilityLabel="Add a car" compact />
-              )}
-              <TouchableOpacity
-                onPress={() => closeThen()}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityRole="button"
-                accessibilityLabel="Close garage"
-              >
-                <X size={26} color={colors.fg} strokeWidth={2.4} />
-              </TouchableOpacity>
+              {closeButton}
             </View>
           </View>
     );
@@ -161,14 +181,17 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
                   // status bar, the head, and the list's own top padding.
                   drop && { paddingTop: Math.max(24, screenH / 2 - headHeight - FIRST_CAR_H / 2) },
                 ]}>
-                  <SharedButton
-                    label="Create your first car"
-                    Icon={Plus}
-                    full
+                  {/* Outlined and sized to its words, the car over the label. */}
+                  <TouchableOpacity
+                    style={[styles.firstCarBtn, { borderColor: brand }]}
                     onPress={addCar}
-                    style={styles.firstCarBtn}
-                    textStyle={styles.firstCarText}
-                  />
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Create your first car"
+                  >
+                    <Car size={28} color={brand} strokeWidth={2} />
+                    <Text style={[styles.firstCarText, { color: brand }]}>Create your first car</Text>
+                  </TouchableOpacity>
                 </View>
               )}
               // Full height, the list runs to the screen's foot: clear of the
@@ -209,8 +232,8 @@ export default function GaragePanel({ visible, origin, onClose, owner, drop = fa
 const LIST_FOOT = 24;
 /** Space over the first car. */
 const LIST_TOP = 8;
-/** The empty garage's button height. */
-const FIRST_CAR_H = 60;
+/** The empty garage's button height — the car icon over its label. */
+const FIRST_CAR_H = 92;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
@@ -218,6 +241,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
   },
+  dropHead:     { paddingHorizontal: 16, paddingBottom: 8, gap: 10 },
+  dropTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  dropMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headText:    { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   title:       { fontSize: 18, fontFamily: FONT_INTER.bold, flexShrink: 1 },
   countPill: {
@@ -231,6 +257,10 @@ const styles = StyleSheet.create({
   // stretched to fill it, it would only ever report the panel back.
   list:        { paddingTop: LIST_TOP, paddingBottom: LIST_FOOT },
   firstCar:    { paddingHorizontal: 16, paddingVertical: 24 },
-  firstCarBtn: { height: FIRST_CAR_H },
-  firstCarText:{ fontSize: 17 },
+  firstCarBtn: {
+    alignSelf: 'center', height: FIRST_CAR_H, paddingHorizontal: 28,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderRadius: COMMON_RADIUS,
+  },
+  firstCarText:{ fontSize: 16, fontFamily: FONT_INTER.extrabold },
 });

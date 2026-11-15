@@ -2,7 +2,7 @@ import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } 
 import {
   View, TouchableOpacity, StyleSheet, Pressable, Animated, Easing, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 // Gesture-handler's list, not RN's: the photos' pinch has to be told about the
 // list's scroll (see PinchZoom), and only this one can be named to it.

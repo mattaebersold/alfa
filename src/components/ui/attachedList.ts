@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 import { COLOR_BLACK, FORM_RADIUS } from '../../constants/config';
 
 /**
- * The look every suggestion list in the app shares — the kit's
+ * The look every suggestion list in the app shares — components/
  * AutocompleteField draws the same: black, flush against its field, and
  * squared off where the two meet, so the list reads as the field opening up
  * (or down) rather than a separate box floating near it.

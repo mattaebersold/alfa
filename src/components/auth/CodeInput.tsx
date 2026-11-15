@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { colors } from '../../constants/colors';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_WHITE } from '../../constants/config';

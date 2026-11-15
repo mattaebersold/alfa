@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, FlatList, StyleSheet, RefreshControl, ActivityIndicator, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 
 import { Car } from 'lucide-react-native';
@@ -14,7 +14,8 @@ import { carPreview } from '../../components/cars/CarSummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import SearchPill from '../../components/ui/SearchPill';
-import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useNearFallback } from '../../hooks/useLocationFilter';
+import NoResultsNear from '../../components/ui/NoResultsNear';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
 import FeaturedCarsRow from '../../components/cars/FeaturedCarsRow';
 import { useGetCarsQuery } from '../../api/apiService';
@@ -83,8 +84,8 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
-  // No cars near you: every car, rather than an empty grid.
-  useWidenWhenEmpty(location, {
+  // No cars near you: say so, then every car under "Other results".
+  useNearFallback(location, {
     settled: !!data && !isFetching && !data.near_unavailable,
     empty: (data?.entries?.length ?? 0) === 0,
   });
@@ -180,6 +181,7 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
             {location.fellBack && (
               <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
             )}
+            {location.others && <NoResultsNear radius={location.radius} />}
           </>
         }
         renderItem={() => (

@@ -19,9 +19,10 @@ import BrandsScreen from '../screens/cars/BrandsScreen';
 import BrandDetailScreen from '../screens/cars/BrandDetailScreen';
 import ModelDetailScreen, { modelPageTitle } from '../screens/cars/ModelDetailScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
+import DailyGameScreen from '../screens/games/DailyGameScreen';
 import { colors } from '../constants/colors';
 import { FONT_INTER } from '../constants/fonts'
-import { COLOR_WHITE } from '../constants/config';
+import { COLOR_WHITE, APP_BG } from '../constants/config';
 
 const Stack = createNativeStackNavigator<FeedStackParamList>();
 
@@ -62,6 +63,14 @@ export default function FeedStackNavigator() {
       <Stack.Screen name="BrandDetail" component={BrandDetailScreen} options={({ route }) => ({ title: route.params.brand })} />
       <Stack.Screen name="ModelDetail" component={ModelDetailScreen} options={({ route }) => ({ title: modelPageTitle(route.params) })} />
       <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
+      {/* The PRO tab's Daily Games. On the game's own dark ground, and
+          immersive (see immersiveScreens): the Guess button is pinned where
+          the tab bar would float. */}
+      <Stack.Screen
+        name="DailyGame"
+        component={DailyGameScreen}
+        options={{ title: 'Daily Game', headerStyle: { backgroundColor: APP_BG }, headerShadowVisible: false, headerBackTitle: 'Back' }}
+      />
     </Stack.Navigator>
   );
 }

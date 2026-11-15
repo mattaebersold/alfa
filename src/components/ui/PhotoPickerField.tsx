@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Svg, { Rect } from 'react-native-svg';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Camera, ImagePlus } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { COMMON_RADIUS } from '../../constants/config';

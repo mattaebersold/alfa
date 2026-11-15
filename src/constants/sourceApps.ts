@@ -4,8 +4,8 @@ import { COLOR_SOURCE_APP_ACCENT, COLOR_SPOTTER_GREEN, SURFACE_MID } from './con
 /**
  * The sibling apps a post can have been shared from.
  *
- * ORS Photo and Car Spotter both post into the ORS feed (see kit's
- * API_CONTRACT §2): the post carries `source_app` and `source_id`, and the feed
+ * ORS Photo and Car Spotter both post into the ORS feed (see
+ * API_CONTRACT.md §2): the post carries `source_app` and `source_id`, and the feed
  * draws a small chip that hops back into the app it came from. Everything the
  * chip needs to know about each app lives here, so the card, the detail screen
  * and the spot-result body all agree on where "open in the app" goes.
@@ -89,14 +89,6 @@ export function sourceAppFallback(app: SourceApp): string {
  * rejects on both platforms when nothing handles the link, which is the only
  * answer we actually need.
  */
-/**
- * One of Car Spotter's three games, today's — `orsspot://play/trivia`. The
- * store page instead when the app isn't on the phone, like openSourceApp.
- */
-export function openSpotGame(game: 'car' | 'trivia' | 'auction'): Promise<void> {
-  return openSourceApp({ ...SOURCE_APPS.spot, deepLink: () => `orsspot://play/${game}` });
-}
-
 export async function openSourceApp(app: SourceApp, sourceId?: string | null): Promise<void> {
   try {
     await Linking.openURL(app.deepLink(sourceId));

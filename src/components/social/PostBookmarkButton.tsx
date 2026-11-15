@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Bookmark } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useGetLoggedInUserQuery, useTogglePostBookmarkMutation } from '../../api/apiService';

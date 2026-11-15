@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../../theme/Text';
 import { LinearGradient } from 'expo-linear-gradient';
 import SharedModal, { PANE_GRABBER_H, PANE_GUTTER } from '../../ui/SharedModal';
 import SubTabs from '../../ui/SubTabs';

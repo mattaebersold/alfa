@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Camera } from 'lucide-react-native';
 import { useRequestCarPhotosMutation, useRequestProfilePhotoMutation } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';

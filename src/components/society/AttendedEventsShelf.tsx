@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import EventImage from './EventImage';
 import { useColors } from '../../hooks/useColors';

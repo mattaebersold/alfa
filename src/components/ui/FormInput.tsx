@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, type TextInput as RNTextInput, type TextInputProps, type ViewStyle } from 'react-native';
-import { TextInput } from '@ors/kit';
+import { TextInput } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
 import { FORM_RADIUS, INPUT_TEXT, INPUT_LINE_HEIGHT } from '../../constants/config';
 
@@ -24,7 +24,7 @@ export default function FormInput({ style, multiline, placeholderTextColor, ref,
     <TextInput
       ref={ref}
       multiline={multiline}
-      placeholderTextColor={placeholderTextColor ?? colors.grey}
+      placeholderTextColor={placeholderTextColor ?? colors.placeholder}
       style={[
         styles.field,
         multiline && styles.multi,

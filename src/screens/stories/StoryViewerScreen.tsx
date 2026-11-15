@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from '../../components/ui/AppImage';
 import { useVideoPlayer, VideoView } from 'expo-video';

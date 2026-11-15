@@ -3,7 +3,9 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from '
 import {
   View, StyleSheet, TouchableOpacity, Alert, Image, Modal, ScrollView,
 } from 'react-native';
-import { Text, FormScrollView, PortalHost } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
+import { PortalHost } from '../Portal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, X, ChevronDown } from 'lucide-react-native';

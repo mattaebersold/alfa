@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
@@ -290,7 +290,7 @@ export default function FeaturedManager() {
             value={query}
             onChangeText={setQuery}
             placeholder={tab === 'members' ? 'Search members to feature…' : 'Search cars to feature…'}
-            placeholderTextColor={colors.grey}
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Lock, Plus } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';

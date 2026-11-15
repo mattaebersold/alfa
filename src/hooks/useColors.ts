@@ -7,7 +7,7 @@ import {
   COLOR_GRAY_180,
   COLOR_GRAY_224,
   COLOR_GRAY_40,
-  COLOR_GRAY_85, SURFACE_BLACK, SURFACE_MID, COLOR_LINE
+  COLOR_GRAY_74, SURFACE_BLACK, SURFACE_MID, COLOR_LINE
 } from '../constants/config';
 
 // Dark-mode overrides — only surfaces that need to change from the light palette
@@ -28,7 +28,9 @@ export const DarkColors = {
   // Borders
   border:   COLOR_LINE,
   // Input
-  inputBorder: COLOR_GRAY_85,
+  // A field's edge and its placeholder, the same in every input in the app.
+  inputBorder: COLOR_GRAY_74,
+  placeholder: COLOR_GRAY_160,
   // Grey — lighter on dark surfaces
   grey:     COLOR_GRAY_180,
 } as const;

@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, UserRound } from 'lucide-react-native';
 import SlideSheet from '../ui/SlideSheet';

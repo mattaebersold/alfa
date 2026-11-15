@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Linking } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { WebView } from 'react-native-webview';
 import { Eye, Play } from 'lucide-react-native';

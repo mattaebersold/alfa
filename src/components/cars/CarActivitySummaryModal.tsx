@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { Wrench, Images, Tag, Users, MessageCircle, Heart, Check, Plus } from 'lucide-react-native';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';

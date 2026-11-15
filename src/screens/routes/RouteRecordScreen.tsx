@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Linking } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,8 +17,9 @@ import { formatDistanceToNow } from 'date-fns';
 import PitStopSheet from '../../components/routes/PitStopSheet';
 import { colors as palette } from '../../constants/colors';
 import type { AppStackParamList } from '../../navigation/types';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, ROUTE_UPSELL } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, ROUTE_UPSELL, ROUTE_PRO_FULL } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
+import { useIsPro } from '../../hooks/useBrandColor';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -41,6 +42,7 @@ export default function RouteRecordScreen() {
    * mounted under the save screen when it does.
    */
   const allowance = useRouteAllowance();
+  const isPro = useIsPro();
   const [canCreate, setCanCreate] = useState(false);
   const decided = useRef(false);
 
@@ -54,9 +56,11 @@ export default function RouteRecordScreen() {
     if (decided.current || allowance.status === 'loading') return;
     decided.current = true;
     if (allowance.status === 'allowed') { setCanCreate(true); return; }
+    // Pro at its ten has nothing to upgrade to: just what to do.
+    const full = isPro ? ROUTE_PRO_FULL : ROUTE_UPSELL;
     Alert.alert(
-      ROUTE_UPSELL.title,
-      ROUTE_UPSELL.message,
+      full.title,
+      full.message,
       [{ text: 'OK', onPress: () => navigation.goBack() }],
     );
   }, [allowance.status, navigation]);

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, ScrollView, StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -9,7 +9,8 @@ import { HEADER_GUTTER } from '../../components/ui/AppHeader';
 import EventGridCard from './EventGridCard';
 import { useGridInterest } from './useGridInterest';
 import { useGetUpcomingEventsQuery, useGetEventRegionsQuery } from '../../api/apiService';
-import { useLocationFilter, useWidenWhenEmpty } from '../../hooks/useLocationFilter';
+import { useLocationFilter, useNearFallback } from '../../hooks/useLocationFilter';
+import NoResultsNear from '../ui/NoResultsNear';
 import { NO_ZIP_NOTE } from '../../components/ui/LocationFilterRow';
 import EventFilters from '../../components/society/EventFilters';
 import SearchPill from '../../components/ui/SearchPill';
@@ -66,12 +67,14 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   // category: the chips need to know which categories have anything in the
   // window at all, and that's only answerable from the unfiltered list. 100 is
   // the server's cap, and far more occurrences than a month holds.
-  // Location narrows on the server (a region is a query, "near me" a distance
-  // from the member's saved zip); type is filtered here, as above. Both feed
+  // Location narrows on the server (a state is a query, "near me" a distance
+  // from the phone, or the member's saved zip without one); type is filtered here, as above. Both feed
   // the carousel and the calendar below, so they always agree.
   const location = useLocationFilter();
   const { data: regionsData } = useGetEventRegionsQuery();
-  const regions = regionsData?.regions ?? [];
+  // State codes with something coming up; undefined (every state) until the
+  // server says, or from a server that predates states.
+  const states = regionsData?.states?.map((s) => s.code);
   const { data, isLoading, isFetching, refetch } = useGetUpcomingEventsQuery(
     { limit: 100, days: UPCOMING_DAYS, ...location.params },
   );
@@ -82,8 +85,8 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
-  // Nothing coming up near you: everything, rather than an empty month.
-  useWidenWhenEmpty(location, {
+  // Nothing coming up near you: say so, then everything as "Other upcoming events".
+  useNearFallback(location, {
     settled: !!data && !isFetching && !data.near_unavailable,
     empty: (data?.entries?.length ?? 0) === 0,
   });
@@ -132,7 +135,7 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
         />
         <EventFilters
           location={location}
-          regions={regions}
+          states={states}
           category={category}
           onCategory={setCategory}
           presentCategories={presentCategories}
@@ -142,10 +145,13 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
       {location.fellBack && (
         <Text style={[styles.note, { color: colors.grey }]}>{NO_ZIP_NOTE}</Text>
       )}
+      {location.others && <NoResultsNear radius={location.radius} heading={null} style={styles.nearEmpty} />}
 
       {/* Upcoming events — the next 30 days, from today forward */}
       <View style={styles.sectionHead}>
-        <Text style={[styles.sectionTitle, { color: colors.fg }]}>Upcoming Events</Text>
+        <Text style={[styles.sectionTitle, { color: colors.fg }]}>
+          {location.others ? 'Other upcoming events' : 'Upcoming Events'}
+        </Text>
         <Text style={[styles.sectionSub, { color: colors.grey }]}>
           Next {UPCOMING_DAYS} days
         </Text>
@@ -191,6 +197,7 @@ export function EventsView({ headerPad, onScroll, scrollRef: givenRef }: {
 const styles = StyleSheet.create({
 
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: GUTTER, marginBottom: 6 },
+  nearEmpty: { paddingHorizontal: GUTTER - 8, marginTop: 6 },
   // First on the page now: a little room under the header's rows.
   toolsRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,

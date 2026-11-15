@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Plus } from 'lucide-react-native';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { COMMON_RADIUS } from '../../constants/config';

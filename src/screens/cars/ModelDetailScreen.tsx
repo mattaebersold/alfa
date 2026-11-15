@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import PageBanner, { PAGE_BANNER_OVERLAP } from '../../components/cars/PageBanner';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { Car, ChevronRight, Pencil, Check, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

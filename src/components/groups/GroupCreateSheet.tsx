@@ -3,7 +3,7 @@ import {
   View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Keyboard, Platform,
   type TextInput,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import FormInput from '../ui/FormInput';
 import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';

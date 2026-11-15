@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS, useAnimatedStyle, useSharedValue, withTiming, Easing,
 } from 'react-native-reanimated';
-import { Portal, usePortalHost } from '@ors/kit';
+import { Portal, usePortalHost } from '../Portal';
 
 /** How far a pinch can take it. */
 const MAX_SCALE = 5;

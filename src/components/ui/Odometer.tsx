@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FONT_INTER } from '../../constants/fonts'
 import {

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { MapPin, Clock, Navigation, Users, Trash2, Settings, Pencil, UserPlus, UserCheck } from 'lucide-react-native';

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';

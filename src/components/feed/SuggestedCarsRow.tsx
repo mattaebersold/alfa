@@ -2,17 +2,16 @@ import React, { useMemo } from 'react';
 import {
   View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
-import { useNavigation } from '@react-navigation/native';
 import {
-  useGetCarsQuery, useGetUserGarageQuery, useGetFollowedCarsQuery,
+  useGetCarsQuery, useGetUserGarageQuery, useGetFollowedCarsQuery, useGetEngagementSuggestionsQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
 import { carHeroUrl } from '../../utils/image';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
+import SuggestionCard, { SUGGESTION_CARD_LEAD, SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
 import type { GarageCar } from '../../types/api';
 import { useSummary } from '../../providers/SummaryProvider';
@@ -33,6 +32,10 @@ import { SURFACE_MID } from '../../constants/config';
  *
  * If a member's invite brought you here, their garage is a third pool, and it
  * goes ahead of both.
+ *
+ * The cars you like and comment on are a fourth (GET api/users/suggestions:
+ * other cars of the models, then makes, you engage with most). They go after
+ * cars matching a model in your garage and ahead of make-only matches.
  */
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -74,7 +77,6 @@ interface Props {
 }
 
 export default function SuggestedCarsRow({ onRequestHide }: Props) {
-  const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
   const { openCar } = useSummary();
   const myId = userInfo?.user_id ?? '';
@@ -104,6 +106,7 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     { skip: !topMake },
   );
   const { data: recentData } = useGetCarsQuery({ limit: RECENT_POOL });
+  const { data: engagement } = useGetEngagementSuggestionsQuery(undefined, { skip: !myId });
 
   // The garage of whoever invited you — they lead the shelf, ahead of any
   // make or model match, because you already know whose cars they are.
@@ -132,6 +135,15 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
       lead.push(car);
     }
 
+    // Already ranked by the server; kept in its order.
+    const engaged: GarageCar[] = [];
+    for (const car of engagement?.cars ?? []) {
+      if (!car?.internal_id || seen.has(car.internal_id)) continue;
+      if (excluded.has(car.internal_id) || car.user_id === myId) continue;
+      seen.add(car.internal_id);
+      engaged.push(car);
+    }
+
     const pool: GarageCar[] = [];
     for (const car of [...(relatedData?.entries ?? []), ...(recentData?.entries ?? [])]) {
       if (!car?.internal_id || seen.has(car.internal_id)) continue;
@@ -151,27 +163,24 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     // still means something, while stopping the same cars from taking the front
     // of the shelf on every visit.
     const modelMatches = shuffle(pool.filter((c) => c.model_handle && myModels.has(c.model_handle)));
+    // A model you own beats a car you liked; a car you liked beats a make you own.
     const makeMatches = shuffle(pool.filter(
       (c) => c.make_handle && myMakes.has(c.make_handle) && !(c.model_handle && myModels.has(c.model_handle)),
     ));
-    const matches = [...modelMatches, ...makeMatches];
+    const matches = [...modelMatches, ...engaged, ...makeMatches];
 
     // Empty garage, or nothing in the pools matched it — show cars you don't
     // already follow instead of showing nothing. Nothing ranks these, so the
     // whole fallback pool shuffles.
     const others = matches.length ? matches : shuffle(pool).slice(0, FALLBACK_COUNT);
     return [...lead, ...others].slice(0, MAX_SUGGESTIONS);
-  }, [inviterData, relatedData, recentData, myCars, followedCars, myId]);
+  }, [inviterData, relatedData, recentData, engagement, myCars, followedCars, myId]);
 
   if (!suggestions.length) return null;
 
   return (
     <SuggestionCard
       title="Suggested Cars"
-      action={{
-        label: 'View all',
-        onPress: () => navigation.navigate('MainTabs', { screen: 'CarsTab', params: { screen: 'Cars' } }),
-      }}
       onClose={onRequestHide}
     >
       <ScrollView
@@ -198,7 +207,7 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
 }
 
 const styles = StyleSheet.create({
-  scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
+  scroll:    { gap: CARD_GAP, paddingLeft: SUGGESTION_CARD_LEAD },
   card:      { width: CARD_WIDTH, gap: 5 },
   thumb:     {
     width: CARD_WIDTH, height: CARD_WIDTH * 0.62,

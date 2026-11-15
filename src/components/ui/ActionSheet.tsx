@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts'

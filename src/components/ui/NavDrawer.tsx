@@ -2,11 +2,11 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Modal, ScrollView, Linking, Dimensions, Alert,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from './AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Car, Users, ShoppingBag, BookOpen, X, Calendar, ChevronRight, Store, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, LifeBuoy, Camera, UserPlus, Settings,
+  Car, Users, BookOpen, X, Calendar, ChevronRight, Store, UserRound, Bell, BellRing, Info, CalendarCheck, CheckSquare, Mail, LifeBuoy, Camera, UserPlus, Settings,
 
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -16,7 +16,6 @@ import type { GrowOrigin } from './GrowPanel';
 import SlidePanel from './SlidePanel';
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { useGetBadgesQuery, useGetMyEventsCountQuery } from '../../api/apiService';
-import { useMarketplaceUnread } from '../marketplace/MarketplaceUnreadBadge';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import MyEventsSheet from '../society/MyEventsSheet';
 import AllCarTasksSheet, { useAllCarTasksTally } from '../cars/AllCarTasksSheet';
@@ -32,7 +31,8 @@ import {
   COLOR_LOGO_CREAM,
   COLOR_WHITE, SURFACE_BLACK, COLOR_ON_ALERT
 } from '../../constants/config';
-import { ProUpsellModal } from '../pro/ProUpsell';
+import ProPage from '../pro/ProPage';
+import SharedModal, { PANE_GUTTER } from './SharedModal';
 import InviteFriendModal from '../members/InviteFriendModal';
 import SettingsPane from '../profile/SettingsPane';
 import ProfileSetupCard from '../members/ProfileSetupCard';
@@ -46,6 +46,7 @@ import { useIsPro } from '../../hooks/useBrandColor';
 import { ss } from '../../styles/shared';
 import type { AppStackParamList } from '../../navigation/types';
 import { FONT_INTER } from '../../constants/fonts'
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -125,11 +126,13 @@ const CIRCLE_BG = 'rgba(0,0,0,0.6)';
 const LOGO_CREAM = COLOR_LOGO_CREAM;
 
 /** Half-width tile — two per row, so the menu fits without scrolling. */
-function NavTile({ label, Icon, onPress, count, wide, flex, row, fill }: {
+function NavTile({ label, Icon, onPress, count, wide, flex, row, fill, color = COLOR_WHITE }: {
   label: string;
+  /** The icon and label's colour — white, or the Pro red on the PRO tile. */
+  color?: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
   onPress: () => void;
-  /** Unread count — a red bubble in the corner when above zero. */
+  /** Unread count — a bubble in the corner when above zero (see useCountBadge). */
   count?: number;
   /** Fill the row instead of taking half of it. */
   wide?: boolean;
@@ -144,6 +147,7 @@ function NavTile({ label, Icon, onPress, count, wide, flex, row, fill }: {
   /** Half of a wrapping row, growing to the row's full width — the section grid. */
   fill?: boolean;
 }) {
+  const badge = useCountBadge();
   return (
     <TouchableOpacity
       style={[
@@ -158,13 +162,13 @@ function NavTile({ label, Icon, onPress, count, wide, flex, row, fill }: {
     >
       {/* Larger and white: the mark is how a tile is found at a glance, and at
           mid grey it sat behind its own label. */}
-      <Icon size={row ? 17 : 24} color={COLOR_WHITE} />
-      <Text style={[styles.navTileLabel, row && styles.navTileLabelRow]} numberOfLines={1}>{label}</Text>
+      <Icon size={row ? 17 : 24} color={color} />
+      <Text style={[styles.navTileLabel, row && styles.navTileLabelRow, { color }]} numberOfLines={1}>{label}</Text>
       {/* Stacked, pinned to the corner — there's no end of the line for it.
           Inline in a row tile, after the label. */}
       {count != null && count > 0 && (
-        <View style={[styles.unreadPill, !row && styles.unreadPillCorner]}>
-          <Text style={styles.unreadPillText}>
+        <View style={[styles.unreadPill, !row && styles.unreadPillCorner, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.unreadPillText, { color: badge.fg }]}>
             {count > 99 ? '99+' : count}
           </Text>
         </View>
@@ -190,10 +194,11 @@ function NavSection({ title, children }: { title: string; children: React.ReactN
 function InboxCircle({ label, Icon, count, onPress }: {
   label: string;
   Icon: React.ComponentType<{ size: number; color: string }>;
-  /** Unread count — a red bubble on the circle's corner when above zero. */
+  /** Unread count — a bubble on the circle's corner when above zero (see useCountBadge). */
   count?: number;
   onPress: () => void;
 }) {
+  const badge = useCountBadge();
   return (
     <TouchableOpacity
       style={styles.circleBtn}
@@ -205,8 +210,8 @@ function InboxCircle({ label, Icon, count, onPress }: {
       <View style={styles.circle}>
         <Icon size={21} color={COLOR_WHITE} />
         {count != null && count > 0 && (
-          <View style={[styles.unreadPill, styles.circleCount]}>
-            <Text style={styles.unreadPillText}>{count > 99 ? '99+' : count}</Text>
+          <View style={[styles.unreadPill, styles.circleCount, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.unreadPillText, { color: badge.fg }]}>{count > 99 ? '99+' : count}</Text>
           </View>
         )}
       </View>
@@ -257,7 +262,6 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
    * the marketplace has no tab of its own. Counted off the marketplace's own
    * threads, so it can never move the Messages badge beside it.
    */
-  const { count: marketplaceUnread } = useMarketplaceUnread();
 
   // Upcoming events you've flagged interest in — the bubble on "Your Events".
   const { data: myEventsData } = useGetMyEventsCountQuery(undefined, { skip: !isLoggedIn });
@@ -377,9 +381,6 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   </View>
                   <View style={styles.proCalloutText}>
                     <Text style={styles.proCalloutTitle}>Upgrade to Pro</Text>
-                    <Text style={styles.proCalloutSub}>
-                      A bigger garage, more posts, routes & more
-                    </Text>
                   </View>
                   <ChevronRight size={16} color="rgba(0,0,0,0.5)" strokeWidth={3} />
                 </TouchableOpacity>
@@ -434,8 +435,9 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
                   grid, nothing to scroll: two to a row across the full width.
                   Each opens home on that section. */}
               <View style={styles.sectionGrid}>
+                {/* PRO first, in the Pro red, as it leads the header's tabs. */}
+                <NavTile fill label="PRO" Icon={SteeringWheel} color={colors.pro} onPress={() => openHomeTab('pro')} />
                 <NavTile fill label="Events" Icon={Calendar} onPress={() => openHomeTab('events')} />
-                <NavTile fill label="Marketplace" Icon={ShoppingBag} count={marketplaceUnread} onPress={() => openHomeTab('market')} />
                 <NavTile fill label="Groups" Icon={Users} onPress={() => openHomeTab('groups')} />
                 <NavTile fill label="Photography" Icon={Camera} onPress={() => openHomeTab('photography')} />
                 <NavTile fill label="Cars" Icon={Car} onPress={() => openHomeTab('cars')} />
@@ -661,12 +663,12 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
               outside the panel would be asked of the root — which is busy
               showing the panel — and never appear. Inside, each stacks on
               top, the same way the setup card's photo and bio sheets do. */}
-          <ProUpsellModal
-        visible={proOpen}
-        onClose={() => setProOpen(false)}
-        title="Open Road Society Pro"
-        message="We're working on a pro-level tier with additional features. If you're interested, then click Get Notified and we'll let you know when it's available."
-      />
+          {/* The PRO tab's page, in a sheet — the same content in both places. */}
+          <SharedModal visible={proOpen} onClose={() => setProOpen(false)} fullHeight hideHeader>
+            <ScrollView contentContainerStyle={styles.proSheet} showsVerticalScrollIndicator={false}>
+              <ProPage />
+            </ScrollView>
+          </SharedModal>
 
       {/* Hosted in the drawer's own Modal rather than pushed as the CarCreate
           route. The drawer is an RN Modal, and on iOS a native-stack modal
@@ -708,6 +710,8 @@ export default function NavDrawer({ visible, onClose, origin }: NavDrawerProps) 
 }
 
 const styles = StyleSheet.create({
+  // The Pro sheet: clear of its floating grabber, inset like the PRO tab.
+  proSheet: { paddingTop: 40, paddingBottom: 40, paddingHorizontal: PANE_GUTTER + 12 },
   // The pane, its push and its wash are SlidePanel's; only what's drawn
   // inside the panel is styled here.
   // One line: the mark, the wordmark, and the X — on the panel itself.

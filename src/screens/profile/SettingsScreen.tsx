@@ -3,8 +3,8 @@ import Reanimated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import {
   View, StyleSheet, TouchableOpacity, Switch, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile } from '../../utils/upload';

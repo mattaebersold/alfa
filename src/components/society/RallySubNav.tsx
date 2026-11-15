@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts';
 import { selectionHaptic } from '../../utils/haptics';

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, TouchableOpacity, ActivityIndicator, View } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import {
   GoogleSignin,
   statusCodes,

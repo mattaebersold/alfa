@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { X } from 'lucide-react-native';
 import GrowPanel, { type GrowOrigin } from '../ui/GrowPanel';
 import SettingsScreen from '../../screens/profile/SettingsScreen';

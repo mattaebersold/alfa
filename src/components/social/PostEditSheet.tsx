@@ -3,8 +3,10 @@ import {
   Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from '@ors/kit';
-import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, PortalHost } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
+import { PortalHost } from '../Portal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { X, Check } from 'lucide-react-native';
 import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
@@ -19,7 +21,7 @@ import { uploadFile } from '../../utils/upload';
 import {
   useUpdatePostMutation, useSyncPostTagsMutation, useGetPostTagsQuery,
   useGetUserGroupsQuery,
-  useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery, useGetPreviouslyTaggedEventsQuery,
+  useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery, useGetPreviouslyTaggedEventsQuery, useGetPostTaxonomyQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
@@ -197,7 +199,22 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
     setTaggedUsers(u); setTaggedCars(c); setTaggedEvents(e);
   }, [visible, existingTags, labelLookup]);
 
-  const categories = CATEGORIES_BY_TYPE[type] ?? [];
+  // Your own types and categories too (made in the new-post form), and the
+  // post's own value if it's neither: one made by an older build, or a name
+  // you've since deleted from your list, still shows as picked.
+  const { data: taxonomy } = useGetPostTaxonomyQuery();
+  const asOption = (label: string) => ({ key: label, label });
+  const typeOptions = [
+    ...(LEGACY_TYPES[type] ? [LEGACY_TYPES[type]] : []),
+    ...TYPES,
+    ...(taxonomy?.types ?? []).map(asOption),
+  ];
+  if (type && !typeOptions.some((t) => t.key === type)) typeOptions.push(asOption(type));
+  const categories = [
+    ...(CATEGORIES_BY_TYPE[type] ?? []),
+    ...(taxonomy?.categories?.[type] ?? []).map(asOption),
+  ];
+  if (category && !categories.some((c) => c.key === category)) categories.push(asOption(category));
 
   const toggleTag = (tag: TagItem) => {
     if (tag.kind === 'group') return;
@@ -385,7 +402,7 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
                 {/* The post's own legacy type leads, so an old listing shows
                     what it is — and stays what it is unless its author moves it
                     to an ordinary post on purpose. */}
-                {[...(LEGACY_TYPES[type] ? [LEGACY_TYPES[type]] : []), ...TYPES].map((t) => (
+                {typeOptions.map((t) => (
                   <TouchableOpacity
                     key={t.key}
                     style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },

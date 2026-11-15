@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, ScrollView, Dimensions, TouchableOpacity,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Wrench, Images } from 'lucide-react-native';

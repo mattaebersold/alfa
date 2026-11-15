@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 import { Mail } from 'lucide-react-native';
 import { useSummaryPanel } from '../ui/SummaryModal';

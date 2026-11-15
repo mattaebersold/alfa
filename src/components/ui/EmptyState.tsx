@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { COMMON_RADIUS, COLOR_WHITE } from '../../constants/config';

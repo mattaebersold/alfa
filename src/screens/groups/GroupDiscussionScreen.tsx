@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { useGetGroupDiscussionQuery } from '../../api/apiService';

@@ -1,15 +1,15 @@
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
-  PhotoSpotCreateScreen as KitPhotoSpotCreateScreen, FormSection,
-} from '@ors/kit/src/photography';
-import type { PhotoSpot } from '@ors/kit';
+  PhotoSpotCreateScreen as BasePhotoSpotCreateScreen, FormSection,
+} from '../../photography';
+import type { PhotoSpot } from '../../types/ors';
 import PostTagPicker, { type TagItem } from '../../components/social/PostTagPicker';
 import { useSyncPostTagsMutation } from '../../api/apiService';
 
 /**
- * Pinning a spot — @ors/kit's form (kit/src/photography/PhotoSpotCreateScreen),
- * shared with the photo app, with alfa's tag picker added under the photos and
+ * Pinning a spot — the form in photography/PhotoSpotCreateScreen, with alfa's
+ * tag picker added under the photos and
  * the tags saved against the spot once it exists.
  */
 export default function PhotoSpotCreateScreen() {
@@ -75,7 +75,7 @@ export default function PhotoSpotCreateScreen() {
   }, [tags, syncTags, nav, params?.pickFor]);
 
   return (
-    <KitPhotoSpotCreateScreen
+    <BasePhotoSpotCreateScreen
       spotId={editId}
       initialPoint={droppedPoint}
       initialPlace={params?.name || params?.address ? { name: params.name, address: params.address } : null}

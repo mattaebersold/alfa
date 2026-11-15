@@ -1,23 +1,21 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
-import { Image } from '../ui/AppImage';
-import { Car, ChevronRight, CircleQuestionMark, Gavel, Target } from 'lucide-react-native';
+import { Text } from '../../theme/Text';
+import { Car, ChevronRight, Gavel, Target } from 'lucide-react-native';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import Avatar from '../ui/Avatar';
 import { useColors } from '../../hooks/useColors';
-import { openSpotGame } from '../../constants/sourceApps';
+import { colors as palette } from '../../constants/colors';
+import { openDailyGames } from '../games/openDailyGames';
 import { GuessDots, HIT, MISS, MAX_ATTEMPTS, SimpleCrown, SpotHintBadge, winnerOf } from './SpotResultBody';
 import {
-  COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_38,
+  COMMON_RADIUS, COLOR_GRAY_38,
   COLOR_SHEEN_GOLD, SURFACE_BLACK, SURFACE_MID
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type {
-  SpotDayAuction, SpotDayCar, SpotDayGames, SpotDayTrivia, SpotFeedToday, SpotGameKind,
+  SpotDayAuction, SpotDayCar, SpotDayGames, SpotFeedToday, SpotGameKind,
 } from '../../types/api';
-
-const SPOT_ICON = require('../../../assets/apps/spot-icon.png');
 
 export const SPOT_GAMES: {
   key: SpotGameKind;
@@ -26,20 +24,18 @@ export const SPOT_GAMES: {
   noun: string;
   Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 }[] = [
-  { key: 'car', label: 'Name the Car', noun: 'car', Icon: Car },
-  { key: 'trivia', label: 'Trivia', noun: 'trivia question', Icon: CircleQuestionMark },
-  { key: 'auction', label: 'Auction', noun: 'auction', Icon: Gavel },
+  { key: 'car', label: 'Guess the Car', noun: 'car', Icon: Car },
+  { key: 'auction', label: 'Guess the Price', noun: 'auction', Icon: Gavel },
 ];
 
 // ── How each game reads ──────────────────────────────────────────────────────
 
-/** How full a game's ring is, 0–1: fewer guesses fill more, a right answer fills it, the score is the score. */
+/** How full a game's ring is, 0–1: fewer guesses fill more, the score is the score. */
 function fillOf(game: SpotGameKind, day: SpotDayGames): number | null {
   if (game === 'car') {
     const c = day.car;
     return c ? (c.won ? (MAX_ATTEMPTS + 1 - c.attempts) / MAX_ATTEMPTS : 0) : null;
   }
-  if (game === 'trivia') return day.trivia ? (day.trivia.correct ? 1 : 0) : null;
   return day.auction ? Math.min(1, Math.max(0, day.auction.score / 100)) : null;
 }
 
@@ -52,12 +48,6 @@ function offLabel(a: SpotDayAuction): string | null {
   return `${n}% ${a.off_pct > 0 ? 'over' : 'under'}`;
 }
 
-function triviaWinner(me: SpotDayTrivia, them: SpotDayTrivia): 'me' | 'them' | null {
-  if (me.correct !== them.correct) return me.correct ? 'me' : 'them';
-  if (!me.correct || me.time_ms == null || them.time_ms == null || me.time_ms === them.time_ms) return null;
-  return me.time_ms < them.time_ms ? 'me' : 'them';
-}
-
 function auctionWinner(me: SpotDayAuction, them: SpotDayAuction): 'me' | 'them' | null {
   if (me.score === them.score) return null;
   return me.score > them.score ? 'me' : 'them';
@@ -67,17 +57,19 @@ const carGame = (c: SpotDayCar) => ({ won: c.won, attempts: c.attempts, time_ms:
 
 // ── Each game, side by side ──────────────────────────────────────────────────
 
-/** "Play today's trivia question" — into Car Spotter, on that game. */
+/** "Play today's auction" — the PRO tab's Daily Games. */
 function PlayButton({ game }: { game: (typeof SPOT_GAMES)[number] }) {
   const colors = useColors();
   return (
     <TouchableOpacity
-      onPress={() => openSpotGame(game.key)}
+      onPress={openDailyGames}
       activeOpacity={0.8}
       accessibilityRole="link"
       style={[styles.playBtn, { borderColor: colors.borderDark }]}
     >
-      <Image source={SPOT_ICON} style={styles.playIcon} contentFit="cover" />
+      <View style={styles.playIcon}>
+        <game.Icon size={14} color={palette.pro} strokeWidth={2.4} />
+      </View>
       <Text style={[styles.playText, { color: colors.fg }]} numberOfLines={1}>Play today's {game.noun}</Text>
       <ChevronRight size={15} color={colors.muted} strokeWidth={2.5} />
     </TouchableOpacity>
@@ -116,15 +108,6 @@ function CarResult({ car }: { car: SpotDayCar }) {
   );
 }
 
-function TriviaResult({ trivia }: { trivia: SpotDayTrivia }) {
-  const color = trivia.correct ? HIT : MISS;
-  return (
-    <View style={[styles.verdict, { backgroundColor: `${color}26`, borderColor: `${color}80` }]}>
-      <Text style={[styles.verdictText, { color }]}>{trivia.correct ? '✓ Correct' : '✗ Wrong'}</Text>
-    </View>
-  );
-}
-
 function AuctionResult({ auction }: { auction: SpotDayAuction }) {
   const colors = useColors();
   const off = offLabel(auction);
@@ -152,13 +135,11 @@ function GameCard({ game, them, me, theirName }: {
 
   let winner: 'me' | 'them' | null = null;
   if (k === 'car' && them.car && me.car) winner = winnerOf(carGame(me.car), carGame(them.car));
-  if (k === 'trivia' && them.trivia && me.trivia) winner = triviaWinner(me.trivia, them.trivia);
   if (k === 'auction' && them.auction && me.auction) winner = auctionWinner(me.auction, them.auction);
 
   const result = (day: SpotDayGames) => (
     k === 'car' ? (day.car ? <CarResult car={day.car} /> : null)
-      : k === 'trivia' ? (day.trivia ? <TriviaResult trivia={day.trivia} /> : null)
-        : (day.auction ? <AuctionResult auction={day.auction} /> : null)
+      : (day.auction ? <AuctionResult auction={day.auction} /> : null)
   );
   const iPlayed = fillOf(k, me) != null;
 
@@ -191,7 +172,7 @@ function GameCard({ game, them, me, theirName }: {
 // ── The panel ────────────────────────────────────────────────────────────────
 
 /**
- * A followed member's Car Spotter day, opened from the home feed's "played
+ * A Pro member's Daily Games day, opened from the home feed's "played
  * today" row: each game side by side, with a way into the one you haven't
  * played yet.
  *
@@ -205,7 +186,7 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
   origin?: SummaryOrigin | null;
 }) {
   const colors = useColors();
-  const mine: SpotDayGames = me ?? { car: null, trivia: null, auction: null };
+  const mine: SpotDayGames = me ?? { car: null, auction: null };
   const user = player?.user;
   const name = user?.username || 'They';
   const shortName = user?.username
@@ -221,7 +202,7 @@ export default function SpotDaySummaryModal({ player, me, onClose, origin }: {
             <View style={styles.headText}>
               <Text style={[styles.name, { color: colors.fg }]} numberOfLines={1}>{name}</Text>
               <Text style={[styles.sub, { color: colors.muted }]} numberOfLines={2}>
-                played the ORS Guessing Game today
+                played the Daily Games today
               </Text>
             </View>
           </View>
@@ -257,8 +238,6 @@ const styles = StyleSheet.create({
   // From the left, under the card's title — not pushed to the far side.
   lineResult: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8 },
   figure: { fontSize: 13, fontFamily: FONT_INTER.extrabold, fontVariant: ['tabular-nums'] },
-  verdict: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: PILL_RADIUS, borderWidth: StyleSheet.hairlineWidth },
-  verdictText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   auctionCol: { flex: 1, maxWidth: 120, gap: 3 },
   scoreTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
   scoreFill: { height: '100%', borderRadius: 3 },
@@ -270,7 +249,7 @@ const styles = StyleSheet.create({
     paddingLeft: 6, paddingRight: 10, paddingVertical: 6,
     borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, backgroundColor: SURFACE_MID, maxWidth: '100%',
   },
-  playIcon: { width: 24, height: 24, borderRadius: 6 },
+  playIcon: { width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE_BLACK },
   playText: { flexShrink: 1, fontSize: 12.5, fontFamily: FONT_INTER.bold },
 });
 

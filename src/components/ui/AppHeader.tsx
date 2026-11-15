@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, StatusBar, Image, Animated, Easing, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { FONT_INTER } from '../../constants/fonts';
 import UnderlineTabs, { UNDERLINE_TABS_H, type UnderlineTabsAction } from './UnderlineTabs';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,8 +27,9 @@ import BookmarksPanel from '../cars/BookmarksPanel';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import MainTabs, { DENSE_TRACK_H, type MainTab } from './MainTabs';
 import type { AppStackParamList } from '../../navigation/types';
-import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE, APP_BG, SURFACE_BLACK, SURFACE_MID, TAB_IDLE_FG } from '../../constants/config';
+import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE, APP_BG, SURFACE_BLACK, SURFACE_MID, TAB_IDLE_FG, COLOR_GRAY_58 } from '../../constants/config';
 import { withAlpha } from '../../constants/colors';
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -259,8 +260,9 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
         // Solid black behind the home tabs, always — docked or not, so the row
         // never seems to lose its ground mid-scroll.
         trackColor={SURFACE_BLACK}
-        // The lit tab in the card grey, its label white — quieter than the brand fill.
-        thumbColor={SURFACE_MID}
+        // The lit tab in a light grey, its label white — quieter than the brand
+        // fill; the same grey as the new-post form's tabs.
+        thumbColor={COLOR_GRAY_58}
         // The unlit tabs grey, as the section options under them are.
         idleColor={SUB_IDLE_FG}
         dense
@@ -284,7 +286,7 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
 /**
  * The section's options, under the main tabs: plain labels straight on the
  * header's ground, no band or track — a quieter level below the row above.
- * The lit one in white with a short bar under it; the rest grey. Its first
+ * The lit one in white on a grey pill; the rest grey. Its first
  * label lines up with the inside of the main row's track. Scrolls sideways
  * if they run long.
  */
@@ -398,6 +400,7 @@ interface AppHeaderProps {
 }
 
 export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, onLogoPress }: AppHeaderProps = {}) {
+  const badge = useCountBadge();
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAppSelector((s) => s.auth);
@@ -634,7 +637,7 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs
               <View>
                 <GarageDoor size={23} color={COLOR_WHITE} strokeWidth={2.4} />
                 {/* No cars yet: a notice dot, the nudge to add the first. */}
-                {garageEmpty && <View style={styles.garageDot} />}
+                {garageEmpty && <View style={[styles.garageDot, { backgroundColor: badge.bg }]} />}
               </View>
             )}
           </FloatingButton>

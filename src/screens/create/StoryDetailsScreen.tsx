@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';

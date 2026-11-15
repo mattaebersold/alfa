@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';

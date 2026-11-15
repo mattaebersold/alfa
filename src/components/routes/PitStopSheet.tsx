@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Modal,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView, KeyboardAvoidingView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import { ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin } from 'lucide-react-native';

@@ -3,7 +3,8 @@ import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useRouteAllowance } from './useRouteAllowance';
 import { ProUpsellModal } from '../components/pro/ProUpsell';
-import { ROUTE_UPSELL } from '../constants/config';
+import { ROUTE_UPSELL, ROUTE_PRO_FULL } from '../constants/config';
+import { useIsPro } from './useBrandColor';
 
 /**
  * "Make a route of your own", wherever it's offered — the Routes screen's
@@ -17,10 +18,16 @@ import { ROUTE_UPSELL } from '../constants/config';
 export function useCreateRoute() {
   const navigation = useNavigation<any>();
   const allowance = useRouteAllowance();
+  const isPro = useIsPro();
   const [pitch, setPitch] = useState(false);
 
   const create = () => {
-    if (allowance.status === 'blocked') { setPitch(true); return; }
+    if (allowance.status === 'blocked') {
+      // Pro at its ten: say so; there's nothing to upgrade to.
+      if (isPro) Alert.alert(ROUTE_PRO_FULL.title, ROUTE_PRO_FULL.message);
+      else setPitch(true);
+      return;
+    }
     Alert.alert('New route', "Record a drive as you go, or plot one you've already done.", [
       { text: 'Record a drive', onPress: () => navigation.navigate('RouteRecord') },
       { text: 'Plot a past drive', onPress: () => navigation.navigate('RoutePlot') },

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import EventImage from '../society/EventImage';
 import RegionBadge from '../ui/RegionBadge';
 import { firstGalleryUrl, imageUrl } from '../../utils/image';

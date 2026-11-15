@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Modal, FlatList, StatusBar, SafeAreaView as RNSafeAreaView, type ImageSourcePropType,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';

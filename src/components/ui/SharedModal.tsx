@@ -3,11 +3,14 @@ import {
   View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, PanResponder, useWindowDimensions,
   Easing,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KeyboardAvoidingView, HomeIndicatorSpacer, PortalHost, KeyboardHandledAbove } from '@ors/kit';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
+import { HomeIndicatorSpacer } from '../../keyboard/useKeyboardPadding';
+import { PortalHost } from '../Portal';
+import { KeyboardHandledAbove } from '../../keyboard/FormScrollView';
 import { COMMON_RADIUS, COLOR_WHITE, PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -105,6 +108,8 @@ interface SharedModalProps {
    * the pair never settled.
    */
   keyboardInert?: boolean;
+  /** The pane's surface, when it isn't PANE_BG — the create forms use FORM_PANE_BG. */
+  background?: string;
   children: React.ReactNode;
 }
 
@@ -114,7 +119,10 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, background, children }: SharedModalProps) {
+  // Every pane's one surface, unless this one is a create form (FORM_PANE_BG).
+  const bg = background ?? SHEET_BG;
+  const bgStyle = background ? { backgroundColor: background } : null;
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -197,7 +205,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: PANE_SCRIM, opacity: overlayOpacity }]} pointerEvents="none" />
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         {/* The sheet rides on the keyboard: this fills the screen below the
-            status bar and shrinks by the keyboard's height (kit's
+            status bar and shrinks by the keyboard's height (keyboard/
             KeyboardAvoidingView), and the sheet sits at its bottom, capped to
             it — a short sheet lifts, a tall one shrinks. Callers with fields
             give it a FormScrollView body. `box-none` lets a tap on the empty
@@ -212,11 +220,12 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             has risen a little past its place. */}
         <Animated.View
           pointerEvents="none"
-          style={[styles.overshootFill, { opacity: slideY.interpolate({ inputRange: [-1, 0, 1], outputRange: [1, 1, 0], extrapolate: 'clamp' }) }]}
+          style={[styles.overshootFill, bgStyle, { opacity: slideY.interpolate({ inputRange: [-1, 0, 1], outputRange: [1, 1, 0], extrapolate: 'clamp' }) }]}
         />
         <Animated.View
           style={[
             styles.sheet,
+            bgStyle,
             heightRatio
               // A flex basis that can shrink, not a fixed height: the stack
               // pads itself by the keyboard, and a fixed height ignored that
@@ -236,7 +245,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           <View {...panResponder.panHandlers} style={hideHeader ? styles.grabberFloat : undefined}>
             {hideHeader ? (
               <LinearGradient
-                colors={fadeColors(SHEET_BG)}
+                colors={fadeColors(bg)}
                 locations={FADE_LOCATIONS}
                 style={styles.floatFade}
                 pointerEvents="none"
@@ -245,13 +254,13 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             {/* Tap it or drag it down — both close. */}
             <Pressable
               onPress={onClose}
-              style={[styles.grabberHit, hideHeader && styles.grabberClear]}
+              style={[styles.grabberHit, bgStyle, hideHeader && styles.grabberClear]}
               hitSlop={6}
             >
               <View style={[styles.grabber, hideHeader && styles.grabberOver]} />
             </Pressable>
             {hideHeader ? null : (
-            <View style={styles.header}>
+            <View style={[styles.header, bgStyle]}>
               {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
               <View style={styles.headerRight}>
                 {headerRight}
@@ -272,7 +281,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           {hideHeader || !headFade ? null : (
             <View style={styles.headSeam} pointerEvents="none">
               <LinearGradient
-                colors={fadeColors(SHEET_BG)}
+                colors={fadeColors(bg)}
                 locations={FADE_LOCATIONS}
                 style={styles.headFade}
               />

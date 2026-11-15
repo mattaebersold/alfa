@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import OrsGradient from '../ui/OrsGradient';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useGetEventCalendarQuery, useGetRallysQuery } from '../../api/apiService';

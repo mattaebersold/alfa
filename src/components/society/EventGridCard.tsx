@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { UserPlus, UserCheck } from 'lucide-react-native';
 import EventImage from './EventImage';
 import CalendarTile from './CalendarTile';

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView, Linking,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

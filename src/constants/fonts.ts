@@ -9,12 +9,12 @@ import {
   Inter_900Black,
 } from '@expo-google-fonts/inter';
 
-import { FONT_INTER } from '@ors/kit';
+import { FONT_INTER } from '../theme/fonts';
 
 /**
  * The app's face — Inter, for everything: headings, body, labels, inputs.
- * The names live in the kit (theme/fonts), so its components and this app's
- * agree on them; the font files are loaded here. See the kit's note on why
+ * The names live in theme/fonts, so the shared components and the screens
+ * agree on them; the font files are loaded here. See the note there on why
  * each weight is its own family.
  */
 export { FONT_INTER };

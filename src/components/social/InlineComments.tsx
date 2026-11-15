@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useCreateCommentMutation } from '../../api/apiService';
 import { useCommentThread } from '../../hooks/useCommentThread';
 import { useAppSelector } from '../../store/store';

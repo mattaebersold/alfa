@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Animated, ScrollView, type StylePro
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, FadeIn, FadeOut } from 'react-native-reanimated';
 import { TAB_EASING_UI, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
 import { selectionHaptic } from '../../utils/haptics';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { GUTTER, COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
@@ -18,6 +18,8 @@ export interface MainTab<K extends string = string> {
   count?: number;
   /** Just this tab as its icon, the label kept for screen readers — the home header's Feed. */
   iconOnly?: boolean;
+  /** This tab's label and icon in this colour, lit or not — the home header's PRO, in the Pro red. */
+  color?: string;
 }
 
 /**
@@ -211,7 +213,7 @@ export default function MainTabs<K extends string>({
         )}
         {tabs.map((t) => {
           const on = t.key === shown;
-          const color = on ? TAB_ON_FG : (idleColor ?? TAB_IDLE_FG);
+          const color = t.color ?? (on ? TAB_ON_FG : (idleColor ?? TAB_IDLE_FG));
           return (
             // Eases to its new place and width when a label or count changes.
             // Measured here, where its place in the track is.

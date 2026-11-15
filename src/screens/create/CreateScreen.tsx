@@ -3,9 +3,10 @@ import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform, PanResponder, Animated,
   Pressable, Dimensions, Easing,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useKeyboardState } from 'react-native-keyboard-controller';
-import { FormScrollView, KeyboardStickyView, KEYBOARD_GAP } from '@ors/kit';
+import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,8 +15,10 @@ import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Tag, Plus } from 'lucide-react-native';
-import { useGetUserGroupsQuery, apiService } from '../../api/apiService';
+import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Plus } from 'lucide-react-native';
+import SteeringWheel from '../../components/ui/SteeringWheel';
+import { useGetUserGroupsQuery, useGetPostTaxonomyQuery, useUpdatePostTaxonomyMutation, apiService } from '../../api/apiService';
+import CustomLabelSheet from '../../components/create/CustomLabelSheet';
 import { useAppSelector, store } from '../../store/store';
 import { startPostUpload, takePostUploadDraft, type PostUploadJob } from '../../utils/postUpload';
 import ActionSheet from '../../components/ui/ActionSheet';
@@ -37,11 +40,11 @@ import { uploadFile, toUploadableJpeg } from '../../utils/upload';
 import { blockProfanity } from '../../utils/profanity';
 import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
 import { useColors } from '../../hooks/useColors';
-import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
+import { contrastText, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 import type { PostPlace } from '../../types/api';
 import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, FORM_CARD_BG, FORM_CARD_RADIUS, SHEET_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, FORM_PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, FORM_CARD_BG, FORM_CARD_RADIUS, SHEET_RADIUS, SURFACE_BLACK, COLOR_GRAY_58, TAB_IDLE_FG, COLOR_PRO } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -108,12 +111,19 @@ type DraftMedia =
   | { key: string; kind: 'video'; uri: string; poster: string | null };
 
 /**
+ * Names a type of your own can't take: the built-in keys and labels, and the
+ * app's internal types (postTaxonomyController refuses the same list).
+ */
+const RESERVED_TYPE_NAMES = ['general', 'record', 'spot', 'listing', 'want', 'spot_result', 'story', 'update', 'note', 'post', 'car record', 'spotted', 'want ad'];
+
+/**
  * The form as it stood when Post was tapped — kept with the upload, so a post
  * that fails can be put back in the form to fix (see utils/postUpload).
  */
 type CreateDraft = {
   kind: CreateKind;
-  postType: PostType;
+  /** A built-in PostType, or one of the member's own type labels. */
+  postType: string;
   category: string;
   title: string;
   body: string;
@@ -137,12 +147,23 @@ const nextMediaKey = () => `m${++_mediaSeq}_${Date.now()}`;
 /** How much media one post can carry. */
 const MAX_MEDIA = 10;
 
-/** The tabs under the header — what the thing being made is. */
+/**
+ * The Pro wheel, in Pro red whatever the tab's state — it marks the listing
+ * tab as a Pro thing, so it doesn't fade with the idle labels.
+ */
+function ProWheelIcon({ size, strokeWidth }: { size?: number; color?: string; strokeWidth?: number }) {
+  return <SteeringWheel size={size} color={COLOR_PRO} strokeWidth={strokeWidth ?? 2.4} />;
+}
+
+/**
+ * The tabs under the header — what the thing being made is. Listing is Pro
+ * only: members who aren't Pro see Post and Poll (see `kinds` in the screen).
+ */
 type CreateKind = 'post' | 'poll' | 'listing';
 const CREATE_KINDS: { key: CreateKind; label: string; Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[] = [
   { key: 'post',    label: 'Post',    Icon: MessageSquare },
   { key: 'poll',    label: 'Poll',    Icon: BarChart3 },
-  { key: 'listing', label: 'Listing', Icon: Tag },
+  { key: 'listing', label: 'Listing', Icon: ProWheelIcon },
 ];
 
 /**
@@ -211,12 +232,17 @@ export default function CreateScreen() {
    * question on it); the listing has a form of its own, which opens over this
    * one with the photos carried across.
    */
-  const [kind, setKind] = useState<CreateKind>(restored?.kind ?? 'post');
+  const isPro = useIsPro();
+  const kinds = isPro ? CREATE_KINDS : CREATE_KINDS.filter((k) => k.key !== 'listing');
+  // A restored listing draft from someone no longer Pro opens as a post.
+  const [kind, setKind] = useState<CreateKind>(
+    restored?.kind === 'listing' && !isPro ? 'post' : restored?.kind ?? 'post',
+  );
   /** The listing flow's Back / progress / Next row, pinned under the tabs. */
   const [listingNav, setListingNav] = useState<React.ReactNode>(null);
 
   // Core
-  const [postType, setPostType]   = useState<PostType>(restored?.postType ?? 'general');
+  const [postType, setPostType]   = useState<string>(restored?.postType ?? 'general');
   // The first of the type's categories, chosen up front — see handleTypeChange.
   const [category, setCategory]   = useState(() => restored?.category ?? POST_CATEGORIES.general[0]?.key ?? '');
   const [title, setTitle]         = useState(restored?.title ?? '');
@@ -266,7 +292,84 @@ export default function CreateScreen() {
   });
   const userGroups: any[] = Array.isArray(rawGroups) ? rawGroups : (rawGroups as any)?.entries ?? [];
 
-  const currentCategories = POST_CATEGORIES[postType];
+  /**
+   * Your own types and categories, after the built-in ones. A custom one's key
+   * is its label: that's what the post stores, so everyone reads the same
+   * words. Long-press one of your own to rename or delete it; built-ins can't be.
+   */
+  const { data: taxonomy } = useGetPostTaxonomyQuery(undefined, { skip: !userInfo?.user_id });
+  const [saveTaxonomy] = useUpdatePostTaxonomyMutation();
+  const customTypes = taxonomy?.types ?? [];
+  const customCategories = taxonomy?.categories ?? {};
+  const typeOptions = [
+    ...CREATABLE_POST_TYPES.map(({ type, label }) => ({ key: type as string, label })),
+    ...customTypes.map((t) => ({ key: t, label: t })),
+  ];
+  const categoriesFor = (t: string) => [
+    ...(POST_CATEGORIES[t as PostType] ?? []),
+    ...(customCategories[t] ?? []).map((c) => ({ key: c, label: c })),
+  ];
+  const currentCategories = categoriesFor(postType);
+  const isCustomType = (t: string) => customTypes.includes(t);
+  const isCustomCategory = (c: string) => (customCategories[postType] ?? []).includes(c);
+
+  /** The naming sheet: adding a type or category, or editing one of yours. */
+  const [labelSheet, setLabelSheet] = useState<{ what: 'type' | 'category'; editing?: string } | null>(null);
+  const closeLabelSheet = () => setLabelSheet(null);
+  const saveLabel = (label: string) => {
+    if (!labelSheet) return;
+    const types = [...customTypes];
+    const categories: Record<string, string[]> = { ...customCategories };
+    const { what, editing } = labelSheet;
+    if (what === 'type') {
+      if (editing) {
+        types[types.indexOf(editing)] = label;
+        // Its categories go with it to the new name.
+        if (categories[editing]) { categories[label] = categories[editing]; delete categories[editing]; }
+        if (postType === editing) setPostType(label);
+      } else {
+        types.push(label);
+        setPostType(label);
+        setCategory('');
+      }
+    } else {
+      const list = [...(categories[postType] ?? [])];
+      if (editing) list[list.indexOf(editing)] = label; else list.push(label);
+      categories[postType] = list;
+      if (!editing || category === editing) setCategory(label);
+    }
+    saveTaxonomy({ types, categories });
+    closeLabelSheet();
+  };
+  const deleteLabel = () => {
+    const editing = labelSheet?.editing;
+    if (!labelSheet || !editing) return;
+    const categories: Record<string, string[]> = { ...customCategories };
+    let types = customTypes;
+    if (labelSheet.what === 'type') {
+      types = customTypes.filter((t) => t !== editing);
+      delete categories[editing];
+      if (postType === editing) handleTypeChange('general');
+    } else {
+      categories[postType] = (categories[postType] ?? []).filter((c) => c !== editing);
+      if (category === editing) setCategory(POST_CATEGORIES[postType as PostType]?.[0]?.key ?? '');
+    }
+    saveTaxonomy({ types, categories });
+    closeLabelSheet();
+  };
+  /** "+ New" at the end of a row, inside its track. */
+  const addButton = (what: 'type' | 'category') => (
+    <TouchableOpacity
+      style={styles.addSeg}
+      onPress={() => setLabelSheet({ what })}
+      accessibilityRole="button"
+      accessibilityLabel={what === 'type' ? 'New post type' : 'New category'}
+      hitSlop={4}
+    >
+      <Plus size={13} color={TAB_IDLE_FG} strokeWidth={2.4} />
+      <Text style={styles.addSegText}>New</Text>
+    </TouchableOpacity>
+  );
 
   // Never, now: a price belongs to a marketplace listing, and a post can no
   // longer be one. Kept as a named constant rather than deleted, so the field
@@ -278,9 +381,9 @@ export default function CreateScreen() {
   const showMileage  = true;
 
   // A new type brings a new list of categories, with its first one chosen.
-  const handleTypeChange = (t: PostType) => {
+  const handleTypeChange = (t: string) => {
     setPostType(t);
-    setCategory(POST_CATEGORIES[t][0]?.key ?? '');
+    setCategory(categoriesFor(t)[0]?.key ?? '');
   };
 
   /** Room left before the post hits its media limit. */
@@ -692,7 +795,7 @@ export default function CreateScreen() {
         style={[styles.overshootFill, { opacity: shown.interpolate({ inputRange: [0.99, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}
       />
     <Animated.View style={[styles.sheet, { marginTop: insets.top + SHEET_TOP_GAP, transform: [{ translateY: sheetY }] }]}>
-    <SafeAreaView style={[ss.fill, { backgroundColor: PANE_BG }]} edges={[]}>
+    <SafeAreaView style={[ss.fill, { backgroundColor: FORM_PANE_BG }]} edges={[]}>
       {/* The head — grabber, tabs, a listing's steps — floats over the form
           with no ground of its own, and the form scrolls up under it to the
           sheet's top edge. The form's top padding is the head's height. */}
@@ -725,12 +828,20 @@ export default function CreateScreen() {
           {/* What this becomes — main tabs, the home screen's. The listing tab
               opens the marketplace's own form over this one, with the photos;
               closing it lands back here. */}
+          {/* Styled as the home header's tabs: the same MainTabs, dense, on
+              the black track with the card-grey thumb and grey idle labels
+              (see AppHeader's HeaderTabs). */}
           <MainTabs
-            tabs={CREATE_KINDS}
+            tabs={kinds}
             value={kind}
             onChange={setKind}
             inset={12}
             stretch
+            trackColor={SURFACE_BLACK}
+            // A step lighter than the header's card grey, so the pick stands out here.
+            thumbColor={COLOR_GRAY_58}
+            idleColor={TAB_IDLE_FG}
+            dense
             contentContainerStyle={styles.kindRow}
           />
         </View>
@@ -768,18 +879,28 @@ export default function CreateScreen() {
             are. First on the form, ahead of the photos. */}
         {kind === 'post' && (
           <View style={styles.typeBlock}>
+            {/* Both rows dressed as the Post / Poll / Listing tabs above
+                (tone="header"). Each ends in "+ New"; long-press one of your
+                own to rename or delete it. */}
             <SubTabs
-              options={CREATABLE_POST_TYPES.map(({ type, label }) => ({ key: type, label }))}
+              options={typeOptions}
               value={postType}
               onChange={handleTypeChange}
+              onLongPress={(t) => { if (isCustomType(t)) setLabelSheet({ what: 'type', editing: t }); }}
+              trailing={addButton('type')}
+              tone="header"
+              tall
             />
-            {currentCategories.length > 0 && (
-              <SubTabs
-                options={currentCategories.map(({ key, label }) => ({ key, label }))}
-                value={category}
-                onChange={setCategory}
-              />
-            )}
+            {/* Shown even when the type has none yet, for its "+ New". */}
+            <SubTabs
+              options={currentCategories.map(({ key, label }) => ({ key, label }))}
+              value={category}
+              onChange={setCategory}
+              onLongPress={(c) => { if (isCustomCategory(c)) setLabelSheet({ what: 'category', editing: c }); }}
+              trailing={addButton('category')}
+              tone="header"
+              tall
+            />
           </View>
         )}
 
@@ -839,6 +960,8 @@ export default function CreateScreen() {
             onChangeText={(text, ids) => { setTitle(text); setMentionedUserIds(ids); }}
             placeholder="What's on your mind?"
             multiline
+            // The photo well's corners (PhotoPickerField: COMMON_RADIUS), so the two read as a pair.
+            style={styles.mindInput}
             // Members only: a car is tagged in the picker below.
             cars={false}
             onMentionUser={tagMentioned}
@@ -899,7 +1022,7 @@ export default function CreateScreen() {
             <Text style={[styles.postToTitle, { color: colors.fg }]}>Post To</Text>
           </View>
           <PostToSelector
-            bleed={POST_TO_PAD}
+            layout="checklist"
             isPublic={isPublic}
             onTogglePublic={() => setIsPublic((v) => !v)}
             groups={userGroups}
@@ -940,7 +1063,7 @@ export default function CreateScreen() {
           keyboard is up — the Post button no longer lives down here. */}
       {keyboardUp && (
         <KeyboardStickyView style={styles.doneDock}>
-        <StickyFormFooter color={PANE_BG} bottomInset={10} style={styles.doneFooter}>
+        <StickyFormFooter color={FORM_PANE_BG} bottomInset={10} style={styles.doneFooter}>
           <View style={styles.footerRow}>
             <TouchableOpacity
               style={[styles.doneBtn, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}
@@ -964,6 +1087,21 @@ export default function CreateScreen() {
         // over another is what iOS refuses.
         onPickLibrary={() => { setCameraOpen(false); setTimeout(() => { void addFromLibrary(); }, 400); }}
       />
+
+      {/* Naming your own type or category — see CustomLabelSheet. */}
+      <CustomLabelSheet
+        visible={labelSheet !== null}
+        title={labelSheet?.what === 'type'
+          ? (labelSheet.editing ? 'Edit post type' : 'New post type')
+          : (labelSheet?.editing ? 'Edit category' : `New ${typeOptions.find((t) => t.key === postType)?.label ?? ''} category`)}
+        placeholder={labelSheet?.what === 'type' ? 'e.g. Track Day' : 'e.g. Wheels'}
+        note="Saved to your list for next time. Your post shows it to everyone."
+        initial={labelSheet?.editing ?? ''}
+        taken={labelSheet?.what === 'type' ? [...typeOptions.map((t) => t.label), ...RESERVED_TYPE_NAMES] : currentCategories.map((c) => c.label)}
+        onSave={saveLabel}
+        onDelete={labelSheet?.editing ? deleteLabel : undefined}
+        onClose={closeLabelSheet}
+      />
     </SafeAreaView>
     </Animated.View>
     </View>
@@ -978,15 +1116,15 @@ const POST_TO_PAD = 14;
 
 /** The sheet's slide back down. */
 const SHEET_CLOSE_MS = 220;
-/** The head's fade: the pane's grey (PANE_BG, #121212) to nothing. */
-const HEAD_FADE = ['rgba(18,18,18,0.92)', 'rgba(18,18,18,0.75)', 'rgba(18,18,18,0)'] as const;
+/** The head's fade: the pane's grey (FORM_PANE_BG, #1E1E1E) to nothing. */
+const HEAD_FADE = ['rgba(30,30,30,0.92)', 'rgba(30,30,30,0.75)', 'rgba(30,30,30,0)'] as const;
 /** Clear of the status bar above the sheet, so the wash shows along its top. */
 const SHEET_TOP_GAP = 10;
 
 const styles = StyleSheet.create({
   // The form, as a sheet from the bottom: rounded along its top, over the wash.
   head: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, elevation: 10 },
-  overshootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: PANE_BG },
+  overshootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: FORM_PANE_BG },
   sheet: {
     flex: 1,
     borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS,
@@ -1008,12 +1146,16 @@ const styles = StyleSheet.create({
   // Small captions over the type and category, the group form's.
   // No top padding: the tab row's own 10 below it is the gap.
   typeBlock:    { gap: 8 },
+  // "+ New": a segment's size, unlit, after the last option.
+  addSeg:       { flexDirection: 'row', alignItems: 'center', gap: 4, height: 38, paddingHorizontal: 12 },
+  addSegText:   { fontSize: 13, fontFamily: FONT_INTER.medium, color: TAB_IDLE_FG },
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
 
   photosSection:{ paddingBottom: 2 },
   // In line with the fields under it.
   photoField:   { marginHorizontal: 14, marginTop: 12, marginBottom: 0 },
+  mindInput:    { borderRadius: COMMON_RADIUS },
   thumbRow:     { paddingHorizontal: 14 },
   thumbRowInner:{ paddingVertical: 12 },
   // The add tile: the preview's size and shape, outlined, the word under a plus.

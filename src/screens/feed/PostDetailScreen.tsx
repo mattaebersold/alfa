@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, FlatList, TouchableOpacity, StyleSheet, Alert, Keyboard, Linking,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { X, MessageCircle, Link as LinkIcon, ExternalLink, ChevronRight } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useGetPostQuery, useCreateCommentMutation } from '../../api/apiService';

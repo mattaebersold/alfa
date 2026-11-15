@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Switch, Alert,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';

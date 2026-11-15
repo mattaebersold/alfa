@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Dimensions, Modal, StatusBar, SafeAreaView as RNSafeAreaView, Platform,
 } from 'react-native';
-import { Text, PortalHost } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import { PortalHost } from '../Portal';
 import { Image } from '../ui/AppImage';
 import { X, MoreHorizontal } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

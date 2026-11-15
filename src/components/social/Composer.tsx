@@ -2,9 +2,9 @@ import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import {
   View, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, type StyleProp, type ViewStyle,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import Reanimated from 'react-native-reanimated';
-import { useKeyboardPadding } from '@ors/kit';
+import { useKeyboardPadding } from '../../keyboard/useKeyboardPadding';
 import { Image } from '../ui/AppImage';
 import { ImagePlus, X, Send, Camera, Images } from 'lucide-react-native';
 import ActionSheet from '../ui/ActionSheet';
@@ -219,7 +219,7 @@ const ONE_LINE_H = 48;
 /**
  * Where a comment or a message is written: a bar whose field is the real text
  * field, the way Messages or Instagram do it. Tap it and the keyboard comes up;
- * the surface the bar sits on carries it up on top of the keyboard (a kit
+ * the surface the bar sits on carries it up on top of the keyboard (a keyboard/
  * KeyboardAvoidingView, a sheet that rides the keyboard, a FormScrollView), and
  * the field grows with what's typed until it scrolls. Attach and send stay
  * beside it the whole time.
@@ -227,7 +227,7 @@ const ONE_LINE_H = 48;
  * This replaced a full-screen panel that opened over the bar to type in. That
  * panel existed to dodge the keyboard handling each surface used to need, and
  * it tied its own lifetime to the keyboard — any hide, even a momentary one,
- * closed it. With the kit's keyboard pieces the surfaces handle the keyboard
+ * closed it. With the shared keyboard pieces the surfaces handle the keyboard
  * themselves, so the bar can simply be the field.
  *
  * The text and the photos are the caller's state, passed in, and the caller's

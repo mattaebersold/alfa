@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 import { UpcomingEventCard, UpcomingRallyCard, UPCOMING_CARD_WIDTH } from '../cards/UpcomingCard';
 import RallyDetailSheet from '../society/RallyDetailSheet';
 import RowEndSpacer from '../ui/RowEndSpacer';
@@ -10,6 +11,7 @@ import { useEventSheet } from '../../providers/EventSheetProvider';
 import { mergeUpcoming } from '../../utils/rally';
 import { collapseMultiDay } from '../../constants/eventTypes';
 import type { SocietyEvent } from '../../types/api';
+import { useLocationFilter } from '../../hooks/useLocationFilter';
 
 // Shared with the Events screen's carousel, so an event is one size in both.
 const CARD_WIDTH = UPCOMING_CARD_WIDTH;
@@ -26,7 +28,7 @@ const RALLY_FETCH = 12;
 
 /**
  * "Upcoming Events" at the top of the feed — the next 30 days near the member
- * (within 100 miles of their zip), as a carousel of
+ * (within 100 miles of where their phone is), as a carousel of
  * the same UpcomingCards the Events screen uses, so an event reads the same
  * wherever you meet it.
  *
@@ -41,11 +43,16 @@ export default function UpcomingEventsRow() {
   const navigation = useNavigation<any>();
   const { openEventSheet } = useEventSheet();
   const [openRallyId, setOpenRallyId] = useState<string | null>(null);
-  // Near the member only — measured from the zip on their profile, the same
-  // "Near me" the Events screen opens on. A member with no zip gets every
-  // upcoming event instead (the server answers unfiltered, with
-  // `near_unavailable`), which beats an empty row at the top of the feed.
-  const { data } = useGetUpcomingEventsQuery({ days: UPCOMING_DAYS, limit: MAX_CARDS, near: 'me' });
+  // Near the member only — the same "Near me" the Events screen opens on:
+  // where the phone is, or the profile zip when location is off. A member
+  // with neither gets every upcoming event instead (the server answers
+  // unfiltered, with `near_unavailable`), which beats an empty row at the top
+  // of the feed. Held while the phone finds itself, so the row doesn't show
+  // home's events and then swap them for here's.
+  const location = useLocationFilter('near');
+  const { data } = useGetUpcomingEventsQuery(
+    location.locating ? skipToken : { days: UPCOMING_DAYS, limit: MAX_CARDS, ...location.params },
+  );
   const { data: rallyData } = useGetRallysQuery({ page: 0, limit: RALLY_FETCH, time_filter: 'upcoming' });
 
   // Neither endpoint returns anything in date order — events come back by

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Car } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetRoutesQuery } from '../../api/apiService';
@@ -11,8 +11,8 @@ import {
 import FilterSummaryRow, { FilterChoiceRow, FilterDivider } from '../../components/ui/FilterSummaryRow';
 import SearchPill from '../../components/ui/SearchPill';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
-import { useLocationFilter, useWidenWhenEmpty, isNear } from '../../hooks/useLocationFilter';
-import { REGIONS } from '../../constants/regions';
+import { useLocationFilter, useNearFallback, isNear } from '../../hooks/useLocationFilter';
+import NoResultsNear from '../../components/ui/NoResultsNear';
 import type { RouteSort } from '../../types/api';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
@@ -64,11 +64,12 @@ export default function RoutesScreen() {
   useEffect(() => {
     if (data?.near_unavailable) fallBack();
   }, [data?.near_unavailable, fallBack]);
-  // Nothing near you: everything, rather than an empty list. Not while searching.
-  useWidenWhenEmpty(location, {
+  // Nothing near you: say so, then everything (still searched) under "Other
+  // results". A new search asks near me again first.
+  useNearFallback(location, {
     settled: !!data && !isFetching && !data.near_unavailable,
     empty: routes.length === 0,
-    narrowed: !!debounced,
+    key: debounced,
   });
 
   const applyFilters = useCallback((next: { location: string; sort: RouteSort }) => {
@@ -150,17 +151,18 @@ export default function RoutesScreen() {
           // The home feed's card, as-is: like, comment, its menu, and the
           // create button — and it opens the route the same way.
           renderItem={({ item }) => <RouteCard route={item} />}
+          ListHeaderComponent={location.others ? <NoResultsNear radius={location.radius} /> : null}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={isFetching} onRefresh={onRefresh} tintColor={brand} />
           }
-          ListEmptyComponent={debounced || location.choice !== 'all' ? (
+          ListEmptyComponent={debounced || (location.choice !== 'all' && !location.others) ? (
             <EmptyState
               title={debounced
                 ? `No routes match "${debounced}"`
                 : `No routes ${isNear(location.choice)
                   ? `within ${location.radius} miles`
-                  : `in the ${REGIONS.find((r) => r.key === location.choice)?.label ?? location.choice}`}`}
+                  : `in ${locationPill(location.choice).label}`}`}
             />
           ) : (
             <EmptyState

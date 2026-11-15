@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import Avatar from '../ui/Avatar';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { useGetUserByIdQuery } from '../../api/apiService';

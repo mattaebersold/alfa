@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Car, FileText } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
 import RegionBadge from '../ui/RegionBadge';

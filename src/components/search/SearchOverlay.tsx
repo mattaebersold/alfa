@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Modal, Pressable, FlatList, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
@@ -13,7 +13,7 @@ import MainTabs from '../ui/MainTabs';
 import { useInputSurface, INPUT_TEXT_STYLE } from '../ui/FormInput';
 import { useSearchQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
-import { KeyboardAvoidingView } from '@ors/kit';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import MemberCard from '../members/MemberCard';
 import CarPosterCard from '../cards/CarPosterCard';
 import FeedItemCard from '../cards/FeedItemCard';
@@ -316,7 +316,7 @@ export default function SearchOverlay({
         onPress={() => dismiss()}
       />
 
-      {/* The sheet stops above the keyboard (kit's KeyboardAvoidingView), so
+      {/* The sheet stops above the keyboard (keyboard/KeyboardAvoidingView), so
           the list scrolls inside a real viewport. */}
       <KeyboardAvoidingView
         style={[styles.sheet, { paddingTop: insets.top + 14 }]}

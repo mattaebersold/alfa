@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, ScrollView, TouchableOpacity, StyleSheet, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from '../ui/AppImage';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,7 +18,7 @@ import type { Post } from '../../types/api';
 import { CATEGORY_LABELS } from '../ui/Badge';
 import { categoryColor, pillTextColor } from '../../utils/categoryColor';
 import { POST_TYPES } from '../../constants/postTypes';
-import { COLOR_BLACK } from '../../constants/config';
+import { COLOR_BLACK, COLOR_GRAY_160 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SpotDateBadge } from '../feed/SpotResultBody';
 import { pairCardWidth } from '../cars/CarShelf';
@@ -414,7 +414,11 @@ function kindOf(post: Post): { label: string; color: string } | null {
     return { label: CATEGORY_LABELS[post.category] ?? post.category, color: categoryColor(post.category) };
   }
   const type = POST_TYPES.find((t) => t.type === post.type);
-  return type ? { label: type.label, color: type.color } : null;
+  if (type) return { label: type.label, color: type.color };
+  // A member's own type is stored as its label, capitalised (see
+  // postTaxonomyController); the app's internal types are lowercase keys.
+  if (post.type && !/^[a-z_]+$/.test(post.type)) return { label: post.type, color: COLOR_GRAY_160 };
+  return null;
 }
 
 /** The cards' corners — a touch tighter than the app's 20, at this size. */

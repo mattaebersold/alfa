@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import * as SecureStore from 'expo-secure-store';
 import { Download, X } from 'lucide-react-native';
 import { useGetLatestAppVersionQuery } from '../../api/apiService';

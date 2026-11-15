@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../../theme/Text';
 import RallyCard from '../../rallys/RallyCard';
 import RallyDetailSheet from '../../society/RallyDetailSheet';
 import EmptyState from '../../ui/EmptyState';

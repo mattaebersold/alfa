@@ -11,8 +11,8 @@ interface EventFiltersProps {
     choice: LocationChoice;
     choose: (next: LocationChoice) => void;
   };
-  /** Regions with something coming up. */
-  regions: { key: string; label: string }[];
+  /** State codes with something coming up; undefined offers every state. */
+  states?: string[];
   category: string | null;
   onCategory: (key: string | null) => void;
   /** Category keys with something in the window — see EventsView. */
@@ -34,18 +34,18 @@ interface EventFilterValue {
  * and most visits never touch them. The row says what's applied; tapping it
  * opens both in a panel; taps there mark a draft, and Apply applies it.
  *
- * The two combine — Northwest *and* Cars & Coffee — and the row names each
+ * The two combine — Washington *and* Cars & Coffee — and the row names each
  * that's applied.
  *
  * The row and the panel are FilterSummaryRow's, shared with groups,
  * members and cars; what's here is only what events filter by.
  */
 export default function EventFilters({
-  location, regions, category, onCategory, presentCategories, compact, style,
+  location, states, category, onCategory, presentCategories, compact, style,
 }: EventFiltersProps) {
   const activeCategory = category ? EVENT_CATEGORIES.find((c) => c.key === category) : undefined;
   const typeLabel = category ? activeCategory?.label ?? category : 'All types';
-  const where = locationPill(location.choice, regions);
+  const where = locationPill(location.choice);
   // The place, and the type when there is one. The type keeps its own
   // colour, as it has in the panel.
   const applied = [
@@ -76,12 +76,12 @@ export default function EventFilters({
             <LocationFilterRow
               choice={draft.choice}
               onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
-              regions={regions}
+              states={states}
               allLabel="All events"
               AllIcon={CalendarDays}
             />
 
-            {/* No heading: the rule under the regions already sets the types apart. */}
+            {/* No heading: the rule under the state field already sets the types apart. */}
             <FilterChoiceRow<string | null>
               options={[
                 { key: null, label: 'All' },

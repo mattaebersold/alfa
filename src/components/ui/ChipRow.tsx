@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { ScrollView, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { COLOR_GRAY_90, PILL_RADIUS } from '../../constants/config';

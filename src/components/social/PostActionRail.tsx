@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Tag } from 'lucide-react-native';
 import CommentButton from './CommentButton';
 import PostBookmarkButton from './PostBookmarkButton';

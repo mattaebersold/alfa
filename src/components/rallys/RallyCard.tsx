@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { format } from 'date-fns';
 import EventImage from '../society/EventImage';
 import { useNaturalRatio } from '../../hooks/useNaturalRatio';

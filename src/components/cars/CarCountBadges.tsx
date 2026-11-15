@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Wrench, Users, Images, Tag, MessageCircle } from 'lucide-react-native';
 import { useGetCarModsPageQuery, useGetCarGalleriesPageQuery, useGetCarTaggedPostsQuery } from '../../api/apiService';
 import { SummaryTouchable, measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';

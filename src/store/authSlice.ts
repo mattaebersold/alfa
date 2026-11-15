@@ -3,7 +3,7 @@ import axios from 'axios';
 import { CONFIG } from '../constants/config';
 import { storeToken, removeToken, getToken } from '../utils/token';
 import { readOnboardingFlag, writeOnboardingFlag } from '../utils/onboardingFlag';
-import { orsApi } from '@ors/kit';
+import { orsApi } from '../api/orsApi';
 import { apiService } from '../api/apiService';
 import type { User, LoginResponse } from '../types/api';
 
@@ -252,7 +252,7 @@ export const logout = createAsyncThunk(
     await removeToken();
     // Clear all cached queries so the next account doesn't see the previous user's data.
     dispatch(apiService.util.resetApiState());
-    // And the kit's — photo spots, and anything else alfa takes from @ors/kit.
+    // And the shared orsApi's — photo spots, the member, reference lists.
     dispatch(orsApi.util.resetApiState());
     return { expired: !!(opts && opts.expired) };
   }

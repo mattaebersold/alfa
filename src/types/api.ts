@@ -149,7 +149,24 @@ export interface FeedPreferences {
   dismissedSetupPrompts?: SetupPrompt[];
   /** banner_id of the last home feature banner this user closed. */
   dismissedHomeBannerId?: string | null;
+  /** The home feed's order. Missing on an account the backfill hasn't reached: read as 'auto'. */
+  sort?: FeedSort;
+  /** Which kinds of row the home feed carries. A missing key is on. */
+  content?: Partial<FeedContent>;
 }
+
+/**
+ * The home feed's order — horacio's helpers/feedPrefs.
+ *   auto      — ranked by who you follow and what you're into (the default)
+ *   recent    — everything, newest first, follows ignored
+ *   popular   — most liked and commented-on first
+ *   following — only people you follow, newest first
+ */
+export type FeedSort = 'auto' | 'recent' | 'popular' | 'following';
+
+/** The kinds of row the home feed mixes — one switch each. */
+export type FeedContentKey = 'posts' | 'cars' | 'mods' | 'galleries' | 'routes' | 'groups';
+export type FeedContent = Record<FeedContentKey, boolean>;
 
 /** The single admin-managed home feature banner. */
 export interface HomeBanner {
@@ -568,8 +585,8 @@ export interface CarSpotDay {
   today: string;
 }
 
-/** The three games of a Car Spotter day, as the ORS feed's "played today" row names them. */
-export type SpotGameKind = 'car' | 'trivia' | 'auction';
+/** The Daily Games, as the home feed's "played today" row names them. Trivia was retired. */
+export type SpotGameKind = 'car' | 'auction';
 
 /** A finished car game, spoiler-free: how it went, not what the car was. */
 export interface SpotDayCar {
@@ -582,9 +599,6 @@ export interface SpotDayCar {
   grid: [boolean, boolean][];
 }
 
-/** A day's trivia answer — right or wrong, never which answer. */
-export interface SpotDayTrivia { correct: boolean; time_ms: number | null }
-
 /**
  * A day's auction guess — its 0–100 score and how far off it was, in percent
  * (positive is over). Never the guess itself, which with the percentage
@@ -595,15 +609,14 @@ export interface SpotDayAuction { score: number; off_pct: number | null; bullsey
 /** One member's Car Spotter day: each game null when it wasn't played. */
 export interface SpotDayGames {
   car: SpotDayCar | null;
-  trivia: SpotDayTrivia | null;
   auction: SpotDayAuction | null;
 }
 
-/** GET api/carspot/feed/today — today's games from the members you follow on ORS, and yours. */
+/** GET api/carspot/feed/today — today's games from every Pro member who's played (Pro only), and yours. `trivia` comes back null and is ignored. */
 export interface SpotFeedToday {
   /** 'YYYY-MM-DD' in the game's timezone. */
   date: string;
-  /** Followed members who've finished at least one game today, the latest first. */
+  /** Pro members who've finished at least one game today, the latest first. */
   players: (SpotDayGames & { user: User; played_at: string | null })[];
   me: SpotDayGames;
 }
@@ -2327,4 +2340,14 @@ export interface IapConfig {
   /** The same, for Google Play. */
   obfuscatedAccountId: string;
   subscription: MemberSubscription;
+}
+
+/**
+ * A member's own post types and categories (GET/PUT api/users/post-taxonomy).
+ * `categories` is keyed by type: a built-in key ("record") or one of `types`.
+ * A post stores the label itself as its type or category.
+ */
+export interface PostTaxonomy {
+  types: string[];
+  categories: Record<string, string[]>;
 }

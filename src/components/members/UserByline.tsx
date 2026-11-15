@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import type { AvatarUser } from '../ui/Avatar';
 import ProAvatar from '../ui/ProAvatar';
 import { measureOrigin, type SummaryOrigin } from '../ui/SummaryModal';

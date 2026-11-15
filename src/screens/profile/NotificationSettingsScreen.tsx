@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Lock } from 'lucide-react-native';
 import Spinner from '../../components/ui/Spinner';

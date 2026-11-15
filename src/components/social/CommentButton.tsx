@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { MessageCircle, MessageCircleMore } from 'lucide-react-native';
 import { apiService, useGetCommentCountQuery } from '../../api/apiService';

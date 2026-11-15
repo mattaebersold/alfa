@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { Users } from 'lucide-react-native';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';

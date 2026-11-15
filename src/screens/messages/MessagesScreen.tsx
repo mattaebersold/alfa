@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
@@ -27,6 +27,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import type { Message } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts';
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -53,6 +54,7 @@ function ConversationRow({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  const badge = useCountBadge();
   const colors = useColors();
   const { lastMessage, hasUnread, unreadFromOtherIds } = summary;
 
@@ -127,10 +129,10 @@ function ConversationRow({
       </View>
       {hasUnread && (
         <View
-          style={[styles.unreadBadge, { backgroundColor: colors.countBadge }]}
+          style={[styles.unreadBadge, { backgroundColor: badge.bg }]}
           accessibilityLabel={`${unreadCount} unread`}
         >
-          <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+          <Text style={[styles.unreadBadgeText, { color: badge.fg }]}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
         </View>
       )}
       <TouchableOpacity

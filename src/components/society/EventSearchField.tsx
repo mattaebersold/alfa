@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Calendar } from 'lucide-react-native';
 import { useSearchQuery } from '../../api/apiService';
 import { useDebounced } from '../../hooks/useDebounced';

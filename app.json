@@ -26,7 +26,7 @@
           "orsphoto",
           "orsspot"
         ],
-        "NSLocationWhenInUseUsageDescription": "Open Road Society uses your location to record the roads you drive and to drop a pin where you're standing when you add a photography spot."
+        "NSLocationWhenInUseUsageDescription": "Open Road Society uses your location to show events, members and cars near you, to record the roads you drive, and to drop a pin where you're standing when you add a photography spot."
       },
       "usesAppleSignIn": true
     },
@@ -106,7 +106,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Open Road Society uses your location to record the roads you drive and to place a photography spot at where you are."
+          "locationWhenInUsePermission": "Open Road Society uses your location to show events, members and cars near you, to record the roads you drive, and to place a photography spot at where you are."
         }
       ],
       "@react-native-community/datetimepicker",

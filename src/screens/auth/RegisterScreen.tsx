@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, Image, Dimensions,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { FormScrollView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { ArrowLeft, Eye, EyeOff, Check } from 'lucide-react-native';

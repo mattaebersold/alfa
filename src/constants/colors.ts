@@ -34,6 +34,8 @@ export const colors = {
   inputBg:   COLOR_WHITE,
   inputBgDark: SURFACE_BLACK,
   inputBorder: COLOR_GRAY_96,
+  // A field's placeholder — see useColors' dark value.
+  placeholder: COLOR_GRAY_141,
   segment:   COLOR_GRAY_240,
   segmentDark: SURFACE_MID,
 

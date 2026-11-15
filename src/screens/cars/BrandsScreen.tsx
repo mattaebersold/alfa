@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
 import MakeTile from '../../components/cars/MakeTile';
@@ -65,7 +65,7 @@ export function BrandsView({ onPickBrand, headerPad = 0, onScroll }: {
           value={query}
           onChangeText={setQuery}
           placeholder="Filter by make..."
-          placeholderTextColor={colors.grey}
+          placeholderTextColor={colors.placeholder}
           autoCapitalize="words"
           autoCorrect={false}
         />

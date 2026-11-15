@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search as SearchIcon } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -104,7 +104,7 @@ export default function SearchScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search members, cars, posts..."
-          placeholderTextColor={colors.grey}
+          placeholderTextColor={colors.placeholder}
           autoFocus
           autoCapitalize="none"
           returnKeyType="search"

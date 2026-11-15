@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { ChevronRight, Images } from 'lucide-react-native';
-import type { PhotoSpot } from '@ors/kit';
-import { spotTypeLabel, spotTypeColor } from '@ors/kit/src/photography/constants';
+import type { PhotoSpot } from '../../types/ors';
+import { spotTypeLabel, spotTypeColor } from '../../photography/constants';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';

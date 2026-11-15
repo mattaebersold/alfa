@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Linking, FlatList, type NativeSyntheticEvent, type NativeScrollEvent, type LayoutChangeEvent,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapPin, Clock, Users, Navigation, Trash2 } from 'lucide-react-native';

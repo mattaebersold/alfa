@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Linking, useWindowDimensions } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useShopifyCheckoutSheet } from '@shopify/checkout-sheet-kit';
 import { ShoppingBag } from 'lucide-react-native';

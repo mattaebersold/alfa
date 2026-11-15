@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useGetBadgesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useIsAppActive } from '../../hooks/useIsAppActive';
 import { CONFIG, PILL_RADIUS, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { colors } from '../../constants/colors';
 import { FONT_INTER } from '../../constants/fonts';
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 /** Past this the badge stops counting and starts saying "lots" — as the bell does. */
 export const BADGE_MAX = 10;
@@ -67,15 +68,16 @@ export default function MarketplaceUnreadBadge({
   variant?: 'floating' | 'inline';
   style?: StyleProp<ViewStyle>;
 }) {
+  const badge = useCountBadge();
   // Nothing waiting is nothing to say — an empty bubble reads as a zero.
   if (count <= 0) return null;
 
   return (
     <View
-      style={[styles.badge, variant === 'floating' && styles.floating, style]}
+      style={[styles.badge, variant === 'floating' && styles.floating, { backgroundColor: badge.bg }, style]}
       accessibilityLabel={`${count} unread marketplace ${count === 1 ? 'message' : 'messages'}`}
     >
-      <Text style={styles.text}>{count > BADGE_MAX ? `${BADGE_MAX}+` : count}</Text>
+      <Text style={[styles.text, { color: badge.fg }]}>{count > BADGE_MAX ? `${BADGE_MAX}+` : count}</Text>
     </View>
   );
 }

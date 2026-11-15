@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, Linking, LayoutAnimation,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { UserPlus, UserCheck, CalendarPlus, Repeat, ChevronRight, MapPin } from 'lucide-react-native';
 import EventCard from '../cards/EventCard';
 import {

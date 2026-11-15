@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, BackHandler, Animated } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../../theme/Text';
 import { BrandsView } from '../../../screens/cars/BrandsScreen';
 import { BrandDetailView, type ModelPageParams } from '../../../screens/cars/BrandDetailScreen';
 import { ModelDetailView, modelShortTitle } from '../../../screens/cars/ModelDetailScreen';

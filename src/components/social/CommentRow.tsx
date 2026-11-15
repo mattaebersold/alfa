@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { MoreVertical, Trash2 } from 'lucide-react-native';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';

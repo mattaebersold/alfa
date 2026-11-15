@@ -12,6 +12,8 @@ import { useNavigationState } from '@react-navigation/native';
  */
 const IMMERSIVE_SCREENS = new Set<string>([
   'RouteDetail',
+  // A Daily Game pins its Guess button to the bottom of the screen.
+  'DailyGame',
 ]);
 
 export function isImmersiveScreen(routeName?: string): boolean {

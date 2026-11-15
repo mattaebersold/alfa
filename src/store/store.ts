@@ -4,10 +4,9 @@ import authReducer, { logout } from './authSlice';
 import moderationReducer from './moderationSlice';
 import connectivityReducer, { networkErrorSeen, connectionRestored } from './connectivitySlice';
 import { apiService } from '../api/apiService';
-// The shared API — photo spots come from @ors/kit, the same endpoints the
-// photo app uses. Its actions carry `meta.arg.endpointName` like apiService's,
+// The core API (api/orsApi) — photo spots, the member, reference lists. Its actions carry `meta.arg.endpointName` like apiService's,
 // so the connectivity and auth-expiry middlewares below cover it too.
-import { orsApi } from '@ors/kit';
+import { orsApi } from '../api/orsApi';
 
 /**
  * Turns ordinary API traffic into a connectivity *hint*.

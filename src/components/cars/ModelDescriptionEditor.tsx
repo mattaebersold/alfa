@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Modal, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProposeModelDescriptionMutation } from '../../api/apiService';
 import FormInput from '../ui/FormInput';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Lock } from 'lucide-react-native';
 import ListPreviewMosaic from './ListPreviewMosaic';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';

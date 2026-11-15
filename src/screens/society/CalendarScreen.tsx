@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, ChevronRight, Flag } from 'lucide-react-native';

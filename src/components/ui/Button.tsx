@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useBrandColor, useBrandTextColor } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import { FONT_INTER } from '../../constants/fonts';

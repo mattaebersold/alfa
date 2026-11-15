@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { AlertCircle, RotateCcw, Pencil, Trash2 } from 'lucide-react-native';

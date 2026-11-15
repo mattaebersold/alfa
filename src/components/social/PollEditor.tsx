@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Switch, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { BarChart3, Plus, X } from 'lucide-react-native';
 import FormInput from '../ui/FormInput';
 import { useColors } from '../../hooks/useColors';

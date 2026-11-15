@@ -3,7 +3,7 @@ import {
   View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
   type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

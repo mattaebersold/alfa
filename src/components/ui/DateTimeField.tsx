@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Platform,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Calendar, Clock, X } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';

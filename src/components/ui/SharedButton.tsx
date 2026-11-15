@@ -3,7 +3,7 @@ import { useBrandColor, useBrandTextColor, contrastText } from '../../hooks/useB
 import {
   TouchableOpacity, ActivityIndicator, StyleSheet, StyleProp, ViewStyle, TextStyle,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 

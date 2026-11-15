@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, FlatList,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { Search, X, Check, UserPlus, Clock, Ban } from 'lucide-react-native';
 import {
   useGetUsersQuery,
@@ -231,7 +231,7 @@ export default function GroupInviteModal({
             value={query}
             onChangeText={setQuery}
             placeholder="Search users…"
-            placeholderTextColor={c.grey}
+            placeholderTextColor={c.placeholder}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"

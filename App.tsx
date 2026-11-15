@@ -1,6 +1,6 @@
-// First: configures @ors/kit (API base, app id) before the store — which
-// includes the kit's API — or any screen is created.
-import './src/kitSetup';
+// First: sets the app config (API base, app id) before the store — which
+// includes the core API — or any screen is created.
+import './src/appSetup';
 import './src/global.css';
 import React from 'react';
 import { useFonts } from 'expo-font';
@@ -12,7 +12,8 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ShopifyCheckoutSheetProvider, ColorScheme } from '@shopify/checkout-sheet-kit';
 import { ProPurchaseProvider } from './src/providers/ProPurchaseProvider';
 import { StatusBar } from 'expo-status-bar';
-import { PortalHost, enableKitFonts } from '@ors/kit';
+import { PortalHost } from './src/components/Portal';
+import { enableAppFonts } from './src/theme/Text';
 import { FONT_FILES } from './src/constants/fonts';
 import { store } from './src/store/store';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -35,13 +36,13 @@ configureImageMemory();
 
 export default function App() {
   /**
-   * Comfortaa and Inter, before anything draws. The kit's Text sets every
-   * string in them once enabled (see kit theme/Text). A font that fails to
+   * Comfortaa and Inter, before anything draws. The shared Text sets every
+   * string in them once enabled (see theme/Text). A font that fails to
    * load isn't worth a blank app: the splash lifts anyway, and text stays in
    * the system font.
    */
   const [fontsLoaded, fontError] = useFonts(FONT_FILES);
-  if (fontsLoaded) enableKitFonts();
+  if (fontsLoaded) enableAppFonts();
   React.useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);

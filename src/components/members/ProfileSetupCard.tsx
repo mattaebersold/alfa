@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { X } from 'lucide-react-native';
 import { useGetLoggedInUserQuery, useGetUserGarageQuery, useGetPostsQuery } from '../../api/apiService';
 import { useFeedPreferences } from '../../hooks/useFeedPreferences';
@@ -9,6 +9,7 @@ import { colors } from '../../constants/colors';
 import type { SetupPrompt } from '../../types/api';
 import { COMMON_RADIUS, COLOR_BLACK, COLOR_WHITE, COLOR_ON_ALERT } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 /** The card's own steps — 'username' is AccountPrompt's alone. */
 type SetupStep = Exclude<SetupPrompt, 'username' | 'profileCard' | 'menuCard' | 'carCard'>;
@@ -42,6 +43,7 @@ export default function ProfileSetupCard({ onGo }: {
    */
   onGo: (step: 'car' | 'post') => void;
 }) {
+  const badge = useCountBadge();
   const [sheet, setSheet] = useState<'photo' | 'bio' | null>(null);
   // The live profile rather than the auth slice's copy, which is written at
   // sign-in and wouldn't see a photo or bio added since.
@@ -106,8 +108,8 @@ export default function ProfileSetupCard({ onGo }: {
           >
             {/* Counted over what's left, so the list always reads 1, 2, 3
                 rather than skipping the steps already done. */}
-            <View style={styles.bubble}>
-              <Text style={styles.bubbleText}>{i + 1}</Text>
+            <View style={[styles.bubble, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.bubbleText, { color: badge.fg }]}>{i + 1}</Text>
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>{step.title}</Text>

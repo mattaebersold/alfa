@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Bookmark } from 'lucide-react-native';
 import { useGetLoggedInUserQuery } from '../../api/apiService';
 import { useBrandColor } from '../../hooks/useBrandColor';

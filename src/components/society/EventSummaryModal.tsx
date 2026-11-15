@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { MapPin, Repeat, CalendarDays } from 'lucide-react-native';
 import SummaryModal, { useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
 import Spinner from '../ui/Spinner';

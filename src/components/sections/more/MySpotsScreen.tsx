@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useGetPhotoSpotsQuery } from '@ors/kit';
-import { PhotoSpotRow, PhotoSpotSummaryModal } from '@ors/kit/src/photography';
+import { useGetPhotoSpotsQuery } from '../../../api/orsApi';
+import { PhotoSpotRow, PhotoSpotSummaryModal } from '../../../photography';
 import SpotActions from '../../photography/SpotActions';
 import { useAppSelector } from '../../../store/store';
 import { useColors } from '../../../hooks/useColors';

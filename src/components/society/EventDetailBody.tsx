@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, ScrollView, StyleSheet, TouchableOpacity, Linking, Dimensions, Alert, Platform,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Repeat, MapPin, UserPlus, UserCheck, CalendarPlus, Settings, Pencil, Trash2, CalendarDays, Navigation } from 'lucide-react-native';

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { ChevronRight } from 'lucide-react-native';
 import RowEndSpacer from '../ui/RowEndSpacer';

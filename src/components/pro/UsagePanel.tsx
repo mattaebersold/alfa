@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import {
@@ -11,12 +11,15 @@ import {
   LISTING_LIMIT_BASIC,
   POST_LIMIT_BASIC,
   ROUTE_LIMIT_BASIC,
+  ROUTE_LIMIT_PRO,
+  EVENT_LIMIT_PRO,
+  GROUP_LIMIT_PRO,
   CAR_LIMIT_PRO,
   POST_LIMIT_PRO,
   LISTING_LIMIT_PRO,
   COLOR_WHITE,
 } from '../../constants/config';
-import { PHOTO_SPOT_LIMIT_BASIC, PHOTO_SPOT_LIMIT_PRO } from '@ors/kit/src/photography';
+import { PHOTO_SPOT_LIMIT_BASIC, PHOTO_SPOT_LIMIT_PRO } from '../../photography';
 import type { MonthlyUsage } from '../../types/api';
 import { ProUpsell } from './ProUpsell';
 import { FONT_INTER } from '../../constants/fonts';
@@ -68,7 +71,7 @@ export default function UsagePanel({
   groups?: { used: number; limit: number | null };
   /** Routes kept — a standing count. `used` is missing from servers older than the basic allowance. */
   routes?: { used?: number; limit?: number | null };
-  /** Photography pins — a standing count. Missing until the kit's spot usage has loaded. */
+  /** Photography pins — a standing count. Missing until the shared spot usage has loaded. */
   photoSpots?: Meter;
   style?: any;
 }) {
@@ -86,7 +89,7 @@ export default function UsagePanel({
     label: 'Driving Routes',
     meter: typeof routes?.used === 'number'
       ? { used: routes.used, limit: routes.limit ?? null }
-      : { used: 0, limit: isPro ? null : ROUTE_LIMIT_BASIC },
+      : { used: 0, limit: isPro ? ROUTE_LIMIT_PRO : ROUTE_LIMIT_BASIC },
   });
   if (typeof events?.used === 'number') bars.push({ label: 'Events', meter: events });
   if (typeof groups?.used === 'number') bars.push({ label: 'Groups started', meter: { used: groups.used, limit: groups.limit ?? null } });
@@ -104,7 +107,7 @@ export default function UsagePanel({
             <ProUpsell
               style={styles.getPro}
               title="No limits with Pro"
-              message={`A basic membership holds ${CAR_LIMIT_BASIC} garage cars, ${ROUTE_LIMIT_BASIC} route, ${PHOTO_SPOT_LIMIT_BASIC} photography pins, ${ALERT_LIMIT_BASIC} custom alert, ${EVENT_LIMIT_BASIC} event and 1 group, with ${POST_LIMIT_BASIC} posts and ${LISTING_LIMIT_BASIC} marketplace listings a month. Pro raises them to ${CAR_LIMIT_PRO} cars, unlimited routes, ${PHOTO_SPOT_LIMIT_PRO} pins, unlimited events and groups, and ${POST_LIMIT_PRO} posts and ${LISTING_LIMIT_PRO} listings a month, and unlocks lists and car tasks.`}
+              message={`A basic membership holds ${CAR_LIMIT_BASIC} garage cars, ${ROUTE_LIMIT_BASIC} route, ${PHOTO_SPOT_LIMIT_BASIC} photography pins, ${ALERT_LIMIT_BASIC} custom alert, ${EVENT_LIMIT_BASIC} event and 1 group, with ${POST_LIMIT_BASIC} posts and ${LISTING_LIMIT_BASIC} marketplace listings a month. Pro raises them to ${CAR_LIMIT_PRO} cars, ${ROUTE_LIMIT_PRO} routes, ${PHOTO_SPOT_LIMIT_PRO} pins, ${EVENT_LIMIT_PRO} events and ${GROUP_LIMIT_PRO} groups, and ${POST_LIMIT_PRO} posts and ${LISTING_LIMIT_PRO} listings a month, and unlocks lists and car tasks.`}
             />
           )}
         </View>

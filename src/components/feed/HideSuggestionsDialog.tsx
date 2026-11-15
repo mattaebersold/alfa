@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, Modal, Pressable, TouchableOpacity, StyleSheet,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
 import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'

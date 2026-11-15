@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
-import { useNavigation } from '@react-navigation/native';
-import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery } from '../../api/apiService';
+import { Text } from '../../theme/Text';
+import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery, useGetEngagementSuggestionsQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
-import SuggestionCard, { SUGGESTION_CARD_PAD } from './SuggestionCard';
+import SuggestionCard, { SUGGESTION_CARD_LEAD, SUGGESTION_CARD_PAD } from './SuggestionCard';
 import { shuffle } from '../../utils/array';
 import { useSummary } from '../../providers/SummaryProvider';
 import { userPreview } from '../members/UserSummaryModal';
@@ -15,15 +14,20 @@ import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_WHITE } from '../../constants/config';
 
 /**
- * "Suggested Members" — recent joiners you don't already follow.
+ * "Suggested Members" — people whose posts and cars you like and comment on,
+ * then recent joiners, all of them people you don't already follow.
+ *
+ * The engagement picks come from the server (GET api/users/suggestions), which
+ * ranks whose things you engage with most, then who owns the models you engage
+ * with. They lead, in that order; recent joiners fill the rest of the shelf.
  *
  * The filtering happens here rather than server-side: `api/users` already
  * answers newest-first, and your following list is small enough to hold in
  * memory, so a suggestion set is two cached queries and a set difference. No new
  * endpoint, and both queries are ones other screens already warm.
  *
- * Finding someone specific is the Members screen's job — "View all" goes
- * there — so the row is only suggestions.
+ * Finding someone specific is the Members screen's job, so the row is only
+ * suggestions.
  */
 
 const AVATAR_SIZE = 50;
@@ -57,7 +61,6 @@ interface Props {
 }
 
 export default function SuggestedMembersRow({ onRequestHide }: Props) {
-  const navigation = useNavigation<any>();
   const { userInfo } = useAppSelector((s) => s.auth);
   const { openUser } = useSummary();
   const myId = userInfo?.user_id ?? '';
@@ -71,22 +74,31 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
   // Whoever invited you, if anyone — the one member here you already know.
   const invitedBy = userInfo?.invited_by ?? '';
   const { data: inviter } = useGetUserByIdQuery(invitedBy, { skip: !invitedBy });
+  const { data: engagement } = useGetEngagementSuggestionsQuery(undefined, { skip: !myId });
 
   // Shuffled, not sliced off the top: the pool is newest-first and three times
   // the size of the shelf, so without this the same ten recent joiners would be
   // the only members ever suggested. Memoised on the source data so it settles
   // once per fetch rather than reordering under a scrolling finger.
   //
-  // The inviter sits in front of the shuffle, until you follow them.
+  // The inviter sits in front, until you follow them; then the people you
+  // engage with, in the server's order; then the shuffled joiners.
   const suggestions = useMemo(() => {
     const pool = usersData?.entries ?? [];
     const followed = new Set((followingData?.entries ?? []).map((u) => u.user_id));
+    const seen = new Set<string>();
     const eligible = (u: { user_id?: string }) =>
-      !!u.user_id && u.user_id !== myId && !followed.has(u.user_id);
-    const lead = inviter && eligible(inviter) ? [inviter] : [];
-    const rest = shuffle(pool.filter((u) => eligible(u) && u.user_id !== inviter?.user_id));
-    return [...lead, ...rest].slice(0, MAX_SUGGESTIONS);
-  }, [usersData, followingData, myId, inviter]);
+      !!u.user_id && u.user_id !== myId && !followed.has(u.user_id) && !seen.has(u.user_id);
+    const take = (list: any[]) => list.filter((u) => {
+      if (!eligible(u)) return false;
+      seen.add(u.user_id);
+      return true;
+    });
+    const lead = take(inviter ? [inviter] : []);
+    const engaged = take(engagement?.members ?? []);
+    const rest = take(shuffle(pool));
+    return [...lead, ...engaged, ...rest].slice(0, MAX_SUGGESTIONS);
+  }, [usersData, followingData, myId, inviter, engagement]);
 
   // Nothing to suggest is a normal state for someone who follows everyone —
   // render nothing rather than an empty shelf.
@@ -95,10 +107,8 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
   return (
     <SuggestionCard
       title="Suggested Members"
-      action={{
-        label: 'View all',
-        onPress: () => navigation.navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Members' } }),
-      }}
+      // The first card under the header: no gap above it.
+      style={styles.first}
       onClose={onRequestHide}
     >
       <ScrollView
@@ -123,7 +133,8 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
 }
 
 const styles = StyleSheet.create({
-  scroll:    { gap: CARD_GAP, paddingLeft: ROW_PAD },
+  first:     { marginTop: 0 },
+  scroll:    { gap: CARD_GAP, paddingLeft: SUGGESTION_CARD_LEAD },
   card:      { width: CARD_WIDTH, alignItems: 'center', gap: 4 },
   username:  { fontSize: 9.5, fontFamily: FONT_INTER.semibold, maxWidth: CARD_WIDTH, color: COLOR_WHITE },
 });

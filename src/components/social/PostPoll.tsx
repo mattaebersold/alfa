@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import * as Haptics from 'expo-haptics';
 import { Lock } from 'lucide-react-native';
 import AvatarStack from '../ui/AvatarStack';

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { format } from 'date-fns';
 import { Car } from 'lucide-react-native';

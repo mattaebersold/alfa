@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { PostCard } from '../social/PostStrip';
 import { TAGGED_LOOK } from './TaggedPostsRow';
 import MasonryGrid from '../ui/MasonryGrid';

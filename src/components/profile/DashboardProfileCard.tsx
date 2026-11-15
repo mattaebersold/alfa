@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Check, Pencil, X } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';
@@ -145,7 +145,7 @@ export default function DashboardProfileCard({ user }: { user: User }) {
                 returnKeyType="done"
                 onSubmitEditing={save}
                 placeholder="username"
-                placeholderTextColor={colors.grey}
+                placeholderTextColor={colors.placeholder}
               />
               {confirm}
             </View>
@@ -172,7 +172,7 @@ export default function DashboardProfileCard({ user }: { user: User }) {
             autoFocus
             multiline
             placeholder="Tell us about yourself"
-            placeholderTextColor={colors.grey}
+            placeholderTextColor={colors.placeholder}
           />
           {confirm}
         </View>

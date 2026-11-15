@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Modal, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { Text } from '@ors/kit';
-import { KeyboardAvoidingView } from '@ors/kit';
+import { Text } from '../../theme/Text';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import { BlurView } from 'expo-blur';
 import { Image } from '../ui/AppImage';
 import { Camera, Check, ImageIcon } from 'lucide-react-native';

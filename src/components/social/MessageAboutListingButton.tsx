@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { MessageCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useColors } from '../../hooks/useColors';

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, FlatList, Platform,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { FormScrollView } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { Image } from '../../components/ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
@@ -17,7 +17,10 @@ import {
   useGetJoinableGroupsQuery,
   useJoinGroupMutation,
   useCreateModMutation,
+  useGetCarTaxonomyQuery,
+  useUpdateCarTaxonomyMutation,
 } from '../../api/apiService';
+import CustomLabelSheet from '../../components/create/CustomLabelSheet';
 import { useAppSelector } from '../../store/store';
 import Button from '../../components/ui/Button';
 import FormInput, { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
@@ -30,7 +33,7 @@ import type { AppScreenProps } from '../../navigation/types';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import MakeModelFields from '../../components/cars/MakeModelFields';
 import GenerationField from '../../components/cars/GenerationField';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, FORM_PANE_BG } from '../../constants/config';
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
@@ -74,11 +77,15 @@ const STEP_TITLES = [
  * one decision, and the preview only needs to show the one you chose.
  */
 function ChipSelect<T extends { key: string; label: string }>({
-  items, value, onChange, label, colorFor, style,
+  items, value, onChange, onLongPress, trailing, label, colorFor, style,
 }: {
   items: T[];
   value: string;
   onChange: (k: string) => void;
+  /** A long press on a chip — your own types and categories open to rename or delete. */
+  onLongPress?: (k: string) => void;
+  /** After the last chip — "+ New". */
+  trailing?: React.ReactNode;
   label: string;
   /** Overrides the row's spacing — see `tight` on the category row. */
   style?: any;
@@ -115,6 +122,7 @@ function ChipSelect<T extends { key: string; label: string }>({
                   : { borderColor: colors.border, backgroundColor: colors.card },
               ]}
               onPress={() => onChange(item.key)}
+              onLongPress={onLongPress ? () => onLongPress(item.key) : undefined}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
@@ -130,6 +138,7 @@ function ChipSelect<T extends { key: string; label: string }>({
             </TouchableOpacity>
           );
         })}
+        {trailing}
       </View>
     </View>
   );
@@ -144,6 +153,8 @@ const cs = StyleSheet.create({
   chip:    { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS },
   chipPlain:  { borderWidth: 1.5 },
   chipText:   { fontSize: 13, fontFamily: FONT_INTER.bold },
+  // "+ New": a chip's size, dashed, so it reads as an action rather than an option.
+  chipAdd:    { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1.5, borderStyle: 'dashed' },
 });
 
 // ── Field ─────────────────────────────────────────────────────────────────────
@@ -194,13 +205,8 @@ const f = StyleSheet.create({
 // ── Main screen ───────────────────────────────────────────────────────────────
 type FormData = {
   title: string; year: string; make: string; model: string; generation: string;
+  /** A key from CAR_TYPES, or a label of the member's own (see useGetCarTaxonomyQuery). Category likewise. */
   type: string; category: string;
-  /**
-   * What the member typed when "Other" was picked — a type, or a category on
-   * a type whose list doesn't have theirs. Sent in place of "other"; see
-   * resolvedType / resolvedCategory.
-   */
-  customType: string; customCategory: string;
   trim: string; color: string; engine: string; mileage: string;
   horsepower: string; torque: string; vin: string; condition: string; body: string;
   group_id: string;
@@ -214,7 +220,6 @@ type FormData = {
 
 const EMPTY_FORM: FormData = {
   title: '', year: '', make: '', model: '', generation: '', type: 'daily', category: '',
-  customType: '', customCategory: '',
   trim: '', color: '', engine: '', mileage: '', horsepower: '', torque: '',
   vin: '', condition: CONDITIONS[0]?.key ?? '', body: '', group_id: '',
   mods: [], images: [],
@@ -227,44 +232,8 @@ const freshForm = (): FormData => ({
   category: CAR_CATEGORIES['daily'][0]?.key ?? '',
 });
 
-/** Long enough for a name, short enough to fit on a badge. */
-const CUSTOM_MAX = 30;
-
-/** A type that isn't one of ours was typed in under "Other". */
+/** A type that isn't one of ours: the member's own, or one typed in by an older build. */
 const isCustomType = (type: string) => !CAR_TYPES.some((t) => t.key === type);
-
-/**
- * A saved car's type and category, as the form holds them.
- *
- * The reverse of resolveType / resolveCategory: a type or category the
- * member typed comes back as "Other" with their words in the field under it,
- * so editing the car shows what they wrote rather than a chip with nothing
- * picked. Types with no list ("Other", "Part Out") hold the category as typed.
- */
-const splitCustom = (savedType: string, savedCategory: string) => {
-  const customType = isCustomType(savedType) ? savedType : '';
-  const type = customType ? 'other' : savedType;
-  const list = CAR_CATEGORIES[type] ?? [];
-  const customCategory = list.length && savedCategory && !list.some((c) => c.key === savedCategory)
-    ? savedCategory
-    : '';
-  return {
-    type,
-    category: customCategory ? 'other' : savedCategory,
-    customType,
-    customCategory,
-  };
-};
-
-/** The type to save: what was typed under "Other", or the chip's key. */
-const resolveType = (form: FormData) =>
-  (form.type === 'other' && form.customType.trim()) || form.type;
-
-/** The category to save: what was typed under "Other", or the chip's key. */
-const resolveCategory = (form: FormData) => {
-  if (!(CAR_CATEGORIES[form.type] ?? []).length) return form.category.trim();
-  return (form.category === 'other' && form.customCategory.trim()) || form.category;
-};
 
 /**
  * A half-finished car, kept for as long as the app is running.
@@ -393,7 +362,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
         make: existingCar.make ?? '',
         model: existingCar.model ?? '',
         generation: existingCar.generation ?? '',
-        ...splitCustom(existingCar.type ?? 'daily', existingCar.category ?? ''),
+        type: existingCar.type ?? 'daily',
+        category: existingCar.category ?? '',
         trim: existingCar.trim ?? '',
         color: existingCar.color ?? '',
         engine: existingCar.engine ?? '',
@@ -449,18 +419,84 @@ export function CarCreateSheet({ carId, onDismissed }: {
     }));
   };
 
-  const categories = CAR_CATEGORIES[form.type] ?? [];
-  // Every list ends in "Other", so any type can take a category of its own.
-  const categoryChips = categories.length && !categories.some((c) => c.key === 'other')
-    ? [...categories, { key: 'other', label: 'Other' }]
-    : categories;
-  const resolvedType = resolveType(form);
-  const resolvedCategory = resolveCategory(form);
+  /**
+   * Your own types and categories, after the built-in ones — "+ New" at the
+   * end of each row adds one, saved to your account for your next car; long-
+   * press one of yours to rename or delete it. A custom one's key is its
+   * label, which is what the car stores, so everyone reads the same words.
+   * A car's own value that's on neither list (typed into an older build, or
+   * since deleted from yours) still shows, picked.
+   */
+  const { data: taxonomy } = useGetCarTaxonomyQuery(undefined, { skip: !userInfo?.user_id });
+  const [saveTaxonomy] = useUpdateCarTaxonomyMutation();
+  const customTypes = taxonomy?.types ?? [];
+  const customCategories = taxonomy?.categories ?? {};
+  const asOption = (label: string) => ({ key: label, label });
+  const typeChips = [...CAR_TYPES, ...customTypes.map(asOption)];
+  if (form.type && !typeChips.some((t) => t.key === form.type)) typeChips.push(asOption(form.type));
+  const categoryChips = [...(CAR_CATEGORIES[form.type] ?? []), ...(customCategories[form.type] ?? []).map(asOption)];
+  if (form.category && !categoryChips.some((c) => c.key === form.category)) categoryChips.push(asOption(form.category));
+
+  const [labelSheet, setLabelSheet] = useState<{ what: 'type' | 'category'; editing?: string } | null>(null);
+  const saveLabel = (label: string) => {
+    if (!labelSheet) return;
+    const types = [...customTypes];
+    const categories: Record<string, string[]> = { ...customCategories };
+    const { what, editing } = labelSheet;
+    if (what === 'type') {
+      if (editing) {
+        types[types.indexOf(editing)] = label;
+        if (categories[editing]) { categories[label] = categories[editing]; delete categories[editing]; }
+        if (form.type === editing) setForm((p) => ({ ...p, type: label }));
+      } else {
+        types.push(label);
+        setForm((p) => ({ ...p, type: label, category: '' }));
+      }
+    } else {
+      const list = [...(categories[form.type] ?? [])];
+      if (editing) list[list.indexOf(editing)] = label; else list.push(label);
+      categories[form.type] = list;
+      if (!editing || form.category === editing) setForm((p) => ({ ...p, category: label }));
+    }
+    saveTaxonomy({ types, categories });
+    setLabelSheet(null);
+  };
+  const deleteLabel = () => {
+    const editing = labelSheet?.editing;
+    if (!labelSheet || !editing) return;
+    const categories: Record<string, string[]> = { ...customCategories };
+    let types = customTypes;
+    if (labelSheet.what === 'type') {
+      types = customTypes.filter((t) => t !== editing);
+      delete categories[editing];
+      if (form.type === editing) handleTypeChange('daily');
+    } else {
+      categories[form.type] = (categories[form.type] ?? []).filter((c) => c !== editing);
+      if (form.category === editing) setForm((p) => ({ ...p, category: CAR_CATEGORIES[p.type]?.[0]?.key ?? '' }));
+    }
+    saveTaxonomy({ types, categories });
+    setLabelSheet(null);
+  };
+  const addChip = (what: 'type' | 'category') => (
+    <TouchableOpacity
+      style={[cs.chip, cs.chipAdd, { borderColor: colors.border }]}
+      onPress={() => setLabelSheet({ what })}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={what === 'type' ? 'New car type' : 'New category'}
+    >
+      <Plus size={13} color={colors.grey} strokeWidth={2.4} />
+      <Text style={[cs.chipText, { color: colors.grey }]}>New</Text>
+    </TouchableOpacity>
+  );
+
+  const resolvedType = form.type;
+  const resolvedCategory = form.category.trim();
   // Checked on Next and on submit — see utils/profanity. Type and category
   // only once typed: a picked chip is the app's own word.
   const hasProfanity = () => blockProfanity({
     title: form.title,
-    type: form.type === 'other' ? form.customType : '',
+    type: isCustomType(form.type) ? form.type : '',
     category: resolvedCategory,
     description: form.body,
   });
@@ -765,6 +801,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
         />
       )}
       fullHeight
+      // The create forms' lighter pane, as the new-post form's.
+      background={FORM_PANE_BG}
     >
       {/* The header carries the pane's name and the bar carries the position,
           so the caption is just what you're filling in. */}
@@ -808,92 +846,48 @@ export function CarCreateSheet({ carId, onDismissed }: {
               />
 
               <ChipSelect
-                items={CAR_TYPES}
+                items={typeChips}
                 value={form.type}
                 onChange={handleTypeChange}
+                onLongPress={(k) => { if (customTypes.includes(k)) setLabelSheet({ what: 'type', editing: k }); }}
+                trailing={addChip('type')}
                 label="Type *"
-                colorFor={(k) => TYPE_COLORS[k] ?? { bg: colors.segment, text: colors.fg }}
+                // Your own types wear Other's badge, as a typed-in type always has.
+                colorFor={(k) => TYPE_COLORS[k] ?? TYPE_COLORS.other}
               />
 
-              {/* "Other" takes a name of its own — it wears Other's badge. */}
-              {form.type === 'other' && (
-                <View style={styles.customType}>
-                  <Field
-                    bare
-                    label="Your type"
-                    value={form.customType}
-                    onChange={set('customType')}
-                    placeholder="e.g. Track Toy"
-                    maxLength={CUSTOM_MAX}
-                    optional
-                  />
-                  {!!form.customType.trim() && (
-                    <View style={[styles.customCatChip, { backgroundColor: TYPE_COLORS.other.bg }]}>
-                      <Text style={[styles.customCatChipText, { color: TYPE_COLORS.other.text }]}>{form.customType.trim()}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
+              {/* Shown for every type, even one with no categories yet, for its "+ New". */}
+              <ChipSelect
+                items={categoryChips}
+                value={form.category}
+                onChange={set('category')}
+                onLongPress={(k) => { if ((customCategories[form.type] ?? []).includes(k)) setLabelSheet({ what: 'category', editing: k }); }}
+                trailing={addChip('category')}
+                label="Category"
+                // Tighter than Type: this follows directly from it, where
+                // Type is what breaks from the text fields above.
+                style={cs.tight}
+                // categoryColor is the same hash the record and post rows use,
+                // so a category keeps one colour across the whole app — a
+                // custom one included.
+                colorFor={(k) => ({ bg: categoryColor(k), text: COLOR_BLACK })}
+              />
 
-              {categories.length > 0 ? (
-                <>
-                <ChipSelect
-                  items={categoryChips}
-                  value={form.category}
-                  onChange={set('category')}
-                  label="Category"
-                  // Tighter than Type: this follows directly from it, where
-                  // Type is what breaks from the text fields above.
-                  style={cs.tight}
-                  // categoryColor is the same hash the record and post rows use,
-                  // so a category keeps one colour across the whole app.
-                  colorFor={(k) => ({ bg: categoryColor(k), text: COLOR_BLACK })}
-                />
-                {form.category === 'other' && (
-                  <View style={styles.customCat}>
-                    <Field
-                      bare
-                      label="Your category"
-                      value={form.customCategory}
-                      onChange={set('customCategory')}
-                      maxLength={CUSTOM_MAX}
-                      optional
-                    />
-                    {!!form.customCategory.trim() && (
-                      <View style={[styles.customCatChip, { backgroundColor: categoryColor(form.customCategory.trim()) }]}>
-                        <Text style={styles.customCatChipText}>{form.customCategory.trim()}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-                </>
-              ) : (
-                /**
-                 * "Other" has no categories to choose from, so it takes one.
-                 *
-                 * `category` is a free string on the car, and every label
-                 * lookup in the app falls back to title-casing the raw value —
-                 * so whatever is typed here renders on the card and the detail
-                 * page without needing to exist in a list anywhere. The colour
-                 * comes from the same hash as the rest, which means a custom
-                 * category still gets a consistent one of its own.
-                 */
-                <View style={styles.customCat}>
-                  <Field
-                    bare
-                    label="Category"
-                    value={form.category}
-                    onChange={set('category')}
-                    maxLength={CUSTOM_MAX}
-                    optional
-                  />
-                  {!!form.category.trim() && (
-                    <View style={[styles.customCatChip, { backgroundColor: categoryColor(form.category.trim()) }]}>
-                      <Text style={styles.customCatChipText}>{form.category.trim()}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
+              <CustomLabelSheet
+                visible={labelSheet !== null}
+                title={labelSheet?.what === 'type'
+                  ? (labelSheet.editing ? 'Edit car type' : 'New car type')
+                  : (labelSheet?.editing ? 'Edit category' : `New ${typeChips.find((t) => t.key === form.type)?.label ?? ''} category`)}
+                placeholder={labelSheet?.what === 'type' ? 'e.g. Track Toy' : 'e.g. Autocross'}
+                note="Saved to your list for your next car."
+                initial={labelSheet?.editing ?? ''}
+                taken={labelSheet?.what === 'type'
+                  ? [...typeChips.map((t) => t.label), ...CAR_TYPES.map((t) => t.key)]
+                  : categoryChips.map((c) => c.label)}
+                onSave={saveLabel}
+                onDelete={labelSheet?.editing ? deleteLabel : undefined}
+                onClose={() => setLabelSheet(null)}
+              />
             </View>
           )}
 
@@ -1036,7 +1030,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
                   value={groupQuery}
                   onChangeText={setGroupQuery}
                   placeholder={form.make ? `Search groups` : 'Search groups'}
-                  placeholderTextColor={colors.grey}
+                  placeholderTextColor={colors.placeholder}
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType="search"
@@ -1347,15 +1341,8 @@ const styles = StyleSheet.create({
     width: 20, height: 20, alignItems: 'center', justifyContent: 'center',
   },
 
-  customCat: { marginTop: 12, marginBottom: 20 },
-  customType: { marginTop: -8 },
   // A preview of the badge it will become, so a typed category isn't a leap of
   // faith the way the picked ones aren't.
-  customCatChip: {
-    alignSelf: 'flex-start', marginTop: 2,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS,
-  },
-  customCatChipText: { fontSize: 13, fontFamily: FONT_INTER.bold, color: COLOR_BLACK },
   // The "start over" button handed to StepFormNav as its leading slot — sized
   // to match that header's own carets.
   navBtn: {

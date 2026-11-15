@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { Text, TextInput, useRoomAbove, useGetPhotoSpotsQuery } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
+import { useRoomAbove } from '../../keyboard/FormScrollView';
+import { useGetPhotoSpotsQuery } from '../../api/orsApi';
 import { Image } from '../ui/AppImage';
 import Avatar, { type AvatarUser } from '../ui/Avatar';
 import { Search, X, Plus, User as UserIcon, Car as CarIcon, Flag, Users as UsersIcon, MapPin } from 'lucide-react-native';
-import { SpotPicker } from '@ors/kit/src/photography';
+import { SpotPicker } from '../../photography';
 import {
   useSearchQuery, useGetPreviouslyTaggedPhotoSpotsQuery, useGetPreviouslyTaggedUsersQuery,
 } from '../../api/apiService';
@@ -213,7 +215,7 @@ function TagRow({ title, placeholder, Icon, accent, query, onQuery, selected, su
             onFocus={room.onFocus}
             onBlur={room.onBlur}
             placeholder={placeholder}
-            placeholderTextColor={colors.grey}
+            placeholderTextColor={colors.placeholder}
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="search"
@@ -256,7 +258,7 @@ interface Props {
 }
 
 /**
- * The spots card: the same chrome as a TagRow, with the kit's spot picker
+ * The spots card: the same chrome as a TagRow, with the shared spot picker
  * where the search would be — it brings its own search, recents and
  * "create a new pin".
  */

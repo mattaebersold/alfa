@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import MakeModelFields from '../cars/MakeModelFields';
 import FormInput from '../ui/FormInput';
@@ -146,9 +146,9 @@ const styles = StyleSheet.create({
   body:  { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 16 },
   field:     { marginBottom: 14 },
   fieldHalf: { flex: 1, minWidth: 0 },
-  // Side by side, the kit's MakeModelFields' row.
+  // Side by side, the shared MakeModelFields' row.
   columns:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  // The make and model labels' type (the kit's AutocompleteField): bold,
+  // The make and model labels' type (the shared AutocompleteField): bold,
   // sentence case, in the foreground.
   label:     { fontSize: 13, fontFamily: FONT_INTER.bold, marginBottom: 6 },
 });

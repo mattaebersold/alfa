@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { Users, RotateCcw } from 'lucide-react-native';
 import {

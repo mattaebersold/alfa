@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert, Modal, Animated, Easing, Pressable, Dimensions, ActivityIndicator, PanResponder,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
@@ -41,8 +41,9 @@ import FollowButton from '../../components/social/FollowButton';
 import ProfileHelpCard from '../../components/members/ProfileHelpCard';
 import AskForPhotosButton from '../../components/cars/AskForPhotosButton';
 import PhotoSpotShelf from '../../components/photography/PhotoSpotShelf';
-import { PhotoSpotSummaryModal, PhotoSpotRow } from '@ors/kit/src/photography';
-import { useGetPhotoSpotsQuery, type PhotoSpot } from '@ors/kit';
+import { PhotoSpotSummaryModal, PhotoSpotRow } from '../../photography';
+import { useGetPhotoSpotsQuery } from '../../api/orsApi';
+import type { PhotoSpot } from '../../types/ors';
 import GaragePanel from '../../components/cars/GaragePanel';
 import GarageThumbs from '../../components/cars/GarageThumbs';
 import SettingsPanel from '../../components/profile/SettingsPanel';
@@ -1218,7 +1219,7 @@ export default function ProfileScreen() {
                   value={userSearch}
                   onChangeText={setUserSearch}
                   placeholder="Search by username..."
-                  placeholderTextColor={colors.grey}
+                  placeholderTextColor={colors.placeholder}
                   autoCapitalize="none"
                 />
               </View>

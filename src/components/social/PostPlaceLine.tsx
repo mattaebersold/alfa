@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import SolidMapPin from '../ui/SolidMapPin';
 import PlacePostsModal from './PlacePostsModal';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';

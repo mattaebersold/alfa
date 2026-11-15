@@ -2,8 +2,10 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
-import { Text, TextInput } from '@ors/kit';
-import { FormScrollView, KeyboardAvoidingView, KEYBOARD_GAP, HomeIndicatorSpacer } from '@ors/kit';
+import { Text, TextInput } from '../../theme/Text';
+import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
+import { HomeIndicatorSpacer } from '../../keyboard/useKeyboardPadding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -133,7 +135,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
 
   return (
     // Fields above, Send pinned under them: the column shrinks by the keyboard's
-    // height so Send sits on the keyboard (kit's KeyboardAvoidingView), and the
+    // height so Send sits on the keyboard (keyboard/KeyboardAvoidingView), and the
     // focused field is kept clear of Send as well.
     <KeyboardAvoidingView style={styles.root}>
       <FormScrollView
@@ -160,7 +162,7 @@ export default function ComposeMessageScreen({ route }: { route: any }) {
                 value={search}
                 onChangeText={setSearch}
                 placeholder="Search members..."
-                placeholderTextColor={colors.grey}
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="none"
                 autoCorrect={false}
               />

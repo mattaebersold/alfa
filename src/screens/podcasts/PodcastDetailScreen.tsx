@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../../components/ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGetPodcastQuery } from '../../api/apiService';

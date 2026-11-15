@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { FormScrollView } from '@ors/kit';
+import FormScrollView from '../../keyboard/FormScrollView';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader, { useHeaderPad } from '../../components/ui/AppHeader';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';

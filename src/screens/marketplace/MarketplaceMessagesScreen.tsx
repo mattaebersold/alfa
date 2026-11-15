@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,6 +24,7 @@ import type { AppScreenProps, AppStackParamList } from '../../navigation/types';
 import type { MarketplaceRoleFilter, MarketplaceThread } from '../../types/api';
 import { ss } from '../../styles/shared';
 import { FONT_INTER } from '../../constants/fonts'
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -56,6 +57,7 @@ function ThreadRow({
   onPress: () => void;
   onLeave: () => void;
 }) {
+  const badge = useCountBadge();
   const colors = useColors();
   const other = thread.other_user ?? undefined;
   const name = other?.username || 'Member';
@@ -141,8 +143,8 @@ function ThreadRow({
           {lastIsMine ? `You: ${thread.last_message_preview}` : thread.last_message_preview}
         </Text>
         {unread && (
-          <View style={[styles.unreadPill, { backgroundColor: colors.countBadge }]}>
-            <Text style={styles.unreadPillText}>{thread.unread_count}</Text>
+          <View style={[styles.unreadPill, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.unreadPillText, { color: badge.fg }]}>{thread.unread_count}</Text>
           </View>
         )}
       </View>

@@ -3,10 +3,10 @@ import { View, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-
 import Reanimated from 'react-native-reanimated';
 import { TAB_EASING, TAB_LAYOUT, thumbMoveMs } from './tabMotion';
 import { selectionHaptic } from '../../utils/haptics';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_58, COLOR_WHITE } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_58, COLOR_WHITE, TAB_IDLE_FG } from '../../constants/config';
 
 /** `tone="grey"`'s track — the home header's (AppHeader's MainTabs). */
 const GREY_TRACK = 'rgba(0,0,0,0.8)';
@@ -18,6 +18,9 @@ const TRACK_BG = COLOR_BLACK;
 /** The track's inner padding, and the gap between segments. */
 const SEG_PAD = 3;
 const SEG_GAP = 3;
+/** `tall`: MainTabs' dense sizes (TAB_H_DENSE, TRACK_PAD_DENSE). */
+const TALL_SEG_H = 38;
+const TALL_PAD = 5;
 
 /**
  * Sub tabs: a choice within a view — a post's category, a listing's
@@ -36,11 +39,15 @@ const SEG_GAP = 3;
  * MainTabs' `stretch` does. Both animate on the JS driver, since the thumb's
  * width changes too.
  */
-export default function SubTabs<T extends string>({ options, value, onChange, stretch = false, inset = 12, padX, tone = 'brand' }: {
+export default function SubTabs<T extends string>({ options, value, onChange, onLongPress, trailing, stretch = false, inset = 12, padX, tone = 'brand', tall = false }: {
   /** `Icon`, optionally, before the label in the label's colour. */
   options: { key: T; label: string; Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[];
   value: T;
   onChange: (key: T) => void;
+  /** A long press on an option — the new-post form's edit / delete for your own types. */
+  onLongPress?: (key: T) => void;
+  /** After the last option, inside the track — the new-post form's "+ New". */
+  trailing?: React.ReactNode;
   /** Run the track the full width, the options sharing it equally. */
   stretch?: boolean;
   /** The track's side margin — 12 by default; a host lines it up with its own edge. */
@@ -50,17 +57,28 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   /**
    * `grey` dresses it as the home header's MainTabs: a grey thumb with white
    * words, and the others white too, a weight lighter. `brand` (default) is
-   * the brand-coloured thumb.
+   * the brand-coloured thumb. `header` matches MainTabs as the app header
+   * and the new-post form's Post / Poll / Listing row dress it: black track,
+   * a light grey thumb (#3A3A3A), white lit label, grey unlit ones.
    */
-  tone?: 'brand' | 'grey';
+  tone?: 'brand' | 'grey' | 'header';
+  /**
+   * As tall as MainTabs' dense row (38pt segments in a 5pt track), for a
+   * stack where the two sit together — the new-post form's.
+   */
+  tall?: boolean;
 }) {
+  const pad = tall ? TALL_PAD : SEG_PAD;
   const fit = stretch ? 'equal' : 'scroll';
   const colors = useColors();
   const brandColor = useBrandColor();
-  const grey = tone === 'grey';
+  const header = tone === 'header';
+  // `grey` here is "a quiet tone": both grey and header drop the brand fill.
+  const grey = tone === 'grey' || header;
   const brand = grey ? COLOR_GRAY_58 : brandColor;
   const litText = grey ? COLOR_WHITE : contrastText(brandColor);
-  const unlitText = grey ? COLOR_WHITE : colors.muted;
+  const unlitText = header ? TAB_IDLE_FG : grey ? COLOR_WHITE : colors.muted;
+  const trackBg = header ? TRACK_BG : grey ? GREY_TRACK : TRACK_BG;
   const [trackW, setTrackW] = useState(0);
   const [cells, setCells] = useState<Record<string, { x: number; w: number }>>({ });
   const scrollRef = useRef<ScrollView>(null);
@@ -70,7 +88,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
 
   // Where the thumb goes: a share of the track, or the measured segment.
   const target = index < 0 ? null : fit === 'equal'
-    ? (trackW > 0 ? { x: SEG_PAD + index * ((trackW - SEG_PAD * 2 - SEG_GAP * (n - 1)) / n + SEG_GAP), w: (trackW - SEG_PAD * 2 - SEG_GAP * (n - 1)) / n } : null)
+    ? (trackW > 0 ? { x: pad + index * ((trackW - pad * 2 - SEG_GAP * (n - 1)) / n + SEG_GAP), w: (trackW - pad * 2 - SEG_GAP * (n - 1)) / n } : null)
     : (cells[value] ?? null);
 
   const x = useRef(new Animated.Value(0)).current;
@@ -105,7 +123,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
       {target && (
         <Animated.View
           pointerEvents="none"
-          style={[styles.segmentThumb, { width: w, backgroundColor: brand, transform: [{ translateX: x }] }]}
+          style={[styles.segmentThumb, tall && { top: pad, bottom: pad }, { width: w, backgroundColor: brand, transform: [{ translateX: x }] }]}
         />
       )}
       {options.map((o) => {
@@ -122,8 +140,9 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
               : undefined}
           >
           <TouchableOpacity
-            style={[styles.segment, fit === 'scroll' && styles.segmentOwn, fit === 'scroll' && padX != null && { paddingHorizontal: padX }]}
+            style={[styles.segment, tall && styles.segmentTall, fit === 'scroll' && styles.segmentOwn, fit === 'scroll' && padX != null && { paddingHorizontal: padX }]}
             onPress={() => { if (o.key !== value) selectionHaptic(); onChange(o.key); }}
+            onLongPress={onLongPress ? () => onLongPress(o.key) : undefined}
             activeOpacity={0.8}
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
@@ -138,6 +157,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
           </Reanimated.View>
         );
       })}
+      {trailing}
     </>
   );
 
@@ -149,14 +169,14 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
       <View style={[styles.segmentRoom, { marginHorizontal: inset }]} onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}>
       <View style={[
         styles.segmentTrack, styles.segmentTrackScroll,
-        { backgroundColor: grey ? GREY_TRACK : TRACK_BG },
+        { backgroundColor: trackBg },
         trackW > 0 ? null : styles.unmeasured,
       ]}>
         <ScrollView
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.segmentScrollRow}
+          contentContainerStyle={[styles.segmentScrollRow, tall && { padding: pad }]}
           keyboardShouldPersistTaps="handled"
           accessibilityRole="radiogroup"
         >
@@ -168,7 +188,7 @@ export default function SubTabs<T extends string>({ options, value, onChange, st
   }
   return (
     <View
-      style={[styles.segmentTrack, { backgroundColor: grey ? GREY_TRACK : TRACK_BG, marginHorizontal: inset }]}
+      style={[styles.segmentTrack, tall && { padding: pad }, { backgroundColor: trackBg, marginHorizontal: inset }]}
       onLayout={(e) => setTrackW(e.nativeEvent.layout.width)}
       accessibilityRole="radiogroup"
     >
@@ -195,6 +215,7 @@ const styles = StyleSheet.create({
   // No flex of its own: its wrapper (segmentShare) takes the share of the
   // track; flex here, in that column, collapsed it to nothing.
   segment:      { alignItems: 'center', justifyContent: 'center', paddingVertical: 7, paddingHorizontal: 4 },
+  segmentTall:  { height: TALL_SEG_H, paddingVertical: 0 },
   // Its own width, at full size — the row scrolls instead.
   segmentOwn:   { paddingHorizontal: 14 },
   segmentInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },

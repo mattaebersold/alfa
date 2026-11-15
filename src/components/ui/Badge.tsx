@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { BADGE_COLORS } from '../../constants/colors';
 import { PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, LayoutAnimation } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { ChevronDown } from 'lucide-react-native';
 import { useColors } from '../../hooks/useColors';
 import type { RallyFaqItem } from '../../types/api';

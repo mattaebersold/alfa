@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import Avatar, { type AvatarUser } from './Avatar';
 import { useColors } from '../../hooks/useColors';
 import { PILL_RADIUS } from '../../constants/config';

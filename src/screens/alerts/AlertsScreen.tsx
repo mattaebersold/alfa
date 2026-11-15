@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert as RNAlert,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BellRing, Plus, Settings2 } from 'lucide-react-native';
 import Spinner from '../../components/ui/Spinner';

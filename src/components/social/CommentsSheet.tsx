@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, StyleSheet, FlatList, TouchableOpacity, Modal, Animated, Easing, Pressable, Alert, ActivityIndicator, Keyboard,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { Dimensions } from 'react-native';
@@ -11,7 +11,7 @@ import { useCommentThread, type CommentRowItem } from '../../hooks/useCommentThr
 import { useAppSelector } from '../../store/store';
 import CommentRow from './CommentRow';
 import Composer, { type ComposerHandle } from './Composer';
-import { KeyboardAvoidingView } from '@ors/kit';
+import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import { useComposerPhotos } from '../../hooks/useComposerPhotos';
 import { useColors } from '../../hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

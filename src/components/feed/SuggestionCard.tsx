@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
-import { COMMON_RADIUS, GUTTER, SURFACE_MID } from '../../constants/config';
+import { COLOR_GRAY_58, COMMON_RADIUS, GUTTER, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -30,22 +30,27 @@ interface SuggestionCardProps {
   bare?: boolean;
   /** A small text link beside the heading — "View all". */
   action?: { label: string; onPress: () => void };
+  /** Overrides on the card itself — e.g. no top margin for the first row. */
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }
 
 /**
  * The rows' inset inside the card — wider than the app's GUTTER, which on iOS
  * left the heading and the first tile nearly touching the card's edge.
+ * `PAD` is the trailing side (the Hide button, the row's end spacer); the
+ * heading and the first tile sit further in, at `LEAD`.
  */
 export const SUGGESTION_CARD_PAD = 14;
+export const SUGGESTION_CARD_LEAD = 17;
 /** A `bare` row has no card to be inset from: it keeps the feed's GUTTER. */
 export const SUGGESTION_BARE_PAD = GUTTER;
 
-export default function SuggestionCard({ title, onClose, bare, action, children }: SuggestionCardProps) {
+export default function SuggestionCard({ title, onClose, bare, action, style, children }: SuggestionCardProps) {
   const colors = useColors();
 
   return (
-    <View style={[styles.card, bare && styles.bare]}>
+    <View style={[styles.card, bare && styles.bare, style]}>
       <View style={[styles.header, bare && styles.headerBare]}>
         <Text style={[styles.heading, { color: colors.fg }]}>{title}</Text>
         <View style={styles.headerEnd}>
@@ -62,15 +67,16 @@ export default function SuggestionCard({ title, onClose, bare, action, children 
           )}
           {onClose && (
             // Says what it does: an X read as "close this for now", where it
-            // opens the choice to hide the row.
+            // opens the choice to hide the row. A dark grey pill, a step
+            // lighter than the card so it reads as a button on it.
             <TouchableOpacity
-              style={[styles.close, { backgroundColor: colors.segment }]}
+              style={styles.close}
               onPress={onClose}
               hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel={`Hide ${title}`}
+              accessibilityLabel={`Dismiss ${title}`}
             >
-              <Text style={[styles.closeText, { color: colors.fg }]}>Hide</Text>
+              <Text style={[styles.closeText, { color: colors.fg }]}>Dismiss</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -86,8 +92,8 @@ const styles = StyleSheet.create({
   // so the row scrolling sideways inside stops at the box's rounded edge.
   card: {
     marginHorizontal: GUTTER,
-    marginTop: 8,
-    paddingTop: 12,
+    marginTop: 14,
+    paddingTop: 4,
     paddingBottom: 12,
     borderRadius: COMMON_RADIUS,
     backgroundColor: SURFACE_MID,
@@ -98,12 +104,16 @@ const styles = StyleSheet.create({
   bare: { marginHorizontal: 0, marginTop: 4, borderRadius: 0, paddingTop: 4, paddingBottom: 4, backgroundColor: 'transparent', overflow: 'visible' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SUGGESTION_CARD_PAD, marginBottom: 10,
+    // Extra vertical room so the heading doesn't crowd the card's top edge or
+    // the row below. The trailing inset is tighter than the row's PAD so the
+    // Dismiss pill sits nearer the card's right edge.
+    paddingLeft: SUGGESTION_CARD_LEAD, paddingRight: SUGGESTION_CARD_PAD - 6,
+    paddingVertical: 6, marginBottom: 8,
   },
   headerBare: { paddingHorizontal: SUGGESTION_BARE_PAD },
   heading: { fontSize: 15, fontFamily: FONT_INTER.bold, letterSpacing: 0.3 },
   headerEnd: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  close: { height: 28, paddingHorizontal: 12, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  close: { height: 28, paddingHorizontal: 12, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: COLOR_GRAY_58 },
   closeText: { fontSize: 12, fontFamily: FONT_INTER.bold },
   action: { fontSize: 12, fontFamily: FONT_INTER.bold },
 });

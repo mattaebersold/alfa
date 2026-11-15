@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking, Dimensions, Modal,
 } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';

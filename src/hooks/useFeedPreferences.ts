@@ -1,9 +1,34 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   useGetLoggedInUserQuery,
   useUpdateFeedPreferencesMutation,
 } from '../api/apiService';
-import type { FeedPreferences, HideMode, SetupPrompt } from '../types/api';
+import type {
+  FeedPreferences, FeedSort, FeedContent, FeedContentKey, HideMode, SetupPrompt,
+} from '../types/api';
+
+/** The feed's orders, in the order the panel lists them. See horacio's helpers/feedPrefs. */
+export const FEED_SORTS: { key: FeedSort; label: string; description: string }[] = [
+  { key: 'auto',      label: 'Auto',          description: 'People you follow and things you’re into, near you and in your groups' },
+  { key: 'recent',    label: 'All recent',    description: 'Everything, newest first, whoever posted it' },
+  { key: 'popular',   label: 'Most popular',  description: 'The most liked and commented-on of the last two weeks' },
+  { key: 'following', label: 'Following',     description: 'Only people you follow, newest first' },
+];
+
+/** The kinds of row the feed mixes, in the order the panel lists them. */
+export const FEED_CONTENT: { key: FeedContentKey; label: string }[] = [
+  { key: 'posts',     label: 'Posts' },
+  { key: 'cars',      label: 'Garage cars' },
+  { key: 'mods',      label: 'Mods' },
+  { key: 'galleries', label: 'Galleries' },
+  { key: 'routes',    label: 'Routes' },
+  { key: 'groups',    label: 'Group activity' },
+];
+
+export const DEFAULT_FEED_SORT: FeedSort = 'auto';
+export const DEFAULT_FEED_CONTENT: FeedContent = {
+  posts: true, cars: true, mods: true, galleries: true, routes: true, groups: true,
+};
 
 /** The home feed's closable suggestion rows. */
 export type SuggestionRow = 'members' | 'cars';
@@ -73,8 +98,26 @@ export function useFeedPreferences() {
     [updatePreferences],
   );
 
+  /**
+   * How the home feed is built. Read through the defaults, so an account the
+   * server's backfill hasn't reached — or a signed-out visitor — gets the feed
+   * as it always was.
+   */
+  const feedSort: FeedSort = prefs?.sort ?? DEFAULT_FEED_SORT;
+  const feedContent = useMemo<FeedContent>(
+    () => ({ ...DEFAULT_FEED_CONTENT, ...prefs?.content }),
+    [prefs?.content],
+  );
+
+  /** Saved to the account, applied at once (see the mutation's optimistic patch). */
+  const setFeedPrefs = useCallback(
+    (next: { sort?: FeedSort; content?: Partial<FeedContent> }) => updatePreferences(next),
+    [updatePreferences],
+  );
+
   return {
     isRowHidden, hideRow, dismissBanner, isBannerDismissed,
     dismissedSetupPrompts, dismissSetupPrompt,
+    feedSort, feedContent, setFeedPrefs,
   };
 }

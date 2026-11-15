@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import SummaryModal, { type SummaryOrigin } from '../ui/SummaryModal';
 import SummaryUserRow from '../members/SummaryUserRow';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';

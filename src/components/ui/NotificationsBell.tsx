@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Bell, Mail, ChevronRight } from 'lucide-react-native';
 import NotificationsList from '../notifications/NotificationsList';
 import SummaryModal, { measureOrigin, useSummaryPanel, type SummaryOrigin } from './SummaryModal';
@@ -10,6 +10,7 @@ import { CONFIG, PILL_RADIUS, COLOR_BLACK, COLOR_COUNT_BADGE, COLOR_WHITE, COLOR
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../constants/fonts';
+import { useCountBadge } from '../../hooks/useCountBadge';
 
 /** Matches the other header buttons, so the row stays even. */
 const BTN = 42;
@@ -47,6 +48,7 @@ export function openNotificationsPanel(): boolean {
 }
 
 export default function NotificationsBell() {
+  const badge = useCountBadge();
   const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
 
   // One poll for every badge the chrome draws — see getBadges.
@@ -117,8 +119,8 @@ export default function NotificationsBell() {
       >
         <Bell size={24} color={COLOR_WHITE} strokeWidth={2.2} />
         {count > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.fg }]}>
               {count > BADGE_MAX ? `${BADGE_MAX}+` : count}
             </Text>
           </View>

@@ -7,7 +7,7 @@ import type {
   GroupVoteResult,
   Rally, GroupDiscussionPost, GroupNewsPost, GroupResource, CarGalleryAlbum, GalleryItem, DiecastAnalysis,
   DrivingRoute, DrivingRouteDetail, RouteListParams, RouteVoteResult, NearbyPlace, RoutePlotPreview,
-  FeedPreferences, HomeBanner, CarActivityItem, PollSummary,
+  FeedPreferences, FeedSort, FeedContent, HomeBanner, CarActivityItem, PollSummary,
   DeclinedInvite, ReportableType, ShopProduct, ShopProductList, ShopCollection, NotificationType, NotificationSettings,
   PlacePrediction, PlaceDetail, GroupActivityItem, RecentPostPlace, PostMapPlace, PostMapParams,
   MonthlyUsage, HideMode, SetupPrompt, EventLocationParams,
@@ -15,7 +15,11 @@ import type {
   ListingDetailResponse, MyListingsResponse,
   MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
   MarketplaceRoleFilter, MarketplaceUnreadCount, Badges,
-  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry, IapConfig, MemberSubscription } from '../types/api';
+  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry, IapConfig, MemberSubscription, PostTaxonomy } from '../types/api';
+import type {
+  CarToday, CarDay, CarDaysPage, CarPlay, CarCredit, CarStats, CarHistoryPage, CarLeaderboard,
+  AuctionToday, AuctionDay, AuctionDaysPage, AuctionPlay, AuctionStats, AuctionLeaderboard,
+} from '../types/games';
 import { carScopeKey } from '../utils/carScope';
 
 /**
@@ -97,11 +101,32 @@ const DISCUSSION_PAGE = 15;
 /** Cars per page of a group's cars — two columns' worth. */
 const GROUP_CARS_PAGE = 24;
 
+/** Days per page in a Daily Game's log (Past Games). */
+const GAME_PAGE_SIZE = 20;
+
+/**
+ * A car play the server just answered with, written into the cached day it's
+ * for — today's and the log's — rather than refetched. `credit` only when it
+ * came with it.
+ */
+function writeCarPlay(dispatch: (action: any) => any, playDate: string, play: CarPlay, credit?: CarCredit | null) {
+  dispatch(apiService.util.updateQueryData('getCarGameToday', undefined, (draft) => {
+    if (draft.puzzle?.play_date === playDate) {
+      draft.play = play;
+      if (credit !== undefined) draft.credit = credit;
+    }
+  }));
+  dispatch(apiService.util.updateQueryData('getCarGameDay', playDate, (draft) => {
+    draft.play = play;
+    if (credit !== undefined) draft.credit = credit;
+  }));
+}
+
 export const apiService = createApi({
   reducerPath: 'apiService',
   baseQuery,
   tagTypes: [
-    'CarJournal', 'RallyInterest',
+    'CarJournal', 'RallyInterest', 'PostTaxonomy', 'CarTaxonomy',
     'User', 'Post', 'Cars', 'GarageCar', 'UserEntries', 'Like', 'Comment', 'PostBookmarks', 'CarBookmarks',
     'ModelProfile', 'ModelProposals',
     'SocietyEvent', 'EventInterest',
@@ -134,6 +159,11 @@ export const apiService = createApi({
     'MarketplaceThread', 'MarketplaceUnread',
     /** The society's own auctions — the home feed's live banner and the concierge page's results. */
     'SponsoredAuction',
+    /**
+     * The PRO tab's Daily Games, one tag per game, told apart by id: 'TODAY',
+     * 'DAYS', 'DAY:<date>', 'STATS', 'BOARD'.
+     */
+    'CarGame', 'AuctionGame',
   ],
   endpoints: (builder) => ({
 
@@ -249,6 +279,51 @@ export const apiService = createApi({
       },
     }),
 
+    /**
+     * Members and cars picked from what you've liked and commented on — the
+     * feed's suggestion rows put these first. Either list may be empty.
+     */
+    /** Your own post types and categories — the new-post form offers them. */
+    getPostTaxonomy: builder.query<PostTaxonomy, void>({
+      query: () => 'api/users/post-taxonomy',
+      providesTags: ['PostTaxonomy'],
+    }),
+    /** Replaces the whole set. Applied to the cache at once, so the form doesn't wait. */
+    updatePostTaxonomy: builder.mutation<PostTaxonomy, PostTaxonomy>({
+      query: (body) => ({ url: 'api/users/post-taxonomy', method: 'PUT', body }),
+      async onQueryStarted(body, { dispatch, queryFulfilled }) {
+        const patch = dispatch(apiService.util.updateQueryData('getPostTaxonomy', undefined, () => body));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(apiService.util.updateQueryData('getPostTaxonomy', undefined, () => data));
+        } catch {
+          patch.undo();
+        }
+      },
+    }),
+
+    /** Your own garage car types and categories — the car form offers them. */
+    getCarTaxonomy: builder.query<PostTaxonomy, void>({
+      query: () => 'api/users/car-taxonomy',
+      providesTags: ['CarTaxonomy'],
+    }),
+    updateCarTaxonomy: builder.mutation<PostTaxonomy, PostTaxonomy>({
+      query: (body) => ({ url: 'api/users/car-taxonomy', method: 'PUT', body }),
+      async onQueryStarted(body, { dispatch, queryFulfilled }) {
+        const patch = dispatch(apiService.util.updateQueryData('getCarTaxonomy', undefined, () => body));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(apiService.util.updateQueryData('getCarTaxonomy', undefined, () => data));
+        } catch {
+          patch.undo();
+        }
+      },
+    }),
+
+    getEngagementSuggestions: builder.query<{ members: User[]; cars: GarageCar[] }, void>({
+      query: () => 'api/users/suggestions',
+    }),
+
     // ── Feed & Posts ────────────────────────────────────────────────────────
 
     getFeed: builder.query<PaginatedResponse<Post>, { page?: number; limit?: number; filter?: string }>({
@@ -278,6 +353,11 @@ export const apiService = createApi({
        * engagement — rather than newest-first. See horacio's helpers/homeFeedRank.
        */
       feed?: 'home';
+      /**
+       * With `feed: 'home'`: the order the member picked (FeedPreferences.sort).
+       * Anything but 'auto' replaces the ranking and the region scope above.
+       */
+      feed_sort?: FeedSort;
       /** Only posts carrying a poll — the profile's Polls shelf, with `user_id`. */
       has_poll?: boolean;
       /** Only posts made at this place — a place's own list. See PostPlace. */
@@ -401,6 +481,142 @@ export const apiService = createApi({
     getSpotFeedToday: builder.query<SpotFeedToday, void>({
       query: () => 'api/carspot/feed/today',
       providesTags: ['SpotFeed'],
+    }),
+
+    // ── Daily Games (the PRO tab) ───────────────────────────────────────────
+    // Car Spotter's car and auction games, played here now. Every member's
+    // bearer token is enough — no Car Spotter account. The car's difficulty
+    // is left to the server, which plays one (medium) for everyone.
+
+    /** Today's car, my game of it, and when the next one starts. `puzzle` is null (or a 404) when none is scheduled. */
+    getCarGameToday: builder.query<CarToday, void>({
+      query: () => 'api/carspot/today',
+      providesTags: [{ type: 'CarGame', id: 'TODAY' }],
+    }),
+    /** Every car day so far, newest first, with my play of each. */
+    getCarGameDays: builder.infiniteQuery<CarDaysPage, void, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, allPages, lastPageParam) => {
+          const loaded = allPages.reduce((n, p) => n + (p.days?.length ?? 0), 0);
+          if (!lastPage.days?.length || loaded >= lastPage.total) return undefined;
+          return lastPageParam + 1;
+        },
+      },
+      query: ({ pageParam }) => ({ url: 'api/carspot/days', params: { page: pageParam, limit: GAME_PAGE_SIZE } }),
+      providesTags: [{ type: 'CarGame', id: 'DAYS' }],
+    }),
+    /** One day's car, to play late or look back on. */
+    getCarGameDay: builder.query<CarDay & { today: string }, string>({
+      query: (date) => `api/carspot/days/${encodeURIComponent(date)}`,
+      providesTags: (_r, _e, date) => [{ type: 'CarGame', id: `DAY:${date}` }],
+    }),
+    /**
+     * One guess. The play it answers with is written straight into the day's
+     * cache rather than refetched, so the screen moves on without a beat of
+     * the old state.
+     */
+    guessCarGame: builder.mutation<
+      { play: CarPlay; credit?: CarCredit | null },
+      { make: string; model: string; play_date: string; mode?: string; elapsed_ms?: number }
+    >({
+      query: (body) => ({ url: 'api/carspot/guess', method: 'POST', body }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          writeCarPlay(dispatch, arg.play_date, data.play, data.credit ?? null);
+        } catch {
+          // The screen shows the error.
+        }
+      },
+      // Every guess moves the day's row along; a finished one also changes
+      // the stats, the board and the home row, and brings the day's answer.
+      invalidatesTags: (result, _e, arg) => {
+        if (!result) return [];
+        const tags: ({ type: 'CarGame'; id: string } | 'SpotFeed')[] = [{ type: 'CarGame', id: 'DAYS' }];
+        if (result.play.status !== 'playing') {
+          tags.push({ type: 'CarGame', id: 'STATS' }, { type: 'CarGame', id: 'BOARD' }, 'SpotFeed');
+        }
+        return tags;
+      },
+    }),
+    /** Reveal the hint — after the screen's "are you sure?". Asking before a guess starts the game. */
+    revealCarGameHint: builder.mutation<{ play: CarPlay }, { play_date: string; mode?: string }>({
+      query: (body) => ({ url: 'api/carspot/hint', method: 'POST', body }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          writeCarPlay(dispatch, arg.play_date, data.play);
+        } catch {
+          // The screen shows the error.
+        }
+      },
+      invalidatesTags: (result) => (result ? [{ type: 'CarGame', id: 'DAYS' }] : []),
+    }),
+    /** My car record. The stats ride on every history page; a one-row page is the cheapest read. */
+    getCarGameStats: builder.query<CarStats, void>({
+      query: () => ({ url: 'api/carspot/history', params: { page: 0, limit: 1 } }),
+      transformResponse: (r: CarHistoryPage) => r.stats,
+      providesTags: [{ type: 'CarGame', id: 'STATS' }],
+    }),
+    /** This week's car board (Pro members only, server-side): most solved, or the fastest single win. */
+    getCarGameLeaderboard: builder.query<CarLeaderboard, 'best' | 'fastest'>({
+      query: (sort) => ({ url: 'api/carspot/leaderboard', params: { sort } }),
+      providesTags: [{ type: 'CarGame', id: 'BOARD' }],
+    }),
+
+    /** Today's auction and my guess at it. */
+    getAuctionGameToday: builder.query<AuctionToday, void>({
+      query: () => 'api/carspot/auction/today',
+      providesTags: [{ type: 'AuctionGame', id: 'TODAY' }],
+    }),
+    getAuctionGameDays: builder.infiniteQuery<AuctionDaysPage, void, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, allPages, lastPageParam) => {
+          const loaded = allPages.reduce((n, p) => n + (p.days?.length ?? 0), 0);
+          if (!lastPage.days?.length || loaded >= lastPage.total) return undefined;
+          return lastPageParam + 1;
+        },
+      },
+      query: ({ pageParam }) => ({ url: 'api/carspot/auction/days', params: { page: pageParam, limit: GAME_PAGE_SIZE } }),
+      providesTags: [{ type: 'AuctionGame', id: 'DAYS' }],
+    }),
+    getAuctionGameDay: builder.query<AuctionDay & { today: string }, string>({
+      query: (date) => `api/carspot/auction/days/${encodeURIComponent(date)}`,
+      providesTags: (_r, _e, date) => [{ type: 'AuctionGame', id: `DAY:${date}` }],
+    }),
+    /** The one guess. Written straight into today's (or that day's) cache, so the reveal shows at once. */
+    playAuctionGame: builder.mutation<{ play: AuctionPlay }, { play_date: string; guess: number; elapsed_ms?: number }>({
+      query: (body) => ({ url: 'api/carspot/auction/play', method: 'POST', body }),
+      async onQueryStarted({ play_date }, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(apiService.util.updateQueryData('getAuctionGameToday', undefined, (draft) => {
+            if (draft.puzzle?.play_date === play_date) draft.play = data.play;
+          }));
+          dispatch(apiService.util.updateQueryData('getAuctionGameDay', play_date, (draft) => {
+            draft.play = data.play;
+          }));
+        } catch {
+          // The screen shows the error.
+        }
+      },
+      // A refused guess (already played elsewhere) refetches the day instead.
+      invalidatesTags: (result, _e, { play_date }) => (result
+        ? [
+          { type: 'AuctionGame' as const, id: 'DAYS' }, { type: 'AuctionGame' as const, id: 'STATS' },
+          { type: 'AuctionGame' as const, id: 'BOARD' }, 'SpotFeed' as const,
+        ]
+        : [{ type: 'AuctionGame' as const, id: 'TODAY' }, { type: 'AuctionGame' as const, id: `DAY:${play_date}` }]),
+    }),
+    getAuctionGameStats: builder.query<AuctionStats, void>({
+      query: () => 'api/carspot/auction/stats',
+      providesTags: [{ type: 'AuctionGame', id: 'STATS' }],
+    }),
+    getAuctionGameLeaderboard: builder.query<AuctionLeaderboard, void>({
+      query: () => 'api/carspot/auction/leaderboard',
+      providesTags: [{ type: 'AuctionGame', id: 'BOARD' }],
     }),
 
     // ── Concierge ───────────────────────────────────────────────────────────
@@ -590,10 +806,14 @@ export const apiService = createApi({
       providesTags: ['GarageCar'],
     }),
 
-    getFollowingGarage: builder.query<{ entries: GarageCar[]; total: number }, { page?: number; limit?: number }>({
-      query: ({ page = 0, limit = 12 } = {}) => ({
+    getFollowingGarage: builder.query<{ entries: GarageCar[]; total: number }, {
+      page?: number; limit?: number;
+      /** 'all' — everyone's newest cars, not only people you follow. The home feed's "All recent" and "Most popular". */
+      scope?: 'all';
+    }>({
+      query: ({ page = 0, limit = 12, scope } = {}) => ({
         url: 'api/garage/following',
-        params: { page, limit },
+        params: { page, limit, ...(scope ? { scope } : {}) },
       }),
       // The endpoint answers with `cars`, not `entries`.
       transformResponse: (r: any): { entries: GarageCar[]; total: number } => {
@@ -812,8 +1032,15 @@ export const apiService = createApi({
 
     // Mods and galleries added to cars the user follows — merged into the home
     // feed beside posts and garage additions.
-    getFollowedCarActivity: builder.query<{ entries: CarActivityItem[]; total: number }, { limit?: number } | void>({
-      query: ({ limit = 20 } = {}) => ({ url: 'api/carfollow/activity', params: { limit } }),
+    getFollowedCarActivity: builder.query<{ entries: CarActivityItem[]; total: number }, {
+      limit?: number;
+      /** 'all' — mods and galleries on anyone's cars, not only ones you follow. */
+      scope?: 'all';
+    } | void>({
+      query: ({ limit = 20, scope } = {}) => ({
+        url: 'api/carfollow/activity',
+        params: { limit, ...(scope ? { scope } : {}) },
+      }),
       transformResponse: (r: any): { entries: CarActivityItem[]; total: number } => {
         const entries = (r?.entries ?? []).filter((e: any) => e?.car);
         return { entries, total: r?.total ?? entries.length };
@@ -1065,8 +1292,15 @@ export const apiService = createApi({
       providesTags: ['SocietyEvent'],
     }),
 
-    /** Regions with something coming up, for the events Location filter. */
-    getEventRegions: builder.query<{ regions: { key: string; label: string; count: number }[] }, void>({
+    /**
+     * Regions and states with something coming up, for the events Location
+     * filter — which reads `states`. A server from before states sends only
+     * `regions`, and the filter then offers every state.
+     */
+    getEventRegions: builder.query<{
+      regions: { key: string; label: string; count: number }[];
+      states?: { code: string; name: string; count: number }[];
+    }, void>({
       query: () => 'api/events/regions',
       providesTags: ['SocietyEvent'],
     }),
@@ -2219,6 +2453,10 @@ export const apiService = createApi({
         dismissedHomeBannerId?: string | null;
         /** Adds one step to the dismissed set; the server never removes any. */
         dismissSetupPrompt?: SetupPrompt;
+        /** The home feed's order. */
+        sort?: FeedSort;
+        /** Kinds of row switched on or off — merged key by key, never replaced. */
+        content?: Partial<FeedContent>;
       }
     >({
       query: (body) => ({
@@ -2252,6 +2490,10 @@ export const apiService = createApi({
               const dismissed = new Set(draft.feedPreferences.dismissedSetupPrompts ?? []);
               dismissed.add(patch.dismissSetupPrompt);
               draft.feedPreferences.dismissedSetupPrompts = [...dismissed];
+            }
+            if (patch.sort) draft.feedPreferences.sort = patch.sort;
+            if (patch.content) {
+              draft.feedPreferences.content = { ...draft.feedPreferences.content, ...patch.content };
             }
           }),
         );
@@ -3095,6 +3337,11 @@ export const {
   useSearchUsersQuery,
   useRequestCarModelMutation,
   useGetUsersQuery,
+  useGetEngagementSuggestionsQuery,
+  useGetPostTaxonomyQuery,
+  useUpdatePostTaxonomyMutation,
+  useGetCarTaxonomyQuery,
+  useUpdateCarTaxonomyMutation,
   useGetFeedQuery,
   useGetPostsQuery,
   useGetPostQuery,
@@ -3114,6 +3361,19 @@ export const {
   useGetCarSpotTodayQuery,
   useGetCarSpotDayQuery,
   useGetSpotFeedTodayQuery,
+  useGetCarGameTodayQuery,
+  useGetCarGameDaysInfiniteQuery,
+  useGetCarGameDayQuery,
+  useGuessCarGameMutation,
+  useRevealCarGameHintMutation,
+  useGetCarGameStatsQuery,
+  useGetCarGameLeaderboardQuery,
+  useGetAuctionGameTodayQuery,
+  useGetAuctionGameDaysInfiniteQuery,
+  useGetAuctionGameDayQuery,
+  usePlayAuctionGameMutation,
+  useGetAuctionGameStatsQuery,
+  useGetAuctionGameLeaderboardQuery,
   useGetConciergeRowsQuery,
   useGetLiveSponsoredAuctionsQuery,
   useGetPastSponsoredAuctionsQuery,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle, type TextInputProps } from 'react-native';
-import { TextInput } from '@ors/kit';
+import { TextInput } from '../../theme/Text';
 import { Search, X } from 'lucide-react-native';
 import { COMPACT_FILTER_HEIGHT } from './FilterSummaryRow';
 import { useColors } from '../../hooks/useColors';
@@ -39,7 +39,7 @@ export default function SearchPill({ value, onChangeText, onClear, style, ...inp
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholderTextColor={colors.grey}
+        placeholderTextColor={colors.placeholder}
         autoCapitalize="none"
         returnKeyType="search"
         {...input}

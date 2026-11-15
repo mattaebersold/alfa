@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { FormScrollView, KEYBOARD_GAP } from '@ors/kit';
+import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
 import { EventDetailBody, EventInterestBar } from './EventDetailBody';

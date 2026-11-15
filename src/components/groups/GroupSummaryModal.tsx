@@ -1,6 +1,6 @@
 import React, { useEffect, useState , useRef} from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { Text } from '@ors/kit';
+import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import { Users, Lock, MapPin, ChevronUp, Plus } from 'lucide-react-native';
