@@ -53,6 +53,8 @@ export type FeedStackParamList = {
     at?: number;
     /** With `tab: 'photography'`: a spot to open on the map. */
     spotId?: string;
+    /** One of the tab's options to open at once — PRO's 'games', from openDailyGames. */
+    sub?: string;
   } | undefined;
   PostDetail: { postId: string; edit?: boolean };
   UserDetail: { userId: string; username?: string };
@@ -78,6 +80,10 @@ export type FeedStackParamList = {
    * or that past day's ('YYYY-MM-DD') to play late or look back on.
    */
   DailyGame: { game: DailyGameKind; date?: string };
+  /** One game's Past Games or Leaderboard — from that game's screen. */
+  GameList: { game: DailyGameKind; list: 'past' | 'boards' };
+  /** A Pro video, playing — from PRO › Videos, or a notification about one. */
+  ProVideo: { videoId: string };
 };
 
 // ── Society Stack ───────────────────────────────────────────────────────────

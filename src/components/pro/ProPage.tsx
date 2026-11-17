@@ -21,6 +21,7 @@ const PRO_FEATURES = [
   'Access to the PRO section of the app',
   'Marketplace',
   'Create and watch PRO member videos',
+  'Daily games',
   'Manage car to-dos',
   'Lists on your profile and your cars',
   'Automated diecast marketplace listings',

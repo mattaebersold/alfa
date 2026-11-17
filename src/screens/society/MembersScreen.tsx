@@ -20,6 +20,7 @@ import NoResultsNear from '../../components/ui/NoResultsNear';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import SearchPill from '../../components/ui/SearchPill';
+import { useSearchToTop } from '../../hooks/useSearchToTop';
 import { useColors } from '../../hooks/useColors';
 import { contrastText } from '../../hooks/useBrandColor';
 import { useAppSelector } from '../../store/store';
@@ -149,6 +150,8 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
     setAllUsers([]);
   }, []);
 
+  const toTop = useSearchToTop(scrollRef, headerPad + MAIN_SCREEN_TOP_GAP);
+
   const ListHeader = (
     <>
       {/* No title — the active tab already says where you are. */}
@@ -159,8 +162,9 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
       />
       {/* Search on the left, the filter on the right — the pattern events,
           the marketplace, groups and cars share. */}
-      <View style={styles.toolsRow}>
-        <SearchPill value={query} onChangeText={handleQueryChange} placeholder="Search members..." />
+      <View style={styles.toolsRow} onLayout={toTop.onToolsLayout}>
+        {/* Focused, it scrolls up to the top — room for the results over the keyboard. */}
+        <SearchPill value={query} onChangeText={handleQueryChange} placeholder="Search members..." onFocus={toTop.onSearchFocus} onBlur={toTop.onSearchBlur} />
         <FilterSummaryRow<string>
           value={location.choice}
           onApply={applyLocation}
@@ -213,7 +217,8 @@ export function MembersView({ headerPad, onScroll, scrollRef: givenRef, region }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP }]}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP }, toTop.contentMinHeight]}
+        keyboardShouldPersistTaps="handled"
         onScroll={onScroll}
         scrollEventThrottle={16}
         onRefresh={handleRefresh}

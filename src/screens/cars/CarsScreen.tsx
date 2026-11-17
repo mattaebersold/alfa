@@ -14,6 +14,7 @@ import { carPreview } from '../../components/cars/CarSummaryModal';
 import LocationFilterRow, { NO_ZIP_NOTE, locationPill } from '../../components/ui/LocationFilterRow';
 import FilterSummaryRow from '../../components/ui/FilterSummaryRow';
 import SearchPill from '../../components/ui/SearchPill';
+import { useSearchToTop } from '../../hooks/useSearchToTop';
 import { useLocationFilter, useNearFallback } from '../../hooks/useLocationFilter';
 import NoResultsNear from '../../components/ui/NoResultsNear';
 import { useHeaderScroll } from '../../hooks/useHeaderScroll';
@@ -57,6 +58,8 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const ownRef = useRef<FlatList<any>>(null);
   const scrollRef = givenRef ?? ownRef;
+  // The search, brought to the top when focused.
+  const toTop = useSearchToTop(scrollRef, headerPad + MAIN_SCREEN_TOP_GAP);
   useScrollTopOnBack(scrollRef);
   // The mosaic is one row, so the list can't drop the cars far off screen;
   // each card does that itself against this (see WindowGate).
@@ -144,7 +147,8 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
         data={filteredCars.length ? ['mosaic'] : []}
         keyExtractor={(item) => item}
         // A little clear of the header, with no title to hold it off.
-        contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP, paddingBottom: tabBarHeight + 32 }]}
+        contentContainerStyle={[styles.list, { paddingTop: headerPad + MAIN_SCREEN_TOP_GAP, paddingBottom: tabBarHeight + 32 }, toTop.contentMinHeight]}
+        keyboardShouldPersistTaps="handled"
         onScroll={onListScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -159,11 +163,12 @@ export function CarsView({ headerPad, onScroll, scrollRef: givenRef }: {
             <View style={styles.allHeadingRow}>
               <Text style={[styles.allHeading, { color: colors.fg }]}>All Member Cars</Text>
             </View>
-            <View style={styles.searchRow}>
+            <View style={styles.searchRow} onLayout={toTop.onToolsLayout}>
               {/* Search on the left, the filter on the right — the pattern
                   events, the marketplace and groups share. */}
               <View style={styles.toolsRow}>
-              <SearchPill value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search cars..." />
+              {/* Focused, it scrolls up to the top — room for the results over the keyboard. */}
+              <SearchPill value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search cars..." onFocus={toTop.onSearchFocus} onBlur={toTop.onSearchBlur} />
               <FilterSummaryRow<string>
                 value={location.choice}
                 onApply={applyLocation}

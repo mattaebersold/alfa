@@ -20,6 +20,8 @@ import BrandDetailScreen from '../screens/cars/BrandDetailScreen';
 import ModelDetailScreen, { modelPageTitle } from '../screens/cars/ModelDetailScreen';
 import MarketplaceScreen from '../screens/marketplace/MarketplaceScreen';
 import DailyGameScreen from '../screens/games/DailyGameScreen';
+import GameListScreen from '../screens/games/GameListScreen';
+import ProVideoScreen from '../screens/videos/ProVideoScreen';
 import { colors } from '../constants/colors';
 import { FONT_INTER } from '../constants/fonts'
 import { COLOR_WHITE, APP_BG } from '../constants/config';
@@ -70,6 +72,18 @@ export default function FeedStackNavigator() {
         name="DailyGame"
         component={DailyGameScreen}
         options={{ title: 'Daily Game', headerStyle: { backgroundColor: APP_BG }, headerShadowVisible: false, headerBackTitle: 'Back' }}
+      />
+      {/* A game's Past Games or Leaderboard, from its screen's links. */}
+      <Stack.Screen
+        name="GameList"
+        component={GameListScreen}
+        options={{ title: 'Past Games', headerStyle: { backgroundColor: APP_BG }, headerShadowVisible: false, headerBackTitle: 'Back' }}
+      />
+      {/* PRO › Videos' player — titled with the video once it's loaded. */}
+      <Stack.Screen
+        name="ProVideo"
+        component={ProVideoScreen}
+        options={{ title: 'Video', headerStyle: { backgroundColor: APP_BG }, headerShadowVisible: false, headerBackTitle: 'Back' }}
       />
     </Stack.Navigator>
   );

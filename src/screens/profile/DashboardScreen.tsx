@@ -4,7 +4,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert 
 import { Text } from '../../theme/Text';
 import { useGetPhotoSpotUsageQuery } from '../../api/orsApi';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered, ChevronRight, Settings, Ban } from 'lucide-react-native';
+import { UserX, Car, CarFront, FileText, Users, UserPlus, Flag, UserCheck, X, Trash2, ShieldAlert, RotateCcw, ExternalLink, MessageSquare, Image as ImageIcon, Bell, Star, Archive, ArrowRightLeft, ShoppingBag, BellRing, ListOrdered, ChevronRight, Settings, Ban, Clapperboard } from 'lucide-react-native';
 import { Image } from '../../components/ui/AppImage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,6 +50,7 @@ import FeaturedManager from '../../components/admin/FeaturedManager';
 import CarPosterCard from '../../components/cards/CarPosterCard';
 import SharedButton from '../../components/ui/SharedButton';
 import SharedModal from '../../components/ui/SharedModal';
+import MyProVideosPane from '../../components/videos/MyProVideosPane';
 import { colors } from '../../constants/colors';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
@@ -78,7 +79,7 @@ import { FONT_INTER } from '../../constants/fonts'
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 /** The rule between rows — the profile card's matches it. */
 const DIVIDER = 'rgba(255,255,255,0.1)';
-type SheetType = 'cars' | 'posts' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | 'marketplace' | 'transfers' | null;
+type SheetType = 'cars' | 'posts' | 'videos' | 'blocked' | 'flagged' | 'followedCars' | 'archivedCars' | 'homeBanner' | 'featured' | 'marketplace' | 'transfers' | null;
 type FlaggedContentType = 'post' | 'car' | 'comment' | 'user';
 
 function SheetModal({
@@ -643,6 +644,9 @@ export default function DashboardScreen({ onClose }: { onClose?: () => void } = 
       count: stats?.postsCount ?? posts.length,
       onPress: () => setSheet('posts'),
     },
+    // Your Pro video uploads in every status — PRO › Videos has no "My
+    // uploads" of its own any more. Pro members only.
+    ...(isPro ? [{ label: 'My Videos', Icon: Clapperboard, onPress: () => setSheet('videos') }] : []),
     {
       label: 'Events',
       Icon: Flag,
@@ -922,6 +926,11 @@ export default function DashboardScreen({ onClose }: { onClose?: () => void } = 
           ListEmptyComponent={<EmptyState title="No cars yet" message="Your garage is empty. Add your first car above." />}
           showsVerticalScrollIndicator={false}
         />
+      </SheetModal>
+
+      {/* My Videos: your Pro uploads — progress, Retry, Delete. */}
+      <SheetModal visible={sheet === 'videos'} title="My Videos" onClose={() => setSheet(null)} colors={colors}>
+        <MyProVideosPane onOpen={(v) => { setSheet(null); navigation.navigate('ProVideo' as any, { videoId: v.internal_id } as any); }} />
       </SheetModal>
 
       {/* Posts sheet */}

@@ -17,21 +17,30 @@ import { FONT_INTER } from '../../constants/fonts';
  */
 export default class AppErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { failed: boolean; attempt: number }
+  { failed: boolean; attempt: number; detail: string | null }
 > {
-  state = { failed: false, attempt: 0 };
+  state = { failed: false, attempt: 0, detail: null as string | null };
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+  /**
+   * What broke, in a line under the apology — the error and the component it
+   * came from. A release build keeps no console, so a screenshot of this is
+   * the only trace of a crash on someone's phone.
+   */
+  static getDerivedStateFromError(error: unknown) {
+    const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    return { failed: true, detail: msg.slice(0, 300) };
   }
 
   componentDidCatch(error: unknown, info: React.ErrorInfo) {
     clearNavState();
     console.error('AppErrorBoundary', error, info.componentStack);
+    // The nearest few components it happened in, after the message.
+    const where = (info.componentStack ?? '').split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 4).join(' ‹ ');
+    if (where) this.setState((s) => ({ detail: `${s.detail ?? ''}\n${where}`.slice(0, 600) }));
   }
 
   // A fresh key remounts everything under it, from the navigator down.
-  private retry = () => this.setState((s) => ({ failed: false, attempt: s.attempt + 1 }));
+  private retry = () => this.setState((s) => ({ failed: false, attempt: s.attempt + 1, detail: null }));
 
   render() {
     if (!this.state.failed) {
@@ -44,6 +53,7 @@ export default class AppErrorBoundary extends React.Component<
         <TouchableOpacity style={styles.button} onPress={this.retry} activeOpacity={0.85}>
           <Text style={styles.label}>Back to the app</Text>
         </TouchableOpacity>
+        {this.state.detail ? <Text style={styles.detail} selectable>{this.state.detail}</Text> : null}
       </View>
     );
   }
@@ -59,4 +69,5 @@ const styles = StyleSheet.create({
     minWidth: 200, alignItems: 'center',
   },
   label: { color: COLOR_WHITE, fontSize: 15, fontFamily: FONT_INTER.bold },
+  detail: { color: '#5E5E5E', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 28 },
 });

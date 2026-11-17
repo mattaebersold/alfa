@@ -88,9 +88,10 @@ export default function FilterSummaryRow<T>({
    * The compact form's shape. `button` (the default) is a squarer 44pt button
    * that stacks two choices on two lines — for floating over a map. `pill` is
    * a 38pt pill with the leading pill's icon and every choice on one line —
-   * for beside a search field, as alfa's lists have it.
+   * for beside a search field, as alfa's lists have it. `icon` is a 38pt
+   * circle with just the filter icon — the choices are read out, not shown.
    */
-  compactVariant?: 'button' | 'pill';
+  compactVariant?: 'button' | 'pill' | 'icon';
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -114,12 +115,17 @@ export default function FilterSummaryRow<T>({
           // Exactly the search field beside it — its fill and its edge. The brand fill was too
           // loud for a control that sits on every browse screen. The chips in
           // the panel keep the brand colour for what's chosen.
-          style={[compactVariant === 'pill' ? styles.compactPill : styles.iconBtn, { backgroundColor: colors.inputBg, borderColor: colors.borderStrong }, style]}
+          style={[
+            compactVariant === 'pill' ? styles.compactPill : compactVariant === 'icon' ? styles.compactIcon : styles.iconBtn,
+            { backgroundColor: colors.inputBg, borderColor: colors.borderStrong }, style,
+          ]}
           onPress={open}
           activeOpacity={0.8}
           accessibilityLabel={a11y}
         >
-          {compactVariant === 'pill' ? (
+          {compactVariant === 'icon' ? (
+            <Filter size={16} color={colors.fg} strokeWidth={2.4} />
+          ) : compactVariant === 'pill' ? (
             <>
               {/* The leading pill's icon — near me's pin — before the words,
                   in the button's ink rather than the black it wears on a fill. */}
@@ -289,6 +295,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 5,
     alignItems: 'center', justifyContent: 'center',
     borderRadius: PILL_RADIUS, borderWidth: 1,
+  },
+  // Just the icon, in a circle the search field's height.
+  compactIcon: {
+    width: COMPACT_FILTER_HEIGHT, height: COMPACT_FILTER_HEIGHT, borderRadius: COMPACT_FILTER_HEIGHT / 2,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
   compactPillText: { flexShrink: 1, fontSize: 14, fontFamily: FONT_INTER.semibold, color: ON_FILL },
   // Two lines in the same 44pt height.

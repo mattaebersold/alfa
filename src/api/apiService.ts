@@ -20,7 +20,23 @@ import type {
   CarToday, CarDay, CarDaysPage, CarPlay, CarCredit, CarStats, CarHistoryPage, CarLeaderboard,
   AuctionToday, AuctionDay, AuctionDaysPage, AuctionPlay, AuctionStats, AuctionLeaderboard,
 } from '../types/games';
+import type { ProVideo, ProVideoMeta, ProVideoPage, ProVideoListParams, ProVideoFields } from '../types/proVideos';
 import { carScopeKey } from '../utils/carScope';
+
+/** GET api/pro/home — see getProHome. */
+export interface ProHome {
+  /**
+   * The Pro-only group. A server from before the card fields arrived sends
+   * only id, title, subtitle and image — the card then waits on getGroup.
+   */
+  group: (Pick<Group, 'internal_id' | 'title'> & Partial<Pick<Group, 'gallery' | 'banners' | 'region' | 'member_count' | 'membership'>> & {
+    subtitle?: string | null; image?: string | null;
+  }) | null;
+  posts: Post[];
+  cars: GarageCar[];
+  /** Pro members you don't follow yet — Find Pro Members. */
+  members?: User[];
+}
 
 /**
  * Every list a new discussion or resource lands in: its home, and each place it
@@ -164,6 +180,8 @@ export const apiService = createApi({
      * 'DAYS', 'DAY:<date>', 'STATS', 'BOARD'.
      */
     'CarGame', 'AuctionGame',
+    /** Pro videos: one per video by id, and 'LIST' for every page of every filter. */
+    'ProVideo',
   ],
   endpoints: (builder) => ({
 
@@ -3227,8 +3245,141 @@ export const apiService = createApi({
       ],
     }),
 
+    // ── Pro home ────────────────────────────────────────────────────────────
+
+    /**
+     * The PRO tab's Home (Pro members only): the Pro-only group, if this
+     * server has one (null until it does), and the latest posts and garage
+     * cars from Pro members — shaped as `api/post` and `api/garage` entries.
+     * On the post and car tags, so a new post or car (or an edit) refreshes it.
+     */
+    /** Find Pro Members' search: Pro members matching `q` (2+ characters), each with whether you follow them. */
+    searchProMembers: builder.query<{ members: (User & { following?: boolean })[] }, string>({
+      query: (q) => ({ url: 'api/pro/members/search', params: { q } }),
+    }),
+
+    getProHome: builder.query<ProHome, void>({
+      query: () => 'api/pro/home',
+      // Kept for a while unwatched — leaving the PRO tab and coming back shouldn't start over.
+      keepUnusedDataFor: 30 * 60,
+      providesTags: ['Post', 'GarageCar', 'Cars', 'Group'],
+    }),
+
+    // ── Pro videos ──────────────────────────────────────────────────────────
+    // The upload itself isn't here — it's a long-running job that outlives
+    // any screen, in utils/proVideoUpload. These are the reads and the edits.
+
+    /** Limits, categories, sorts. Changes with a deploy, not a session. */
+    getProVideoMeta: builder.query<ProVideoMeta, void>({
+      query: () => 'api/pro-videos/meta',
+      keepUnusedDataFor: 60 * 60,
+    }),
+
+    /** The Videos pane's list, a page at a time (pages count from 0). */
+    getProVideos: builder.infiniteQuery<ProVideoPage, ProVideoListParams, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 0,
+        getNextPageParam: (lastPage, _all, lastPageNo) => (lastPage.has_more ? lastPageNo + 1 : undefined),
+      },
+      query: ({ queryArg, pageParam }) => ({
+        url: 'api/pro-videos',
+        params: proVideoParams(queryArg, pageParam),
+      }),
+      providesTags: (result) => [
+        { type: 'ProVideo', id: 'LIST' },
+        ...(result?.pages ?? []).flatMap((p) => p.entries.map((v) => ({ type: 'ProVideo' as const, id: v.internal_id }))),
+      ],
+    }),
+
+    getProVideo: builder.query<ProVideo, string>({
+      query: (id) => `api/pro-videos/${id}`,
+      providesTags: (result, error, id) => [{ type: 'ProVideo', id }],
+    }),
+
+    updateProVideo: builder.mutation<ProVideo, { id: string } & Partial<ProVideoFields>>({
+      query: ({ id, ...body }) => ({ url: `api/pro-videos/${id}`, method: 'PATCH', body }),
+      invalidatesTags: (result, error, { id }) => [{ type: 'ProVideo', id }, { type: 'ProVideo', id: 'LIST' }],
+    }),
+
+    deleteProVideo: builder.mutation<{ ok: boolean }, string>({
+      query: (id) => ({ url: `api/pro-videos/${id}`, method: 'DELETE' }),
+      invalidatesTags: [{ type: 'ProVideo', id: 'LIST' }],
+    }),
+
+    /** Once per watch — the server ignores your own. No tags: a view count doesn't need to move under you. */
+    countProVideoView: builder.mutation<void, string>({
+      query: (id) => ({ url: `api/pro-videos/${id}/view`, method: 'POST' }),
+    }),
+
+    /**
+     * Save it or unsave it — a toggle. Flipped in every cached copy on the
+     * tap, and put back if the server says no; the server's count is written
+     * in when it answers. No tags: invalidating 'LIST' would refetch every
+     * page of every filter on each tap — the Saved list refetches when it's
+     * opened instead (see VideosScreen).
+     */
+    toggleProVideoBookmark: builder.mutation<{ bookmarked: boolean; bookmark_count: number }, string>({
+      query: (id) => ({ url: `api/pro-videos/${id}/bookmark`, method: 'POST' }),
+      async onQueryStarted(id, { dispatch, getState, queryFulfilled }) {
+        const undo = patchProVideoCaches(dispatch, getState, id, (v) => {
+          v.bookmarked = !v.bookmarked;
+          v.bookmark_count = Math.max(0, (v.bookmark_count ?? 0) + (v.bookmarked ? 1 : -1));
+        });
+        try {
+          const { data } = await queryFulfilled;
+          patchProVideoCaches(dispatch, getState, id, (v) => {
+            v.bookmarked = data.bookmarked;
+            v.bookmark_count = data.bookmark_count;
+          });
+        } catch {
+          undo();
+        }
+      },
+    }),
+
   }),
 });
+
+/** The list's filters as query params — only what's set, and flags as '1'. */
+function proVideoParams(a: ProVideoListParams, page: number): Record<string, string | number> {
+  const out: Record<string, string | number> = { page, limit: 12 };
+  if (a.sort) out.sort = a.sort;
+  if (a.category) out.category = a.category;
+  if (a.make) out.make = a.make;
+  if (a.model) out.model = a.model;
+  if (a.length) out.length = a.length;
+  if (a.q?.trim()) out.q = a.q.trim();
+  if (a.user_id) out.user_id = a.user_id;
+  if (a.mine) out.mine = '1';
+  if (a.bookmarked) out.bookmarked = '1';
+  return out;
+}
+
+/**
+ * Change one video wherever it's cached — its own query and every page of
+ * every filtered list holding it — so a like, a save or a status change
+ * shows on the card and the player at once. Hands back an undo.
+ */
+export function patchProVideoCaches(
+  dispatch: (action: any) => any,
+  getState: () => any,
+  id: string,
+  change: (v: ProVideo) => void,
+): () => void {
+  const patches: { undo: () => void }[] = [];
+  patches.push(dispatch(apiService.util.updateQueryData('getProVideo', id, (draft) => { change(draft); })));
+  const state = getState();
+  for (const arg of apiService.util.selectCachedArgsForQuery(state, 'getProVideos')) {
+    patches.push(dispatch(apiService.util.updateQueryData('getProVideos', arg, (draft) => {
+      for (const page of draft.pages) {
+        const v = page.entries.find((e) => e.internal_id === id);
+        if (v) change(v);
+      }
+    })));
+  }
+  return () => patches.forEach((p) => p.undo());
+}
+
 
 // ── Poll cache helpers ───────────────────────────────────────────────────────
 
@@ -3647,4 +3798,15 @@ export const {
   useUpdateAlertMutation,
   useToggleAlertMutation,
   useDeleteAlertMutation,
+  // Pro home
+  useGetProHomeQuery,
+  useSearchProMembersQuery,
+  // Pro videos
+  useGetProVideoMetaQuery,
+  useGetProVideosInfiniteQuery,
+  useGetProVideoQuery,
+  useUpdateProVideoMutation,
+  useDeleteProVideoMutation,
+  useCountProVideoViewMutation,
+  useToggleProVideoBookmarkMutation,
 } = apiService;

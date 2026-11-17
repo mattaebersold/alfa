@@ -151,7 +151,6 @@ export default function GroupInviteSearch({
               size={compact ? 32 : 38}
               gap={12}
               fill
-              sub={[user.firstName, user.lastName].filter(Boolean).join(' ')}
               nameStyle={styles.username}
               style={[styles.row, { borderBottomColor: c.borderDark }]}
             >

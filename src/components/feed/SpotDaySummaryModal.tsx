@@ -95,7 +95,7 @@ function PlayerLine({ crowned, label, children }: {
   );
 }
 
-function CarResult({ car }: { car: SpotDayCar }) {
+export function CarResult({ car }: { car: SpotDayCar }) {
   const colors = useColors();
   return (
     <>
@@ -108,7 +108,7 @@ function CarResult({ car }: { car: SpotDayCar }) {
   );
 }
 
-function AuctionResult({ auction }: { auction: SpotDayAuction }) {
+export function AuctionResult({ auction }: { auction: SpotDayAuction }) {
   const colors = useColors();
   const off = offLabel(auction);
   return (

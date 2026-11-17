@@ -42,9 +42,13 @@ type Row = { kind: 'car'; day: CarDay } | { kind: 'auction'; day: AuctionDay };
  * screen, to play it late or look back on it; today's is today's game.
  * Ported from Car Spotter's History screen.
  */
-export default function PastGamesScreen({ headerPad, onScroll, bottomPad }: SectionScreenProps) {
+export default function PastGamesScreen({ headerPad, onScroll, bottomPad, game: fixed }: SectionScreenProps & {
+  /** Just this game's days, with no switch — from the game's own screen (GameListScreen). */
+  game?: DailyGameKind;
+}) {
   const navigation = useNavigation<any>();
-  const [game, setGame] = useState<DailyGameKind>('car');
+  const [picked, setGame] = useState<DailyGameKind>('car');
+  const game = fixed ?? picked;
   const isCar = game === 'car';
 
   const car = useGetCarGameDaysInfiniteQuery();
@@ -70,7 +74,7 @@ export default function PastGamesScreen({ headerPad, onScroll, bottomPad }: Sect
 
   const header = (
     <View style={styles.header}>
-      <GamePicker value={game} onChange={setGame} />
+      {fixed ? null : <GamePicker value={game} onChange={setGame} />}
       {isCar
         ? (carStats ? <CarStatsSummary stats={carStats} /> : null)
         : (auctionStats ? <AuctionStatsSummary stats={auctionStats} /> : null)}

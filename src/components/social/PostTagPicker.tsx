@@ -39,7 +39,8 @@ export interface TagItem {
 /** A member as a tag — the picker's, and an @ picked in the post's words (MentionInput). */
 export const userTag = (u: any): TagItem => ({
   id: u.user_id || u.internal_id,
-  label: u.username ? `@${u.username}` : ([u.firstName, u.lastName].filter(Boolean).join(' ') || 'User'),
+  // Username only — a member's name finds them but is never shown.
+  label: u.username ? `@${u.username}` : 'Member',
   kind: 'user',
   image: u.gallery?.[0]?.filename ?? u.profilePicture ?? null,
   avatarUser: u,

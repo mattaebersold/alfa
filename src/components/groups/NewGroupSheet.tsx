@@ -9,7 +9,8 @@ import FormScrollView from '../../keyboard/FormScrollView';
 import { Image } from '../ui/AppImage';
 import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
-import SharedModal, { PANE_GUTTER } from '../ui/SharedModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SharedModal, { PANE_GUTTER, PaneHeaderSpacer } from '../ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../ui/StepFormHeader';
 import PhotoPickerField from '../ui/PhotoPickerField';
 import GroupInvitePicker from './GroupInvitePicker';
@@ -71,6 +72,7 @@ export default function NewGroupSheet({
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
+  const insets = useSafeAreaInsets();
   const [createGroup, { isLoading }] = useCreateGroupMutation();
 
   const [title, setTitle] = useState('');
@@ -201,8 +203,10 @@ export default function NewGroupSheet({
 
   return (
     <SharedModal
-      // No fade under the header: the step's caption sits right under it.
-      headFade={false}
+      // The head floats over the form on a half-strength ground, and the form
+      // runs the pane's full height under it — top and bottom.
+      overlayHeader
+      edgeToEdge
       visible={visible}
       onClose={close}
       heightRatio={0.9}
@@ -223,12 +227,16 @@ export default function NewGroupSheet({
         />
       )}
     >
-      <StepFormProgress caption={STEP_TITLES[step - 1]} />
-
       <FormScrollView
-        contentContainerStyle={styles.content}
+        // The pane's foot is the device's edge now (edgeToEdge): clear the
+        // home indicator here instead.
+        contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
+        <PaneHeaderSpacer />
+        {/* In the scroller, under the floating head, so it scrolls away with the form. */}
+        <StepFormProgress caption={STEP_TITLES[step - 1]} style={styles.caption} />
+
         {step === 1 && (
           <>
             <Label colors={colors} first>Name</Label>
@@ -438,7 +446,9 @@ export default function NewGroupSheet({
               Optional. Everyone you pick gets an invitation once the group is made — you can
               always invite more from the group later.
             </Text>
-            <GroupInvitePicker selected={invitees} onChange={setInvitees} />
+            {/* Grows to fill the step, so its search sits low — its results
+                open upward, over the room above it. */}
+            <GroupInvitePicker selected={invitees} onChange={setInvitees} style={styles.picker} />
 
             <TouchableOpacity
               style={[styles.submit, { backgroundColor: brand }, !canSubmit && styles.submitOff]}
@@ -471,8 +481,13 @@ function Label({ children, colors, first = false }: { children: React.ReactNode;
 
 const styles = StyleSheet.create({
   carHint: { fontSize: 12, lineHeight: 17, marginBottom: 8 },
-  // paddingTop clears the step's dark heading band, and scrolls away with the form.
-  content: { paddingHorizontal: PANE_GUTTER, paddingTop: 16, paddingBottom: 40 },
+  // flexGrow: a short step (Invite Members) still fills the pane, so its
+  // search can sit at the foot.
+  content: { flexGrow: 1, paddingHorizontal: PANE_GUTTER },
+  // The caption's own 16 from the pane's edge, less the content's gutter; and
+  // the gap the form used to open with, under it.
+  caption: { paddingHorizontal: 16 - PANE_GUTTER, paddingBottom: 30 },
+  picker: { flex: 1 },
   label: {
     fontSize: 11, fontFamily: FONT_INTER.bold, textTransform: 'uppercase',
     letterSpacing: 0.5, marginTop: 18, marginBottom: 8,

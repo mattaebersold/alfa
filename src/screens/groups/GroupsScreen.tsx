@@ -42,8 +42,8 @@ import {
   COLOR_GRAY_40, MAIN_SCREEN_TOP_GAP, FEED_CARD_GUTTER} from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { SkeletonGrid, SkeletonRow } from '../../components/ui/Skeleton';
-import GroupCard, { CARD_RADIUS } from '../../components/groups/GroupCard';
-import { useCountBadge } from '../../hooks/useCountBadge';
+import GroupCard, { CARD_RADIUS, isProGroup } from '../../components/groups/GroupCard';
+import SteeringWheel from '../../components/ui/SteeringWheel';
 
 /** What the filter row says is applied. */
 function regionButtonLabel(key: string | null) {
@@ -108,6 +108,9 @@ function MyGroupCard({ group, onPress, solo = false }: { group: Group; onPress: 
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   const isAdmin = group.membership?.member_type === 'admin';
   const badge = isAdmin ? ADMIN_BADGE : MEMBER_BADGE;
+  // The Pro group wears the Pro red under its picture, lettered black, with the wheel — as GroupCard does.
+  const pro = isProGroup(group);
+  const ground = pro ? colors.pro : MY_CARD_BG;
   return (
     // The same card as the groups grid below — picture, badges on it, the
     // name on the panel under it — so your groups and everyone's read alike.
@@ -118,7 +121,7 @@ function MyGroupCard({ group, onPress, solo = false }: { group: Group; onPress: 
         styles.myCard,
         { width: solo ? MY_CARD_WIDTH_SOLO : MY_CARD_WIDTH },
         // A step lighter than the grid's cards — your own groups, set forward.
-        { backgroundColor: MY_CARD_BG, borderColor: colors.border },
+        { backgroundColor: ground, borderColor: pro ? colors.pro : colors.border },
       ]}
       onPress={onPress}
       activeOpacity={0.9}
@@ -142,8 +145,9 @@ function MyGroupCard({ group, onPress, solo = false }: { group: Group; onPress: 
           </View>
         ) : null}
       </View>
-      <View style={[styles.cardBody, { backgroundColor: MY_CARD_BG }]}>
-        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
+      <View style={[styles.cardBody, styles.myCardBody, { backgroundColor: ground }]}>
+        {pro ? <SteeringWheel size={15} color={COLOR_BLACK} strokeWidth={2.4} /> : null}
+        <Text style={[styles.cardTitle, styles.myCardTitle, { color: pro ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>{group.title}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -175,7 +179,6 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
   /** For a host that needs to move the scroll itself — the home screen's jump to the top. */
   scrollRef?: React.RefObject<FlatList<any> | null>;
 }) {
-  const badge = useCountBadge();
   // The header's back button lands here at the top — see useScrollTopOnBack.
   const ownRef = useRef<FlatList<any>>(null);
   const scrollRef = givenRef ?? ownRef;
@@ -327,9 +330,9 @@ export function GroupsView({ headerPad, onScroll, scrollRef: givenRef }: {
                       and answering it there costs no vertical space. */}
                   <View style={styles.myGroupsHeadingRow}>
                     <Text style={[styles.myGroupsHeading, { color: colors.fg }]}>My Groups</Text>
-                    {/* Coloured as every count badge — see useCountBadge. */}
-                    <View style={[styles.myGroupsCount, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.myGroupsCountText, { color: badge.fg }]}>
+                    {/* A plain count, not an alert: black, lettered white. */}
+                    <View style={[styles.myGroupsCount, { backgroundColor: COLOR_BLACK }]}>
+                      <Text style={[styles.myGroupsCountText, { color: COLOR_WHITE }]}>
                         {userGroups.length}
                       </Text>
                     </View>
@@ -495,6 +498,8 @@ const styles = StyleSheet.create({
   myGroupsList: { paddingHorizontal: MY_SECTION_MARGIN, gap: MY_CARD_GAP },
   // A grid card, at the shelf's width — `card` gives it the rest.
   myCard: { flex: 0 },
+  myCardBody: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  myCardTitle: { flexShrink: 1 },
   // Wider, shallower picture when yours is the only one.
   myCardBannerSolo: { aspectRatio: 2 / 1 },
   myCardBadge:  {

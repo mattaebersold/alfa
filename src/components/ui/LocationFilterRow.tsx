@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '../../theme/Text';
 import SolidMapPin from './SolidMapPin';
-import { FILTER_HIT_SLOP, FILTER_CHIP_HEIGHT as CHIP_H, FilterDivider } from '../../filters/FilterSummaryRow';
+import { FILTER_HIT_SLOP, FILTER_CHIP_HEIGHT as CHIP_H } from '../../filters/FilterSummaryRow';
 import { useColors, useBrandColor } from '../../theme/useColors';
 import { REGIONS } from '../../constants/regions';
 import { US_STATES, stateCode, stateName } from '../../filters/states';
@@ -49,6 +49,7 @@ export default function LocationFilterRow({
   note,
   allLabel = 'All',
   AllIcon,
+  showAll = true,
 }: {
   choice: LocationChoice;
   onChoose: (next: LocationChoice) => void;
@@ -65,6 +66,11 @@ export default function LocationFilterRow({
    */
   allLabel?: string;
   AllIcon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  /**
+   * Whether All gets a chip. Without one (events), Near me alone heads the
+   * row and toggles — a second tap is everywhere — as does clearing the state.
+   */
+  showAll?: boolean;
 }) {
   const colors = useColors();
   const brand = useBrandColor();
@@ -105,8 +111,9 @@ export default function LocationFilterRow({
           { borderColor: colors.border },
           active && { backgroundColor: brand, borderColor: brand },
         ]}
-        // Near me again keeps the distance already set on it.
-        onPress={() => onChoose(opt.key === 'near' && isNear(choice) ? choice : opt.key)}
+        // Near me again keeps the distance already set on it — or, with no
+        // All chip to go to, turns it off.
+        onPress={() => onChoose(opt.key === 'near' && isNear(choice) ? (showAll ? choice : 'all') : opt.key)}
         hitSlop={FILTER_HIT_SLOP}
         accessibilityRole="button"
         accessibilityState={{ selected: active }}
@@ -128,7 +135,7 @@ export default function LocationFilterRow({
           across on the right. */}
       <View style={[styles.row, styles.topRow]}>
         {chip({ key: 'near', label: 'Near me' })}
-        {chip({ key: 'all', label: allLabel })}
+        {showAll ? chip({ key: 'all', label: allLabel }) : null}
       </View>
 
       {isNear(choice) ? (
@@ -142,24 +149,19 @@ export default function LocationFilterRow({
         </View>
       ) : null}
 
-      {/* Then the state, ruled off above and below — set apart from near me
-          and All, and from whatever the panel has next (its Apply, or the
-          screen's own sections). */}
-      <FilterDivider />
+      {/* Then the state — a pill like the chips above, no rules around it. */}
       {region ? <View style={styles.row}>{chip({ key: region.key, label: region.label })}</View> : null}
       <AutocompleteField
         style={styles.state}
         value={typed}
         onChangeText={onType}
         onSelect={onType}
-        // Back to the chosen state's name if what's left typed isn't one.
-        onBlur={() => { if (!stateCode(typed)) setTyped(stateName(chosen) ?? ''); }}
+        // An outlined pill, as the chips around it are.
+        inputStyle={[styles.stateInput, { borderColor: colors.border, color: colors.fg }]}
         suggestions={offered}
         placeholder={states && !states.length ? 'Nothing coming up in any state' : 'Search a state'}
         editable={!states || states.length > 0}
       />
-      <FilterDivider last />
-
       {note ? <Text style={[styles.note, { color: colors.grey }]}>{note}</Text> : null}
     </>
   );
@@ -204,8 +206,12 @@ const styles = StyleSheet.create({
 
   // No eyebrow above any more, so the first row takes its place.
   topRow: { justifyContent: 'space-between' },
-  slider: { paddingHorizontal: 12, marginTop: -2, marginBottom: 18 },
+  slider: { paddingHorizontal: 12, marginTop: -2, marginBottom: 8 },
   state: { paddingHorizontal: 12, marginBottom: 12 },
+  stateInput: {
+    borderWidth: 1, borderRadius: PILL_RADIUS, backgroundColor: 'transparent',
+    paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, fontFamily: FONT_INTER.semibold,
+  },
   // A full point rather than a hairline, so it reads as a rule on the dark panel.
 
   note: { fontSize: 12, lineHeight: 17, paddingHorizontal: 12, marginTop: -2, marginBottom: 10 },

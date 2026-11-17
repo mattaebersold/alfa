@@ -28,7 +28,7 @@ import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import MainTabs, { DENSE_TRACK_H, type MainTab } from './MainTabs';
 import type { AppStackParamList } from '../../navigation/types';
 import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE, APP_BG, SURFACE_BLACK, SURFACE_MID, TAB_IDLE_FG, COLOR_GRAY_58 } from '../../constants/config';
-import { withAlpha } from '../../constants/colors';
+import { colors, withAlpha } from '../../constants/colors';
 import { useCountBadge } from '../../hooks/useCountBadge';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
@@ -229,6 +229,8 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
    * A font can't ride the native driver, so this flips as the row arrives
    * rather than easing with it.
    */
+  // A Pro member's lit tab is the Pro red, lettered black.
+  const isPro = useIsPro();
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
     let on = false;
@@ -261,8 +263,10 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
         // never seems to lose its ground mid-scroll.
         trackColor={SURFACE_BLACK}
         // The lit tab in a light grey, its label white — quieter than the brand
-        // fill; the same grey as the new-post form's tabs.
-        thumbColor={COLOR_GRAY_58}
+        // fill; the same grey as the new-post form's tabs. A Pro member's is
+        // the Pro red, lettered black.
+        thumbColor={isPro ? colors.pro : COLOR_GRAY_58}
+        thumbTextColor={isPro ? COLOR_BLACK : undefined}
         // The unlit tabs grey, as the section options under them are.
         idleColor={SUB_IDLE_FG}
         dense

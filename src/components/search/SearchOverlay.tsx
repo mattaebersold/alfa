@@ -63,7 +63,6 @@ const SECTIONS: {
       id: `user-${u.user_id}`, kind: 'Member',
       item: u,
       title: `@${u.username}`,
-      subtitle: [u.firstName, u.lastName].filter(Boolean).join(' ') || undefined,
       go: (nav) => nav.navigate('UserDetail', { userId: u.user_id, username: u.username }),
     }),
   },

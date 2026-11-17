@@ -37,6 +37,7 @@ import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, FORM_PANE_BG } fr
 import SharedModal from '../../components/ui/SharedModal';
 import { StepFormNav, StepFormProgress } from '../../components/ui/StepFormHeader';
 import { useDebounced } from '../../hooks/useDebounced';
+import CoOwnerField from '../../components/cars/CoOwnerField';
 import { groupCarsLine } from '../../utils/groupCars';
 import { FONT_INTER } from '../../constants/fonts'
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
@@ -210,6 +211,8 @@ type FormData = {
   trim: string; color: string; engine: string; mileage: string;
   horsepower: string; torque: string; vin: string; condition: string; body: string;
   group_id: string;
+  /** Who shares the car — a user_id, or '' for no one. Only the owner sets it. */
+  coowner_id: string;
   mods: { title: string; type: string; body: string; images: { uri: string; name: string; type: string }[] }[];
   /**
    * The car's photos, in order. A photo already on the car carries its stored
@@ -221,7 +224,7 @@ type FormData = {
 const EMPTY_FORM: FormData = {
   title: '', year: '', make: '', model: '', generation: '', type: 'daily', category: '',
   trim: '', color: '', engine: '', mileage: '', horsepower: '', torque: '',
-  vin: '', condition: CONDITIONS[0]?.key ?? '', body: '', group_id: '',
+  vin: '', condition: CONDITIONS[0]?.key ?? '', body: '', group_id: '', coowner_id: '',
   mods: [], images: [],
 };
 
@@ -336,6 +339,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
   }, [form, joinGroups, isEditMode]);
 
   const { data: existingCar } = useGetCarQuery(carId ?? '', { skip: !carId });
+  // A new car is yours; an existing one's co-owner can edit it but not change who shares it.
+  const canSetCoOwner = !isEditMode || (!!existingCar && existingCar.user_id === userInfo?.user_id);
   const { data: userGroups = [] } = useGetUserGroupsQuery(userInfo?.user_id ?? '', { skip: !userInfo?.user_id });
 
   // Only asked for on the step that shows them, and steered by the car's make
@@ -376,6 +381,7 @@ export function CarCreateSheet({ carId, onDismissed }: {
         // and the field would show the tags. Saving writes it back plain.
         body: stripHtml(existingCar.body ?? '').trim(),
         group_id: existingCar.group_id ?? '',
+        coowner_id: existingCar.coowner_id ?? '',
         mods: [],
         // What's on the car already, as previews to remove or reorder.
         images: [...(existingCar.gallery ?? [])]
@@ -653,6 +659,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
     if (form.horsepower) fd.append('horsepower', form.horsepower);
     if (form.torque)     fd.append('torque', form.torque);
     if (form.vin)        fd.append('vin', form.vin);
+    // An edit sends it even empty: that's how a co-owner is taken off.
+    if (canSetCoOwner && (isEditMode || form.coowner_id)) fd.append('coowner_id', form.coowner_id);
     if (form.condition)  fd.append('condition', form.condition);
     if (form.body)       fd.append('body', form.body);
     fd.append('group_id', form.group_id ?? '');
@@ -872,6 +880,15 @@ export function CarCreateSheet({ carId, onDismissed }: {
                 // custom one included.
                 colorFor={(k) => ({ bg: categoryColor(k), text: COLOR_BLACK })}
               />
+
+              {/* Who shares the car — the owner's call (the server ignores a co-owner's). */}
+              {canSetCoOwner && (
+                <CoOwnerField
+                  value={form.coowner_id}
+                  onChange={set('coowner_id')}
+                  initial={existingCar?.coowner ?? null}
+                />
+              )}
 
               <CustomLabelSheet
                 visible={labelSheet !== null}

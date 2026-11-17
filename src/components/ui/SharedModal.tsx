@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { createContext, useContext, useRef, useEffect, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, PanResponder, useWindowDimensions,
   Easing,
@@ -43,6 +43,25 @@ const fadeColors = (bg: string) =>
  */
 const withAlpha = (bg: string, alpha: number) =>
   /^#[0-9a-f]{6}$/i.test(bg) ? `${bg}${Math.round(alpha * 255).toString(16).padStart(2, '0')}` : 'transparent';
+
+/**
+ * How tall an `overlayHeader` pane's floating head is (grabber and title row),
+ * for the content scrolling under it. 0 everywhere else.
+ */
+const PaneHeaderHeightContext = createContext(0);
+/** The floating head's height — see `overlayHeader`. */
+export const usePaneHeaderHeight = () => useContext(PaneHeaderHeightContext);
+/**
+ * The first thing in an `overlayHeader` pane's scroller: room the height of
+ * the head floating over it, so the content starts clear of it and scrolls up
+ * under it. Nothing in any other pane.
+ */
+export function PaneHeaderSpacer() {
+  const h = useContext(PaneHeaderHeightContext);
+  return h > 0 ? <View style={{ height: h }} /> : null;
+}
+/** The floating head's ground — the pane's colour at half strength. */
+const OVERLAY_HEAD_ALPHA = 0.5;
 
 /** How far down a drag has to go before release dismisses rather than snaps back. */
 const DISMISS_DISTANCE = 90;
@@ -110,6 +129,14 @@ interface SharedModalProps {
   keyboardInert?: boolean;
   /** The pane's surface, when it isn't PANE_BG — the create forms use FORM_PANE_BG. */
   background?: string;
+  /**
+   * The grabber and title row float over the content, on the pane's colour at
+   * half strength, instead of sitting above it — so the content runs the
+   * pane's full height and scrolls up under the head. The content starts with
+   * a `PaneHeaderSpacer` to begin clear of it. Pair with `edgeToEdge` (and
+   * pad the content's foot) to run it to the bottom as well.
+   */
+  overlayHeader?: boolean;
   children: React.ReactNode;
 }
 
@@ -119,10 +146,13 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, background, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, background, overlayHeader = false, children }: SharedModalProps) {
   // Every pane's one surface, unless this one is a create form (FORM_PANE_BG).
   const bg = background ?? SHEET_BG;
   const bgStyle = background ? { backgroundColor: background } : null;
+  // A floating head only where there's a title row to float.
+  const overlay = overlayHeader && !hideHeader;
+  const [headH, setHeadH] = useState(0);
   const slideY = useRef(new Animated.Value(600)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(false);
@@ -242,7 +272,15 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           {/* Without a title row the grabber floats over the content, on a
               fade rather than a solid strip, and the content scrolls up under
               it — see PANE_GRABBER_H. With one, it heads the title row. */}
-          <View {...panResponder.panHandlers} style={hideHeader ? styles.grabberFloat : undefined}>
+          <View
+            {...panResponder.panHandlers}
+            style={
+              hideHeader ? styles.grabberFloat
+                : overlay ? [styles.grabberFloat, { backgroundColor: withAlpha(bg, OVERLAY_HEAD_ALPHA) }]
+                  : undefined
+            }
+            onLayout={overlay ? (e) => setHeadH(Math.round(e.nativeEvent.layout.height)) : undefined}
+          >
             {hideHeader ? (
               <LinearGradient
                 colors={fadeColors(bg)}
@@ -254,13 +292,13 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
             {/* Tap it or drag it down — both close. */}
             <Pressable
               onPress={onClose}
-              style={[styles.grabberHit, bgStyle, hideHeader && styles.grabberClear]}
+              style={[styles.grabberHit, bgStyle, (hideHeader || overlay) && styles.grabberClear]}
               hitSlop={6}
             >
               <View style={[styles.grabber, hideHeader && styles.grabberOver]} />
             </Pressable>
             {hideHeader ? null : (
-            <View style={[styles.header, bgStyle]}>
+            <View style={[styles.header, bgStyle, overlay && styles.headerClear]}>
               {titleContent ?? <Text style={styles.title} numberOfLines={1}>{title}</Text>}
               <View style={styles.headerRight}>
                 {headerRight}
@@ -278,7 +316,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
           {/* Content scrolling up under the title row fades into it rather
               than being sliced off on a hard line. Over the content — zIndex,
               as it comes first. */}
-          {hideHeader || !headFade ? null : (
+          {hideHeader || overlay || !headFade ? null : (
             <View style={styles.headSeam} pointerEvents="none">
               <LinearGradient
                 colors={fadeColors(bg)}
@@ -287,7 +325,9 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               />
             </View>
           )}
-          <KeyboardHandledAbove>{children}</KeyboardHandledAbove>
+          <PaneHeaderHeightContext.Provider value={overlay ? headH : 0}>
+            <KeyboardHandledAbove>{children}</KeyboardHandledAbove>
+          </PaneHeaderHeightContext.Provider>
           {/* The home indicator's clearance, only while the keyboard is down —
               with it up, the keyboard covers that strip. A spacer that
               collapses as the keyboard rises, not a padding switched on its
@@ -365,6 +405,7 @@ const styles = StyleSheet.create({
     // No rule under it: the header shares the sheet's ground now, so a line
     // only redraws a seam the colour change already removed.
   },
+  headerClear: { backgroundColor: 'transparent' },
   headSeam: { height: 0, zIndex: 2, elevation: 2 },
   headFade: { position: 'absolute', left: 0, right: 0, top: 0, height: HEAD_FADE_H },
   title:       { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },

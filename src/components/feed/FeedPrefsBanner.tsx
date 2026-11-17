@@ -5,7 +5,6 @@ import { Text } from '../../theme/Text';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { FONT_INTER } from '../../theme/fonts';
-import { COMMON_RADIUS } from '../../theme/radius';
 import { FEED_CARD_GUTTER } from '../../constants/config';
 import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import { FilterDivider, FilterLabel } from '../../filters/FilterSummaryRow';
@@ -19,7 +18,7 @@ const ON_FILL = '#000000';
 
 /**
  * The home feed's settings, folded into one line above the first card —
- * "Feed: Auto · Everything ⌄". Tapping it opens a summary with the feed's
+ * "Auto ⌄" (with what's shown, when not everything is), in grey with no box around it. Tapping it opens a summary with the feed's
  * order and a checklist of the kinds of row it carries.
  *
  * Like the browse screens' filters (FilterSummaryRow), the panel works on a
@@ -55,7 +54,8 @@ export default function FeedPrefsBanner() {
 
   const sortLabel = FEED_SORTS.find((s) => s.key === feedSort)?.label ?? 'Auto';
   const on = FEED_CONTENT.filter(({ key }) => feedContent[key]);
-  const contentLabel = on.length === FEED_CONTENT.length ? 'Everything'
+  // Nothing to say when it's all on — the default isn't worth a word.
+  const contentLabel = on.length === FEED_CONTENT.length ? ''
     : on.length === 0 ? 'Nothing'
     : on.length <= 2 ? on.map((c) => c.label).join(', ')
     : `${on.length} of ${FEED_CONTENT.length} types`;
@@ -63,18 +63,16 @@ export default function FeedPrefsBanner() {
   return (
     <>
       <SummaryTouchable
-        style={[styles.banner, { backgroundColor: colors.card, borderColor: colors.border }]}
+        style={styles.banner}
         onPress={open}
         activeOpacity={0.8}
-        accessibilityLabel={`Feed settings: ${sortLabel}, ${contentLabel}`}
+        accessibilityLabel={`Feed settings: ${sortLabel}${contentLabel ? `, ${contentLabel}` : ''}`}
       >
         <SlidersHorizontal size={14} color={colors.grey} strokeWidth={2.4} />
         <Text style={[styles.bannerText, { color: colors.grey }]} numberOfLines={1}>
-          Feed: <Text style={[styles.bannerStrong, { color: colors.fg }]}>{sortLabel}</Text>
-          {'  ·  '}
-          <Text style={[styles.bannerStrong, { color: colors.fg }]}>{contentLabel}</Text>
+          {sortLabel}{contentLabel ? `   ${contentLabel}` : ''}
         </Text>
-        <ChevronDown size={16} color={colors.fg} strokeWidth={2.4} />
+        <ChevronDown size={16} color={colors.grey} strokeWidth={2.4} />
       </SummaryTouchable>
 
       <SummaryModal
@@ -86,7 +84,6 @@ export default function FeedPrefsBanner() {
         onAction={apply}
       >
         <View style={styles.body}>
-          <FilterLabel>Order</FilterLabel>
           {FEED_SORTS.map((opt) => {
             const active = draftSort === opt.key;
             return (
@@ -102,7 +99,9 @@ export default function FeedPrefsBanner() {
                 </View>
                 <View style={styles.rowText}>
                   <Text style={[styles.rowLabel, { color: colors.fg }]}>{opt.label}</Text>
-                  <Text style={[styles.rowHint, { color: colors.grey }]}>{opt.description}</Text>
+                  {opt.description ? (
+                    <Text style={[styles.rowHint, { color: colors.grey }]}>{opt.description}</Text>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -141,15 +140,13 @@ export default function FeedPrefsBanner() {
 }
 
 const styles = StyleSheet.create({
-  // The non-post cards' inset, so it lines up with the cards under it.
+  // No box: a tight line of grey over the feed, at the non-post cards' inset.
   banner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: FEED_CARD_GUTTER, marginTop: 4,
-    minHeight: 36, paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: COMMON_RADIUS, borderWidth: 1,
+    marginHorizontal: FEED_CARD_GUTTER, marginTop: 16,
+    paddingHorizontal: 4, paddingVertical: 0,
   },
-  bannerText: { flex: 1, fontSize: 13, fontFamily: FONT_INTER.medium },
-  bannerStrong: { fontFamily: FONT_INTER.semibold },
+  bannerText: { flex: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
 
   body: { paddingTop: 14 },
   // 44pt targets, like the filter chips.

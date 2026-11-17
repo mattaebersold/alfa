@@ -25,8 +25,8 @@ export const DAILY_GAMES: {
 
 export const gameLabel = (g: DailyGameKind) => DAILY_GAMES.find((o) => o.value === g)?.label ?? 'Daily Game';
 
-/** "Next car in" / "Next auction in". */
-export const nextLabel = (g: DailyGameKind) => (g === 'auction' ? 'Next auction in' : 'Next car in');
+/** The countdown's words, for either game: they reset together. */
+export const nextLabel = (_g: DailyGameKind) => 'Resets in';
 
 /** The game screens' ground and their raised pieces — alfa's three surfaces. */
 export const GAME_BG = SURFACE_DARK;
@@ -155,16 +155,15 @@ export function dayLabel(d?: string | null, pattern = 'EEE, MMM d, yyyy'): strin
   try { return format(parseISO(d), pattern); } catch { return d; }
 }
 
-/** "3h 12m 05s" until `iso`, or null once it has passed. */
+/** "3h 12m" (or "12m") until `iso`, or null once it has passed. */
 export function countdown(iso: string, now: number): string | null {
   const ms = new Date(iso).getTime() - now;
   if (!Number.isFinite(ms) || ms <= 0) return null;
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (v: number) => String(v).padStart(2, '0');
-  return `${h}h ${pad(m)}m ${pad(sec)}s`;
+  // Rounded up to the minute, so it never reads 0m with time still left.
+  const mins = Math.ceil(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
 }
 
 /** "0:42", "12:05", "1:02:09". */

@@ -45,6 +45,7 @@ export const PRO_BENEFITS = [
   'Task lists on every car',
   `${PHOTO_SPOT_LIMIT_PRO} photography pins`,
   'Lists on your profile and your cars',
+  'Daily games',
   'Automated diecast marketplace listings',
   'Yearly invite-only PRO rally',
   'Access to the Pro channels on Discord',

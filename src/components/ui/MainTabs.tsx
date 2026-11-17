@@ -74,7 +74,7 @@ export const DENSE_TRACK_H = TAB_H_DENSE + TRACK_PAD_DENSE * 2;
  * that goes with it). Anywhere else leaves both off.
  */
 export default function MainTabs<K extends string>({
-  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, thumbColor, idleColor, countColor, iconOnly = false, dense = false, pill = false, plainCounts = false, itemsStyle, contentContainerStyle, style,
+  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, thumbColor, thumbTextColor, idleColor, countColor, iconOnly = false, dense = false, pill = false, plainCounts = false, itemsStyle, contentContainerStyle, style,
 }: {
   tabs: MainTab<K>[];
   value?: K;
@@ -89,6 +89,8 @@ export default function MainTabs<K extends string>({
   trackColor?: string;
   /** The lit tab's fill, in place of the brand colour; its lettering follows (white or black, whichever reads). */
   thumbColor?: string;
+  /** The lit tab's lettering, in place of the contrast pick — and over a tab's own `color`. */
+  thumbTextColor?: string;
   /** The unlit tabs' lettering and icons, in place of white — the home header's grey. */
   idleColor?: string;
   /** Every count's lettering, lit tab or not, in place of the red-on-black / white pair. */
@@ -115,7 +117,7 @@ export default function MainTabs<K extends string>({
   // The lit tab: the member's brand colour, under whichever of black or white reads on it.
   const brand = useBrandColor();
   const TAB_ON_BG = thumbColor ?? brand;
-  const TAB_ON_FG = contrastText(TAB_ON_BG);
+  const TAB_ON_FG = thumbTextColor ?? contrastText(TAB_ON_BG);
 
   // Positions are each tab's own x within the row, measured as they lay out;
   // the row's inset is outside that, so it's added back to find where the tab
@@ -213,7 +215,7 @@ export default function MainTabs<K extends string>({
         )}
         {tabs.map((t) => {
           const on = t.key === shown;
-          const color = t.color ?? (on ? TAB_ON_FG : (idleColor ?? TAB_IDLE_FG));
+          const color = on && thumbTextColor ? thumbTextColor : (t.color ?? (on ? TAB_ON_FG : (idleColor ?? TAB_IDLE_FG)));
           return (
             // Eases to its new place and width when a label or count changes.
             // Measured here, where its place in the track is.

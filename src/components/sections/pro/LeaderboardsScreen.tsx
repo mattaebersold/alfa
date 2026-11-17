@@ -62,10 +62,14 @@ const METRICS: Record<Sort | 'auction', BoardMetric> = {
  * three on a podium, then everyone else as bars on one scale. Ported from
  * Car Spotter's Leaderboard and RankedBoard.
  */
-export default function LeaderboardsScreen({ headerPad, onScroll, bottomPad }: SectionScreenProps) {
+export default function LeaderboardsScreen({ headerPad, onScroll, bottomPad, game: fixed }: SectionScreenProps & {
+  /** Just this game's board, with no switch — from the game's own screen (GameListScreen). */
+  game?: DailyGameKind;
+}) {
   const navigation = useNavigation<any>();
   const me = useAppSelector((s) => s.auth.userInfo?.user_id);
-  const [game, setGame] = useState<DailyGameKind>('car');
+  const [picked, setGame] = useState<DailyGameKind>('car');
+  const game = fixed ?? picked;
   const [sort, setSort] = useState<Sort>('best');
   const car = useGetCarGameLeaderboardQuery(sort, { skip: game !== 'car' });
   const auction = useGetAuctionGameLeaderboardQuery(undefined, { skip: game !== 'auction' });
@@ -77,7 +81,7 @@ export default function LeaderboardsScreen({ headerPad, onScroll, bottomPad }: S
 
   const switches = (
     <View style={styles.switches}>
-      <GamePicker value={game} onChange={setGame} />
+      {fixed ? null : <GamePicker value={game} onChange={setGame} />}
       {game === 'car' ? <SubTabs options={SORTS} value={sort} onChange={setSort} inset={0} tone="grey" /> : null}
     </View>
   );

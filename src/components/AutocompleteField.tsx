@@ -29,6 +29,8 @@ const LIST_MIN_H = 90;
  * piece that opened upward.
  */
 const LIST_GAP = 0;
+/** How long the list waits, after a finger leaves it, before closing on a blurred field. */
+const LIST_RELEASE_MS = 1200;
 /** The list's ground: black, so it reads as its own surface over the form. */
 const LIST_BG = '#000';
 
@@ -107,6 +109,29 @@ export default function AutocompleteField({
   const hasFocus = useRef(false);
   const waiting = useRef<{ remove: () => void } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * A finger on the list — a tap or a scroll. The field can blur under it
+   * (a drag that drops the keyboard, a press held past the blur's grace), and
+   * closing then took the list away mid-scroll or before the tap landed: the
+   * state was never set. While touched, and for a moment after, it stays.
+   */
+  const touchingList = useRef(false);
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (releaseTimer.current) clearTimeout(releaseTimer.current); }, []);
+  const holdList = () => {
+    touchingList.current = true;
+    if (releaseTimer.current) clearTimeout(releaseTimer.current);
+    releaseTimer.current = null;
+  };
+  /** The finger's off (and any fling has settled): close soon if the field isn't focused. */
+  const releaseList = () => {
+    if (releaseTimer.current) clearTimeout(releaseTimer.current);
+    releaseTimer.current = setTimeout(() => {
+      releaseTimer.current = null;
+      touchingList.current = false;
+      if (!hasFocus.current) setFocused(false);
+    }, LIST_RELEASE_MS);
+  };
 
   const stopPlacing = () => {
     waiting.current?.remove();
@@ -198,6 +223,9 @@ export default function AutocompleteField({
   const pick = (v: string) => {
     if (!editable) return;
     (onSelect ?? onChangeText)(v);
+    touchingList.current = false;
+    if (releaseTimer.current) clearTimeout(releaseTimer.current);
+    releaseTimer.current = null;
     setFocused(false);
   };
 
@@ -208,7 +236,8 @@ export default function AutocompleteField({
   // The field's own corners and edge, so the list continues it rather than
   // guessing — a caller's inputStyle sets both.
   const fieldLook = StyleSheet.flatten(inputStyle ?? styles.input) ?? {};
-  const radius = typeof fieldLook.borderRadius === 'number' ? fieldLook.borderRadius : 8;
+  // Capped: a pill field's 999 would round the list into a lozenge.
+  const radius = Math.min(16, typeof fieldLook.borderRadius === 'number' ? fieldLook.borderRadius : 8);
   const edge = (fieldLook.borderColor as string | undefined) ?? colors.inputBorder;
 
   useFormScrolled(() => { if (open) remeasure(); });
@@ -236,8 +265,17 @@ export default function AutocompleteField({
           borderTopRightRadius: radius,
         },
       ]}
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
+      // Its own scroll: dragging the list never drops the keyboard.
+      keyboardDismissMode="none"
       nestedScrollEnabled
+      onTouchStart={holdList}
+      onScrollBeginDrag={holdList}
+      onMomentumScrollBegin={holdList}
+      onTouchEnd={releaseList}
+      onTouchCancel={releaseList}
+      onScrollEndDrag={releaseList}
+      onMomentumScrollEnd={releaseList}
     >
       {matches.map((s, i) => (
         <TouchableOpacity
@@ -285,7 +323,8 @@ export default function AutocompleteField({
           hasFocus.current = false;
           stopPlacing();
           onBlur?.();
-          setTimeout(() => setFocused(false), 150);
+          // Not while a finger is on the list — it closes when that lets go.
+          setTimeout(() => { if (!touchingList.current) setFocused(false); }, 150);
         }}
         placeholder={placeholder}
         placeholderTextColor={colors.grey}

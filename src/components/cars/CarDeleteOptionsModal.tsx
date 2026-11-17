@@ -275,7 +275,6 @@ export default function CarDeleteOptionsModal({
               <UserByline
                 user={item}
                 size={36}
-                sub={[item.firstName, item.lastName].filter(Boolean).join(' ')}
                 gap={10}
                 fill
                 style={[styles.row, { borderColor: colors.borderDark }]}

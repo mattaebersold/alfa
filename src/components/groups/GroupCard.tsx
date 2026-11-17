@@ -9,6 +9,8 @@ import type { Group } from '../../types/api';
 import { regionLabel } from '../../constants/regions';
 import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
+import SteeringWheel from '../ui/SteeringWheel';
+import { colors as palette } from '../../constants/colors';
 import {
   PILL_RADIUS,
   COLOR_BLACK,
@@ -42,6 +44,14 @@ function regionColor(key?: string | null): string {
   return REGION_HUES[h % REGION_HUES.length];
 }
 
+/**
+ * The Pro-only group, by the name the server finds it by (proHomeController's
+ * PRO_GROUP_TITLE) — groups carry no flag of their own. Its card wears the
+ * Pro red under its picture, lettered black, with the wheel.
+ */
+const PRO_GROUP_TITLE = /^\s*pro drivers\s*$/i;
+export const isProGroup = (group: Pick<Group, 'title'>) => PRO_GROUP_TITLE.test(group.title ?? '');
+
 /** Your part in a group of your own — the badge GroupsView's My Groups shelf wears. */
 const ROLE_BADGES = {
   admin:  { label: 'ADMIN',  bg: WARM_SHEEN_FILL,   fg: COLOR_BLACK },
@@ -59,7 +69,7 @@ const ROLE_BADGES = {
  * position you'd scrolled to, and the panel carries a View Group button for
  * when the answer is yes.
  */
-export default function GroupCard({ group, onPress, role, bannerRatio }: {
+export default function GroupCard({ group, onPress, role, bannerRatio, pro, hideSubtitle = false }: {
   group: Group;
   onPress: (origin: SummaryOrigin | null) => void;
   /**
@@ -70,19 +80,25 @@ export default function GroupCard({ group, onPress, role, bannerRatio }: {
   role?: 'admin' | 'member';
   /** The picture's shape — wider and shallower for a card on a row of its own. Default 3:2. */
   bannerRatio?: number;
+  /** Draw it as the Pro group — red bar, black lettering, the wheel. Found by name when not given. */
+  pro?: boolean;
+  /** Just the name under the picture. */
+  hideSubtitle?: boolean;
 }) {
   const colors = useColors();
   const banner = firstGalleryUrl(group.banners) ?? firstGalleryUrl(group.gallery);
   const region = role ? null : regionLabel(group.region);
   const badge = role ? ROLE_BADGES[role] : null;
   const bannerStyle = [styles.cardBanner, bannerRatio ? { aspectRatio: bannerRatio } : null];
+  const isPro = pro ?? isProGroup(group);
+  const ground = isPro ? palette.pro : COLOR_GRAY_40;
   return (
     // Built like a marketplace card: a bordered card, its picture rounded
     // all round, and the words on a lighter panel under it.
     <SummaryTouchable
       // One ground for the whole card — the words' panel colour, so it shows
       // the same around the picture's rounded corners as under it.
-      style={[styles.card, { backgroundColor: COLOR_GRAY_40, borderColor: colors.border }]}
+      style={[styles.card, { backgroundColor: ground, borderColor: isPro ? palette.pro : colors.border }]}
       onPress={onPress}
       activeOpacity={0.9}
       accessibilityLabel={badge ? `${group.title ?? 'Group'}, ${badge.label.toLowerCase()}` : (group.title ?? 'Group')}
@@ -114,9 +130,14 @@ export default function GroupCard({ group, onPress, role, bannerRatio }: {
           </View>
         ) : null}
       </View>
-      <View style={styles.cardBody}>
-        <Text style={[styles.cardTitle, { color: colors.fg }]} numberOfLines={1}>{group.title}</Text>
-        {group.subtitle && <Text style={[styles.cardSub, { color: colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>}
+      <View style={[styles.cardBody, { backgroundColor: ground }]}>
+        <View style={styles.titleRow}>
+          {isPro ? <SteeringWheel size={15} color={COLOR_BLACK} strokeWidth={2.4} /> : null}
+          <Text style={[styles.cardTitle, { color: isPro ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>{group.title}</Text>
+        </View>
+        {group.subtitle && !hideSubtitle
+          ? <Text style={[styles.cardSub, { color: isPro ? 'rgba(0,0,0,0.65)' : colors.muted }]} numberOfLines={1}>{group.subtitle}</Text>
+          : null}
       </View>
     </SummaryTouchable>
   );
@@ -135,7 +156,8 @@ const styles = StyleSheet.create({
   cardBanner: { width: '100%', aspectRatio: 3 / 2 },
   // The lighter panel the words sit on, filling to the card's foot.
   cardBody:   { flexGrow: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
-  cardTitle:  { fontSize: 13, fontFamily: FONT_INTER.bold },
+  titleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitle:  { flexShrink: 1, fontSize: 13, fontFamily: FONT_INTER.bold },
   cardSub:    { fontSize: 12, marginTop: 2 },
   // On the picture's bottom left, lifted off it like the marketplace's price.
   cardRegion: {

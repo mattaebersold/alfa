@@ -8,11 +8,11 @@ import type {
 } from '../types/api';
 
 /** The feed's orders, in the order the panel lists them. See horacio's helpers/feedPrefs. */
-export const FEED_SORTS: { key: FeedSort; label: string; description: string }[] = [
-  { key: 'auto',      label: 'Auto',          description: 'People you follow and things you’re into, near you and in your groups' },
+export const FEED_SORTS: { key: FeedSort; label: string; description?: string }[] = [
+  { key: 'auto',      label: 'Auto',          description: 'People you follow, near you and in your groups' },
   { key: 'recent',    label: 'All recent',    description: 'Everything, newest first, whoever posted it' },
-  { key: 'popular',   label: 'Most popular',  description: 'The most liked and commented-on of the last two weeks' },
-  { key: 'following', label: 'Following',     description: 'Only people you follow, newest first' },
+  { key: 'popular',   label: 'Most popular' },
+  { key: 'following', label: 'Following' },
 ];
 
 /** The kinds of row the feed mixes, in the order the panel lists them. */

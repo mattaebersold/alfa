@@ -209,6 +209,16 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
         : null;
 
     /**
+     * A Pro video — a like or a comment on one. Its player is in the home
+     * tab's stack, over the home screen (PRO › Videos is where it's opened
+     * from in the app).
+     */
+    case 'provideo':
+      return id
+        ? { name: 'MainTabs', params: { screen: 'FeedTab', params: { screen: 'ProVideo', initial: false, params: { videoId: id } } } }
+        : null;
+
+    /**
      * A photo spot lives on a map rather than on a screen of its own, so the
      * map is where a tap lands. It opens on the spot's own summary.
      */

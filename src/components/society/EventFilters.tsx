@@ -2,7 +2,6 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import React from 'react';
 import FilterSummaryRow, { FilterChoiceRow } from '../ui/FilterSummaryRow';
 import LocationFilterRow, { locationPill } from '../ui/LocationFilterRow';
-import { CalendarDays } from 'lucide-react-native';
 import { EVENT_CATEGORIES } from '../../constants/eventTypes';
 import type { LocationChoice } from '../../hooks/useLocationFilter';
 
@@ -17,6 +16,17 @@ interface EventFiltersProps {
   onCategory: (key: string | null) => void;
   /** Category keys with something in the window — see EventsView. */
   presentCategories: Set<string>;
+  /**
+   * A date window to choose in the panel too — the map's Next 7 days … Next 6
+   * months. Left out, the panel has no When.
+   */
+  window?: {
+    value: number;
+    options: { days: number; label: string }[];
+    /** The one that goes unmentioned on the pill. */
+    defaultDays: number;
+    onChange: (days: number) => void;
+  };
   /** The small pill beside the search, rather than the full row. */
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -25,6 +35,7 @@ interface EventFiltersProps {
 interface EventFilterValue {
   choice: LocationChoice;
   category: string | null;
+  days: number | null;
 }
 
 /**
@@ -41,24 +52,29 @@ interface EventFilterValue {
  * members and cars; what's here is only what events filter by.
  */
 export default function EventFilters({
-  location, states, category, onCategory, presentCategories, compact, style,
+  location, states, category, onCategory, presentCategories, window, compact, style,
 }: EventFiltersProps) {
   const activeCategory = category ? EVENT_CATEGORIES.find((c) => c.key === category) : undefined;
   const typeLabel = category ? activeCategory?.label ?? category : 'All types';
   const where = locationPill(location.choice);
   // The place, and the type when there is one. The type keeps its own
   // colour, as it has in the panel.
+  const windowLabel = window && window.value !== window.defaultDays
+    ? window.options.find((o) => o.days === window.value)?.label
+    : null;
   const applied = [
     where,
     ...(category ? [{ key: 'type', label: typeLabel, color: activeCategory?.color }] : []),
+    ...(windowLabel ? [{ key: 'when', label: windowLabel }] : []),
   ];
 
   return (
     <FilterSummaryRow<EventFilterValue>
-      value={{ choice: location.choice, category }}
+      value={{ choice: location.choice, category, days: window?.value ?? null }}
       onApply={(next) => {
         location.choose(next.choice);
         onCategory(next.category);
+        if (window && next.days != null) window.onChange(next.days);
       }}
       pills={applied}
       compact={compact}
@@ -77,11 +93,23 @@ export default function EventFilters({
               choice={draft.choice}
               onChoose={(choice) => setDraft((d) => ({ ...d, choice }))}
               states={states}
-              allLabel="All events"
-              AllIcon={CalendarDays}
+              // No All chip on events: Near me toggles, and clearing the state is everywhere.
+              showAll={false}
             />
 
-            {/* No heading: the rule under the state field already sets the types apart. */}
+            {/* When — the map's date window, once tabs over the map. */}
+            {window ? (
+              <>
+                <FilterChoiceRow<string>
+                  label="When"
+                  options={window.options.map((o) => ({ key: String(o.days), label: o.label }))}
+                  selected={String(draft.days ?? window.defaultDays)}
+                  onSelect={(key) => setDraft((d) => ({ ...d, days: Number(key) }))}
+                />
+              </>
+            ) : null}
+
+            {/* No heading: the types follow the state field. */}
             <FilterChoiceRow<string | null>
               options={[
                 { key: null, label: 'All' },

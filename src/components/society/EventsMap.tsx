@@ -6,7 +6,7 @@ import { Image } from '../ui/AppImage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppleMaps, GoogleMaps } from 'expo-maps';
 import { format } from 'date-fns';
-import { MapPin, ChevronRight } from 'lucide-react-native';
+import { MapPin, ChevronRight, X } from 'lucide-react-native';
 import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { categoryFor, parseDayKey } from '../../constants/eventTypes';
 import { firstGalleryUrl } from '../../utils/image';
@@ -118,8 +118,12 @@ const spotKey = (e: SocietyEvent) =>
   `${(e.location_lat as number).toFixed(5)},${(e.location_lng as number).toFixed(5)}`;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-/** A card in the spot's carousel: the width less a peek of the next one. */
-const PEEK_CARD_W = SCREEN_WIDTH - 24 - 36;
+/**
+ * A tapped event's card: narrower than the screen and centred, like a summary
+ * panel — and in a spot's carousel, the next one peeks in at the side.
+ */
+const CARD_W = Math.min(340, Math.round(SCREEN_WIDTH * 0.8));
+const PEEK_CARD_W = CARD_W;
 const PEEK_GAP = 10;
 
 /**
@@ -212,38 +216,62 @@ export function EventsMapView({ events, onOpenEvent, tools, topInset, bottomInse
     style: StyleSheet.absoluteFill,
     cameraPosition: camera ?? undefined,
     onMarkerClick: (m: { id?: string }) => { if (m.id) setSelectedSpot(m.id); },
+    // A tap on the map itself puts the card away.
+    onMapClick: () => setSelectedSpot(null),
   };
 
-  /** One event's card over the map's foot. */
-  const previewCard = (ev: SocietyEvent, width?: number) => {
+  /**
+   * One event's card over the map — a small summary: the photo on top when
+   * there is one (no grey stand-in when there isn't), the type, title, day
+   * and place, and View event. The X, or a tap on the map, closes it.
+   */
+  const previewCard = (ev: SocietyEvent) => {
     const day = parseDayKey(ev.occurrence_date);
     const cat = categoryFor(ev.category);
     const photo = firstGalleryUrl(ev.gallery);
     return (
       <TouchableOpacity
         key={ev.internal_id}
-        style={[styles.preview, { backgroundColor: colors.card, borderColor: colors.borderDark }, width != null && { width }]}
+        style={[styles.preview, { backgroundColor: colors.card, borderColor: colors.borderDark }]}
         onPress={() => onOpenEvent(ev)}
         activeOpacity={0.9}
         accessibilityRole="button"
         accessibilityLabel={`Open ${ev.title ?? 'event'}`}
       >
-        {photo
-          ? <Image source={{ uri: photo }} style={styles.previewPhoto} contentFit="cover" />
-          : <View style={[styles.previewPhoto, { backgroundColor: SURFACE_MID }]} />}
+        {photo ? <Image source={{ uri: photo }} style={styles.previewPhoto} contentFit="cover" /> : null}
         <View style={styles.previewText}>
           <View style={[styles.catPill, { backgroundColor: cat.color }]}>
             <Text style={styles.catText}>{cat.label}</Text>
           </View>
-          <Text style={[styles.previewTitle, { color: colors.fg }]} numberOfLines={1}>{ev.title}</Text>
-          <Text style={[styles.previewMeta, { color: colors.grey }]} numberOfLines={1}>
-            {[day ? format(day, 'EEE, MMM d') : null, ev.location].filter(Boolean).join(' · ')}
-          </Text>
+          <Text style={[styles.previewTitle, { color: colors.fg }]} numberOfLines={2}>{ev.title}</Text>
+          {day ? <Text style={[styles.previewMeta, { color: colors.fg }]} numberOfLines={1}>{format(day, 'EEEE, MMM d')}</Text> : null}
+          {ev.location ? (
+            <View style={styles.whereRow}>
+              <MapPin size={12} color={colors.grey} />
+              <Text style={[styles.previewMeta, { color: colors.grey, flexShrink: 1 }]} numberOfLines={2}>{ev.location}</Text>
+            </View>
+          ) : null}
+          <View style={[styles.viewBtn, { backgroundColor: colors.segment }]}>
+            <Text style={[styles.viewText, { color: colors.fg }]}>View event</Text>
+            <ChevronRight size={15} color={colors.fg} />
+          </View>
         </View>
-        <ChevronRight size={18} color={colors.grey} />
       </TouchableOpacity>
     );
   };
+
+  /** The X over the card(s). */
+  const closeButton = (
+    <TouchableOpacity
+      style={styles.close}
+      onPress={() => setSelectedSpot(null)}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+    >
+      <X size={16} color={COLOR_WHITE} strokeWidth={2.6} />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.mapWrap, style]}>
@@ -264,21 +292,26 @@ export function EventsMapView({ events, onOpenEvent, tools, topInset, bottomInse
           card, or a carousel when several share the spot, the next one
           peeking in from the edge. */}
       {selectedEvents.length === 1 ? (
-        <View style={[styles.previewDock, { bottom: bottomInset }]}>
-          {previewCard(selectedEvents[0])}
+        <View style={[styles.previewDock, { bottom: bottomInset }]} pointerEvents="box-none">
+          <View>
+            {previewCard(selectedEvents[0])}
+            {closeButton}
+          </View>
         </View>
       ) : selectedEvents.length > 1 ? (
-        <ScrollView
-          horizontal
-          style={[styles.previewDockScroll, { bottom: bottomInset }]}
-          contentContainerStyle={styles.previewRow}
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={PEEK_CARD_W + PEEK_GAP}
-          snapToAlignment="start"
-          decelerationRate="fast"
-        >
-          {selectedEvents.map((ev) => previewCard(ev, PEEK_CARD_W))}
-        </ScrollView>
+        <View style={[styles.previewDockScroll, { bottom: bottomInset }]} pointerEvents="box-none">
+          <ScrollView
+            horizontal
+            contentContainerStyle={styles.previewRow}
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={PEEK_CARD_W + PEEK_GAP}
+            snapToAlignment="center"
+            decelerationRate="fast"
+          >
+            {selectedEvents.map((ev) => previewCard(ev))}
+          </ScrollView>
+          <View style={styles.closeAbove}>{closeButton}</View>
+        </View>
       ) : null}
     </View>
   );
@@ -298,20 +331,35 @@ const styles = StyleSheet.create({
   mapWrap: { flex: 1, minHeight: 300 },
   // Edge to edge: the row brings its own side padding.
   tools: { position: 'absolute', left: 0, right: 0, zIndex: 5 },
-  previewDock: { position: 'absolute', left: 12, right: 12 },
-  previewDockScroll: { position: 'absolute', left: 0, right: 0, flexGrow: 0 },
-  // Padded vertically for the cards' shadow, which a scroller would clip.
-  previewRow: { paddingHorizontal: 12, gap: PEEK_GAP, paddingVertical: 12 },
+  // Centred over the map's foot.
+  previewDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  previewDockScroll: { position: 'absolute', left: 0, right: 0 },
+  // Padded vertically for the cards' shadow, which a scroller would clip;
+  // the first card starts centred.
+  previewRow: { paddingHorizontal: (SCREEN_WIDTH - CARD_W) / 2, gap: PEEK_GAP, paddingVertical: 12 },
   preview: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 10, borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: COLOR_BLACK, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    width: CARD_W, overflow: 'hidden',
+    borderRadius: COMMON_RADIUS, borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: COLOR_BLACK, shadowOpacity: 0.45, shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
-  previewPhoto: { width: 56, height: 56, borderRadius: 8 },
-  previewText:  { flex: 1, minWidth: 0, gap: 3 },
+  previewPhoto: { width: '100%', aspectRatio: 16 / 9 },
+  previewText:  { padding: 14, gap: 5 },
+  whereRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  viewBtn: {
+    marginTop: 8, height: 38, borderRadius: 19,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+  },
+  viewText: { fontSize: 14, fontFamily: FONT_INTER.bold },
+  // The X: on the card's top right corner, or over the carousel's.
+  close: {
+    position: 'absolute', top: 8, right: 8,
+    width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  closeAbove: { position: 'absolute', top: 12, left: (SCREEN_WIDTH + CARD_W) / 2 - 46, width: 46, height: 46 },
   catPill: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   catText: { fontSize: 10, fontFamily: FONT_INTER.extrabold, color: COLOR_BLACK },
-  previewTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
-  previewMeta:  { fontSize: 12, fontFamily: FONT_INTER.semibold },
+  previewTitle: { fontSize: 17, fontFamily: FONT_INTER.bold },
+  previewMeta:  { fontSize: 13, fontFamily: FONT_INTER.semibold },
 });

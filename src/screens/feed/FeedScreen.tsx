@@ -32,13 +32,15 @@ import SpotActions from '../../components/photography/SpotActions';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { Listing } from '../../types/api';
 import { useGetBlockedUsersQuery } from '../../api/apiService';
-import { useAppDispatch } from '../../store/store';
+import { useAppDispatch, useAppSelector } from '../../store/store';
 import { setBlockedUsers } from '../../store/moderationSlice';
 import { useColors } from '../../hooks/useColors';
 import { useIsPro } from '../../hooks/useBrandColor';
+import { useWarmProHome } from '../../hooks/useWarmProHome';
 import SteeringWheel from '../../components/ui/SteeringWheel';
 import ProPage from '../../components/pro/ProPage';
-import DailyGamesLanding from '../../components/sections/pro/DailyGamesLanding';
+import ProHomeScreen from '../../components/sections/pro/ProHomeScreen';
+import { resumeProVideoUploads } from '../../utils/proVideoUpload';
 import { colors } from '../../constants/colors';
 import type { AppStackParamList, FeedStackParamList } from '../../navigation/types';
 import { ss } from '../../styles/shared';
@@ -50,14 +52,14 @@ type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
 /**
  * Sections that show no options row under the main tabs. PRO has one only
- * for Pro members (Daily Games, Past Games, Leaderboards) — see `subTabs`.
+ * for Pro members (Home, Videos, Games, Marketplace) — see `subTabs`.
  */
 const NO_SUB_TABS: ReadonlySet<FeedTab> = new Set<FeedTab>(['groups']);
 /** The sub-tab key for a section's own landing pane. */
 const LANDING = '__landing';
 /** What each section's landing is called in its row of options. */
 const SECTION_LANDING_LABEL: Record<Exclude<FeedTab, 'feed'>, string> = {
-  pro: 'Daily Games',
+  pro: 'Home',
   events: 'Upcoming',
   market: 'Browse',
   groups: 'All Groups',
@@ -74,8 +76,8 @@ const SECTION_LANDING_LABEL: Record<Exclude<FeedTab, 'feed'>, string> = {
  */
 const FEED_TABS: HeaderTab[] = [
   { key: 'feed',        label: 'Feed',        Icon: Home, iconOnly: true },
-  // In the Pro red for everyone, with the wheel. Its pane is the Pro pitch,
-  // or, for a Pro member, the Daily Games — see ProPane.
+  // In the Pro red for everyone, with the wheel. Its pane is the Pro pitch
+  // (ProPane), or, for a Pro member, Home with its options row (ProHomeScreen).
   { key: 'pro',         label: 'PRO',         Icon: SteeringWheel, color: colors.pro },
   { key: 'events',      label: 'Events',      Icon: Calendar },
   { key: 'groups',      label: 'Groups',      Icon: Users },
@@ -166,8 +168,14 @@ export default function FeedScreen() {
   const onProScroll = useHeaderScroll(sectionPad);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
-  /** Pro members' PRO tab is the Daily Games, with its options row; everyone else's is the sign-up. */
+  /** Pro members' PRO tab is Home with its options row (Videos, Games, Marketplace); everyone else's is the sign-up. */
   const isPro = useIsPro();
+  // PRO › Home's rows, fetched ahead so the tab opens with them.
+  useWarmProHome(isPro);
+  const myId = useAppSelector((s) => s.auth.userInfo?.user_id);
+  // Pro video uploads left part-sent when the app was last closed carry on
+  // from here — the home screen is the first thing mounted once signed in.
+  useEffect(() => { if (isPro && myId) resumeProVideoUploads(myId); }, [isPro, myId]);
 
   /**
    * Which tab's content is showing. The tabs swap what's under the header
@@ -419,12 +427,22 @@ export default function FeedScreen() {
     const asked = route.params?.tab;
     if (!asked) return;
     selectTab(asked);
+    // One of the section's options, straight away — the home feed's Play
+    // asks for PRO › Games (openDailyGames). Set here rather than through
+    // selectSub, which reads the tab from before this switch.
+    const askedSub = route.params?.sub;
+    if (askedSub && (SECTION_SUBS[asked] ?? []).some((s) => s.key === askedSub) && (asked !== 'pro' || isPro)) {
+      const id = `${asked}:${askedSub}`;
+      setMountedSubs((m) => (m.has(id) ? m : new Set(m).add(id)));
+      setSub(askedSub);
+      recordFeedTab(id);
+    }
     // A photo spot to open on the map — a notification about one.
     if (asked === 'photography' && route.params?.spotId) setFocusSpotId(route.params.spotId);
     // Spent. Left in the params it would be saved with the navigation state
     // (see navPersistence) and replayed on the next launch — a reload after
     // the menu's Events would open on Events rather than on the feed.
-    navigation.setParams({ tab: undefined, at: undefined, spotId: undefined } as never);
+    navigation.setParams({ tab: undefined, at: undefined, spotId: undefined, sub: undefined } as never);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.at]);
 
@@ -493,8 +511,10 @@ export default function FeedScreen() {
         <View style={landing('pro') ? paneShown : paneHidden} pointerEvents={landing('pro') ? 'auto' : 'none'}>
         <Animated.View style={[ss.fill, paneAnim.pro]}>
           {isPro ? (
-            // Under the options row, so it starts where the other sections' panes do.
-            <DailyGamesLanding scrollRef={proScrollRef} headerPad={sectionPad} bottomPad={bottomPad} onScroll={gated.pro} />
+            // Home: today's Daily Games, the Pro group, Pro members' posts
+            // and cars — under the options row, so it starts where the
+            // other sections' panes do.
+            <ProHomeScreen scrollRef={proScrollRef} headerPad={sectionPad} bottomPad={bottomPad} onScroll={gated.pro} active={landing('pro')} />
           ) : (
             <ProPane scrollRef={proScrollRef} headerPad={headerPad} bottomPad={bottomPad} />
           )}
@@ -579,7 +599,7 @@ export default function FeedScreen() {
       {Object.entries(SECTION_SUBS).flatMap(([section, subs]) => subs.map((s) => {
         const id = `${section}:${s.key}`;
         if (!mountedSubs.has(id)) return null;
-        // PRO's options are Pro's: games, boards and the marketplace never show for anyone else.
+        // PRO's options are Pro's: videos, games and the marketplace never show for anyone else.
         if (section === 'pro' && !isPro) return null;
         return (
           <SubPane
@@ -633,21 +653,24 @@ const SubPane = React.memo(function SubPane({ sub, headerPad, bottomPad, active 
 
 /**
  * The PRO tab for a member who isn't Pro: ProPage, straight on the screen —
- * what Pro adds and the way to sign up. A Pro member (or an admin) gets the
- * Daily Games instead (DailyGamesLanding).
+ * what Pro adds and the way to sign up, with no options row. A Pro member (or
+ * an admin) gets Home instead (ProHomeScreen), with Videos, Games and
+ * Marketplace in the row above.
  */
-function ProPane({ scrollRef, headerPad, bottomPad }: {
+function ProPane({ scrollRef, headerPad, bottomPad, onScroll }: {
   scrollRef: React.RefObject<ScrollView | null>;
   headerPad: number;
   bottomPad: number;
+  onScroll?: (e: any) => void;
 }) {
   return (
     <ScrollView
       ref={scrollRef}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
       contentContainerStyle={{ paddingTop: headerPad + 12, paddingBottom: bottomPad, paddingHorizontal: GUTTER + 16 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* It knows whether you're Pro: the sign-up, or "You're PRO". */}
       <ProPage />
     </ScrollView>
   );

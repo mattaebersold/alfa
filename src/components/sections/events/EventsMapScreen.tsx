@@ -4,7 +4,6 @@ import { skipToken } from '@reduxjs/toolkit/query';
 import { EventsMapView, mappableEvents } from '../../society/EventsMap';
 import EventFilters from '../../society/EventFilters';
 import EventSearchField from '../../society/EventSearchField';
-import SubTabs from '../../ui/SubTabs';
 import EmptyState from '../../ui/EmptyState';
 import { useEventsFilter, UPCOMING_DAYS } from './useEventsFilter';
 import { useGetUpcomingEventsQuery } from '../../../api/apiService';
@@ -18,14 +17,14 @@ import type { SectionScreenProps } from '../types';
 const MAP_WINDOWS = [7, 30, 90, 180] as const;
 type MapWindow = typeof MAP_WINDOWS[number];
 const MAP_WINDOW_OPTIONS = MAP_WINDOWS.map((d) => ({
-  key: String(d) as `${MapWindow}`,
+  days: d as number,
   label: d === 180 ? 'Next 6 months' : `Next ${d} days`,
 }));
 
 /**
  * Events › Map: the landing's map sheet as the whole pane — the map runs the
- * full height, under the floating header, with the search, filter and date
- * window just below the header and a tapped pin's cards just above the tab
+ * full height, under the floating header, with the search and filter (the
+ * date window inside it) just below the header and a tapped pin's cards just above the tab
  * bar. Nothing scrolls, so `onScroll` goes unused and the header stays put.
  */
 export default function EventsMapScreen({ headerPad, bottomPad }: SectionScreenProps) {
@@ -62,15 +61,9 @@ export default function EventsMapScreen({ headerPad, bottomPad }: SectionScreenP
                 category={category}
                 onCategory={setCategory}
                 presentCategories={presentCategories}
+                // The date window lives in the panel now, not in tabs over the map.
+                window={{ value: days, options: MAP_WINDOW_OPTIONS, defaultDays: UPCOMING_DAYS, onChange: (d) => setDays(d as MapWindow) }}
                 compact
-              />
-            </View>
-            <View style={[styles.windows, isFetching && { opacity: 0.6 }]}>
-              <SubTabs
-                options={MAP_WINDOW_OPTIONS}
-                value={String(days) as `${MapWindow}`}
-                onChange={(k) => setDays(Number(k) as MapWindow)}
-                tone="grey"
               />
             </View>
             {/* The map draws nothing without a pin to frame. */}
@@ -91,5 +84,4 @@ const styles = StyleSheet.create({
     zIndex: 20, elevation: 20,
   },
   toolsSearch: { flex: 1 },
-  windows: { marginTop: 8 },
 });

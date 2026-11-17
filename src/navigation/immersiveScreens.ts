@@ -14,6 +14,10 @@ const IMMERSIVE_SCREENS = new Set<string>([
   'RouteDetail',
   // A Daily Game pins its Guess button to the bottom of the screen.
   'DailyGame',
+  // …and its Past Games or Leaderboard, so the tab bar doesn't pop back between them.
+  'GameList',
+  // A Pro video: the player and its comments, with the composer at the foot.
+  'ProVideo',
 ]);
 
 export function isImmersiveScreen(routeName?: string): boolean {

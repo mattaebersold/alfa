@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CalendarX } from 'lucide-react-native';
+import { CalendarX, History, Trophy } from 'lucide-react-native';
 import { Text } from '../../theme/Text';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
@@ -27,6 +28,31 @@ import type { FeedStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<FeedStackParamList, 'DailyGame'>;
 
+/** Over today's game: this game's Past Games and Leaderboard (GameListScreen). */
+function GameLinks({ game }: { game: DailyGameKind }) {
+  const navigation = useNavigation<any>();
+  const links = [
+    { list: 'past' as const, label: 'Past Games', Icon: History },
+    { list: 'boards' as const, label: 'Leaderboard', Icon: Trophy },
+  ];
+  return (
+    <View style={styles.links}>
+      {links.map(({ list, label, Icon }) => (
+        <TouchableOpacity
+          key={list}
+          style={styles.link}
+          onPress={() => navigation.navigate('GameList', { game, list })}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Icon size={15} color={COLOR_WHITE} strokeWidth={2.2} />
+          <Text style={styles.linkText}>{label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 /** Nothing scheduled for today: says so, and when to look again. */
 function NoGame({ game, nextAt, onRetry }: { game: DailyGameKind; nextAt?: string; onRetry: () => void }) {
   const { bottom } = useSafeAreaInsets();
@@ -38,6 +64,7 @@ function NoGame({ game, nextAt, onRetry }: { game: DailyGameKind; nextAt?: strin
         {`There's no ${game === 'car' ? 'car' : 'auction'} lined up for today. Past Games are still there to catch up on.`}
       </Text>
       {nextAt ? <Countdown nextAt={nextAt} label={nextLabel(game)} /> : null}
+      <View style={styles.noGameLinks}><GameLinks game={game} /></View>
       <Button label="Refresh" variant="secondary" size="sm" onPress={onRetry} />
     </View>
   );
@@ -101,6 +128,7 @@ function CarToday() {
       timed
       refreshing={isFetching && !isLoading}
       onRefresh={refetch}
+      above={<GameLinks game="car" />}
       doneFooter={<Countdown nextAt={next_at} label={nextLabel('car')} />}
     >
       {stats ? <CarStatsSummary stats={stats} highlight={carRow(play)} /> : null}
@@ -150,6 +178,7 @@ function AuctionToday() {
       timed
       refreshing={isFetching && !isLoading}
       onRefresh={refetch}
+      above={<GameLinks game="auction" />}
       doneFooter={<Countdown nextAt={next_at} label={nextLabel('auction')} />}
     >
       {stats ? <AuctionStatsSummary stats={stats} /> : null}
@@ -206,5 +235,12 @@ const styles = StyleSheet.create({
   noteText: { color: COLOR_GRAY_160, fontSize: 13, fontWeight: '600', lineHeight: 18 },
   noGame: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: GAME_GUTTER + 24 },
   noGameTitle: { color: COLOR_WHITE, fontSize: 20, fontWeight: '800' },
+  links: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  link: {
+    flex: 1, height: 36, borderRadius: 18, flexDirection: 'row', gap: 6,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: GAME_CARD,
+  },
+  linkText: { color: COLOR_WHITE, fontSize: 13.5, fontWeight: '700' },
+  noGameLinks: { alignSelf: 'stretch' },
   noGameText: { color: COLOR_GRAY_160, fontSize: 14, lineHeight: 20, textAlign: 'center' },
 });
