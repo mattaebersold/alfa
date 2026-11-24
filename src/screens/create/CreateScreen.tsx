@@ -1,41 +1,37 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform, PanResponder, Animated,
-  Pressable, Dimensions, Easing,
+  View, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Keyboard, Platform,
 } from 'react-native';
 import { Text } from '../../theme/Text';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
-import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { Image } from '../../components/ui/AppImage';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { X, ChevronDown, ChevronUp, Check, Play, Video, Send, MessageSquare, BarChart3, Plus } from 'lucide-react-native';
+import { X, ChevronDown, ChevronUp, Check, Play, Video, MessageSquare, BarChart3, Plus } from 'lucide-react-native';
 import SteeringWheel from '../../components/ui/SteeringWheel';
-import { useGetUserGroupsQuery, useGetPostTaxonomyQuery, useUpdatePostTaxonomyMutation, apiService } from '../../api/apiService';
-import CustomLabelSheet from '../../components/create/CustomLabelSheet';
+import { useGetUserGroupsQuery, apiService } from '../../api/apiService';
 import { useAppSelector, store } from '../../store/store';
 import { startPostUpload, takePostUploadDraft, type PostUploadJob } from '../../utils/postUpload';
 import ActionSheet from '../../components/ui/ActionSheet';
 import MentionInput from '../../components/ui/MentionInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import CameraSheet, { type CameraCapture } from '../../components/media/CameraSheet';
-import PostTagPicker, { userTag, type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
-import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
-import SubTabs from '../../components/ui/SubTabs';
+import { userTag, type TagItem as PickerTagItem, type TagKind as PickerTagKind } from '../../components/social/PostTagPicker';
+import { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from '../../components/social/PostOptionalFields';
+import PostTypePicker from '../../components/create/PostTypePicker';
+import PostFormSections from '../../components/create/PostFormSections';
 import MainTabs from '../../components/ui/MainTabs';
+import SharedModal, { PANE_GRABBER_H } from '../../components/ui/SharedModal';
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
-import PostToSelector from '../../components/social/PostToSelector';
-import PostLocationField from '../../components/social/PostLocationField';
 import PollEditor, { emptyPollDraft, pollDraftToInput, type PollDraft } from '../../components/social/PollEditor';
 import { ListingCreateSheet } from '../marketplace/ListingCreateScreen';
 import { colors } from '../../constants/colors';
-import { CREATABLE_POST_TYPES, POST_CATEGORIES, type PostType } from '../../constants/postTypes';
+import { POST_CATEGORIES } from '../../constants/postTypes';
 import { uploadFile, toUploadableJpeg } from '../../utils/upload';
 import { blockProfanity } from '../../utils/profanity';
 import { uploadVideoToMux, compressVideo } from '../../utils/muxUpload';
@@ -43,8 +39,7 @@ import { useColors } from '../../hooks/useColors';
 import { contrastText, useBrandColor, useIsPro } from '../../hooks/useBrandColor';
 import type { AppStackParamList } from '../../navigation/types';
 import type { PostPlace } from '../../types/api';
-import { ss } from '../../styles/shared';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, FORM_PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, FORM_CARD_BG, FORM_CARD_RADIUS, SHEET_RADIUS, SURFACE_BLACK, COLOR_GRAY_58, TAB_IDLE_FG, COLOR_PRO } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_GRAY_42, COLOR_WHITE, INPUT_LINE_HEIGHT, INPUT_TEXT, COLOR_BLACK, FORM_PANE_BG, SURFACE_BLACK, COLOR_GRAY_58, TAB_IDLE_FG, COLOR_PRO } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
@@ -111,12 +106,6 @@ type DraftMedia =
   | { key: string; kind: 'video'; uri: string; poster: string | null };
 
 /**
- * Names a type of your own can't take: the built-in keys and labels, and the
- * app's internal types (postTaxonomyController refuses the same list).
- */
-const RESERVED_TYPE_NAMES = ['general', 'record', 'spot', 'listing', 'want', 'spot_result', 'story', 'update', 'note', 'post', 'car record', 'spotted', 'want ad'];
-
-/**
  * The form as it stood when Post was tapped — kept with the upload, so a post
  * that fails can be put back in the form to fix (see utils/postUpload).
  */
@@ -160,10 +149,11 @@ function ProWheelIcon({ size, strokeWidth }: { size?: number; color?: string; st
  * only: members who aren't Pro see Post and Poll (see `kinds` in the screen).
  */
 type CreateKind = 'post' | 'poll' | 'listing';
-const CREATE_KINDS: { key: CreateKind; label: string; Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[] = [
+const CREATE_KINDS: { key: CreateKind; label: string; color?: string; Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }> }[] = [
   { key: 'post',    label: 'Post',    Icon: MessageSquare },
   { key: 'poll',    label: 'Poll',    Icon: BarChart3 },
-  { key: 'listing', label: 'Listing', Icon: ProWheelIcon },
+  // Pro only (see `kinds`), and in the Pro red to say so.
+  { key: 'listing', label: 'Listing', Icon: ProWheelIcon, color: COLOR_PRO },
 ];
 
 /**
@@ -292,85 +282,6 @@ export default function CreateScreen() {
   });
   const userGroups: any[] = Array.isArray(rawGroups) ? rawGroups : (rawGroups as any)?.entries ?? [];
 
-  /**
-   * Your own types and categories, after the built-in ones. A custom one's key
-   * is its label: that's what the post stores, so everyone reads the same
-   * words. Long-press one of your own to rename or delete it; built-ins can't be.
-   */
-  const { data: taxonomy } = useGetPostTaxonomyQuery(undefined, { skip: !userInfo?.user_id });
-  const [saveTaxonomy] = useUpdatePostTaxonomyMutation();
-  const customTypes = taxonomy?.types ?? [];
-  const customCategories = taxonomy?.categories ?? {};
-  const typeOptions = [
-    ...CREATABLE_POST_TYPES.map(({ type, label }) => ({ key: type as string, label })),
-    ...customTypes.map((t) => ({ key: t, label: t })),
-  ];
-  const categoriesFor = (t: string) => [
-    ...(POST_CATEGORIES[t as PostType] ?? []),
-    ...(customCategories[t] ?? []).map((c) => ({ key: c, label: c })),
-  ];
-  const currentCategories = categoriesFor(postType);
-  const isCustomType = (t: string) => customTypes.includes(t);
-  const isCustomCategory = (c: string) => (customCategories[postType] ?? []).includes(c);
-
-  /** The naming sheet: adding a type or category, or editing one of yours. */
-  const [labelSheet, setLabelSheet] = useState<{ what: 'type' | 'category'; editing?: string } | null>(null);
-  const closeLabelSheet = () => setLabelSheet(null);
-  const saveLabel = (label: string) => {
-    if (!labelSheet) return;
-    const types = [...customTypes];
-    const categories: Record<string, string[]> = { ...customCategories };
-    const { what, editing } = labelSheet;
-    if (what === 'type') {
-      if (editing) {
-        types[types.indexOf(editing)] = label;
-        // Its categories go with it to the new name.
-        if (categories[editing]) { categories[label] = categories[editing]; delete categories[editing]; }
-        if (postType === editing) setPostType(label);
-      } else {
-        types.push(label);
-        setPostType(label);
-        setCategory('');
-      }
-    } else {
-      const list = [...(categories[postType] ?? [])];
-      if (editing) list[list.indexOf(editing)] = label; else list.push(label);
-      categories[postType] = list;
-      if (!editing || category === editing) setCategory(label);
-    }
-    saveTaxonomy({ types, categories });
-    closeLabelSheet();
-  };
-  const deleteLabel = () => {
-    const editing = labelSheet?.editing;
-    if (!labelSheet || !editing) return;
-    const categories: Record<string, string[]> = { ...customCategories };
-    let types = customTypes;
-    if (labelSheet.what === 'type') {
-      types = customTypes.filter((t) => t !== editing);
-      delete categories[editing];
-      if (postType === editing) handleTypeChange('general');
-    } else {
-      categories[postType] = (categories[postType] ?? []).filter((c) => c !== editing);
-      if (category === editing) setCategory(POST_CATEGORIES[postType as PostType]?.[0]?.key ?? '');
-    }
-    saveTaxonomy({ types, categories });
-    closeLabelSheet();
-  };
-  /** "+ New" at the end of a row, inside its track. */
-  const addButton = (what: 'type' | 'category') => (
-    <TouchableOpacity
-      style={styles.addSeg}
-      onPress={() => setLabelSheet({ what })}
-      accessibilityRole="button"
-      accessibilityLabel={what === 'type' ? 'New post type' : 'New category'}
-      hitSlop={4}
-    >
-      <Plus size={13} color={TAB_IDLE_FG} strokeWidth={2.4} />
-      <Text style={styles.addSegText}>New</Text>
-    </TouchableOpacity>
-  );
-
   // Never, now: a price belongs to a marketplace listing, and a post can no
   // longer be one. Kept as a named constant rather than deleted, so the field
   // block below still reads as "these are the optional fields, price excluded".
@@ -381,10 +292,6 @@ export default function CreateScreen() {
   const showMileage  = true;
 
   // A new type brings a new list of categories, with its first one chosen.
-  const handleTypeChange = (t: string) => {
-    setPostType(t);
-    setCategory(categoriesFor(t)[0]?.key ?? '');
-  };
 
   /** Room left before the post hits its media limit. */
   const mediaRoom = useCallback(() => MAX_MEDIA - media.length, [media.length]);
@@ -740,115 +647,33 @@ export default function CreateScreen() {
   ]);
 
   /**
-   * Drag down from the top to close. Claims the touch only once it's clearly
-   * a downward pull, so a tap on the grabber (which also closes) and the
-   * tabs under it keep theirs; lets go with a flick or past a hand's width.
+   * The form is the app's one pane (SharedModal): the scrim fading in place,
+   * the sheet sliding up, the grabber floating over the form on a fade — tap
+   * it or pull it down to close. Closing slides it away first; the route goes
+   * once it's gone (onDismissed).
    */
-  /**
-   * The sheet's own coming and going. The route is a transparent modal, so
-   * what's behind stays on screen under the panes' light grey wash (as every
-   * pane has); the sheet slides up over it, and back down before the route
-   * goes. 0 is down off the screen, 1 is up.
-   */
-  const shown = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    // Out, with a slight overshoot — the panes' opening (PANE_OPEN_OVERSHOOT).
-    Animated.timing(shown, { toValue: 1, duration: PANE_OPEN_MS, easing: Easing.out(Easing.back(PANE_OPEN_OVERSHOOT)), useNativeDriver: true }).start();
-  }, [shown]);
-  const closing = useRef(false);
+  const [open, setOpen] = useState(true);
   const close = useCallback(() => {
-    if (closing.current) return;
-    closing.current = true;
     Keyboard.dismiss();
-    Animated.timing(shown, { toValue: 0, duration: SHEET_CLOSE_MS, easing: Easing.in(Easing.cubic), useNativeDriver: true })
-      .start(() => appNav.goBack());
-  }, [shown, appNav]);
-  /** The floating head's height — the form's top padding, so it starts below it. */
-  const [headH, setHeadH] = useState(0);
-  const sheetY = shown.interpolate({ inputRange: [0, 1], outputRange: [Dimensions.get('window').height, 0] });
-
-  const dismissPan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_e, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
-    onPanResponderRelease: (_e, g) => {
-      if (g.dy > 80 || g.vy > 0.6) close();
-    },
-  })).current;
+    setOpen(false);
+  }, []);
 
   // The Done footer is only there while the keyboard is — see below.
   const keyboardUp = useKeyboardState((st) => st.isVisible);
 
   return (
-    // No bottom edge: the form runs to the foot of the screen, under the home
-    // indicator, and its own end padding (below) is what clears it.
-    // One ground for the whole pane — the panes' grey — and nothing in it
-    // painting its own: the tabs, the photos, the words and the tags all sit
-    // on the same surface.
-    <View style={ss.fill}>
-      {/* The panes' light grey wash over whatever this was opened from, and
-          a tap on it closes, as it does on every pane. */}
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: PANE_SCRIM, opacity: shown }]} pointerEvents="none" />
-      <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
-      {/* The sheet's colour under its foot, for the moment the opening
-          overshoots and lifts it past its place. Hidden once it's closing. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.overshootFill, { opacity: shown.interpolate({ inputRange: [0.99, 1], outputRange: [0, 1], extrapolate: 'clamp' }) }]}
-      />
-    <Animated.View style={[styles.sheet, { marginTop: insets.top + SHEET_TOP_GAP, transform: [{ translateY: sheetY }] }]}>
-    <SafeAreaView style={[ss.fill, { backgroundColor: FORM_PANE_BG }]} edges={[]}>
-      {/* The head — grabber, tabs, a listing's steps — floats over the form
-          with no ground of its own, and the form scrolls up under it to the
-          sheet's top edge. The form's top padding is the head's height. */}
-      <View style={styles.head} onLayout={(e) => setHeadH(e.nativeEvent.layout.height)} pointerEvents="box-none">
-        {/* The pane's grey, mostly opaque at the top and fading to nothing at
-            the head's foot, so what scrolls up under the tabs dims away
-            rather than running straight behind them. */}
-        <LinearGradient
-          colors={HEAD_FADE}
-          locations={[0, 0.7, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        {/* A sheet's grabber in place of the X: tap it or drag it down to
-            close, as every other sheet in the app closes. */}
-        {/* The drag takes the tabs as well as the grabber: a pull down
-            anywhere across the top starts it, where the grabber's own strip
-            was a thin target. A tap on a tab is still a tap — the pan only
-            claims a move that's clearly downward. */}
-        <View {...dismissPan.panHandlers}>
-          <TouchableOpacity
-            onPress={close}
-            style={styles.grabberHit}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <View style={styles.grabber} />
-          </TouchableOpacity>
-          {/* What this becomes — main tabs, the home screen's. The listing tab
-              opens the marketplace's own form over this one, with the photos;
-              closing it lands back here. */}
-          {/* Styled as the home header's tabs: the same MainTabs, dense, on
-              the black track with the card-grey thumb and grey idle labels
-              (see AppHeader's HeaderTabs). */}
-          <MainTabs
-            tabs={kinds}
-            value={kind}
-            onChange={setKind}
-            inset={12}
-            stretch
-            trackColor={SURFACE_BLACK}
-            // A step lighter than the header's card grey, so the pick stands out here.
-            thumbColor={COLOR_GRAY_58}
-            idleColor={TAB_IDLE_FG}
-            dense
-            contentContainerStyle={styles.kindRow}
-          />
-        </View>
-        {/* The listing's step row stays put while its steps scroll. */}
-        {kind === 'listing' && listingNav ? <View style={styles.pinnedNav}>{listingNav}</View> : null}
-      </View>
-
+    // One ground for the whole pane — the create forms' grey — and nothing in
+    // it painting its own. It runs to the foot of the screen (edgeToEdge); the
+    // form's own end padding clears the home indicator.
+    <SharedModal
+      visible={open}
+      onClose={close}
+      onDismissed={() => appNav.goBack()}
+      hideHeader
+      fullHeight
+      edgeToEdge
+      background={FORM_PANE_BG}
+    >
       <FormScrollView
         style={styles.scroll}
         keyboardDismissMode="on-drag"
@@ -858,8 +683,36 @@ export default function CreateScreen() {
         bottomOffset={KEYBOARD_GAP + DONE_FOOTER_H}
         extraKeyboardSpace={DONE_FOOTER_H}
         // Clear of the home indicator / navigation bar once scrolled to the end.
-        contentContainerStyle={{ paddingTop: headH, paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
+        // Clear of the grabber floating over the top, and of the home indicator at the foot.
+        contentContainerStyle={{ paddingTop: PANE_GRABBER_H, paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
       >
+        {/* The head — the tabs, a listing's steps — at the top of the form,
+            scrolling away with it. No ground or rule of its own. */}
+        <View style={styles.head}>
+          {/* What this becomes — main tabs, the home screen's. The listing tab
+              opens the marketplace's own form over this one, with the photos;
+              closing it lands back here. */}
+          {/* Styled as the home header's tabs: the same MainTabs, dense, on
+              the black track with the card-grey thumb and grey idle labels
+              (see AppHeader's HeaderTabs). */}
+          <View>
+            <MainTabs
+              tabs={kinds}
+              value={kind}
+              onChange={setKind}
+              inset={12}
+              stretch
+              trackColor={SURFACE_BLACK}
+              // A step lighter than the header's card grey, so the pick stands out here.
+              thumbColor={COLOR_GRAY_58}
+              idleColor={TAB_IDLE_FG}
+              dense
+              contentContainerStyle={styles.kindRow}
+            />
+          </View>
+          {kind === 'listing' && listingNav ? <View style={styles.pinnedNav}>{listingNav}</View> : null}
+        </View>
+
         {kind === 'listing' ? (
           /* The marketplace's own flow, in the pane under its tab, with the
              photos taken so far. It keeps its steps, its allowance check and
@@ -879,27 +732,13 @@ export default function CreateScreen() {
             are. First on the form, ahead of the photos. */}
         {kind === 'post' && (
           <View style={styles.typeBlock}>
-            {/* Both rows dressed as the Post / Poll / Listing tabs above
-                (tone="header"). Each ends in "+ New"; long-press one of your
-                own to rename or delete it. */}
-            <SubTabs
-              options={typeOptions}
-              value={postType}
-              onChange={handleTypeChange}
-              onLongPress={(t) => { if (isCustomType(t)) setLabelSheet({ what: 'type', editing: t }); }}
-              trailing={addButton('type')}
-              tone="header"
-              tall
-            />
-            {/* Shown even when the type has none yet, for its "+ New". */}
-            <SubTabs
-              options={currentCategories.map(({ key, label }) => ({ key, label }))}
-              value={category}
-              onChange={setCategory}
-              onLongPress={(c) => { if (isCustomCategory(c)) setLabelSheet({ what: 'category', editing: c }); }}
-              trailing={addButton('category')}
-              tone="header"
-              tall
+            {/* The shared type and category pills (PostTypePicker) — the
+                Edit Post sheet's too. Your own ones, "+ New" and long-press
+                to rename or delete live in there. */}
+            <PostTypePicker
+              type={postType}
+              category={category}
+              onChange={(next) => { setPostType(next.type); setCategory(next.category); }}
             />
           </View>
         )}
@@ -991,50 +830,26 @@ export default function CreateScreen() {
         </View>
         )}
 
-        {/* ── Optional fields — a post's; a poll has none. ── */}
-        {kind === 'post' && (
-          <PostOptionalFields
-            values={optional}
-            onChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
-            showPrice={showPrice}
-          />
-        )}
-
-        {/* ── Tag people, cars & events — always visible (no accordion). No
-            label over it: the picker's own search says what it's for. ── */}
-        <View style={styles.tagSection}>
-          <PostTagPicker
-            users={taggedUsers}
-            cars={taggedCars}
-            events={taggedEvents}
-            onToggle={toggleTag}
-          />
-          {/* Where it was made — a card of the same kind, under Tag Events,
-              on a post or a poll. */}
-          <PostLocationField value={place} onChange={setPlace} />
-        </View>
-
-        {/* ── Post to ── */}
-        {/* Framed and headed like the tag cards and Optional Details above it. */}
-        <View style={styles.postToCard}>
-          <View style={styles.postToHead}>
-            <Send size={15} color={COLOR_WHITE} />
-            <Text style={[styles.postToTitle, { color: colors.fg }]}>Post To</Text>
-          </View>
-          <PostToSelector
-            layout="checklist"
-            isPublic={isPublic}
-            onTogglePublic={() => setIsPublic((v) => !v)}
-            groups={userGroups}
-            selectedGroupIds={selectedGroupIds}
-            onToggleGroup={toggleGroup}
-          />
-          {userGroups.length === 0 && (
-            <Text style={[styles.postToEmpty, { color: colors.grey }]}>
-              You're not a member of any groups yet.
-            </Text>
-          )}
-        </View>
+        {/* ── Optional Details (a post's; a poll has none), the tags,
+            Location and Post To — the shared lower half (PostFormSections),
+            the same as the Edit Post sheet's. ── */}
+        <PostFormSections
+          optional={optional}
+          onOptionalChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
+          showOptional={kind === 'post'}
+          showPrice={showPrice}
+          users={taggedUsers}
+          cars={taggedCars}
+          events={taggedEvents}
+          onToggleTag={toggleTag}
+          place={place}
+          onPlaceChange={setPlace}
+          isPublic={isPublic}
+          onTogglePublic={() => setIsPublic((v) => !v)}
+          groups={userGroups}
+          selectedGroupIds={selectedGroupIds}
+          onToggleGroup={toggleGroup}
+        />
 
         {/* ── Post button ──
             Ends the form, full width, rather than floating over it: posting is
@@ -1061,8 +876,10 @@ export default function CreateScreen() {
           can't double as a dismiss. Without this the only way out of the
           keyboard is to know that dragging the form closes it. Only while the
           keyboard is up — the Post button no longer lives down here. */}
+      {/* The pane has already shrunk above the keyboard, so this just sits
+          at its foot. */}
       {keyboardUp && (
-        <KeyboardStickyView style={styles.doneDock}>
+        <View style={styles.doneDock}>
         <StickyFormFooter color={FORM_PANE_BG} bottomInset={10} style={styles.doneFooter}>
           <View style={styles.footerRow}>
             <TouchableOpacity
@@ -1076,7 +893,7 @@ export default function CreateScreen() {
             </TouchableOpacity>
           </View>
         </StickyFormFooter>
-        </KeyboardStickyView>
+        </View>
       )}
 
       <CameraSheet
@@ -1088,67 +905,29 @@ export default function CreateScreen() {
         onPickLibrary={() => { setCameraOpen(false); setTimeout(() => { void addFromLibrary(); }, 400); }}
       />
 
-      {/* Naming your own type or category — see CustomLabelSheet. */}
-      <CustomLabelSheet
-        visible={labelSheet !== null}
-        title={labelSheet?.what === 'type'
-          ? (labelSheet.editing ? 'Edit post type' : 'New post type')
-          : (labelSheet?.editing ? 'Edit category' : `New ${typeOptions.find((t) => t.key === postType)?.label ?? ''} category`)}
-        placeholder={labelSheet?.what === 'type' ? 'e.g. Track Day' : 'e.g. Wheels'}
-        note="Saved to your list for next time. Your post shows it to everyone."
-        initial={labelSheet?.editing ?? ''}
-        taken={labelSheet?.what === 'type' ? [...typeOptions.map((t) => t.label), ...RESERVED_TYPE_NAMES] : currentCategories.map((c) => c.label)}
-        onSave={saveLabel}
-        onDelete={labelSheet?.editing ? deleteLabel : undefined}
-        onClose={closeLabelSheet}
-      />
-    </SafeAreaView>
-    </Animated.View>
-    </View>
+    </SharedModal>
   );
 }
 
 /** How tall the floating Done footer stands: its fade, the button, its gap. */
 const DONE_FOOTER_H = 76;
 
-/** The Post To card's padding — its group cards bleed out past it. */
-const POST_TO_PAD = 14;
-
-/** The sheet's slide back down. */
-const SHEET_CLOSE_MS = 220;
-/** The head's fade: the pane's grey (FORM_PANE_BG, #1E1E1E) to nothing. */
-const HEAD_FADE = ['rgba(30,30,30,0.92)', 'rgba(30,30,30,0.75)', 'rgba(30,30,30,0)'] as const;
-/** Clear of the status bar above the sheet, so the wash shows along its top. */
-const SHEET_TOP_GAP = 10;
-
 const styles = StyleSheet.create({
-  // The form, as a sheet from the bottom: rounded along its top, over the wash.
-  head: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, elevation: 10 },
-  overshootFill: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundColor: FORM_PANE_BG },
-  sheet: {
-    flex: 1,
-    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS,
-    overflow: 'hidden',
-  },
+  // Scrolls with the form; the grabber floating over it is what stays.
+  head: { paddingTop: 2 },
   scroll:       { flex: 1 },
 
-  // The sheet's grabber (SharedModal's measures), then the title under it.
-  // The grabber alone leads the sheet; the tabs under it say what this is.
-  grabberHit:  { alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
-  grabber:     { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
   // Under the header: the app header's tab row, three across, each taking
   // a third — its type, its gold, its underline.
-  kindRow:       { paddingBottom: 10 },
+  kindRow:       { paddingBottom: 4 },
   pollBlock: { paddingTop: 4 },
   // Under the tabs, on the header's ground, with a rule to the scroller.
   pinnedNav: { paddingTop: 2, paddingBottom: 4 },
   // Tight to the header above — the header's own padding is the gap.
   // Small captions over the type and category, the group form's.
   // No top padding: the tab row's own 10 below it is the gap.
-  typeBlock:    { gap: 8 },
-  // "+ New": a segment's size, unlit, after the last option.
-  addSeg:       { flexDirection: 'row', alignItems: 'center', gap: 4, height: 38, paddingHorizontal: 12 },
-  addSegText:   { fontSize: 13, fontFamily: FONT_INTER.medium, color: TAB_IDLE_FG },
+  // Room above and below the type and category rows.
+  typeBlock:    { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10 },
 
   inputBlock:   { paddingHorizontal: 12, paddingTop: 12 },
 
@@ -1179,25 +958,11 @@ const styles = StyleSheet.create({
   },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14 },
-  // The gap the label used to leave, without the label.
-  // None of its own: the first tag card's marginTop is the gap.
-  tagSection:    { marginTop: 0 },
   sectionLabel:  { fontSize: 14, fontFamily: FONT_INTER.bold },
   fieldRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7 },
   fieldLabel:    { fontSize: 13, fontFamily: FONT_INTER.semibold, width: 90 },
   fieldValue:    { flex: 1 },
 
-  // The Post To block: framed like Optional Details, on the form's own ground.
-  postToCard: {
-    marginHorizontal: 12, marginTop: 12,
-    padding: POST_TO_PAD, borderRadius: FORM_CARD_RADIUS,
-    // A step darker than the form, no edge — as Optional Details and the tag cards.
-    backgroundColor: FORM_CARD_BG,
-  },
-  // The tag cards' head: a white icon and a title.
-  postToHead:  { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
-  postToTitle: { fontSize: 15, fontFamily: FONT_INTER.bold },
-  postToEmpty: { paddingTop: 12, fontSize: 13 },
 
   // Tags
   selectedTags:    { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingTop: 10 },

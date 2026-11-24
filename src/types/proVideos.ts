@@ -51,6 +51,11 @@ export interface ProVideo {
   bookmarked: boolean;
   created_at: string;
   ready_at: string | null;
+  /**
+   * A new file on its way in ("Replace video"), or null. The video itself
+   * stays ready, playing its current file, until this one is swapped in.
+   */
+  replacement?: { status: 'uploading' | 'processing' | 'errored'; error?: { code?: string; message?: string } | null } | null;
 }
 
 export interface ProVideoMeta {

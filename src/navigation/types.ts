@@ -247,6 +247,8 @@ export type AppStackParamList = {
     | undefined;
   About: undefined;
   Support: undefined;
+  /** Every video message from ORS (the home feed's banner); `messageId` plays that one on arrival. */
+  HomeMessages: { messageId?: string } | undefined;
   /** Concierge services — the rows the admin manages, and a way to ask about them. */
   Concierge: undefined;
   SocietyEventDetail: { eventId: string; occurrenceDate?: string };

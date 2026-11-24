@@ -1,6 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, FlatList, Alert, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
-import ProVideoCard from './ProVideoCard';
+import { View, FlatList, Alert, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
+import { MoreHorizontal, Pencil, Trash2, RotateCcw, X, Clapperboard } from 'lucide-react-native';
+import { Text } from '../../theme/Text';
+import { Image } from '../ui/AppImage';
+import ActionSheet from '../ui/ActionSheet';
+import ProVideoDetailsSheet from './ProVideoDetailsSheet';
+import { useColors } from '../../hooks/useColors';
+import { muxPoster, formatDuration } from '../../types/proVideos';
+import { FONT_INTER } from '../../constants/fonts';
 import EmptyState from '../ui/EmptyState';
 import { useGetProVideosInfiniteQuery, useDeleteProVideoMutation } from '../../api/apiService';
 import {
@@ -14,8 +21,8 @@ import type { ProVideo } from '../../types/proVideos';
 const PENDING_POLL_MS = 15_000;
 /** One set of args, so every render asks for the same cached list. */
 const MINE = { mine: true, sort: 'newest' } as const;
-const CARD_W = Dimensions.get('window').width - (GUTTER + 4) * 2;
-const CARD_H = Math.round(CARD_W * 0.75);
+/** A row's square thumbnail. */
+const THUMB = 64;
 
 /**
  * Your Pro video uploads, in every status — the dashboard's My Videos (what
@@ -49,6 +56,10 @@ export default function MyProVideosPane({ onOpen }: { onOpen: (video: ProVideo) 
     return m;
   }, [uploads]);
 
+  const colors = useColors();
+  /** The video whose … menu is open, and the one being edited. */
+  const [menuFor, setMenuFor] = useState<ProVideo | null>(null);
+  const [editing, setEditing] = useState<ProVideo | null>(null);
   const [deleteVideo] = useDeleteProVideoMutation();
   const open = useCallback((v: ProVideo) => { if (v.status === 'ready') onOpen(v); }, [onOpen]);
   const onRetry = useCallback((v: ProVideo) => {
@@ -75,24 +86,62 @@ export default function MyProVideosPane({ onOpen }: { onOpen: (video: ProVideo) 
     ]);
   }, [deleteVideo]);
 
+  /** A row's second line: where an upload's got to, or the video's length. */
+  const statusOf = (v: ProVideo) => {
+    const up = uploadsById.get(v.internal_id);
+    if (up && v.status === 'uploading') return `Uploading · ${up.total ? Math.floor((up.sent / up.total) * 100) : 0}%`;
+    if (v.status === 'uploading') return 'Uploading';
+    if (v.status === 'processing') return 'Processing';
+    if (v.status === 'errored') return "Couldn't process";
+    if (v.status === 'cancelled') return 'Cancelled';
+    return formatDuration(v.duration);
+  };
+
+  const menuOptions = menuFor ? [
+    ...(menuFor.status === 'ready' ? [{ label: 'Edit details', Icon: Pencil, onPress: () => setEditing(menuFor) }] : []),
+    ...(menuFor.status === 'errored' && canRetryProVideo(menuFor.internal_id)
+      ? [{ label: 'Retry upload', Icon: RotateCcw, onPress: () => onRetry(menuFor) }] : []),
+    ...(menuFor.status === 'uploading' ? [{ label: 'Stop upload', Icon: X, onPress: () => onCancel(menuFor) }] : []),
+    { label: 'Delete', Icon: Trash2, destructive: true, onPress: () => onDelete(menuFor) },
+  ] : [];
+
   return (
+    <>
     <FlatList
       data={videos}
       keyExtractor={(v) => v.internal_id}
       contentContainerStyle={styles.content}
-      ItemSeparatorComponent={() => <View style={styles.sep} />}
-      renderItem={({ item }) => (
-        <ProVideoCard
-          video={item}
-          height={CARD_H}
-          onPress={open}
-          upload={uploadsById.get(item.internal_id) ?? null}
-          canRetry={canRetryProVideo(item.internal_id)}
-          onRetry={onRetry}
-          onCancel={onCancel}
-          onDelete={onDelete}
-        />
-      )}
+      ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: colors.border }]} />}
+      renderItem={({ item }) => {
+        const ready = item.status === 'ready' && !!item.playback_id;
+        return (
+          // A plain row: the square poster, the title and how it's doing, and … for edit or delete.
+          <TouchableOpacity style={styles.row} onPress={() => open(item)} activeOpacity={ready ? 0.8 : 1} disabled={!ready}>
+            {ready ? (
+              <Image source={{ uri: muxPoster(item.playback_id!, 200) }} style={[styles.thumb, { backgroundColor: colors.segment }]} contentFit="cover" />
+            ) : (
+              <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: colors.segment }]}>
+                {item.status === 'uploading' || item.status === 'processing'
+                  ? <ActivityIndicator size="small" color={colors.grey} />
+                  : <Clapperboard size={20} color={colors.grey} />}
+              </View>
+            )}
+            <View style={styles.text}>
+              <Text style={[styles.title, { color: colors.fg }]} numberOfLines={2}>{item.title || 'Untitled'}</Text>
+              {statusOf(item) ? <Text style={[styles.sub, { color: colors.grey }]} numberOfLines={1}>{statusOf(item)}</Text> : null}
+            </View>
+            <TouchableOpacity
+              style={styles.more}
+              onPress={() => setMenuFor(item)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Options for ${item.title || 'this video'}`}
+            >
+              <MoreHorizontal size={20} color={colors.grey} />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        );
+      }}
       ListEmptyComponent={list.isLoading
         ? <ActivityIndicator style={styles.loading} color={COLOR_WHITE} />
         : <EmptyState title="No uploads yet" message="Share a drive, a build, a review — upload from PRO › Videos." />}
@@ -100,11 +149,26 @@ export default function MyProVideosPane({ onOpen }: { onOpen: (video: ProVideo) 
       onEndReachedThreshold={0.5}
       showsVerticalScrollIndicator={false}
     />
+    <ActionSheet
+      visible={menuFor !== null}
+      onClose={() => setMenuFor(null)}
+      title={menuFor?.title || 'Video'}
+      options={menuOptions}
+    />
+    <ProVideoDetailsSheet visible={!!editing} video={editing} onClose={() => setEditing(null)} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: GUTTER + 4, paddingBottom: 40 },
-  sep: { height: 12 },
+  content: { paddingHorizontal: GUTTER + 4, paddingTop: 8, paddingBottom: 40 },
+  sep: { height: StyleSheet.hairlineWidth },
   loading: { marginTop: 40 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  thumb: { width: THUMB, height: THUMB, borderRadius: 10 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  text: { flex: 1, minWidth: 0, gap: 3 },
+  title: { fontSize: 15, fontFamily: FONT_INTER.semibold },
+  sub: { fontSize: 12.5 },
+  more: { padding: 6 },
 });

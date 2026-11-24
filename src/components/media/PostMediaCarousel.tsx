@@ -33,6 +33,8 @@ const sizeKey = (item: PostMedia) => (item.kind === 'image' ? item.url : item.po
 
 /** How long the adaptive height takes to ease to the next slide's shape. */
 const SETTLE_MS = 260;
+/** The tallest a video's poster stands in the strip — 3:4. See `shapeOf`. */
+const VIDEO_MIN_RATIO = 3 / 4;
 
 /**
  * A post's photos and videos in one swipeable strip.
@@ -165,7 +167,13 @@ export default function PostMediaCarousel({
   /** Each slide's rounded shape, as its image reports its size — adaptive only. */
   const adaptive = adaptiveHeight && fixedRatio == null;
   const shapeOf = useCallback(
-    (w: number, h: number) => (exactShape && w && h ? w / h : mediaShape(w, h)),
+    (w: number, h: number, kind?: PostMedia['kind']) => {
+      const shape = exactShape && w && h ? w / h : mediaShape(w, h);
+      // A video's slide is only its poster — it plays full screen at its own
+      // shape (VideoLightbox) — so in the strip it's kept short: never taller
+      // than 3:4, a tall portrait clip cropped to fill rather than standing tall.
+      return kind === 'video' ? Math.max(shape, VIDEO_MIN_RATIO) : shape;
+    },
     [exactShape],
   );
   // Seeded from photos already seen, so a remounted card starts at its size.
@@ -174,7 +182,9 @@ export default function PostMediaCarousel({
     media.forEach((item, i) => {
       const key = sizeKey(item);
       const size = key ? knownSizes.get(key) : undefined;
-      if (size && adaptive) seed[i] = shapeOf(size.w, size.h);
+      if (size && adaptive) seed[i] = shapeOf(size.w, size.h, item.kind);
+      // A video before its poster has loaded: already at its short shape.
+      else if (adaptive && item.kind === 'video') seed[i] = VIDEO_MIN_RATIO;
     });
     return seed;
   });
@@ -183,7 +193,7 @@ export default function PostMediaCarousel({
     if (key && w && h) knownSizes.set(key, { w, h });
     if (index === 0) lockRatio(w, h);
     if (!adaptive) return;
-    const shape = shapeOf(w, h);
+    const shape = shapeOf(w, h, media[index]?.kind);
     setShapes((prev) => (prev[index] === shape ? prev : { ...prev, [index]: shape }));
   }, [adaptive, media, shapeOf, lockRatio]);
 
@@ -287,7 +297,7 @@ export default function PostMediaCarousel({
               {/* Nudged right by an eighth of its width. A triangle's mass sits
                   toward its base, so centring it geometrically leaves it
                   looking like it has drifted left inside the circle. */}
-              <Svg width={22} height={22} viewBox="0 0 22 22" style={styles.playGlyph}>
+              <Svg width={32} height={32} viewBox="0 0 22 22" style={styles.playGlyph}>
                 <Polygon points="6,3 19,11 6,19" fill={COLOR_WHITE} />
               </Svg>
             </View>
@@ -483,11 +493,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   playCircle:  {
-    width: 60, height: 60, borderRadius: 30,
+    width: 76, height: 76, borderRadius: 38,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center', justifyContent: 'center',
   },
-  playGlyph:   { marginLeft: 3 },
+  playGlyph:   { marginLeft: 4 },
   processingBg:   { backgroundColor: SURFACE_MID },
   processingPill: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,

@@ -12,7 +12,8 @@ import SummaryMessageButton from '../members/SummaryMessageButton';
 import { useStackedUserSummary } from '../members/useStackedUserSummary';
 import { useGetGroupQuery, useGetGroupMembersQuery, useJoinGroupMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { useBrandColor } from '../../hooks/useBrandColor';
+import { useBrandColor, useIsPro } from '../../hooks/useBrandColor';
+import { isProGroup } from './GroupCard';
 import { useColors } from '../../hooks/useColors';
 import { firstGalleryUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
@@ -90,6 +91,10 @@ export default function GroupSummaryModal({
   const isPending = mine?.status === 'pending';
   // An invitation is already a yes from the group — joining takes you straight in.
   const isInvited = mine?.status === 'invited';
+  // Pro Drivers is for Pro members: anyone else isn't offered a way to ask in
+  // (the server refuses it too). An invitation still opens it.
+  const isPro = useIsPro();
+  const proLocked = !!group && isProGroup(group) && !isPro && !isInvited;
 
   const requestToJoin = async () => {
     if (!groupId) return;
@@ -188,7 +193,11 @@ export default function GroupSummaryModal({
                 Not offered to the admin it would write to. */}
             <View style={styles.actionsRow}>
               {rosterKnown && !isMember && (
-                isPending ? (
+                proLocked ? (
+                  <View style={[styles.joinBtn, { backgroundColor: colors.segment }]}>
+                    <Text style={[styles.joinText, { color: colors.grey }]}>Pro members only</Text>
+                  </View>
+                ) : isPending ? (
                   <View style={[styles.joinBtn, { backgroundColor: colors.segment }]}>
                     <Text style={[styles.joinText, { color: colors.grey }]}>Requested</Text>
                   </View>

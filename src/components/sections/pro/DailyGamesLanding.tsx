@@ -16,6 +16,7 @@ import {
   GUTTER, COLOR_GRAY_160, COLOR_WHITE,
 } from '../../../constants/config';
 import { MAX_ATTEMPTS } from '../../../types/games';
+import ProSubTabs from '../ProSubTabs';
 
 /** Where today stands in one game, as the button says it. */
 export interface Status {
@@ -97,12 +98,17 @@ export default function DailyGamesLanding({ scrollRef, headerPad, bottomPad, onS
   return (
     <ScrollView
       ref={scrollRef}
-      contentContainerStyle={[styles.content, { paddingTop: headerPad + 12, paddingBottom: bottomPad }]}
+      contentContainerStyle={[styles.content, { paddingTop: headerPad + 2, paddingBottom: bottomPad }]}
       showsVerticalScrollIndicator={false}
       onScroll={onScroll}
       scrollEventThrottle={16}
       refreshControl={refreshControl}
     >
+      {/* PRO's options, scrolling away with the page (nothing outside PRO). */}
+      {/* Out past the content's padding to the app's gutters. */}
+      <View style={{ marginHorizontal: -(GUTTER + 8), marginBottom: -14 }}>
+        <ProSubTabs />
+      </View>
       <DailyGameTiles />
       {sharedNext ? <Countdown nextAt={sharedNext} label="Resets in" small /> : null}
       <View style={styles.results}><TodayResults /></View>

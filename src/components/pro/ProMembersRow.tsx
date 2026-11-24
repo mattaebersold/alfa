@@ -13,6 +13,8 @@ import { colors as palette } from '../../constants/colors';
 import { COMMON_RADIUS, COLOR_BLACK, COLOR_GRAY_160, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import type { User } from '../../types/api';
+import ProSectionTitle from './ProSectionTitle';
+import { Users } from 'lucide-react-native';
 
 const CARD_W = 120;
 const AVATAR = 72;
@@ -36,7 +38,9 @@ export default function ProMembersRow({ members, inset }: { members: User[]; ins
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.heading, { color: c.fg, paddingHorizontal: inset }]}>Find Pro Members</Text>
+      <View style={{ paddingHorizontal: inset, paddingBottom: 10 }}>
+        <ProSectionTitle title="Find Pro Members" Icon={Users} />
+      </View>
 
       {/* The search, over the row while its matches are open. */}
       <View style={[styles.searchWrap, { paddingHorizontal: inset }, searching && styles.raised]}>

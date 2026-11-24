@@ -23,6 +23,8 @@ import { extractLinks, linkLabel } from '../../utils/text';
 import { tabNavProxy } from '../../navigation/navigateInTabs';
 import { useRefreshControl } from '../../hooks/useRefreshControl';
 import UserSummaryModal from '../../components/members/UserSummaryModal';
+import CarSummaryModal, { type CarPreview } from '../../components/cars/CarSummaryModal';
+import { SummaryOverride } from '../../providers/SummaryProvider';
 import { type SummaryOrigin } from '../../components/ui/SummaryModal';
 import Odometer from '../../components/ui/Odometer';
 import { COMMON_RADIUS, PANE_BG } from '../../constants/config';
@@ -86,6 +88,18 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
   const composerRef = useRef<ComposerHandle>(null);
   // Whose summary is open, and the row it grew out of.
   const [userSummary, setUserSummary] = useState<{ userId: string; origin: SummaryOrigin | null } | null>(null);
+  /**
+   * The card's author and car taps, sent to this pane's own summaries. Left
+   * to the app-wide ones, they opened under this route — out of sight, so
+   * tapping the author's photo or a tagged car seemed to do nothing.
+   */
+  const openUser = useCallback((userId: string, origin?: SummaryOrigin | null) => {
+    setUserSummary({ userId, origin: origin ?? null });
+  }, []);
+  const [carSummary, setCarSummary] = useState<{ id: string; origin?: SummaryOrigin | null; preview?: CarPreview | null } | null>(null);
+  const openCar = useCallback((id: string, origin?: SummaryOrigin | null, preview?: CarPreview | null) => {
+    setCarSummary({ id, origin, preview });
+  }, []);
   const [editOpen, setEditOpen] = useState(false);
   const hiddenIds = useAppSelector((s) => (s as any).moderation?.hiddenContentIds ?? []);
 
@@ -152,14 +166,16 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
             <View>
               {/* The post, as the home feed draws it — its whole text, and no
                   card of its own: the pane is the card. */}
-              <FeedItemCard
-                post={post}
-                bare
-                fullText
-                visible
-                onEdit={() => setEditOpen(true)}
-                onDeleted={() => close()}
-              />
+              <SummaryOverride openUser={openUser} openCar={openCar}>
+                <FeedItemCard
+                  post={post}
+                  bare
+                  fullText
+                  visible
+                  onEdit={() => setEditOpen(true)}
+                  onDeleted={() => close()}
+                />
+              </SummaryOverride>
 
               {/* Links found in the post body → open in the external browser */}
               {links.length > 0 && (
@@ -281,6 +297,12 @@ export default function PostDetailScreen({ route }: FeedScreenProps<'PostDetail'
           userId={userSummary?.userId ?? null}
           origin={userSummary?.origin}
           onClose={() => setUserSummary(null)}
+        />
+        <CarSummaryModal
+          carId={carSummary?.id ?? null}
+          origin={carSummary?.origin}
+          preview={carSummary?.preview}
+          onClose={() => setCarSummary(null)}
         />
       </View>
       )}

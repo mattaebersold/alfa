@@ -18,13 +18,45 @@ import { Image as ExpoImage, type ImageProps } from 'expo-image';
  *   only for the small ones. Not for anything with transparency.
  */
 export function Image({ small, ...props }: ImageProps & { small?: boolean }) {
+  const uri = sourceUri(props.source);
+  const seen = uri ? shownUris.has(uri) : false;
+  const { onLoad } = props;
   return (
     <ExpoImage
       enforceEarlyResizing={Platform.OS === 'ios'}
       decodeFormat={small ? 'rgb' : undefined}
       {...props}
+      // A picture already shown this session draws at once. expo-image fades
+      // every load in, even one straight from memory, so a feed card rebuilt
+      // as you scroll back to it flashed every photo and face on it.
+      transition={seen ? 0 : props.transition}
+      onLoad={uri ? (e) => { rememberShown(uri); onLoad?.(e); } : onLoad}
     />
   );
+}
+
+/**
+ * Pictures that have loaded this session — the ones a remount finds in the
+ * cache. Capped: past it, the oldest are dropped, which only costs them their
+ * fade back.
+ */
+const shownUris = new Set<string>();
+const SHOWN_CAP = 3000;
+function rememberShown(uri: string) {
+  if (shownUris.has(uri)) return;
+  shownUris.add(uri);
+  if (shownUris.size > SHOWN_CAP) {
+    const oldest = shownUris.values().next().value;
+    if (oldest !== undefined) shownUris.delete(oldest);
+  }
+}
+
+function sourceUri(source: ImageProps['source']): string | null {
+  if (!source) return null;
+  if (typeof source === 'string') return source;
+  if (Array.isArray(source)) return null;
+  if (typeof source === 'object' && 'uri' in source && typeof source.uri === 'string') return source.uri;
+  return null;
 }
 
 /**
@@ -43,6 +75,8 @@ export function configureImageMemory() {
   }
   AppState.addEventListener('memoryWarning', () => {
     ExpoImage.clearMemoryCache().catch(() => {});
+    // They're back to loading from disk, so back to fading in.
+    shownUris.clear();
   });
 }
 

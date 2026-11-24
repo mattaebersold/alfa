@@ -1,10 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Linking, Dimensions, Modal,
+  View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions,
 } from 'react-native';
 import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SharedModal from '../ui/SharedModal';
 import { format } from 'date-fns';
 import { MapPin, Clock, Check, X } from 'lucide-react-native';
 import {
@@ -17,7 +17,7 @@ import { useColors } from '../../hooks/useColors';
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { calendarDate } from '../../utils/calendarDate';
-import { COMMON_RADIUS, COLOR_BLACK, PANE_BG } from '../../constants/config';
+import { COMMON_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { openInMaps } from '../../utils/openInMaps';
 
@@ -36,7 +36,11 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
   const colors = useColors();
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  const { data: event, isLoading } = useGetEventQuery(eventId!, { skip: !eventId });
+  // The last event shown, kept through the close slide so the pane doesn't
+  // drop to a spinner on its way down.
+  const [shownId, setShownId] = useState(eventId);
+  useEffect(() => { if (eventId) setShownId(eventId); }, [eventId]);
+  const { data: event, isLoading } = useGetEventQuery(shownId!, { skip: !shownId });
   const [attendEvent, { isLoading: attending }] = useAttendEventMutation();
   const [declineEvent, { isLoading: declining }] = useDeclineEventMutation();
 
@@ -50,22 +54,15 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
   const date = eventDay ? format(eventDay, 'EEEE, MMMM d, yyyy') : null;
 
   return (
-    <Modal
+    // The app's one pane, filling the screen as the page sheet did, with its
+    // X kept.
+    <SharedModal
       visible={!!eventId}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title={event?.title ?? 'Event'}
+      fullHeight
+      showClose
     >
-      <SafeAreaView style={[styles.fill, { backgroundColor: PANE_BG }]} edges={['top', 'bottom']}>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.fg }]} numberOfLines={1}>
-            {event?.title ?? 'Event'}
-          </Text>
-          <TouchableOpacity onPress={onClose} hitSlop={10}>
-            <X size={22} color={colors.fg} />
-          </TouchableOpacity>
-        </View>
-
         {isLoading || !event ? (
           <Spinner fullScreen />
         ) : (
@@ -151,18 +148,11 @@ export default function EventDetailSheet({ eventId, onClose }: Props) {
             </View>
           </ScrollView>
         )}
-      </SafeAreaView>
-    </Modal>
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  fill:   { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, gap: 12,
-  },
-  headerTitle: { flex: 1, fontSize: 17, fontFamily: FONT_INTER.bold },
   scroll:  { paddingBottom: 40 },
   dotRow:  { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 8 },
   dot:     { width: 6, height: 6, borderRadius: 3 },

@@ -114,6 +114,7 @@ export default function MarketplaceBrowse({
   cardBackground,
   lockKind,
   hideManageEntry = false,
+  top,
 }: {
   /**
    * Narrow to one group's listings. The server reads it as "only things in
@@ -123,6 +124,8 @@ export default function MarketplaceBrowse({
   groupId?: string;
   /** Shown above the list, scrolling away with it. Omitted where the host titles itself. */
   heading?: string;
+  /** First in the list, above the heading — PRO's options row. */
+  top?: React.ReactNode;
   /** Typed loosely: the list's one item is the mosaic, not a listing. */
   listRef?: React.Ref<FlatList<any>>;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -598,6 +601,7 @@ export default function MarketplaceBrowse({
         contentContainerStyle={contentContainerStyle}
         ListHeaderComponent={
           <>
+            {top}
             {/* Heading rides in the list so it scrolls away with the content. */}
             {!!heading && <ScreenHeading title={heading} />}
 

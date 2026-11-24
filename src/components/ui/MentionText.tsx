@@ -8,7 +8,6 @@ import { useLazyGetPublicUserQuery } from '../../api/apiService';
 import { parseMentions } from '../../utils/mentions';
 import { Linking } from 'react-native';
 import { LINK_LABEL, LINK_MARKER_RE } from '../../utils/linkify';
-import { FONT_INTER } from '../../constants/fonts';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -31,7 +30,7 @@ interface MentionTextProps {
   trailing?: React.ReactNode;
   /**
    * The URLs behind the text's link markers, in order — see utils/linkify.
-   * Each marker is drawn as a bold, underlined "View More" that opens its URL.
+   * Each marker is drawn as an underlined "View More" that opens its URL.
    */
   links?: string[];
 }
@@ -139,5 +138,5 @@ export default function MentionText({ text, style, numberOfLines, onTextLayout, 
 // remaps to gold for pro members, so a mention read as a highlight rather than
 // as something to press.
 
-/** A link in the words: the words' own face and ink, bold and underlined. */
-const LINK_STYLE = { fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' as const };
+/** A link in the words: the words' own face, weight and ink — just underlined. */
+const LINK_STYLE = { textDecorationLine: 'underline' as const };

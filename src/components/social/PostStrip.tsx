@@ -8,6 +8,7 @@ import { Image } from '../ui/AppImage';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Plus } from 'lucide-react-native';
 import UserByline from '../members/UserByline';
+import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
@@ -31,6 +32,8 @@ const ROW_PAD_LEFT = 16;
 const MEDIA_RATIO = 4 / 3;
 /** What fits in a text post's preview at `leadText`'s size before the "…". */
 const TEXT_LEAD_LINES = 4;
+/** A poll card's option rows, at most; past that the last says how many more. */
+const POLL_SHOWN = 3;
 /** Same bar FeedList sets for "being watched" — most of the card, not a sliver. */
 const VISIBLE_FRACTION = 0.6;
 
@@ -48,6 +51,7 @@ const VISIBLE_FRACTION = 0.6;
  */
 export default function PostStrip({
   title,
+  titleNode,
   posts,
   total,
   showByline = true,
@@ -66,9 +70,13 @@ export default function PostStrip({
   captionLines = 2,
   captionOnImage = false,
   bylineOnImage = false,
+  avatarOnImage = false,
   kindBadge = false,
 }: {
-  title: string;
+  /** The heading. Left off, with nothing else in its row, the shelf is just the cards — no head, no room above. */
+  title?: string;
+  /** Drawn in the title's place — a heading of the host's own (the Pro screen's red one). */
+  titleNode?: React.ReactNode;
   posts: Post[];
   /** How many exist in total — "View all" only appears when there are more. */
   total?: number;
@@ -112,6 +120,12 @@ export default function PostStrip({
   captionOnImage?: boolean;
   /** Who posted it, as a pill on the picture's top-left corner instead of under it. */
   bylineOnImage?: boolean;
+  /**
+   * Just the author's photo on the picture — no name. `true` puts it top-left
+   * with a soft shadow; `'right'` (now also top-left) in a 3px black/40 ring,
+   * the Pro screen's video cards' look.
+   */
+  avatarOnImage?: boolean | 'right';
   /**
    * What kind of post it is, as a colour-coded pill on the picture's top-left —
    * its category where it has one (Maintenance, Restoration…), else its type.
@@ -165,11 +179,13 @@ export default function PostStrip({
   const empty = posts.length === 0;
   if (empty && !onAdd) return null;
   const hasMore = !empty && (alwaysViewAll || (total ?? posts.length) > posts.length);
+  const headless = !title && !titleNode && !onAdd && !hasMore;
 
   return (
-    <View style={[styles.wrap, ruled && [styles.ruled, { borderTopColor: colors.border }, ruleGap != null && { marginTop: ruleGap }]]}>
+    <View style={[styles.wrap, headless && styles.wrapHeadless, ruled && [styles.ruled, { borderTopColor: colors.border }, ruleGap != null && { marginTop: ruleGap }]]}>
+      {headless ? null : (
       <View style={styles.head}>
-        <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
+        {titleNode ?? <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>}
         <View style={styles.headActions}>
           {/* Just a +, in the account's colour — the one thing here only the
               owner can do. Its words are for the screen reader. */}
@@ -197,6 +213,7 @@ export default function PostStrip({
           )}
         </View>
       </View>
+      )}
 
       {!empty && (
       <ScrollView
@@ -233,6 +250,7 @@ export default function PostStrip({
               captionLines={captionLines}
               captionOnImage={captionOnImage}
               bylineOnImage={bylineOnImage}
+              avatarOnImage={avatarOnImage}
               kindBadge={kindBadge}
             />
           );
@@ -263,6 +281,7 @@ export interface PostCardLook {
   captionOnImage?: boolean;
   /** Who posted it, as a pill on the picture's top-left. */
   bylineOnImage?: boolean;
+  avatarOnImage?: boolean | 'right';
   /** The post's category (or type), colour-coded, on the picture's top-left. */
   kindBadge?: boolean;
   /**
@@ -279,7 +298,7 @@ export interface PostCardLook {
 export function PostCard({
   post, width, visible, onPress,
   cardBackground, showByline = true, showTime = true, largeCaption = false,
-  captionLines = 2, captionOnImage = false, bylineOnImage = false, kindBadge = false, naturalRatio = false,
+  captionLines = 2, captionOnImage = false, bylineOnImage = false, avatarOnImage = false, kindBadge = false, naturalRatio = false,
 }: PostCardLook & {
   post: Post;
   width: number;
@@ -295,7 +314,9 @@ export function PostCard({
    * under the name, and its picture shaded back.
    */
   const spot = post.type === 'spot_result' && post.carspot ? post.carspot : null;
-  const caption = spot ? 'ORS Guessing Game' : (post.title || (post.body ? stripHtml(post.body) : ''));
+  // A poll with no title of its own reads as its question.
+  const caption = spot ? 'ORS Guessing Game' : (post.title || post.poll?.question || (post.body ? stripHtml(post.body) : ''));
+  const pollOptions = post.poll?.options?.length ? post.poll.options : null;
   const timeAgo = post.created_at
     ? formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
     : '';
@@ -341,17 +362,49 @@ export function PostCard({
         // "a post" and nothing about which. The caption below would
         // only repeat it, so it goes.
         <TouchableOpacity
-          style={[styles.image, caption ? styles.imageText : styles.imageBlank, { backgroundColor: cardBackground ?? colors.segment }]}
+          style={[styles.image, caption ? styles.imageText : styles.imageBlank, caption && avatarOnImage && styles.imageTextTight, { backgroundColor: cardBackground ?? colors.segment }]}
           onPress={onPress}
           activeOpacity={0.85}
         >
           {caption ? (
-            <Text style={[styles.leadText, { color: colors.fg }]} numberOfLines={TEXT_LEAD_LINES}>
+            <Text
+              style={[styles.leadText, avatarOnImage && styles.leadTextSmall, { color: colors.fg }]}
+              // Four smaller lines and the photo just fill the block, so
+              // little is left empty at its foot. A poll's question takes
+              // two, and its options the rest.
+              numberOfLines={pollOptions ? 2 : TEXT_LEAD_LINES}
+            >
               {caption}
             </Text>
           ) : (
             <MessageSquare size={20} color={colors.grey} />
           )}
+          {/* A poll: its options under the question, so the card says what's
+              being asked rather than standing half empty. Three at most —
+              past that, two and how many more. */}
+          {pollOptions ? (
+            <View style={[styles.pollOptions, avatarOnImage && post.user && styles.pollOptionsBesideAvatar]} pointerEvents="none">
+              {(pollOptions.length > POLL_SHOWN ? pollOptions.slice(0, POLL_SHOWN - 1) : pollOptions).map((o) => (
+                <View key={o.internal_id} style={styles.pollOption}>
+                  <View style={[styles.pollDot, { borderColor: colors.grey }]} />
+                  <Text style={[styles.pollLabel, { color: colors.fg }]} numberOfLines={1}>{o.label}</Text>
+                </View>
+              ))}
+              {pollOptions.length > POLL_SHOWN ? (
+                <Text style={[styles.pollMore, { color: colors.grey }]} numberOfLines={1}>
+                  +{pollOptions.length - (POLL_SHOWN - 1)} more
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          {/* No picture to sit on: the author's photo goes on its own line,
+              just under the words — a poll's in the block's corner, beside
+              its options. */}
+          {avatarOnImage && post.user ? (
+            <View style={pollOptions ? styles.avatarCorner : styles.avatarFoot} pointerEvents="none">
+              <Avatar user={post.user} size={26} edge={false} />
+            </View>
+          ) : null}
         </TouchableOpacity>
       )}
       {/* The caption on a fade at the foot of the card — the card's foot,
@@ -379,6 +432,12 @@ export function PostCard({
       {/* The author, on the picture — whose story the car turned up in. */}
       {bylineOnImage && post.user ? (
         <UserByline user={post.user} size={20} gap={6} color="#FFFFFF" nameStyle={styles.bylinePillText} style={styles.bylinePill} />
+      ) : null}
+      {/* Just who posted it, as their photo on the picture's corner. */}
+      {avatarOnImage && post.user && (lead || spot) ? (
+        <View style={avatarOnImage === 'right' ? styles.avatarRing : styles.avatarOver} pointerEvents="none">
+          <Avatar user={post.user} size={26} edge={false} />
+        </View>
       ) : null}
       {(caption && lead && !captionOnImage) || spot || (showByline && !bylineOnImage) || (showTime && timeAgo) ? (
       <TouchableOpacity style={styles.body} onPress={onPress} activeOpacity={0.85}>
@@ -427,6 +486,8 @@ const CARD_RADIUS = 14;
 const styles = StyleSheet.create({
   // Room between one shelf and the next.
   wrap: { paddingTop: 30 },
+  // No head: the cards start right away.
+  wrapHeadless: { paddingTop: 0 },
   // A full-width rule with room either side of it.
   ruled: { marginTop: 26, paddingTop: 26, borderTopWidth: 1 },
   head: {
@@ -456,6 +517,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999,
   },
   kindPillText: { fontSize: 11.5, fontFamily: FONT_INTER.bold },
+  // Top-left in a 3px black/40 ring, no shadow.
+  avatarRing: { position: 'absolute', top: 8, left: 8, borderRadius: 16, borderWidth: 3, borderColor: 'rgba(0,0,0,0.4)' },
+  avatarOver: { position: 'absolute', top: 8, left: 8, borderRadius: 13, boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.5)' },
   bylinePill: {
     // Passes taps through to the picture under it — style-level, as the
     // byline takes no `pointerEvents` prop.
@@ -481,7 +545,26 @@ const styles = StyleSheet.create({
   spotDate:  { alignSelf: 'flex-start' },
   imageBlank: { alignItems: 'center', justifyContent: 'center' },
   imageText:  { padding: 12, justifyContent: 'center' },
+  // With the author's photo under the words: started at the top, with less room above and below.
+  imageTextTight: { paddingTop: 8, paddingBottom: 4, justifyContent: 'flex-start' },
   leadText:   { fontSize: 16, fontFamily: FONT_INTER.bold, lineHeight: 21 },
+  // With the author's photo under it: a size down, to leave it room.
+  leadTextSmall: { fontSize: 13.5, lineHeight: 18 },
+  // A line of its own, close under the words.
+  avatarFoot: { paddingTop: 8 },
+  // A poll's author, in the block's bottom-right corner beside its options.
+  avatarCorner: { position: 'absolute', right: 8, bottom: 8 },
+  pollOptions: { marginTop: 6, gap: 4 },
+  // Clear of the photo in the corner.
+  pollOptionsBesideAvatar: { paddingRight: 30 },
+  pollOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, height: 20, paddingHorizontal: 7,
+    borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  // An empty choice circle, as the poll itself draws an option you haven't picked.
+  pollDot: { width: 9, height: 9, borderRadius: 5, borderWidth: 1.5 },
+  pollLabel: { flex: 1, fontSize: 12, fontFamily: FONT_INTER.semibold },
+  pollMore: { fontSize: 11.5, fontFamily: FONT_INTER.semibold, paddingLeft: 7 },
   // Grows to the card's height, and pins the byline to the bottom: the extra
   // height a shorter card takes on goes between the caption and the byline,
   // not in a block of empty card beneath it.

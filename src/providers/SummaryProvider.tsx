@@ -56,3 +56,22 @@ export function SummaryProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useSummary = () => useContext(SummaryContext);
+
+/**
+ * Re-points the summaries for everything inside it — for a screen presented
+ * over the app (a transparent modal route) whose cards would otherwise open
+ * the app-wide panels, which sit under that route and so open out of sight.
+ * Whatever isn't overridden still goes to the app-wide one.
+ */
+export function SummaryOverride({ openCar, openUser, children }: {
+  openCar?: OpenCar;
+  openUser?: OpenUser;
+  children: React.ReactNode;
+}) {
+  const parent = useContext(SummaryContext);
+  const value = useMemo(() => ({
+    openCar: openCar ?? parent.openCar,
+    openUser: openUser ?? parent.openUser,
+  }), [openCar, openUser, parent]);
+  return <SummaryContext.Provider value={value}>{children}</SummaryContext.Provider>;
+}

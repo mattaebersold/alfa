@@ -1,3 +1,4 @@
+import type React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,7 +28,11 @@ const todayPill = (date?: string) => (date
  * that game's screen (DailyGameScreen), where its Past Games and Leaderboard
  * are.
  */
-export default function DailyGameTiles({ title }: { title?: string }) {
+export default function DailyGameTiles({ title, titleNode }: {
+  title?: string;
+  /** Drawn in the title's place — the Pro screen's red heading. */
+  titleNode?: React.ReactNode;
+}) {
   const navigation = useNavigation<any>();
   // The games' own today — shared with their screens and the status hooks.
   const car = useGetCarGameTodayQuery().data;
@@ -38,7 +43,7 @@ export default function DailyGameTiles({ title }: { title?: string }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.head}>
-        {title ? <Text style={styles.title} numberOfLines={1}>{title}</Text> : null}
+        {titleNode ?? (title ? <Text style={styles.title} numberOfLines={1}>{title}</Text> : null)}
         <View style={styles.datePill}>
           <Text style={styles.dateText}>{todayPill(date)}</Text>
         </View>

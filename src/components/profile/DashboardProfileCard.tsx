@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { Text } from '../../theme/Text';
+import { View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { Text, TextInput } from '../../theme/Text';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Check, Pencil, X } from 'lucide-react-native';
 import Avatar from '../ui/Avatar';

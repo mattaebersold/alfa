@@ -74,7 +74,7 @@ export const DENSE_TRACK_H = TAB_H_DENSE + TRACK_PAD_DENSE * 2;
  * that goes with it). Anywhere else leaves both off.
  */
 export default function MainTabs<K extends string>({
-  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, thumbColor, thumbTextColor, idleColor, countColor, iconOnly = false, dense = false, pill = false, plainCounts = false, itemsStyle, contentContainerStyle, style,
+  tabs, value, onChange, inset = GUTTER, stretch = true, stuck = false, trackColor, thumbColor, thumbTextColor, idleColor, countColor, iconOnly = false, dense = false, pill = false, plainCounts = false, contained = false, compactFrom, itemsStyle, contentContainerStyle, style,
 }: {
   tabs: MainTab<K>[];
   value?: K;
@@ -110,6 +110,18 @@ export default function MainTabs<K extends string>({
    * own lettering colour — the summary panels' tabs (PanelTabs).
    */
   plainCounts?: boolean;
+  /**
+   * The track stays put, `inset` in from each edge, and the tabs scroll
+   * inside it — rather than the whole track scrolling off the screen's edges.
+   * `contentContainerStyle` then dresses the fixed wrapper.
+   */
+  contained?: boolean;
+  /**
+   * From this tab on (by position), less room either side of each label
+   * (or lone icon), so those sit closer together — the home row draws in
+   * every tab, so the gaps between them all match.
+   */
+  compactFrom?: number;
   itemsStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
@@ -171,7 +183,8 @@ export default function MainTabs<K extends string>({
     const x = tabX.current[key];
     if (x == null) return false;
     const first = key === tabs[0]?.key;
-    const to = first ? 0 : Math.max(0, inset + x - ACTIVE_LEFT);
+    // Contained, the inset is outside the scroller.
+    const to = first ? 0 : Math.max(0, (contained ? 0 : inset) + x - ACTIVE_LEFT);
     scrollRef.current?.scrollTo({ x: to, animated });
     return true;
   };
@@ -186,35 +199,18 @@ export default function MainTabs<K extends string>({
     if (scrollToTab(value, true)) scrolledOnMount.current = true;
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      style={[styles.scroll, style]}
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[
-        styles.row,
-        // Stretched, the row ends at the inset — there's nothing past the
-        // last tab to make room for.
-        { paddingLeft: inset, paddingRight: stretch ? inset : inset + END_SPACE },
-        stretch && styles.rowStretch,
-        contentContainerStyle,
-      ]}
-      accessibilityRole="tablist"
-    >
-      {/* The header's shrink and indent on the outside (RN Animated); inside
-          it, the track, which eases to its new width when a tab's does. */}
-      <Animated.View style={[styles.itemsOuter, stretch && styles.grow, itemsStyle]}>
-      <Reanimated.View layout={TAB_LAYOUT} style={[styles.items, dense && styles.itemsDense, pill && styles.round, stretch && styles.grow, trackColor ? { backgroundColor: trackColor } : null]}>
+  // The thumb and the tabs — inside the scrolling track, or the track inside the scroller.
+  const trackChildren = (
+    <>
         {target && (
           <Reanimated.View
             pointerEvents="none"
             style={[styles.thumb, dense && styles.thumbDense, pill && styles.round, { backgroundColor: TAB_ON_BG }, thumbStyle]}
           />
         )}
-        {tabs.map((t) => {
+        {tabs.map((t, i) => {
           const on = t.key === shown;
+          const compact = compactFrom != null && i >= compactFrom;
           const color = on && thumbTextColor ? thumbTextColor : (t.color ?? (on ? TAB_ON_FG : (idleColor ?? TAB_IDLE_FG)));
           return (
             // Eases to its new place and width when a label or count changes.
@@ -256,7 +252,7 @@ export default function MainTabs<K extends string>({
               accessibilityLabel={iconOnly || t.iconOnly ? (t.count ? `${t.label}, ${t.count}` : t.label) : undefined}
               style={stretch && styles.grow}
             >
-              <View style={[styles.pill, dense && styles.pillDense, stretch && styles.pillStretch, (iconOnly || t.iconOnly) && styles.pillIconOnly, t.iconOnly && styles.pillSoloIcon]}>
+              <View style={[styles.pill, dense && styles.pillDense, stretch && styles.pillStretch, (iconOnly || t.iconOnly) && styles.pillIconOnly, t.iconOnly && styles.pillSoloIcon, compact && styles.pillCompact]}>
                 {t.Icon ? <t.Icon size={iconOnly || t.iconOnly ? 17 : 15} color={color} strokeWidth={on ? 2.4 : 2} /> : null}
                 {!iconOnly && !t.iconOnly && <Text
                   style={[
@@ -283,6 +279,52 @@ export default function MainTabs<K extends string>({
             </Reanimated.View>
           );
         })}
+    </>
+  );
+  const trackStyle = [styles.items, dense && styles.itemsDense, pill && styles.round, trackColor ? { backgroundColor: trackColor } : null];
+
+  if (contained) {
+    return (
+      // The track, fixed `inset` in from both edges; the tabs scroll inside
+      // it and clip at its rounded ends.
+      <Animated.View style={[{ marginHorizontal: inset }, contentContainerStyle as any, itemsStyle, style]} accessibilityRole="tablist">
+        <View style={[trackStyle, styles.trackContained]}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.itemsInner, dense && styles.itemsDense, stretch && styles.rowStretch]}
+          >
+            {trackChildren}
+          </ScrollView>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      style={[styles.scroll, style]}
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[
+        styles.row,
+        // Stretched, the row ends at the inset — there's nothing past the
+        // last tab to make room for.
+        { paddingLeft: inset, paddingRight: stretch ? inset : inset + END_SPACE },
+        stretch && styles.rowStretch,
+        contentContainerStyle,
+      ]}
+      accessibilityRole="tablist"
+    >
+      {/* The header's shrink and indent on the outside (RN Animated); inside
+          it, the track, which eases to its new width when a tab's does. */}
+      <Animated.View style={[styles.itemsOuter, stretch && styles.grow, itemsStyle]}>
+      <Reanimated.View layout={TAB_LAYOUT} style={[trackStyle, stretch && styles.grow]}>
+        {trackChildren}
       </Reanimated.View>
       </Animated.View>
     </ScrollView>
@@ -311,6 +353,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: TRACK_GAP,
     padding: TRACK_PAD, borderRadius: COMMON_RADIUS, backgroundColor: TRACK_BG,
   },
+  // Contained: the fixed track holds the scroller and clips it at its ends;
+  // the padding and gap move inside, onto the scrolling row.
+  trackContained: { padding: 0, paddingVertical: 0, gap: 0, overflow: 'hidden' },
+  itemsInner: { flexDirection: 'row', alignItems: 'center', gap: TRACK_GAP, padding: TRACK_PAD },
   // Under the labels, sliding between them — SubTabs' thumb, a size up.
   thumb: {
     position: 'absolute', top: TRACK_PAD, bottom: TRACK_PAD, left: 0,
@@ -321,6 +367,8 @@ const styles = StyleSheet.create({
     height: TAB_H, paddingHorizontal: 15,
   },
   pillStretch: { justifyContent: 'center' },
+  // `compactFrom`: tighter either side of the label.
+  pillCompact: { paddingHorizontal: 10 },
   // `dense`: a shorter tab in a track padded only at its ends.
   pillDense:   { height: TAB_H_DENSE },
   itemsDense:  { paddingVertical: TRACK_PAD_DENSE },

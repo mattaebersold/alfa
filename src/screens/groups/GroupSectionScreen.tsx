@@ -58,6 +58,8 @@ import { SummaryTouchable, type SummaryOrigin } from '../../components/ui/Summar
 import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK, COLOR_WHITE, GROUP_GROUND, GROUP_LISTING_CARD, PANE_BG } from '../../constants/config';
 import { useInputSurface, INPUT_TEXT_STYLE } from '../../components/ui/FormInput';
 import { FONT_INTER } from '../../constants/fonts'
+import { isProGroup } from '../../components/groups/GroupCard';
+import { useIsPro } from '../../hooks/useBrandColor';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 type ActiveTab = 'posts' | 'discussion' | 'news' | 'members' | 'cars' | 'events' | 'routes' | 'market' | 'resources';
@@ -197,6 +199,9 @@ export default function GroupSectionScreen() {
   // Active admins only. Without the status check an invited-but-not-joined
   // admin would see Settings before actually being in the group.
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin' && m.status === 'active');
+  // In Pro Drivers any Pro member can post news (the server allows it too).
+  const isProViewer = useIsPro();
+  const canPostNews = isAdmin || (!!group && isProGroup(group) && isProViewer);
 
   // Lazy per-tab fetches
   const { data: postsData,     isFetching: postsFetching,     refetch: refetchPosts }     = useGetPostsQuery({ group_id: groupId, limit: 30 }, { skip: tab !== 'posts' });
@@ -291,7 +296,7 @@ export default function GroupSectionScreen() {
     tab === 'posts' ? 'posts'
     : tab === 'discussion' ? 'discussion'
     : tab === 'resources' ? 'resources'
-    : tab === 'news' && isAdmin ? 'news'
+    : tab === 'news' && canPostNews ? 'news'
     : null;
 
   // ── Banner header ────────────────────────────────────────────────────────────

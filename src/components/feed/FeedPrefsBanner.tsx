@@ -110,12 +110,14 @@ export default function FeedPrefsBanner() {
           <FilterDivider />
 
           <FilterLabel>Show</FilterLabel>
+          {/* Two columns: short labels, so a single file of them ran long. */}
+          <View style={styles.grid}>
           {FEED_CONTENT.map((opt) => {
             const checked = draftContent[opt.key];
             return (
               <TouchableOpacity
                 key={opt.key}
-                style={styles.row}
+                style={[styles.row, styles.gridCell]}
                 onPress={() => setDraftContent((d) => ({ ...d, [opt.key]: !d[opt.key] }))}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked }}
@@ -132,6 +134,7 @@ export default function FeedPrefsBanner() {
               </TouchableOpacity>
             );
           })}
+          </View>
           <FilterDivider last />
         </View>
       </SummaryModal>
@@ -143,7 +146,7 @@ const styles = StyleSheet.create({
   // No box: a tight line of grey over the feed, at the non-post cards' inset.
   banner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: FEED_CARD_GUTTER, marginTop: 16,
+    marginHorizontal: FEED_CARD_GUTTER, marginTop: 6,
     paddingHorizontal: 4, paddingVertical: 0,
   },
   bannerText: { flex: 1, fontSize: 13, fontFamily: FONT_INTER.semibold },
@@ -152,7 +155,9 @@ const styles = StyleSheet.create({
   // 44pt targets, like the filter chips.
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44, paddingHorizontal: 12, paddingVertical: 6 },
   rowText: { flex: 1 },
-  rowLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  gridCell: { width: '50%' },
+  rowLabel: { fontSize: 15, fontFamily: FONT_INTER.semibold, flexShrink: 1 },
   rowHint: { fontSize: 12.5, fontFamily: FONT_INTER.regular, marginTop: 2 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 10, height: 10, borderRadius: 5 },

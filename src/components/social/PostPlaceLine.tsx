@@ -44,7 +44,7 @@ export default function PostPlaceLine({ place, color, style }: {
 
   const line = (
     <>
-      <SolidMapPin size={12} color={ink} />
+      <SolidMapPin size={13} color={ink} />
       <Text style={[styles.name, { color: ink }]} numberOfLines={1}>{place.name}</Text>
     </>
   );
@@ -74,6 +74,6 @@ export default function PostPlaceLine({ place, color, style }: {
 
 const styles = StyleSheet.create({
   // Sized to its words, so the tap is on the line and not the card's width.
-  row:  { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', maxWidth: '100%' },
-  name: { fontSize: 12.5, fontFamily: FONT_INTER.medium, flexShrink: 1 },
+  row:  { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', maxWidth: '100%', paddingVertical: 4, paddingHorizontal: 4 },
+  name: { fontSize: 13.5, fontFamily: FONT_INTER.medium, flexShrink: 1 },
 });

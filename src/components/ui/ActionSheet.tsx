@@ -1,11 +1,10 @@
 import React, { useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from '../../theme/Text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts'
-import SlideSheet from './SlideSheet';
-import { COLOR_WHITE, PANE_BG, SHEET_RADIUS } from '../../constants/config';
+import SharedModal, { PANE_GRABBER_H } from './SharedModal';
+import { COLOR_WHITE } from '../../constants/config';
 
 export interface ActionSheetOption {
   label: string;
@@ -44,7 +43,6 @@ interface Props {
  */
 export default function ActionSheet({ visible, onClose, title, message, options, showCancel = true }: Props) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
 
   // The choice runs once the sheet has slid away and unmounted: on iOS a
   // screen or another modal can't be presented while this one is still up,
@@ -63,19 +61,16 @@ export default function ActionSheet({ visible, onClose, title, message, options,
   };
 
   return (
-    // Slides up over the panes' fading wash, as every pane does (SlideSheet).
-    <SlideSheet
+    // The app's one pane (SharedModal), sized to the menu — its grabber
+    // floats over the top, and it clears the home indicator itself.
+    <SharedModal
       visible={visible}
       onClose={onClose}
       onDismissed={runChosen}
-      sheetStyle={[
-        styles.sheet,
-        // Clear of the home indicator, or Android's navigation bar — which
-        // can report no inset inside a Modal, so it gets a floor of its own.
-        { backgroundColor: PANE_BG, paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 12) + 8 },
-      ]}
+      hideHeader
+      fitContent
     >
-      <View style={styles.grabber} />
+      <View style={styles.sheet}>
 
       {(title || message) && (
         <View style={styles.head}>
@@ -116,19 +111,14 @@ export default function ActionSheet({ visible, onClose, title, message, options,
           <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
         </TouchableOpacity>
       )}
-    </SlideSheet>
+      </View>
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS,
-    paddingHorizontal: 12, paddingTop: 8,
-  },
-  grabber: {
-    alignSelf: 'center', width: 38, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: 8,
-  },
+  // Clear of the grabber floating over the top.
+  sheet: { paddingHorizontal: 12, paddingTop: PANE_GRABBER_H, paddingBottom: 8 },
   head:    { paddingHorizontal: 6, paddingVertical: 10 },
   title:   { fontSize: 15, fontFamily: FONT_INTER.bold },
   message: { fontSize: 13, marginTop: 3, lineHeight: 18 },

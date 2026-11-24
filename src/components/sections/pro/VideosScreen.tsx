@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import ProVideoStack from '../../videos/ProVideoStack';
+import ProSubTabs from '../ProSubTabs';
 import ProVideoFilters, { type VideoPanelFilters } from '../../videos/ProVideoFilters';
 import ProVideoUploadBanner from '../../videos/ProVideoUploadBanner';
 import ProVideoDetailsSheet from '../../videos/ProVideoDetailsSheet';
+import ProVideoOverlay from '../../videos/ProVideoOverlay';
 import EmptyState from '../../ui/EmptyState';
 import {
   useGetProVideoMetaQuery, useGetProVideosInfiniteQuery, useDeleteProVideoMutation,
@@ -24,11 +25,11 @@ import type { SectionScreenProps } from '../types';
  *
  * Filters at the top (search, and sort/length/make in a panel) with Upload
  * beside them; any uploads going up from this phone in a banner under that;
- * then every video as a cascading stack (videos/ProVideoStack). A ready one
- * opens the player (ProVideoScreen).
+ * then every video as the Pro screen's video cards (videos/ProVideoStack). A
+ * ready one plays full screen over everything (ProVideoOverlay), as a card in
+ * the Pro screen's videos row does.
  */
 export default function VideosScreen({ headerPad, onScroll, bottomPad }: SectionScreenProps) {
-  const navigation = useNavigation<any>();
   const { data: meta } = useGetProVideoMetaQuery();
   const [search, setSearch] = useState('');
   const q = useDebounced(search, 350);
@@ -77,10 +78,12 @@ export default function VideosScreen({ headerPad, onScroll, bottomPad }: Section
     }
   }, []);
 
+  /** The video playing full screen — the same viewer the Pro screen's videos row opens. */
+  const [watching, setWatching] = useState<ProVideo | null>(null);
   const onOpen = useCallback((v: ProVideo) => {
-    if (v.status !== 'ready') return; // its card carries what can be done with it
-    navigation.navigate('ProVideo', { videoId: v.internal_id });
-  }, [navigation]);
+    if (v.status !== 'ready' || !v.playback_id) return; // its card carries what can be done with it
+    setWatching(v);
+  }, []);
 
   const onRetry = useCallback((v: ProVideo) => {
     if (!retryErroredProVideo(v.internal_id)) {
@@ -109,6 +112,8 @@ export default function VideosScreen({ headerPad, onScroll, bottomPad }: Section
 
   const header = (
     <View onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
+      {/* PRO's options, scrolling away with the page. */}
+      <ProSubTabs />
       <ProVideoFilters
         meta={meta}
         search={search}
@@ -142,7 +147,7 @@ export default function VideosScreen({ headerPad, onScroll, bottomPad }: Section
         empty={empty}
         footer={list.isFetchingNextPage ? <ActivityIndicator style={styles.more} color={COLOR_WHITE} /> : null}
         headerHeight={headerHeight}
-        paddingTop={headerPad + 12}
+        paddingTop={headerPad + 2}
         paddingBottom={bottomPad}
         onScroll={onScroll}
         onEndReached={() => { if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage(); }}
@@ -155,6 +160,7 @@ export default function VideosScreen({ headerPad, onScroll, bottomPad }: Section
         onDelete={onDelete}
       />
       <ProVideoDetailsSheet visible={!!picked} picked={picked} onClose={() => setPicked(null)} />
+      <ProVideoOverlay video={watching} onClose={() => setWatching(null)} />
     </>
   );
 }

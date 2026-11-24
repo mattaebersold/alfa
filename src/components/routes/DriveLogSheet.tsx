@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Modal, Alert, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Text } from '../../theme/Text';
 import FormScrollView from '../../keyboard/FormScrollView';
-import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { DateField } from '../ui/DateTimeField';
 import FormInput from '../ui/FormInput';
 import { ConditionPicker } from './ConditionChips';
@@ -11,7 +10,7 @@ import { useAddRouteDriverMutation, useRemoveRouteDriverMutation } from '../../a
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
 import type { RouteCondition, RouteDriver } from '../../types/api';
-import { COMMON_RADIUS, PANE_BG, PANE_SCRIM, SHEET_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 /**
@@ -31,7 +30,6 @@ export default function DriveLogSheet({ visible, onClose, routeId, mine, isCreat
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
-  const insets = useSafeAreaInsets();
   const [addDriver, { isLoading: saving }] = useAddRouteDriverMutation();
   const [removeDriver, { isLoading: removing }] = useRemoveRouteDriverMutation();
 
@@ -84,88 +82,84 @@ export default function DriveLogSheet({ visible, onClose, routeId, mine, isCreat
   const busy = saving || removing;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <KeyboardAvoidingView style={[styles.backdrop, { paddingTop: insets.top }]}>
-        <View style={[styles.sheet, { backgroundColor: PANE_BG }]}>
-          <FormScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 16 }]}>
-            <Text style={[styles.title, { color: colors.fg }]}>
-              {mine ? 'Your drive' : 'I drove this'}
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.grey }]}>
-              Everything here is optional.
-            </Text>
+    // The app's one pane: the grabber floats over the top of the form, which
+    // heads itself; the pane rides on the keyboard.
+    <SharedModal visible={visible} onClose={onClose} hideHeader>
+      <FormScrollView contentContainerStyle={styles.body}>
+        <Text style={[styles.title, { color: colors.fg }]}>
+          {mine ? 'Your drive' : 'I drove this'}
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.grey }]}>
+          Everything here is optional.
+        </Text>
 
-            <Text style={[styles.label, { color: colors.fg }]}>How long did it take?</Text>
-            <View style={styles.timeRow}>
-              <FormInput
-                style={styles.timeInput}
-                value={hours}
-                onChangeText={(t) => setHours(t.replace(/\D/g, '').slice(0, 2))}
-                keyboardType="number-pad"
-                placeholder="0"
-                accessibilityLabel="Hours"
-              />
-              <Text style={[styles.unit, { color: colors.grey }]}>hr</Text>
-              <FormInput
-                style={styles.timeInput}
-                value={minutes}
-                onChangeText={(t) => setMinutes(t.replace(/\D/g, '').slice(0, 2))}
-                keyboardType="number-pad"
-                placeholder="0"
-                accessibilityLabel="Minutes"
-              />
-              <Text style={[styles.unit, { color: colors.grey }]}>min</Text>
-            </View>
-
-            <Text style={[styles.label, { color: colors.fg }]}>When?</Text>
-            <DateField
-              value={drivenOn}
-              onChange={setDrivenOn}
-              placeholder="Optional"
-              clearable
-              maximumDate={new Date()}
-            />
-
-            <Text style={[styles.label, { color: colors.fg }]}>Conditions</Text>
-            <ConditionPicker value={conditions} onChange={setConditions} />
-
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.btn, styles.cancel, { borderColor: colors.border }]}
-                onPress={onClose}
-                disabled={busy}
-              >
-                <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.btn, { backgroundColor: brand, flex: 1 }]}
-                onPress={save}
-                disabled={busy}
-              >
-                {saving
-                  ? <ActivityIndicator color={onBrand} />
-                  : <Text style={[styles.submitText, { color: onBrand }]}>{mine ? 'Save' : 'Add my drive'}</Text>}
-              </TouchableOpacity>
-            </View>
-
-            {mine && !isCreator && (
-              <TouchableOpacity style={styles.removeBtn} onPress={remove} disabled={busy}>
-                <Text style={[styles.removeText, { color: colors.red }]}>
-                  {removing ? 'Removing…' : "I didn't drive this — take me off"}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </FormScrollView>
+        <Text style={[styles.label, { color: colors.fg }]}>How long did it take?</Text>
+        <View style={styles.timeRow}>
+          <FormInput
+            style={styles.timeInput}
+            value={hours}
+            onChangeText={(t) => setHours(t.replace(/\D/g, '').slice(0, 2))}
+            keyboardType="number-pad"
+            placeholder="0"
+            accessibilityLabel="Hours"
+          />
+          <Text style={[styles.unit, { color: colors.grey }]}>hr</Text>
+          <FormInput
+            style={styles.timeInput}
+            value={minutes}
+            onChangeText={(t) => setMinutes(t.replace(/\D/g, '').slice(0, 2))}
+            keyboardType="number-pad"
+            placeholder="0"
+            accessibilityLabel="Minutes"
+          />
+          <Text style={[styles.unit, { color: colors.grey }]}>min</Text>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+
+        <Text style={[styles.label, { color: colors.fg }]}>When?</Text>
+        <DateField
+          value={drivenOn}
+          onChange={setDrivenOn}
+          placeholder="Optional"
+          clearable
+          maximumDate={new Date()}
+        />
+
+        <Text style={[styles.label, { color: colors.fg }]}>Conditions</Text>
+        <ConditionPicker value={conditions} onChange={setConditions} />
+
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.btn, styles.cancel, { borderColor: colors.border }]}
+            onPress={onClose}
+            disabled={busy}
+          >
+            <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btn, { backgroundColor: brand, flex: 1 }]}
+            onPress={save}
+            disabled={busy}
+          >
+            {saving
+              ? <ActivityIndicator color={onBrand} />
+              : <Text style={[styles.submitText, { color: onBrand }]}>{mine ? 'Save' : 'Add my drive'}</Text>}
+          </TouchableOpacity>
+        </View>
+
+        {mine && !isCreator && (
+          <TouchableOpacity style={styles.removeBtn} onPress={remove} disabled={busy}>
+            <Text style={[styles.removeText, { color: colors.red }]}>
+              {removing ? 'Removing…' : "I didn't drive this — take me off"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </FormScrollView>
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: PANE_SCRIM, justifyContent: 'flex-end' },
-  sheet: { maxHeight: '100%', borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden' },
-  body:     { padding: 20, gap: 10 },
+  body:     { padding: 20, paddingTop: PANE_GRABBER_H, gap: 10 },
   title:    { fontSize: 18, fontFamily: FONT_INTER.bold },
   subtitle: { fontSize: 13, marginTop: -6 },
   label:    { fontSize: 14, fontFamily: FONT_INTER.bold, marginTop: 8 },

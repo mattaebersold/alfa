@@ -88,6 +88,8 @@ import {
 import { useGroupSummary } from '../../providers/GroupSummaryProvider';
 import { FONT_INTER } from '../../constants/fonts'
 import { useCountBadge } from '../../hooks/useCountBadge';
+import { isProGroup } from '../../components/groups/GroupCard';
+import { useIsPro } from '../../hooks/useBrandColor';
 
 type AppNav = NativeStackNavigationProp<AppStackParamList>;
 
@@ -462,6 +464,9 @@ export default function GroupDetailScreen() {
   // Active admins only. Without the status check an invited-but-not-joined
   // admin would see Settings before actually being in the group.
   const isAdmin  = members.some((m) => m.user_id === userInfo?.user_id && m.member_type === 'admin' && m.status === 'active');
+  // In Pro Drivers any Pro member can post news (the server allows it too).
+  const isProViewer = useIsPro();
+  const canPostNews = isAdmin || (!!group && isProGroup(group) && isProViewer);
   // Oldest first — whoever has waited longest is answered first.
   const pendingRequests = members
     .filter((m) => m.status === 'pending')
@@ -772,7 +777,7 @@ export default function GroupDetailScreen() {
   const createNew: (() => void) | null =
     tab === 'discussion' ? () => setCreateKind('discussion')
     : tab === 'resources' ? () => setCreateKind('resources')
-    : tab === 'news' && isAdmin ? () => setCreateKind('news')
+    : tab === 'news' && canPostNews ? () => setCreateKind('news')
     : tab === 'posts' ? () => (navigation as any).navigate('Create', { groupId })
     : tab === 'cars' && canManageCars ? () => setCarModalOpen(true)
     : tab === 'market' ? () => (navigation as any).navigate('ListingCreate', { groupId })

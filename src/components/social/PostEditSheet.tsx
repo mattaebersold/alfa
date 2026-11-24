@@ -1,69 +1,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform,
+  View, TouchableOpacity, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../../theme/Text';
 import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
-import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
-import { PortalHost } from '../Portal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { X, Check } from 'lucide-react-native';
-import PostTagPicker, { type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
+import { userTag, type TagItem as PickerTagItem, type TagKind as PickerTagKind } from './PostTagPicker';
+import PostTypePicker from '../create/PostTypePicker';
+import PostFormSections from '../create/PostFormSections';
+import MentionInput from '../ui/MentionInput';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import PostGalleryEditor, { toEditorImages, type EditorImage } from './PostGalleryEditor';
-import PostOptionalFields, { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from './PostOptionalFields';
-import StickyFormFooter from '../ui/StickyFormFooter';
-import FormInput from '../ui/FormInput';
-import PostToSelector from './PostToSelector';
-import PostLocationField from './PostLocationField';
+import { EMPTY_OPTIONAL_FIELDS, type OptionalFieldValues } from './PostOptionalFields';
 import PollEditor, { pollDraftFrom, pollDraftToInput, type PollDraft } from './PollEditor';
 import { uploadFile } from '../../utils/upload';
 import {
   useUpdatePostMutation, useSyncPostTagsMutation, useGetPostTagsQuery,
   useGetUserGroupsQuery,
-  useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery, useGetPreviouslyTaggedEventsQuery, useGetPostTaxonomyQuery,
+  useGetPreviouslyTaggedUsersQuery, useGetPreviouslyTaggedCarsQuery, useGetPreviouslyTaggedEventsQuery, useGetUserByIdQuery,
 } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import { useColors } from '../../hooks/useColors';
-import { contrastText } from '../../hooks/useBrandColor';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { colors } from '../../constants/colors';
 import type { Post, PostPlace } from '../../types/api';
-import { COMMON_RADIUS, PILL_RADIUS, COLOR_WHITE, PANE_BG, PANE_SCRIM, SHEET_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
-
-const TYPES = [
-  { key: 'general', label: 'Post' },
-  { key: 'record',  label: 'Record' },
-  { key: 'spot',    label: 'Spotted' },
-];
-
-/**
- * Listings and want ads are marketplace records now, not post types.
- *
- * A post made before the split still carries one of these, and this sheet is
- * where its author edits it — so the chip is offered only when the post is
- * already that kind. What it can't do is turn an ordinary post into one: that
- * would mint a listing the marketplace never shows.
- */
-const LEGACY_TYPES: Record<string, { key: string; label: string }> = {
-  listing: { key: 'listing', label: 'Listing' },
-  want:    { key: 'want',    label: 'Want Ad' },
-};
-
-const CATEGORIES_BY_TYPE: Record<string, { key: string; label: string }[]> = {
-  general: [{ key: 'show', label: 'Show' }, { key: 'misc', label: 'Misc.' }],
-  record:  [
-    { key: 'general', label: 'General' }, { key: 'mod', label: 'Mod' },
-    { key: 'restoration', label: 'Restoration' }, { key: 'maintenance', label: 'Maintenance' },
-    { key: 'detailing', label: 'Detailing' },
-  ],
-  spot:    [{ key: 'show', label: 'Show' }, { key: 'museum', label: 'Museum' }, { key: 'wild', label: 'In the Wild' }],
-  listing: [
-    { key: 'new', label: 'New Part' }, { key: 'used', label: 'Used Part' },
-    { key: 'car', label: 'Car' }, { key: 'accessories', label: 'Accessories' }, { key: 'other', label: 'Other' },
-  ],
-  want:    [{ key: 'part', label: 'Part' }, { key: 'car', label: 'Car' }, { key: 'other', label: 'Other' }],
-};
 
 // Tag types come from the picker — see CreateScreen for the same reasoning.
 type TagKind = PickerTagKind;
@@ -97,12 +60,13 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   // came back from a save with neither, because the form never carried them.
   const [optional, setOptional] = useState<OptionalFieldValues>(EMPTY_OPTIONAL_FIELDS);
 
-  // Readable foreground for anything filled with the brand color — black on the
-  // pro gold, white on the default blue.
-  const onAccent = contrastText(colors.primaryAlt);
   const insets = useSafeAreaInsets();
-  // Android: Save closes the form, under its last field, rather than floating.
-  const inlineSave = Platform.OS === 'android';
+  // Save's fill: Pro red for a Pro account, blue otherwise.
+  const brand = useBrandColor();
+  // Only a post that already has a poll shows the poll editor.
+  const isPoll = !!post.poll?.options?.length;
+  // An older post with words in its body as well as its title.
+  const hadBody = !!post.body?.trim();
 
   // Gallery — existing images plus any newly picked, in display order
   const [images, setImages] = useState<EditorImage[]>(() => toEditorImages(post.gallery));
@@ -168,21 +132,27 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   // on this post resolve to readable labels when the editor opens.
   const labelLookup = useMemo(() => {
     const users: Record<string, string> = {};
+    // The member themself, so the chip shows their photo, not just initials.
+    const userObjs: Record<string, any> = {};
     const cars: Record<string, string> = {};
     const events: Record<string, string> = {};
     const addUser = (u: any) => {
       const id = u.user_id || u.internal_id;
-      if (id) users[id] = u.username ? `@${u.username}` : [u.firstName, u.lastName].filter(Boolean).join(' ') || 'User';
+      if (!id) return;
+      users[id] = u.username || [u.firstName, u.lastName].filter(Boolean).join(' ') || 'User';
+      userObjs[id] = u;
     };
     const addCar = (c: any) => {
       if (c.internal_id) cars[c.internal_id] = [c.year, c.make, c.model].filter(Boolean).join(' ') || c.title || 'Car';
     };
     const addEvent = (e: any) => { if (e.internal_id) events[e.internal_id] = e.title || 'Event'; };
     (prevUsersData?.users ?? []).forEach(addUser);
+    // The post's own tags, when the feed batched the member onto them.
+    (post.tags ?? []).forEach((t) => { if (t.tagged_user) addUser(t.tagged_user); });
     (prevCarsData?.cars ?? []).forEach(addCar);
     (prevEventsData?.events ?? []).forEach(addEvent);
-    return { users, cars, events };
-  }, [prevUsersData, prevCarsData, prevEventsData]);
+    return { users, userObjs, cars, events };
+  }, [prevUsersData, prevCarsData, prevEventsData, post.tags]);
 
   // Prefill selected tags from the post's existing tags (labels resolved best-effort).
   useEffect(() => {
@@ -192,29 +162,12 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
       const kind = kindFromEntryType(t.tag_entry_type);
       if (!kind) return;
       const id = t.tag_internal_id;
-      if (kind === 'user') u.push({ id, kind, label: labelLookup.users[id] ?? 'Tagged user' });
+      if (kind === 'user') u.push({ id, kind, label: labelLookup.users[id] ?? 'Tagged user', avatarUser: labelLookup.userObjs[id] });
       else if (kind === 'car') c.push({ id, kind, label: labelLookup.cars[id] ?? 'Tagged car' });
       else e.push({ id, kind, label: labelLookup.events[id] ?? 'Tagged event' });
     });
     setTaggedUsers(u); setTaggedCars(c); setTaggedEvents(e);
   }, [visible, existingTags, labelLookup]);
-
-  // Your own types and categories too (made in the new-post form), and the
-  // post's own value if it's neither: one made by an older build, or a name
-  // you've since deleted from your list, still shows as picked.
-  const { data: taxonomy } = useGetPostTaxonomyQuery();
-  const asOption = (label: string) => ({ key: label, label });
-  const typeOptions = [
-    ...(LEGACY_TYPES[type] ? [LEGACY_TYPES[type]] : []),
-    ...TYPES,
-    ...(taxonomy?.types ?? []).map(asOption),
-  ];
-  if (type && !typeOptions.some((t) => t.key === type)) typeOptions.push(asOption(type));
-  const categories = [
-    ...(CATEGORIES_BY_TYPE[type] ?? []),
-    ...(taxonomy?.categories?.[type] ?? []).map(asOption),
-  ];
-  if (category && !categories.some((c) => c.key === category)) categories.push(asOption(category));
 
   const toggleTag = (tag: TagItem) => {
     if (tag.kind === 'group') return;
@@ -355,166 +308,132 @@ export default function PostEditSheet({ post, visible, onClose }: Props) {
   };
 
   const saveButton = (
-    <TouchableOpacity style={[styles.saveBtn, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
-      {isLoading ? <ActivityIndicator color={onAccent} size="small" /> : <Text style={[styles.saveBtnText, { color: onAccent }]}>Save Changes</Text>}
+    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: brand }, isLoading && styles.saveBtnDisabled]} onPress={handleSave} disabled={isLoading}>
+      {isLoading ? <ActivityIndicator color={COLOR_BLACK} size="small" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
     </TouchableOpacity>
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      {/* Its own layer for floating lists (autocompletes) — the app root's is under the Modal. */}
-      <PortalHost>
+    // The app's one pane (SharedModal): its scrim fading in place, the sheet
+    // sliding up, and the grabber floating over the form on a fade, so the
+    // form runs to the pane's top edge and scrolls up under it.
+    <SharedModal visible={visible} onClose={onClose} hideHeader heightRatio={0.9}>
       {/* Gesture Handler needs its own root inside an RN Modal, or the gallery's
           drag-to-reorder never receives touches. */}
-      <GestureHandlerRootView style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-        {/* The sheet rides on the keyboard: this fills the modal and shrinks by
-            the keyboard's height, and the sheet sits at its bottom capped to a
-            share of it. `box-none` lets a tap above the sheet reach the backdrop. */}
-        <KeyboardAvoidingView style={styles.sheetWrap} pointerEvents="box-none">
-          <View style={[styles.sheet, { backgroundColor: PANE_BG }]}>
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.headerTitle, { color: colors.fg }]}>Edit Post</Text>
-              <TouchableOpacity onPress={onClose} hitSlop={8}>
-                <X size={22} color={colors.grey} />
-              </TouchableOpacity>
-            </View>
-
+      <GestureHandlerRootView style={styles.gestureRoot}>
             {/* The Save footer floats over the form's bottom edge, so a focused
                 field is kept clear of it as well as of the keyboard. On
                 Android the button ends the form instead, clear of the
                 system's navigation bar. */}
             <FormScrollView
               style={styles.scroll}
-              contentContainerStyle={[styles.form, inlineSave && { paddingBottom: insets.bottom + 24 }]}
-              bottomOffset={KEYBOARD_GAP + (inlineSave ? 0 : FOOTER_H)}
+              contentContainerStyle={[styles.form, { paddingBottom: insets.bottom + 24 }]}
+              bottomOffset={KEYBOARD_GAP}
             >
-              <PostGalleryEditor images={images} onChange={setImages} />
-
-              <Text style={[styles.label, { color: colors.grey }]}>Title</Text>
-              <FormInput value={title} onChangeText={setTitle} placeholder="Add a title..." />
-
-              <Text style={[styles.label, { color: colors.grey }]}>Body</Text>
-              <FormInput value={body} onChangeText={setBody} placeholder="What's on your mind?" multiline />
-
-              <Text style={[styles.label, { color: colors.grey }]}>Type</Text>
-              <View style={styles.pills}>
-                {/* The post's own legacy type leads, so an old listing shows
-                    what it is — and stays what it is unless its author moves it
-                    to an ordinary post on purpose. */}
-                {typeOptions.map((t) => (
-                  <TouchableOpacity
-                    key={t.key}
-                    style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },
-                      type === t.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
-                    onPress={() => { setType(t.key); setCategory(''); }}
-                  >
-                    <Text style={[styles.pillText, { color: colors.grey }, type === t.key && { color: onAccent }]}>{t.label}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.header}>
+                <Text style={[styles.headerTitle, { color: colors.fg }]}>Edit Post</Text>
               </View>
 
-              {categories.length > 0 && (
-                <>
-                  <Text style={[styles.label, { color: colors.grey }]}>Category</Text>
-                  <View style={styles.pills}>
-                    {categories.map((c) => (
-                      <TouchableOpacity
-                        key={c.key}
-                        style={[styles.pill, { borderColor: colors.border, backgroundColor: colors.card },
-                          category === c.key && { backgroundColor: colors.primaryAlt, borderColor: colors.primaryAlt }]}
-                        onPress={() => setCategory(c.key)}
-                      >
-                        <Text style={[styles.pillText, { color: colors.grey }, category === c.key && { color: onAccent }]}>{c.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
-
-              {/* ── The details a post can carry — same block the create
-                  form uses, so the two can't offer different fields ── */}
-              <PostOptionalFields
-                values={optional}
-                onChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
-                showPrice={type === 'listing' || type === 'want'}
+              {/* Type, then its categories — the new-post form's own pills
+                  (PostTypePicker), hydrated with this post's. A legacy
+                  listing or want ad shows as picked, offered only to it. */}
+              <PostTypePicker
+                type={type}
+                category={category}
+                onChange={(next) => { setType(next.type); setCategory(next.category); }}
+                style={styles.typePicker}
               />
 
-              {/* ── Tags — one defined row each ── */}
-              <Text style={[styles.label, { color: colors.grey }]}>Tag People, Cars & Events</Text>
-              <PostTagPicker
+              <PostGalleryEditor images={images} onChange={setImages} />
+
+              {/* The words — one field, as the new-post form has: a post's
+                  title is what it says. An @ in it tags that member too. */}
+              <MentionInput
+                value={title}
+                onChangeText={(text) => setTitle(text)}
+                placeholder="What's on your mind?"
+                multiline
+                style={styles.mindInput}
+                cars={false}
+                onMentionUser={(u) => {
+                  const tag = userTag(u);
+                  setTaggedUsers((prev) => (prev.some((t) => t.id === tag.id) ? prev : [...prev, tag]));
+                }}
+              />
+
+              {/* A second field only where there's a description to edit: a
+                  poll's, or an older post that was written with one — so its
+                  text isn't stranded where it can't be changed. */}
+              {(isPoll || hadBody) && (
+                <MentionInput
+                  value={body}
+                  onChangeText={(text) => setBody(text)}
+                  placeholder="Description"
+                  multiline
+                  style={styles.mindInput}
+                  cars={false}
+                />
+              )}
+
+              {/* ── Poll — the same block the create form uses, only on a post
+                  that is one. Options with votes keep their ids and can't be
+                  removed here. ── */}
+              {isPoll && (
+                <PollEditor draft={poll} onChange={setPoll} lockedOptionIds={lockedOptionIds} />
+              )}
+
+              {/* ── Optional Details, the tags, Location and Post To — the
+                  new-post form's own lower half (PostFormSections), hydrated
+                  with this post's. Reaches past the form's 16 padding. ── */}
+              <PostFormSections
+                inset={16}
+                optional={optional}
+                onOptionalChange={(patch) => setOptional((prev) => ({ ...prev, ...patch }))}
+                showOptional={!isPoll}
+                showPrice={type === 'listing' || type === 'want'}
                 users={taggedUsers}
                 cars={taggedCars}
                 events={taggedEvents}
-                onToggle={toggleTag}
-              />
-
-              {/* ── Poll — the same block the create form uses. Options with
-                  votes keep their ids and can't be removed here. ── */}
-              <Text style={[styles.label, { color: colors.grey }]}>Poll</Text>
-              <PollEditor draft={poll} onChange={setPoll} lockedOptionIds={lockedOptionIds} />
-
-              {/* ── Post To — the same tiles the create form uses ── */}
-              <Text style={[styles.label, { color: colors.grey }]}>Post To</Text>
-              <PostToSelector
+                onToggleTag={toggleTag}
+                place={place}
+                onPlaceChange={setPlace}
                 isPublic={isPublic}
                 onTogglePublic={() => setIsPublic((v) => !v)}
                 groups={userGroups}
                 selectedGroupIds={selectedGroupIds}
                 onToggleGroup={toggleGroup}
               />
-              {userGroups.length === 0 && (
-                <Text style={[styles.postToEmpty, { color: colors.grey }]}>You're not a member of any groups.</Text>
-              )}
 
-              {/* ── Where it was made — the create form's "Add a Location", last here too ── */}
-              <Text style={[styles.label, { color: colors.grey }]}>Location</Text>
-              <PostLocationField value={place} onChange={setPlace} framed={false} />
-
-              {inlineSave && <View style={styles.inlineSave}>{saveButton}</View>}
+              {/* Ends the form, full width, in the flow rather than pinned. */}
+              <View style={styles.inlineSave}>{saveButton}</View>
             </FormScrollView>
-
-            {!inlineSave && (
-              <StickyFormFooter color={colors.card} bottomInset={0}>
-                {saveButton}
-              </StickyFormFooter>
-            )}
-          </View>
-        </KeyboardAvoidingView>
+            {/* Tagged members neither list above knew: each looked up by id,
+                and swapped in with their name and photo once it's back. */}
+            {taggedUsers.filter((t) => !t.avatarUser).map((t) => (
+              <TaggedUserResolver
+                key={t.id}
+                id={t.id}
+                onResolved={(u) => setTaggedUsers((prev) => prev.map((x) => (x.id === t.id ? userTag(u) : x)))}
+              />
+            ))}
       </GestureHandlerRootView>
-      </PortalHost>
-    </Modal>
+    </SharedModal>
   );
 }
 
 
-/** Roughly how tall the floating Save footer stands over the form. */
-const FOOTER_H = 70;
-
 const styles = StyleSheet.create({
-  overlay:     { flex: 1, justifyContent: 'flex-end', backgroundColor: PANE_SCRIM },
-  backdrop:    { ...StyleSheet.absoluteFill },
-  sheetWrap:   { flex: 1, justifyContent: 'flex-end' },
-  // The sheet has to shrink to its cap rather than overflow it. A
-  // content-height box holding a tall ScrollView lays out past the cap and gets
-  // clipped, which leaves the footer — positioned against the *box's* bottom —
-  // sitting somewhere below the screen. Shrinking both the sheet and its
-  // scroller keeps the laid-out bottom and the visible bottom the same edge.
-  sheet:       {
-    maxHeight: '90%', flexShrink: 1,
-    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden',
-  },
-  scroll:      { flexShrink: 1 },
-  header:      {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
-  },
+  gestureRoot: { flex: 1 },
+  scroll:      { flex: 1 },
+  // The title, first in the form.
+  header:      { marginBottom: 6 },
   headerTitle: { fontSize: 17, fontFamily: FONT_INTER.bold },
-  form:        { padding: 16, gap: 6, paddingBottom: 120 },
-  label:       { fontSize: 12, fontFamily: FONT_INTER.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 4 },
-  pills:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS, borderWidth: 1 },
-  pillText:    { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  // Clear of the grabber floating over the form's top.
+  form:        { padding: 16, paddingTop: PANE_GRABBER_H, gap: 6, paddingBottom: 120 },
+  // Room above and below the type and category rows.
+  typePicker:  { marginTop: 12, marginBottom: 12 },
+  // The photo well's corners, as the new-post form's field.
+  mindInput:   { borderRadius: COMMON_RADIUS },
 
   selectedTags:   { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   tagChip:        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: PILL_RADIUS, borderWidth: 1 },
@@ -529,15 +448,25 @@ const styles = StyleSheet.create({
 
   postToRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
   postToLabel: { flex: 1, fontSize: 15, fontFamily: FONT_INTER.semibold },
-  postToEmpty: { paddingVertical: 8, fontSize: 13 },
   checkbox:    { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
+  // The create form's Post button: full width, brand-filled, black type.
   saveBtn:     {
-    alignSelf: 'center', minWidth: 180,
-    backgroundColor: colors.primaryAlt, borderRadius: COMMON_RADIUS,
-    paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center',
+    borderRadius: COMMON_RADIUS,
+    paddingVertical: 14, paddingHorizontal: 28,
+    alignItems: 'center', justifyContent: 'center',
   },
   inlineSave:  { marginTop: 24 },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: COLOR_WHITE, fontFamily: FONT_INTER.extrabold, fontSize: 15 },
+  saveBtnText: { color: COLOR_BLACK, fontFamily: FONT_INTER.extrabold, fontSize: 17 },
 });
+
+/** Looks one tagged member up by id and hands them back — renders nothing. */
+function TaggedUserResolver({ id, onResolved }: { id: string; onResolved: (user: any) => void }) {
+  const { data } = useGetUserByIdQuery(id, { skip: !id });
+  useEffect(() => {
+    if (data) onResolved(data);
+    // Once per member: the parent swaps the tag out, which unmounts this.
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}

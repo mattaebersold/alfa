@@ -8,6 +8,12 @@ import { useColors } from '../../hooks/useColors';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_RED } from '../../constants/config';
 
+/**
+ * Names a type of your own can't take: the built-in keys and labels, and the
+ * app's internal types (postTaxonomyController refuses the same list).
+ */
+export const RESERVED_TYPE_NAMES = ['general', 'record', 'spot', 'listing', 'want', 'spot_result', 'story', 'update', 'note', 'post', 'car record', 'spotted', 'want ad'];
+
 /** As the server allows (postTaxonomyController): 24 characters, letters, numbers and a little punctuation. */
 export const CUSTOM_LABEL_MAX = 24;
 const LABEL = /^[\p{L}\p{N}][\p{L}\p{N} &'\-\/+!]*$/u;

@@ -93,6 +93,7 @@ import ShopScreen from '../screens/shop/ShopScreen';
 import ProductDetailScreen from '../screens/shop/ProductDetailScreen';
 import PhotoSpotCreateScreen from '../screens/photography/PhotoSpotCreateScreen';
 import AboutScreen from '../screens/marketing/AboutScreen';
+import HomeMessagesScreen from '../screens/homeMessages/HomeMessagesScreen';
 import SupportScreen from '../screens/support/SupportScreen';
 import ConciergeScreen from '../screens/marketing/ConciergeScreen';
 import SocietyEventDetailScreen from '../screens/society/SocietyEventDetailScreen';
@@ -140,9 +141,8 @@ export default function AppNavigator() {
         // CreateScreen). Turned off here, where the header is decided, rather
         // than from inside the screen — a setOptions from the screen lost to
         // these options after a cold start, and the form showed both.
-        // A transparent modal: the screen draws its own sheet over the panes'
-        // light grey wash and slides it in and out itself, with a grabber and
-        // a drag down to close (see CreateScreen).
+        // A transparent modal: the screen is the app's pane (SharedModal),
+        // which brings its own wash, slide and grabber (see CreateScreen).
         options={{ headerShown: false, presentation: 'transparentModal', animation: 'none', gestureEnabled: false }}
       />
       {/* Recording takes the whole screen — a live map with no chrome competing
@@ -202,8 +202,9 @@ export default function AppNavigator() {
       <Stack.Screen
         name="JournalCreate"
         component={JournalCreateScreen}
-        // Draws its own heading, as the mod form does.
-        options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        // A transparent modal: the screen is the app's pane (SharedModal),
+        // which brings its own wash, slide and grabber — as the post form.
+        options={{ headerShown: false, presentation: 'transparentModal', animation: 'none', gestureEnabled: false }}
       />
       <Stack.Screen
         name="CreateList"
@@ -321,6 +322,11 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Support"
         component={SupportScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="HomeMessages"
+        component={HomeMessagesScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

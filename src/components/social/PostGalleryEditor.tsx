@@ -111,13 +111,6 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.labelRow}>
-        <Text style={[styles.label, { color: c.grey }]}>PHOTOS</Text>
-        <Text style={[styles.hint, { color: c.greyDark }]}>
-          {images.length}/{max} · hold to reorder
-        </Text>
-      </View>
-
       {/* No photos: the full photo well. With some, the reorderable row and
           the slim add bar under it. */}
       {images.length > 0 ? (
@@ -144,9 +137,6 @@ export default function PostGalleryEditor({ images, onChange, max = 10 }: Props)
 
 const styles = StyleSheet.create({
   wrap:     { marginBottom: 18 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  label:    { fontSize: 12, fontFamily: FONT_INTER.bold, letterSpacing: 0.5 },
-  hint:     { fontSize: 11 },
 
   listContainer: { height: THUMB + 8 },
   listContent:   { paddingRight: 8 },

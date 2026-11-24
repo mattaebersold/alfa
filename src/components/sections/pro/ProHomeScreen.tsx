@@ -1,10 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../../../theme/Text';
 import RowEndSpacer from '../../ui/RowEndSpacer';
 import PostStrip from '../../social/PostStrip';
+import NewProVideosShelf from '../../videos/NewProVideosShelf';
 import ProMembersRow from '../../pro/ProMembersRow';
+import ProSectionTitle from '../../pro/ProSectionTitle';
+import ProViewAllPane from '../../pro/ProViewAllPane';
+import ProSubTabs from '../ProSubTabs';
+import { Gamepad2, MessageSquare, Car } from 'lucide-react-native';
 import CarPosterCard from '../../cards/CarPosterCard';
 import FeedItemCard from '../../cards/FeedItemCard';
 import UserByline from '../../members/UserByline';
@@ -54,7 +59,6 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
   scrollRef?: React.RefObject<ScrollView | null>;
 }) {
   const navigation = useNavigation<any>();
-  const c = useColors();
   const home = useGetProHomeQuery();
   const group = home.data?.group ?? null;
   const groupId = group?.internal_id ?? '';
@@ -94,6 +98,10 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
 
   const openGroup = () => { if (group) navigation.navigate('GroupDetail', { groupId: group.internal_id }); };
   const openPost = (post: Post) => navigation.navigate('PostDetailModal', { postId: post.internal_id });
+  /** Which View all pane is open: Pro Member Updates' or Pro Member Cars'. */
+  const [viewAll, setViewAll] = useState<'posts' | 'cars' | null>(null);
+  const lastViewAll = useRef<'posts' | 'cars'>('posts');
+  if (viewAll) lastViewAll.current = viewAll;
 
   const cars = home.data?.cars ?? [];
   const groupLoading = postsFeed.isLoading || discussionFeed.isLoading;
@@ -102,12 +110,15 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
     <>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingTop: headerPad + 12, paddingBottom: bottomPad }}
+        contentContainerStyle={{ paddingTop: headerPad + 2, paddingBottom: bottomPad }}
         showsVerticalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
         refreshControl={refreshControl}
       >
+        {/* PRO's options, scrolling away with the page. */}
+        <ProSubTabs />
+
         {/* 1. Today's Daily Games. */}
         <DailyGamesCard statuses={[car, auction]} />
 
@@ -117,7 +128,6 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
         {/* 2. The Pro-only group — only once the server has one. */}
         {group ? (
           <View style={styles.section}>
-            <Text style={[styles.heading, styles.shelfHeading, { color: c.fg }]}>Pro Group</Text>
             <View style={styles.groupCard}>
               {cardGroup ? (
                 <GroupCard
@@ -132,6 +142,10 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
                 <SkeletonCard ratio={2} />
               )}
             </View>
+
+            {/* The newest Pro videos, right under the group's card; View all
+                opens PRO › Videos. Hides itself when there are none. */}
+            <NewProVideosShelf />
 
             {/* The group's latest: grey stand-ins until they're in. */}
             {groupLoading ? <SkeletonList count={2} ratio={2.4} style={styles.groupSkeleton} /> : null}
@@ -150,24 +164,41 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
             ) : (
               <DiscussionCard key={`d-${item.internal_id}`} item={item as GroupDiscussionPost} onPress={() => setDetail(item as GroupDiscussionPost)} />
             )))}
-            {!groupLoading && groupItems.length === 0 ? (
-              <Text style={[styles.empty, { color: c.muted }]}>Nothing posted in the group yet.</Text>
-            ) : null}
           </View>
         ) : null}
 
+        {/* No Pro group: the videos row stands on its own here. */}
+        {group ? null : <NewProVideosShelf />}
+
         {/* 3. Pro members' latest posts. Hides itself when there are none. */}
         <PostStrip
-          title="Pro Updates"
+          titleNode={<ProSectionTitle title="Pro Member Updates" Icon={MessageSquare} />}
           posts={home.data?.posts ?? []}
+          // The author's photo top-left on each card (a text post or a poll:
+          // under its words), as on the video cards above; no name or time.
+          avatarOnImage="right"
+          showByline={false}
+          showTime={false}
           onPostPress={openPost}
-          onViewAll={() => {}}
+          onViewAll={() => setViewAll('posts')}
+          alwaysViewAll
         />
 
         {/* 4. Pro members' latest garage cars. */}
         {cars.length ? (
           <View style={styles.carsWrap}>
-            <Text style={[styles.heading, styles.shelfHeading, { color: c.fg }]}>Pro Member Cars</Text>
+            <View style={[styles.shelfHead, styles.shelfHeading]}>
+              <ProSectionTitle title="Pro Member Cars" Icon={Car} />
+              <TouchableOpacity
+                style={styles.viewAllBtn}
+                onPress={() => setViewAll('cars')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="View all Pro member cars"
+              >
+                <Text style={styles.viewAllText}>View all</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -183,6 +214,8 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
                   // As the featured row draws them: the garage card's plate and
                   // counts, square, with the owner — and a tap opens the summary.
                   showOwner
+                  // Just the owner's photo, top-left, as on the video cards.
+                  ownerAvatar
                   plain
                   square
                   summaryOnPress
@@ -209,6 +242,8 @@ export default function ProHomeScreen({ scrollRef, headerPad, onScroll, bottomPa
         onClose={() => setDetail(null)}
       />
 
+      {/* View all, for Pro Member Updates and Pro Member Cars. */}
+      <ProViewAllPane kind={lastViewAll.current} visible={!!viewAll} onClose={() => setViewAll(null)} />
     </>
   );
 }
@@ -222,7 +257,7 @@ function DailyGamesCard({ statuses }: { statuses: Status[] }) {
 
   return (
     <View style={styles.gamesCard}>
-      <DailyGameTiles title="Daily Games" />
+      <DailyGameTiles titleNode={<ProSectionTitle title="Daily Games" Icon={Gamepad2} />} />
 
       {nextAt ? (
         <Countdown nextAt={nextAt} label="Resets in" small />
@@ -311,6 +346,10 @@ const styles = StyleSheet.create({
   // ── Garage cars ──
   carsWrap: { paddingTop: 30 },
   shelfHeading: { paddingHorizontal: HEAD_PAD, paddingBottom: 10 },
+  // A title with its View all at the other end — PostStrip's head.
+  shelfHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 10 },
+  viewAllBtn: { height: 28, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  viewAllText: { fontSize: 12.5, fontFamily: FONT_INTER.semibold, color: '#FFFFFF' },
   carRow: { gap: CAR_GAP, paddingLeft: HEAD_PAD, paddingBottom: 4 },
   carCard: { width: CAR_WIDTH, marginHorizontal: 0, marginVertical: 0 },
 

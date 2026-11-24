@@ -4,6 +4,7 @@ import { createBottomTabNavigator, BottomTabBar } from '@react-navigation/bottom
 import { Search } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CreateFab, { FAB_LANE } from '../components/ui/CreateFab';
+import PostUploadBanner from '../components/feed/PostUploadBanner';
 import { GUTTER, COLOR_BLACK } from '../constants/config';
 import { useSearch } from '../providers/SearchProvider';
 import type { MainTabParamList } from './types';
@@ -104,11 +105,11 @@ export default function MainTabNavigator() {
           paddingRight: FAB_LANE,
           // Every tab button is hidden, so the bar is an invisible strip across
           // the bottom — it mustn't take the taps meant for the content under
-          // it. The corner circles aren't in it (CreateFab), so they still work.
+          // it. The corner + isn't in it (CreateFab), so they still work.
           pointerEvents: 'none',
         },
-        // Nothing behind it: the bar's only buttons are the floating circles in
-        // the corner (CreateFab), which carry their own ground and shadow.
+        // Nothing behind it: the bar's only buttons are the floating + in
+        // the corner (CreateFab).
         tabBarBackground: () => null,
         tabBarActiveTintColor: brandColor,
         tabBarInactiveTintColor: 'rgba(255,255,255,0.9)',
@@ -199,7 +200,7 @@ export default function MainTabNavigator() {
         component={NoopScreen}
         options={{
           title: 'Search',
-          // Its button is the circle beside the + now — see CreateFab.
+          // Its button is in the header now.
           tabBarButton: () => null,
         }}
         listeners={() => ({
@@ -210,6 +211,8 @@ export default function MainTabNavigator() {
         })}
       />
     </Tab.Navigator>
+    {/* Posts on their way up, beside the + — see utils/postUpload. */}
+    {!immersive && <PostUploadBanner />}
     {!immersive && <CreateFab />}
     </View>
   );

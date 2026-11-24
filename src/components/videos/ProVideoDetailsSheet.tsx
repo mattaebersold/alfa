@@ -8,7 +8,7 @@ import MakeModelFields from '../MakeModelFields';
 import { FilterChoiceRow, FilterLabel } from '../ui/FilterSummaryRow';
 import { useGetProVideoMetaQuery, useUpdateProVideoMutation } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
-import { startProVideoUpload, type PickedVideo } from '../../utils/proVideoUpload';
+import { startProVideoUpload, startProVideoReplace, pickProVideo, type PickedVideo } from '../../utils/proVideoUpload';
 import { formatBytes, formatDuration, type ProVideo, type ProVideoFields } from '../../types/proVideos';
 import { COLOR_RED } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
@@ -21,7 +21,11 @@ import { useColors } from '../../hooks/useColors';
  * Two jobs. With `picked`, it's the step between choosing a file and
  * sending it: Upload hands everything to the upload manager and closes —
  * the banner on the Videos pane takes it from there. With `video`, it edits
- * one already posted (the player's owner menu).
+ * one already posted (the player's owner menu): its title, category and
+ * description — not the car, which an edit leaves as it was — and "Replace
+ * video", which sends a new file to Mux for it. The video keeps playing its
+ * current file until the new one is ready, then the server swaps it in, its
+ * likes, comments and views carried over.
  */
 export default function ProVideoDetailsSheet({ visible, onClose, picked, video, onSaved }: {
   visible: boolean;
@@ -64,15 +68,38 @@ export default function ProVideoDetailsSheet({ visible, onClose, picked, video, 
     description: description.trim() || undefined,
   });
 
+  /** Pick a new file for the video being edited and send it up in the background. */
+  const replace = async () => {
+    if (!video || !userId) return;
+    let next: PickedVideo | null = null;
+    try {
+      next = await pickProVideo();
+    } catch (err: any) {
+      Alert.alert("Couldn't open your videos", err?.message ?? 'Check that the app is allowed to see your library.');
+      return;
+    }
+    if (!next) return;
+    if (next.durationSecs && meta && next.durationSecs > meta.max_duration_secs) {
+      Alert.alert('Too long', `That video is ${formatDuration(next.durationSecs)} long — the most is ${formatDuration(meta.max_duration_secs)}.`);
+      return;
+    }
+    startProVideoReplace(next, video, userId);
+    Alert.alert(
+      'Uploading the new file',
+      "It goes up in the background — its progress is on the Videos tab. This video keeps playing as it is until the new one is ready, then it's swapped in.",
+    );
+  };
+  const replaceStatus = video?.replacement?.status;
+
   const submit = async () => {
     if (!title.trim()) return;
     if (video) {
       try {
-        // Empty strings, not undefined, so a cleared field is cleared on the server.
+        // Empty strings, not undefined, so a cleared field is cleared on the
+        // server. The car isn't sent: an edit leaves it as it was.
         const f = fields();
         await updateVideo({
-          id: video.internal_id, title: f.title, category: f.category,
-          make: f.make ?? '', model: f.model ?? '', year: f.year ?? '', description: f.description ?? '',
+          id: video.internal_id, title: f.title, category: f.category, description: f.description ?? '',
         }).unwrap();
         onSaved?.();
         onClose();
@@ -113,12 +140,40 @@ export default function ProVideoDetailsSheet({ visible, onClose, picked, video, 
           />
         ) : null}
 
-        <FilterLabel>The car (optional)</FilterLabel>
-        <MakeModelFields make={make} model={model} onMakeChange={setMake} onModelChange={setModel} hideMissingLink />
-        <FormInput value={year} onChangeText={(t) => setYear(t.replace(/\D/g, '').slice(0, 4))} placeholder="Year" keyboardType="number-pad" maxLength={4} />
+        {/* The car — only when posting; an edit doesn't offer it. */}
+        {!video ? (
+          <>
+            <FilterLabel>The car (optional)</FilterLabel>
+            <MakeModelFields make={make} model={model} onMakeChange={setMake} onModelChange={setModel} hideMissingLink />
+            <FormInput value={year} onChangeText={(t) => setYear(t.replace(/\D/g, '').slice(0, 4))} placeholder="Year" keyboardType="number-pad" maxLength={4} />
+          </>
+        ) : null}
 
         <FilterLabel>Description (optional)</FilterLabel>
         <FormInput value={description} onChangeText={setDescription} placeholder="Tell people about it" multiline maxLength={5000} />
+
+        {/* A new file for it, sent to Mux; swapped in once it's ready. */}
+        {video ? (
+          <>
+            <FilterLabel>Video file</FilterLabel>
+            {replaceStatus === 'uploading' || replaceStatus === 'processing' ? (
+              <Text style={[styles.note, styles.left, { color: colors.grey }]}>
+                {replaceStatus === 'uploading' ? 'A new file is uploading' : 'Mux is getting the new file ready'} — this video keeps playing the current one until it's swapped in.
+              </Text>
+            ) : replaceStatus === 'errored' ? (
+              <Text style={[styles.error]}>
+                The new file didn't work{video.replacement?.error?.message ? `: ${video.replacement.error.message}` : ''}. The video is as it was — try another.
+              </Text>
+            ) : null}
+            <Button
+              label={replaceStatus === 'uploading' || replaceStatus === 'processing' ? 'Replace with another file' : 'Replace video'}
+              onPress={replace}
+              size="full"
+              variant="outline"
+              disabled={video.status !== 'ready'}
+            />
+          </>
+        ) : null}
 
         <View style={styles.footer}>
           <Button
@@ -146,4 +201,5 @@ const styles = StyleSheet.create({
   error: { color: COLOR_RED, fontSize: 13, fontFamily: FONT_INTER.semibold },
   footer: { marginTop: 10, gap: 10 },
   note: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  left: { textAlign: 'left' },
 });

@@ -2351,3 +2351,30 @@ export interface PostTaxonomy {
   types: string[];
   categories: Record<string, string[]>;
 }
+
+/**
+ * A video message from ORS — "Message from Matt" — the banner over the home
+ * tabs and the menu's Messages list. Liked and commented on as
+ * `homemessage` (see horacio's controllers/homeMessageController).
+ */
+export interface HomeMessage {
+  internal_id: string;
+  title: string;
+  description: string;
+  /** The banner's background, an images-bucket filename. */
+  image: string | null;
+  /** Mux playback id. */
+  playback_id: string | null;
+  aspect_ratio: string | null;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+  author: Pick<User, 'user_id' | 'username' | 'firstName' | 'lastName'> | null;
+  like_count: number;
+  has_liked: boolean;
+  comment_count: number;
+  bookmark_count: number;
+  bookmarked: boolean;
+  created_at: string;
+  ready_at: string | null;
+}

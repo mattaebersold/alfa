@@ -25,6 +25,71 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: Record<string, ChangelogEntry> = {
+  '1.90': {
+    date: 'November 2026',
+    groups: [
+      {
+        title: 'PRO',
+        items: [
+          'A new PRO section for Pro members, with its own Home screen: the latest from the Pro group, today\'s daily games, and Pro members\' newest cars and posts.',
+          'PRO Videos: higher-quality, long-form videos from Pro members.',
+          'Two daily games on the PRO screen: guess the car, and guess the auction price.',
+          'The marketplace has moved into the PRO section.',
+          'Basic members can no longer request to join the Pro Drivers group.',
+        ],
+      },
+      {
+        title: 'Home feed',
+        items: [
+          'Fine-tune what shows up in your home feed.',
+          'Smarter suggested members and cars, based on what you\'ve liked and commented on.',
+          'Members and cars you already follow no longer show up in the suggestions.',
+        ],
+      },
+      {
+        title: 'Posts & comments',
+        items: [
+          'UX and UI improvements to creating a post.',
+          'Set your own post types and categories.',
+          'Improvements to the poll cards.',
+          'Tapping a post\'s location now shows a map and recent posts from that place.',
+          'The keyboard closes when you send a comment.',
+          'Working on an issue where the text cursor jumped around while typing.',
+        ],
+      },
+      {
+        title: 'Garage',
+        items: [
+          'Set your own garage car types and categories.',
+          'UI improvements to the Your Garage pane.',
+        ],
+      },
+      {
+        title: 'Search & filters',
+        items: [
+          'Regions are gone in favour of states — search and filter results by state.',
+          'Choosing "Near me" as a filter now uses your current location.',
+          'When a filter finds nothing, you\'ll see that it found nothing, with all results listed beneath.',
+          'Searching for members now matches their first and last names too.',
+          'Searching garage cars and members scrolls you to the results.',
+        ],
+      },
+      {
+        title: 'Members & notifications',
+        items: [
+          'Tap a member\'s photo on their profile to open it full size.',
+          'Fixed an issue where you weren\'t notified when someone you follow posted.',
+        ],
+      },
+      {
+        title: 'Groups & events',
+        items: [
+          'UX updates to the group creation form.',
+          'Fixed the event map, with a better layout and bug fixes.',
+        ],
+      },
+    ],
+  },
   '1.89': {
     date: 'November 2026',
     groups: [

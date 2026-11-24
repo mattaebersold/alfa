@@ -15,7 +15,7 @@ import type {
   ListingDetailResponse, MyListingsResponse,
   MarketplaceThread, MarketplaceThreadPage, MarketplaceMessage,
   MarketplaceRoleFilter, MarketplaceUnreadCount, Badges,
-  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry, IapConfig, MemberSubscription, PostTaxonomy } from '../types/api';
+  Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry, IapConfig, MemberSubscription, PostTaxonomy, HomeMessage } from '../types/api';
 import type {
   CarToday, CarDay, CarDaysPage, CarPlay, CarCredit, CarStats, CarHistoryPage, CarLeaderboard,
   AuctionToday, AuctionDay, AuctionDaysPage, AuctionPlay, AuctionStats, AuctionLeaderboard,
@@ -182,6 +182,8 @@ export const apiService = createApi({
     'CarGame', 'AuctionGame',
     /** Pro videos: one per video by id, and 'LIST' for every page of every filter. */
     'ProVideo',
+    /** Home messages: 'CURRENT' (the banner's), 'LIST', and one per message by id. */
+    'HomeMessage',
   ],
   endpoints: (builder) => ({
 
@@ -3264,6 +3266,16 @@ export const apiService = createApi({
       keepUnusedDataFor: 30 * 60,
       providesTags: ['Post', 'GarageCar', 'Cars', 'Group'],
     }),
+    /** Every Pro member's public post, newest first, a page at a time — Home's "Pro Member Updates" View all. */
+    getProPosts: builder.query<PaginatedResponse<Post>, { page?: number; limit?: number }>({
+      query: ({ page = 0, limit = 12 }) => ({ url: 'api/pro/posts', params: { page, limit } }),
+      providesTags: ['Post'],
+    }),
+    /** Every Pro member's public garage car, newest first, a page at a time — Home's "Pro Member Cars" View all. */
+    getProCars: builder.query<PaginatedResponse<GarageCar>, { page?: number; limit?: number }>({
+      query: ({ page = 0, limit = 12 }) => ({ url: 'api/pro/cars', params: { page, limit } }),
+      providesTags: ['GarageCar', 'Cars'],
+    }),
 
     // ── Pro videos ──────────────────────────────────────────────────────────
     // The upload itself isn't here — it's a long-running job that outlives
@@ -3337,8 +3349,88 @@ export const apiService = createApi({
       },
     }),
 
+    // ── Home messages ────────────────────────────────────────────────────────
+
+    /** The banner's message — null when there's none, or it's been dismissed. */
+    getCurrentHomeMessage: builder.query<{ message: HomeMessage | null }, void>({
+      query: () => 'api/home-messages/current',
+      providesTags: [{ type: 'HomeMessage', id: 'CURRENT' }],
+    }),
+
+    /** Every message, newest first — the menu's Messages. */
+    getHomeMessages: builder.query<{ entries: HomeMessage[] }, void>({
+      query: () => 'api/home-messages',
+      providesTags: [{ type: 'HomeMessage', id: 'LIST' }],
+    }),
+
+    getHomeMessage: builder.query<HomeMessage, string>({
+      query: (id) => `api/home-messages/${id}`,
+      providesTags: (result, error, id) => [{ type: 'HomeMessage', id }],
+    }),
+
+    /** Close the banner on this message for good. Gone at once; back if the server says no. */
+    dismissHomeMessage: builder.mutation<{ ok: boolean }, string>({
+      query: (id) => ({ url: `api/home-messages/${id}/dismiss`, method: 'POST' }),
+      async onQueryStarted(id, { dispatch, queryFulfilled }) {
+        const patch = dispatch(apiService.util.updateQueryData('getCurrentHomeMessage', undefined, (draft) => {
+          if (draft.message?.internal_id === id) draft.message = null;
+        }));
+        try { await queryFulfilled; } catch { patch.undo(); }
+      },
+    }),
+
+    /** Once per watch. Not a dismissal — only the banner's ✕ is. */
+    countHomeMessageView: builder.mutation<void, string>({
+      query: (id) => ({ url: `api/home-messages/${id}/view`, method: 'POST' }),
+    }),
+
+    /** Save it or unsave it, flipped in every cached copy on the tap. */
+    toggleHomeMessageBookmark: builder.mutation<{ bookmarked: boolean; bookmark_count: number }, string>({
+      query: (id) => ({ url: `api/home-messages/${id}/bookmark`, method: 'POST' }),
+      async onQueryStarted(id, { dispatch, getState, queryFulfilled }) {
+        const undo = patchHomeMessageCaches(dispatch, getState, id, (m) => {
+          m.bookmarked = !m.bookmarked;
+          m.bookmark_count = Math.max(0, (m.bookmark_count ?? 0) + (m.bookmarked ? 1 : -1));
+        });
+        try {
+          const { data } = await queryFulfilled;
+          patchHomeMessageCaches(dispatch, getState, id, (m) => {
+            m.bookmarked = data.bookmarked;
+            m.bookmark_count = data.bookmark_count;
+          });
+        } catch {
+          undo();
+        }
+      },
+    }),
+
   }),
 });
+
+/**
+ * Change one home message wherever it's cached — the banner's, the list's and
+ * its own — so a like or a save shows on the banner, the list and the player
+ * at once. Hands back an undo.
+ */
+export function patchHomeMessageCaches(
+  dispatch: (action: any) => any,
+  getState: () => any,
+  id: string,
+  change: (m: HomeMessage) => void,
+): () => void {
+  const patches: { undo: () => void }[] = [];
+  patches.push(dispatch(apiService.util.updateQueryData('getCurrentHomeMessage', undefined, (draft) => {
+    if (draft.message?.internal_id === id) change(draft.message);
+  })));
+  patches.push(dispatch(apiService.util.updateQueryData('getHomeMessages', undefined, (draft) => {
+    const m = draft.entries.find((e) => e.internal_id === id);
+    if (m) change(m);
+  })));
+  if (apiService.util.selectCachedArgsForQuery(getState(), 'getHomeMessage').includes(id)) {
+    patches.push(dispatch(apiService.util.updateQueryData('getHomeMessage', id, (draft) => { change(draft); })));
+  }
+  return () => patches.forEach((p) => p.undo());
+}
 
 /** The list's filters as query params — only what's set, and flags as '1'. */
 function proVideoParams(a: ProVideoListParams, page: number): Record<string, string | number> {
@@ -3800,6 +3892,8 @@ export const {
   useDeleteAlertMutation,
   // Pro home
   useGetProHomeQuery,
+  useGetProPostsQuery,
+  useGetProCarsQuery,
   useSearchProMembersQuery,
   // Pro videos
   useGetProVideoMetaQuery,
@@ -3809,4 +3903,10 @@ export const {
   useDeleteProVideoMutation,
   useCountProVideoViewMutation,
   useToggleProVideoBookmarkMutation,
+  useGetCurrentHomeMessageQuery,
+  useGetHomeMessagesQuery,
+  useGetHomeMessageQuery,
+  useDismissHomeMessageMutation,
+  useCountHomeMessageViewMutation,
+  useToggleHomeMessageBookmarkMutation,
 } = apiService;

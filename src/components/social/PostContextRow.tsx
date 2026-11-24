@@ -116,7 +116,7 @@ function Tile({ kind, name, image, picture, width, compact, solo, onPress }: {
           <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover" />
         </View>
       ) : (
-        <View style={[styles.thumb, styles.blank, { backgroundColor: c.segment }]}>
+        <View style={[styles.thumb, styles.blank, { backgroundColor: kind === 'group' ? COLOR_BLACK : c.segment }]}>
           <Icon size={16} color={c.grey} />
         </View>
       )}

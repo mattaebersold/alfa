@@ -218,6 +218,10 @@ export function notificationTarget(n: NotificationRef): NavTarget | null {
         ? { name: 'MainTabs', params: { screen: 'FeedTab', params: { screen: 'ProVideo', initial: false, params: { videoId: id } } } }
         : null;
 
+    /** A video message from ORS — its list, playing that one. */
+    case 'homemessage':
+      return { name: 'HomeMessages', params: id ? { messageId: id } : undefined };
+
     /**
      * A photo spot lives on a map rather than on a screen of its own, so the
      * map is where a tap lands. It opens on the spot's own summary.

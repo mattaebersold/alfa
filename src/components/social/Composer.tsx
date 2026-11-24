@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import {
-  View, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, type StyleProp, type ViewStyle,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Keyboard, type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text, TextInput } from '../../theme/Text';
 import Reanimated from 'react-native-reanimated';
@@ -332,7 +332,8 @@ const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer({
           </>
         )}
         <TouchableOpacity
-          onPress={() => { if (canSend) void onSend(); }}
+          // The keyboard goes the moment you send, not after the server answers.
+          onPress={() => { if (canSend) { Keyboard.dismiss(); void onSend(); } }}
           disabled={!canSend}
           style={[
             sendIcon ? styles.sendIconBtn : styles.sendBtn,

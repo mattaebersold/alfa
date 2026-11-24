@@ -34,7 +34,7 @@ import { colors, BADGE_COLORS, CATEGORY_BADGE_COLORS } from '../../constants/col
 import { DIECAST_BLUE } from '../../constants/diecast';
 
 /**
- * The feed card's ground — `colors.card`, SURFACE_MID.
+ * The feed card's ground — a shade under `colors.card` (SURFACE_MID).
  *
  * The feed is a column of these against the page's APP_BG, and at card grey
  * they ran together as one continuous slab. Staying under it gives each card an
@@ -43,7 +43,8 @@ import { DIECAST_BLUE } from '../../constants/diecast';
  * #202020, which sat above `card` and made the posts the brightest things on
  * the page, when the photos in them should be.
  */
-const FEED_CARD_BG = SURFACE_MID;
+// A shade under SURFACE_MID (#262626), so the posts sit back a touch further.
+const FEED_CARD_BG = '#222222';
 
 /** Lines of description a card shows before it offers "more". */
 const BODY_LINES = 2;
@@ -101,7 +102,7 @@ function ClampedText({
   moreRoom: number;
   onPress?: () => void;
 }) {
-  // URLs shown as a bold "View More" — swapped before layout, so the clamp
+  // URLs shown as an underlined "View More" — swapped before layout, so the clamp
   // measures what's shown. See utils/linkify.
   const { text, urls } = useMemo(() => linkify(rawText), [rawText]);
   const [expanded, setExpanded] = useState(startExpanded);
@@ -118,30 +119,47 @@ function ClampedText({
   // with the card below following. -1 is "not animating" — the box sizes
   // itself, as it always did.
   const collapsedH = useRef<number | null>(null);
-  const fullH = useRef<number | null>(null);
+  /** Set on a tap to open, until the full text has laid out and the grow begins. */
+  const growPending = useRef(false);
   const boxH = useSharedValue(-1);
   const boxStyle = useAnimatedStyle(() => (boxH.value < 0 ? {} : { height: boxH.value, overflow: 'hidden' }));
   const expand = () => {
-    const from = collapsedH.current;
-    const to = fullH.current;
-    if (from != null && to != null && to > from) {
-      boxH.value = withSequence(
-        withTiming(from, { duration: 0 }),
-        withTiming(to, { duration: EXPAND_MS, easing: Easing.out(Easing.cubic) }, (done) => {
-          if (done) boxH.value = -1;
-        }),
-      );
+    // Hold the box at the clamped height while the full text lays in under it;
+    // the grow starts once that text has measured itself (onFullLayout). The
+    // target is the real text's height, not a twin's guess at it — a twin
+    // that measured a line short left the last words clipped once open.
+    if (collapsedH.current != null) {
+      boxH.value = collapsedH.current;
+      growPending.current = true;
     }
     setExpanded(true);
+  };
+  const onFullLayout = (h: number) => {
+    if (!growPending.current) return;
+    growPending.current = false;
+    const from = collapsedH.current;
+    if (from == null || h <= from) { boxH.value = -1; return; }
+    boxH.value = withSequence(
+      withTiming(from, { duration: 0 }),
+      withTiming(h, { duration: EXPAND_MS, easing: Easing.out(Easing.cubic) }, (done) => {
+        // Let the box size itself again, whether or not the grow finished.
+        boxH.value = -1;
+      }),
+    );
   };
   const handlePress = truncated ? expand : onPress;
 
   return (
     <TouchableOpacity style={wrapStyle} onPress={handlePress} activeOpacity={0.95} disabled={!handlePress}>
+      {/* No padding of its own, so the measuring twin below spans exactly the
+          width the words lay out in, whatever the wrap's padding is. */}
+      <View>
       <Animated.View
         style={boxStyle}
         onLayout={expanded ? undefined : (e) => { collapsedH.current = e.nativeEvent.layout.height; }}
       >
+        {/* The words' own height, free of the box's: what the grow runs to. */}
+        <View onLayout={expanded ? (e) => onFullLayout(e.nativeEvent.layout.height) : undefined}>
         <MentionText
           text={inlineMore ? `${clipForMore([clip!], moreRoom)}… ` : text}
           links={urls}
@@ -157,13 +175,13 @@ function ClampedText({
             </Text>
           ) : null}
         />
+        </View>
       </Animated.View>
       {expandable && !expanded && lineCount === null && (
         <View
           style={styles.bodyMeasure}
           pointerEvents="none"
           aria-hidden
-          onLayout={(e) => { fullH.current = e.nativeEvent.layout.height; }}
         >
           <MentionText
             text={text}
@@ -177,6 +195,7 @@ function ClampedText({
           />
         </View>
       )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -196,7 +215,7 @@ import {
   PILL_RADIUS,
   COLOR_BLACK,
   COLOR_FOREST,
-  COLOR_WHITE, SURFACE_MID
+  COLOR_WHITE,
 } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
@@ -393,6 +412,11 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   const cardBg = isDiecast ? DIECAST_BLUE : background ?? FEED_CARD_BG;
   const fgColor = isDiecast ? COLOR_WHITE : colors.fg;
   const mutedColor = isDiecast ? 'rgba(255,255,255,0.7)' : colors.muted;
+  // The place line, a step brighter than the muted ink so it reads as a tag, not a footnote.
+  const placeColor = isDiecast ? mutedColor : colors.grey;
+  const isPoll = !!post.poll_summary;
+  // A description under a title: a lighter grey than the muted ink, at full strength.
+  const descColor = isDiecast ? mutedColor : colors.grey;
   // The time and the menu take the description's ink: the row's furniture
   // reads at one level, under the name.
   const timeColor = mutedColor;
@@ -400,7 +424,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
   // When it was posted, and the ⋯ menu — the header's right end, or, on a
   // game result, the top of its opened part.
   const postMenu = userInfo?.user_id === post.user_id ? (
-    <PostOwnerMenu postId={post.internal_id} color={mutedColor} onEdit={onEdit} onDeleted={onDeleted} />
+    <PostOwnerMenu postId={post.internal_id} post={post} color={mutedColor} onEdit={onEdit} onDeleted={onDeleted} />
   ) : (
     <PostOptionsButton postId={post.internal_id} author={user} size={18} color={mutedColor} />
   );
@@ -521,7 +545,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           expandable
           startExpanded={fullText}
           wrapStyle={styles.titleAsBodyWrap}
-          style={[styles.wordsAlone, { color: COLOR_WHITE }]}
+          style={[hasMedia ? styles.wordsAlone : styles.wordsAloneNoMedia, { color: COLOR_WHITE }]}
           moreRoom={MORE_ROOM}
           onPress={onPress}
         />
@@ -545,20 +569,12 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           lines={hasMedia ? BODY_LINES : BODY_LINES_NO_MEDIA}
           expandable
           startExpanded={fullText}
-          wrapStyle={styles.bodyPreviewWrap}
-          style={[styles.bodyPreview, { color: mutedColor }]}
+          wrapStyle={[styles.bodyPreviewWrap, isPoll && styles.bodyPreviewWrapPoll]}
+          style={[styles.bodyPreview, !hasMedia && styles.bodyPreviewNoMedia, { color: descColor }]}
           moreRoom={MORE_ROOM}
           onPress={onPress}
         />
       ) : null}
-
-      {/* No photo to carry the actions: a row of their own straight under the
-          words, right-aligned. */}
-      {!hasMedia && !spotResult && (
-        <View style={styles.footerRow}>
-          {rail(false)}
-        </View>
-      )}
 
       {/* The poll, when the post has one — under the words and above the
           picture, because the question is what the words were leading up
@@ -568,7 +584,7 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
       {/* The post's media — photos and videos in one strip, each slide at
           its own shape. */}
       {hasMedia && (
-          <View style={[styles.mediaFrame, bare && styles.mediaFrameBare]}>
+          <View style={[styles.mediaFrame, bare && styles.mediaFrameBare, !spotResult && !!(post.title || bodyText) && !post.poll_summary && styles.mediaFrameUnderText]}>
             <PostMediaCarousel
               media={media}
               // The box is exactly the shape of the slide on show — its photo's
@@ -681,7 +697,16 @@ export default function FeedItemCard({ post, isLiked, onPress, onCommentPress, v
           footnote, so small and in the muted ink. A tap opens the place, with
           every post made there; the line owns that panel. */}
       {/* Closer under the tiles when there are any — they already leave room. */}
-      {spotResult ? null : <PostPlaceLine place={post.place} color={mutedColor} style={[styles.placeLine, hasContextTiles && styles.placeLineUnderTiles]} />}
+      {/* No photo to carry the actions: they close the card instead, on the
+          place line's row, pushed right — on their own there when there's no place. */}
+      {spotResult ? null : hasMedia ? (
+        <PostPlaceLine place={post.place} color={placeColor} style={[styles.placeLine, hasContextTiles && styles.placeLineUnderTiles]} />
+      ) : (
+        <View style={styles.footerRow}>
+          <PostPlaceLine place={post.place} color={placeColor} style={styles.placeInline} />
+          <View style={styles.footerActions}>{rail(false)}</View>
+        </View>
+      )}
 
 
       <LikersSheet
@@ -720,25 +745,29 @@ const styles = StyleSheet.create({
   username:    { fontSize: 12, marginTop: 1 },
   time:        { fontSize: 11, fontStyle: 'italic' },
   meta:        { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  titleWrap:      { paddingHorizontal: 8, paddingBottom: 10 },
+  // The words run to 95% of the card, ending short of its right edge.
+  titleWrap:      { width: '95%', paddingLeft: 8, paddingBottom: 10 },
   title:          { fontSize: 14, fontFamily: FONT_INTER.semibold, lineHeight: 20 },
-  titleAloneWrap: { paddingHorizontal: 8, paddingTop: 2, paddingBottom: 12 },
+  titleAloneWrap: { width: '95%', paddingLeft: 8, paddingTop: 2, paddingBottom: 12 },
   titleAlone:     { fontSize: 18, fontFamily: FONT_INTER.bold, lineHeight: 24 },
-  bodyPreviewWrap:{ paddingHorizontal: 8, paddingBottom: 10, marginTop: -6 },
+  bodyPreviewWrap:{ width: '95%', paddingLeft: 8, paddingBottom: 10, marginTop: -6 },
   // A title set as a description: the description's own wrap, without the
   // tuck up under a title that isn't there.
-  titleAsBodyWrap:{ paddingHorizontal: 8, paddingTop: 2, paddingBottom: 10 },
-  // Stepped back a touch from `muted`, so the title leads it more clearly.
-  bodyPreview:    { fontSize: 13, lineHeight: 18, opacity: 0.85 },
+  titleAsBodyWrap:{ width: '95%', paddingLeft: 8, paddingTop: 2, paddingBottom: 10 },
+  // Grey under the white title, so the title still leads it.
+  bodyPreview:    { fontSize: 13, lineHeight: 18 },
   // The post's words with nothing over or under them.
   wordsAlone:     { fontSize: 15, lineHeight: 21 },
+  // No photo: the words are all there is to look at, so a step larger.
+  wordsAloneNoMedia: { fontSize: 17, lineHeight: 24 },
+  bodyPreviewNoMedia: { fontSize: 15, lineHeight: 21 },
+  // A poll's description, tucked closer under the title.
+  bodyPreviewWrapPoll: { marginTop: -10 },
   /**
-   * Same width as the real one, invisible, out of flow.
-   *
-   * Zero rather than the wrapper's own 8: Yoga positions an absolute child
-   * from the parent's *padding* edge, so 0 here is exactly the box the visible
-   * text lays out in. Insetting by 8 again would measure a narrower column,
-   * over-count the lines, and offer "more" on posts that already fit.
+   * Same width as the real one, invisible, out of flow. Its parent is a
+   * padding-free View around the words, so 0 on each side is exactly their
+   * column — no reliance on how Yoga treats the wrap's padding for an absolute
+   * child, which got it 16pt wide and a line short.
    */
   bodyMeasure: {
     position: 'absolute', left: 0, right: 0, top: 0,
@@ -757,6 +786,8 @@ const styles = StyleSheet.create({
   // Square in a panel: it runs edge to edge there, and rounded it read as a
   // card inside the card.
   mediaFrameBare: { borderRadius: 0 },
+  // A little more air between the post's words and its photos.
+  mediaFrameUnderText: { marginTop: 6 },
 
   imageBadgesLeft: {
     position: 'absolute', top: 10, left: 10, flexDirection: 'row', gap: 5, flexWrap: 'wrap',
@@ -797,7 +828,7 @@ const styles = StyleSheet.create({
   messageWrap: { paddingHorizontal: 8, paddingTop: 10 },
   // Tucked up under the author row; the card's own inset on the left.
   sourceChip:  { marginLeft: 8, marginTop: -2, marginBottom: 10 },
-  poll:        { paddingHorizontal: 8, paddingBottom: 10 },
+  poll:        { paddingHorizontal: 8, paddingBottom: 0, marginTop: -4 },
   // The card's own inset; under the photo or the tags, and room under it in
   // case the card ends here.
   placeLine:   { marginLeft: 12, marginRight: 8, marginTop: 10, marginBottom: 8 },
@@ -806,6 +837,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
     paddingHorizontal: 8, paddingTop: 8, paddingBottom: 8, gap: 8,
   },
+  // The place line's own inset (12) less the row's padding; shrinks before the actions do.
+  placeInline: { marginLeft: 4, alignSelf: 'center', flexShrink: 1 },
+  // Takes the spare room on its left, so it stays right whether or not a place is there.
+  footerActions: { marginLeft: 'auto' },
   // Takes the row so the menu stays pinned right on a card with no likes.
   footerLeft:  { flex: 1, minWidth: 0 },
   // Over the photo, anchored at its bottom right.

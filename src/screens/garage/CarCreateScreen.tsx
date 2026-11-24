@@ -44,6 +44,7 @@ import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatli
 import { imageUrl } from '../../utils/image';
 import { stripHtml } from '../../utils/text';
 import { alertPermissionDenied } from '../../utils/permissionAlert';
+import { isProGroup } from '../../components/groups/GroupCard';
 
 /**
  * The step names, which head the nav row rather than the scrolling content.
@@ -349,7 +350,8 @@ export function CarCreateSheet({ carId, onDismissed }: {
     { make: form.make || undefined, model: form.model || undefined, q: settledGroupQuery || undefined },
     { skip: step !== 4 },
   );
-  const joinable = joinableData?.entries ?? [];
+  // Pro Drivers only offered to a Pro member — nobody else can ask to join it.
+  const joinable = (joinableData?.entries ?? []).filter((g: any) => isPro || !isProGroup(g));
 
   const toggleJoinGroup = (g: { internal_id: string; title?: string }) =>
     setJoinGroups((prev) => (prev.some((p) => p.id === g.internal_id)

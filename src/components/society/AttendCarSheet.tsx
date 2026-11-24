@@ -1,15 +1,13 @@
 import React, { useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Text } from '../../theme/Text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, UserRound } from 'lucide-react-native';
-import SlideSheet from '../ui/SlideSheet';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { Image } from '../ui/AppImage';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { carHeroUrl } from '../../utils/image';
 import type { GarageCar } from '../../types/api';
-import { PANE_BG, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 
 export const carName = (car: Pick<GarageCar, 'title' | 'year' | 'make' | 'model'>) =>
@@ -35,7 +33,6 @@ export default function AttendCarSheet({ visible, cars, selectedId, title = 'Whi
 }) {
   const colors = useColors();
   const brand = useBrandColor();
-  const insets = useSafeAreaInsets();
   const chosen = useRef<(() => void) | null>(null);
 
   const choose = (carId: string | null) => {
@@ -69,16 +66,16 @@ export default function AttendCarSheet({ visible, cars, selectedId, title = 'Whi
   };
 
   return (
-    <SlideSheet
+    // The app's one pane (SharedModal), sized to the list — its grabber
+    // floats over the top, and it clears the home indicator itself.
+    <SharedModal
       visible={visible}
       onClose={onClose}
       onDismissed={runChosen}
-      sheetStyle={[
-        styles.sheet,
-        { backgroundColor: PANE_BG, paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 12) + 8 },
-      ]}
+      hideHeader
+      fitContent
     >
-      <View style={styles.grabber} />
+      <View style={styles.sheet}>
       <View style={styles.head}>
         <Text style={[styles.title, { color: colors.fg }]}>{title}</Text>
       </View>
@@ -100,22 +97,18 @@ export default function AttendCarSheet({ visible, cars, selectedId, title = 'Whi
           </View>
         ))}
       </ScrollView>
-    </SlideSheet>
+      </View>
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS,
-    paddingHorizontal: 12, paddingTop: 8, maxHeight: '80%',
-  },
-  grabber: {
-    alignSelf: 'center', width: 38, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.22)', marginBottom: 8,
-  },
+  // Clear of the grabber floating over the top; shrinks so a long garage
+  // scrolls once the pane hits its cap.
+  sheet: { flexShrink: 1, paddingHorizontal: 12, paddingTop: PANE_GRABBER_H, paddingBottom: 8 },
   head:    { paddingHorizontal: 6, paddingVertical: 10 },
   title:   { fontSize: 15, fontFamily: FONT_INTER.bold },
-  list:    { flexGrow: 0 },
+  list:    { flexGrow: 0, flexShrink: 1 },
   option: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 6, paddingVertical: 10,

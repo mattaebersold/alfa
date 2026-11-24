@@ -11,7 +11,7 @@ import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
 import { HomeIndicatorSpacer } from '../../keyboard/useKeyboardPadding';
 import { PortalHost } from '../Portal';
 import { KeyboardHandledAbove } from '../../keyboard/FormScrollView';
-import { COMMON_RADIUS, COLOR_WHITE, PANE_BG, PANE_SCRIM, PANE_OPEN_MS, PANE_OPEN_OVERSHOOT, SHEET_RADIUS } from '../../constants/config';
+import { COLOR_WHITE, PANE_BG, PANE_SCRIM, PANE_OPEN_MS, SHEET_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 // Every pane's one surface, header and grabber included — no per-sheet
@@ -27,8 +27,8 @@ export const PANE_GUTTER = 12;
 export const PANE_GRABBER_H = 24;
 /** How tall the fade under a pane's head is — see headSeam. */
 const HEAD_FADE_H = 36;
-/** The fade under a floating grabber — taller, as it lies over a photo. */
-const FLOAT_FADE_H = 64;
+/** The fade under the floating grabber: the pane's grey thinning to clear. */
+const FLOAT_FADE_H = 44;
 /**
  * The fades' alpha down their height, eased rather than straight: a linear
  * ramp ends on a visible edge, these thin out into nothing.
@@ -104,6 +104,12 @@ interface SharedModalProps {
    */
   heightRatio?: number;
   /**
+   * Size to the content with no 50% floor — for a short menu (an action
+   * sheet, a few choices) that would otherwise sit in half a screen of empty
+   * pane. Still capped to the room above the keyboard.
+   */
+  fitContent?: boolean;
+  /**
    * Keep the X in the header.
    *
    * Every sheet has a grabber now — tap it or drag it down — so the X is a
@@ -146,7 +152,7 @@ interface SharedModalProps {
  * Convert other modals to this when asked to "use SharedModal". The caller
  * supplies the scrollable content as children.
  */
-export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, background, overlayHeader = false, children }: SharedModalProps) {
+export default function SharedModal({ visible, onClose, title, titleContent, headerRight, onDismissed, fullHeight = false, heightRatio, fitContent = false, showClose = false, hideHeader = false, edgeToEdge = false, headFade = true, keyboardInert = false, background, overlayHeader = false, children }: SharedModalProps) {
   // Every pane's one surface, unless this one is a create form (FORM_PANE_BG).
   const bg = background ?? SHEET_BG;
   const bgStyle = background ? { backgroundColor: background } : null;
@@ -168,8 +174,8 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
       slideY.setValue(600);
       overlayOpacity.setValue(0);
       Animated.parallel([
-        // Out, with a slight overshoot: up a touch past its place, then settled.
-        Animated.timing(slideY, { toValue: 0, duration: PANE_OPEN_MS, easing: Easing.out(Easing.back(PANE_OPEN_OVERSHOOT)), useNativeDriver: true }),
+        // A plain ease-out — no overshoot.
+        Animated.timing(slideY, { toValue: 0, duration: PANE_OPEN_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
       ]).start();
     } else if (mountedRef.current) {
@@ -263,20 +269,21 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               // height, padding included — so the sheet kept its size and
               // was pushed up out of the screen instead of giving up room.
               ? [styles.sheetRatio, { flexBasis: Math.round(heightRatio * windowHeight) }]
-              : fullHeight ? styles.sheetFull : styles.sheetSized,
+              : fullHeight ? styles.sheetFull : fitContent ? styles.sheetFit : styles.sheetSized,
             { transform: [{ translateY: slideY }] },
           ]}
         >
           {/* No status-bar padding of its own: the stack's top padding already
               keeps every sheet, full-height included, clear of it. */}
-          {/* Without a title row the grabber floats over the content, on a
-              fade rather than a solid strip, and the content scrolls up under
-              it — see PANE_GRABBER_H. With one, it heads the title row. */}
+          {/* The grabber always floats over the content, on a fade of the
+              pane's grey to clear rather than a solid strip, so the content
+              runs to the pane's top edge and scrolls up under it — see
+              PANE_GRABBER_H. With a title row, the row sits just under it. */}
           <View
             {...panResponder.panHandlers}
             style={
-              hideHeader ? styles.grabberFloat
-                : overlay ? [styles.grabberFloat, { backgroundColor: withAlpha(bg, OVERLAY_HEAD_ALPHA) }]
+              overlay ? [styles.grabberFloat, { backgroundColor: withAlpha(bg, OVERLAY_HEAD_ALPHA) }]
+                : hideHeader ? styles.grabberFloat
                   : undefined
             }
             onLayout={overlay ? (e) => setHeadH(Math.round(e.nativeEvent.layout.height)) : undefined}
@@ -295,7 +302,7 @@ export default function SharedModal({ visible, onClose, title, titleContent, hea
               style={[styles.grabberHit, bgStyle, (hideHeader || overlay) && styles.grabberClear]}
               hitSlop={6}
             >
-              <View style={[styles.grabber, hideHeader && styles.grabberOver]} />
+              <View style={styles.grabber} />
             </Pressable>
             {hideHeader ? null : (
             <View style={[styles.header, bgStyle, overlay && styles.headerClear]}>
@@ -359,6 +366,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
   },
+  // Content-sized with no floor — `fitContent`, for a short menu.
+  sheetFit: {
+    flexShrink: 1,
+    borderTopLeftRadius: SHEET_RADIUS,
+    borderTopRightRadius: SHEET_RADIUS,
+  },
   // Fills whatever the keyboard leaves, so the sheet shrinks rather than slides
   // and its own bottom bar stays on screen. It still stops below the status
   // bar, so it has a top edge to round like every other sheet.
@@ -390,13 +403,6 @@ const styles = StyleSheet.create({
   grabber: {
     width: 44, height: 5, borderRadius: 2.5,
     backgroundColor: 'rgba(255,255,255,0.5)',
-  },
-  // Floating over content, maybe a bright photo: near-white, with a shadow to
-  // lift it off whatever's under it.
-  grabberOver: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
-    elevation: 4,
   },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

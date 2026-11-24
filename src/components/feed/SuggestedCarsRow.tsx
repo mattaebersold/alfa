@@ -118,6 +118,8 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
 
   const suggestions = useMemo<GarageCar[]>(() => {
     // Your own cars and the ones you already follow are never suggestions.
+    // The followed list is capped at 50, so each car's own \`following\` flag
+    // (sent on lists when signed in) is checked as well.
     const excluded = new Set<string>([
       ...myCars.map((c) => c.internal_id),
       ...(followedCars?.entries ?? []).map((c) => c.internal_id),
@@ -130,7 +132,7 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     const lead: GarageCar[] = [];
     for (const car of inviterData?.entries ?? []) {
       if (!car?.internal_id || seen.has(car.internal_id)) continue;
-      if (excluded.has(car.internal_id) || car.user_id === myId) continue;
+      if (excluded.has(car.internal_id) || car.following || car.user_id === myId) continue;
       seen.add(car.internal_id);
       lead.push(car);
     }
@@ -139,7 +141,7 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     const engaged: GarageCar[] = [];
     for (const car of engagement?.cars ?? []) {
       if (!car?.internal_id || seen.has(car.internal_id)) continue;
-      if (excluded.has(car.internal_id) || car.user_id === myId) continue;
+      if (excluded.has(car.internal_id) || car.following || car.user_id === myId) continue;
       seen.add(car.internal_id);
       engaged.push(car);
     }
@@ -147,7 +149,7 @@ export default function SuggestedCarsRow({ onRequestHide }: Props) {
     const pool: GarageCar[] = [];
     for (const car of [...(relatedData?.entries ?? []), ...(recentData?.entries ?? [])]) {
       if (!car?.internal_id || seen.has(car.internal_id)) continue;
-      if (excluded.has(car.internal_id) || car.user_id === myId) continue;
+      if (excluded.has(car.internal_id) || car.following || car.user_id === myId) continue;
       seen.add(car.internal_id);
       pool.push(car);
     }

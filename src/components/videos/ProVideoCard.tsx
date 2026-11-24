@@ -108,6 +108,14 @@ export default React.memo(function ProVideoCard({
         </View>
       )}
 
+      {/* Who posted it: just their photo, top-left, in a dark ring — as the
+          Pro screen's videos row draws it. Their name is in the label. */}
+      {video.user ? (
+        <View style={styles.avatar} pointerEvents="none">
+          <Avatar user={video.user ?? undefined} size={26} edge={false} />
+        </View>
+      ) : null}
+
       {/* Tucked under another card: a veil over the picture. */}
       {tucked ? <View style={[StyleSheet.absoluteFill, styles.veil]} pointerEvents="none" /> : null}
 
@@ -137,8 +145,6 @@ export default React.memo(function ProVideoCard({
           ) : null}
         </View>
         <View style={styles.metaRow}>
-          <Avatar user={video.user ?? undefined} size={20} />
-          <Text style={styles.meta} numberOfLines={1}>{authorName(video.user)}</Text>
           {ready ? (
             <View style={styles.counts}>
               <Count Icon={Eye} n={video.views} />
@@ -204,8 +210,10 @@ const styles = StyleSheet.create({
   title: { flex: 1, color: COLOR_WHITE, fontSize: 16, fontFamily: FONT_INTER.bold },
   badge: { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   badgeText: { color: COLOR_WHITE, fontSize: 11.5, fontFamily: FONT_INTER.semibold, fontVariant: ['tabular-nums'] },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  meta: { flex: 1, color: 'rgba(255,255,255,0.85)', fontSize: 12.5, fontFamily: FONT_INTER.medium },
+  // Just the counts now, from the left.
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 16 },
+  // A 3px black/40 ring round the photo, no shadow — NewProVideosShelf's.
+  avatar: { position: 'absolute', top: 10, left: 10, borderRadius: 16, borderWidth: 3, borderColor: 'rgba(0,0,0,0.4)' },
   counts: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   count: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   countText: { color: COLOR_WHITE, fontSize: 11.5, fontFamily: FONT_INTER.semibold },

@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert, ScrollView, Keyboard, Platform, ActivityIndicator,
 } from 'react-native';
 import { Text } from '../../theme/Text';
 import FormScrollView, { KEYBOARD_GAP } from '../../keyboard/FormScrollView';
-import { KeyboardStickyView } from 'react-native-keyboard-controller';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Plus } from 'lucide-react-native';
@@ -13,6 +12,7 @@ import { Image } from '../../components/ui/AppImage';
 import FormInput from '../../components/ui/FormInput';
 import PhotoPickerField from '../../components/ui/PhotoPickerField';
 import StickyFormFooter from '../../components/ui/StickyFormFooter';
+import SharedModal, { PANE_GRABBER_H } from '../../components/ui/SharedModal';
 import {
   useGetCarJournalQuery,
   useCreateCarJournalEntryMutation, useUpdateCarJournalEntryMutation,
@@ -21,7 +21,6 @@ import { useColors } from '../../hooks/useColors';
 import { useBrandColor } from '../../hooks/useBrandColor';
 import { uploadFile, normalizePickedAssets } from '../../utils/upload';
 import { imageUrl } from '../../utils/image';
-import { ss } from '../../styles/shared';
 import type { AppScreenProps } from '../../navigation/types';
 import { FONT_INTER } from '../../constants/fonts';
 import { COLOR_BLACK, COLOR_WHITE, COMMON_RADIUS, PANE_BG } from '../../constants/config';
@@ -78,6 +77,14 @@ export default function JournalCreateScreen({ navigation, route }: AppScreenProp
   const [createEntry, { isLoading: creating }] = useCreateCarJournalEntryMutation();
   const [updateEntry, { isLoading: updating }] = useUpdateCarJournalEntryMutation();
   const saving = creating || updating;
+
+  // The app's one pane (SharedModal): closing slides it away first, and the
+  // route goes once it's gone (onDismissed).
+  const [open, setOpen] = useState(true);
+  const close = useCallback(() => {
+    Keyboard.dismiss();
+    setOpen(false);
+  }, []);
 
   const addAssets = async (assets: ImagePicker.ImagePickerAsset[]) => {
     setPicking(true);
@@ -149,31 +156,29 @@ export default function JournalCreateScreen({ navigation, route }: AppScreenProp
       } else {
         await createEntry(fd).unwrap();
       }
-      navigation.goBack();
+      close();
     } catch (err: any) {
       Alert.alert("Couldn't save that", err?.data?.error ?? 'Please try again.');
     }
   };
 
   return (
-    <SafeAreaView style={[ss.fill, { backgroundColor: PANE_BG }]} edges={['top']}>
-      {/* A pane's grabber in place of a heading and an X: tap it to close,
-          or pull the sheet down. The form says what it is. */}
-      <TouchableOpacity
-        onPress={() => navigation.goBack()}
-        style={styles.grabberHit}
-        hitSlop={6}
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-      >
-        <View style={styles.grabber} />
-      </TouchableOpacity>
-
+    // The pane's grabber in place of a heading and an X: tap it to close, or
+    // pull the sheet down. The form says what it is.
+    <SharedModal
+      visible={open}
+      onClose={close}
+      onDismissed={() => navigation.goBack()}
+      hideHeader
+      fullHeight
+      edgeToEdge
+    >
       <FormScrollView
+        style={styles.scroll}
         keyboardDismissMode="on-drag"
         bottomOffset={KEYBOARD_GAP + DONE_FOOTER_H}
         extraKeyboardSpace={DONE_FOOTER_H}
-        contentContainerStyle={{ paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
+        contentContainerStyle={{ paddingTop: PANE_GRABBER_H, paddingBottom: insets.bottom + (Platform.OS === 'android' ? 40 : 24) }}
         showsVerticalScrollIndicator={false}
       >
         {/* Photos — the post form's well, then its row once there are some. */}
@@ -251,9 +256,11 @@ export default function JournalCreateScreen({ navigation, route }: AppScreenProp
         </TouchableOpacity>
       </FormScrollView>
 
-      {/* The story field is multiline, so return is a newline; this is the way out of the keyboard. */}
+      {/* The story field is multiline, so return is a newline; this is the way
+          out of the keyboard. The pane has already shrunk above the keyboard,
+          so this just sits at its foot. */}
       {keyboardUp && (
-        <KeyboardStickyView style={styles.doneDock}>
+        <View style={styles.doneDock}>
           <StickyFormFooter color={PANE_BG} bottomInset={10} style={styles.doneFooter}>
             <View style={styles.footerRow}>
               <TouchableOpacity
@@ -267,9 +274,9 @@ export default function JournalCreateScreen({ navigation, route }: AppScreenProp
               </TouchableOpacity>
             </View>
           </StickyFormFooter>
-        </KeyboardStickyView>
+        </View>
       )}
-    </SafeAreaView>
+    </SharedModal>
   );
 }
 
@@ -277,9 +284,7 @@ export default function JournalCreateScreen({ navigation, route }: AppScreenProp
 const GUTTER_FORM = 14;
 
 const styles = StyleSheet.create({
-  // The panes' grabber (the post form's measures), centred at the top.
-  grabberHit:    { alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
-  grabber:       { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' },
+  scroll:        { flex: 1 },
 
   // The post form's photo row and its tiles.
   photoField:    { marginHorizontal: GUTTER_FORM, marginTop: 12, marginBottom: 0 },

@@ -18,7 +18,7 @@ import { firstGalleryUrl, imageUrl, carHeroUrl } from '../../utils/image';
 import { useColors } from '../../hooks/useColors';
 import { useAppSelector } from '../../store/store';
 import { contrastText, useBrandColor } from '../../hooks/useBrandColor';
-import { PILL_RADIUS, COLOR_WHITE, FORM_CARD_BG, FORM_CARD_RADIUS } from '../../constants/config';
+import { PILL_RADIUS, COLOR_WHITE, COLOR_BLACK } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 import { avatarColorFor, initialsFor } from '../../utils/avatarColor';
 
@@ -39,8 +39,8 @@ export interface TagItem {
 /** A member as a tag — the picker's, and an @ picked in the post's words (MentionInput). */
 export const userTag = (u: any): TagItem => ({
   id: u.user_id || u.internal_id,
-  // Username only — a member's name finds them but is never shown.
-  label: u.username ? `@${u.username}` : 'Member',
+  // Username only, no @ — a member's name finds them but is never shown.
+  label: u.username || 'Member',
   kind: 'user',
   image: u.gallery?.[0]?.filename ?? u.profilePicture ?? null,
   avatarUser: u,
@@ -74,7 +74,7 @@ interface RowProps {
 }
 
 /**
- * A tag card's frame: its own darker ground (FORM_CARD_BG), the kind's icon
+ * A tag card's frame: the kind's icon
  * and title, and how many are picked. Shared with the location card
  * (PostLocationField), so the two read as one set.
  */
@@ -113,9 +113,12 @@ export function TagChip({ tag: t, accent, onPress, Icon }: {
   /** Drawn at the chip's left end when the tag has no picture — the location's pin. */
   Icon?: React.ComponentType<{ size?: number; color?: string }>;
 }) {
-  const onAccent = contrastText(accent);
+  // A member's chip is black with white type; the others keep the accent.
+  const isUser = t.kind === 'user';
+  const bg = isUser ? COLOR_BLACK : accent;
+  const onAccent = isUser ? COLOR_WHITE : contrastText(accent);
   return (
-    <TouchableOpacity style={[styles.chip, { backgroundColor: accent }]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[styles.chip, { backgroundColor: bg }]} onPress={onPress} activeOpacity={0.8}>
       {/* The picture from the suggestion, carried onto the chip. */}
       {t.kind === 'user' ? (
         <Avatar user={t.avatarUser ?? { username: t.label.replace(/^@/, '') }} size={22} />
@@ -124,7 +127,8 @@ export function TagChip({ tag: t, accent, onPress, Icon }: {
       ) : Icon ? (
         <View style={styles.chipGlyph}><Icon size={13} color={onAccent} /></View>
       ) : null}
-      <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.label}</Text>
+      {/* A member's name without the @ — older drafts and tags still carry one. */}
+      <Text style={[styles.chipText, { color: onAccent }]} numberOfLines={1}>{t.kind === 'user' ? t.label.replace(/^@/, '') : t.label}</Text>
       <X size={12} color={onAccent} />
     </TouchableOpacity>
   );
@@ -398,6 +402,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
 
   return (
     <View>
+      <View style={styles.hr} />
       <TagRow
         title="Tag People" placeholder="Search members…" Icon={UserIcon} accent={brand}
         query={userQ} onQuery={setUserQ} selected={users}
@@ -405,6 +410,7 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
         onToggle={onToggle}
         above={<TagCardStrip cards={userCards} selectedIds={users.map((t) => t.id)} onToggle={onToggle} bleed={ROW_PAD} />}
       />
+      <View style={styles.hr} />
       <TagRow
         title="Tag Cars"
         // The field is for cars that aren't yours; yours are the row above it.
@@ -417,12 +423,14 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
           ? <GarageCarStrip selectedIds={cars.map((c) => c.id)} onToggle={onToggle} bleed={ROW_PAD} />
           : undefined}
       />
+      <View style={styles.hr} />
       <TagRow
         title="Tag Events" placeholder="Search events…" Icon={Flag} accent={brand}
         query={eventQ} onQuery={setEventQ} selected={events}
         suggestions={(eventSearch?.events ?? []).map(toEvent)}
         onToggle={onToggle}
       />
+      <View style={styles.hr} />
       {groups && (
         <TagRow
           title="Tag Groups" placeholder="Search groups…" Icon={UsersIcon} accent={brand}
@@ -436,15 +444,21 @@ export default function PostTagPicker({ users, cars, events, groups, spots, onCr
   );
 }
 
-/** A tag card's side padding — the garage strip bleeds out past it. */
-export const ROW_PAD = 14;
+/**
+ * A tag section's side padding — the form's own gutter, so its title and
+ * search line up with the fields above. The tile strips bleed out past it to
+ * the screen's edges.
+ */
+export const ROW_PAD = 12;
 
 const styles = StyleSheet.create({
+  // A grey rule between the sections, edge to edge.
+  // Pulls the next section up a little: less room between the rule and its title.
+  hr: { height: 1, marginTop: 12, marginBottom: -10, backgroundColor: 'rgba(255,255,255,0.22)' },
+  // Full width, straight on the form's ground: no card, no margin of its own.
   row: {
-    marginHorizontal: 12, marginTop: 12,
+    marginTop: 12,
     paddingHorizontal: ROW_PAD, paddingTop: 12, paddingBottom: 12,
-    // Optional Details' block: a step darker than the form, no edge.
-    borderRadius: FORM_CARD_RADIUS, backgroundColor: FORM_CARD_BG,
   },
   // Just the title, in white — the accent colour lives on the chips and count
   // now, where it marks what's been tagged rather than decorating the card.

@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, Platform,
   type StyleProp, type ViewStyle,
 } from 'react-native';
 import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
-import { MapPin, Navigation, Play, Image as ImageIcon } from 'lucide-react-native';
-import SummaryModal, { SummaryTouchable, useSummaryPanel, type SummaryOrigin } from '../ui/SummaryModal';
+import { Play, Image as ImageIcon } from 'lucide-react-native';
+import { AppleMaps, GoogleMaps } from 'expo-maps';
+import SummaryModal, { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import PostStrip from './PostStrip';
 import Avatar from '../ui/Avatar';
 import { PostSheet } from './PostSummaryModal';
 import { CurrentPlaceContext } from './PostPlaceLine';
@@ -16,12 +18,18 @@ import { postThumb } from '../../utils/postMedia';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { stripHtml } from '../../utils/text';
 import type { Post, PostPlace } from '../../types/api';
-import { COLOR_WHITE, COMMON_RADIUS, PILL_RADIUS, SURFACE_MID } from '../../constants/config';
+import { COLOR_WHITE, COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts';
 import PanelEmpty from '../ui/PanelEmpty';
 
-/** How many posts each page of a place's list brings. */
-const PAGE = 20;
+/** How many of the place's latest posts the slider holds. */
+const RECENT = 12;
+/**
+ * The map's height at the panel's head — tall enough that the map and one
+ * row of cards fill the summary panel's 400pt floor (SummaryModal's
+ * MIN_PANEL_H), so there's no empty room left under the cards.
+ */
+const MAP_H = 264;
 /** A row's thumbnail edge. */
 const THUMB = 76;
 /** The author's photo beside their name. */
@@ -156,32 +164,16 @@ function openInMaps(place: PostPlace) {
 }
 
 /**
- * Pages of a list, joined as they arrive — page 0 starts it again, any later
- * page adds what it doesn't already have. CarDetailScreen's, for one list.
- */
-function useAccumulated(entries: Post[] | undefined, page: number): Post[] {
-  const [all, setAll] = useState<Post[]>([]);
-  useEffect(() => {
-    if (!entries) return;
-    setAll((prev) => {
-      if (page === 0) return entries;
-      const seen = new Set(prev.map((e) => e.internal_id));
-      return [...prev, ...entries.filter((e) => !seen.has(e.internal_id))];
-    });
-  }, [entries, page]);
-  return all;
-}
-
-/**
- * A place, and every post made there.
+ * A place, and the posts made there.
  *
- * Opened from the pin line on a post's card (PostPlaceLine). The place is what
- * the posts share, so it heads the panel — its name, its address, how many
- * posts — pinned while the list under it scrolls, with a small way out to the
- * phone's maps for directions.
+ * Opened from the pin line on a post's card (PostPlaceLine). A map leads it,
+ * centred and pinned on the place, with the place's name and address on a
+ * see-through banner across its foot and "Open in Maps" there too — tap the
+ * map or the button for directions. Under it, the latest posts made there,
+ * sideways (PostStrip).
  *
- * A row opens its post as a sheet over this panel (useStackedPostSheet), and
- * that post's own pin line goes quiet: it's this place, already open.
+ * A post opens as a sheet over this panel (useStackedPostSheet), and that
+ * post's own pin line goes quiet: it's this place, already open.
  */
 export default function PlacePostsModal({ place, onClose, origin }: {
   /** The place to show; null while closed. */
@@ -198,43 +190,18 @@ export default function PlacePostsModal({ place, onClose, origin }: {
   const shown = place ?? last.current;
   const visible = !!place;
 
-  const [page, setPage] = useState(0);
-  // Back to the first page for each place opened.
-  useEffect(() => { if (place) setPage(0); }, [place?.place_id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // `currentData`, not `data`: the latter holds the last place's page while the
-  // next place's loads, and the list would open on the wrong posts.
-  const { currentData, isFetching } = useGetPostsQuery(
-    { place_id: shown?.place_id, page, limit: PAGE },
+  // `currentData`, not `data`: the latter holds the last place's posts while
+  // the next place's load, and the slider would open on the wrong ones.
+  const { currentData } = useGetPostsQuery(
+    { place_id: shown?.place_id, page: 0, limit: RECENT },
     { skip: !shown?.place_id },
   );
-  const posts = useAccumulated(currentData?.entries, page);
-  // Held while a later page loads, so "Load more" doesn't blink out under the tap.
-  const totalRef = useRef(0);
-  if (currentData) totalRef.current = currentData.total ?? currentData.entries.length;
-  const total = Math.max(totalRef.current, posts.length);
-  const isLoading = page === 0 && !currentData;
+  const posts = currentData?.entries ?? [];
+  const isLoading = !currentData;
 
   const { openPost, stacked } = useStackedPostSheet(visible);
 
-  // The place in a dark grey card of its own, over the list.
-  const header = shown ? (
-    <View style={styles.header}>
-      <View style={styles.headCard}>
-        <MapPin size={24} color={colors.fg} style={styles.headPin} />
-        <View style={styles.headText}>
-          <Text style={[styles.name, { color: colors.fg }]} numberOfLines={2}>{shown.name}</Text>
-          {shown.address ? (
-            <View style={styles.addressBlock}>
-              {addressLines(shown.address, shown.name).map((line, i) => (
-                <Text key={i} style={[styles.address, { color: colors.grey }]} numberOfLines={1}>{line}</Text>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </View>
-  ) : null;
+  const header = shown ? <PlaceMap place={shown} /> : null;
 
   return (
     <SummaryModal
@@ -242,105 +209,119 @@ export default function PlacePostsModal({ place, onClose, origin }: {
       origin={origin}
       onClose={onClose}
       header={header}
-      minHeightRatio={0.5}
       stacked={(
         <CurrentPlaceContext.Provider value={shown?.place_id ?? null}>
           {stacked}
         </CurrentPlaceContext.Provider>
       )}
     >
-      {shown ? <MapsFooter place={shown} /> : null}
       <View style={styles.body}>
         {isLoading ? (
           <ActivityIndicator style={styles.loader} color={colors.grey} />
         ) : posts.length === 0 ? (
           <PanelEmpty>No posts here yet</PanelEmpty>
         ) : (
-          // Mapped, not listed: SummaryModal brings its own scroller.
-          posts.map((p, i) => (
-            <PlacePostRow
-              key={p.internal_id}
-              post={p}
-              onPress={() => openPost(p)}
-              style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}
-            />
-          ))
+          // Every post it has here, so no "View all".
+          // No heading: the map says what these are.
+          <PostStrip
+            posts={posts}
+            total={posts.length}
+            // No name or time under each card; the author's photo sits on it.
+            showByline={false}
+            showTime={false}
+            avatarOnImage
+            onPostPress={openPost}
+            onViewAll={() => {}}
+          />
         )}
-
-        {!isLoading && posts.length > 0 && posts.length < total ? (
-          <TouchableOpacity
-            style={[styles.more, { backgroundColor: colors.segment }]}
-            onPress={() => setPage((p) => p + 1)}
-            disabled={isFetching}
-            activeOpacity={0.8}
-          >
-            {isFetching
-              ? <ActivityIndicator size="small" color={colors.fg} />
-              : <Text style={[styles.moreText, { color: colors.fg }]}>Load more ({total - posts.length})</Text>}
-          </TouchableOpacity>
-        ) : null}
       </View>
     </SummaryModal>
   );
 }
 
 /**
- * "Open in Maps", pinned to the panel's bottom-right corner over the list —
- * the way out for directions, in reach however far down you've scrolled.
+ * The place on a map, centred and pinned on it — a still picture: touches go
+ * to the press over it (the maps app), not to panning inside a scrolling
+ * panel. Its name and address sit on a see-through banner across the foot,
+ * with "Open in Maps" at its end.
  */
-function MapsFooter({ place }: { place: PostPlace }) {
-  const panel = useSummaryPanel();
-  const colors = useColors();
-  useLayoutEffect(() => {
-    panel?.setFooter(
-      <View style={styles.footer} pointerEvents="box-none">
-        <TouchableOpacity
-          style={[styles.mapsBtn, { backgroundColor: SURFACE_MID }]}
-          onPress={() => openInMaps(place)}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${place.name} in Maps`}
-        >
-          <Navigation size={14} color={colors.fg} />
-          <Text style={[styles.mapsText, { color: colors.fg }]}>Open in Maps</Text>
-        </TouchableOpacity>
-      </View>,
-    );
-  });
-  useLayoutEffect(() => () => panel?.setFooter(null), [panel]);
-  return null;
+function PlaceMap({ place }: { place: PostPlace }) {
+  const camera = { coordinates: { latitude: place.lat, longitude: place.lng }, zoom: 15 };
+  const lines = place.address ? addressLines(place.address, place.name) : [];
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.map}
+        onPress={() => openInMaps(place)}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${place.name} in Maps`}
+      >
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {Platform.OS === 'ios' ? (
+            <AppleMaps.View
+              style={StyleSheet.absoluteFill}
+              cameraPosition={camera}
+              markers={[{ id: 'place', coordinates: camera.coordinates }] as any}
+              uiSettings={{ compassEnabled: false, scaleBarEnabled: false, myLocationButtonEnabled: false, togglePitchEnabled: false }}
+            />
+          ) : (
+            <GoogleMaps.View
+              style={StyleSheet.absoluteFill}
+              cameraPosition={camera}
+              markers={[{ id: 'place', coordinates: camera.coordinates }] as any}
+              uiSettings={{ zoomControlsEnabled: false, mapToolbarEnabled: false, scrollGesturesEnabled: false, zoomGesturesEnabled: false, rotationGesturesEnabled: false, tiltGesturesEnabled: false, compassEnabled: false, myLocationButtonEnabled: false }}
+            />
+          )}
+        </View>
+        {/* Name and address, over the map's foot. */}
+        <View style={styles.banner}>
+          <View style={styles.bannerText}>
+            <Text style={styles.name} numberOfLines={1}>{place.name}</Text>
+            {lines.map((line, i) => (
+              <Text key={i} style={styles.address} numberOfLines={1}>{line}</Text>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={styles.mapsBtn}
+            onPress={() => openInMaps(place)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${place.name} in Maps`}
+          >
+            <Text style={styles.mapsText}>Open in Maps</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  header:   { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6 },
-  headCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    padding: 14, borderRadius: COMMON_RADIUS, backgroundColor: SURFACE_MID,
+  // The map runs edge to edge across the panel's top.
+  header:   {},
+  // Rounded at its foot only; the panel's own corners shape the top.
+  map:      { height: MAP_H, borderBottomLeftRadius: COMMON_RADIUS, borderBottomRightRadius: COMMON_RADIUS, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.06)' },
+  // See-through, across the map's foot.
+  banner:   {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 9,
+    backgroundColor: 'rgba(0,0,0,0.75)',
   },
-  // Level with the name's first line.
-  headPin:  { marginTop: 0 },
-  headText: { flex: 1, minWidth: 0 },
-  name:     { fontSize: 19, fontFamily: FONT_INTER.bold },
-  // Narrower than the card, so it reads as a block of address lines.
-  addressBlock: { marginTop: 4, maxWidth: '80%', gap: 1 },
-  address:  { fontSize: 13, lineHeight: 18 },
-  // Bottom-right of the panel, the list passing under it.
-  footer:   { alignItems: 'flex-end', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
+  bannerText: { flex: 1, minWidth: 0 },
+  name:     { fontSize: 15, fontFamily: FONT_INTER.bold, color: COLOR_WHITE },
+  address:  { fontSize: 12, lineHeight: 16, color: 'rgba(255,255,255,0.75)' },
   mapsBtn:  {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: PILL_RADIUS,
-    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: PILL_RADIUS,
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
-  mapsText: { fontSize: 13, fontFamily: FONT_INTER.semibold },
+  mapsText: { fontSize: 12.5, fontFamily: FONT_INTER.semibold, color: COLOR_WHITE },
 
-  body:     { paddingHorizontal: 16, paddingBottom: 16 },
+  // The slider runs edge to edge; it brings its own inset.
+  // A short gap under the map before the cards.
+  body:     { paddingTop: 12, paddingBottom: 14 },
   loader:   { marginVertical: 30 },
-  more:     {
-    alignSelf: 'center', marginTop: 14, minWidth: 160, alignItems: 'center',
-    paddingHorizontal: 18, paddingVertical: 10, borderRadius: PILL_RADIUS,
-  },
-  moreText: { fontSize: 13.5, fontFamily: FONT_INTER.semibold },
 
   row:      { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 },
   thumb:    { width: THUMB, height: THUMB, borderRadius: 10 },

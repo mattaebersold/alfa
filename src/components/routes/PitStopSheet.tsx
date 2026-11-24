@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, TouchableOpacity, StyleSheet, Modal,
+  View, TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { Text } from '../../theme/Text';
 import FormScrollView from '../../keyboard/FormScrollView';
-import KeyboardAvoidingView from '../../keyboard/KeyboardAvoidingView';
+import SharedModal, { PANE_GRABBER_H } from '../ui/SharedModal';
 import { ActivityIndicator } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin } from 'lucide-react-native';
 import FormInput from '../ui/FormInput';
 import { useGetNearbyPlacesQuery } from '../../api/apiService';
 import { useColors } from '../../hooks/useColors';
 import { useBrandColor, contrastText } from '../../hooks/useBrandColor';
-import { COMMON_RADIUS, PILL_RADIUS, PANE_BG, PANE_SCRIM, SHEET_RADIUS } from '../../constants/config';
+import { COMMON_RADIUS, PILL_RADIUS } from '../../constants/config';
 import { FONT_INTER } from '../../constants/fonts'
 
 /**
@@ -41,7 +40,6 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
   const colors = useColors();
   const brand = useBrandColor();
   const onBrand = contrastText(brand);
-  const insets = useSafeAreaInsets();
 
   const [label, setLabel] = useState('');
   const [note, setNote] = useState('');
@@ -65,106 +63,97 @@ export default function PitStopSheet({ visible, onClose, onSubmit, at }: PitStop
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      {/* The sheet rides on the keyboard: the backdrop shrinks by its height
-          and the sheet sits at the bottom, scrolling if it no longer fits. */}
-      <KeyboardAvoidingView style={[styles.backdrop, { paddingTop: insets.top }]}>
-        <View style={[styles.sheet, { backgroundColor: PANE_BG }]}>
-          <FormScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 16 }]}>
-            <Text style={[styles.title, { color: colors.fg }]}>Add pit stop</Text>
-            <Text style={[styles.subtitle, { color: colors.grey }]}>
-              Pinned where you are right now.
-            </Text>
+    // The app's one pane: the grabber floats over the top of the form, which
+    // heads itself; the pane rides on the keyboard.
+    <SharedModal visible={visible} onClose={onClose} hideHeader>
+      <FormScrollView contentContainerStyle={styles.body}>
+        <Text style={[styles.title, { color: colors.fg }]}>Add pit stop</Text>
+        <Text style={[styles.subtitle, { color: colors.grey }]}>
+          Pinned where you are right now.
+        </Text>
 
-            {/* Real places first — tapping one is faster and more accurate
-                than typing, and records exactly what you stopped at. */}
-            {at && (isFetching || places.length > 0) && (
-              <View style={styles.nearby}>
-                <Text style={[styles.nearbyLabel, { color: colors.grey }]}>NEARBY</Text>
-                {isFetching ? (
-                  <ActivityIndicator size="small" color={brand} style={{ alignSelf: 'flex-start' }} />
-                ) : (
-                  places.map((p) => {
-                    const active = placeId === p.place_id;
-                    return (
-                      <TouchableOpacity
-                        key={p.place_id}
-                        style={[styles.placeRow, { borderBottomColor: colors.border }]}
-                        onPress={() => { setLabel(p.name); setPlaceId(p.place_id); }}
-                        activeOpacity={0.7}
-                      >
-                        <MapPin size={15} color={active ? brand : colors.grey} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.placeName, { color: active ? brand : colors.fg }]} numberOfLines={1}>
-                            {p.name}
-                          </Text>
-                          {p.category && (
-                            <Text style={[styles.placeMeta, { color: colors.grey }]} numberOfLines={1}>
-                              {p.category}{p.distance != null ? ` · ${p.distance}m away` : ''}
-                            </Text>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </View>
+        {/* Real places first — tapping one is faster and more accurate
+            than typing, and records exactly what you stopped at. */}
+        {at && (isFetching || places.length > 0) && (
+          <View style={styles.nearby}>
+            <Text style={[styles.nearbyLabel, { color: colors.grey }]}>NEARBY</Text>
+            {isFetching ? (
+              <ActivityIndicator size="small" color={brand} style={{ alignSelf: 'flex-start' }} />
+            ) : (
+              places.map((p) => {
+                const active = placeId === p.place_id;
+                return (
+                  <TouchableOpacity
+                    key={p.place_id}
+                    style={[styles.placeRow, { borderBottomColor: colors.border }]}
+                    onPress={() => { setLabel(p.name); setPlaceId(p.place_id); }}
+                    activeOpacity={0.7}
+                  >
+                    <MapPin size={15} color={active ? brand : colors.grey} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.placeName, { color: active ? brand : colors.fg }]} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                      {p.category && (
+                        <Text style={[styles.placeMeta, { color: colors.grey }]} numberOfLines={1}>
+                          {p.category}{p.distance != null ? ` · ${p.distance}m away` : ''}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
             )}
+          </View>
+        )}
 
-            <View style={styles.chips}>
-              {SUGGESTIONS.map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[
-                    styles.chip,
-                    { borderColor: colors.border },
-                    label === s && { backgroundColor: brand, borderColor: brand },
-                  ]}
-                  onPress={() => { setLabel(s); setPlaceId(undefined); }}
-                >
-                  <Text style={[styles.chipText, { color: label === s ? onBrand : colors.fg }]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <FormInput
-              value={label}
-              onChangeText={(t) => { setLabel(t); setPlaceId(undefined); }}
-              placeholder="Name this stop"
-              maxLength={80}
-              autoFocus
-            />
-            <FormInput
-              style={styles.note}
-              value={note}
-              onChangeText={setNote}
-              placeholder="Anything worth knowing? (optional)"
-              multiline
-              maxLength={500}
-            />
-
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.btn, styles.cancel, { borderColor: colors.border }]} onPress={onClose}>
-                <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.btn, { backgroundColor: brand, flex: 1 }]} onPress={submit}>
-                <Text style={[styles.submitText, { color: onBrand }]}>Add stop</Text>
-              </TouchableOpacity>
-            </View>
-          </FormScrollView>
+        <View style={styles.chips}>
+          {SUGGESTIONS.map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[
+                styles.chip,
+                { borderColor: colors.border },
+                label === s && { backgroundColor: brand, borderColor: brand },
+              ]}
+              onPress={() => { setLabel(s); setPlaceId(undefined); }}
+            >
+              <Text style={[styles.chipText, { color: label === s ? onBrand : colors.fg }]}>{s}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+
+        <FormInput
+          value={label}
+          onChangeText={(t) => { setLabel(t); setPlaceId(undefined); }}
+          placeholder="Name this stop"
+          maxLength={80}
+          autoFocus
+        />
+        <FormInput
+          style={styles.note}
+          value={note}
+          onChangeText={setNote}
+          placeholder="Anything worth knowing? (optional)"
+          multiline
+          maxLength={500}
+        />
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={[styles.btn, styles.cancel, { borderColor: colors.border }]} onPress={onClose}>
+            <Text style={[styles.cancelText, { color: colors.fg }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.btn, { backgroundColor: brand, flex: 1 }]} onPress={submit}>
+            <Text style={[styles.submitText, { color: onBrand }]}>Add stop</Text>
+          </TouchableOpacity>
+        </View>
+      </FormScrollView>
+    </SharedModal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: PANE_SCRIM, justifyContent: 'flex-end' },
-  sheet: {
-    maxHeight: '100%',
-    borderTopLeftRadius: SHEET_RADIUS, borderTopRightRadius: SHEET_RADIUS, overflow: 'hidden',
-  },
-  body:  { padding: 20, gap: 10 },
+  body:  { padding: 20, paddingTop: PANE_GRABBER_H, gap: 10 },
   title:    { fontSize: 18, fontFamily: FONT_INTER.bold },
   subtitle: { fontSize: 13, marginTop: -6 },
 

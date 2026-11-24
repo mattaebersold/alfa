@@ -129,6 +129,7 @@ export default function PostOptionalFields({
 }
 
 const styles = StyleSheet.create({
+  // The main content's width (the form's 12 gutter), rounded, on its darker ground.
   card: {
     marginHorizontal: 12, marginTop: 6,
     borderRadius: FORM_CARD_RADIUS, overflow: 'hidden',

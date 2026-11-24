@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Text } from '../../theme/Text';
-import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery, useGetEngagementSuggestionsQuery } from '../../api/apiService';
+import { useGetUsersQuery, useGetUserFollowingQuery, useGetUserByIdQuery, useGetEngagementSuggestionsQuery, useGetFollowStatusesQuery } from '../../api/apiService';
 import { useAppSelector } from '../../store/store';
 import Avatar from '../ui/Avatar';
 import RowEndSpacer from '../ui/RowEndSpacer';
@@ -83,7 +83,7 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
   //
   // The inviter sits in front, until you follow them; then the people you
   // engage with, in the server's order; then the shuffled joiners.
-  const suggestions = useMemo(() => {
+  const candidates = useMemo(() => {
     const pool = usersData?.entries ?? [];
     const followed = new Set((followingData?.entries ?? []).map((u) => u.user_id));
     const seen = new Set<string>();
@@ -97,12 +97,31 @@ export default function SuggestedMembersRow({ onRequestHide }: Props) {
     const lead = take(inviter ? [inviter] : []);
     const engaged = take(engagement?.members ?? []);
     const rest = take(shuffle(pool));
-    return [...lead, ...engaged, ...rest].slice(0, MAX_SUGGESTIONS);
+    return [...lead, ...engaged, ...rest];
   }, [usersData, followingData, myId, inviter, engagement]);
+
+  // The following list above is capped, so it can miss people. Ask about
+  // every candidate directly too — one request — and drop anyone you follow.
+  // Following someone from the summary refreshes this (the Following tags),
+  // so they leave the shelf right away.
+  const usernames = useMemo(
+    () => [...new Set(candidates.map((u: any) => u.username).filter(Boolean) as string[])].sort(),
+    [candidates],
+  );
+  const { data: statusData, isLoading: loadingStatuses } = useGetFollowStatusesQuery(usernames, {
+    skip: !myId || usernames.length === 0,
+  });
+  const suggestions = useMemo(() => {
+    const statuses = statusData?.statuses ?? {};
+    return candidates
+      .filter((u: any) => !(u.username && statuses[u.username]))
+      .slice(0, MAX_SUGGESTIONS);
+  }, [candidates, statusData]);
 
   // Nothing to suggest is a normal state for someone who follows everyone —
   // render nothing rather than an empty shelf.
-  if (!suggestions.length) return null;
+  // Held back until the statuses are in, so someone you follow never flashes up first.
+  if (loadingStatuses || !suggestions.length) return null;
 
   return (
     <SuggestionCard

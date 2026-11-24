@@ -16,6 +16,7 @@ import Svg, { Line } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import NavDrawer from './NavDrawer';
+import Avatar from './Avatar';
 import NotificationsBell from './NotificationsBell';
 import GarageDoor from './GarageDoor';
 import GaragePanel from '../cars/GaragePanel';
@@ -30,6 +31,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import { GUTTER, COLOR_BLACK, COLOR_WHITE, COLOR_BORDER, COLOR_COUNT_BADGE, APP_BG, SURFACE_BLACK, SURFACE_MID, TAB_IDLE_FG, COLOR_GRAY_58 } from '../../constants/config';
 import { colors, withAlpha } from '../../constants/colors';
 import { useCountBadge } from '../../hooks/useCountBadge';
+import HomeMessageBanner, { useHomeMessageInset, collapseLift } from '../homeMessages/HomeMessageBanner';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -63,6 +65,8 @@ function fitGarageThumbs(count: number, room: number | null): number {
 
 /** A bare button's drawn width: narrower than BTN, so the glyphs in the right-hand row sit closer. */
 const BARE_W = 38;
+/** Your photo in the right-hand row: inside a bare button's width. */
+const PROFILE_SIZE = 35;
 /** Its touch target, back out to BTN — neighbours' slop overlaps, and the one under the finger wins. */
 const BARE_SLOP = { left: (BTN - BARE_W) / 2, right: (BTN - BARE_W) / 2 };
 // Half the button: the logo square (and the garage tab's far end) read as a
@@ -95,8 +99,8 @@ const BACK_W = 30;
 /** Space between the back button and the logo, same as the right-hand row. */
 const BACK_GAP = 7;
 
-/** The bar's side padding — the back button's travel has to clear it too. */
-const BAR_PAD_H = GUTTER + 8;
+/** The bar's side padding: the app's gutter, no extra — the back button's travel has to clear it too. */
+const BAR_PAD_H = GUTTER;
 /** The header buttons' inset from the screen edge — for rows that should line up with them. */
 export const HEADER_GUTTER = BAR_PAD_H;
 /**
@@ -190,16 +194,18 @@ function MenuBars({ size, color, strokeWidth }: { size: number; color: string; s
  * as the rest goes up. Moving a blur is fine on iOS where fading one isn't,
  * so nothing here animates but its position.
  */
-function HeaderGround({ height }: { height: number }) {
+function HeaderGround({ height, inset = 0 }: { height: number; inset?: number }) {
   const lift = headerOffset.interpolate({
     inputRange: [-TABS_STUCK_RISE, 0],
     outputRange: [-TABS_STUCK_RISE, 0],
     extrapolate: 'clamp',
   });
+  // Up by the home message banner's collapse too, so its foot stays under the tabs.
+  const translateY = inset ? Animated.add(lift, collapseLift(inset)) : lift;
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.ground, { top: -TABS_STUCK_RISE, height: height + TABS_STUCK_RISE + SCRIM_FADE, transform: [{ translateY: lift }] }]}
+      style={[styles.ground, { top: -TABS_STUCK_RISE, height: height + TABS_STUCK_RISE + SCRIM_FADE, transform: [{ translateY }] }]}
     >
       {/* A fade rather than a band, as the profile's header has: the feed
           scrolls up behind the buttons and tabs and darkens away under them,
@@ -213,7 +219,7 @@ function HeaderGround({ height }: { height: number }) {
   );
 }
 
-function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, top }: {
+function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, top, inset = 0 }: {
   tabs: HeaderTab[];
   activeTab?: string;
   onTabPress?: (key: string) => void;
@@ -222,6 +228,8 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
   onSubTabPress?: (key: string) => void;
   subTabsAction?: SubTabsAction;
   top: number;
+  /** The home message banner's room above the row; the row closes it up as the banner collapses. */
+  inset?: number;
 }) {
   /**
    * Whether the row has stuck — for the heavier weight it takes there: scaled
@@ -240,11 +248,12 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
     });
     return () => headerOffset.removeListener(id);
   }, []);
-  const lift = headerOffset.interpolate({
+  const headerLift = headerOffset.interpolate({
     inputRange: [-TABS_STUCK_RISE, 0],
     outputRange: [-(TABS_STUCK_RISE - TABS_STUCK_TIGHTEN), 0],
     extrapolate: 'clamp',
   });
+  const lift = inset ? Animated.add(headerLift, collapseLift(inset)) : headerLift;
 
   return (
     <Animated.View style={[styles.tabs, subTabs?.length ? styles.tabsWithSubs : null, { top, transform: [{ translateY: lift }] }]}>
@@ -270,6 +279,11 @@ function HeaderTabs({ tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubT
         // The unlit tabs grey, as the section options under them are.
         idleColor={SUB_IDLE_FG}
         dense
+        // The track sits at the gutter on both sides and the tabs scroll
+        // inside it, rather than the track running off the screen's edges.
+        contained
+        // Every tab equally close — Home's icon and PRO included — so the gaps all match.
+        compactFrom={0}
         contentContainerStyle={styles.tabsRow}
       />
       {subTabs?.length ? (
@@ -401,11 +415,21 @@ interface AppHeaderProps {
    * feed refreshing itself. Left out, the logo goes to the home feed.
    */
   onLogoPress?: () => void;
+  /**
+   * Show the current home message — "Message from Matt" — between the buttons
+   * and the tabs, when there is one. The home screen only. Its room is
+   * `useHomeMessageInset()`; how much of it is open is `homeMessageCollapse`,
+   * which the screen drives from the feed's scroll.
+   */
+  homeMessage?: boolean;
 }
 
-export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, onLogoPress }: AppHeaderProps = {}) {
+export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs, activeSubTab, onSubTabPress, subTabsAction, onLogoPress, homeMessage = false }: AppHeaderProps = {}) {
+  // Room for the home message banner, when this header shows one and there is one.
+  const messageInset = useHomeMessageInset(homeMessage);
   const badge = useCountBadge();
   const navigation = useNavigation<NavProp>();
+  const userInfo = useAppSelector((s) => s.auth.userInfo);
   const insets = useSafeAreaInsets();
   const { isLoggedIn } = useAppSelector((s) => s.auth);
   const { openSearch } = useSearch();
@@ -515,10 +539,13 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs
       {/* The bar is transparent, so the status bar shows the screen behind it. */}
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + (tabs?.length ? HEADER_TABS_HEIGHT : 0) + (tabs?.length && subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0) }} />}
+      {spacer && <View style={{ height: insets.top + APP_HEADER_HEIGHT + messageInset + (tabs?.length ? HEADER_TABS_HEIGHT : 0) + (tabs?.length && subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0) }} />}
 
       {tabs?.length ? (
-        <HeaderGround height={insets.top + APP_HEADER_HEIGHT + HEADER_TABS_HEIGHT + (subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0)} />
+        <HeaderGround
+          height={insets.top + APP_HEADER_HEIGHT + messageInset + HEADER_TABS_HEIGHT + (subTabs?.length ? HEADER_SUB_TABS_HEIGHT : 0)}
+          inset={messageInset}
+        />
       ) : null}
 
       {/* A scrim from the very top of the device down past the button row.
@@ -663,22 +690,36 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs
           {/* Your bookmarks — only once there's one. Opens in place, like the
               bell and the garage. */}
           {bookmarkCount > 0 && (
-            <View ref={bookmarksRef} collapsable={false}>
+            // As tight to the bell as search is to it — one spacing for the three.
+            <View ref={bookmarksRef} collapsable={false} style={styles.bookmarkTight}>
               <FloatingButton label="Bookmarks" tint={tint} bare round onPress={openBookmarks}>
                 <Bookmark size={21} color={COLOR_WHITE} strokeWidth={2.4} />
               </FloatingButton>
             </View>
           )}
 
-          {/* Search, where the profile photo was — the two swapped places: your
-              profile is the round photo in the bottom corner now (CreateFab). */}
+          {/* Search. */}
           <FloatingButton
             label="Search"
             tint={tint}
             bare round
+            // Tucked a little closer to the bookmark before it.
+            style={bookmarkCount > 0 && styles.searchAfterBookmark}
             onPress={openSearch}
           >
             <Search size={22} color={COLOR_WHITE} strokeWidth={2.4} />
+          </FloatingButton>
+
+          {/* Your profile photo, just left of the menu. */}
+          <FloatingButton
+            label="Your profile"
+            tint={tint}
+            bare round
+            // A little closer to search than the row's spacing.
+            style={styles.profileTight}
+            onPress={() => (navigation as any).navigate('MainTabs', { screen: 'FeedTab', params: { screen: 'Profile' } })}
+          >
+            <Avatar user={userInfo} size={PROFILE_SIZE} radius={PROFILE_SIZE / 2} edge={false} />
           </FloatingButton>
 
           {/* No badge. An unread message raises a notice in the bell next to
@@ -707,8 +748,14 @@ export default function AppHeader({ spacer, tabs, activeTab, onTabPress, subTabs
           activeSubTab={activeSubTab}
           onSubTabPress={onSubTabPress}
           subTabsAction={subTabsAction}
-          top={insets.top + APP_HEADER_HEIGHT}
+          top={insets.top + APP_HEADER_HEIGHT + messageInset}
+          inset={messageInset}
         />
+      ) : null}
+
+      {/* Between the buttons and the tabs, riding the header out and back. */}
+      {homeMessage && messageInset ? (
+        <HomeMessageBanner top={insets.top + APP_HEADER_HEIGHT} fadeOver={APP_HEADER_HEIGHT + messageInset} />
       ) : null}
 
       <NavDrawer visible={drawerOpen} origin={drawerOrigin} onClose={() => setDrawerOpen(false)} />
@@ -744,9 +791,6 @@ const TABS_STUCK_TRIM = 6 + TABS_GAP;
 const TABS_STUCK_TIGHTEN = 4;
 export const TABS_STUCK_RISE = APP_HEADER_HEIGHT + TABS_STUCK_TRIM + TABS_STUCK_TIGHTEN;
 
-/** Clear space after the last tab, at the end of the row's scroll. */
-const TABS_END_SPACE = 24;
-
 /** Room before the first tab: the global gutter, so it lines up with the header's buttons and the page under it. */
 const TABS_START_PAD = GUTTER;
 
@@ -768,9 +812,6 @@ const styles = StyleSheet.create({
   ground: { position: 'absolute', left: 0, right: 0, zIndex: 18 },
   // MainTabs' row, with the header's own room at the end and below.
   tabsRow: {
-    // Past the last tab: clear space so it doesn't end hard against the
-    // screen edge when scrolled all the way along.
-    paddingRight: GUTTER + TABS_END_SPACE,
     // Less above than below: the pills sit up near the buttons they belong
     // to, and the room under them parts the row from the page.
     paddingTop: TABS_GAP,
@@ -794,6 +835,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: BAR_PAD_H,
+    // A touch more on the left, where the logo would otherwise sit tight to the edge.
+    paddingLeft: BAR_PAD_H + 4,
   },
 
   // Takes what the right-hand row leaves, so the garage button can grow into it.
@@ -826,6 +869,10 @@ const styles = StyleSheet.create({
   // A small gap between the unfilled glyphs; each button's hitSlop still
   // reaches its neighbour, so there's no dead space between targets.
   rightActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // Bell, bookmark and search sit closer together than the rest of the row.
+  searchAfterBookmark: { marginLeft: -10 },
+  bookmarkTight: { marginLeft: -10 },
+  profileTight: { marginLeft: -4 },
 
   btn: {
     width: BTN, height: BTN,

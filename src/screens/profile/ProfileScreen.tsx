@@ -32,6 +32,7 @@ import EventSummaryModal from '../../components/society/EventSummaryModal';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { addBlockedUser, removeBlockedUser } from '../../store/moderationSlice';
 import Avatar from '../../components/ui/Avatar';
+import ImageLightbox from '../../components/ui/ImageLightbox';
 import UserByline from '../../components/members/UserByline';
 import AppHeader, { APP_HEADER_HEIGHT } from '../../components/ui/AppHeader';
 import { useSectionTabs } from '../../hooks/useSectionTabs';
@@ -171,10 +172,10 @@ const POSTS_PAGE_SIZE = 12;
 const POST_CARD_RATIO = 16 / 10;
 
 /** The profile photo. The banner overlap, the ring and the badges all follow from it. */
-const AVATAR_SIZE = 88;
+const AVATAR_SIZE = 96;
 
 /** The Pro ring's thickness around the photo. */
-const PRO_RING = 5;
+const PRO_RING = 3.5;
 /**
  * How far the wheel and member-number badges hang past the photo's corners —
  * enough that they read as pinned to it rather than printed on it.
@@ -182,6 +183,8 @@ const PRO_RING = 5;
 const BADGE_OFFSET = -5;
 /** Under the wheel and the member number, so they sit on the photo rather than in it. */
 const BADGE_SHADOW = '0px 3px 8px rgba(0, 0, 0, 0.55)';
+/** The same shadow under the photo, spread wider to suit its size. */
+const AVATAR_SHADOW = '0px 4px 18px 3px rgba(0, 0, 0, 0.35)';
 /** The banner's rounded foot. */
 const BANNER_RADIUS = 28;
 
@@ -515,6 +518,9 @@ export default function ProfileScreen() {
   const viewedIsPro = (user as any)?.accountType === 'pro' || (user as any)?.accountType === 'admin';
   const isLoading = isOwnProfile ? loadingOwn : loadingOther;
   const userId = user?.user_id ?? '';
+  // The profile photo, full size, for the lightbox its tap opens.
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const avatarFullUrl = imageUrl(user?.gallery?.[0]?.filename ?? (user as any)?.profilePicture, 'full');
 
   // All sections fetched up front so the tiles can show counts and content is
   // ready the moment a tile opens its modal.
@@ -936,17 +942,28 @@ export default function ProfileScreen() {
           {/* A Pro member's ring: a flat band of the Pro red, showing around
               the photo. No sheen, and no edge of the avatar's
               own between the two. The badges stay outside it. */}
-          {viewedIsPro ? (
-            <View style={[styles.proRing, { backgroundColor: COLOR_PRO }]}>
-              <View style={[styles.avatarWrap, { backgroundColor: COLOR_PRO }]}>
+          {/* Tap for the full photo. Carries the badges' shadow, on the
+              outer circle — the inner one clips, which would cut it off. */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={!avatarFullUrl}
+            onPress={() => setAvatarOpen(true)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel="View profile photo"
+            style={[styles.avatarShadow, viewedIsPro && styles.avatarShadowPro]}
+          >
+            {viewedIsPro ? (
+              <View style={[styles.proRing, { backgroundColor: COLOR_PRO }]}>
+                <View style={[styles.avatarWrap, { backgroundColor: COLOR_PRO }]}>
+                  <Avatar user={user} size={AVATAR_SIZE} edge={false} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.avatarWrap}>
                 <Avatar user={user} size={AVATAR_SIZE} edge={false} />
               </View>
-            </View>
-          ) : (
-            <View style={styles.avatarWrap}>
-              <Avatar user={user} size={AVATAR_SIZE} edge={false} />
-            </View>
-          )}
+            )}
+          </TouchableOpacity>
           {viewedIsPro && (
             <View style={styles.proWheel}>
               <SteeringWheel size={29} color={COLOR_BLACK} strokeWidth={2.5} />
@@ -972,6 +989,9 @@ export default function ProfileScreen() {
                 {user.memberNumber}
               </Text>
             </View>
+          ) : null}
+          {avatarFullUrl ? (
+            <ImageLightbox images={[avatarFullUrl]} visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
           ) : null}
         </View>
 
@@ -1032,7 +1052,7 @@ export default function ProfileScreen() {
                   {bioLines.slice(0, BIO_LINES - 1).join('')}
                   {bioLines[BIO_LINES - 1].trimEnd().slice(0, -BIO_MORE_ROOM).trimEnd()}
                   {'… '}
-                  <Text style={[styles.moreLink, { color: colors.grey }]} onPress={() => setBioExpanded(true)}>More</Text>
+                  <Text style={styles.moreLink} onPress={() => setBioExpanded(true)}>More</Text>
                 </>
               ) : (
                 <>
@@ -1040,7 +1060,7 @@ export default function ProfileScreen() {
                   {bioLines && bioLines.length > BIO_LINES ? (
                     <>
                       {' '}
-                      <Text style={[styles.moreLink, { color: colors.grey }]} onPress={() => setBioExpanded(false)}>Less</Text>
+                      <Text style={styles.moreLink} onPress={() => setBioExpanded(false)}>Less</Text>
                     </>
                   ) : null}
                 </>
@@ -1514,7 +1534,7 @@ const styles = StyleSheet.create({
   // the screen for anyone without a cover image.
   bannerScrim: { position: 'absolute', top: 0, left: 0, right: 0, height: '60%' },
   // In a little further than the page's edge, clear of the banner's rounded corner.
-  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingLeft: 26, paddingRight: 16, marginTop: -AVATAR_SIZE / 2 },
+  avatarRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingLeft: 18, paddingRight: 16, marginTop: -AVATAR_SIZE / 2 },
   // Sits on the avatar's baseline, with a little lift so it reads level with
   // the photo rather than hanging off its bottom edge.
   // Sits up from the row's foot, nearer the middle of the photo beside it.
@@ -1548,9 +1568,10 @@ const styles = StyleSheet.create({
     width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2,
     overflow: 'hidden',
     backgroundColor: colors.primaryAlt,
-    shadowColor: COLOR_BLACK, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
+  // The wheel's and member number's shadow, under the whole photo (ring included).
+  avatarShadow:    { borderRadius: AVATAR_SIZE / 2, boxShadow: AVATAR_SHADOW },
+  avatarShadowPro: { borderRadius: AVATAR_SIZE / 2 + PRO_RING },
   headerActions: { flexDirection: 'row', gap: 8 },
   iconBtn:       {
     width: 36, height: 36, borderRadius: COMMON_RADIUS, borderWidth: 1,
@@ -1582,12 +1603,13 @@ const styles = StyleSheet.create({
   username:   { fontSize: 14, marginTop: 2 },
   bioWrap:    { marginTop: 8, marginBottom: 14 },
   bio:        { fontSize: 14, lineHeight: 20 },
-  moreLink:   { fontSize: 13, fontFamily: FONT_INTER.bold, textDecorationLine: 'underline' },
+  // Inherits the bio's colour, size and weight — only the underline marks it.
+  moreLink:   { textDecorationLine: 'underline' },
   location:   { fontSize: 13, marginTop: 4 },
   // Across the screen, the pills sharing it — and up toward the header.
   tilesRow:   { flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginTop: -6 },
   // The loading page's pieces — see the early return.
-  skelHead:     { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingLeft: 26, paddingRight: 16, marginTop: -AVATAR_SIZE / 2, marginBottom: 16 },
+  skelHead:     { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingLeft: 18, paddingRight: 16, marginTop: -AVATAR_SIZE / 2, marginBottom: 16 },
   skelName:     { flex: 1, gap: 8, paddingBottom: 18 },
   skelCard:     { marginHorizontal: 12, marginTop: 16 },
   skelStrip:    { paddingTop: 20, paddingHorizontal: 16, gap: 10 },

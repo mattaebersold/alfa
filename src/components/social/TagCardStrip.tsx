@@ -3,6 +3,7 @@ import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '../../theme/Text';
 import { Image } from '../ui/AppImage';
 import { Check } from 'lucide-react-native';
+import { useBrandColor } from '../../hooks/useBrandColor';
 import { useColors } from '../../hooks/useColors';
 import type { TagItem } from './PostTagPicker';
 import { COLOR_WHITE, COLOR_BLACK } from '../../constants/config';
@@ -48,6 +49,8 @@ export default function TagCardStrip({
   bleed?: number;
 }) {
   const colors = useColors();
+  // Pro red for a Pro account, blue otherwise — the + button's colour.
+  const brand = useBrandColor();
   if (cards.length === 0) return null;
 
   return (
@@ -68,7 +71,7 @@ export default function TagCardStrip({
               style={[
                 styles.card,
                 // No border and no ground of its own — the photo is the tile,
-                // and tagged is the teal check on it.
+                // and tagged is the brand-coloured check on it.
                 { backgroundColor: colors.inputBg },
               ]}
               onPress={() => onToggle(tag)}
@@ -83,7 +86,7 @@ export default function TagCardStrip({
                 <View style={[styles.image, styles.fallback, fallbackBg ? { backgroundColor: fallbackBg } : null]}>{fallback}</View>
               )}
               {selected && (
-                <View style={[styles.check, { backgroundColor: colors.teal }]}>
+                <View style={[styles.check, { backgroundColor: brand }]}>
                   <Check size={11} color={COLOR_WHITE} strokeWidth={3.5} />
                 </View>
               )}

@@ -23,7 +23,8 @@ import CarActivitySummaryModal, { type CarActivityTab } from '../cars/CarActivit
 
 /** On the home feed, a car's card keeps to how it's been received: who follows it, what's been said, who likes it. */
 const FEED_ACTIVITY_TABS: CarActivityTab[] = ['followers', 'comments', 'likes'];
-import { type SummaryOrigin } from '../ui/SummaryModal';
+import { SummaryTouchable, type SummaryOrigin } from '../ui/SummaryModal';
+import Avatar from '../ui/Avatar';
 import { userPreview } from '../members/UserSummaryModal';
 import RegionBadge from '../ui/RegionBadge';
 import OilSheen, { WARM_SHEEN_FILL } from '../ui/OilSheen';
@@ -65,6 +66,8 @@ interface CarPosterCardProps {
    * said whose cars these are.
    */
   showOwner?: boolean;
+  /** With `showOwner`: just the owner's photo, top-left in a 3px black/40 ring — no name. */
+  ownerAvatar?: boolean;
   /**
    * Narrow variant for carousels and grids, where the parent owns the width.
    * Drops the margins, the big mark and the owner controls, and scales the
@@ -143,6 +146,7 @@ export default function CarPosterCard({
   onEditPress,
   attribution = false,
   showOwner = false,
+  ownerAvatar = false,
   compact = false,
   plain = false,
   featured = false,
@@ -234,7 +238,15 @@ export default function CarPosterCard({
 
   // The chip form: enough to say whose car this is, without the sentence the
   // feed needs.
-  const ownerChip = showOwner && !attribution && owner ? (
+  const ownerChip = showOwner && !attribution && owner ? (ownerAvatar ? (
+    <SummaryTouchable
+      onPress={(o) => openUser(owner.user_id, o, userPreview(owner))}
+      style={styles.ownerAvatar}
+      accessibilityLabel={owner.username ?? 'Owner'}
+    >
+      <Avatar user={owner} size={26} edge={false} />
+    </SummaryTouchable>
+  ) : (
     <UserByline
       user={owner}
       size={20}
@@ -244,7 +256,7 @@ export default function CarPosterCard({
       style={styles.ownerChip}
       onPress={(o) => openUser(owner.user_id, o, userPreview(owner))}
     />
-  ) : null;
+  )) : null;
   // The top right is the owner's controls' when there are any.
   const ownerTopRight = !showControls && !(onTasksPress && taskCount > 0);
 
@@ -388,12 +400,13 @@ export default function CarPosterCard({
             </View>
           )}
 
-          {!ownerTopRight && ownerChip}
+          {/* Just the photo always sits here; the name chip only when the right's taken. */}
+          {(ownerAvatar || !ownerTopRight) && ownerChip}
         </View>
 
         {/* Top right when the corner's free — the featured row, and other
             people's cars; your own car keeps its controls there. */}
-        {ownerTopRight && ownerChip ? <View style={styles.ownerCorner}>{ownerChip}</View> : null}
+        {ownerTopRight && !ownerAvatar && ownerChip ? <View style={styles.ownerCorner}>{ownerChip}</View> : null}
 
         {/* ── Top right: what the owner can do to it ── */}
         {(showControls || (onTasksPress && taskCount > 0)) && (
@@ -714,6 +727,8 @@ const styles = StyleSheet.create({
   },
 
   ownerCorner: { position: 'absolute', top: 12, right: 14, maxWidth: '55%' },
+  // The photo alone, in a 3px black/40 ring.
+  ownerAvatar: { borderRadius: 16, borderWidth: 3, borderColor: 'rgba(0,0,0,0.4)' },
   topRight: {
     position: 'absolute', top: 12, right: 14,
     flexDirection: 'row', alignItems: 'center', gap: 6,

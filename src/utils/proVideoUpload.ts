@@ -162,6 +162,12 @@ interface UploadRecord {
   fileName: string;
   durationSecs: number | null;
   fields: ProVideoFields;
+  /**
+   * A new file for this video, already up ("Replace video" in its edit
+   * form), rather than a new video: started with POST /:id/replace, and done
+   * once the server has swapped it in. `videoId` is the same video.
+   */
+  replaceId?: string;
   /** uploading: bytes still to send. processing: sent, Mux is encoding. errored: Mux failed it; file kept for Retry. failed: we gave up; Retry resumes. */
   stage: 'uploading' | 'processing' | 'errored' | 'failed';
   error?: string;
@@ -170,6 +176,8 @@ interface UploadRecord {
 
 interface Job {
   key: string;
+  /** See UploadRecord.replaceId. */
+  replaceId?: string;
   /** Null until preparing has produced the file to send. */
   rec: UploadRecord | null;
   source: PickedVideo | null;
@@ -524,8 +532,19 @@ export async function pickProVideo(): Promise<PickedVideo | null> {
 
 // ── 2. Preparing ────────────────────────────────────────────────────────────
 
+/**
+ * Off: every video goes up as it is, and Mux does the re-encoding (to its
+ * 1080p ladder — see horacio's proVideoMux). The phone's re-encode
+ * (react-native-compressor) ignored an iPhone clip's rotation: a portrait
+ * video came out as a 1920×1080 frame with the picture pillarboxed in the
+ * middle, and Mux, rightly, called it 16:9. The original keeps its own shape.
+ * The cost is a bigger upload; the server allows 10 GB.
+ */
+const PHONE_REENCODE = false;
+
 /** Re-encode only when it pays: over 1080p, or a bitrate far above what Mux will stream. */
 function shouldCompress(v: PickedVideo): boolean {
+  if (!PHONE_REENCODE) return false;
   const long = Math.max(v.width ?? 0, v.height ?? 0);
   const short = Math.min(v.width ?? 0, v.height ?? 0);
   if (long > 1920 || short > 1080) return true;
@@ -643,6 +662,7 @@ async function prepare(job: Job): Promise<UploadRecord> {
     fileName,
     durationSecs: src.durationSecs,
     fields: job.fields,
+    replaceId: job.replaceId,
     stage: 'uploading',
     savedAt: Date.now(),
   };
@@ -688,6 +708,22 @@ async function begin(job: Job, rec: UploadRecord): Promise<string> {
     // Fewer tries than other calls: a start that reached the server but lost
     // its answer leaves a stray 'uploading' record (swept by the server), and
     // each retry could add another.
+    const file = {
+      file_size: rec.total,
+      mime_type: rec.mimeType,
+      file_name: rec.fileName,
+      duration_secs: rec.durationSecs ?? undefined,
+    };
+    // A new file for a video that's already up: the same video, a new upload URL beside its current file.
+    if (rec.replaceId) {
+      const res = await apiWithRetry<{ video: ProVideo; upload_url: string }>(job, 'POST', `/${rec.replaceId}/replace`, file, 3);
+      rec.videoId = rec.replaceId;
+      rec.stage = 'uploading';
+      saveRecord(rec);
+      setState(job, { videoId: rec.videoId });
+      patchProVideoCaches(store.dispatch, store.getState, res.video.internal_id, (v) => { Object.assign(v, res.video); });
+      return res.upload_url;
+    }
     const res = await apiWithRetry<{ video: ProVideo; upload_url: string }>(job, 'POST', '/uploads', {
       ...rec.fields,
       file_size: rec.total,
@@ -965,7 +1001,24 @@ function watchProcessing(key: string) {
     if (AppState.currentState !== 'active') { polling.delete(key); return; }
     try {
       const video = await api<ProVideo>('GET', `/${rec.videoId}`);
-      if (video.status !== 'processing' && video.status !== 'uploading') {
+      // A replacement is done when the video no longer has one going — swapped
+      // in — or the one it has failed. The video stays ready throughout.
+      if (rec.replaceId) {
+        const r = video.replacement;
+        if (!r || r.status === 'errored') {
+          patchProVideoCaches(store.dispatch, store.getState, video.internal_id, (v) => { Object.assign(v, video); });
+          refreshLists();
+          if (r?.status === 'errored') {
+            rec.stage = 'errored';
+            rec.error = r.error?.message ?? "Mux couldn't process the new file";
+            saveRecord(rec);
+          } else {
+            dropRecord(key);
+          }
+          polling.delete(key);
+          return;
+        }
+      } else if (video.status !== 'processing' && video.status !== 'uploading') {
         patchProVideoCaches(store.dispatch, store.getState, video.internal_id, (v) => { Object.assign(v, video); });
         refreshLists();
         if (video.status === 'errored') {
@@ -1174,9 +1227,9 @@ function sweepOrphans() {
   } catch { /* nothing to sweep */ }
 }
 
-function newJob(key: string, fields: ProVideoFields, userId: string, rec: UploadRecord | null, source: PickedVideo | null = null): Job {
+function newJob(key: string, fields: ProVideoFields, userId: string, rec: UploadRecord | null, source: PickedVideo | null = null, replaceId?: string): Job {
   const job: Job = {
-    key, rec, source, fields, userId,
+    key, rec, source, fields, userId, replaceId: replaceId ?? rec?.replaceId,
     state: { ...blankState(key, fields.title), videoId: rec?.videoId ?? null, total: rec?.total ?? 0 },
     running: false, cancelled: false, abort: null, wake: null, compressionId: null, inflight: null,
   };
@@ -1191,6 +1244,20 @@ function newJob(key: string, fields: ProVideoFields, userId: string, rec: Upload
 export function startProVideoUpload(video: PickedVideo, fields: ProVideoFields, userId: string): string {
   const key = `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   const job = newJob(key, fields, userId, null, video);
+  run(job);
+  return key;
+}
+
+/**
+ * Send a new file for a video that's already up — its edit form's "Replace
+ * video". Goes up like any upload (prepared, resumable, on the banner); the
+ * video keeps playing its current file until Mux has the new one ready, then
+ * the server swaps it in. Returns at once.
+ */
+export function startProVideoReplace(video: PickedVideo, target: Pick<ProVideo, 'internal_id' | 'title'>, userId: string): string {
+  const key = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  const job = newJob(key, { title: target.title }, userId, null, video, target.internal_id);
+  setState(job, { title: `New file · ${target.title}` });
   run(job);
   return key;
 }

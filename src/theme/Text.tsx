@@ -3,6 +3,7 @@ import {
   Text as RNText,
   TextInput as RNTextInput,
   StyleSheet,
+  Platform,
   type TextProps,
   type TextInputProps,
   type TextStyle,
@@ -96,7 +97,30 @@ export function Text(props: TextProps & { ref?: React.Ref<RNText> }) {
 }
 export type Text = RNText;
 
-export function TextInput(props: TextInputProps & { ref?: React.Ref<RNTextInput> }) {
+/**
+ * The keyboard's corrections, the same in every field.
+ *
+ * iOS: no live autocorrect. Typed fast, it swapped words under the cursor as
+ * you went and the text jumped. Spell check stays — the red underline, with
+ * its fixes a tap away — unless the field turned corrections off itself (a
+ * handle, an email, a code), where an underline would be wrong too. iOS has
+ * no switch for "suggestions above the keyboard but no corrections": its
+ * suggestion bar goes with autocorrect.
+ *
+ * Android is left as each field asks: there `autoCorrect={false}` also hides
+ * the suggestion strip, which is worth keeping.
+ */
+function keyboardProps(props: TextInputProps): TextInputProps {
+  if (Platform.OS !== 'ios') return props;
+  return {
+    ...props,
+    autoCorrect: false,
+    spellCheck: props.spellCheck ?? props.autoCorrect !== false,
+  };
+}
+
+export function TextInput(raw: TextInputProps & { ref?: React.Ref<RNTextInput> }) {
+  const props = keyboardProps(raw);
   if (!enabled) return <RNTextInput {...props} />;
   const family = resolve(props.style as StyleProp<TextStyle>, false);
   return <RNTextInput {...props} style={family ? withFamily(props.style as StyleProp<TextStyle>, family) : props.style} />;

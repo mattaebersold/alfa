@@ -98,12 +98,12 @@ export default function GroupCard({ group, onPress, role, bannerRatio, pro, hide
     <SummaryTouchable
       // One ground for the whole card — the words' panel colour, so it shows
       // the same around the picture's rounded corners as under it.
-      style={[styles.card, { backgroundColor: ground, borderColor: isPro ? palette.pro : colors.border }]}
+      style={[styles.card, { backgroundColor: ground, borderColor: isPro ? palette.pro : colors.border }, isPro && styles.cardPro]}
       onPress={onPress}
       activeOpacity={0.9}
       accessibilityLabel={badge ? `${group.title ?? 'Group'}, ${badge.label.toLowerCase()}` : (group.title ?? 'Group')}
     >
-      <View style={styles.cardBannerWrap}>
+      <View style={[styles.cardBannerWrap, isPro && styles.cardBannerWrapPro]}>
         {banner
           ? <Image source={{ uri: banner }} style={bannerStyle} contentFit="cover" />
           : <View style={[bannerStyle, { backgroundColor: colors.primaryAlt + '55' }]} />
@@ -130,7 +130,7 @@ export default function GroupCard({ group, onPress, role, bannerRatio, pro, hide
           </View>
         ) : null}
       </View>
-      <View style={[styles.cardBody, { backgroundColor: ground }]}>
+      <View style={[styles.cardBody, isPro && styles.cardBodyPro, { backgroundColor: ground }]}>
         <View style={styles.titleRow}>
           {isPro ? <SteeringWheel size={15} color={COLOR_BLACK} strokeWidth={2.4} /> : null}
           <Text style={[styles.cardTitle, { color: isPro ? COLOR_BLACK : colors.fg }]} numberOfLines={1}>{group.title}</Text>
@@ -151,11 +151,17 @@ const styles = StyleSheet.create({
   card: {
     flex: 1, borderRadius: CARD_RADIUS, borderWidth: 1, overflow: 'hidden',
   },
+  // Pro Drivers: a heavier frame in the Pro red.
+  cardPro: { borderWidth: 3 },
   // Rounded all round, the card's radius — a tile set into the card.
   cardBannerWrap: { borderRadius: CARD_RADIUS, overflow: 'hidden' },
+  // Inside Pro Drivers' thicker frame: a little less round, to sit in it.
+  cardBannerWrapPro: { borderRadius: CARD_RADIUS - 3 },
   cardBanner: { width: '100%', aspectRatio: 3 / 2 },
   // The lighter panel the words sit on, filling to the card's foot.
   cardBody:   { flexGrow: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 10, backgroundColor: COLOR_GRAY_40 },
+  // Pro Drivers: tighter under its title.
+  cardBodyPro: { paddingBottom: 5 },
   titleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle:  { flexShrink: 1, fontSize: 13, fontFamily: FONT_INTER.bold },
   cardSub:    { fontSize: 12, marginTop: 2 },

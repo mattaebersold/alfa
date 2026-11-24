@@ -7,7 +7,6 @@ import FeedList from '../../components/feed/FeedList';
 import SpotTodayRow from '../../components/feed/SpotTodayRow';
 import LiveAuctionBanner from '../../components/feed/LiveAuctionBanner';
 import AppUpdateBanner from '../../components/feed/AppUpdateBanner';
-import PostUploadBanner from '../../components/feed/PostUploadBanner';
 import { onPostUploadEvent } from '../../utils/postUpload';
 import StoriesRow from '../../components/stories/StoriesRow';
 import SuggestedMembersRow from '../../components/feed/SuggestedMembersRow';
@@ -17,6 +16,7 @@ import FeedPrefsBanner from '../../components/feed/FeedPrefsBanner';
 import HideSuggestionsDialog from '../../components/feed/HideSuggestionsDialog';
 import { useFeedPreferences, type SuggestionRow } from '../../hooks/useFeedPreferences';
 import AppHeader, { useHeaderPad, TABS_STUCK_RISE, type HeaderTab } from '../../components/ui/AppHeader';
+import { useHomeMessageInset, homeMessageCollapse, HOME_MESSAGE_INSET } from '../../components/homeMessages/HomeMessageBanner';
 import { FAB_BOTTOM, FAB_RIGHT } from '../../components/ui/CreateFab';
 import { useScrollTopOnBack } from '../../hooks/useScrollTopOnBack';
 import { useHeaderScroll, showHeader, headerBottom } from '../../hooks/useHeaderScroll';
@@ -47,6 +47,7 @@ import { ss } from '../../styles/shared';
 import { GUTTER } from '../../constants/config';
 import { recordFeedTab } from '../../utils/screenViews';
 import { SECTION_SUBS, type SectionSub } from '../../components/sections';
+import { ProSubTabsContext } from '../../components/sections/ProSubTabs';
 
 type NavProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -124,9 +125,6 @@ function FeedHeader() {
   return (
     // The bottom pad parts the suggestion cards from the first post.
     <View style={styles.feedHeader}>
-      {/* Posts on their way up — first, so a post just made is the first
-          thing you see. See utils/postUpload. */}
-      <PostUploadBanner />
       {/* The society's own auction while it's live — gone when it ends. */}
       <LiveAuctionBanner />
       {/* The store has a newer build than this one — dismissable for 30 days. */}
@@ -156,6 +154,13 @@ export default function FeedScreen() {
   const headerPad = useHeaderPad({ tabs: true });
   /** A section's panes sit lower: its options open in a row under the tabs. */
   const sectionPad = useHeaderPad({ tabs: true, subTabs: true });
+  /**
+   * The home message banner's room, when there's one to show: between the
+   * header's buttons and its tabs, on the feed only, and only at its top —
+   * the feed starts that much lower, and as it scrolls the banner collapses
+   * (homeMessageCollapse) and the tabs close up under the buttons.
+   */
+  const messageInset = useHomeMessageInset();
   // One per pane: each tracks its own last position, so switching tabs doesn't
   // read the jump between two lists' offsets as a scroll.
   const onScroll = useHeaderScroll(headerPad);
@@ -356,6 +361,10 @@ export default function FeedScreen() {
       ...(SECTION_SUBS[tab] ?? []).map((s) => ({ key: s.key, label: s.label, Icon: s.Icon })),
     ];
   }, [tab, isPro]);
+  /** PRO's options, for the row at the top of each PRO pane (ProSubTabs). */
+  const proSubTabs = useMemo(() => (tab === 'pro' && subTabs
+    ? { tabs: subTabs, value: sub ?? LANDING, onChange: (k: string) => onSubTabRef.current(k) }
+    : null), [tab, subTabs, sub]);
   // Pro lapsed while on one of PRO's options: back to its landing, which is now the sign-up page.
   useEffect(() => {
     if (!isPro && tab === 'pro' && sub !== null) setSub(null);
@@ -365,11 +374,13 @@ export default function FeedScreen() {
     accessibilityLabel: 'Create a new event',
     onPress: () => (navigation as any).navigate('SocietyEventCreate'),
   }), [navigation]);
+  const onSubTabRef = useRef<(key: string) => void>(() => {});
   const onSubTab = (key: string) => {
     // The landing: selectTab on the section you're in brings it back (or to its top).
     if (key === LANDING) selectTab(tab);
     else selectSub(key);
   };
+  onSubTabRef.current = onSubTab;
   const bottomPad = 88 + insets.bottom + 32;
 
   /**
@@ -406,6 +417,29 @@ export default function FeedScreen() {
       pro: gate('pro', onProScroll),
     };
   }, [onScroll, onEventsScroll, onMarketScroll, onGroupsScroll, onCarsScroll, onMembersScroll, onProScroll]);
+  /**
+   * The banner collapses with the feed's scroll — gone by the time the feed
+   * has moved its height — and stays collapsed on every other tab and section.
+   * Back on the feed (which a tab tap returns to its top) it opens again.
+   */
+  const feedY = useRef(0);
+  const feedScroll = useCallback((e: any) => {
+    const y = e?.nativeEvent?.contentOffset?.y ?? 0;
+    feedY.current = y;
+    if (tabRef.current === 'feed' && !subRef.current) {
+      homeMessageCollapse.setValue(Math.min(HOME_MESSAGE_INSET, Math.max(0, y)));
+    }
+    gated.feed(e);
+  }, [gated]);
+  useEffect(() => {
+    const onFeed = tab === 'feed' && !sub;
+    Animated.timing(homeMessageCollapse, {
+      toValue: onFeed ? Math.min(HOME_MESSAGE_INSET, Math.max(0, feedY.current)) : HOME_MESSAGE_INSET,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [tab, sub]);
   const marketContentStyle = useMemo(() => ({ paddingTop: sectionPad, paddingBottom: 88 + insets.bottom + 32 }), [sectionPad, insets.bottom]);
   // The market's switch and search pin under the header, following it as it hides.
   // The tab row stays when the header hides, so the bar stops under it.
@@ -473,12 +507,15 @@ export default function FeedScreen() {
   }, [blockedData, dispatch]);
 
   return (
+    <ProSubTabsContext.Provider value={proSubTabs}>
     <SafeAreaView style={ss.fill} edges={[]}>
       <AppHeader
         tabs={FEED_TABS}
         activeTab={tab}
         onTabPress={selectTab}
-        subTabs={subTabs}
+        // PRO's options aren't in the header: they're the first row of each
+        // PRO pane's content (ProSubTabs), scrolling away with it.
+        subTabs={tab === 'pro' ? undefined : subTabs}
         activeSubTab={sub ?? LANDING}
         onSubTabPress={onSubTab}
         // Events' Add New, after its options rather than on the page.
@@ -487,6 +524,8 @@ export default function FeedScreen() {
         // does — back to the top, header showing, and a fresh page with the
         // spinner turning. On another tab it brings you back to the feed.
         onLogoPress={tab === 'feed' ? () => { selectTab('feed'); setFeedRefresh((n) => n + 1); } : undefined}
+        // "Message from Matt", over the tabs at the top of the feed.
+        homeMessage
       />
       <View style={ss.fill}>
       <View style={tab === 'feed' ? paneShown : paneHidden} pointerEvents={tab === 'feed' ? 'auto' : 'none'}>
@@ -501,8 +540,8 @@ export default function FeedScreen() {
           excludeTypes={FEED_EXCLUDE_TYPES}
           includeGarageAdditions
           ListHeaderComponent={FeedHeader}
-          paddingTop={headerPad + FEED_TOP_GAP}
-          onScroll={gated.feed}
+          paddingTop={headerPad + FEED_TOP_GAP + messageInset}
+          onScroll={feedScroll}
           refreshSignal={feedRefresh}
         />
       </Animated.View>
@@ -514,7 +553,7 @@ export default function FeedScreen() {
             // Home: today's Daily Games, the Pro group, Pro members' posts
             // and cars — under the options row, so it starts where the
             // other sections' panes do.
-            <ProHomeScreen scrollRef={proScrollRef} headerPad={sectionPad} bottomPad={bottomPad} onScroll={gated.pro} active={landing('pro')} />
+            <ProHomeScreen scrollRef={proScrollRef} headerPad={headerPad} bottomPad={bottomPad} onScroll={gated.pro} active={landing('pro')} />
           ) : (
             <ProPane scrollRef={proScrollRef} headerPad={headerPad} bottomPad={bottomPad} />
           )}
@@ -605,7 +644,8 @@ export default function FeedScreen() {
           <SubPane
             key={id}
             sub={s}
-            headerPad={sectionPad}
+            // PRO's options ride in its panes' content, not the header — less to clear.
+            headerPad={section === 'pro' ? headerPad : sectionPad}
             bottomPad={bottomPad}
             active={tab === section && sub === s.key}
           />
@@ -613,6 +653,7 @@ export default function FeedScreen() {
       }))}
       </View>
     </SafeAreaView>
+    </ProSubTabsContext.Provider>
   );
 }
 
@@ -677,7 +718,7 @@ function ProPane({ scrollRef, headerPad, bottomPad, onScroll }: {
 }
 
 const styles = StyleSheet.create({
-  feedHeader: { paddingBottom: 12 },
+  feedHeader: { paddingBottom: 8 },
   // Every pane fills the space under the header; the showing one is on top.
   pane: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   // A pane whose tab isn't showing: still in the native tree, so a return to

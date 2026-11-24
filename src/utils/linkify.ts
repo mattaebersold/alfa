@@ -1,5 +1,5 @@
 /**
- * Links in a post's words, shown as a bold "View More" rather than the raw
+ * Links in a post's words, shown as an underlined "View More" rather than the raw
  * address — a long URL in a two-line preview was most of the preview.
  *
  * Done before layout, not at render: the card clamps its words by measuring

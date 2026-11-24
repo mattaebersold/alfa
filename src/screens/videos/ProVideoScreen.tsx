@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, useWindow
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Bookmark, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react-native';
+import { Bookmark, Settings, Pencil, Trash2, Eye } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { formatDistanceToNow } from 'date-fns';
 import { Text } from '../../theme/Text';
@@ -36,7 +36,7 @@ const ENTRY_TYPE = 'provideo';
  * A Pro video, playing: Mux's HLS stream in the native player (its own
  * controls, fullscreen, AirPlay/PiP where the platform has them), and under
  * it the title, who posted it, like / comment / save, the description and
- * the comments. Its owner gets Edit and Delete.
+ * the comments. Its owner gets a cog with Edit and Delete (an admin, just Delete).
  *
  * A view is counted once, when playback first starts — not on open, so a
  * tap in and straight back out isn't a view.
@@ -219,8 +219,8 @@ function Player({ video }: { video: ProVideo }) {
               {video.bookmark_count > 0 ? <Text style={styles.count}>{formatActionCount(video.bookmark_count)}</Text> : null}
             </TouchableOpacity>
             {mine || isAdmin ? (
-              <TouchableOpacity style={[styles.actionBtn, styles.more]} onPress={() => setMenu(true)} accessibilityLabel="Video options">
-                <MoreHorizontal size={20} color={COLOR_WHITE} />
+              <TouchableOpacity style={[styles.actionBtn, styles.more]} onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Video options">
+                <Settings size={19} color={COLOR_WHITE} strokeWidth={2.2} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -228,17 +228,20 @@ function Player({ video }: { video: ProVideo }) {
           {video.description ? <Text style={styles.description}>{video.description}</Text> : null}
         </View>
 
-        <View onLayout={(e) => { commentsY.current = e.nativeEvent.layout.y; }}>
-          <InlineComments documentId={video.internal_id} entryType={ENTRY_TYPE} />
+        {/* Bare and see-through: no rule or panel of its own, just the thread
+            on the screen's background, a little way under the description. */}
+        <View style={styles.comments} onLayout={(e) => { commentsY.current = e.nativeEvent.layout.y; }}>
+          <InlineComments documentId={video.internal_id} entryType={ENTRY_TYPE} bare backgroundColor="transparent" />
         </View>
       </FormScrollView>
 
       <ActionSheet
         visible={menu}
         onClose={() => setMenu(false)}
+        title={mine ? 'Your video' : undefined}
         options={[
-          ...(mine ? [{ label: 'Edit details', Icon: Pencil, onPress: () => setEditing(true) }] : []),
-          { label: 'Delete video', Icon: Trash2, destructive: true, onPress: onDelete },
+          ...(mine ? [{ label: 'Edit', Icon: Pencil, onPress: () => setEditing(true) }] : []),
+          { label: 'Delete', Icon: Trash2, destructive: true, onPress: onDelete },
         ]}
       />
       <ProVideoDetailsSheet visible={editing} video={video} onClose={() => setEditing(false)} />
@@ -276,4 +279,5 @@ const styles = StyleSheet.create({
   more: { marginLeft: 'auto' },
   count: { color: COLOR_WHITE, fontSize: 13, fontFamily: FONT_INTER.medium },
   description: { color: 'rgba(255,255,255,0.88)', fontSize: 14.5, lineHeight: 21, marginTop: 6 },
+  comments: { marginTop: 24 },
 });

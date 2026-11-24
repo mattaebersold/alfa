@@ -85,6 +85,46 @@ type FeedRow =
 
 const timeOf = (iso?: string) => (iso ? new Date(iso).getTime() : 0);
 
+const rowKey = (row: FeedRow) =>
+  row.kind === 'post' ? `post-${row.post.internal_id}`
+    : row.kind === 'car' ? `car-${row.car.internal_id}`
+    : row.kind === 'carActivity' ? `${row.item.kind}-${row.item.internal_id}`
+    : row.kind === 'groupActivity' ? `group-${row.item.kind}-${row.item.internal_id}`
+    : `route-${row.route.internal_id}`;
+
+/**
+ * The rows, memoised on what they draw. The list re-renders whenever which
+ * posts are on screen changes — several times a second while scrolling — and
+ * without these every mounted card re-rendered with it, photos and all. Now
+ * only a card whose own props changed does.
+ */
+const PostRow = React.memo(function PostRow({ post, isLiked, visible, onOpen, onComment }: {
+  post: Post;
+  isLiked?: boolean;
+  visible: boolean;
+  onOpen: (post: Post) => void;
+  onComment: (post: Post) => void;
+}) {
+  const onPress = useCallback(() => onOpen(post), [onOpen, post]);
+  const onCommentPress = useCallback(() => onComment(post), [onComment, post]);
+  return (
+    // Full-bleed, edge to edge — no gutter around a post on the home feed.
+    <FeedItemCard post={post} isLiked={isLiked} onPress={onPress} onCommentPress={onCommentPress} visible={visible} />
+  );
+});
+
+const GroupRow = React.memo(function GroupRow({ item, onOpen }: {
+  item: GroupActivityItem;
+  onOpen: (item: GroupActivityItem, origin: SummaryOrigin | null) => void;
+}) {
+  const onPress = useCallback((origin: SummaryOrigin | null) => onOpen(item, origin), [onOpen, item]);
+  return <GroupActivityCard item={item} onPress={onPress} />;
+});
+
+const MemoCarPosterCard = React.memo(CarPosterCard);
+const MemoCarActivityCard = React.memo(CarActivityCard);
+const MemoRouteCard = React.memo(RouteCard);
+
 /**
  * How much of a post has to be on screen to count as being watched.
  *
@@ -333,15 +373,36 @@ export default function FeedList({
    * The handler is held in a ref because RN treats `onViewableItemsChanged` as
    * fixed for the life of the list and throws if its identity changes.
    */
-  const [visibleIds, setVisibleIds] = useState<string[]>([]);
+  const [visibleIds, setVisibleIds] = useState<ReadonlySet<string>>(() => new Set());
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    setVisibleIds(
-      viewableItems
-        .map((v) => (v.item as FeedRow))
-        .filter((row): row is Extract<FeedRow, { kind: 'post' }> => row?.kind === 'post')
-        .map((row) => row.post.internal_id),
-    );
+    const ids = viewableItems
+      .map((v) => (v.item as FeedRow))
+      .filter((row): row is Extract<FeedRow, { kind: 'post' }> => row?.kind === 'post')
+      .map((row) => row.post.internal_id);
+    // Only a real change re-renders: the same posts in view is the same set.
+    setVisibleIds((prev) => (prev.size === ids.length && ids.every((id) => prev.has(id)) ? prev : new Set(ids)));
   });
+
+  // Stable, so the memoised rows above aren't re-rendered by a new function.
+  const onPostPressRef = useRef(onPostPress);
+  onPostPressRef.current = onPostPress;
+  const openPost = useCallback((post: Post) => onPostPressRef.current?.(post), []);
+  const openGroupItem = useCallback(
+    (item: GroupActivityItem, origin: SummaryOrigin | null) => setGroupItem({ item, origin }),
+    [],
+  );
+
+  /**
+   * Ranked feed: which side row sits in each slot, by key, in slot order.
+   *
+   * The slots are refilled from the side rows every time the rows are built,
+   * so a side list refetching underneath — one new car added, one activity
+   * gone — moved every side row after it along a slot, including the ones
+   * above where you're reading, and the cards there jumped. Rows that already
+   * have a slot keep it; new ones take the slots after them. Belongs to the
+   * list it was made for: a refresh or a new order starts it again.
+   */
+  const placed = useRef<{ forFirst: string | null; keys: string[] }>({ forFirst: null, keys: [] });
 
   const rows = useMemo<FeedRow[]>(() => {
     const postRows: FeedRow[] = allPosts.map((post) => ({ kind: 'post', post, time: timeOf(post.created_at) }));
@@ -374,15 +435,50 @@ export default function FeedList({
     // A ranked feed keeps the server's order: sorting it by date would undo
     // the ranking. The other rows, newest first, are spaced out between the
     // posts instead.
-    extras.sort((a, b) => b.time - a.time);
+    // Already-placed rows first, in their slots' order; new ones after.
+    const firstId = allPosts[0]?.internal_id ?? null;
+    if (placed.current.forFirst !== firstId) placed.current = { forFirst: firstId, keys: [] };
+    const byKey = new Map(extras.map((r) => [rowKey(r), r]));
+    const kept = placed.current.keys.filter((k) => byKey.has(k));
+    const keptSet = new Set(kept);
+    const fresh = extras.filter((r) => !keptSet.has(rowKey(r))).sort((a, b) => b.time - a.time);
+    const queue = [...kept.map((k) => byKey.get(k)!), ...fresh];
     const out: FeedRow[] = [];
+    const slotted: string[] = [];
     postRows.forEach((row, i) => {
       out.push(row);
-      if ((i + 1) % RANKED_EXTRA_EVERY === 0 && extras.length) out.push(extras.shift()!);
+      if ((i + 1) % RANKED_EXTRA_EVERY === 0 && queue.length) {
+        const extra = queue.shift()!;
+        out.push(extra);
+        slotted.push(rowKey(extra));
+      }
     });
+    placed.current.keys = slotted;
     // Whatever's left goes at the end once there are no more posts to come.
-    return hasMorePosts ? out : [...out, ...extras];
+    return hasMorePosts ? out : [...out, ...queue];
   }, [allPosts, garageCars, newRoutes, carActivity, groupActivity, includeGarageAdditions, hasMorePosts, ranked]);
+
+  const renderItem = useCallback(({ item: row }: { item: FeedRow }) => (
+    row.kind === 'car' ? (
+      <MemoCarPosterCard car={row.car} attribution />
+    ) : row.kind === 'carActivity' ? (
+      <MemoCarActivityCard item={row.item} />
+    ) : row.kind === 'groupActivity' ? (
+      <GroupRow item={row.item} onOpen={openGroupItem} />
+    ) : row.kind === 'route' ? (
+      <View style={styles.feedCardGutter}>
+        <MemoRouteCard route={row.route} />
+      </View>
+    ) : (
+      <PostRow
+        post={row.post}
+        isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
+        visible={visibleIds.has(row.post.internal_id)}
+        onOpen={openPost}
+        onComment={setCommentPost}
+      />
+    )
+  ), [likedMap, visibleIds, openPost, openGroupItem]);
 
   return (
     <>
@@ -404,35 +500,8 @@ export default function FeedList({
         removeClippedSubviews={Platform.OS === 'android'}
         viewabilityConfig={VIEWABILITY}
         onViewableItemsChanged={onViewableItemsChanged.current}
-        keyExtractor={(row) =>
-          row.kind === 'post' ? `post-${row.post.internal_id}`
-            : row.kind === 'car' ? `car-${row.car.internal_id}`
-            : row.kind === 'carActivity' ? `${row.item.kind}-${row.item.internal_id}`
-            : row.kind === 'groupActivity' ? `group-${row.item.kind}-${row.item.internal_id}`
-            : `route-${row.route.internal_id}`
-        }
-        renderItem={({ item: row }) => (
-          row.kind === 'car' ? (
-            <CarPosterCard car={row.car} attribution />
-          ) : row.kind === 'carActivity' ? (
-            <CarActivityCard item={row.item} />
-          ) : row.kind === 'groupActivity' ? (
-            <GroupActivityCard item={row.item} onPress={(origin) => setGroupItem({ item: row.item, origin })} />
-          ) : row.kind === 'route' ? (
-            <View style={styles.feedCardGutter}>
-              <RouteCard route={row.route} />
-            </View>
-          ) : (
-            // Full-bleed, edge to edge — no gutter around a post on the home feed.
-            <FeedItemCard
-              post={row.post}
-              isLiked={row.post.isLiked ?? likedMap[row.post.internal_id]}
-              onPress={() => onPostPress?.(row.post)}
-              onCommentPress={() => setCommentPost(row.post)}
-              visible={visibleIds.includes(row.post.internal_id)}
-            />
-          )
-        )}
+        keyExtractor={rowKey}
+        renderItem={renderItem}
         ListHeaderComponent={ListHeaderComponent}
         // The shape of the feed, in grey, until the first page lands — inside
         // the list, under its header, so the header's rows (the live auction
