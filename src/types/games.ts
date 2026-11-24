@@ -151,12 +151,17 @@ export interface CarLeaderboardEntry {
   best_ms: number | null;
 }
 
+/** The leaderboards' windows: this calendar week, month or year — or all time, which never starts over. */
+export type LeaderboardPeriod = 'week' | 'month' | 'year' | 'all';
+
 export interface CarLeaderboard {
   sort: 'best' | 'fastest';
   entries: CarLeaderboardEntry[];
-  /** This week's board: the Monday it started, and when it starts over. */
-  week_start?: string;
-  resets_at?: string;
+  period?: LeaderboardPeriod;
+  /** The window's first day, and when the next one starts — both null for all time. */
+  start?: string | null;
+  week_start?: string | null;
+  resets_at?: string | null;
 }
 
 /** The history endpoint's page; only its stats are read (getCarGameStats). */
@@ -254,6 +259,8 @@ export interface AuctionLeaderboardEntry {
 export interface AuctionLeaderboard {
   game: 'auction';
   entries: AuctionLeaderboardEntry[];
-  week_start?: string;
-  resets_at?: string;
+  period?: LeaderboardPeriod;
+  start?: string | null;
+  week_start?: string | null;
+  resets_at?: string | null;
 }

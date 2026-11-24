@@ -18,7 +18,7 @@ import type {
   Alert, AlertsResponse, AlertMeta, AlertInput, AlertWriteResponse, AlertCounts, ModelBookmark, CarGeneration, CarTransferEntry, IapConfig, MemberSubscription, PostTaxonomy, HomeMessage } from '../types/api';
 import type {
   CarToday, CarDay, CarDaysPage, CarPlay, CarCredit, CarStats, CarHistoryPage, CarLeaderboard,
-  AuctionToday, AuctionDay, AuctionDaysPage, AuctionPlay, AuctionStats, AuctionLeaderboard,
+  AuctionToday, AuctionDay, AuctionDaysPage, AuctionPlay, AuctionStats, AuctionLeaderboard, LeaderboardPeriod,
 } from '../types/games';
 import type { ProVideo, ProVideoMeta, ProVideoPage, ProVideoListParams, ProVideoFields } from '../types/proVideos';
 import { carScopeKey } from '../utils/carScope';
@@ -580,8 +580,9 @@ export const apiService = createApi({
       providesTags: [{ type: 'CarGame', id: 'STATS' }],
     }),
     /** This week's car board (Pro members only, server-side): most solved, or the fastest single win. */
-    getCarGameLeaderboard: builder.query<CarLeaderboard, 'best' | 'fastest'>({
-      query: (sort) => ({ url: 'api/carspot/leaderboard', params: { sort } }),
+    /** The car's board, by most solved or fastest, over a window (week / month / year / all time). */
+    getCarGameLeaderboard: builder.query<CarLeaderboard, { sort: 'best' | 'fastest'; period: LeaderboardPeriod }>({
+      query: ({ sort, period }) => ({ url: 'api/carspot/leaderboard', params: { sort, period } }),
       providesTags: [{ type: 'CarGame', id: 'BOARD' }],
     }),
 
@@ -634,8 +635,9 @@ export const apiService = createApi({
       query: () => 'api/carspot/auction/stats',
       providesTags: [{ type: 'AuctionGame', id: 'STATS' }],
     }),
-    getAuctionGameLeaderboard: builder.query<AuctionLeaderboard, void>({
-      query: () => 'api/carspot/auction/leaderboard',
+    /** The auction's board over a window (week / month / year / all time). */
+    getAuctionGameLeaderboard: builder.query<AuctionLeaderboard, LeaderboardPeriod>({
+      query: (period) => ({ url: 'api/carspot/auction/leaderboard', params: { period } }),
       providesTags: [{ type: 'AuctionGame', id: 'BOARD' }],
     }),
 

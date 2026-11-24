@@ -169,6 +169,7 @@ function BarRow({ row, rank, scale, me, onOpen }: {
  */
 export default function RankedBoard({
   rows: ranked, metric, me, onOpen, resetsAt, bottom, stale, refreshing, onRefresh, empty, top: topPad = 0, above, onScroll,
+  inline = false, limit,
 }: {
   rows: RankedRow[];
   metric: BoardMetric;
@@ -186,10 +187,19 @@ export default function RankedBoard({
   /** Over the board, scrolling with it — the pane's game switcher. */
   above?: React.ReactNode;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /**
+   * Drawn in place, as a plain column, rather than as its own scrolling
+   * list — for a board inside a page that already scrolls (the Games tab,
+   * under Today's Results). No gutters of its own; `bottom` and `top` unused.
+   */
+  inline?: boolean;
+  /** At most this many rows, podium included — the Games tab's short board. */
+  limit?: number;
 }) {
   // Anyone I've blocked is left off; everyone under them moves up a place.
   const blocked = useBlockedIds();
-  const rows = blocked.size ? ranked.filter((r) => !blocked.has(r.user.user_id)) : ranked;
+  const unblocked = blocked.size ? ranked.filter((r) => !blocked.has(r.user.user_id)) : ranked;
+  const rows = limit ? unblocked.slice(0, limit) : unblocked;
   // The rows arrive ranked, so whoever can't stand on the podium is already below it.
   const top = rows.slice(0, 3).filter((r) => r.podium !== false);
   const rest = rows.slice(top.length);
@@ -207,6 +217,20 @@ export default function RankedBoard({
       {top.length ? <Podium rows={top} me={me} onOpen={onOpen} /> : null}
     </View>
   );
+
+  if (inline) {
+    return (
+      <View style={stale ? styles.stale : undefined}>
+        {header}
+        {rows.length ? null : <EmptyState title={empty.title} message={empty.message} />}
+        <View style={styles.inlineRows}>
+          {rest.map((item, index) => (
+            <BarRow key={item.user.user_id} row={item} rank={index + top.length + 1} scale={scale} me={item.user.user_id === me} onOpen={onOpen} />
+          ))}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <FlatList
@@ -256,6 +280,7 @@ const styles = StyleSheet.create({
 
 
   sep: { height: 8 },
+  inlineRows: { gap: 8 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12,
     backgroundColor: GAME_CARD, borderRadius: COMMON_RADIUS, borderWidth: 1.5, borderColor: 'transparent',

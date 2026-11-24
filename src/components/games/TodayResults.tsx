@@ -6,6 +6,7 @@ import Avatar from '../ui/Avatar';
 import SubTabs from '../ui/SubTabs';
 import { CarResult, AuctionResult } from '../feed/SpotDaySummaryModal';
 import { useGetSpotFeedTodayQuery } from '../../api/apiService';
+import { useAppSelector } from '../../store/store';
 import { shortTimeAgo } from '../../utils/shortTimeAgo';
 import { DAILY_GAMES } from './game';
 import { COMMON_RADIUS, COLOR_GRAY_160, COLOR_WHITE, SURFACE_MID } from '../../constants/config';
@@ -15,8 +16,10 @@ import type { DailyGameKind } from '../../types/games';
 const TABS = DAILY_GAMES.map((g) => ({ key: g.value, label: g.value === 'auction' ? 'Guess the Auction' : g.label }));
 
 /**
- * Today's results from the other Pro players, one game at a time (a tab
- * each), the latest first — what the home feed's Played Today row shows, as
+ * Today's results, one game at a time (a tab each): yours first, marked
+ * "You" — the server sends it apart from the others (`me`), so on a day
+ * you're the only one who's played the list used to say no one had — then
+ * the other Pro players', the latest first — what the home feed's Played Today row shows, as
  * a list. Spoiler-free, as the server sends it: the car's guess grid, the
  * auction's score and how far off. A tap opens the player's profile.
  */
@@ -28,11 +31,25 @@ export default function TodayResults() {
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const rows = (data?.players ?? []).filter((p) => (game === 'car' ? p.car : p.auction));
+  const userInfo = useAppSelector((s) => s.auth.userInfo);
+  const mine = data?.me && (game === 'car' ? data.me.car : data.me.auction) ? data.me : null;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.heading}>Today’s Results</Text>
       <SubTabs<DailyGameKind> options={TABS} value={game} onChange={setGame} inset={0} stretch />
+      {mine && userInfo ? (
+        <View style={styles.row}>
+          <Avatar user={userInfo as any} size={34} />
+          <View style={styles.who}>
+            <Text style={styles.name} numberOfLines={1}>You</Text>
+          </View>
+          <View style={[styles.result, game === 'auction' && styles.resultAuction]}>
+            {game === 'car' && mine.car ? <CarResult car={mine.car} /> : null}
+            {game === 'auction' && mine.auction ? <AuctionResult auction={mine.auction} /> : null}
+          </View>
+        </View>
+      ) : null}
       {rows.map((p) => (
         <TouchableOpacity
           key={p.user.user_id}
@@ -52,7 +69,7 @@ export default function TodayResults() {
           </View>
         </TouchableOpacity>
       ))}
-      {!isLoading && !rows.length ? (
+      {!isLoading && !rows.length && !mine ? (
         <Text style={styles.empty}>
           {`No one’s ${game === 'car' ? 'guessed the car' : 'guessed the auction'} yet today.`}
         </Text>

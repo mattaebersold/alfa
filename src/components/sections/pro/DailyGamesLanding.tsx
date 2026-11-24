@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, type NativeScrollEvent, type NativeSynthe
 import Countdown from '../../games/Countdown';
 import DailyGameTiles from '../../games/DailyGameTiles';
 import TodayResults from '../../games/TodayResults';
+import { GamesLeaderboard } from './LeaderboardsScreen';
 import { useDayTurnover } from '../../games/useDayTurnover';
 import {
   HIT, MISS, auctionGrade, gradeWord, isNoGame,
@@ -112,6 +113,8 @@ export default function DailyGamesLanding({ scrollRef, headerPad, bottomPad, onS
       <DailyGameTiles />
       {sharedNext ? <Countdown nextAt={sharedNext} label="Resets in" small /> : null}
       <View style={styles.results}><TodayResults /></View>
+      {/* The standings, under today's results — all time unless another window's picked. */}
+      <View style={styles.results}><GamesLeaderboard /></View>
     </ScrollView>
   );
 }
